@@ -356,12 +356,13 @@ export const ShopPage = () => {
           ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
               {filteredProducts.map((product) => {
-                const isFav = isInWishlist(product.id);
-                const cartItem = cart.find((item) => item.product.id === product.id);
+                const prodId = product.id || product._id;
+                const isFav = isInWishlist(prodId);
+                const cartItem = cart.find((item) => (item.product.id || item.product._id) === prodId);
 
                 return (
                   <div
-                    key={product.id}
+                    key={prodId}
                     className="bg-white rounded-3xl p-4 border border-slate-100 shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col justify-between group relative"
                   >
                     {/* Top Discount Tag & Heart */}
@@ -377,12 +378,17 @@ export const ShopPage = () => {
                       )}
 
                       <button
-                        onClick={() => toggleWishlist(product.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleWishlist(prodId);
+                        }}
                         className="text-slate-300 hover:text-rose-500 transition-colors p-1 cursor-pointer"
+                        title={isFav ? 'Remove from Wishlist' : 'Add to Wishlist'}
                       >
                         <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : ''}`} />
                       </button>
                     </div>
+
 
                     {/* Image */}
                     <div
@@ -462,12 +468,13 @@ export const ShopPage = () => {
             /* List View */
             <div className="space-y-3">
               {filteredProducts.map((product) => {
-                const isFav = isInWishlist(product.id);
-                const cartItem = cart.find((item) => item.product.id === product.id);
+                const prodId = product.id || product._id;
+                const isFav = isInWishlist(prodId);
+                const cartItem = cart.find((item) => (item.product.id || item.product._id) === prodId);
 
                 return (
                   <div
-                    key={product.id}
+                    key={prodId}
                     className="bg-white rounded-3xl p-4 border border-slate-100 shadow-xs hover:shadow-md transition-all flex items-center justify-between gap-4"
                   >
                     <div className="flex items-center gap-4">
@@ -497,8 +504,12 @@ export const ShopPage = () => {
 
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => toggleWishlist(product.id)}
-                        className="p-2 text-slate-300 hover:text-rose-500 rounded-xl"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleWishlist(prodId);
+                        }}
+                        className="p-2 text-slate-300 hover:text-rose-500 rounded-xl cursor-pointer"
+                        title={isFav ? 'Remove from Wishlist' : 'Add to Wishlist'}
                       >
                         <Heart className={`w-5 h-5 ${isFav ? 'fill-rose-500 text-rose-500' : ''}`} />
                       </button>
@@ -506,15 +517,15 @@ export const ShopPage = () => {
                       {cartItem ? (
                         <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl p-1">
                           <button
-                            onClick={() => updateCartQuantity(product.id, -1)}
-                            className="w-7 h-7 rounded-lg bg-white text-emerald-800 font-bold text-xs"
+                            onClick={() => updateCartQuantity(prodId, -1)}
+                            className="w-7 h-7 rounded-lg bg-white text-emerald-800 font-bold text-xs cursor-pointer"
                           >
                             -
                           </button>
                           <span className="text-xs font-black text-emerald-900 px-1">{cartItem.quantity}</span>
                           <button
-                            onClick={() => updateCartQuantity(product.id, 1)}
-                            className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold text-xs"
+                            onClick={() => updateCartQuantity(prodId, 1)}
+                            className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold text-xs cursor-pointer"
                           >
                             +
                           </button>
@@ -522,7 +533,7 @@ export const ShopPage = () => {
                       ) : (
                         <button
                           onClick={() => addToCart(product, 1)}
-                          className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                          className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           <span>Add</span>
@@ -533,6 +544,7 @@ export const ShopPage = () => {
                 );
               })}
             </div>
+
           )}
 
         </div>

@@ -71,14 +71,17 @@ export const StoreProvider = ({ children }) => {
       const saved = localStorage.getItem('freshmart_wishlist');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed.filter(id => typeof id === 'string' && id.trim() !== '');
+        if (Array.isArray(parsed)) {
+          return parsed.filter(
+            (id) => typeof id === 'string' && id.trim() !== '' && id !== 'undefined' && id !== 'null'
+          );
+        }
       }
     } catch (e) {
       console.error(e);
     }
     return [];
   });
-
 
   // Filters state for Shop Page
   const [activeCategory, setActiveCategory] = useState('all');
@@ -129,12 +132,17 @@ export const StoreProvider = ({ children }) => {
       try {
         const data = await apiService.getProducts();
         if (data && data.success && data.products && data.products.length > 0) {
-          setProducts(data.products);
+          const mapped = data.products.map((p) => ({
+            ...p,
+            id: String(p.id || p._id)
+          }));
+          setProducts(mapped);
         }
       } catch (e) {}
     };
     fetchBackendData();
   }, []);
+
 
   // Save cart & wishlist to localStorage
   useEffect(() => {
@@ -270,10 +278,19 @@ export const StoreProvider = ({ children }) => {
     addToast('Recipe Bundle Added! 🍲', `Added all ${matchedProducts.length} ingredients to your cart.`);
   };
 
-  // Wishlist Functions with Safe ID normalization
+  // Wishlist Functions with Bulletproof ID normalization
+  const getCleanId = (productOrId) => {
+    if (!productOrId) return null;
+    let id = typeof productOrId === 'object' ? (productOrId.id || productOrId._id) : productOrId;
+    if (typeof id !== 'string') return null;
+    id = id.trim();
+    if (!id || id === 'undefined' || id === 'null') return null;
+    return id;
+  };
+
   const toggleWishlist = (productOrId) => {
-    const id = typeof productOrId === 'object' && productOrId !== null ? (productOrId.id || productOrId._id) : productOrId;
-    if (!id || typeof id !== 'string') return;
+    const id = getCleanId(productOrId);
+    if (!id) return;
 
     setWishlist((prev) => {
       const exists = prev.includes(id);
@@ -289,10 +306,11 @@ export const StoreProvider = ({ children }) => {
   };
 
   const isInWishlist = (productOrId) => {
-    const id = typeof productOrId === 'object' && productOrId !== null ? (productOrId.id || productOrId._id) : productOrId;
-    if (!id || typeof id !== 'string') return false;
+    const id = getCleanId(productOrId);
+    if (!id) return false;
     return wishlist.includes(id);
   };
+
 
 
   // Cart calculations

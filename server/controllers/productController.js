@@ -29,8 +29,16 @@ export const getProducts = async (req, res) => {
 
       const products = await Product.find(query);
       if (products && products.length > 0) {
-        return res.json({ success: true, count: products.length, products });
+        const mappedProducts = products.map((doc) => {
+          const obj = doc.toObject ? doc.toObject() : doc;
+          return {
+            ...obj,
+            id: String(obj.id || obj._id)
+          };
+        });
+        return res.json({ success: true, count: mappedProducts.length, products: mappedProducts });
       }
+
     }
 
     // In-Memory / Instant Fallback filtering

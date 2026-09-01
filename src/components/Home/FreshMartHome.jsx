@@ -450,12 +450,13 @@ export const FreshMartHome = () => {
         {/* Product Cards 6-Column Grid matching screenshots */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           {bestsellersList.map((product) => {
-            const isFav = isInWishlist(product.id);
-            const cartItem = cart.find((item) => item.product.id === product.id);
+            const prodId = product.id || product._id;
+            const isFav = isInWishlist(prodId);
+            const cartItem = cart.find((item) => (item.product.id || item.product._id) === prodId);
 
             return (
               <div
-                key={product.id}
+                key={prodId}
                 className="bg-white rounded-3xl p-3.5 border border-slate-100 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between group relative"
               >
                 {/* Top Badge & Wishlist Heart */}
@@ -471,12 +472,17 @@ export const FreshMartHome = () => {
                   )}
 
                   <button
-                    onClick={() => toggleWishlist(product.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleWishlist(prodId);
+                    }}
                     className="text-slate-300 hover:text-rose-500 transition-colors p-1 cursor-pointer"
+                    title={isFav ? 'Remove from Wishlist' : 'Add to Wishlist'}
                   >
                     <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : ''}`} />
                   </button>
                 </div>
+
 
                 {/* Image */}
                 <div
