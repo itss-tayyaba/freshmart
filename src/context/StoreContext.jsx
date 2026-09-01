@@ -502,13 +502,21 @@ export const StoreProvider = ({ children }) => {
     addToast('Landing Page Updated 🎨', 'Store banners and discounts updated.');
   };
 
-  // Cart operations
+  // Helper to extract product ID from object or string
+  const getProductId = (productOrId) => {
+    if (!productOrId) return '';
+    if (typeof productOrId === 'object') {
+      return String(productOrId.id || productOrId._id || productOrId.name || '');
+    }
+    return String(productOrId);
+  };
+
   const addToCart = (product, quantity = 1, unit = null) => {
     const chosenUnit = unit || product.unit || '1 unit';
-    const prodId = String(product.id || product._id);
+    const prodId = getProductId(product);
 
     setCart((prev) => {
-      const idx = prev.findIndex((item) => String(item.product.id || item.product._id) === prodId);
+      const idx = prev.findIndex((item) => getProductId(item.product) === prodId);
       if (idx > -1) {
         const updated = [...prev];
         updated[idx] = { ...updated[idx], quantity: updated[idx].quantity + quantity };
@@ -519,12 +527,13 @@ export const StoreProvider = ({ children }) => {
     addToast('Added to Basket 🛒', `${product.name} (${quantity}x) added.`);
   };
 
-  const updateCartQuantity = (productId, delta) => {
-    const targetId = String(productId);
+  const updateCartQuantity = (productOrId, delta) => {
+    const targetId = getProductId(productOrId);
     setCart((prev) => {
       return prev
         .map((item) => {
-          if (String(item.product.id || item.product._id) === targetId) {
+          const itemId = getProductId(item.product);
+          if (itemId === targetId) {
             const newQty = item.quantity + delta;
             return newQty > 0 ? { ...item, quantity: newQty } : null;
           }
@@ -534,11 +543,12 @@ export const StoreProvider = ({ children }) => {
     });
   };
 
-  const removeFromCart = (productId) => {
-    const targetId = String(productId);
-    setCart((prev) => prev.filter((item) => String(item.product.id || item.product._id) !== targetId));
+  const removeFromCart = (productOrId) => {
+    const targetId = getProductId(productOrId);
+    setCart((prev) => prev.filter((item) => getProductId(item.product) !== targetId));
     addToast('Item Removed', 'Product removed from basket.', 'info');
   };
+
 
   const clearCart = () => {
     setCart([]);

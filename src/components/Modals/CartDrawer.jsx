@@ -118,7 +118,7 @@ export const CartDrawer = () => {
                   {/* Quantity Adder */}
                   <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl p-1 shrink-0">
                     <button
-                      onClick={() => updateCartQuantity(p.id, -1)}
+                      onClick={() => updateCartQuantity(p.id || p._id || p, -1)}
                       className="w-6 h-6 rounded-lg bg-white text-slate-700 hover:text-emerald-700 flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer"
                     >
                       <Minus className="w-3 h-3" />
@@ -127,7 +127,7 @@ export const CartDrawer = () => {
                       {item.quantity}
                     </span>
                     <button
-                      onClick={() => updateCartQuantity(p.id, 1)}
+                      onClick={() => updateCartQuantity(p.id || p._id || p, 1)}
                       className="w-6 h-6 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer"
                     >
                       <Plus className="w-3 h-3" />
@@ -136,12 +136,14 @@ export const CartDrawer = () => {
 
                   {/* Remove */}
                   <button
-                    onClick={() => removeFromCart(p.id)}
+                    onClick={() => removeFromCart(p.id || p._id || p)}
                     className="text-slate-300 hover:text-rose-500 transition-colors p-1 cursor-pointer"
+                    title="Remove item"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
+
               );
             })
           ) : (

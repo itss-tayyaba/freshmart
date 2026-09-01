@@ -116,29 +116,49 @@ export const CustomerPortal = () => {
         <aside className="lg:col-span-3 space-y-5">
           
           {/* Profile Card with Photo Avatar / Initials Circle & Upload Button */}
-          <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs flex items-center gap-3.5 relative group">
-            
-            <div className="relative">
-              {customerUser.avatar ? (
-                <img
-                  src={customerUser.avatar}
-                  alt={customerUser.name}
-                  className="w-14 h-14 rounded-full object-cover border-2 border-emerald-500 shadow-sm"
-                />
-              ) : (
-                <div className="w-14 h-14 rounded-full bg-[#185a36] text-emerald-100 font-black text-base flex items-center justify-center shrink-0 shadow-inner">
-                  {getInitials(customerUser.name)}
-                </div>
-              )}
+          <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs space-y-3">
+            <div className="flex items-center gap-3.5">
+              <div className="relative shrink-0">
+                {customerUser.avatar ? (
+                  <img
+                    src={customerUser.avatar}
+                    alt={customerUser.name}
+                    className="w-14 h-14 rounded-full object-cover border-2 border-emerald-500 shadow-sm"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-full bg-[#185a36] text-emerald-100 font-black text-base flex items-center justify-center shadow-inner">
+                    {getInitials(customerUser.name)}
+                  </div>
+                )}
 
-              {/* 📷 Change Avatar Button */}
+                {/* 📷 Small Camera Badge */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-md cursor-pointer transition-all hover:scale-110"
+                  title="Upload Profile Picture"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h3 className="font-black text-sm text-slate-900 truncate leading-snug">
+                  {customerUser.name}
+                </h3>
+                <p className="text-xs text-slate-400 font-medium truncate">{customerUser.phone || customerUser.email}</p>
+              </div>
+            </div>
+
+            {/* Explicit [ Choose File / Photo ] Button */}
+            <div className="pt-1">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-md cursor-pointer transition-all hover:scale-110"
-                title="Upload Profile Picture"
+                className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-emerald-200/60"
               >
-                <Camera className="w-3.5 h-3.5" />
+                <Upload className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Choose Photo / File</span>
               </button>
 
               <input
@@ -149,21 +169,8 @@ export const CustomerPortal = () => {
                 onChange={handleAvatarFileChange}
               />
             </div>
-
-            <div className="min-w-0 flex-1">
-              <h3 className="font-black text-sm text-slate-900 truncate leading-snug">
-                {customerUser.name}
-              </h3>
-              <p className="text-xs text-slate-400 font-medium truncate">{customerUser.phone || customerUser.email}</p>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="text-[10px] text-emerald-700 font-bold hover:underline block mt-0.5 cursor-pointer"
-              >
-                Change Photo
-              </button>
-            </div>
           </div>
+
 
           {/* Navigation Menu Links matching screenshot */}
           <div className="bg-white rounded-3xl p-3 border border-slate-100 shadow-xs space-y-1 text-xs font-bold">
@@ -723,7 +730,7 @@ export const CustomerPortal = () => {
                       {/* Quantity Modifier */}
                       <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl p-0.5">
                         <button
-                          onClick={() => updateCartQuantity(item.product.id, -1)}
+                          onClick={() => updateCartQuantity(item.product.id || item.product._id || item.product, -1)}
                           className="w-5 h-5 rounded-lg bg-white text-slate-700 flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer"
                         >
                           -
@@ -732,7 +739,7 @@ export const CustomerPortal = () => {
                           {item.quantity}
                         </span>
                         <button
-                          onClick={() => updateCartQuantity(item.product.id, 1)}
+                          onClick={() => updateCartQuantity(item.product.id || item.product._id || item.product, 1)}
                           className="w-5 h-5 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer"
                         >
                           +
@@ -740,11 +747,13 @@ export const CustomerPortal = () => {
                       </div>
 
                       <button
-                        onClick={() => removeFromCart(item.product.id)}
-                        className="text-slate-300 hover:text-rose-500 p-1 cursor-pointer"
+                        onClick={() => removeFromCart(item.product.id || item.product._id || item.product)}
+                        className="text-slate-300 hover:text-rose-500 p-1 cursor-pointer transition-colors"
+                        title="Remove item"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
+
                     </div>
                   ))}
                 </div>
