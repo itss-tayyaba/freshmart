@@ -42,7 +42,10 @@ export const FreshMartHome = () => {
     setQuickViewProduct,
     currency,
     addToast,
-    applyCouponCode
+    applyCouponCode,
+    products,
+    categories,
+    storeSettings
   } = useStore();
 
   // Active category filter tab for Bestsellers
@@ -83,13 +86,14 @@ export const FreshMartHome = () => {
     setTimeout(() => setCopiedCode(null), 3000);
   };
 
-  // Filtered bestsellers
-  const bestsellersList = FRESHMART_PRODUCTS.filter((p) => {
-    if (activeBestsellerTab === 'all') return true;
+  // Dynamic Bestsellers derived from real-time products
+  const bestsellersList = products.filter((p) => {
+    if (activeBestsellerTab === 'all') return p.isBestSeller !== false;
     return p.category === activeBestsellerTab;
   });
 
-  const spotlightApple = FRESHMART_PRODUCTS.find((p) => p.id === 'fresh-apples-1kg') || FRESHMART_PRODUCTS[7];
+  const spotlightApple = products.find((p) => p.id === (storeSettings?.dealOfDayProductId || 'fresh-apples-1kg')) || products.find(p => p.isFlashDeal) || products[0];
+
 
   return (
     <div className="space-y-10 pb-16 animate-in fade-in duration-300">
@@ -260,7 +264,7 @@ export const FreshMartHome = () => {
         </div>
 
         <div className="flex items-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar py-2 px-1">
-          {FRESHMART_CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <div
               key={cat.id}
               onClick={() => {
@@ -279,7 +283,7 @@ export const FreshMartHome = () => {
               </div>
 
               <span className="text-[11px] sm:text-xs font-bold text-slate-700 mt-2 group-hover:text-emerald-700 transition-colors leading-tight whitespace-pre-line">
-                {cat.shortName}
+                {cat.shortName || cat.name}
               </span>
             </div>
           ))}
@@ -300,7 +304,7 @@ export const FreshMartHome = () => {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {FRESHMART_CATEGORIES.slice(0, 6).map((cat) => (
+          {categories.slice(0, 6).map((cat) => (
             <div
               key={cat.id}
               onClick={() => {

@@ -3,6 +3,7 @@ import { StoreProvider, useStore } from './context/StoreContext';
 import { FreshMartHeader } from './components/Header/FreshMartHeader';
 import { FreshMartHome } from './components/Home/FreshMartHome';
 import { ShopPage } from './components/Shop/ShopPage';
+import { DealsPage } from './components/Deals/DealsPage';
 import { ProductDetailPage } from './components/ProductDetail/ProductDetailPage';
 import { CheckoutPage } from './components/Checkout/CheckoutPage';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
@@ -40,7 +41,8 @@ function FreshMartAppContent() {
       {/* Main Page View Switching */}
       <main className="flex-1">
         {currentPage === 'home' && <FreshMartHome />}
-        {(currentPage === 'shop' || currentPage === 'deals') && <ShopPage />}
+        {currentPage === 'shop' && <ShopPage />}
+        {currentPage === 'deals' && <DealsPage />}
         {currentPage === 'product-detail' && <ProductDetailPage />}
         {currentPage === 'checkout' && <CheckoutPage />}
         {currentPage === 'recipes' && <RecipesPage />}

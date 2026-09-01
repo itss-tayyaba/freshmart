@@ -20,11 +20,24 @@ export const useStore = () => {
 };
 
 export const StoreProvider = ({ children }) => {
-  // Current active page view: 'home' | 'shop' | 'product-detail' | 'checkout' | 'admin' | 'recipes' | 'deals'
+  // Current active page view: 'home' | 'shop' | 'product-detail' | 'checkout' | 'admin' | 'recipes' | 'deals' | 'customer-portal'
   const [currentPage, setCurrentPage] = useState('home');
 
-  // Products state (synced with backend)
+  // Products state (single source of truth for Store, Deals, Landing page, and Admin)
   const [products, setProducts] = useState(FRESHMART_PRODUCTS);
+
+  // Categories state
+  const [categories, setCategories] = useState(FRESHMART_CATEGORIES);
+
+  // Dynamic Landing Page & Admin Store Settings
+  const [storeSettings, setStoreSettings] = useState({
+    topAnnouncement: 'Get 20% OFF on your first order - Use code: WELCOME20',
+    topPromoCode: 'WELCOME20',
+    heroBadgeText: 'FLAT 20% OFF',
+    heroDiscountPercent: 20,
+    dealOfDayProductId: 'fresh-apples-1kg',
+    firstOrderPromoCode: 'FIRST20'
+  });
 
   // Selected product for single product details page
   const [selectedProduct, setSelectedProduct] = useState(FRESHMART_PRODUCTS[0]);
@@ -37,7 +50,7 @@ export const StoreProvider = ({ children }) => {
   });
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
 
-  // Initial cart matching screenshot
+  // Cart state
   const [cart, setCart] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_cart');
@@ -85,10 +98,10 @@ export const StoreProvider = ({ children }) => {
 
   // Applied Coupon
   const [appliedCoupon, setAppliedCoupon] = useState({
-    code: 'FRESH50',
-    discountPercent: 50,
+    code: 'WELCOME20',
+    discountPercent: 20,
     amount: 100,
-    description: 'Enjoy flat 50% discount on your 10-minute order!'
+    description: 'Special 20% Welcome Coupon'
   });
 
   // Admin Data State
@@ -106,17 +119,15 @@ export const StoreProvider = ({ children }) => {
   // Toasts
   const [toasts, setToasts] = useState([]);
 
-  // Fetch live products on startup from Node.js backend
+  // Fetch live products & categories on startup from Node.js backend
   useEffect(() => {
     const fetchBackendData = async () => {
       try {
         const data = await apiService.getProducts();
-        if (data && data.success && data.products) {
+        if (data && data.success && data.products && data.products.length > 0) {
           setProducts(data.products);
         }
-      } catch (e) {
-        // Fallback to local store
-      }
+      } catch (e) {}
     };
     fetchBackendData();
   }, []);
@@ -151,9 +162,68 @@ export const StoreProvider = ({ children }) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  // --- Dynamic CRUD Helpers for Admin Logic Across Landing Page, Shop, & Deals ---
+
+  const addProductToStore = async (newProduct) => {
+    setProducts((prev) => [newProduct, ...prev]);
+    try {
+      await apiService.createProduct(newProduct);
+    } catch (e) {}
+    addToast('Product Added 🛒', `"${newProduct.name}" added to catalog & landing page.`);
+  };
+
+  const updateProductInStore = async (updatedProduct) => {
+    setProducts((prev) =>
+      prev.map((p) => (p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p))
+    );
+    try {
+      await apiService.updateProduct(updatedProduct.id, updatedProduct);
+    } catch (e) {}
+    addToast('Product Updated ✨', `"${updatedProduct.name}" updated across store and landing page.`);
+  };
+
+  const deleteProductFromStore = async (productId, productName) => {
+    setProducts((prev) => prev.filter((p) => p.id !== productId));
+    try {
+      await apiService.deleteProduct(productId);
+    } catch (e) {}
+    addToast('Product Removed', `"${productName}" removed from store.`, 'info');
+  };
+
+  const updateCategoryInStore = async (updatedCat) => {
+    setCategories((prev) =>
+      prev.map((c) => (c.id === updatedCat.id ? { ...c, ...updatedCat } : c))
+    );
+    try {
+      await apiService.updateCategory(updatedCat.id, updatedCat);
+    } catch (e) {}
+    addToast('Category Updated 🗂️', `"${updatedCat.name}" updated.`);
+  };
+
+  const addCategoryToStore = async (newCat) => {
+    setCategories((prev) => [newCat, ...prev]);
+    try {
+      await apiService.createCategory(newCat);
+    } catch (e) {}
+    addToast('Category Added 🗂️', `"${newCat.name}" added to catalog.`);
+  };
+
+  const deleteCategoryFromStore = async (catId, catName) => {
+    setCategories((prev) => prev.filter((c) => c.id !== catId));
+    try {
+      await apiService.deleteCategory(catId);
+    } catch (e) {}
+    addToast('Category Removed', `"${catName}" removed.`, 'info');
+  };
+
+  const updateStoreSettings = (newSettings) => {
+    setStoreSettings((prev) => ({ ...prev, ...newSettings }));
+    addToast('Landing Page Updated 🎨', 'Store banners and discounts updated.');
+  };
+
   // Cart operations
   const addToCart = (product, quantity = 1, unit = null) => {
-    const chosenUnit = unit || product.unit;
+    const chosenUnit = unit || product.unit || '1 unit';
     setCart((prev) => {
       const idx = prev.findIndex((item) => item.product.id === product.id);
       if (idx > -1) {
@@ -240,6 +310,11 @@ export const StoreProvider = ({ children }) => {
         return false;
       }
     } catch (e) {
+      if (code.toUpperCase() === 'WELCOME20' || code.toUpperCase() === 'FIRST20') {
+        setAppliedCoupon({ code, discountPercent: 20, amount: Math.round(cartSubtotal * 0.2), description: 'Flat 20% discount applied!' });
+        addToast('Coupon Applied! 🎉', 'Flat 20% discount applied.');
+        return true;
+      }
       if (code.toUpperCase() === 'FRESH50') {
         setAppliedCoupon({ code: 'FRESH50', amount: 100, description: 'Flat 50% coupon applied' });
         addToast('Coupon Applied! 🎉', 'Flat 50% discount added.');
@@ -250,7 +325,7 @@ export const StoreProvider = ({ children }) => {
     }
   };
 
-  // Admin Order Status Modifier with backend sync
+  // Admin Order Status Modifier
   const updateOrderStatus = async (orderId, newStatus) => {
     setAdminOrders((prev) =>
       prev.map((order) => {
@@ -276,6 +351,18 @@ export const StoreProvider = ({ children }) => {
         setCurrentPage,
         navigateTo,
         products,
+        setProducts,
+        categories,
+        setCategories,
+        storeSettings,
+        setStoreSettings,
+        updateStoreSettings,
+        addProductToStore,
+        updateProductInStore,
+        deleteProductFromStore,
+        addCategoryToStore,
+        updateCategoryInStore,
+        deleteCategoryFromStore,
         selectedProduct,
         setSelectedProduct,
         deliveryLocation,

@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
-import { Search, Plus, Edit2, Trash2, Eye, Filter, ChevronLeft, ChevronRight, X, Upload } from 'lucide-react';
-import { ADMIN_PRODUCTS_DATA } from '../../../data/adminSuiteData';
+import { Search, Plus, Edit2, Trash2, Eye, Filter, ChevronLeft, ChevronRight, X, Upload, Flame, Star, Tag } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
 
 export const ProductsView = ({ onOpenAddProductModal }) => {
-  const { currency, addToast, products } = useStore();
+  const { currency, addToast, products, updateProductInStore, deleteProductFromStore } = useStore();
   const [activeFilterTab, setActiveFilterTab] = useState('All');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
-  const [productsList, setProductsList] = useState(ADMIN_PRODUCTS_DATA);
 
   // Edit Product Modal State
   const [editingProduct, setEditingProduct] = useState(null);
@@ -17,11 +15,16 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
     name: '',
     description: '',
     price: '',
+    originalPrice: '',
+    discountPercent: 0,
     category: 'Fruits & Vegetables',
-    stock: '',
+    categoryLabel: 'Fruits & Vegetables',
+    stock: 50,
     image: '',
     imageFileName: '',
-    inStock: true
+    inStock: true,
+    isFlashDeal: false,
+    isBestSeller: false
   });
   const [editImagePreview, setEditImagePreview] = useState(null);
 
@@ -32,11 +35,16 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
       name: item.name,
       description: item.description || 'Fresh quality grocery product.',
       price: item.price,
-      category: item.category || 'Fruits & Vegetables',
-      stock: item.stock || 50,
+      originalPrice: item.originalPrice || Math.round(item.price * 1.2),
+      discountPercent: item.discountPercent || (item.originalPrice > item.price ? Math.round(((item.originalPrice - item.price) / item.originalPrice) * 100) : 0),
+      category: item.category || 'fruits-veg',
+      categoryLabel: item.categoryLabel || item.category || 'Fruits & Vegetables',
+      stock: item.stock || item.stockCount || 50,
       image: item.image,
       imageFileName: '',
-      inStock: item.status !== 'Out of Stock'
+      inStock: item.inStock !== false && item.status !== 'Out of Stock',
+      isFlashDeal: item.isFlashDeal || false,
+      isBestSeller: item.isBestSeller || false
     });
     setEditImagePreview(item.image);
   };
@@ -63,46 +71,47 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
     e.preventDefault();
     if (!editingProduct) return;
 
+    const priceNum = Number(editProductForm.price);
+    const origPriceNum = Number(editProductForm.originalPrice || priceNum);
+    const discountNum = Number(editProductForm.discountPercent) || (origPriceNum > priceNum ? Math.round(((origPriceNum - priceNum) / origPriceNum) * 100) : 0);
+
     const updated = {
       ...editingProduct,
       name: editProductForm.name,
       description: editProductForm.description,
-      price: Number(editProductForm.price),
+      price: priceNum,
+      originalPrice: origPriceNum,
+      discountPercent: discountNum,
       category: editProductForm.category,
+      categoryLabel: editProductForm.categoryLabel,
       stock: Number(editProductForm.stock),
+      stockCount: Number(editProductForm.stock),
       image: editProductForm.image || editingProduct.image,
+      inStock: editProductForm.inStock && Number(editProductForm.stock) > 0,
+      isFlashDeal: editProductForm.isFlashDeal,
+      isBestSeller: editProductForm.isBestSeller,
       status: !editProductForm.inStock || Number(editProductForm.stock) === 0 ? 'Out of Stock' : Number(editProductForm.stock) < 15 ? 'Low Stock' : 'Active'
     };
 
-    setProductsList((prev) =>
-      prev.map((p) => (p.id === editingProduct.id ? updated : p))
-    );
-
-    try {
-      await apiService.updateProduct(editingProduct.id, updated);
-    } catch (err) {}
-
-    addToast('Product Updated 🛒', `"${editProductForm.name}" updated successfully.`);
+    updateProductInStore(updated);
     setEditingProduct(null);
   };
 
-  const handleDeleteProduct = async (id, name) => {
-    setProductsList((prev) => prev.filter((p) => p.id !== id));
-    try {
-      await apiService.deleteProduct(id);
-    } catch (err) {}
-    addToast('Product Deleted', `Removed "${name}" from store database.`, 'info');
+  const handleDeleteProduct = (id, name) => {
+    deleteProductFromStore(id, name);
   };
 
-  const filtered = productsList.filter((p) => {
-    if (activeFilterTab === 'Active' && p.status !== 'Active') return false;
-    if (activeFilterTab === 'Out of Stock' && p.status !== 'Out of Stock') return false;
-    if (activeFilterTab === 'Low Stock' && p.status !== 'Low Stock') return false;
-    if (categoryFilter !== 'All' && p.category !== categoryFilter) return false;
+  const filtered = products.filter((p) => {
+    const status = p.status || (p.inStock ? (p.stock < 15 ? 'Low Stock' : 'Active') : 'Out of Stock');
+    if (activeFilterTab === 'Active' && status !== 'Active') return false;
+    if (activeFilterTab === 'Out of Stock' && status !== 'Out of Stock') return false;
+    if (activeFilterTab === 'Low Stock' && status !== 'Low Stock') return false;
+    if (categoryFilter !== 'All' && p.category !== categoryFilter && p.categoryLabel !== categoryFilter) return false;
     if (search.trim()) {
       return (
         p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.category.toLowerCase().includes(search.toLowerCase())
+        (p.categoryLabel && p.categoryLabel.toLowerCase().includes(search.toLowerCase())) ||
+        (p.brand && p.brand.toLowerCase().includes(search.toLowerCase()))
       );
     }
     return true;
@@ -114,8 +123,8 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
       {/* Header matching screenshot: Products | + Add Product */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight">Products</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Manage your store products and pricing</p>
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">Products & Live Discounts</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Control pricing, landing page showcase badges, discounts and stock</p>
         </div>
 
         <button
@@ -130,12 +139,12 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
       {/* Main Table Card */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-5 space-y-4">
         
-        {/* Search Bar + Category Dropdown matching screenshot */}
+        {/* Search Bar + Category Dropdown */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="relative flex-1 w-full">
             <input
               type="text"
-              placeholder="Search products..."
+              placeholder="Search products by name, brand, or category..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -147,30 +156,31 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-700 focus:outline-none cursor-pointer w-full sm:w-44"
+              className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-700 focus:outline-none cursor-pointer w-full sm:w-48"
             >
               <option value="All">All Categories</option>
-              <option value="Fruits & Vegetables">Fruits & Vegetables</option>
-              <option value="Dairy & Eggs">Dairy & Eggs</option>
-              <option value="Groceries">Groceries</option>
-              <option value="Meat & Poultry">Meat & Poultry</option>
-              <option value="Snacks & Munchies">Snacks & Munchies</option>
+              <option value="fruits-veg">Fruits & Vegetables</option>
+              <option value="dairy-eggs">Dairy & Eggs</option>
+              <option value="meat-poultry">Meat & Poultry</option>
+              <option value="beverages">Beverages</option>
+              <option value="snacks">Snacks & Munchies</option>
+              <option value="grocery-staples">Grocery Staples</option>
             </select>
           </div>
         </div>
 
-        {/* Status Filter Tabs matching screenshot: All (2456), Active (2320), Out of Stock (88), Low Stock (48) */}
+        {/* Status Filter Tabs */}
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3 overflow-x-auto no-scrollbar">
           {[
-            { label: 'All', count: 2456 },
-            { label: 'Active', count: 2320 },
-            { label: 'Out of Stock', count: 88 },
-            { label: 'Low Stock', count: 48 }
+            { label: 'All', count: products.length },
+            { label: 'Active', count: products.filter(p => p.status !== 'Out of Stock').length },
+            { label: 'Out of Stock', count: products.filter(p => p.status === 'Out of Stock').length },
+            { label: 'Low Stock', count: products.filter(p => p.status === 'Low Stock' || p.stock < 15).length }
           ].map((tab) => (
             <button
               key={tab.label}
               onClick={() => setActiveFilterTab(tab.label)}
-              className={`text-xs font-bold px-3 py-1.5 rounded-xl whitespace-nowrap transition-colors ${
+              className={`text-xs font-bold px-3 py-1.5 rounded-xl whitespace-nowrap transition-colors cursor-pointer ${
                 activeFilterTab === tab.label
                   ? 'bg-emerald-600 text-white shadow-2xs'
                   : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
@@ -181,98 +191,108 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
           ))}
         </div>
 
-        {/* Data Table matching screenshot */}
+        {/* Data Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="text-slate-400 border-b border-slate-100 pb-3">
                 <th className="pb-3 font-semibold">Product</th>
                 <th className="pb-3 font-semibold">Category</th>
-                <th className="pb-3 font-semibold">Price</th>
+                <th className="pb-3 font-semibold">Price & Discount</th>
                 <th className="pb-3 font-semibold">Stock</th>
-                <th className="pb-3 font-semibold">Status</th>
+                <th className="pb-3 font-semibold">Landing Page Badges</th>
                 <th className="pb-3 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filtered.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="py-3">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-9 h-9 rounded-lg object-cover bg-slate-100 shrink-0"
-                      />
-                      <span className="font-bold text-slate-800">{item.name}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 text-slate-600 font-medium">{item.category}</td>
-                  <td className="py-3 font-bold text-slate-900">Rs. {item.price}</td>
-                  <td className="py-3 font-semibold text-slate-700">{item.stock}</td>
-                  <td className="py-3">
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        item.status === 'Active'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : item.status === 'Low Stock'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-rose-100 text-rose-800'
-                      }`}
-                    >
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="py-3 text-right">
-                    <div className="flex items-center justify-end gap-1.5 text-slate-400">
-                      <button
-                        onClick={() => handleOpenEditProduct(item)}
-                        className="p-1.5 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-emerald-200"
-                        title="Edit product"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteProduct(item.id, item.name)}
-                        className="p-1.5 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                        title="Delete product"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((item) => {
+                const status = item.status || (item.inStock ? (item.stock < 15 ? 'Low Stock' : 'Active') : 'Out of Stock');
+
+                return (
+                  <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="py-3">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-10 h-10 rounded-xl object-cover bg-slate-100 shrink-0 border border-slate-200"
+                        />
+                        <div>
+                          <span className="font-bold text-slate-800 block">{item.name}</span>
+                          <span className="text-[10px] text-slate-400 font-semibold">{item.unit || '1 unit'} • {item.brand}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 text-slate-600 font-medium">{item.categoryLabel || item.category}</td>
+                    <td className="py-3">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="font-black text-slate-900">{currency.symbol}{item.price}</span>
+                        {item.originalPrice > item.price && (
+                          <span className="text-[10px] text-slate-400 line-through">{currency.symbol}{item.originalPrice}</span>
+                        )}
+                        {item.discountPercent > 0 && (
+                          <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">
+                            -{item.discountPercent}%
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3">
+                      <span className="font-semibold text-slate-700">{item.stock || item.stockCount || 50} units</span>
+                    </td>
+                    <td className="py-3">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {item.isFlashDeal && (
+                          <span className="text-[10px] font-black bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Flame className="w-3 h-3 fill-amber-500 text-amber-500" />
+                            Flash Deal
+                          </span>
+                        )}
+                        {item.isBestSeller && (
+                          <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Star className="w-3 h-3 fill-emerald-500 text-emerald-500" />
+                            Bestseller
+                          </span>
+                        )}
+                        {!item.isFlashDeal && !item.isBestSeller && (
+                          <span className="text-[10px] text-slate-400 font-semibold">Standard</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5 text-slate-400">
+                        <button
+                          onClick={() => handleOpenEditProduct(item)}
+                          className="p-1.5 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-emerald-200"
+                          title="Edit product, discounts & image"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(item.id, item.name)}
+                          className="p-1.5 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title="Delete product"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination matching screenshot */}
-        <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <span>Showing 1 to {filtered.length} of 2,456 entries</span>
-          <div className="flex items-center gap-1">
-            <button className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-            <button className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold">1</button>
-            <button className="w-7 h-7 rounded-lg hover:bg-slate-100 font-semibold">2</button>
-            <button className="w-7 h-7 rounded-lg hover:bg-slate-100 font-semibold">3</button>
-            <button className="w-7 h-7 rounded-lg hover:bg-slate-100 font-semibold">4</button>
-            <button className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
       </div>
 
-      {/* Edit Product Modal */}
+      {/* Edit Product Modal with Full Landing Page & Discount Controls */}
       {editingProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
             
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-900 font-serif">Edit Product</h2>
+              <h2 className="text-xl font-bold text-slate-900 font-serif">Edit Product & Showcase</h2>
               <button
                 onClick={() => setEditingProduct(null)}
                 className="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors cursor-pointer"
@@ -284,7 +304,7 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
             <form onSubmit={handleSaveProductEdit} className="space-y-4 text-sm">
               
               <div>
-                <label className="font-semibold text-slate-800 block mb-1.5 text-xs">Name</label>
+                <label className="font-semibold text-slate-800 block mb-1.5 text-xs">Product Name</label>
                 <input
                   type="text"
                   required
@@ -297,58 +317,108 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
               <div>
                 <label className="font-semibold text-slate-800 block mb-1.5 text-xs">Description</label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={editProductForm.description}
                   onChange={(e) => setEditProductForm({ ...editProductForm, description: e.target.value })}
                   className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3.5 py-2.5 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-700 text-xs font-medium resize-y"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Price, Original Price & Discount Percentage */}
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="font-semibold text-slate-800 block mb-1.5 text-xs">Price (Rs.)</label>
+                  <label className="font-semibold text-slate-800 block mb-1.5 text-xs">Sale Price (Rs.)</label>
                   <input
                     type="number"
                     required
                     min="1"
                     value={editProductForm.price}
-                    onChange={(e) => setEditProductForm({ ...editProductForm, price: e.target.value })}
-                    className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3.5 py-2.5 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-700 text-xs font-medium"
+                    onChange={(e) => {
+                      const newPrice = Number(e.target.value);
+                      const orig = Number(editProductForm.originalPrice || newPrice);
+                      const disc = orig > newPrice ? Math.round(((orig - newPrice) / orig) * 100) : 0;
+                      setEditProductForm({ ...editProductForm, price: e.target.value, discountPercent: disc });
+                    }}
+                    className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3 py-2 text-slate-800 text-xs font-bold"
                   />
                 </div>
 
                 <div>
-                  <label className="font-semibold text-slate-800 block mb-1.5 text-xs">Category</label>
-                  <select
-                    value={editProductForm.category}
-                    onChange={(e) => setEditProductForm({ ...editProductForm, category: e.target.value })}
-                    className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3.5 py-2.5 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-700 text-xs font-medium cursor-pointer"
-                  >
-                    <option>Fruits & Vegetables</option>
-                    <option>Dairy & Eggs</option>
-                    <option>Meat & Poultry</option>
-                    <option>Bakery</option>
-                    <option>Beverages</option>
-                    <option>Snacks & Munchies</option>
-                    <option>Grocery Staples</option>
-                  </select>
+                  <label className="font-semibold text-slate-800 block mb-1.5 text-xs">Original Price (Rs.)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editProductForm.originalPrice}
+                    onChange={(e) => {
+                      const newOrig = Number(e.target.value);
+                      const p = Number(editProductForm.price);
+                      const disc = newOrig > p ? Math.round(((newOrig - p) / newOrig) * 100) : 0;
+                      setEditProductForm({ ...editProductForm, originalPrice: e.target.value, discountPercent: disc });
+                    }}
+                    className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3 py-2 text-slate-800 text-xs font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-800 block mb-1.5 text-xs">Discount (% OFF)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="99"
+                    value={editProductForm.discountPercent}
+                    onChange={(e) => setEditProductForm({ ...editProductForm, discountPercent: Number(e.target.value) })}
+                    className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3 py-2 text-rose-600 text-xs font-black"
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="font-semibold text-slate-800 block mb-1.5 text-xs">Stock Quantity</label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  value={editProductForm.stock}
-                  onChange={(e) => setEditProductForm({ ...editProductForm, stock: e.target.value })}
-                  className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3.5 py-2.5 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-700 text-xs font-medium"
-                />
+              {/* Category & Stock */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-slate-800 block mb-1.5 text-xs">Category</label>
+                  <select
+                    value={editProductForm.category}
+                    onChange={(e) => {
+                      const sel = e.target.value;
+                      const labelMap = {
+                        'fruits-veg': 'Fruits & Vegetables',
+                        'dairy-eggs': 'Dairy & Eggs',
+                        'meat-poultry': 'Meat & Poultry',
+                        'bakery': 'Bakery',
+                        'beverages': 'Beverages',
+                        'snacks': 'Snacks & Munchies',
+                        'grocery-staples': 'Grocery Staples'
+                      };
+                      setEditProductForm({ ...editProductForm, category: sel, categoryLabel: labelMap[sel] || sel });
+                    }}
+                    className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3 py-2 text-slate-800 text-xs font-medium cursor-pointer"
+                  >
+                    <option value="fruits-veg">Fruits & Vegetables</option>
+                    <option value="dairy-eggs">Dairy & Eggs</option>
+                    <option value="meat-poultry">Meat & Poultry</option>
+                    <option value="bakery">Bakery</option>
+                    <option value="beverages">Beverages</option>
+                    <option value="snacks">Snacks & Munchies</option>
+                    <option value="grocery-staples">Grocery Staples</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-800 block mb-1.5 text-xs">Stock Units</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={editProductForm.stock}
+                    onChange={(e) => setEditProductForm({ ...editProductForm, stock: e.target.value })}
+                    className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3 py-2 text-slate-800 text-xs font-medium"
+                  />
+                </div>
               </div>
 
+              {/* Image Picker */}
               <div>
-                <label className="font-semibold text-slate-800 block mb-1.5 text-xs">Image</label>
+                <label className="font-semibold text-slate-800 block mb-1.5 text-xs">Item Picture</label>
                 <div className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3.5 py-2.5 flex items-center gap-3">
                   <label className="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 text-xs font-medium rounded-lg shadow-2xs cursor-pointer inline-flex items-center gap-1.5 shrink-0 transition-colors">
                     <Upload className="w-3.5 h-3.5 text-slate-500" />
@@ -373,26 +443,41 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
                       className="w-12 h-12 rounded-lg object-cover bg-white shadow-2xs border border-emerald-200"
                     />
                     <div className="text-xs">
-                      <span className="font-bold text-emerald-800 block">Current Preview</span>
-                      <span className="text-[11px] text-emerald-600">Will be updated in catalog</span>
+                      <span className="font-bold text-emerald-800 block">Current Picture</span>
+                      <span className="text-[11px] text-emerald-600">Updated across storefront & landing page</span>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center gap-2.5 pt-1">
-                <input
-                  type="checkbox"
-                  id="editInStockCheck"
-                  checked={editProductForm.inStock}
-                  onChange={(e) => setEditProductForm({ ...editProductForm, inStock: e.target.checked })}
-                  className="w-4 h-4 rounded text-amber-700 focus:ring-amber-700 border-slate-300 cursor-pointer accent-[#a36829]"
-                />
-                <label htmlFor="editInStockCheck" className="text-xs font-semibold text-slate-800 cursor-pointer select-none">
-                  Available in store & in stock
-                </label>
+              {/* Landing Page Showcase Checkboxes */}
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
+                <span className="font-black text-slate-800 block">Landing Page & Showcase Controls:</span>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer font-semibold text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={editProductForm.isFlashDeal}
+                      onChange={(e) => setEditProductForm({ ...editProductForm, isFlashDeal: e.target.checked })}
+                      className="w-4 h-4 rounded text-amber-600 cursor-pointer"
+                    />
+                    <span>🔥 Show in Flash Deals</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer font-semibold text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={editProductForm.isBestSeller}
+                      onChange={(e) => setEditProductForm({ ...editProductForm, isBestSeller: e.target.checked })}
+                      className="w-4 h-4 rounded text-emerald-600 cursor-pointer"
+                    />
+                    <span>⭐ Show in Bestsellers</span>
+                  </label>
+                </div>
               </div>
 
+              {/* Bottom Action Buttons */}
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="button"
