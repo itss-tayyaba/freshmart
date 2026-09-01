@@ -65,16 +65,20 @@ export const StoreProvider = ({ children }) => {
     ];
   });
 
-  // Wishlist state
+  // Wishlist state (starts empty by default)
   const [wishlist, setWishlist] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_wishlist');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed.filter(id => typeof id === 'string' && id.trim() !== '');
+      }
     } catch (e) {
       console.error(e);
     }
-    return ['olpers-milk-1l', 'apples-royal-gala-1kg'];
+    return [];
   });
+
 
   // Filters state for Shop Page
   const [activeCategory, setActiveCategory] = useState('all');
@@ -266,22 +270,30 @@ export const StoreProvider = ({ children }) => {
     addToast('Recipe Bundle Added! 🍲', `Added all ${matchedProducts.length} ingredients to your cart.`);
   };
 
-  // Wishlist
-  const toggleWishlist = (productId) => {
+  // Wishlist Functions with Safe ID normalization
+  const toggleWishlist = (productOrId) => {
+    const id = typeof productOrId === 'object' && productOrId !== null ? (productOrId.id || productOrId._id) : productOrId;
+    if (!id || typeof id !== 'string') return;
+
     setWishlist((prev) => {
-      const exists = prev.includes(productId);
-      const target = products.find((p) => p.id === productId);
+      const exists = prev.includes(id);
+      const target = products.find((p) => (p.id || p._id) === id);
       if (exists) {
         addToast('Removed from Wishlist', `${target?.name || 'Item'} removed.`, 'info');
-        return prev.filter((id) => id !== productId);
+        return prev.filter((item) => item !== id);
       } else {
         addToast('Added to Wishlist ❤️', `${target?.name || 'Item'} saved.`);
-        return [...prev, productId];
+        return [...prev, id];
       }
     });
   };
 
-  const isInWishlist = (productId) => wishlist.includes(productId);
+  const isInWishlist = (productOrId) => {
+    const id = typeof productOrId === 'object' && productOrId !== null ? (productOrId.id || productOrId._id) : productOrId;
+    if (!id || typeof id !== 'string') return false;
+    return wishlist.includes(id);
+  };
+
 
   // Cart calculations
   const cartSubtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);

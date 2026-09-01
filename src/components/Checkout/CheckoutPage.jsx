@@ -9,10 +9,18 @@ import {
   ShoppingBag,
   ArrowRight,
   ShieldCheck,
-  Check
+  Check,
+  Smartphone,
+  Wallet,
+  Coins,
+  ChevronRight,
+  Plus,
+  Tag,
+  AlertCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useStore } from '../../context/StoreContext';
+import { apiService } from '../../services/api';
 
 export const CheckoutPage = () => {
   const {
@@ -24,54 +32,112 @@ export const CheckoutPage = () => {
     clearCart,
     navigateTo,
     deliveryLocation,
+    setDeliveryLocation,
     currency,
+    appliedCoupon,
     addToast
   } = useStore();
 
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedSlot, setSelectedSlot] = useState('Today 2 PM - 4 PM');
-  const [selectedPayment, setSelectedPayment] = useState('cod');
+  const [selectedSlot, setSelectedSlot] = useState('⚡ Instant 10-15 Mins Express Delivery');
+  const [selectedPayment, setSelectedPayment] = useState('cod'); // 'cod' | 'card' | 'jazzcash' | 'easypaisa' | 'wallet'
+  const [riderTip, setRiderTip] = useState(0);
   const [isOrderPlaced, setIsOrderPlaced] = useState(false);
-  const [placedOrderId, setPlacedOrderId] = useState('FM-8924');
+  const [placedOrderDetails, setPlacedOrderDetails] = useState(null);
 
+  // Address Form State
   const [addressData, setAddressData] = useState({
+    recipientName: 'Alex Morgan',
     label: 'Home',
-    address: '123 Main Street, Johar Town, Lahore, Pakistan',
-    phone: '0300-1234567'
+    address: deliveryLocation?.address || '123 Main Street, Sector B, Johar Town',
+    city: deliveryLocation?.city || 'Lahore, Pakistan',
+    phone: '0300-1234567',
+    notes: 'Please leave outside the door if unavailable.'
   });
-
   const [isEditingAddress, setIsEditingAddress] = useState(false);
 
-  const handlePlaceOrder = () => {
-    const randomId = '#FM' + Math.floor(1000 + Math.random() * 9000);
-    setPlacedOrderId(randomId);
+  // Card Payment Form State
+  const [cardData, setCardData] = useState({
+    cardNumber: '4532 •••• •••• 8842',
+    cardName: 'Alex Morgan',
+    expiry: '08/28',
+    cvv: '•••'
+  });
+
+  // Mobile Wallet Phone
+  const [walletPhone, setWalletPhone] = useState('0300-1234567');
+
+  const grandTotalWithTip = cartTotal + riderTip;
+
+  const handlePlaceOrder = async () => {
+    if (cart.length === 0) {
+      addToast('Cart is Empty', 'Please add grocery items before checkout.', 'error');
+      return;
+    }
+
+    const orderId = '#FM-' + Math.floor(1000 + Math.random() * 9000);
+    const orderPayload = {
+      id: orderId,
+      items: cart.map((i) => ({
+        id: i.product.id,
+        name: i.product.name,
+        price: i.product.price,
+        quantity: i.quantity,
+        unit: i.unit || i.product.unit
+      })),
+      subtotal: cartSubtotal,
+      deliveryCharges,
+      discountAmount,
+      riderTip,
+      totalAmount: grandTotalWithTip,
+      paymentMethod: selectedPayment,
+      deliverySlot: selectedSlot,
+      address: `${addressData.address}, ${addressData.city}`,
+      recipientName: addressData.recipientName,
+      phone: addressData.phone,
+      status: 'Confirmed',
+      createdAt: new Date().toISOString()
+    };
+
+    setPlacedOrderDetails(orderPayload);
     setIsOrderPlaced(true);
+
+    try {
+      await apiService.createOrder(orderPayload);
+    } catch (e) {}
+
     clearCart();
 
-    confetti({
-      particleCount: 150,
-      spread: 80,
-      origin: { y: 0.6 }
-    });
+    try {
+      confetti({
+        particleCount: 160,
+        spread: 90,
+        origin: { y: 0.6 }
+      });
+    } catch (e) {}
 
-    addToast('Order Placed Successfully! 🎉', `Order ${randomId} confirmed.`);
+    addToast('Order Placed Successfully! 🎉', `Order ${orderId} confirmed for express delivery.`);
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
       
-      {/* Title & 4-Step Stepper matching screenshot: 1 Address -> 2 Delivery -> 3 Payment -> 4 Review */}
-      <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mb-6">
-          Checkout
-        </h1>
+      {/* Stepper Header */}
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Express Checkout
+          </h1>
+          <p className="text-xs text-slate-500">Fast 10-minute grocery dispatch and secure payment</p>
+        </div>
 
-        <div className="flex items-center justify-between max-w-2xl">
+        {/* 4-Step Indicator */}
+        <div className="flex items-center justify-between max-w-2xl bg-white p-4 rounded-2xl border border-slate-100 shadow-xs">
           {[
-            { num: 1, label: 'Address' },
-            { num: 2, label: 'Delivery' },
-            { num: 3, label: 'Payment' },
-            { num: 4, label: 'Review' }
+            { num: 1, label: 'Delivery Address' },
+            { num: 2, label: 'Delivery Slot' },
+            { num: 3, label: 'Payment Method' },
+            { num: 4, label: 'Order Review' }
           ].map((s, idx) => {
             const isCompleted = isOrderPlaced || currentStep > s.num;
             const isCurrent = currentStep === s.num;
@@ -80,20 +146,22 @@ export const CheckoutPage = () => {
               <React.Fragment key={s.num}>
                 <div
                   onClick={() => !isOrderPlaced && setCurrentStep(s.num)}
-                  className="flex items-center gap-2 cursor-pointer group"
+                  className="flex items-center gap-2.5 cursor-pointer group"
                 >
                   <div
-                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                      isCompleted || isCurrent
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'bg-slate-200 text-slate-600'
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                      isCompleted
+                        ? 'bg-emerald-600 text-white shadow-2xs'
+                        : isCurrent
+                        ? 'bg-slate-900 text-white ring-2 ring-emerald-500'
+                        : 'bg-slate-100 text-slate-400'
                     }`}
                   >
                     {isCompleted ? <Check className="w-3.5 h-3.5" /> : s.num}
                   </div>
                   <span
                     className={`text-xs font-bold hidden sm:inline ${
-                      isCompleted || isCurrent ? 'text-slate-900' : 'text-slate-400'
+                      isCurrent ? 'text-slate-900' : isCompleted ? 'text-emerald-700' : 'text-slate-400'
                     }`}
                   >
                     {s.label}
@@ -114,232 +182,443 @@ export const CheckoutPage = () => {
       </div>
 
       {isOrderPlaced ? (
-        /* Order Placed Success Confirmation */
-        <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-100 shadow-card text-center max-w-xl mx-auto space-y-5">
-          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-md animate-bounce-soft">
-            <CheckCircle2 className="w-8 h-8" />
+        /* Order Placed Success Confirmation Screen */
+        <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-100 shadow-xl text-center max-w-2xl mx-auto space-y-6 animate-in zoom-in-95 duration-300">
+          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-lg animate-bounce-soft">
+            <CheckCircle2 className="w-10 h-10" />
           </div>
 
-          <div>
-            <h2 className="text-2xl font-black text-slate-900">Order Confirmed!</h2>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Your grocery order <strong className="text-slate-800 font-mono">{placedOrderId}</strong> is now packed and dispatched for express delivery.
+          <div className="space-y-1">
+            <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full uppercase tracking-wider">
+              Payment Confirmed • In Transit
+            </span>
+            <h2 className="text-3xl font-black text-slate-900">Order Confirmed!</h2>
+            <p className="text-xs sm:text-sm text-slate-500">
+              Order <strong className="text-slate-900 font-mono">{placedOrderDetails?.id}</strong> has been assigned to Express Rider Ali (ETA 12 mins).
             </p>
           </div>
 
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-left text-xs space-y-2">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Delivery Window:</span>
-              <span className="font-bold text-slate-800">{selectedSlot}</span>
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 text-left text-xs space-y-2.5">
+            <div className="flex justify-between border-b border-slate-200/60 pb-2">
+              <span className="text-slate-500 font-semibold">Delivery Time:</span>
+              <span className="font-black text-slate-900">{placedOrderDetails?.deliverySlot}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Delivery Address:</span>
-              <span className="font-semibold text-slate-800 truncate max-w-[220px]">{addressData.address}</span>
+            <div className="flex justify-between border-b border-slate-200/60 pb-2">
+              <span className="text-slate-500 font-semibold">Destination:</span>
+              <span className="font-bold text-slate-800 truncate max-w-[240px]">{placedOrderDetails?.address}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Payment Option:</span>
-              <span className="font-bold text-emerald-700 capitalize">{selectedPayment.replace('-', ' ')}</span>
+            <div className="flex justify-between border-b border-slate-200/60 pb-2">
+              <span className="text-slate-500 font-semibold">Payment Option:</span>
+              <span className="font-black text-emerald-700 uppercase">{placedOrderDetails?.paymentMethod}</span>
+            </div>
+            <div className="flex justify-between pt-1 font-black text-sm">
+              <span className="text-slate-900">Total Paid:</span>
+              <span className="text-emerald-700 font-mono">{currency.symbol}{placedOrderDetails?.totalAmount}</span>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row gap-3 pt-3">
+            <button
+              onClick={() => navigateTo('customer-portal')}
+              className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Truck className="w-4 h-4" />
+              <span>Track on Live GPS Map</span>
+            </button>
             <button
               onClick={() => navigateTo('home')}
-              className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer"
+              className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
             >
               Back to Home
             </button>
-            <button
-              onClick={() => navigateTo('shop')}
-              className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
-            >
-              Continue Shopping
-            </button>
           </div>
         </div>
+      ) : cart.length === 0 ? (
+        /* Empty Cart State */
+        <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm max-w-lg mx-auto space-y-4">
+          <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-3xl">
+            🛒
+          </div>
+          <h2 className="text-xl font-black text-slate-900">Your basket is empty</h2>
+          <p className="text-xs text-slate-500">
+            Please add groceries and fresh items to your basket before checking out.
+          </p>
+          <button
+            onClick={() => navigateTo('shop')}
+            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition-colors cursor-pointer"
+          >
+            Browse Products
+          </button>
+        </div>
       ) : (
-        /* Checkout Grid matching screenshot: Left Address/Slots/Payment + Right Order Summary */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        /* Active Checkout Two-Column Grid */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* LEFT COLUMN: Address, Slots, Payment (8 Columns) */}
+          {/* Left Column: Form Steps (8 Columns) */}
           <div className="lg:col-span-8 space-y-6">
             
-            {/* 1. Delivery Address Card matching screenshot */}
-            <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-100 shadow-card">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-emerald-600" />
-                  <span>Delivery Address</span>
-                </h3>
+            {/* Step 1: Delivery Address */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs">
+                    1
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">Delivery Address</h3>
+                    <p className="text-[11px] text-slate-400">Where should we deliver your fresh order?</p>
+                  </div>
+                </div>
+
                 <button
                   onClick={() => setIsEditingAddress(!isEditingAddress)}
-                  className="text-xs font-bold text-emerald-600 hover:underline"
+                  className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
                 >
-                  {isEditingAddress ? 'Done' : 'Change'}
+                  {isEditingAddress ? 'Done Editing' : 'Edit Address'}
                 </button>
               </div>
 
               {isEditingAddress ? (
-                <div className="space-y-3 pt-2">
-                  <input
-                    type="text"
-                    value={addressData.address}
-                    onChange={(e) => setAddressData({ ...addressData, address: e.target.value })}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5"
-                    placeholder="Enter full address"
-                  />
-                  <input
-                    type="text"
-                    value={addressData.phone}
-                    onChange={(e) => setAddressData({ ...addressData, phone: e.target.value })}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5"
-                    placeholder="Phone number"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Receiver Name</label>
+                    <input
+                      type="text"
+                      value={addressData.recipientName}
+                      onChange={(e) => setAddressData({ ...addressData, recipientName: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Phone Number</label>
+                    <input
+                      type="text"
+                      value={addressData.phone}
+                      onChange={(e) => setAddressData({ ...addressData, phone: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="font-bold text-slate-700 block mb-1">Street Address</label>
+                    <input
+                      type="text"
+                      value={addressData.address}
+                      onChange={(e) => setAddressData({ ...addressData, address: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="font-bold text-slate-700 block mb-1">Delivery Instructions / Notes</label>
+                    <input
+                      type="text"
+                      value={addressData.notes}
+                      onChange={(e) => setAddressData({ ...addressData, notes: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium"
+                      placeholder="e.g. Leave with guard, ring doorbell"
+                    />
+                  </div>
                 </div>
               ) : (
-                <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-100 text-xs space-y-1">
-                  <span className="font-bold text-slate-800 block">{addressData.label}</span>
-                  <p className="text-slate-600">{addressData.address}</p>
-                  <p className="text-slate-500 font-mono">{addressData.phone}</p>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 text-xs space-y-1">
+                  <div className="flex items-center justify-between font-bold text-slate-900">
+                    <span>{addressData.recipientName} • <span className="text-emerald-700 font-bold">{addressData.label}</span></span>
+                    <span className="font-mono text-slate-500 font-normal">{addressData.phone}</span>
+                  </div>
+                  <p className="text-slate-600 font-medium">{addressData.address}, {addressData.city}</p>
+                  {addressData.notes && (
+                    <p className="text-[11px] text-slate-400 italic">Note: {addressData.notes}</p>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* 2. Delivery Slot matching screenshot */}
-            <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-100 shadow-card">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-1 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-emerald-600" />
-                <span>Delivery Slot</span>
-              </h3>
-              <p className="text-xs text-slate-400 mb-3">Select Delivery Slot</p>
+            {/* Step 2: Delivery Slot */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4">
+              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs">
+                  2
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Select Delivery Slot</h3>
+                  <p className="text-[11px] text-slate-400">Choose instant 10-minute dispatch or a convenient time slot</p>
+                </div>
+              </div>
 
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 {[
-                  'Today 2 PM - 4 PM',
-                  'Today 4 PM - 6 PM',
-                  'Tomorrow 10 AM - 12 PM',
-                  'Express 10-Minute Instant Delivery'
+                  { id: '⚡ Instant 10-15 Mins Express Delivery', label: '⚡ Instant Express (10-15 Mins)', tag: 'Recommended' },
+                  { id: 'Today 2 PM - 4 PM', label: 'Today 2:00 PM - 4:00 PM', tag: 'Standard' },
+                  { id: 'Today 6 PM - 8 PM', label: 'Today 6:00 PM - 8:00 PM', tag: 'Standard' },
+                  { id: 'Tomorrow 9 AM - 11 AM', label: 'Tomorrow Morning 9:00 AM - 11:00 AM', tag: 'Standard' }
                 ].map((slot) => (
                   <label
-                    key={slot}
-                    onClick={() => setSelectedSlot(slot)}
-                    className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                      selectedSlot === slot
-                        ? 'border-emerald-600 bg-emerald-50/60 font-bold text-emerald-950 shadow-2xs'
-                        : 'border-slate-200 hover:bg-slate-50 text-slate-700 text-xs'
+                    key={slot.id}
+                    onClick={() => setSelectedSlot(slot.id)}
+                    className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-center justify-between ${
+                      selectedSlot === slot.id
+                        ? 'border-emerald-600 bg-emerald-50/70 font-bold text-emerald-950 shadow-2xs'
+                        : 'border-slate-200 hover:bg-slate-50 text-slate-700'
                     }`}
                   >
-                    <input
-                      type="radio"
-                      name="deliverySlot"
-                      checked={selectedSlot === slot}
-                      onChange={() => {}}
-                      className="text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span className="text-xs">{slot}</span>
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="radio"
+                        name="deliverySlotRadio"
+                        checked={selectedSlot === slot.id}
+                        onChange={() => {}}
+                        className="text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span>{slot.label}</span>
+                    </div>
+                    <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                      {slot.tag}
+                    </span>
                   </label>
                 ))}
               </div>
             </div>
 
-            {/* 3. Payment Method matching screenshot */}
-            <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-100 shadow-card">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3 flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-emerald-600" />
-                <span>Payment Method</span>
-              </h3>
+            {/* Step 3: Payment Method */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4">
+              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs">
+                  3
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Payment Option</h3>
+                  <p className="text-[11px] text-slate-400">100% secure payment gateway with SSL encryption</p>
+                </div>
+              </div>
 
-              <div className="space-y-2">
-                {[
-                  { id: 'cod', label: 'Cash on Delivery', desc: 'Pay with cash upon arrival' },
-                  { id: 'card', label: 'Credit / Debit Card', desc: 'Visa, Mastercard, PayPak' },
-                  { id: 'easypaisa', label: 'Easypaisa / JazzCash', desc: 'Instant mobile account payment' },
-                  { id: 'bank', label: 'Bank Transfer', desc: 'Direct online IBFT transfer' }
-                ].map((method) => (
-                  <label
-                    key={method.id}
-                    onClick={() => setSelectedPayment(method.id)}
-                    className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition-all ${
-                      selectedPayment === method.id
-                        ? 'border-emerald-600 bg-emerald-50/60 font-bold text-emerald-950 shadow-2xs'
-                        : 'border-slate-200 hover:bg-slate-50 text-slate-700 text-xs'
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                
+                {/* Cash on Delivery */}
+                <div
+                  onClick={() => setSelectedPayment('cod')}
+                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
+                    selectedPayment === 'cod'
+                      ? 'border-emerald-600 bg-emerald-50/60 shadow-2xs font-bold text-emerald-950'
+                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                  }`}
+                >
+                  <Coins className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold block">Cash on Delivery (COD)</span>
+                    <span className="text-[11px] text-slate-400 font-normal">Pay cash or scan QR upon delivery</span>
+                  </div>
+                </div>
+
+                {/* FreshMart Wallet */}
+                <div
+                  onClick={() => setSelectedPayment('wallet')}
+                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
+                    selectedPayment === 'wallet'
+                      ? 'border-emerald-600 bg-emerald-50/60 shadow-2xs font-bold text-emerald-950'
+                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                  }`}
+                >
+                  <Wallet className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold block">FreshMart Wallet</span>
+                    <span className="text-[11px] text-slate-400 font-normal">Balance: Rs. 2,500 (Instant 1-Tap)</span>
+                  </div>
+                </div>
+
+                {/* Credit / Debit Card */}
+                <div
+                  onClick={() => setSelectedPayment('card')}
+                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 sm:col-span-2 ${
+                    selectedPayment === 'card'
+                      ? 'border-emerald-600 bg-emerald-50/60 shadow-2xs font-bold text-emerald-950'
+                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                  }`}
+                >
+                  <CreditCard className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="font-bold block">Credit / Debit Card (Visa, MasterCard, PayPak)</span>
+                    <span className="text-[11px] text-slate-400 font-normal">Direct encrypted card checkout</span>
+
+                    {selectedPayment === 'card' && (
+                      <div className="mt-3 grid grid-cols-2 gap-2 pt-2 border-t border-emerald-200/60 text-xs">
+                        <div className="col-span-2">
+                          <label className="text-[10px] text-slate-600 font-bold block mb-1">Card Number</label>
+                          <input
+                            type="text"
+                            value={cardData.cardNumber}
+                            onChange={(e) => setCardData({ ...cardData, cardNumber: e.target.value })}
+                            className="w-full bg-white border border-slate-300 rounded-xl p-2 font-mono text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-600 font-bold block mb-1">Expiry Date</label>
+                          <input
+                            type="text"
+                            value={cardData.expiry}
+                            onChange={(e) => setCardData({ ...cardData, expiry: e.target.value })}
+                            className="w-full bg-white border border-slate-300 rounded-xl p-2 font-mono text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-600 font-bold block mb-1">CVV Code</label>
+                          <input
+                            type="password"
+                            value={cardData.cvv}
+                            onChange={(e) => setCardData({ ...cardData, cvv: e.target.value })}
+                            className="w-full bg-white border border-slate-300 rounded-xl p-2 font-mono text-xs"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mobile Wallets: JazzCash / EasyPaisa */}
+                <div
+                  onClick={() => setSelectedPayment('jazzcash')}
+                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 sm:col-span-2 ${
+                    selectedPayment === 'jazzcash'
+                      ? 'border-emerald-600 bg-emerald-50/60 shadow-2xs font-bold text-emerald-950'
+                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                  }`}
+                >
+                  <Smartphone className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="font-bold block">JazzCash / EasyPaisa Mobile Account</span>
+                    <span className="text-[11px] text-slate-400 font-normal">Pay via OTP prompt on your mobile number</span>
+
+                    {selectedPayment === 'jazzcash' && (
+                      <div className="mt-3 pt-2 border-t border-emerald-200/60">
+                        <label className="text-[10px] text-slate-600 font-bold block mb-1">Mobile Account Number</label>
+                        <input
+                          type="text"
+                          value={walletPhone}
+                          onChange={(e) => setWalletPhone(e.target.value)}
+                          className="w-full bg-white border border-slate-300 rounded-xl p-2 font-mono text-xs"
+                          placeholder="03XX-XXXXXXX"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Step 4: Optional Delivery Tip */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="space-y-0.5 text-center sm:text-left">
+                <h4 className="text-xs font-black text-slate-900">Rider Appreciation Tip</h4>
+                <p className="text-[11px] text-slate-400">100% of the tip goes directly to your express courier rider.</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {[0, 50, 100, 200].map((amount) => (
+                  <button
+                    key={amount}
+                    onClick={() => setRiderTip(amount)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      riderTip === amount
+                        ? 'bg-emerald-600 text-white shadow-2xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        checked={selectedPayment === method.id}
-                        onChange={() => {}}
-                        className="text-emerald-600 focus:ring-emerald-500"
-                      />
-                      <div>
-                        <span className="text-xs font-bold block">{method.label}</span>
-                        <span className="text-[10px] text-slate-400 font-normal">{method.desc}</span>
-                      </div>
-                    </div>
-                  </label>
+                    {amount === 0 ? 'None' : `${currency.symbol}${amount}`}
+                  </button>
                 ))}
               </div>
             </div>
 
           </div>
 
-          {/* RIGHT COLUMN: Order Summary matching screenshot (4 Columns) */}
-          <div className="lg:col-span-4">
-            <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-100 shadow-card sticky top-24 space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 pb-3 border-b border-slate-100">
-                Order Summary
-              </h3>
+          {/* Right Column: Order Summary & Action (4 Columns) */}
+          <div className="lg:col-span-4 space-y-6 sticky top-24">
+            
+            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 className="font-black text-sm text-slate-900">Order Summary ({cart.length} Items)</h3>
+                <span className="text-xs font-bold text-emerald-700">{selectedSlot.split(' ')[0]}</span>
+              </div>
 
-              {/* Items in Checkout Preview */}
-              <div className="space-y-2.5 max-h-48 overflow-y-auto divide-y divide-slate-50 text-xs">
-                {cart.map((item) => (
-                  <div key={item.product.id} className="pt-2 first:pt-0 flex justify-between">
-                    <span className="text-slate-600">
-                      {item.product.name} <strong className="text-slate-800">x{item.quantity}</strong>
-                    </span>
-                    <span className="font-bold text-slate-900">
+              {/* Items List */}
+              <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 pr-1 space-y-3">
+                {cart.map((item, idx) => (
+                  <div key={idx} className="pt-3 first:pt-0 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <img
+                        src={item.product.image}
+                        alt={item.product.name}
+                        className="w-10 h-10 rounded-xl object-cover bg-slate-50 border border-slate-100 shrink-0"
+                      />
+                      <div className="space-y-0.5 max-w-[140px]">
+                        <span className="font-bold text-slate-800 truncate block">{item.product.name}</span>
+                        <span className="text-[10px] text-slate-400">{item.quantity}x • {item.unit || item.product.unit}</span>
+                      </div>
+                    </div>
+
+                    <span className="font-black text-slate-900">
                       {currency.symbol}{item.product.price * item.quantity}
                     </span>
                   </div>
                 ))}
               </div>
 
-              {/* Price Breakdown matching screenshot */}
-              <div className="pt-3 border-t border-slate-100 space-y-2 text-xs text-slate-600">
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span className="font-semibold text-slate-900">{currency.symbol}{cartSubtotal}</span>
+              {/* Applied Coupon Tag */}
+              {appliedCoupon && (
+                <div className="flex items-center justify-between text-xs bg-emerald-50 text-emerald-800 p-2.5 rounded-xl font-bold">
+                  <span className="flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Coupon: {appliedCoupon.code}</span>
+                  </span>
+                  <span>-{currency.symbol}{discountAmount}</span>
                 </div>
+              )}
+
+              {/* Pricing Breakdown */}
+              <div className="space-y-2 text-xs text-slate-600 pt-2 border-t border-slate-100">
                 <div className="flex justify-between">
-                  <span>Delivery Charges</span>
-                  <span className="font-semibold text-slate-900">
-                    {deliveryCharges === 0 ? 'FREE' : `${currency.symbol}${deliveryCharges}`}
+                  <span>Basket Subtotal</span>
+                  <span className="font-semibold text-slate-800">{currency.symbol}{cartSubtotal}</span>
+                </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-rose-600 font-semibold">
+                    <span>Discount</span>
+                    <span>-{currency.symbol}{discountAmount}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span>Delivery Fee</span>
+                  <span className="font-semibold text-slate-800">
+                    {deliveryCharges === 0 ? <span className="text-emerald-700 font-bold">FREE</span> : `${currency.symbol}${deliveryCharges}`}
                   </span>
                 </div>
-                <div className="flex justify-between text-slate-500">
-                  <span>Discount</span>
-                  <span>- {currency.symbol}{discountAmount}</span>
-                </div>
-                <div className="flex justify-between text-sm font-black text-slate-900 pt-3 border-t border-slate-200">
-                  <span>Total</span>
-                  <span className="text-emerald-700 text-base">{currency.symbol}{cartTotal}</span>
+                {riderTip > 0 && (
+                  <div className="flex justify-between text-emerald-800">
+                    <span>Rider Tip</span>
+                    <span className="font-semibold">{currency.symbol}{riderTip}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-base font-black text-slate-900 pt-2 border-t border-slate-200">
+                  <span>Grand Total</span>
+                  <span className="text-emerald-700 font-mono">{currency.symbol}{grandTotalWithTip}</span>
                 </div>
               </div>
 
-              {/* Place Order Button matching screenshot */}
+              {/* Place Order CTA Button */}
               <button
                 onClick={handlePlaceOrder}
-                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition-colors cursor-pointer"
+                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all cursor-pointer transform hover:-translate-y-0.5"
               >
-                Place Order
+                <ShieldCheck className="w-5 h-5 text-emerald-200" />
+                <span>Place Order • {currency.symbol}{grandTotalWithTip}</span>
               </button>
 
-              <p className="text-[10px] text-slate-400 text-center leading-relaxed">
-                By placing your order, you agree to FreshMart's Terms of Service and Privacy Policy.
-              </p>
+              <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 font-semibold">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Guaranteed 10-Minute Fresh Delivery</span>
+              </div>
+
             </div>
+
           </div>
 
         </div>
