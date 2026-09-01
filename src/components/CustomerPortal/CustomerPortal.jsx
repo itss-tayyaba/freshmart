@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   LayoutDashboard,
   Package,
@@ -25,7 +25,11 @@ import {
   Sparkles,
   ChevronRight,
   Search,
-  ExternalLink
+  Camera,
+  Upload,
+  AlertTriangle,
+  Flame,
+  Tag
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { CustomerAuth } from './CustomerAuth';
@@ -33,12 +37,14 @@ import { OrdersView } from './views/OrdersView';
 import { AddressesView } from './views/AddressesView';
 import { WalletRewardsView } from './views/WalletRewardsView';
 import { ProfileSettingsView } from './views/ProfileSettingsView';
-import { FRESHMART_CATEGORIES, FRESHMART_PRODUCTS } from '../../data/freshMartData';
+import { FRESHMART_PRODUCTS } from '../../data/freshMartData';
 
 export const CustomerPortal = () => {
   const {
     customerUser,
     logoutCustomer,
+    updateCustomerAvatar,
+    customerNotifications,
     navigateTo,
     cart,
     updateCartQuantity,
@@ -58,6 +64,7 @@ export const CustomerPortal = () => {
 
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'orders' | 'cart' | 'wishlist' | 'addresses' | 'payments' | 'settings' | 'notifications' | 'support'
   const [copiedCode, setCopiedCode] = useState(null);
+  const fileInputRef = useRef(null);
 
   // If customer is not logged in, show Sign In / Create Account Screen
   if (!customerUser) {
@@ -72,6 +79,23 @@ export const CustomerPortal = () => {
     return name.slice(0, 2).toUpperCase();
   };
 
+  // Photo Avatar Upload Handler
+  const handleAvatarFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      addToast('Invalid File', 'Please select an image file (PNG, JPG, WEBP).', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      updateCustomerAvatar(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleCopyCode = (code) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
@@ -79,58 +103,6 @@ export const CustomerPortal = () => {
     addToast('Coupon Applied! 🎉', `Code ${code} activated on your cart.`);
     setTimeout(() => setCopiedCode(null), 3000);
   };
-
-  const handleReorderItem = (product) => {
-    addToCart(product, 1);
-    addToast('Added to Cart 🛒', `${product.name} added.`);
-  };
-
-  // Recent orders to display
-  const displayOrders = customerOrders.length > 0 ? customerOrders : [
-    {
-      id: '#FM12345',
-      dateFormatted: 'May 18, 2024 • 12:30 PM',
-      status: 'Delivered',
-      statusColor: 'bg-emerald-100 text-emerald-800',
-      totalAmount: 1250,
-      itemThumbnails: [
-        FRESHMART_PRODUCTS[1].image,
-        FRESHMART_PRODUCTS[0].image,
-        FRESHMART_PRODUCTS[3].image,
-        FRESHMART_PRODUCTS[7].image
-      ],
-      extraCount: 5,
-      sampleProduct: FRESHMART_PRODUCTS[1]
-    },
-    {
-      id: '#FM12312',
-      dateFormatted: 'May 15, 2024 • 10:15 AM',
-      status: 'Delivered',
-      statusColor: 'bg-emerald-100 text-emerald-800',
-      totalAmount: 980,
-      itemThumbnails: [
-        FRESHMART_PRODUCTS[13].image,
-        FRESHMART_PRODUCTS[3].image,
-        FRESHMART_PRODUCTS[4].image
-      ],
-      extraCount: 3,
-      sampleProduct: FRESHMART_PRODUCTS[13]
-    },
-    {
-      id: '#FM12295',
-      dateFormatted: 'May 20, 2024 • 02:20 PM',
-      status: 'Out for Delivery',
-      statusColor: 'bg-amber-100 text-amber-800',
-      totalAmount: 1420,
-      itemThumbnails: [
-        FRESHMART_PRODUCTS[0].image,
-        FRESHMART_PRODUCTS[3].image,
-        FRESHMART_PRODUCTS[1].image
-      ],
-      extraCount: 4,
-      sampleProduct: FRESHMART_PRODUCTS[0]
-    }
-  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-in fade-in duration-300">
@@ -143,16 +115,53 @@ export const CustomerPortal = () => {
         {/* ========================================================= */}
         <aside className="lg:col-span-3 space-y-5">
           
-          {/* Profile Card with Green AY Initials Circle */}
-          <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-full bg-[#185a36] text-emerald-100 font-black text-sm flex items-center justify-center shrink-0 shadow-inner">
-              {getInitials(customerUser.name)}
+          {/* Profile Card with Photo Avatar / Initials Circle & Upload Button */}
+          <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs flex items-center gap-3.5 relative group">
+            
+            <div className="relative">
+              {customerUser.avatar ? (
+                <img
+                  src={customerUser.avatar}
+                  alt={customerUser.name}
+                  className="w-14 h-14 rounded-full object-cover border-2 border-emerald-500 shadow-sm"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-[#185a36] text-emerald-100 font-black text-base flex items-center justify-center shrink-0 shadow-inner">
+                  {getInitials(customerUser.name)}
+                </div>
+              )}
+
+              {/* 📷 Change Avatar Button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-md cursor-pointer transition-all hover:scale-110"
+                title="Upload Profile Picture"
+              >
+                <Camera className="w-3.5 h-3.5" />
+              </button>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarFileChange}
+              />
             </div>
-            <div className="min-w-0">
+
+            <div className="min-w-0 flex-1">
               <h3 className="font-black text-sm text-slate-900 truncate leading-snug">
                 {customerUser.name}
               </h3>
-              <p className="text-xs text-slate-400 font-medium truncate">{customerUser.phone}</p>
+              <p className="text-xs text-slate-400 font-medium truncate">{customerUser.phone || customerUser.email}</p>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="text-[10px] text-emerald-700 font-bold hover:underline block mt-0.5 cursor-pointer"
+              >
+                Change Photo
+              </button>
             </div>
           </div>
 
@@ -185,6 +194,11 @@ export const CustomerPortal = () => {
                 <Package className="w-4 h-4 text-slate-500" />
                 <span>My Orders</span>
               </div>
+              {customerOrders.length > 0 && (
+                <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-black">
+                  {customerOrders.length}
+                </span>
+              )}
             </button>
 
             <button
@@ -267,6 +281,7 @@ export const CustomerPortal = () => {
               </div>
             </button>
 
+            {/* Notifications with Live Alert Badge */}
             <button
               onClick={() => setActiveTab('notifications')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-colors cursor-pointer ${
@@ -277,10 +292,10 @@ export const CustomerPortal = () => {
             >
               <div className="flex items-center gap-3">
                 <Bell className="w-4 h-4 text-slate-500" />
-                <span>Notifications</span>
+                <span>Notifications & Deals</span>
               </div>
-              <span className="w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center font-black">
-                3
+              <span className="w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center font-black animate-pulse">
+                {customerNotifications.length}
               </span>
             </button>
 
@@ -298,7 +313,7 @@ export const CustomerPortal = () => {
               </div>
             </button>
 
-            {/* Logout Button matching screenshot */}
+            {/* Logout Button */}
             <div className="pt-2 border-t border-slate-100">
               <button
                 onClick={logoutCustomer}
@@ -311,7 +326,7 @@ export const CustomerPortal = () => {
 
           </div>
 
-          {/* Refer & Earn Box with Gift Box graphic matching screenshot */}
+          {/* Refer & Earn Box */}
           <div className="bg-[#eef8f3] rounded-3xl p-5 border border-emerald-100 space-y-2.5">
             <span className="font-black text-xs text-slate-900 block">Refer & Earn</span>
             <p className="text-[11px] text-slate-600 leading-snug">
@@ -319,7 +334,7 @@ export const CustomerPortal = () => {
             </p>
             <div className="pt-1 flex items-center justify-between">
               <button
-                onClick={() => addToast('Referral Code', 'Share code FRESH-AIMEN200 with friends to earn PKR 200!', 'info')}
+                onClick={() => addToast('Referral Code', `Share code FRESH-${customerUser.name.split(' ')[0].toUpperCase()}200 with friends to earn PKR 200!`, 'info')}
                 className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
                 Refer Now
@@ -337,7 +352,7 @@ export const CustomerPortal = () => {
           
           {activeTab === 'dashboard' && (
             <>
-              {/* Greeting Header matching screenshot */}
+              {/* Greeting Header */}
               <div className="space-y-1">
                 <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
                   <span>Welcome back, {customerUser.name.split(' ')[0]}!</span>
@@ -346,7 +361,7 @@ export const CustomerPortal = () => {
                 <p className="text-xs text-slate-500 font-medium">What would you like to shop today?</p>
               </div>
 
-              {/* 8 Circular Category Pills matching screenshot */}
+              {/* 8 Circular Category Pills */}
               <div className="grid grid-cols-4 sm:grid-cols-8 gap-2.5 text-center">
                 {[
                   { id: 'fruits-veg', name: 'Fruits', emoji: '🍎' },
@@ -373,7 +388,7 @@ export const CustomerPortal = () => {
                 ))}
               </div>
 
-              {/* Promo Banner + 4 Square Feature Cards Grid matching screenshot */}
+              {/* Promo Banner + 4 Feature Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 
                 {/* Large Green Fresh Groceries Banner */}
@@ -406,10 +421,15 @@ export const CustomerPortal = () => {
                   </div>
                 </div>
 
-                {/* 4 Feature Squares matching screenshot */}
-                {/* 1. Quick Reorder */}
+                {/* 4 Feature Squares */}
                 <div
-                  onClick={() => setActiveTab('orders')}
+                  onClick={() => {
+                    if (customerOrders.length === 0) {
+                      addToast('No Previous Orders', 'You have not placed any orders yet. Browse products in the shop!', 'info');
+                    } else {
+                      setActiveTab('orders');
+                    }
+                  }}
                   className="bg-white rounded-3xl p-4 border border-slate-100 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex items-center gap-3.5"
                 >
                   <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 text-xl font-bold">
@@ -417,11 +437,10 @@ export const CustomerPortal = () => {
                   </div>
                   <div>
                     <h4 className="font-black text-xs text-slate-900">Quick Reorder</h4>
-                    <p className="text-[10px] text-slate-400">Buy again from your previous orders</p>
+                    <p className="text-[10px] text-slate-400">Buy again from previous orders</p>
                   </div>
                 </div>
 
-                {/* 2. Offers Zone */}
                 <div
                   onClick={() => navigateTo('deals')}
                   className="bg-white rounded-3xl p-4 border border-slate-100 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex items-center gap-3.5"
@@ -431,11 +450,10 @@ export const CustomerPortal = () => {
                   </div>
                   <div>
                     <h4 className="font-black text-xs text-slate-900">Offers Zone</h4>
-                    <p className="text-[10px] text-slate-400">Check latest offers and discounts</p>
+                    <p className="text-[10px] text-slate-400">Check latest offers & discounts</p>
                   </div>
                 </div>
 
-                {/* 3. Track Order */}
                 <div
                   onClick={() => navigateTo('delivery')}
                   className="bg-white rounded-3xl p-4 border border-slate-100 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex items-center gap-3.5"
@@ -449,7 +467,6 @@ export const CustomerPortal = () => {
                   </div>
                 </div>
 
-                {/* 4. Wallet */}
                 <div
                   onClick={() => setActiveTab('payments')}
                   className="bg-white rounded-3xl p-4 border border-slate-100 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex items-center gap-3.5"
@@ -467,76 +484,72 @@ export const CustomerPortal = () => {
 
               </div>
 
-              {/* My Recent Orders matching screenshot */}
+              {/* My Recent Orders: Completely Clean When Customer Has Not Ordered Anything */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-black text-sm text-slate-900">My Recent Orders</h3>
-                  <button
-                    onClick={() => setActiveTab('orders')}
-                    className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
-                  >
-                    View All Orders
-                  </button>
+                  {customerOrders.length > 0 && (
+                    <button
+                      onClick={() => setActiveTab('orders')}
+                      className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
+                    >
+                      View All Orders
+                    </button>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {displayOrders.slice(0, 3).map((order) => (
-                    <div
-                      key={order.id}
-                      className="bg-white rounded-3xl p-4 border border-slate-100 shadow-2xs flex flex-col justify-between space-y-3"
+                {customerOrders.length === 0 ? (
+                  /* Clean Empty State */
+                  <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-2xs text-center space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl">
+                      🛍️
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-black text-sm text-slate-800">You haven't placed any orders yet</h4>
+                      <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                        Explore our fresh grocery catalog, organic produce, and enjoy guaranteed 10-minute dispatch!
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => navigateTo('shop')}
+                      className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-black shadow-xs transition-colors cursor-pointer"
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-black text-xs text-slate-900 font-mono">{order.id}</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${order.statusColor}`}>
-                          {order.status}
-                        </span>
-                      </div>
-
-                      <span className="text-[10px] text-slate-400 block">{order.dateFormatted}</span>
-
-                      {/* Product Thumbnails preview */}
-                      <div className="flex items-center gap-1.5 py-1">
-                        {order.itemThumbnails?.map((img, i) => (
-                          <img
-                            key={i}
-                            src={img}
-                            alt="Item"
-                            className="w-8 h-8 rounded-xl object-cover bg-slate-50 border border-slate-100"
-                          />
-                        ))}
-                        {order.extraCount > 0 && (
-                          <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-1 rounded-lg">
-                            +{order.extraCount} More
+                      Browse Fresh Groceries
+                    </button>
+                  </div>
+                ) : (
+                  /* Render Real Placed Orders */
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {customerOrders.slice(0, 3).map((order) => (
+                      <div
+                        key={order.id}
+                        className="bg-white rounded-3xl p-4 border border-slate-100 shadow-2xs flex flex-col justify-between space-y-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-black text-xs text-slate-900 font-mono">{order.id}</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                            {order.status || 'Confirmed'}
                           </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                        <span className="font-black text-xs text-slate-900 font-mono">
-                          PKR {order.totalAmount}
-                        </span>
-                        {order.status === 'Out for Delivery' ? (
+                        </div>
+                        <span className="text-[10px] text-slate-400 block">{order.dateFormatted || 'Recently'}</span>
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                          <span className="font-black text-xs text-slate-900 font-mono">
+                            PKR {order.totalAmount}
+                          </span>
                           <button
                             onClick={() => navigateTo('delivery')}
                             className="text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer"
                           >
                             Track Order
                           </button>
-                        ) : (
-                          <button
-                            onClick={() => handleReorderItem(order.sampleProduct || FRESHMART_PRODUCTS[0])}
-                            className="text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer"
-                          >
-                            Order Again
-                          </button>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* 4 Bottom Value Propositions matching screenshot */}
+              {/* 4 Bottom Value Propositions */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                 <div className="p-3 bg-white rounded-2xl border border-slate-100 text-center space-y-1">
                   <div className="text-xl">🚚</div>
@@ -562,6 +575,72 @@ export const CustomerPortal = () => {
             </>
           )}
 
+          {/* Notifications Tab: Discounts & Expiring Deal Alerts with Countdown Timer */}
+          {activeTab === 'notifications' && (
+            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
+                    <Bell className="w-5 h-5 text-emerald-600" />
+                    <span>Deals & Discount Alerts</span>
+                  </h3>
+                  <p className="text-xs text-slate-400">Active vouchers and expiring sales alerts</p>
+                </div>
+                <span className="text-[10px] font-black uppercase text-rose-600 bg-rose-50 px-2.5 py-1 rounded-full">
+                  🔥 Limited-Time Offers
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {customerNotifications.map((notif) => (
+                  <div
+                    key={notif.id}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      notif.urgent
+                        ? 'border-rose-200 bg-rose-50/50 shadow-2xs'
+                        : 'border-slate-200 bg-white hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">
+                          {notif.type === 'discount' ? '🔥' : notif.type === 'wallet' ? '🎁' : '⚡'}
+                        </span>
+                        <h4 className="font-black text-xs text-slate-900">{notif.title}</h4>
+                      </div>
+
+                      {/* Expiration Time Badge */}
+                      <span className={`text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shrink-0 ${
+                        notif.urgent
+                          ? 'bg-rose-500 text-white animate-pulse'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        <Clock className="w-3 h-3" />
+                        <span>{notif.expiresAt}</span>
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-600 mb-3">{notif.message}</p>
+
+                    {notif.code && (
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
+                        <span className="font-mono font-black text-slate-800 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                          CODE: {notif.code}
+                        </span>
+                        <button
+                          onClick={() => handleCopyCode(notif.code)}
+                          className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-[11px] transition-colors cursor-pointer shadow-2xs"
+                        >
+                          {copiedCode === notif.code ? 'Applied ✓' : 'Apply Discount'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Sub-Views for other tabs */}
           {activeTab === 'orders' && <OrdersView />}
           {activeTab === 'addresses' && <AddressesView />}
@@ -577,11 +656,11 @@ export const CustomerPortal = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {FRESHMART_PRODUCTS.filter(p => wishlist.includes(p.id)).map(p => (
+                  {FRESHMART_PRODUCTS.filter((p) => wishlist.includes(p.id)).map((p) => (
                     <div key={p.id} className="p-3 bg-slate-50 rounded-2xl space-y-2">
                       <img src={p.image} alt={p.name} className="w-full h-24 object-cover rounded-xl" />
                       <h4 className="font-bold text-xs line-clamp-1">{p.name}</h4>
-                      <button onClick={() => addToCart(p, 1)} className="w-full py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold">
+                      <button onClick={() => addToCart(p, 1)} className="w-full py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold cursor-pointer">
                         + Add to Basket
                       </button>
                     </div>
@@ -598,7 +677,7 @@ export const CustomerPortal = () => {
         {/* ========================================================= */}
         <aside className="lg:col-span-3 space-y-5">
           
-          {/* 1. My Cart Widget matching screenshot */}
+          {/* 1. My Cart Widget */}
           <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h3 className="font-black text-xs text-slate-900">
@@ -617,7 +696,7 @@ export const CustomerPortal = () => {
                 <p>Your cart is empty</p>
                 <button
                   onClick={() => navigateTo('shop')}
-                  className="px-4 py-1.5 bg-emerald-50 text-emerald-800 rounded-xl font-bold"
+                  className="px-4 py-1.5 bg-emerald-50 text-emerald-800 rounded-xl font-bold cursor-pointer"
                 >
                   Shop Items
                 </button>
@@ -645,7 +724,7 @@ export const CustomerPortal = () => {
                       <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl p-0.5">
                         <button
                           onClick={() => updateCartQuantity(item.product.id, -1)}
-                          className="w-5 h-5 rounded-lg bg-white text-slate-700 flex items-center justify-center font-bold text-xs shadow-2xs"
+                          className="w-5 h-5 rounded-lg bg-white text-slate-700 flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer"
                         >
                           -
                         </button>
@@ -654,7 +733,7 @@ export const CustomerPortal = () => {
                         </span>
                         <button
                           onClick={() => updateCartQuantity(item.product.id, 1)}
-                          className="w-5 h-5 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs"
+                          className="w-5 h-5 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer"
                         >
                           +
                         </button>
@@ -662,7 +741,7 @@ export const CustomerPortal = () => {
 
                       <button
                         onClick={() => removeFromCart(item.product.id)}
-                        className="text-slate-300 hover:text-rose-500 p-1"
+                        className="text-slate-300 hover:text-rose-500 p-1 cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -699,7 +778,7 @@ export const CustomerPortal = () => {
             )}
           </div>
 
-          {/* 2. Best Offers for You matching screenshot */}
+          {/* 2. Best Offers for You */}
           <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs space-y-3">
             <div className="flex items-center justify-between pb-1">
               <h3 className="font-black text-xs text-slate-900">Best Offers for You</h3>
@@ -711,7 +790,6 @@ export const CustomerPortal = () => {
               </button>
             </div>
 
-            {/* Offer 1: Flat 15% Off */}
             <div className="bg-[#fff5f5] rounded-2xl p-3 border border-rose-100 flex items-center justify-between gap-2">
               <div className="space-y-0.5">
                 <span className="text-[11px] font-black text-rose-600 block">Flat 15% Off</span>
@@ -726,7 +804,6 @@ export const CustomerPortal = () => {
               </button>
             </div>
 
-            {/* Offer 2: Flat 10% Off */}
             <div className="bg-[#f0f8f3] rounded-2xl p-3 border border-emerald-100 flex items-center justify-between gap-2">
               <div className="space-y-0.5">
                 <span className="text-[11px] font-black text-emerald-700 block">Flat 10% Off</span>
@@ -742,7 +819,7 @@ export const CustomerPortal = () => {
             </div>
           </div>
 
-          {/* 3. Delivery Address Widget matching screenshot */}
+          {/* 3. Delivery Address Widget: Clean without fake address */}
           <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs space-y-2">
             <div className="flex items-center justify-between">
               <h3 className="font-black text-xs text-slate-900">Delivery Address</h3>
@@ -750,19 +827,32 @@ export const CustomerPortal = () => {
                 onClick={() => setIsLocationModalOpen(true)}
                 className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
               >
-                Change
+                {deliveryLocation.address ? 'Change' : '+ Add'}
               </button>
             </div>
 
-            <div className="flex items-start gap-2.5 pt-1">
-              <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              <div className="text-xs space-y-0.5">
-                <span className="font-bold text-slate-900 block">{deliveryLocation.label || 'Home'}</span>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  {deliveryLocation.address || '123, Block A, Gulberg 3, Lahore, Pakistan'}
-                </p>
+            {deliveryLocation.address ? (
+              <div className="flex items-start gap-2.5 pt-1">
+                <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="text-xs space-y-0.5">
+                  <span className="font-bold text-slate-900 block">{deliveryLocation.label || 'Home'}</span>
+                  <p className="text-[11px] text-slate-500 leading-snug">
+                    {deliveryLocation.address}, {deliveryLocation.city}
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="pt-2 text-center text-xs text-slate-400 space-y-2">
+                <p className="text-[11px]">No delivery address added yet.</p>
+                <button
+                  onClick={() => setIsLocationModalOpen(true)}
+                  className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Delivery Address</span>
+                </button>
+              </div>
+            )}
           </div>
 
         </aside>

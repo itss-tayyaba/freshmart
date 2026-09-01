@@ -78,13 +78,68 @@ export const StoreProvider = ({ children }) => {
   // Selected product for single product details page
   const [selectedProduct, setSelectedProduct] = useState(FRESHMART_PRODUCTS[0]);
 
-  // Delivery Location (Customizable by user)
-  const [deliveryLocation, setDeliveryLocation] = useState({
-    city: 'Lahore, Pakistan',
-    address: 'Gulberg 3, Lahore',
-    label: 'Home'
+  // Delivery Location (Starts empty until user adds their address)
+  const [deliveryLocation, setDeliveryLocation] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_delivery_location');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      city: '',
+      address: '',
+      label: ''
+    };
   });
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+
+  // Discount & Expiring Deals Notifications with Time Alerts
+  const [customerNotifications, setCustomerNotifications] = useState([
+    {
+      id: 'notif-1',
+      type: 'discount',
+      title: '🔥 Mega Flash Sale: 20% OFF Everything!',
+      message: 'Use coupon code WELCOME20 to get instant 20% discount on fresh fruits, dairy, and grocery items.',
+      code: 'WELCOME20',
+      discountPercent: 20,
+      expiresAt: 'Ends in 02 hrs 45 mins',
+      urgent: true,
+      time: '10 mins ago',
+      read: false
+    },
+    {
+      id: 'notif-2',
+      type: 'discount',
+      title: '🥦 Farm Fresh Veggies: 10% OFF Special',
+      message: 'Farm-fresh organic spinach, tomatoes, and broccoli on sale. Apply coupon code VEG10 at checkout.',
+      code: 'VEG10',
+      discountPercent: 10,
+      expiresAt: 'Ends Tonight at 11:59 PM',
+      urgent: true,
+      time: '1 hour ago',
+      read: false
+    },
+    {
+      id: 'notif-3',
+      type: 'promo',
+      title: '⚡ 10-Minute Free Express Delivery',
+      message: 'Enjoy free instant delivery on all grocery baskets above PKR 1,500. Guaranteed cold-chain freshness.',
+      code: 'FREESHIP',
+      expiresAt: 'Valid for next 4 hours',
+      urgent: false,
+      time: '3 hours ago',
+      read: true
+    },
+    {
+      id: 'notif-4',
+      type: 'wallet',
+      title: '🎁 Welcome Bonus PKR 200 Credited',
+      message: 'Your signup bonus of PKR 200 is available in your FreshMart Wallet. Use it on your first grocery basket!',
+      expiresAt: 'Valid for 30 days',
+      urgent: false,
+      time: 'Today',
+      read: true
+    }
+  ]);
 
   // Cart state
   const [cart, setCart] = useState(() => {
@@ -99,6 +154,7 @@ export const StoreProvider = ({ children }) => {
       { product: FRESHMART_PRODUCTS[0], quantity: 1, unit: "1L" }
     ];
   });
+
 
   // Wishlist state (starts empty by default)
   const [wishlist, setWishlist] = useState(() => {
@@ -314,7 +370,32 @@ export const StoreProvider = ({ children }) => {
     addToast('Logged Out', 'You have been signed out successfully.', 'info');
   };
 
+  const updateCustomerAvatar = (avatarBase64) => {
+    setCustomerUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, avatar: avatarBase64 };
+      try {
+        localStorage.setItem('freshmart_customer_user', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    addToast('Profile Picture Updated! 📸', 'Your avatar has been updated.');
+  };
+
+  const updateCustomerProfile = (fields) => {
+    setCustomerUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, ...fields };
+      try {
+        localStorage.setItem('freshmart_customer_user', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    addToast('Profile Updated ✨', 'Your changes have been saved.');
+  };
+
   // --- Saved Delivery Locations CRUD ---
+
   const addSavedAddress = (newAddr) => {
     const item = {
       id: `addr-${Date.now()}`,
@@ -581,7 +662,12 @@ export const StoreProvider = ({ children }) => {
         loginCustomer,
         registerCustomer,
         logoutCustomer,
+        updateCustomerAvatar,
+        updateCustomerProfile,
+        customerNotifications,
+        setCustomerNotifications,
         customerOrders,
+
         setCustomerOrders,
         activeDeliveryOrder,
         setActiveDeliveryOrder,
