@@ -1,0 +1,229 @@
+// FreshMart API Client Service - Connects React Frontend to Node.js / Express / MongoDB Backend
+
+const API_BASE_URL = 'http://localhost:5000/api';
+
+const handleResponse = async (res) => {
+  try {
+    const data = await res.json();
+    return data;
+  } catch (e) {
+    return { success: false, message: 'Invalid JSON from server' };
+  }
+};
+
+export const apiService = {
+  // Health check
+  async checkHealth() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/health`);
+      return await handleResponse(res);
+    } catch (e) {
+      return { status: 'Offline / In-Memory Mock' };
+    }
+  },
+
+  // Products API
+  async getProducts(params = {}) {
+    try {
+      const query = new URLSearchParams(params).toString();
+      const res = await fetch(`${API_BASE_URL}/products?${query}`);
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getProductById(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/products/${id}`);
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async createProduct(productData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateProduct(id, productData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/products/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteProduct(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/products/${id}`, {
+        method: 'DELETE'
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // Categories API
+  async getCategories() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/categories`);
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async createCategory(categoryData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/categories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(categoryData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateCategory(id, categoryData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/categories/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(categoryData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteCategory(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/categories/${id}`, {
+        method: 'DELETE'
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // Orders API
+  async createOrder(orderPayload) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderPayload)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getOrders() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders`);
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async trackOrder(orderId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/track/${encodeURIComponent(orderId)}`);
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateOrderStatus(id, status) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // Coupons / Promotions API
+  async validateCoupon(code, cartSubtotal) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/promotions/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, cartSubtotal })
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // Analytics & Admin
+  async getAnalytics() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/analytics/dashboard`);
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getInventory() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/inventory`);
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getDeliveries() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/delivery`);
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // Auth API
+  async login(email, password) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+};
