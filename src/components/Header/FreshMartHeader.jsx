@@ -28,7 +28,9 @@ export const FreshMartHeader = () => {
     selectedSearchCategory,
     setSelectedSearchCategory,
     wishlist,
+    wishlistCount,
     setIsWishlistOpen,
+
     totalCartCount,
     cartTotal,
     setIsCartOpen,
@@ -152,13 +154,14 @@ export const FreshMartHeader = () => {
             title="Wishlist"
           >
             <Heart className="w-5 h-5" />
-            {wishlist.length > 0 && (
+            {wishlistCount > 0 && (
               <span className="absolute 0 top-0.5 right-0.5 bg-rose-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                {wishlist.length}
+                {wishlistCount}
               </span>
             )}
             <span className="text-[10px] font-semibold hidden md:inline">Wishlist</span>
           </button>
+
 
           {/* Cart with Live Count matching screenshot */}
           <button

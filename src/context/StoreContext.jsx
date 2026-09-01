@@ -247,6 +247,21 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [wishlist]);
 
+  // Synchronize and auto-prune stale IDs from wishlist
+  useEffect(() => {
+    if (products && products.length > 0 && wishlist.length > 0) {
+      const liveProductIds = new Set(products.map((p) => String(p.id || p._id)));
+      const cleaned = wishlist.filter((id) => liveProductIds.has(id));
+      if (cleaned.length !== wishlist.length) {
+        setWishlist(cleaned);
+        try {
+          localStorage.setItem('freshmart_wishlist', JSON.stringify(cleaned));
+        } catch (e) {}
+      }
+    }
+  }, [products]);
+
+
   useEffect(() => {
     try {
       if (customerUser) {
@@ -593,8 +608,15 @@ export const StoreProvider = ({ children }) => {
     return wishlist.includes(id);
   };
 
+  // Wishlist calculations
+  const validWishlistProducts = products.filter((p) =>
+    wishlist.includes(String(p.id || p._id))
+  );
+  const wishlistCount = validWishlistProducts.length;
+
   // Cart calculations
   const cartSubtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+
   const deliveryCharges = cartSubtotal >= 1500 || cartSubtotal === 0 ? 0 : 50;
   const discountAmount = appliedCoupon?.amount || 0;
   const cartTotal = Math.max(0, cartSubtotal + deliveryCharges - discountAmount);
@@ -712,8 +734,11 @@ export const StoreProvider = ({ children }) => {
         clearCart,
         addRecipeIngredientsToCart,
         wishlist,
+        wishlistCount,
+        validWishlistProducts,
         toggleWishlist,
         isInWishlist,
+
         cartSubtotal,
         deliveryCharges,
         discountAmount,

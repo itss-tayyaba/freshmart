@@ -18,7 +18,8 @@ export const WishlistDrawer = () => {
   if (!isWishlistOpen) return null;
 
   // Filter products currently in wishlist
-  const wishlistProducts = products.filter((p) => wishlist.includes(p.id || p._id));
+  const wishlistProducts = products.filter((p) => wishlist.includes(String(p.id || p._id)));
+
 
   const handleMoveAllToCart = () => {
     wishlistProducts.forEach((p) => addToCart(p, 1));
