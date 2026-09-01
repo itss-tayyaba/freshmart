@@ -16,16 +16,11 @@ import {
   ChevronRight,
   Plus,
   Tag,
-  AlertCircle,
-  Building2,
-  Receipt,
-  QrCode,
-  Copy,
-  Landmark
+  AlertCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useStore } from '../../context/StoreContext';
-import { apiService } from '../../services/api';
+import { PaymentMethodCard } from './PaymentMethodCard';
 
 export const CheckoutPage = () => {
   const {
@@ -46,38 +41,21 @@ export const CheckoutPage = () => {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedSlot, setSelectedSlot] = useState('⚡ Instant 10-15 Mins Express Delivery');
-  const [selectedPayment, setSelectedPayment] = useState('cod'); // 'cod' | 'jazzcash' | 'easypaisa' | 'sadapay' | 'nayapay' | 'bank' | 'card' | 'wallet'
+  const [selectedPayment, setSelectedPayment] = useState('card'); // 'card' | 'wallet_raast' | 'bank' | 'cod'
   const [riderTip, setRiderTip] = useState(0);
   const [isOrderPlaced, setIsOrderPlaced] = useState(false);
   const [placedOrderDetails, setPlacedOrderDetails] = useState(null);
 
   // Address Form State
   const [addressData, setAddressData] = useState({
-    recipientName: 'Aimen Yasin',
+    recipientName: 'Tayyaba Batool',
     label: deliveryLocation.label || 'Home',
     address: deliveryLocation.address || 'House 12, Street 4, Sector B, Johar Town',
     city: deliveryLocation.city || 'Lahore, Pakistan',
     phone: '0300-1234567',
-    notes: 'Please ring bell and leave on the porch if unavailable.'
+    notes: 'Please ring bell and leave on porch if unavailable.'
   });
   const [isEditingAddress, setIsEditingAddress] = useState(false);
-
-  // Payment Form States
-  const [jazzcashPhone, setJazzcashPhone] = useState('0300-1234567');
-  const [easypaisaPhone, setEasypaisaPhone] = useState('0312-9876543');
-  const [sadapayAccount, setSadapayAccount] = useState('@aimen_fresh');
-  const [nayapayAccount, setNayapayAccount] = useState('@nayapay_aimen');
-  const [bankTransferDetails, setBankTransferDetails] = useState({
-    selectedBank: 'Meezan Bank (Islamic)',
-    transactionId: '',
-    senderAccountName: ''
-  });
-  const [cardData, setCardData] = useState({
-    cardNumber: '4532 •••• •••• 8842',
-    cardName: 'Aimen Yasin',
-    expiry: '08/28',
-    cvv: '•••'
-  });
 
   const grandTotalWithTip = cartTotal + riderTip;
 
@@ -102,7 +80,7 @@ export const CheckoutPage = () => {
       discountAmount,
       riderTip,
       totalAmount: grandTotalWithTip,
-      paymentMethod: selectedPayment.toUpperCase(),
+      paymentMethod: selectedPayment.toUpperCase().replace('_', ' / '),
       deliverySlot: selectedSlot,
       address: `${addressData.address}, ${addressData.city}`,
       recipientName: addressData.recipientName,
@@ -390,247 +368,11 @@ export const CheckoutPage = () => {
               </div>
             </div>
 
-            {/* Step 3: Payment Options (Complete Pakistani Payment Suite) */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4">
-              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs">
-                  3
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900">Choose Payment Method</h3>
-                  <p className="text-[11px] text-slate-400">Cash on delivery, mobile wallets, online banking, and cards</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                
-                {/* 1. Cash on Delivery (COD) */}
-                <div
-                  onClick={() => setSelectedPayment('cod')}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
-                    selectedPayment === 'cod'
-                      ? 'border-emerald-600 bg-emerald-50/70 shadow-2xs font-bold text-emerald-950'
-                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                  }`}
-                >
-                  <Coins className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-black block text-slate-900">Cash on Delivery (COD)</span>
-                    <span className="text-[11px] text-slate-500 font-normal">Pay cash or scan QR at your doorstep</span>
-                  </div>
-                </div>
-
-                {/* 2. JazzCash */}
-                <div
-                  onClick={() => setSelectedPayment('jazzcash')}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
-                    selectedPayment === 'jazzcash'
-                      ? 'border-emerald-600 bg-emerald-50/70 shadow-2xs font-bold text-emerald-950'
-                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                  }`}
-                >
-                  <Smartphone className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-black block text-slate-900">JazzCash</span>
-                      <span className="text-[10px] bg-red-100 text-red-700 font-bold px-1.5 py-0.5 rounded">Mobile</span>
-                    </div>
-                    <span className="text-[11px] text-slate-500 font-normal">Instant OTP prompt on your mobile</span>
-
-                    {selectedPayment === 'jazzcash' && (
-                      <div className="mt-2.5 pt-2 border-t border-emerald-200">
-                        <label className="text-[10px] font-bold text-slate-700 block mb-1">JazzCash Mobile Account Number</label>
-                        <input
-                          type="text"
-                          value={jazzcashPhone}
-                          onChange={(e) => setJazzcashPhone(e.target.value)}
-                          className="w-full bg-white border border-slate-300 rounded-xl p-2 font-mono text-xs"
-                          placeholder="0300-XXXXXXX"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 3. EasyPaisa */}
-                <div
-                  onClick={() => setSelectedPayment('easypaisa')}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
-                    selectedPayment === 'easypaisa'
-                      ? 'border-emerald-600 bg-emerald-50/70 shadow-2xs font-bold text-emerald-950'
-                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                  }`}
-                >
-                  <Smartphone className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-black block text-slate-900">EasyPaisa</span>
-                      <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.5 rounded">Mobile</span>
-                    </div>
-                    <span className="text-[11px] text-slate-500 font-normal">Pay via EasyPaisa in-app approval</span>
-
-                    {selectedPayment === 'easypaisa' && (
-                      <div className="mt-2.5 pt-2 border-t border-emerald-200">
-                        <label className="text-[10px] font-bold text-slate-700 block mb-1">EasyPaisa Account Number</label>
-                        <input
-                          type="text"
-                          value={easypaisaPhone}
-                          onChange={(e) => setEasypaisaPhone(e.target.value)}
-                          className="w-full bg-white border border-slate-300 rounded-xl p-2 font-mono text-xs"
-                          placeholder="0312-XXXXXXX"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 4. SadaPay */}
-                <div
-                  onClick={() => setSelectedPayment('sadapay')}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
-                    selectedPayment === 'sadapay'
-                      ? 'border-emerald-600 bg-emerald-50/70 shadow-2xs font-bold text-emerald-950'
-                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                  }`}
-                >
-                  <CreditCard className="w-5 h-5 text-cyan-600 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-black block text-slate-900">SadaPay</span>
-                      <span className="text-[10px] bg-cyan-100 text-cyan-800 font-bold px-1.5 py-0.5 rounded">SadaBiz</span>
-                    </div>
-                    <span className="text-[11px] text-slate-500 font-normal">Send to SadaPay username or number</span>
-
-                    {selectedPayment === 'sadapay' && (
-                      <div className="mt-2.5 pt-2 border-t border-emerald-200">
-                        <label className="text-[10px] font-bold text-slate-700 block mb-1">SadaPay Username / Number</label>
-                        <input
-                          type="text"
-                          value={sadapayAccount}
-                          onChange={(e) => setSadapayAccount(e.target.value)}
-                          className="w-full bg-white border border-slate-300 rounded-xl p-2 font-mono text-xs"
-                          placeholder="@username or 03XX-XXXXXXX"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 5. NayaPay */}
-                <div
-                  onClick={() => setSelectedPayment('nayapay')}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
-                    selectedPayment === 'nayapay'
-                      ? 'border-emerald-600 bg-emerald-50/70 shadow-2xs font-bold text-emerald-950'
-                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                  }`}
-                >
-                  <CreditCard className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-black block text-slate-900">NayaPay</span>
-                      <span className="text-[10px] bg-orange-100 text-orange-800 font-bold px-1.5 py-0.5 rounded">Wallet</span>
-                    </div>
-                    <span className="text-[11px] text-slate-500 font-normal">Pay directly via NayaPay ID</span>
-
-                    {selectedPayment === 'nayapay' && (
-                      <div className="mt-2.5 pt-2 border-t border-emerald-200">
-                        <label className="text-[10px] font-bold text-slate-700 block mb-1">NayaPay ID / Mobile</label>
-                        <input
-                          type="text"
-                          value={nayapayAccount}
-                          onChange={(e) => setNayapayAccount(e.target.value)}
-                          className="w-full bg-white border border-slate-300 rounded-xl p-2 font-mono text-xs"
-                          placeholder="@nayapay_id or 03XX-XXXXXXX"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 6. Direct Bank Transfer (Online Banking) */}
-                <div
-                  onClick={() => setSelectedPayment('bank')}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 sm:col-span-2 ${
-                    selectedPayment === 'bank'
-                      ? 'border-emerald-600 bg-emerald-50/70 shadow-2xs font-bold text-emerald-950'
-                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                  }`}
-                >
-                  <Landmark className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-black block text-slate-900">Direct Bank Transfer (Online Banking)</span>
-                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">HBL • Meezan • Alfalah</span>
-                    </div>
-                    <span className="text-[11px] text-slate-500 font-normal">Transfer via IBAN / Raast and confirm instantly</span>
-
-                    {selectedPayment === 'bank' && (
-                      <div className="mt-3 p-3 bg-white rounded-2xl border border-slate-200 space-y-2 text-xs">
-                        <div className="bg-slate-50 p-2.5 rounded-xl space-y-1 font-mono text-[11px]">
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Bank Name:</span>
-                            <span className="font-bold text-slate-900">Meezan Bank Ltd</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Account Title:</span>
-                            <span className="font-bold text-slate-900">FreshMart Retail Pvt Ltd</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Account #:</span>
-                            <span className="font-bold text-slate-900">0123-45678901234</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">IBAN:</span>
-                            <span className="font-bold text-emerald-700">PK36MEZN0001234567890123</span>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 pt-1">
-                          <div>
-                            <label className="text-[10px] font-bold text-slate-700 block mb-1">Sender Bank & Name</label>
-                            <input
-                              type="text"
-                              value={bankTransferDetails.senderAccountName}
-                              onChange={(e) => setBankTransferDetails({ ...bankTransferDetails, senderAccountName: e.target.value })}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 font-medium"
-                              placeholder="e.g. Aimen Yasin (HBL)"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-bold text-slate-700 block mb-1">Transaction Ref / ID</label>
-                            <input
-                              type="text"
-                              value={bankTransferDetails.transactionId}
-                              onChange={(e) => setBankTransferDetails({ ...bankTransferDetails, transactionId: e.target.value })}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 font-mono"
-                              placeholder="e.g. TRX-984210"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 7. FreshMart Wallet */}
-                <div
-                  onClick={() => setSelectedPayment('wallet')}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 sm:col-span-2 ${
-                    selectedPayment === 'wallet'
-                      ? 'border-emerald-600 bg-emerald-50/70 shadow-2xs font-bold text-emerald-950'
-                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                  }`}
-                >
-                  <Wallet className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-black block text-slate-900">FreshMart Wallet</span>
-                    <span className="text-[11px] text-slate-500 font-normal">Instant 1-Tap Pay (Wallet Balance: PKR 320)</span>
-                  </div>
-                </div>
-
-              </div>
-            </div>
+            {/* Step 3: Exact Payment Method Component Matching Reference Screenshots */}
+            <PaymentMethodCard
+              selectedPayment={selectedPayment}
+              setSelectedPayment={setSelectedPayment}
+            />
 
             {/* Step 4: Optional Delivery Tip */}
             <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
