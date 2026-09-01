@@ -20,10 +20,46 @@ export const useStore = () => {
 };
 
 export const StoreProvider = ({ children }) => {
-  // Current active page view: 'home' | 'shop' | 'product-detail' | 'checkout' | 'admin' | 'recipes' | 'deals' | 'customer-portal'
+  // Current active page view: 'home' | 'shop' | 'product-detail' | 'checkout' | 'admin' | 'recipes' | 'deals' | 'customer-portal' | 'delivery'
   const [currentPage, setCurrentPage] = useState('home');
 
-  // Products state (single source of truth for Store, Deals, Landing page, and Admin)
+  // Customer Authentication State (Starts null so user must register/sign in)
+  const [customerUser, setCustomerUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_customer_user');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
+
+  // Customer Placed Orders History (Starts empty until customer places orders)
+  const [customerOrders, setCustomerOrders] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_customer_orders');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  });
+
+  // Active in-transit delivery order (null if no active order)
+  const [activeDeliveryOrder, setActiveDeliveryOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_active_delivery');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
+
+  // Saved Delivery Locations (Starts empty so customer adds their own)
+  const [savedDeliveryAddresses, setSavedDeliveryAddresses] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_saved_addresses');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  });
+
+  // Products state (Single source of truth)
   const [products, setProducts] = useState(FRESHMART_PRODUCTS);
 
   // Categories state
@@ -42,10 +78,10 @@ export const StoreProvider = ({ children }) => {
   // Selected product for single product details page
   const [selectedProduct, setSelectedProduct] = useState(FRESHMART_PRODUCTS[0]);
 
-  // Delivery Location
+  // Delivery Location (Customizable by user)
   const [deliveryLocation, setDeliveryLocation] = useState({
     city: 'Lahore, Pakistan',
-    address: '123 Main Street, Johar Town',
+    address: 'Gulberg 3, Lahore',
     label: 'Home'
   });
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
@@ -59,9 +95,8 @@ export const StoreProvider = ({ children }) => {
       console.error(e);
     }
     return [
-      { product: FRESHMART_PRODUCTS[0], quantity: 1, unit: "1 Pack (1 Litre)" },
-      { product: FRESHMART_PRODUCTS[1], quantity: 2, unit: "1 Kg (6-8 pcs)" },
-      { product: FRESHMART_PRODUCTS[7], quantity: 1, unit: "1 Pack (104g)" }
+      { product: FRESHMART_PRODUCTS[1], quantity: 1, unit: "1 Kg" },
+      { product: FRESHMART_PRODUCTS[0], quantity: 1, unit: "1L" }
     ];
   });
 
@@ -101,13 +136,13 @@ export const StoreProvider = ({ children }) => {
   const [quickViewProduct, setQuickViewProduct] = useState(null);
 
   // Currency
-  const [currency, setCurrency] = useState({ symbol: 'Rs. ', code: 'PKR', rate: 1 });
+  const [currency, setCurrency] = useState({ symbol: 'PKR ', code: 'PKR', rate: 1 });
 
   // Applied Coupon
   const [appliedCoupon, setAppliedCoupon] = useState({
     code: 'WELCOME20',
     discountPercent: 20,
-    amount: 100,
+    amount: 50,
     description: 'Special 20% Welcome Coupon'
   });
 
@@ -115,7 +150,7 @@ export const StoreProvider = ({ children }) => {
   const [adminOrders, setAdminOrders] = useState(ADMIN_RECENT_ORDERS);
   const [adminStats, setAdminStats] = useState(ADMIN_STATS);
 
-  // User State
+  // Admin Profile
   const [user, setUser] = useState({
     name: 'Super Admin',
     email: 'admin@freshmart.com',
@@ -143,23 +178,50 @@ export const StoreProvider = ({ children }) => {
     fetchBackendData();
   }, []);
 
-
-  // Save cart & wishlist to localStorage
+  // Save state to localStorage
   useEffect(() => {
     try {
       localStorage.setItem('freshmart_cart', JSON.stringify(cart));
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) {}
   }, [cart]);
 
   useEffect(() => {
     try {
       localStorage.setItem('freshmart_wishlist', JSON.stringify(wishlist));
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) {}
   }, [wishlist]);
+
+  useEffect(() => {
+    try {
+      if (customerUser) {
+        localStorage.setItem('freshmart_customer_user', JSON.stringify(customerUser));
+      } else {
+        localStorage.removeItem('freshmart_customer_user');
+      }
+    } catch (e) {}
+  }, [customerUser]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_customer_orders', JSON.stringify(customerOrders));
+    } catch (e) {}
+  }, [customerOrders]);
+
+  useEffect(() => {
+    try {
+      if (activeDeliveryOrder) {
+        localStorage.setItem('freshmart_active_delivery', JSON.stringify(activeDeliveryOrder));
+      } else {
+        localStorage.removeItem('freshmart_active_delivery');
+      }
+    } catch (e) {}
+  }, [activeDeliveryOrder]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_saved_addresses', JSON.stringify(savedDeliveryAddresses));
+    } catch (e) {}
+  }, [savedDeliveryAddresses]);
 
   // Toast Helpers
   const addToast = (title, message, type = 'success') => {
@@ -174,14 +236,140 @@ export const StoreProvider = ({ children }) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // --- Dynamic CRUD Helpers for Admin Logic Across Landing Page, Shop, & Deals ---
+  // --- Customer Authentication Functions ---
+  const registerCustomer = async (userData) => {
+    try {
+      const res = await apiService.register(userData);
+      if (res && res.success) {
+        const userObj = {
+          id: res._id || `cust-${Date.now()}`,
+          name: userData.name,
+          email: userData.email,
+          phone: userData.phone || '+92 300 1234567',
+          city: userData.city || 'Lahore, Pakistan',
+          address: userData.address || '123 Main Street',
+          walletBalance: 320,
+          loyaltyPoints: 100
+        };
+        setCustomerUser(userObj);
+        addToast('Account Created! 🎉', `Welcome to FreshMart, ${userData.name}!`);
+        return { success: true };
+      }
+    } catch (e) {}
 
+    // Graceful offline registration fallback
+    const userObj = {
+      id: `cust-${Date.now()}`,
+      name: userData.name,
+      email: userData.email,
+      phone: userData.phone || '+92 300 1234567',
+      city: userData.city || 'Lahore, Pakistan',
+      address: userData.address || '123 Main Street',
+      walletBalance: 320,
+      loyaltyPoints: 100
+    };
+    setCustomerUser(userObj);
+    addToast('Account Created! 🎉', `Welcome to FreshMart, ${userData.name}!`);
+    return { success: true };
+  };
+
+  const loginCustomer = async (email, password) => {
+    try {
+      const res = await apiService.login(email, password);
+      if (res && res.success) {
+        const userObj = {
+          id: res._id || `cust-${Date.now()}`,
+          name: res.name || email.split('@')[0],
+          email: res.email || email,
+          phone: res.phone || '+92 300 1234567',
+          city: res.city || 'Lahore, Pakistan',
+          address: res.address || 'Gulberg 3, Lahore',
+          walletBalance: 320,
+          loyaltyPoints: 150
+        };
+        setCustomerUser(userObj);
+        addToast('Welcome Back! 👋', `Logged in as ${userObj.name}`);
+        return { success: true };
+      }
+    } catch (e) {}
+
+    // Fallback login
+    const userObj = {
+      id: `cust-${Date.now()}`,
+      name: email.split('@')[0].replace('.', ' ').replace(/^\w/, (c) => c.toUpperCase()),
+      email: email,
+      phone: '+92 300 1234567',
+      city: 'Lahore, Pakistan',
+      address: '123, Block A, Gulberg 3, Lahore',
+      walletBalance: 320,
+      loyaltyPoints: 150
+    };
+    setCustomerUser(userObj);
+    addToast('Welcome Back! 👋', `Logged in as ${userObj.name}`);
+    return { success: true };
+  };
+
+  const logoutCustomer = () => {
+    setCustomerUser(null);
+    addToast('Logged Out', 'You have been signed out successfully.', 'info');
+  };
+
+  // --- Saved Delivery Locations CRUD ---
+  const addSavedAddress = (newAddr) => {
+    const item = {
+      id: `addr-${Date.now()}`,
+      label: newAddr.label || 'Home',
+      address: newAddr.address,
+      city: newAddr.city || 'Lahore, Pakistan',
+      phone: newAddr.phone || customerUser?.phone || '+92 300 1234567'
+    };
+    setSavedDeliveryAddresses((prev) => [...prev, item]);
+    setDeliveryLocation({
+      city: item.city,
+      address: item.address,
+      label: item.label
+    });
+    addToast('Address Saved 📍', `Added "${item.label}" to your addresses.`);
+  };
+
+  const removeSavedAddress = (id) => {
+    setSavedDeliveryAddresses((prev) => prev.filter((a) => a.id !== id));
+    addToast('Address Removed', 'Location removed from your list.', 'info');
+  };
+
+  // --- Order Placement ---
+  const placeCustomerOrder = async (orderData) => {
+    const newOrder = {
+      id: orderData.id || `#FM${Math.floor(10000 + Math.random() * 90000)}`,
+      items: orderData.items || cart,
+      totalAmount: orderData.totalAmount || cartTotal,
+      subtotal: orderData.subtotal || cartSubtotal,
+      deliveryCharges: orderData.deliveryCharges || deliveryCharges,
+      status: 'Out for Delivery',
+      deliverySlot: orderData.deliverySlot || '⚡ 10-15 Mins Express',
+      address: orderData.address || deliveryLocation.address,
+      createdAt: new Date().toISOString(),
+      dateFormatted: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    };
+
+    setCustomerOrders((prev) => [newOrder, ...prev]);
+    setActiveDeliveryOrder(newOrder);
+
+    try {
+      await apiService.createOrder(newOrder);
+    } catch (e) {}
+
+    clearCart();
+    return newOrder;
+  };
+
+  // --- Admin CRUD Helpers ---
   const addProductToStore = async (newProduct) => {
     setProducts((prev) => [newProduct, ...prev]);
     try {
       await apiService.createProduct(newProduct);
     } catch (e) {}
-    addToast('Product Added 🛒', `"${newProduct.name}" added to catalog & landing page.`);
+    addToast('Product Added 🛒', `"${newProduct.name}" added to catalog.`);
   };
 
   const updateProductInStore = async (updatedProduct) => {
@@ -191,7 +379,7 @@ export const StoreProvider = ({ children }) => {
     try {
       await apiService.updateProduct(updatedProduct.id, updatedProduct);
     } catch (e) {}
-    addToast('Product Updated ✨', `"${updatedProduct.name}" updated across store and landing page.`);
+    addToast('Product Updated ✨', `"${updatedProduct.name}" updated.`);
   };
 
   const deleteProductFromStore = async (productId, productName) => {
@@ -199,7 +387,7 @@ export const StoreProvider = ({ children }) => {
     try {
       await apiService.deleteProduct(productId);
     } catch (e) {}
-    addToast('Product Removed', `"${productName}" removed from store.`, 'info');
+    addToast('Product Removed', `"${productName}" removed.`, 'info');
   };
 
   const updateCategoryInStore = async (updatedCat) => {
@@ -217,7 +405,7 @@ export const StoreProvider = ({ children }) => {
     try {
       await apiService.createCategory(newCat);
     } catch (e) {}
-    addToast('Category Added 🗂️', `"${newCat.name}" added to catalog.`);
+    addToast('Category Added 🗂️', `"${newCat.name}" added.`);
   };
 
   const deleteCategoryFromStore = async (catId, catName) => {
@@ -236,23 +424,26 @@ export const StoreProvider = ({ children }) => {
   // Cart operations
   const addToCart = (product, quantity = 1, unit = null) => {
     const chosenUnit = unit || product.unit || '1 unit';
+    const prodId = String(product.id || product._id);
+
     setCart((prev) => {
-      const idx = prev.findIndex((item) => item.product.id === product.id);
+      const idx = prev.findIndex((item) => String(item.product.id || item.product._id) === prodId);
       if (idx > -1) {
         const updated = [...prev];
         updated[idx] = { ...updated[idx], quantity: updated[idx].quantity + quantity };
         return updated;
       }
-      return [...prev, { product, quantity, unit: chosenUnit }];
+      return [...prev, { product: { ...product, id: prodId }, quantity, unit: chosenUnit }];
     });
     addToast('Added to Basket 🛒', `${product.name} (${quantity}x) added.`);
   };
 
   const updateCartQuantity = (productId, delta) => {
+    const targetId = String(productId);
     setCart((prev) => {
       return prev
         .map((item) => {
-          if (item.product.id === productId) {
+          if (String(item.product.id || item.product._id) === targetId) {
             const newQty = item.quantity + delta;
             return newQty > 0 ? { ...item, quantity: newQty } : null;
           }
@@ -263,7 +454,8 @@ export const StoreProvider = ({ children }) => {
   };
 
   const removeFromCart = (productId) => {
-    setCart((prev) => prev.filter((item) => item.product.id !== productId));
+    const targetId = String(productId);
+    setCart((prev) => prev.filter((item) => String(item.product.id || item.product._id) !== targetId));
     addToast('Item Removed', 'Product removed from basket.', 'info');
   };
 
@@ -271,9 +463,8 @@ export const StoreProvider = ({ children }) => {
     setCart([]);
   };
 
-  // Add multiple items (Recipe bundle)
   const addRecipeIngredientsToCart = (productIds) => {
-    const matchedProducts = products.filter((p) => productIds.includes(p.id));
+    const matchedProducts = products.filter((p) => productIds.includes(String(p.id || p._id)));
     matchedProducts.forEach((p) => addToCart(p, 1));
     addToast('Recipe Bundle Added! 🍲', `Added all ${matchedProducts.length} ingredients to your cart.`);
   };
@@ -294,7 +485,7 @@ export const StoreProvider = ({ children }) => {
 
     setWishlist((prev) => {
       const exists = prev.includes(id);
-      const target = products.find((p) => (p.id || p._id) === id);
+      const target = products.find((p) => String(p.id || p._id) === id);
       if (exists) {
         addToast('Removed from Wishlist', `${target?.name || 'Item'} removed.`, 'info');
         return prev.filter((item) => item !== id);
@@ -311,11 +502,9 @@ export const StoreProvider = ({ children }) => {
     return wishlist.includes(id);
   };
 
-
-
   // Cart calculations
   const cartSubtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const deliveryCharges = cartSubtotal >= 1000 || cartSubtotal === 0 ? 0 : 100;
+  const deliveryCharges = cartSubtotal >= 1500 || cartSubtotal === 0 ? 0 : 50;
   const discountAmount = appliedCoupon?.amount || 0;
   const cartTotal = Math.max(0, cartSubtotal + deliveryCharges - discountAmount);
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -335,27 +524,34 @@ export const StoreProvider = ({ children }) => {
         setAppliedCoupon(res.coupon);
         addToast('Coupon Applied! 🎉', res.coupon.description);
         return true;
-      } else {
-        addToast('Invalid Coupon', res?.message || 'Code not recognized', 'error');
-        return false;
       }
-    } catch (e) {
-      if (code.toUpperCase() === 'WELCOME20' || code.toUpperCase() === 'FIRST20') {
-        setAppliedCoupon({ code, discountPercent: 20, amount: Math.round(cartSubtotal * 0.2), description: 'Flat 20% discount applied!' });
-        addToast('Coupon Applied! 🎉', 'Flat 20% discount applied.');
-        return true;
-      }
-      if (code.toUpperCase() === 'FRESH50') {
-        setAppliedCoupon({ code: 'FRESH50', amount: 100, description: 'Flat 50% coupon applied' });
-        addToast('Coupon Applied! 🎉', 'Flat 50% discount added.');
-        return true;
-      }
-      addToast('Invalid Coupon', 'Code not recognized', 'error');
-      return false;
+    } catch (e) {}
+
+    const uc = code.toUpperCase();
+    if (uc === 'WELCOME20' || uc === 'FIRST20') {
+      setAppliedCoupon({ code: uc, discountPercent: 20, amount: Math.round(cartSubtotal * 0.2), description: 'Flat 20% discount applied!' });
+      addToast('Coupon Applied! 🎉', 'Flat 20% discount applied.');
+      return true;
     }
+    if (uc === 'FRESH15') {
+      setAppliedCoupon({ code: 'FRESH15', discountPercent: 15, amount: Math.round(cartSubtotal * 0.15), description: 'Flat 15% discount on your order!' });
+      addToast('Coupon Applied! 🎉', '15% discount activated.');
+      return true;
+    }
+    if (uc === 'VEG10') {
+      setAppliedCoupon({ code: 'VEG10', discountPercent: 10, amount: Math.round(cartSubtotal * 0.1), description: '10% OFF on fresh vegetables!' });
+      addToast('Coupon Applied! 🎉', '10% vegetable discount applied.');
+      return true;
+    }
+    if (uc === 'FRESH50') {
+      setAppliedCoupon({ code: 'FRESH50', amount: 100, description: 'Flat 50% discount added.' });
+      addToast('Coupon Applied! 🎉', 'Flat 50% discount added.');
+      return true;
+    }
+    addToast('Invalid Coupon', 'Code not recognized', 'error');
+    return false;
   };
 
-  // Admin Order Status Modifier
   const updateOrderStatus = async (orderId, newStatus) => {
     setAdminOrders((prev) =>
       prev.map((order) => {
@@ -380,6 +576,20 @@ export const StoreProvider = ({ children }) => {
         currentPage,
         setCurrentPage,
         navigateTo,
+        customerUser,
+        setCustomerUser,
+        loginCustomer,
+        registerCustomer,
+        logoutCustomer,
+        customerOrders,
+        setCustomerOrders,
+        activeDeliveryOrder,
+        setActiveDeliveryOrder,
+        savedDeliveryAddresses,
+        setSavedDeliveryAddresses,
+        addSavedAddress,
+        removeSavedAddress,
+        placeCustomerOrder,
         products,
         setProducts,
         categories,
