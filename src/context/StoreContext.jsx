@@ -288,6 +288,62 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [activeDeliveryOrder]);
 
+  // Riders State
+  const [riders, setRiders] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_riders');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [
+      {
+        id: 'RDR-101',
+        name: 'Hamza Tariq',
+        phone: '0302-8877665',
+        vehicleType: '🏍️ Honda 125',
+        vehicleNumber: 'LEK-8420',
+        zone: 'Gulberg / Main Hub',
+        status: 'On-Duty',
+        deliveriesCount: 54,
+        rating: 4.9,
+        activeOrderId: null,
+        joinedDate: 'Aug 2026'
+      },
+      {
+        id: 'RDR-102',
+        name: 'Ali Raza',
+        phone: '0321-9988771',
+        vehicleType: '🛵 Electric Scooter',
+        vehicleNumber: 'LEA-1903',
+        zone: 'DHA Phase 5 & 6',
+        status: 'On-Duty',
+        deliveriesCount: 32,
+        rating: 4.8,
+        activeOrderId: null,
+        joinedDate: 'Aug 2026'
+      },
+      {
+        id: 'RDR-103',
+        name: 'Bilal Ahmed',
+        phone: '0315-4433221',
+        vehicleType: '🏍️ Yamaha YBR',
+        vehicleNumber: 'LEC-5542',
+        zone: 'Johar Town / Model Town',
+        status: 'Busy',
+        deliveriesCount: 89,
+        rating: 5.0,
+        activeOrderId: null,
+        joinedDate: 'Jul 2026'
+      }
+    ];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_riders', JSON.stringify(riders));
+    } catch (e) {}
+  }, [riders]);
+
+
   useEffect(() => {
     try {
       localStorage.setItem('freshmart_saved_addresses', JSON.stringify(savedDeliveryAddresses));
@@ -433,8 +489,86 @@ export const StoreProvider = ({ children }) => {
     addToast('Address Removed', 'Location removed from your list.', 'info');
   };
 
+  // --- Rider Management Methods ---
+  const addRider = (newRider) => {
+    const riderObj = {
+      id: newRider.id || `RDR-${Math.floor(100 + Math.random() * 900)}`,
+      name: newRider.name,
+      phone: newRider.phone || '0300-0000000',
+      vehicleType: newRider.vehicleType || '🏍️ Honda 125',
+      vehicleNumber: newRider.vehicleNumber || 'LEK-0000',
+      zone: newRider.zone || 'Lahore Hub',
+      status: newRider.status || 'On-Duty',
+      deliveriesCount: Number(newRider.deliveriesCount) || 0,
+      rating: Number(newRider.rating) || 5.0,
+      activeOrderId: null,
+      joinedDate: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+    };
+    setRiders((prev) => [riderObj, ...prev]);
+    addToast('Rider Registered 🛵', `"${riderObj.name}" added to delivery fleet.`);
+    return riderObj;
+  };
+
+  const updateRider = (riderId, updatedData) => {
+    setRiders((prev) =>
+      prev.map((r) => (r.id === riderId ? { ...r, ...updatedData } : r))
+    );
+    addToast('Rider Profile Updated 📝', 'Rider details saved.');
+  };
+
+  const deleteRider = (riderId) => {
+    setRiders((prev) => prev.filter((r) => r.id !== riderId));
+    addToast('Rider Removed', 'Rider removed from active fleet.', 'info');
+  };
+
+  const toggleRiderStatus = (riderId) => {
+    setRiders((prev) =>
+      prev.map((r) => {
+        if (r.id === riderId) {
+          const nextStatus = r.status === 'On-Duty' ? 'Offline' : 'On-Duty';
+          return { ...r, status: nextStatus };
+        }
+        return r;
+      })
+    );
+  };
+
+  const assignRiderToOrder = (orderId, riderId) => {
+    const rider = riders.find((r) => r.id === riderId);
+    setCustomerOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              assignedRider: rider ? { id: rider.id, name: rider.name, phone: rider.phone, vehicle: rider.vehicleNumber } : null,
+              status: 'Dispatched to Rider'
+            }
+          : o
+      )
+    );
+    if (activeDeliveryOrder && activeDeliveryOrder.id === orderId) {
+      setActiveDeliveryOrder((prev) => ({
+        ...prev,
+        assignedRider: rider ? { id: rider.id, name: rider.name, phone: rider.phone, vehicle: rider.vehicleNumber } : null,
+        status: 'Dispatched to Rider'
+      }));
+    }
+    addToast('Order Assigned 📦', `Order ${orderId} assigned to ${rider?.name || 'Rider'}.`);
+  };
+
+  const updateDeliveryOrderStatus = (orderId, newStatus) => {
+    setCustomerOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+    );
+    if (activeDeliveryOrder && activeDeliveryOrder.id === orderId) {
+      setActiveDeliveryOrder((prev) => ({ ...prev, status: newStatus }));
+    }
+    addToast('Delivery Status Updated 🚚', `Order ${orderId}: ${newStatus}`);
+  };
+
   // --- Order Placement ---
   const placeCustomerOrder = async (orderData) => {
+
     const newOrder = {
       id: orderData.id || `#FM${Math.floor(10000 + Math.random() * 90000)}`,
       items: orderData.items || cart,
@@ -708,7 +842,16 @@ export const StoreProvider = ({ children }) => {
         addSavedAddress,
         removeSavedAddress,
         placeCustomerOrder,
+        riders,
+        setRiders,
+        addRider,
+        updateRider,
+        deleteRider,
+        toggleRiderStatus,
+        assignRiderToOrder,
+        updateDeliveryOrderStatus,
         products,
+
         setProducts,
         categories,
         setCategories,

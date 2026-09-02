@@ -10,7 +10,9 @@ import { CheckoutPage } from './components/Checkout/CheckoutPage';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
 import { RecipesPage } from './components/Recipes/RecipesPage';
 import { CustomerPortal } from './components/CustomerPortal/CustomerPortal';
+import { DeliveryPortal } from './components/DeliveryPortal/DeliveryPortal';
 import { Footer } from './components/Footer/Footer';
+
 
 // Modals
 import { CartDrawer } from './components/Modals/CartDrawer';
@@ -49,7 +51,9 @@ function FreshMartAppContent() {
         {currentPage === 'checkout' && <CheckoutPage />}
         {currentPage === 'recipes' && <RecipesPage />}
         {currentPage === 'customer-portal' && <CustomerPortal />}
+        {currentPage === 'delivery-portal' && <DeliveryPortal />}
       </main>
+
 
       {/* Footer */}
       <Footer />

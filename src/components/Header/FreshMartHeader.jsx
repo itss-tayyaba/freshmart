@@ -12,8 +12,10 @@ import {
   Menu,
   X,
   User,
-  ShieldCheck
+  ShieldCheck,
+  Bike
 } from 'lucide-react';
+
 import { useStore } from '../../context/StoreContext';
 import { FRESHMART_CATEGORIES } from '../../data/freshMartData';
 
@@ -270,16 +272,29 @@ export const FreshMartHeader = () => {
                 <span>Customer Portal</span>
               </button>
             </li>
+            <li>
+              <button
+                onClick={() => navigateTo('delivery-portal')}
+                className={`transition-colors pb-1 cursor-pointer flex items-center gap-1.5 ${
+                  currentPage === 'delivery-portal'
+                    ? 'text-emerald-600 font-bold border-b-2 border-emerald-600'
+                    : 'hover:text-emerald-600'
+                }`}
+              >
+                <Bike className="w-3.5 h-3.5" />
+                <span>Delivery Portal</span>
+              </button>
+            </li>
           </ul>
 
 
-          {/* Switchers: Customer Portal & Admin Dashboard */}
-          <div className="flex items-center gap-2">
+          {/* Switchers: Customer Portal, Delivery Portal & Admin Dashboard */}
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => navigateTo('customer-portal')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
                 currentPage === 'customer-portal'
-                  ? 'bg-emerald-700 text-white'
+                  ? 'bg-emerald-700 text-white shadow-2xs'
                   : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800'
               }`}
             >
@@ -288,17 +303,30 @@ export const FreshMartHeader = () => {
             </button>
 
             <button
+              onClick={() => navigateTo('delivery-portal')}
+              className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                currentPage === 'delivery-portal'
+                  ? 'bg-emerald-700 text-white shadow-2xs'
+                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800'
+              }`}
+            >
+              <Bike className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Delivery Portal</span>
+            </button>
+
+            <button
               onClick={() => navigateTo('admin')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
                 currentPage === 'admin'
-                  ? 'bg-slate-900 text-white'
+                  ? 'bg-slate-900 text-white shadow-2xs'
                   : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
               }`}
             >
               <LayoutDashboard className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Admin Dashboard</span>
+              <span>Admin Suite</span>
             </button>
           </div>
+
 
         </div>
       </nav>
@@ -360,11 +388,21 @@ export const FreshMartHeader = () => {
             </button>
             <button
               onClick={() => {
+                navigateTo('delivery-portal');
+                setMobileMenuOpen(false);
+              }}
+              className="p-2 bg-emerald-100 text-emerald-900 font-bold rounded-xl text-left hover:bg-emerald-200"
+            >
+              🛵 Delivery Portal
+            </button>
+            <button
+              onClick={() => {
                 navigateTo('admin');
                 setMobileMenuOpen(false);
               }}
               className="p-2 bg-slate-900 text-white rounded-xl text-left col-span-2 text-center font-bold"
             >
+
               📊 Admin Suite
             </button>
           </div>
