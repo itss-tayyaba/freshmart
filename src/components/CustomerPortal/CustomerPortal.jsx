@@ -25,12 +25,12 @@ import {
   Sparkles,
   ChevronRight,
   Search,
-  Camera,
-  Upload,
   AlertTriangle,
   Flame,
-  Tag
+  Tag,
+  Store
 } from 'lucide-react';
+
 import { useStore } from '../../context/StoreContext';
 import { CustomerAuth } from './CustomerAuth';
 import { OrdersView } from './views/OrdersView';
@@ -107,10 +107,141 @@ export const CustomerPortal = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-in fade-in duration-300">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans flex flex-col">
       
-      {/* 3-Column Customer Portal Grid matching user screenshot */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* 0. Top Dedicated Customer Portal Header Bar (No Landing Page Header) */}
+      <header className="bg-white border-b border-slate-200/80 sticky top-0 z-40 px-4 sm:px-6 py-3.5 shadow-2xs">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          
+          {/* Left: FreshMart Customer Brand + Back to Shop Button */}
+          <div className="flex items-center gap-3">
+            <div
+              onClick={() => navigateTo('home')}
+              className="flex items-center gap-2 cursor-pointer group"
+            >
+              <div className="w-9 h-9 rounded-xl bg-emerald-700 flex items-center justify-center text-white font-black text-lg shadow-sm group-hover:scale-105 transition-transform">
+                🛒
+              </div>
+              <div>
+                <h1 className="text-base font-black text-slate-900 leading-none">FreshMart</h1>
+                <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider block mt-0.5">
+                  Customer Portal
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigateTo('shop')}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold transition-colors cursor-pointer ml-2 border border-emerald-200/60"
+            >
+              <Store className="w-3.5 h-3.5" />
+              <span>Back to Storefront</span>
+            </button>
+          </div>
+
+          {/* Center Search Input */}
+          <div className="flex-1 max-w-md hidden md:block">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search fresh groceries, dairy, snacks..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') navigateTo('shop');
+                }}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-2 text-xs font-medium focus:bg-white focus:outline-none focus:border-emerald-500 transition-colors"
+              />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            </div>
+          </div>
+
+          {/* Right Action Icons: Delivery Location, Notifications, Wishlist, Cart & Profile Logout */}
+          <div className="flex items-center gap-2 sm:gap-3 text-xs">
+            
+            {/* Location Pill */}
+            <button
+              onClick={() => setIsLocationModalOpen(true)}
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl font-medium transition-colors cursor-pointer border border-slate-200/60"
+            >
+              <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="truncate max-w-[120px]">{deliveryLocation || 'Gulberg, Lahore'}</span>
+            </button>
+
+            {/* Notification Bell */}
+            <button
+              onClick={() => setActiveTab('notifications')}
+              className="p-2 text-slate-600 hover:text-emerald-700 bg-slate-50 hover:bg-emerald-50 rounded-xl transition-colors relative cursor-pointer"
+              title="Notifications"
+            >
+              <Bell className="w-4 h-4" />
+              {customerNotifications.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-black flex items-center justify-center animate-pulse">
+                  {customerNotifications.length}
+                </span>
+              )}
+            </button>
+
+            {/* Wishlist Button */}
+            <button
+              onClick={() => setActiveTab('wishlist')}
+              className="p-2 text-slate-600 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 rounded-xl transition-colors relative cursor-pointer"
+              title="Wishlist"
+            >
+              <Heart className="w-4 h-4" />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-black flex items-center justify-center">
+                  {wishlistCount}
+                </span>
+              )}
+            </button>
+
+            {/* Cart Button */}
+            <button
+              onClick={() => setActiveTab('cart')}
+              className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold transition-colors cursor-pointer border border-emerald-200/60"
+            >
+              <ShoppingCart className="w-4 h-4 text-emerald-700" />
+              <span>{currency.symbol}{cartTotal}</span>
+            </button>
+
+            {/* Customer Pill with Logout */}
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+              <div className="flex items-center gap-2">
+                {customerUser.avatar ? (
+                  <img
+                    src={customerUser.avatar}
+                    alt={customerUser.name}
+                    className="w-7 h-7 rounded-full object-cover border border-emerald-500"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-emerald-700 text-white font-black text-[11px] flex items-center justify-center">
+                    {getInitials(customerUser.name)}
+                  </div>
+                )}
+                <span className="font-bold text-slate-900 hidden sm:inline text-xs">
+                  {customerUser.name.split(' ')[0]}
+                </span>
+              </div>
+
+              <button
+                onClick={logoutCustomer}
+                className="px-2.5 py-1 text-[11px] font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                title="Logout from Customer Portal"
+              >
+                Logout
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+      </header>
+
+      {/* Main Customer Portal Workspace */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1 w-full animate-in fade-in duration-300">
+        
+        {/* 3-Column Customer Portal Grid matching user screenshot */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
         
         {/* ========================================================= */}
         {/* LEFT COLUMN: Sidebar Navigation (3 Columns)               */}
@@ -872,5 +1003,8 @@ export const CustomerPortal = () => {
       </div>
 
     </div>
+  </div>
   );
 };
+
+

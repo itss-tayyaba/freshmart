@@ -38,6 +38,19 @@ function FreshMartAppContent() {
     );
   }
 
+  // If in Customer Portal view, render the dedicated customer dashboard experience
+  if (currentPage === 'customer-portal') {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] font-sans">
+        <CustomerPortal />
+        <CartDrawer />
+        <WishlistDrawer />
+        <LocationModal />
+        <ToastContainer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc] font-sans antialiased text-slate-800">
       {/* Top Header & Navigation Bar */}
@@ -52,8 +65,8 @@ function FreshMartAppContent() {
         {currentPage === 'product-detail' && <ProductDetailPage />}
         {currentPage === 'checkout' && <CheckoutPage />}
         {currentPage === 'recipes' && <RecipesPage />}
-        {currentPage === 'customer-portal' && <CustomerPortal />}
       </main>
+
 
 
 
