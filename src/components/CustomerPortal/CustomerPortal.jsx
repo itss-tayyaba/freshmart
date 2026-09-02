@@ -25,11 +25,14 @@ import {
   Sparkles,
   ChevronRight,
   Search,
+  Camera,
+  Upload,
   AlertTriangle,
   Flame,
   Tag,
   Store
 } from 'lucide-react';
+
 
 import { useStore } from '../../context/StoreContext';
 import { CustomerAuth } from './CustomerAuth';
@@ -221,8 +224,9 @@ export const CustomerPortal = () => {
                   </div>
                 )}
                 <span className="font-bold text-slate-900 hidden sm:inline text-xs">
-                  {customerUser.name.split(' ')[0]}
+                  {(customerUser?.name || 'Customer').split(' ')[0]}
                 </span>
+
               </div>
 
               <button
@@ -478,7 +482,7 @@ export const CustomerPortal = () => {
             </p>
             <div className="pt-1 flex items-center justify-between">
               <button
-                onClick={() => addToast('Referral Code', `Share code FRESH-${customerUser.name.split(' ')[0].toUpperCase()}200 with friends to earn PKR 200!`, 'info')}
+                onClick={() => addToast('Referral Code', `Share code FRESH-${(customerUser?.name || 'USER').split(' ')[0].toUpperCase()}200 with friends to earn PKR 200!`, 'info')}
                 className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
                 Refer Now
@@ -499,11 +503,12 @@ export const CustomerPortal = () => {
               {/* Greeting Header */}
               <div className="space-y-1">
                 <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                  <span>Welcome back, {customerUser.name.split(' ')[0]}!</span>
+                  <span>Welcome back, {(customerUser?.name || 'Customer').split(' ')[0]}!</span>
                   <span>👋</span>
                 </h2>
                 <p className="text-xs text-slate-500 font-medium">What would you like to shop today?</p>
               </div>
+
 
               {/* 8 Circular Category Pills */}
               <div className="grid grid-cols-4 sm:grid-cols-8 gap-2.5 text-center">
