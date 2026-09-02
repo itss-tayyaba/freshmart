@@ -29,7 +29,7 @@ function FreshMartAppContent() {
   const { currentPage } = useStore();
 
   // If in Admin Dashboard view, render the dedicated full-screen admin experience
-  if (currentPage === 'admin') {
+  if (currentPage === 'admin' || currentPage === 'delivery-portal') {
     return (
       <div className="min-h-screen bg-slate-100 font-sans">
         <AdminDashboard />
@@ -53,8 +53,8 @@ function FreshMartAppContent() {
         {currentPage === 'checkout' && <CheckoutPage />}
         {currentPage === 'recipes' && <RecipesPage />}
         {currentPage === 'customer-portal' && <CustomerPortal />}
-        {currentPage === 'delivery-portal' && <DeliveryPortal />}
       </main>
+
 
 
       {/* Footer */}
