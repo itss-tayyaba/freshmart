@@ -21,7 +21,9 @@ import { OrderTrackerModal } from './components/Modals/OrderTrackerModal';
 import { OffersModal } from './components/Modals/OffersModal';
 import { QuickViewModal } from './components/Products/QuickViewModal';
 import { LocationModal } from './components/Stores/LocationModal';
+import { AuthModal } from './components/Modals/AuthModal';
 import { ToastContainer } from './components/Modals/ToastContainer';
+
 
 function FreshMartAppContent() {
   const { currentPage } = useStore();
@@ -65,8 +67,10 @@ function FreshMartAppContent() {
       <OffersModal />
       <QuickViewModal />
       <LocationModal />
+      <AuthModal />
       <ToastContainer />
     </div>
+
   );
 }
 

@@ -13,9 +13,9 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 
-export const CustomerAuth = () => {
+export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
   const { loginCustomer, registerCustomer, navigateTo } = useStore();
-  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
+  const [authMode, setAuthMode] = useState(initialMode); // 'login' | 'register'
 
   // Login form
   const [loginEmail, setLoginEmail] = useState('aimen.yasin@gmail.com');
@@ -37,17 +37,20 @@ export const CustomerAuth = () => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) return;
     setIsLoading(true);
-    await loginCustomer(loginEmail, loginPassword);
+    const success = await loginCustomer(loginEmail, loginPassword);
     setIsLoading(false);
+    if (success && onAuthSuccess) onAuthSuccess();
   };
 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     if (!regForm.name || !regForm.email || !regForm.password) return;
     setIsLoading(true);
-    await registerCustomer(regForm);
+    const success = await registerCustomer(regForm);
     setIsLoading(false);
+    if (success && onAuthSuccess) onAuthSuccess();
   };
+
 
   return (
     <div className="max-w-md mx-auto px-4 py-12 animate-in fade-in duration-300">

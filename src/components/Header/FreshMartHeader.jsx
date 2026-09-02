@@ -38,7 +38,11 @@ export const FreshMartHeader = () => {
     setIsCartOpen,
     setIsOrderTrackerOpen,
     setIsOffersOpen,
+    setIsAuthOpen,
+    customerUser,
+    logoutCustomer,
     currency
+
   } = useStore();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -137,17 +141,58 @@ export const FreshMartHeader = () => {
             <span className="text-[10px] font-semibold hidden md:inline">Offers</span>
           </button>
 
-          {/* Customer Portal / Account */}
-          <button
-            onClick={() => navigateTo('customer-portal')}
-            className={`flex flex-col items-center transition-colors p-1.5 focus:outline-none cursor-pointer ${
-              currentPage === 'customer-portal' ? 'text-emerald-600 font-bold' : 'text-slate-600 hover:text-emerald-700'
-            }`}
-            title="Customer Portal"
-          >
-            <User className="w-5 h-5" />
-            <span className="text-[10px] font-semibold hidden md:inline">Account</span>
-          </button>
+          {/* Customer Account / Sign In / Create Account Buttons */}
+          {customerUser ? (
+            <div className="flex items-center gap-1.5 bg-emerald-50/80 border border-emerald-200/60 rounded-2xl p-1 pr-2.5">
+              <button
+                onClick={() => navigateTo('customer-portal')}
+                className="flex items-center gap-2 text-left cursor-pointer"
+                title="Customer Portal"
+              >
+                {customerUser.avatar ? (
+                  <img
+                    src={customerUser.avatar}
+                    alt={customerUser.name}
+                    className="w-7 h-7 rounded-full object-cover border border-emerald-500"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-emerald-700 text-white font-black text-xs flex items-center justify-center">
+                    {customerUser.name.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div className="hidden xl:block">
+                  <span className="text-[11px] font-black text-slate-900 block leading-tight truncate max-w-[90px]">
+                    {customerUser.name.split(' ')[0]}
+                  </span>
+                  <span className="text-[9px] text-emerald-700 font-bold block leading-none">Customer</span>
+                </div>
+              </button>
+              <button
+                onClick={logoutCustomer}
+                className="text-[10px] text-slate-400 hover:text-rose-600 font-bold ml-1 cursor-pointer transition-colors"
+                title="Sign Out"
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setIsAuthOpen(true)}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => setIsAuthOpen(true)}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors shadow-2xs cursor-pointer hidden sm:flex items-center gap-1"
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>Create Account</span>
+              </button>
+            </div>
+          )}
+
 
           {/* Wishlist */}
           <button

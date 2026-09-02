@@ -206,13 +206,50 @@ export const StoreProvider = ({ children }) => {
   const [adminOrders, setAdminOrders] = useState(ADMIN_RECENT_ORDERS);
   const [adminStats, setAdminStats] = useState(ADMIN_STATS);
 
-  // Admin Profile
+  // Admin Profile & Authentication
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
+    try {
+      return localStorage.getItem('freshmart_admin_session') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+
   const [user, setUser] = useState({
     name: 'Super Admin',
     email: 'admin@freshmart.com',
-    isLoggedIn: true,
     role: 'admin'
   });
+
+  const adminLogin = (username, password) => {
+    const cleanUser = (username || '').trim().toLowerCase();
+    const cleanPass = (password || '').trim();
+
+    if (
+      (cleanUser === 'admin' || cleanUser === 'admin@freshmart.pk' || cleanUser === 'admin@freshmart.com' || cleanUser === 'tayyaba') &&
+      (cleanPass === 'admin123' || cleanPass === 'freshmart2026' || cleanPass === 'password' || cleanPass === 'admin')
+    ) {
+      setIsAdminLoggedIn(true);
+      try {
+        localStorage.setItem('freshmart_admin_session', 'true');
+      } catch (e) {}
+      addToast('Admin Authenticated 🛡️', 'Welcome to FreshMart Admin Suite.');
+      return { success: true };
+    }
+
+    addToast('Invalid Credentials ❌', 'Incorrect admin username or password.', 'error');
+    return { success: false, error: 'Invalid username or password' };
+  };
+
+  const adminLogout = () => {
+    setIsAdminLoggedIn(false);
+    try {
+      localStorage.removeItem('freshmart_admin_session');
+    } catch (e) {}
+    addToast('Admin Signed Out', 'You have been logged out of the Admin Suite.', 'info');
+    navigateTo('home');
+  };
+
 
   // Toasts
   const [toasts, setToasts] = useState([]);
@@ -923,7 +960,12 @@ export const StoreProvider = ({ children }) => {
         adminStats,
         user,
         setUser,
+        isAdminLoggedIn,
+        setIsAdminLoggedIn,
+        adminLogin,
+        adminLogout,
         toasts,
+
         addToast,
         removeToast
       }}
