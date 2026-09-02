@@ -90,178 +90,49 @@ export const ADMIN_CATEGORIES_DATA = [
   { id: 12, name: 'Frozen Foods', productCount: 96, image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=300&q=80' }
 ];
 
-export const ADMIN_ORDERS_FULL = [
-  {
-    id: '#ORD1248',
-    customer: 'Ayesha Khan',
-    items: '4 Items',
-    total: 2450,
-    status: 'Delivered',
-    statusClass: 'bg-emerald-100 text-emerald-800',
-    payment: 'Cash',
-    time: '10:24 AM'
-  },
-  {
-    id: '#ORD1247',
-    customer: 'Ali Raza',
-    items: '2 Items',
-    total: 1230,
-    status: 'Out for Delivery',
-    statusClass: 'bg-amber-100 text-amber-800',
-    payment: 'Card',
-    time: '09:42 AM'
-  },
-  {
-    id: '#ORD1246',
-    customer: 'Sara Khan',
-    items: '6 Items',
-    total: 3780,
-    status: 'Preparing',
-    statusClass: 'bg-blue-100 text-blue-800',
-    payment: 'Cash',
-    time: '09:15 AM'
-  },
-  {
-    id: '#ORD1245',
-    customer: 'Umar Ahmed',
-    items: '1 Item',
-    total: 890,
-    status: 'Confirmed',
-    statusClass: 'bg-indigo-100 text-indigo-800',
-    payment: 'Wallet',
-    time: '08:50 AM'
-  },
-  {
-    id: '#ORD1244',
-    customer: 'Hina Ali',
-    items: '3 Items',
-    total: 2120,
-    status: 'Delivered',
-    statusClass: 'bg-emerald-100 text-emerald-800',
-    payment: 'Card',
-    time: '08:20 AM'
-  },
-  {
-    id: '#ORD1243',
-    customer: 'Fahad Saeed',
-    items: '2 Items',
-    total: 950,
-    status: 'Cancelled',
-    statusClass: 'bg-rose-100 text-rose-800',
-    payment: 'Cash',
-    time: '07:45 AM'
-  },
-  {
-    id: '#ORD1242',
-    customer: 'Iqra Ahmed',
-    items: '5 Items',
-    total: 1580,
-    status: 'Preparing',
-    statusClass: 'bg-blue-100 text-blue-800',
-    payment: 'Card',
-    time: '07:12 AM'
-  }
-];
+export const ADMIN_ORDERS_FULL = [];
 
 export const ADMIN_CUSTOMERS_DATA = [];
 
-export const ADMIN_INVENTORY_ITEMS = [
-  { id: 1, name: 'Banana 1kg', category: 'Fruits & Vegetables', stock: 120, minStock: 20, status: 'In Stock', badge: 'bg-emerald-100 text-emerald-800' },
-  { id: 2, name: 'Olpers Milk 1L', category: 'Dairy & Eggs', stock: 8, minStock: 30, status: 'Low Stock', badge: 'bg-amber-100 text-amber-800' },
-  { id: 3, name: 'Eggs (30 Pcs)', category: 'Dairy & Eggs', stock: 4, minStock: 15, status: 'Critical', badge: 'bg-rose-100 text-rose-800' },
-  { id: 4, name: 'Chicken 1kg', category: 'Meat & Poultry', stock: 45, minStock: 15, status: 'In Stock', badge: 'bg-emerald-100 text-emerald-800' },
-  { id: 5, name: 'Bread', category: 'Bakery', stock: 0, minStock: 10, status: 'Out of Stock', badge: 'bg-rose-100 text-rose-800' }
-];
+export const ADMIN_INVENTORY_ITEMS = [];
 
 export const ADMIN_SUPPLIERS_DATA = [];
 
-
 export const ADMIN_PROMOTIONS_DATA = [
   {
-    id: 1,
+    id: 'PROMO-1',
     title: 'Weekend Flash Sale',
-    discount: 'Up to 30% OFF',
+    discount: '30% OFF',
     validity: 'Valid: 28 - 30 Aug 2026',
     category: 'Flash Sales',
     status: 'Active',
-    bannerImg: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80'
+    bannerImg: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
+    code: 'FLASH30'
   },
   {
-    id: 2,
-    title: 'Fresh Fruits Discount',
+    id: 'PROMO-2',
+    title: 'Farm Fresh Vegetables',
     discount: '20% OFF',
     validity: 'Valid: 25 - 31 Aug 2026',
     category: 'Coupons',
     status: 'Active',
-    bannerImg: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=400&q=80'
+    bannerImg: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=600&q=80',
+    code: 'VEG20'
   },
   {
-    id: 3,
+    id: 'PROMO-3',
     title: 'Buy 2 Get 1 Free',
     discount: 'Snacks & Beverages',
     validity: 'Valid: 20 - 28 Aug 2026',
     category: 'Bundles',
     status: 'Active',
-    bannerImg: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=400&q=80'
+    bannerImg: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=600&q=80',
+    code: 'BUNDLE1'
   }
 ];
 
-export const ADMIN_DELIVERIES_DATA = [
-  {
-    id: '#ORD1248',
-    customer: 'Ayesha Khan',
-    rider: 'Rider Ali',
-    riderPhone: '+92 301 1234567',
-    status: 'Out for Delivery',
-    eta: '12 mins',
-    statusClass: 'bg-amber-100 text-amber-800'
-  },
-  {
-    id: '#ORD1247',
-    customer: 'Ali Raza',
-    rider: 'Rider Sami',
-    riderPhone: '+92 302 9876543',
-    status: 'Picked Up',
-    eta: '18 mins',
-    statusClass: 'bg-blue-100 text-blue-800'
-  },
-  {
-    id: '#ORD1246',
-    customer: 'Sara Khan',
-    rider: 'Rider Farhan',
-    riderPhone: '+92 303 4567890',
-    status: 'On the Way',
-    eta: '25 mins',
-    statusClass: 'bg-emerald-100 text-emerald-800'
-  },
-  {
-    id: '#ORD1245',
-    customer: 'Umar Ahmed',
-    rider: 'Rider Usman',
-    riderPhone: '+92 304 7890123',
-    status: 'Preparing',
-    eta: '30 mins',
-    statusClass: 'bg-purple-100 text-purple-800'
-  },
-  {
-    id: '#ORD1244',
-    customer: 'Hina Ali',
-    rider: 'Rider Bilal',
-    riderPhone: '+92 305 6789012',
-    status: 'Preparing',
-    eta: '35 mins',
-    statusClass: 'bg-purple-100 text-purple-800'
-  },
-  {
-    id: '#ORD1243',
-    customer: 'Fahad Saeed',
-    rider: 'Rider Ahmad',
-    riderPhone: '+92 306 2345678',
-    status: 'Assigned',
-    eta: '--',
-    statusClass: 'bg-slate-100 text-slate-800'
-  }
-];
+export const ADMIN_DELIVERIES_DATA = [];
+
 
 export const ADMIN_REPORTS_BEHAVIOR = [
   { label: 'Most Viewed', count: '12,650' },

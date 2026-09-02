@@ -20,16 +20,26 @@ export const CustomersView = ({ onOpenAddCustomerModal }) => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-black text-slate-900 tracking-tight">Customers</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Manage customer directory, contact profiles, and accounts</p>
+          <p className="text-xs text-slate-500 mt-0.5">Automated customer directory, order activity, and accounts</p>
         </div>
 
-        <button
-          onClick={onOpenAddCustomerModal}
-          className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-colors cursor-pointer self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>+ Add Customer</span>
-        </button>
+        <div className="flex items-center gap-2 bg-emerald-50 text-emerald-800 border border-emerald-200/60 rounded-xl px-3.5 py-2 text-xs font-bold shadow-2xs">
+          <Users className="w-3.5 h-3.5 text-emerald-700" />
+          <span>{customers?.length || 0} Registered Customers</span>
+        </div>
+      </div>
+
+      {/* Auto-Capture Info Banner */}
+      <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200/70 rounded-2xl p-4 flex items-start gap-3 shadow-2xs">
+        <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 text-sm font-bold shadow-xs">
+          ⚡
+        </div>
+        <div className="space-y-0.5 text-xs">
+          <h4 className="font-black text-emerald-950">Automated Customer Enrollment</h4>
+          <p className="text-emerald-800/90 leading-relaxed text-[11px]">
+            Customers are automatically enrolled here when they create an account, sign in, or place checkout orders. Their total orders and total spend are calculated and tracked in real-time.
+          </p>
+        </div>
       </div>
 
       {/* Table Card */}
@@ -54,19 +64,13 @@ export const CustomersView = ({ onOpenAddCustomerModal }) => {
               👥
             </div>
             <div className="space-y-1">
-              <h3 className="text-sm font-black text-slate-800">No Customers in Directory</h3>
+              <h3 className="text-sm font-black text-slate-800">No Customers Yet</h3>
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                All sample customer data has been removed. You can register custom accounts or add customers directly.
+                When customers register, login, or place orders in the store, their customer profiles and order statistics will automatically appear here.
               </p>
             </div>
-            <button
-              onClick={onOpenAddCustomerModal}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold inline-flex items-center gap-2 cursor-pointer shadow-sm"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>+ Add First Customer</span>
-            </button>
           </div>
+
         ) : filtered.length === 0 ? (
           <div className="text-center py-10 text-slate-400 text-xs">
             No customers matching your search "{search}".

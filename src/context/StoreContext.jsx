@@ -202,9 +202,16 @@ export const StoreProvider = ({ children }) => {
     description: 'Special 20% Welcome Coupon'
   });
 
-  // Admin Data State
-  const [adminOrders, setAdminOrders] = useState(ADMIN_RECENT_ORDERS);
+  // Admin Data State (Starts empty - populated as customer orders arrive)
+  const [adminOrders, setAdminOrders] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_customer_orders');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  });
   const [adminStats, setAdminStats] = useState(ADMIN_STATS);
+
 
   // Admin Profile & Authentication
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
@@ -428,6 +435,91 @@ export const StoreProvider = ({ children }) => {
   };
 
 
+  // Promotions & Banner Management State
+  const [promotions, setPromotions] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_promotions');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [
+      {
+        id: 'PROMO-1',
+        title: 'Weekend Flash Sale',
+        discount: '30% OFF',
+        validity: 'Valid: 28 - 30 Aug 2026',
+        category: 'Flash Sales',
+        status: 'Active',
+        bannerImg: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
+        code: 'FLASH30'
+      },
+      {
+        id: 'PROMO-2',
+        title: 'Farm Fresh Vegetables',
+        discount: '20% OFF',
+        validity: 'Valid: 25 - 31 Aug 2026',
+        category: 'Coupons',
+        status: 'Active',
+        bannerImg: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=600&q=80',
+        code: 'VEG20'
+      },
+      {
+        id: 'PROMO-3',
+        title: 'Snacks & Beverage Bundles',
+        discount: 'Buy 2 Get 1 Free',
+        validity: 'Valid: 20 - 28 Aug 2026',
+        category: 'Bundles',
+        status: 'Active',
+        bannerImg: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=600&q=80',
+        code: 'BUNDLE1'
+      }
+    ];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_promotions', JSON.stringify(promotions));
+    } catch (e) {}
+  }, [promotions]);
+
+  const addPromotion = (newPromo) => {
+    const promoItem = {
+      id: `PROMO-${Date.now()}`,
+      title: newPromo.title,
+      discount: newPromo.discount || '20% OFF',
+      validity: newPromo.validity || 'Valid this month',
+      category: newPromo.category || 'Flash Sales',
+      status: newPromo.status || 'Active',
+      bannerImg: newPromo.bannerImg || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
+      code: newPromo.code || 'SAVE20'
+    };
+    setPromotions((prev) => [promoItem, ...prev]);
+    addToast('Promotion Banner Created 🎨', `"${promoItem.title}" is now active.`);
+    return promoItem;
+  };
+
+  const updatePromotion = (id, updatedFields) => {
+    setPromotions((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...updatedFields } : p))
+    );
+    addToast('Banner Updated ✨', 'Promotion banner changes saved.');
+  };
+
+  const deletePromotion = (id) => {
+    setPromotions((prev) => prev.filter((p) => p.id !== id));
+    addToast('Promotion Removed 🗑️', 'Banner deleted successfully.', 'info');
+  };
+
+  const togglePromotionStatus = (id) => {
+    setPromotions((prev) =>
+      prev.map((p) =>
+        p.id === id ? { ...p, status: p.status === 'Active' ? 'Paused' : 'Active' } : p
+      )
+    );
+    addToast('Status Toggled', 'Promotion campaign status updated.');
+  };
+
+
+
 
   useEffect(() => {
     try {
@@ -448,29 +540,33 @@ export const StoreProvider = ({ children }) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  // Helper to auto-enroll customer into Admin Customer Directory
+  const autoEnrollCustomer = (userObj) => {
+    if (!userObj || !userObj.name) return;
+    setCustomers((prev) => {
+      const exists = prev.some(
+        (c) => (userObj.email && c.email === userObj.email) || c.name === userObj.name
+      );
+      if (exists) return prev;
+      return [
+        {
+          id: `CUST-${Math.floor(100 + Math.random() * 900)}`,
+          name: userObj.name,
+          email: userObj.email || `${userObj.name.toLowerCase().replace(/\s+/g, '')}@freshmart.pk`,
+          phone: userObj.phone || '+92 300 1234567',
+          totalOrders: 0,
+          totalSpent: 'Rs. 0',
+          status: 'Active',
+          createdAt: new Date().toISOString()
+        },
+        ...prev
+      ];
+    });
+  };
+
   // --- Customer Authentication Functions ---
   const registerCustomer = async (userData) => {
-    try {
-      const res = await apiService.register(userData);
-      if (res && res.success) {
-        const userObj = {
-          id: res._id || `cust-${Date.now()}`,
-          name: userData.name,
-          email: userData.email,
-          phone: userData.phone || '+92 300 1234567',
-          city: userData.city || 'Lahore, Pakistan',
-          address: userData.address || '123 Main Street',
-          walletBalance: 320,
-          loyaltyPoints: 100
-        };
-        setCustomerUser(userObj);
-        addToast('Account Created! 🎉', `Welcome to FreshMart, ${userData.name}!`);
-        return { success: true };
-      }
-    } catch (e) {}
-
-    // Graceful offline registration fallback
-    const userObj = {
+    let userObj = {
       id: `cust-${Date.now()}`,
       name: userData.name,
       email: userData.email,
@@ -480,33 +576,22 @@ export const StoreProvider = ({ children }) => {
       walletBalance: 320,
       loyaltyPoints: 100
     };
+
+    try {
+      const res = await apiService.register(userData);
+      if (res && res.success) {
+        userObj.id = res._id || userObj.id;
+      }
+    } catch (e) {}
+
     setCustomerUser(userObj);
+    autoEnrollCustomer(userObj);
     addToast('Account Created! 🎉', `Welcome to FreshMart, ${userData.name}!`);
     return { success: true };
   };
 
   const loginCustomer = async (email, password) => {
-    try {
-      const res = await apiService.login(email, password);
-      if (res && res.success) {
-        const userObj = {
-          id: res._id || `cust-${Date.now()}`,
-          name: res.name || email.split('@')[0],
-          email: res.email || email,
-          phone: res.phone || '+92 300 1234567',
-          city: res.city || 'Lahore, Pakistan',
-          address: res.address || 'Gulberg 3, Lahore',
-          walletBalance: 320,
-          loyaltyPoints: 150
-        };
-        setCustomerUser(userObj);
-        addToast('Welcome Back! 👋', `Logged in as ${userObj.name}`);
-        return { success: true };
-      }
-    } catch (e) {}
-
-    // Fallback login
-    const userObj = {
+    let userObj = {
       id: `cust-${Date.now()}`,
       name: email.split('@')[0].replace('.', ' ').replace(/^\w/, (c) => c.toUpperCase()),
       email: email,
@@ -516,10 +601,28 @@ export const StoreProvider = ({ children }) => {
       walletBalance: 320,
       loyaltyPoints: 150
     };
+
+    try {
+      const res = await apiService.login(email, password);
+      if (res && res.success) {
+        userObj = {
+          ...userObj,
+          id: res._id || userObj.id,
+          name: res.name || userObj.name,
+          email: res.email || email,
+          phone: res.phone || userObj.phone,
+          city: res.city || userObj.city,
+          address: res.address || userObj.address
+        };
+      }
+    } catch (e) {}
+
     setCustomerUser(userObj);
+    autoEnrollCustomer(userObj);
     addToast('Welcome Back! 👋', `Logged in as ${userObj.name}`);
     return { success: true };
   };
+
 
   const logoutCustomer = () => {
     setCustomerUser(null);
@@ -653,22 +756,69 @@ export const StoreProvider = ({ children }) => {
 
   // --- Order Placement ---
   const placeCustomerOrder = async (orderData) => {
+    const custName = orderData.customerName || customerUser?.name || 'Customer';
+    const custEmail = orderData.customerEmail || customerUser?.email || '';
+    const custPhone = orderData.customerPhone || customerUser?.phone || '+92 300 1234567';
+    const orderTotal = orderData.totalAmount || cartTotal;
+    const orderItems = orderData.items || cart;
 
     const newOrder = {
-      id: orderData.id || `#FM${Math.floor(10000 + Math.random() * 90000)}`,
-      items: orderData.items || cart,
-      totalAmount: orderData.totalAmount || cartTotal,
+      id: orderData.id || `#ORD${Math.floor(1000 + Math.random() * 9000)}`,
+      customer: custName,
+      customerEmail: custEmail,
+      customerPhone: custPhone,
+      items: `${orderItems.length} Item${orderItems.length > 1 ? 's' : ''}`,
+      rawItems: orderItems,
+      totalAmount: orderTotal,
+      total: orderTotal,
       subtotal: orderData.subtotal || cartSubtotal,
       deliveryCharges: orderData.deliveryCharges || deliveryCharges,
-      status: 'Out for Delivery',
+      status: 'Preparing',
+      statusClass: 'bg-blue-100 text-blue-800',
+      payment: orderData.paymentMethod || 'Cash on Delivery',
       deliverySlot: orderData.deliverySlot || '⚡ 10-15 Mins Express',
-      address: orderData.address || deliveryLocation.address,
+      address: orderData.address || deliveryLocation?.address || '123, Block A, Gulberg 3, Lahore',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       createdAt: new Date().toISOString(),
       dateFormatted: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     };
 
     setCustomerOrders((prev) => [newOrder, ...prev]);
+    setAdminOrders((prev) => [newOrder, ...prev]);
     setActiveDeliveryOrder(newOrder);
+
+    // Automatically record / update the customer in Customer Directory
+    setCustomers((prev) => {
+      const existingIdx = prev.findIndex(
+        (c) => (custEmail && c.email === custEmail) || (custPhone && c.phone === custPhone) || c.name === custName
+      );
+
+      if (existingIdx >= 0) {
+        const updated = [...prev];
+        const cur = updated[existingIdx];
+        const prevSpentNum = parseInt(String(cur.totalSpent).replace(/[^0-9]/g, '')) || 0;
+        updated[existingIdx] = {
+          ...cur,
+          totalOrders: (cur.totalOrders || 0) + 1,
+          totalSpent: `Rs. ${(prevSpentNum + orderTotal).toLocaleString()}`,
+          lastOrderDate: new Date().toISOString()
+        };
+        return updated;
+      } else {
+        const newCust = {
+          id: `CUST-${Math.floor(100 + Math.random() * 900)}`,
+          name: custName,
+          email: custEmail || `${custName.toLowerCase().replace(/\s+/g, '')}@freshmart.pk`,
+          phone: custPhone,
+          totalOrders: 1,
+          totalSpent: `Rs. ${orderTotal.toLocaleString()}`,
+          status: 'Active',
+          createdAt: new Date().toISOString(),
+          lastOrderDate: new Date().toISOString()
+        };
+        return [newCust, ...prev];
+      }
+    });
 
     try {
       await apiService.createOrder(newOrder);
@@ -677,6 +827,49 @@ export const StoreProvider = ({ children }) => {
     clearCart();
     return newOrder;
   };
+
+  // --- Inventory & Stock Management ---
+  const updateProductStock = (productId, newStock) => {
+    const stockNum = Math.max(0, parseInt(newStock) || 0);
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (p.id === productId || p._id === productId) {
+          const updated = {
+            ...p,
+            stock: stockNum,
+            inStock: stockNum > 0
+          };
+          try {
+            apiService.updateProduct(productId, updated);
+          } catch (e) {}
+          return updated;
+        }
+        return p;
+      })
+    );
+    addToast('Stock Updated 📦', `Inventory updated to ${stockNum} units.`);
+  };
+
+  const toggleProductStockStatus = (productId) => {
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (p.id === productId || p._id === productId) {
+          const updated = {
+            ...p,
+            inStock: !p.inStock,
+            stock: !p.inStock ? (p.stock > 0 ? p.stock : 25) : 0
+          };
+          try {
+            apiService.updateProduct(productId, updated);
+          } catch (e) {}
+          return updated;
+        }
+        return p;
+      })
+    );
+    addToast('Status Changed', 'Product availability toggled.');
+  };
+
 
   // --- Admin CRUD Helpers ---
   const addProductToStore = async (newProduct) => {
@@ -1023,13 +1216,22 @@ export const StoreProvider = ({ children }) => {
         setIsAdminLoggedIn,
         adminLogin,
         adminLogout,
-        toasts,
+        promotions,
 
+        setPromotions,
+        addPromotion,
+        updatePromotion,
+        deletePromotion,
+        togglePromotionStatus,
+        updateProductStock,
+        toggleProductStockStatus,
+        toasts,
         addToast,
         removeToast
       }}
     >
       {children}
+
     </StoreContext.Provider>
   );
 };
