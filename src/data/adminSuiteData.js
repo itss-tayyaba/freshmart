@@ -163,71 +163,7 @@ export const ADMIN_ORDERS_FULL = [
   }
 ];
 
-export const ADMIN_CUSTOMERS_DATA = [
-  {
-    id: 'CUST-01',
-    name: 'Ayesha Khan',
-    email: 'ayesha@gmail.com',
-    phone: '0300-1234567',
-    totalOrders: 12,
-    totalSpent: 'Rs. 24,500',
-    status: 'Active'
-  },
-  {
-    id: 'CUST-02',
-    name: 'Ali Raza',
-    email: 'ali@gmail.com',
-    phone: '0321-9876543',
-    totalOrders: 8,
-    totalSpent: 'Rs. 14,200',
-    status: 'Active'
-  },
-  {
-    id: 'CUST-03',
-    name: 'Sara Khan',
-    email: 'sara@gmail.com',
-    phone: '0333-4567890',
-    totalOrders: 15,
-    totalSpent: 'Rs. 38,900',
-    status: 'Active'
-  },
-  {
-    id: 'CUST-04',
-    name: 'Umar Ahmed',
-    email: 'umar@gmail.com',
-    phone: '0345-7890123',
-    totalOrders: 4,
-    totalSpent: 'Rs. 6,800',
-    status: 'Active'
-  },
-  {
-    id: 'CUST-05',
-    name: 'Hina Ali',
-    email: 'hina@gmail.com',
-    phone: '0315-6789012',
-    totalOrders: 6,
-    totalSpent: 'Rs. 11,400',
-    status: 'Active'
-  },
-  {
-    id: 'CUST-06',
-    name: 'Fahad Saeed',
-    email: 'fahad@gmail.com',
-    phone: '0301-2345678',
-    totalOrders: 9,
-    totalSpent: 'Rs. 18,300',
-    status: 'Active'
-  },
-  {
-    id: 'CUST-07',
-    name: 'Iqra Ahmed',
-    email: 'iqra@gmail.com',
-    phone: '0312-3456789',
-    totalOrders: 3,
-    totalSpent: 'Rs. 4,950',
-    status: 'Active'
-  }
-];
+export const ADMIN_CUSTOMERS_DATA = [];
 
 export const ADMIN_INVENTORY_ITEMS = [
   { id: 1, name: 'Banana 1kg', category: 'Fruits & Vegetables', stock: 120, minStock: 20, status: 'In Stock', badge: 'bg-emerald-100 text-emerald-800' },
@@ -237,13 +173,8 @@ export const ADMIN_INVENTORY_ITEMS = [
   { id: 5, name: 'Bread', category: 'Bakery', stock: 0, minStock: 10, status: 'Out of Stock', badge: 'bg-rose-100 text-rose-800' }
 ];
 
-export const ADMIN_SUPPLIERS_DATA = [
-  { id: 'SUP-01', name: 'Al-Noor Foods', contact: 'Ahmed Raza', phone: '0300-1234567', email: 'info@alnoor.com', status: 'Active' },
-  { id: 'SUP-02', name: 'Fresh Farm', contact: 'Sara Khan', phone: '0321-9876543', email: 'sales@freshfarm.com', status: 'Active' },
-  { id: 'SUP-03', name: 'Dairy Pure', contact: 'Usman Ali', phone: '0333-4567890', email: 'orders@dairypure.com', status: 'Active' },
-  { id: 'SUP-04', name: 'Sunrise Bakery', contact: 'Fahad Ahmed', phone: '0345-7890123', email: 'orders@sunrise.com', status: 'Active' },
-  { id: 'SUP-05', name: 'Global Foods', contact: 'Hassan Raza', phone: '0315-6789012', email: 'info@globalfoods.com', status: 'Active' }
-];
+export const ADMIN_SUPPLIERS_DATA = [];
+
 
 export const ADMIN_PROMOTIONS_DATA = [
   {

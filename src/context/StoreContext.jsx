@@ -325,53 +325,13 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [activeDeliveryOrder]);
 
-  // Riders State
+  // Riders State (Empty initially - added by Admin)
   const [riders, setRiders] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_riders');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
-    return [
-      {
-        id: 'RDR-101',
-        name: 'Hamza Tariq',
-        phone: '0302-8877665',
-        vehicleType: '🏍️ Honda 125',
-        vehicleNumber: 'LEK-8420',
-        zone: 'Gulberg / Main Hub',
-        status: 'On-Duty',
-        deliveriesCount: 54,
-        rating: 4.9,
-        activeOrderId: null,
-        joinedDate: 'Aug 2026'
-      },
-      {
-        id: 'RDR-102',
-        name: 'Ali Raza',
-        phone: '0321-9988771',
-        vehicleType: '🛵 Electric Scooter',
-        vehicleNumber: 'LEA-1903',
-        zone: 'DHA Phase 5 & 6',
-        status: 'On-Duty',
-        deliveriesCount: 32,
-        rating: 4.8,
-        activeOrderId: null,
-        joinedDate: 'Aug 2026'
-      },
-      {
-        id: 'RDR-103',
-        name: 'Bilal Ahmed',
-        phone: '0315-4433221',
-        vehicleType: '🏍️ Yamaha YBR',
-        vehicleNumber: 'LEC-5542',
-        zone: 'Johar Town / Model Town',
-        status: 'Busy',
-        deliveriesCount: 89,
-        rating: 5.0,
-        activeOrderId: null,
-        joinedDate: 'Jul 2026'
-      }
-    ];
+    return [];
   });
 
   useEffect(() => {
@@ -379,6 +339,94 @@ export const StoreProvider = ({ children }) => {
       localStorage.setItem('freshmart_riders', JSON.stringify(riders));
     } catch (e) {}
   }, [riders]);
+
+  // Suppliers State (Empty initially - added by Admin)
+  const [suppliers, setSuppliers] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_suppliers');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_suppliers', JSON.stringify(suppliers));
+    } catch (e) {}
+  }, [suppliers]);
+
+  const addSupplier = (supplierData) => {
+    const newId = `SUP-${Math.floor(100 + Math.random() * 900)}`;
+    const newSupplier = {
+      id: newId,
+      name: supplierData.name,
+      contact: supplierData.contact || supplierData.name,
+      phone: supplierData.phone,
+      email: supplierData.email || `${supplierData.name.toLowerCase().replace(/\s+/g, '')}@supplier.com`,
+      status: 'Active',
+      createdAt: new Date().toISOString()
+    };
+    setSuppliers((prev) => [newSupplier, ...prev]);
+    addToast('Supplier Added 🏢', `${newSupplier.name} registered successfully.`);
+    return newSupplier;
+  };
+
+  const deleteSupplier = (id) => {
+    setSuppliers((prev) => prev.filter((s) => s.id !== id));
+    addToast('Supplier Removed', 'Supplier deleted from directory.', 'info');
+  };
+
+  const updateSupplier = (id, updatedFields) => {
+    setSuppliers((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, ...updatedFields } : s))
+    );
+    addToast('Supplier Updated', 'Supplier record updated successfully.');
+  };
+
+  // Customers State (Empty initially - added by Admin or Customer Registration)
+  const [customers, setCustomers] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_customers');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_customers', JSON.stringify(customers));
+    } catch (e) {}
+  }, [customers]);
+
+  const addCustomer = (customerData) => {
+    const newId = `CUST-${Math.floor(100 + Math.random() * 900)}`;
+    const newCust = {
+      id: newId,
+      name: customerData.name,
+      email: customerData.email,
+      phone: customerData.phone,
+      totalOrders: 0,
+      totalSpent: 'Rs. 0',
+      status: 'Active',
+      createdAt: new Date().toISOString()
+    };
+    setCustomers((prev) => [newCust, ...prev]);
+    addToast('Customer Added 👤', `${newCust.name} added to directory.`);
+    return newCust;
+  };
+
+  const deleteCustomer = (id) => {
+    setCustomers((prev) => prev.filter((c) => c.id !== id));
+    addToast('Customer Removed', 'Customer deleted from directory.', 'info');
+  };
+
+  const updateCustomer = (id, updatedFields) => {
+    setCustomers((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...updatedFields } : c))
+    );
+    addToast('Customer Updated', 'Customer record updated successfully.');
+  };
+
 
 
   useEffect(() => {
@@ -887,7 +935,18 @@ export const StoreProvider = ({ children }) => {
         toggleRiderStatus,
         assignRiderToOrder,
         updateDeliveryOrderStatus,
+        suppliers,
+        setSuppliers,
+        addSupplier,
+        deleteSupplier,
+        updateSupplier,
+        customers,
+        setCustomers,
+        addCustomer,
+        deleteCustomer,
+        updateCustomer,
         products,
+
 
         setProducts,
         categories,

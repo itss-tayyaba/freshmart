@@ -15,7 +15,8 @@ export const AdminModals = ({
   isCreatePromoOpen,
   setIsCreatePromoOpen
 }) => {
-  const { addToast, products } = useStore();
+  const { addToast, products, addCustomer, addSupplier } = useStore();
+
 
   // Add Product State matching user's image
   const [productForm, setProductForm] = useState({
@@ -139,6 +140,8 @@ export const AdminModals = ({
 
   const handleCustomerSubmit = async (e) => {
     e.preventDefault();
+    if (!customerForm.name || !customerForm.email) return;
+    addCustomer(customerForm);
     try {
       await fetch('http://localhost:5000/api/customers', {
         method: 'POST',
@@ -147,12 +150,13 @@ export const AdminModals = ({
       });
     } catch (err) {}
     setIsAddCustomerOpen(false);
-    addToast('Customer Created 👤', `Account for "${customerForm.name}" created.`);
     setCustomerForm({ name: '', email: '', phone: '' });
   };
 
   const handleSupplierSubmit = async (e) => {
     e.preventDefault();
+    if (!supplierForm.name) return;
+    addSupplier(supplierForm);
     try {
       await fetch('http://localhost:5000/api/suppliers', {
         method: 'POST',
@@ -161,9 +165,9 @@ export const AdminModals = ({
       });
     } catch (err) {}
     setIsAddSupplierOpen(false);
-    addToast('Supplier Added 🚚', `"${supplierForm.name}" added to database.`);
     setSupplierForm({ name: '', contact: '', phone: '', email: '' });
   };
+
 
   const handlePromoSubmit = (e) => {
     e.preventDefault();

@@ -106,7 +106,17 @@ export const DeliveryView = () => {
     });
   };
 
-  const simulatedRider = riders.find((r) => r.id === simulatedRiderId) || riders[0];
+  const simulatedRider =
+    (riders && riders.find((r) => r.id === simulatedRiderId)) ||
+    riders?.[0] || {
+      id: 'RDR-000',
+      name: 'No Rider Selected',
+      phone: '0300-0000000',
+      vehicleType: '🏍️ Honda 125',
+      vehicleNumber: 'LEK-0000',
+      status: 'Offline'
+    };
+
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -240,98 +250,123 @@ export const DeliveryView = () => {
             </div>
           </div>
 
-          {/* Riders Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredRiders.map((rider) => (
-              <div
-                key={rider.id}
-                className="bg-white rounded-3xl p-5 border border-slate-100 shadow-2xs hover:shadow-card transition-all space-y-3 flex flex-col justify-between"
+          {/* Empty State vs Riders Grid */}
+          {(!riders || riders.length === 0) ? (
+            <div className="text-center py-16 px-4 bg-white rounded-3xl border border-dashed border-slate-200 shadow-xs space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl">
+                🛵
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-black text-slate-800">No Delivery Riders in Fleet</h3>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  All sample rider records have been removed. Click '+ Add New Rider' to register your delivery personnel.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsAddRiderModalOpen(true)}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold inline-flex items-center gap-2 cursor-pointer shadow-sm transition-all"
               >
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs shadow-inner">
-                        {rider.name.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-black text-xs text-slate-900">{rider.name}</h3>
-                          <span className="text-[9px] font-mono text-slate-400 font-bold">{rider.id}</span>
+                <UserPlus className="w-4 h-4" />
+                <span>+ Add First Delivery Rider</span>
+              </button>
+            </div>
+          ) : filteredRiders.length === 0 ? (
+            <div className="text-center py-10 bg-white rounded-3xl border border-slate-100 text-slate-400 text-xs">
+              No riders matching your search "{searchRider}".
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredRiders.map((rider) => (
+                <div
+                  key={rider.id}
+                  className="bg-white rounded-3xl p-5 border border-slate-100 shadow-2xs hover:shadow-card transition-all space-y-3 flex flex-col justify-between"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs shadow-inner">
+                          {rider.name.slice(0, 2).toUpperCase()}
                         </div>
-                        <span className="text-[11px] text-slate-500 font-mono">{rider.phone}</span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-black text-xs text-slate-900">{rider.name}</h3>
+                            <span className="text-[9px] font-mono text-slate-400 font-bold">{rider.id}</span>
+                          </div>
+                          <span className="text-[11px] text-slate-500 font-mono">{rider.phone}</span>
+                        </div>
                       </div>
+
+                      <button
+                        onClick={() => toggleRiderStatus(rider.id)}
+                        className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full cursor-pointer transition-all ${
+                          rider.status === 'On-Duty'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : rider.status === 'Busy'
+                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                            : 'bg-slate-100 text-slate-500 border border-slate-200'
+                        }`}
+                        title="Click to toggle status"
+                      >
+                        {rider.status}
+                      </button>
                     </div>
 
-                    <button
-                      onClick={() => toggleRiderStatus(rider.id)}
-                      className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full cursor-pointer transition-all ${
-                        rider.status === 'On-Duty'
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                          : rider.status === 'Busy'
-                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                          : 'bg-slate-100 text-slate-500 border border-slate-200'
-                      }`}
-                      title="Click to toggle status"
+                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/70 text-[11px] space-y-1.5 font-medium">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Vehicle:</span>
+                        <span className="text-slate-800 font-bold">{rider.vehicleType} ({rider.vehicleNumber})</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Assigned Zone:</span>
+                        <span className="text-emerald-700 font-bold">{rider.zone}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Completed Parcels:</span>
+                        <span className="font-bold text-slate-900">{rider.deliveriesCount}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Customer Rating:</span>
+                        <span className="font-black text-amber-600">⭐ {rider.rating} / 5.0</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <a
+                      href={`tel:${rider.phone}`}
+                      className="flex-1 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
                     >
-                      {rider.status}
+                      <Phone className="w-3 h-3" />
+                      <span>Call Rider</span>
+                    </a>
+
+                    <button
+                      onClick={() => {
+                        setSimulatedRiderId(rider.id);
+                        setActiveSubTab('rider-app');
+                      }}
+                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer"
+                      title="View mobile view for this rider"
+                    >
+                      <Smartphone className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      onClick={() => deleteRider(rider.id)}
+                      className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                      title="Delete Rider"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
-                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/70 text-[11px] space-y-1.5 font-medium">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Vehicle:</span>
-                      <span className="text-slate-800 font-bold">{rider.vehicleType} ({rider.vehicleNumber})</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Assigned Zone:</span>
-                      <span className="text-emerald-700 font-bold">{rider.zone}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Completed Parcels:</span>
-                      <span className="font-bold text-slate-900">{rider.deliveriesCount}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Customer Rating:</span>
-                      <span className="font-black text-amber-600">⭐ {rider.rating} / 5.0</span>
-                    </div>
-                  </div>
                 </div>
-
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                  <a
-                    href={`tel:${rider.phone}`}
-                    className="flex-1 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <Phone className="w-3 h-3" />
-                    <span>Call Rider</span>
-                  </a>
-
-                  <button
-                    onClick={() => {
-                      setSimulatedRiderId(rider.id);
-                      setActiveSubTab('rider-app');
-                    }}
-                    className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer"
-                    title="View mobile view for this rider"
-                  >
-                    <Smartphone className="w-3.5 h-3.5" />
-                  </button>
-
-                  <button
-                    onClick={() => deleteRider(rider.id)}
-                    className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                    title="Delete Rider"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-              </div>
-            ))}
-          </div>
-
+              ))}
+            </div>
+          )}
         </div>
       )}
+
 
       {/* ===================================================================== */}
       {/* SUB-VIEW 2: PARCEL DISPATCH QUEUE                                     */}
