@@ -6,7 +6,9 @@ import {
   Phone,
   MapPin,
   ArrowRight,
+  ArrowLeft,
   ShieldCheck,
+
   CheckCircle2,
   Sparkles,
   ShoppingBag
@@ -54,7 +56,18 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
 
   return (
     <div className="max-w-md mx-auto px-4 py-12 animate-in fade-in duration-300">
+      
+      {/* Back to store button */}
+      <button
+        onClick={() => navigateTo('home')}
+        className="mb-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-colors cursor-pointer shadow-2xs"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" />
+        <span>Back to Storefront</span>
+      </button>
+
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xl space-y-6">
+
         
         {/* Brand Logo & Header */}
         <div className="text-center space-y-2">

@@ -163,8 +163,11 @@ export const CustomerPortal = () => {
               className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl font-medium transition-colors cursor-pointer border border-slate-200/60"
             >
               <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="truncate max-w-[120px]">{deliveryLocation || 'Gulberg, Lahore'}</span>
+              <span className="truncate max-w-[120px]">
+                {deliveryLocation?.address || deliveryLocation?.city || 'Gulberg, Lahore'}
+              </span>
             </button>
+
 
             {/* Notification Bell */}
             <button
