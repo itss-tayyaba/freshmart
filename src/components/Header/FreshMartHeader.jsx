@@ -269,18 +269,6 @@ export const FreshMartHeader = () => {
             </li>
             <li>
               <button
-                onClick={() => navigateTo('recipes')}
-                className={`transition-colors pb-1 cursor-pointer ${
-                  currentPage === 'recipes'
-                    ? 'text-emerald-600 font-bold border-b-2 border-emerald-600'
-                    : 'hover:text-emerald-600'
-                }`}
-              >
-                Recipes
-              </button>
-            </li>
-            <li>
-              <button
                 onClick={() => navigateTo('delivery')}
                 className={`transition-colors pb-1 cursor-pointer flex items-center gap-1 ${
                   currentPage === 'delivery'

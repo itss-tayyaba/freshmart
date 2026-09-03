@@ -98,13 +98,6 @@ export const MobileNav = () => {
               Daily Flash Deals
             </a>
             <a
-              href="#blog-section"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block px-3 py-2 text-sm font-semibold text-slate-700 hover:text-brand-green rounded-lg"
-            >
-              Recipes & Blog
-            </a>
-            <a
               href="#footer-section"
               onClick={() => setIsMobileMenuOpen(false)}
               className="block px-3 py-2 text-sm font-semibold text-slate-700 hover:text-brand-green rounded-lg"
