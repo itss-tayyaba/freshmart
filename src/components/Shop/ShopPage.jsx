@@ -27,6 +27,7 @@ import {
 export const ShopPage = () => {
   const {
     products,
+    categories,
     navigateTo,
     activeCategory,
     setActiveCategory,
@@ -120,7 +121,7 @@ export const ShopPage = () => {
     return list;
   }, [products, activeCategory, selectedBrands, priceRange, inStockOnly, minRating, searchQuery, sortBy]);
 
-  const activeCategoryObj = FRESHMART_CATEGORIES.find((c) => c.id === activeCategory);
+  const activeCategoryObj = (categories || []).find((c) => c.id === activeCategory || c.name === activeCategory);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-in fade-in duration-300">
@@ -195,20 +196,26 @@ export const ShopPage = () => {
                 <span className="text-[10px] opacity-80">{products.length}</span>
               </button>
 
-              {FRESHMART_CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCategory(cat.id)}
-                  className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-between ${
-                    activeCategory === cat.id
-                      ? 'bg-emerald-600 text-white shadow-2xs'
-                      : 'text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <span className="truncate">{cat.name}</span>
-                  <span className="text-[10px] opacity-80">{cat.itemCount || 15}</span>
-                </button>
-              ))}
+              {(categories || []).map((cat) => {
+                const count = (products || []).filter(
+                  (p) => p.category === cat.id || p.category === cat.name || p.categoryLabel === cat.name
+                ).length;
+
+                return (
+                  <button
+                    key={cat.id || cat.name}
+                    onClick={() => setActiveCategory(cat.id)}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-between ${
+                      activeCategory === cat.id
+                        ? 'bg-emerald-600 text-white shadow-2xs'
+                        : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="truncate">{cat.name}</span>
+                    <span className="text-[10px] opacity-80">{count}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

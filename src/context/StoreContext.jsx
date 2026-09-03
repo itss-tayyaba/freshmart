@@ -59,11 +59,29 @@ export const StoreProvider = ({ children }) => {
     return [];
   });
 
-  // Products state (Single source of truth)
-  const [products, setProducts] = useState(FRESHMART_PRODUCTS);
+  // Products state (Single source of truth with localStorage persistence)
+  const [products, setProducts] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_products');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return FRESHMART_PRODUCTS;
+  });
 
-  // Categories state
-  const [categories, setCategories] = useState(FRESHMART_CATEGORIES);
+  // Categories state (Single source of truth with localStorage persistence)
+  const [categories, setCategories] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_categories');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return FRESHMART_CATEGORIES;
+  });
 
   // Dynamic Landing Page & Admin Store Settings
   const [storeSettings, setStoreSettings] = useState({
@@ -261,17 +279,33 @@ export const StoreProvider = ({ children }) => {
   // Toasts
   const [toasts, setToasts] = useState([]);
 
-  // Fetch live products & categories on startup from Node.js backend
+  // Save products and categories to localStorage on any modification
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_products', JSON.stringify(products));
+    } catch (e) {}
+  }, [products]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_categories', JSON.stringify(categories));
+    } catch (e) {}
+  }, [categories]);
+
+  // Fetch live products on startup from Node.js backend if no local changes exist
   useEffect(() => {
     const fetchBackendData = async () => {
       try {
-        const data = await apiService.getProducts();
-        if (data && data.success && data.products && data.products.length > 0) {
-          const mapped = data.products.map((p) => ({
-            ...p,
-            id: String(p.id || p._id)
-          }));
-          setProducts(mapped);
+        const saved = localStorage.getItem('freshmart_products');
+        if (!saved) {
+          const data = await apiService.getProducts();
+          if (data && data.success && data.products && data.products.length > 0) {
+            const mapped = data.products.map((p) => ({
+              ...p,
+              id: String(p.id || p._id)
+            }));
+            setProducts(mapped);
+          }
         }
       } catch (e) {}
     };
@@ -873,16 +907,41 @@ export const StoreProvider = ({ children }) => {
 
   // --- Admin CRUD Helpers ---
   const addProductToStore = async (newProduct) => {
-    setProducts((prev) => [newProduct, ...prev]);
+    const fullProduct = {
+      id: newProduct.id || `prod-${Date.now()}`,
+      name: newProduct.name || 'New Product',
+      description: newProduct.description || 'Fresh quality grocery product.',
+      price: Number(newProduct.price) || 100,
+      originalPrice: Number(newProduct.originalPrice) || Math.round(Number(newProduct.price || 100) * 1.2),
+      discountPercent: Number(newProduct.discountPercent) || 0,
+      category: newProduct.category || 'fruits-veg',
+      categoryLabel: newProduct.categoryLabel || newProduct.category || 'Fruits & Vegetables',
+      unit: newProduct.unit || '1 Kg',
+      image: newProduct.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
+      stock: Number(newProduct.stock ?? 50),
+      stockCount: Number(newProduct.stock ?? 50),
+      inStock: newProduct.inStock !== false,
+      status: newProduct.inStock !== false ? 'Active' : 'Out of Stock',
+      rating: newProduct.rating || 4.8,
+      reviewsCount: newProduct.reviewsCount || 12,
+      ...newProduct
+    };
+
+    setProducts((prev) => [fullProduct, ...prev]);
     try {
-      await apiService.createProduct(newProduct);
+      await apiService.createProduct(fullProduct);
     } catch (e) {}
-    addToast('Product Added 🛒', `"${newProduct.name}" added to catalog.`);
+    addToast('Product Added 🛒', `"${fullProduct.name}" added to catalog.`);
   };
 
   const updateProductInStore = async (updatedProduct) => {
     setProducts((prev) =>
-      prev.map((p) => (p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p))
+      prev.map((p) => {
+        if (p.id === updatedProduct.id || p._id === updatedProduct.id) {
+          return { ...p, ...updatedProduct };
+        }
+        return p;
+      })
     );
     try {
       await apiService.updateProduct(updatedProduct.id, updatedProduct);
@@ -891,16 +950,16 @@ export const StoreProvider = ({ children }) => {
   };
 
   const deleteProductFromStore = async (productId, productName) => {
-    setProducts((prev) => prev.filter((p) => p.id !== productId));
+    setProducts((prev) => prev.filter((p) => p.id !== productId && p._id !== productId));
     try {
       await apiService.deleteProduct(productId);
     } catch (e) {}
-    addToast('Product Removed', `"${productName}" removed.`, 'info');
+    addToast('Product Removed', `"${productName || 'Product'}" removed.`, 'info');
   };
 
   const updateCategoryInStore = async (updatedCat) => {
     setCategories((prev) =>
-      prev.map((c) => (c.id === updatedCat.id ? { ...c, ...updatedCat } : c))
+      prev.map((c) => (c.id === updatedCat.id || c._id === updatedCat.id ? { ...c, ...updatedCat } : c))
     );
     try {
       await apiService.updateCategory(updatedCat.id, updatedCat);
@@ -909,19 +968,30 @@ export const StoreProvider = ({ children }) => {
   };
 
   const addCategoryToStore = async (newCat) => {
-    setCategories((prev) => [newCat, ...prev]);
+    const slug = (newCat.id || newCat.name || `cat-${Date.now()}`).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const fullCat = {
+      id: slug,
+      name: newCat.name,
+      shortName: newCat.shortName || newCat.name,
+      itemCount: newCat.itemCount || newCat.productCount || 0,
+      image: newCat.image || 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=300&q=80',
+      discountBadge: newCat.discountBadge || 'Fresh Selection',
+      subcategories: newCat.subcategories || [newCat.name],
+      ...newCat
+    };
+    setCategories((prev) => [fullCat, ...prev]);
     try {
-      await apiService.createCategory(newCat);
+      await apiService.createCategory(fullCat);
     } catch (e) {}
     addToast('Category Added 🗂️', `"${newCat.name}" added.`);
   };
 
   const deleteCategoryFromStore = async (catId, catName) => {
-    setCategories((prev) => prev.filter((c) => c.id !== catId));
+    setCategories((prev) => prev.filter((c) => c.id !== catId && c._id !== catId));
     try {
       await apiService.deleteCategory(catId);
     } catch (e) {}
-    addToast('Category Removed', `"${catName}" removed.`, 'info');
+    addToast('Category Removed', `"${catName || 'Category'}" removed.`, 'info');
   };
 
   const updateStoreSettings = (newSettings) => {

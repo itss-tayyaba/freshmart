@@ -4,7 +4,7 @@ import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
 
 export const ProductsView = ({ onOpenAddProductModal }) => {
-  const { currency, addToast, products, updateProductInStore, deleteProductFromStore } = useStore();
+  const { currency, addToast, products, categories, updateProductInStore, deleteProductFromStore } = useStore();
   const [activeFilterTab, setActiveFilterTab] = useState('All');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
@@ -380,26 +380,20 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
                     value={editProductForm.category}
                     onChange={(e) => {
                       const sel = e.target.value;
-                      const labelMap = {
-                        'fruits-veg': 'Fruits & Vegetables',
-                        'dairy-eggs': 'Dairy & Eggs',
-                        'meat-poultry': 'Meat & Poultry',
-                        'bakery': 'Bakery',
-                        'beverages': 'Beverages',
-                        'snacks': 'Snacks & Munchies',
-                        'grocery-staples': 'Grocery Staples'
-                      };
-                      setEditProductForm({ ...editProductForm, category: sel, categoryLabel: labelMap[sel] || sel });
+                      const matched = (categories || []).find((c) => c.id === sel || c.name === sel);
+                      setEditProductForm({
+                        ...editProductForm,
+                        category: sel,
+                        categoryLabel: matched ? matched.name : sel
+                      });
                     }}
                     className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3 py-2 text-slate-800 text-xs font-medium cursor-pointer"
                   >
-                    <option value="fruits-veg">Fruits & Vegetables</option>
-                    <option value="dairy-eggs">Dairy & Eggs</option>
-                    <option value="meat-poultry">Meat & Poultry</option>
-                    <option value="bakery">Bakery</option>
-                    <option value="beverages">Beverages</option>
-                    <option value="snacks">Snacks & Munchies</option>
-                    <option value="grocery-staples">Grocery Staples</option>
+                    {(categories || []).map((cat) => (
+                      <option key={cat.id || cat._id || cat.name} value={cat.id || cat.name}>
+                        {cat.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

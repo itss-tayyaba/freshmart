@@ -1,26 +1,24 @@
 import React, { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, X, Upload, Check } from 'lucide-react';
-import { ADMIN_CATEGORIES_DATA } from '../../../data/adminSuiteData';
+import { Plus, Search, Edit2, Trash2, X, Upload, Check, FolderPlus, Layers } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
-import { apiService } from '../../../services/api';
 
 export const CategoriesView = ({ onOpenAddCategoryModal }) => {
-  const { addToast } = useStore();
+  const { categories, products, updateCategoryInStore, deleteCategoryFromStore, addToast } = useStore();
   const [search, setSearch] = useState('');
-  const [categoriesList, setCategoriesList] = useState(ADMIN_CATEGORIES_DATA);
 
   // Edit Category Modal State
   const [editingCategory, setEditingCategory] = useState(null);
   const [editForm, setEditForm] = useState({
     name: '',
-    productCount: 0,
+    discountBadge: '',
     image: '',
     imageFileName: ''
   });
   const [editImagePreview, setEditImagePreview] = useState(null);
 
-  const filtered = categoriesList.filter((cat) =>
-    cat.name.toLowerCase().includes(search.toLowerCase())
+  const filtered = (categories || []).filter((cat) =>
+    cat.name.toLowerCase().includes(search.toLowerCase()) ||
+    (cat.discountBadge && cat.discountBadge.toLowerCase().includes(search.toLowerCase()))
   );
 
   // Open Edit Modal and pre-fill form
@@ -28,7 +26,7 @@ export const CategoriesView = ({ onOpenAddCategoryModal }) => {
     setEditingCategory(cat);
     setEditForm({
       name: cat.name,
-      productCount: cat.productCount || 0,
+      discountBadge: cat.discountBadge || 'Fresh Selection',
       image: cat.image,
       imageFileName: ''
     });
@@ -53,40 +51,26 @@ export const CategoriesView = ({ onOpenAddCategoryModal }) => {
   };
 
   // Save Category Edits
-  const handleSaveEdit = async (e) => {
+  const handleSaveEdit = (e) => {
     e.preventDefault();
     if (!editingCategory) return;
 
     const updatedCategory = {
       ...editingCategory,
       name: editForm.name,
-      productCount: Number(editForm.productCount),
+      shortName: editForm.name,
+      discountBadge: editForm.discountBadge,
       image: editForm.image || editingCategory.image
     };
 
-    // Update local state
-    setCategoriesList((prev) =>
-      prev.map((c) => (c.id === editingCategory.id ? updatedCategory : c))
-    );
-
-    // Sync with MongoDB backend
-    try {
-      await apiService.updateCategory(editingCategory.id, updatedCategory);
-    } catch (err) {
-      console.error(err);
-    }
-
-    addToast('Category Updated 🗂️', `"${editForm.name}" updated successfully.`);
+    updateCategoryInStore(updatedCategory);
     setEditingCategory(null);
   };
 
   // Delete Category
-  const handleDeleteCategory = async (id, name) => {
-    setCategoriesList((prev) => prev.filter((c) => c.id !== id));
-    try {
-      await apiService.deleteCategory(id);
-    } catch (err) {}
-    addToast('Category Removed', `"${name}" has been removed.`, 'info');
+  const handleDeleteCategory = (id, name) => {
+    deleteCategoryFromStore(id, name);
+    setEditingCategory(null);
   };
 
   return (
@@ -120,46 +104,58 @@ export const CategoriesView = ({ onOpenAddCategoryModal }) => {
         <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
       </div>
 
-      {/* Visual Category Cards Grid matching screenshot (4x3) */}
+      {/* Visual Category Cards Grid (4x3) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-        {filtered.map((cat) => (
-          <div
-            key={cat.id}
-            className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card hover:shadow-card-hover transition-all duration-200 flex flex-col justify-between group relative"
-          >
-            {/* Image Thumbnail */}
-            <div className="relative h-28 sm:h-32 rounded-xl overflow-hidden mb-3 bg-slate-50 flex items-center justify-center">
-              <img
-                src={cat.image}
-                alt={cat.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                loading="lazy"
-              />
-            </div>
+        {filtered.map((cat) => {
+          const catId = cat.id || cat._id;
+          const count = (products || []).filter(
+            (p) => p.category === catId || p.category === cat.name || p.categoryLabel === cat.name
+          ).length;
 
-            {/* Info & Edit Pencil Button */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xs sm:text-sm font-bold text-slate-800 line-clamp-1">
-                  {cat.name}
-                </h3>
-                <span className="text-[11px] text-slate-400 font-semibold block mt-0.5">
-                  {cat.productCount} products
-                </span>
+          return (
+            <div
+              key={catId}
+              className="bg-white rounded-3xl p-4 border border-slate-100 shadow-card hover:shadow-card-hover transition-all duration-200 flex flex-col justify-between group relative"
+            >
+              {/* Image Thumbnail */}
+              <div className="relative h-32 rounded-2xl overflow-hidden mb-3 bg-slate-50 flex items-center justify-center">
+                <img
+                  src={cat.image}
+                  alt={cat.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  loading="lazy"
+                />
+                {cat.discountBadge && (
+                  <span className="absolute top-2.5 left-2.5 bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-lg shadow-sm">
+                    {cat.discountBadge}
+                  </span>
+                )}
               </div>
 
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handleOpenEdit(cat)}
-                  className="p-2 hover:bg-emerald-50 text-slate-500 hover:text-emerald-700 rounded-xl transition-colors cursor-pointer shadow-2xs border border-slate-100 hover:border-emerald-200"
-                  title="Edit"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
+              {/* Info & Edit Button */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-900 line-clamp-1">
+                    {cat.name}
+                  </h3>
+                  <span className="text-[11px] text-slate-400 font-semibold block mt-0.5">
+                    {count > 0 ? `${count} items in catalog` : `${cat.itemCount || 0} items`}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleOpenEdit(cat)}
+                    className="p-2 hover:bg-emerald-50 text-slate-500 hover:text-emerald-700 rounded-xl transition-colors cursor-pointer shadow-2xs border border-slate-100 hover:border-emerald-200"
+                    title="Edit Category & Picture"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Edit Category Modal */}
@@ -168,7 +164,7 @@ export const CategoriesView = ({ onOpenAddCategoryModal }) => {
           <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
             
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-lg font-bold text-slate-900 font-serif">Edit Category</h3>
+              <h3 className="text-lg font-black text-slate-900">Edit Category</h3>
               <button
                 onClick={() => setEditingCategory(null)}
                 className="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors cursor-pointer"
@@ -186,27 +182,26 @@ export const CategoriesView = ({ onOpenAddCategoryModal }) => {
                   required
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3 py-2.5 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
                 />
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Product Count</label>
+                <label className="font-bold text-slate-700 block mb-1">Discount Tag (Optional)</label>
                 <input
-                  type="number"
-                  required
-                  min="0"
-                  value={editForm.productCount}
-                  onChange={(e) => setEditForm({ ...editForm, productCount: e.target.value })}
-                  className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3 py-2.5 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
+                  type="text"
+                  placeholder="e.g. Up to 25% OFF"
+                  value={editForm.discountBadge}
+                  onChange={(e) => setEditForm({ ...editForm, discountBadge: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                 />
               </div>
 
               {/* Image with Choose File Button */}
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Category Image</label>
-                <div className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3 py-2.5 flex items-center gap-3">
-                  <label className="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 text-xs font-medium rounded-lg shadow-2xs cursor-pointer inline-flex items-center gap-1.5 shrink-0 transition-colors">
+                <div className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 flex items-center gap-3">
+                  <label className="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 text-xs font-bold rounded-lg shadow-2xs cursor-pointer inline-flex items-center gap-1.5 shrink-0 transition-colors">
                     <Upload className="w-3.5 h-3.5 text-slate-500" />
                     <span>Choose File</span>
                     <input
@@ -217,7 +212,7 @@ export const CategoriesView = ({ onOpenAddCategoryModal }) => {
                     />
                   </label>
                   <span className="text-xs text-slate-600 truncate font-mono">
-                    {editForm.imageFileName || 'Change image (optional)'}
+                    {editForm.imageFileName || 'Change image from device'}
                   </span>
                 </div>
 
@@ -231,7 +226,7 @@ export const CategoriesView = ({ onOpenAddCategoryModal }) => {
                     />
                     <div className="text-xs">
                       <span className="font-bold text-emerald-800 block">Current Preview</span>
-                      <span className="text-[11px] text-emerald-600">Will be updated in catalog</span>
+                      <span className="text-[11px] text-emerald-600">Saved permanently to your store catalog</span>
                     </div>
                   </div>
                 )}

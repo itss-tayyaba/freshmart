@@ -12,7 +12,8 @@ export const MobileNav = () => {
     setIsWishlistOpen,
     setIsCartOpen,
     setIsAuthOpen,
-    setActiveCategory
+    setActiveCategory,
+    categories
   } = useStore();
 
   if (!isMobileMenuOpen) return null;
@@ -119,21 +120,24 @@ export const MobileNav = () => {
             Top Categories
           </p>
           <div className="space-y-1">
-            {CATEGORIES_SIDEBAR.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => {
-                  setActiveCategory(cat.id);
-                  setIsMobileMenuOpen(false);
-                  const el = document.getElementById('products-section');
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg text-left"
-              >
-                <span>{cat.name}</span>
-                <span className="text-[10px] text-slate-400">View</span>
-              </button>
-            ))}
+            {(categories || []).map((cat) => {
+              const catId = cat.id || cat._id;
+              return (
+                <button
+                  key={catId}
+                  onClick={() => {
+                    setActiveCategory(catId);
+                    setIsMobileMenuOpen(false);
+                    const el = document.getElementById('products-section');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg text-left cursor-pointer"
+                >
+                  <span>{cat.name}</span>
+                  <span className="text-[10px] text-slate-400">View</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

@@ -15,15 +15,14 @@ export const AdminModals = ({
   isCreatePromoOpen,
   setIsCreatePromoOpen
 }) => {
-  const { addToast, products, addCustomer, addSupplier } = useStore();
+  const { addToast, products, categories, addProductToStore, addCategoryToStore, addCustomer, addSupplier } = useStore();
 
-
-  // Add Product State matching user's image
+  // Add Product State
   const [productForm, setProductForm] = useState({
     name: '',
     description: '',
     price: '',
-    category: 'Fruits & Vegetables',
+    category: categories?.[0]?.name || 'Fruits & Vegetables',
     unit: '1 Kg',
     image: '',
     imageFileName: '',
@@ -35,8 +34,11 @@ export const AdminModals = ({
   // Add Category State
   const [categoryForm, setCategoryForm] = useState({
     name: '',
-    image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=300&q=80'
+    image: '',
+    imageFileName: '',
+    discountBadge: 'Up to 20% OFF'
   });
+  const [categoryImagePreview, setCategoryImagePreview] = useState(null);
 
   // Add Customer State
   const [customerForm, setCustomerForm] = useState({
@@ -60,7 +62,7 @@ export const AdminModals = ({
     validity: 'Valid: 28 - 31 Aug 2026'
   });
 
-  // Handle Image File Selection (Choose File)
+  // Handle Product Image File Selection (Choose File)
   const handleImageFileChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -77,26 +79,38 @@ export const AdminModals = ({
     }
   };
 
+  // Handle Category Image File Selection
+  const handleCategoryImageFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCategoryImagePreview(reader.result);
+        setCategoryForm((prev) => ({
+          ...prev,
+          image: reader.result,
+          imageFileName: file.name
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleProductSubmit = async (e) => {
     e.preventDefault();
     const fallbackImg = 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80';
 
-    const categorySlugMap = {
-      'Fruits & Vegetables': 'fruits-veg',
-      'Dairy & Eggs': 'dairy-eggs',
-      'Meat & Poultry': 'meat-poultry',
-      'Bakery': 'bakery',
-      'Beverages': 'beverages',
-      'Snacks & Munchies': 'snacks',
-      'Grocery Staples': 'grocery-staples'
-    };
+    // Find category id / slug
+    const matchedCategory = (categories || []).find(
+      (c) => c.name.toLowerCase() === productForm.category.toLowerCase() || c.id === productForm.category
+    );
 
     const newProductPayload = {
       name: productForm.name,
       description: productForm.description || 'Fresh quality grocery product.',
       price: Number(productForm.price),
       originalPrice: Math.round(Number(productForm.price) * 1.15),
-      category: categorySlugMap[productForm.category] || 'fruits-veg',
+      category: matchedCategory ? matchedCategory.id : productForm.category.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       categoryLabel: productForm.category,
       unit: productForm.unit || '1 Kg',
       image: productForm.image || fallbackImg,
@@ -105,21 +119,16 @@ export const AdminModals = ({
       status: productForm.inStock ? 'Active' : 'Out of Stock'
     };
 
-    try {
-      await apiService.createProduct(newProductPayload);
-    } catch (err) {
-      console.error(err);
-    }
+    addProductToStore(newProductPayload);
 
     setIsAddProductOpen(false);
-    addToast('Product Added 🛒', `"${productForm.name}" saved directly to your MongoDB Atlas catalog.`);
     
     // Reset form
     setProductForm({
       name: '',
       description: '',
       price: '',
-      category: 'Fruits & Vegetables',
+      category: categories?.[0]?.name || 'Fruits & Vegetables',
       unit: '1 Kg',
       image: '',
       imageFileName: '',
@@ -130,12 +139,23 @@ export const AdminModals = ({
 
   const handleCategorySubmit = async (e) => {
     e.preventDefault();
-    try {
-      await apiService.createCategory(categoryForm);
-    } catch (err) {}
+    if (!categoryForm.name.trim()) return;
+
+    const fallbackCatImg = 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=300&q=80';
+
+    const newCategoryPayload = {
+      name: categoryForm.name.trim(),
+      shortName: categoryForm.name.trim(),
+      image: categoryForm.image || fallbackCatImg,
+      discountBadge: categoryForm.discountBadge || 'Fresh Selection',
+      itemCount: 0
+    };
+
+    addCategoryToStore(newCategoryPayload);
+
     setIsAddCategoryOpen(false);
-    addToast('Category Created 🗂️', `"${categoryForm.name}" added to MongoDB.`);
-    setCategoryForm({ name: '', image: '' });
+    setCategoryForm({ name: '', image: '', imageFileName: '', discountBadge: 'Up to 20% OFF' });
+    setCategoryImagePreview(null);
   };
 
   const handleCustomerSubmit = async (e) => {
@@ -243,13 +263,11 @@ export const AdminModals = ({
                     onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
                     className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3.5 py-2.5 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-700 text-xs font-medium cursor-pointer"
                   >
-                    <option>Fruits & Vegetables</option>
-                    <option>Dairy & Eggs</option>
-                    <option>Meat & Poultry</option>
-                    <option>Bakery</option>
-                    <option>Beverages</option>
-                    <option>Snacks & Munchies</option>
-                    <option>Grocery Staples</option>
+                    {(categories || []).map((cat) => (
+                      <option key={cat.id || cat._id || cat.name} value={cat.name}>
+                        {cat.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -283,7 +301,7 @@ export const AdminModals = ({
                     />
                     <div className="text-xs">
                       <span className="font-bold text-emerald-800 block">Image Ready</span>
-                      <span className="text-[11px] text-emerald-600">Will be uploaded to MongoDB</span>
+                      <span className="text-[11px] text-emerald-600">Saved to your permanent catalog</span>
                     </div>
                   </div>
                 )}
@@ -335,7 +353,7 @@ export const AdminModals = ({
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleCategorySubmit} className="space-y-3 text-xs">
+            <form onSubmit={handleCategorySubmit} className="space-y-3.5 text-xs">
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Category Title</label>
                 <input
@@ -344,15 +362,69 @@ export const AdminModals = ({
                   placeholder="e.g. Organic Farm Spices"
                   value={categoryForm.name}
                   onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold text-slate-800"
                 />
               </div>
-              <button
-                type="submit"
-                className="w-full mt-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl"
-              >
-                Save Category
-              </button>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Discount Tag (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Up to 25% OFF"
+                  value={categoryForm.discountBadge}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, discountBadge: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Category Picture / Image</label>
+                <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-center gap-3">
+                  <label className="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 text-xs font-bold rounded-lg shadow-2xs cursor-pointer inline-flex items-center gap-1.5 shrink-0 transition-colors">
+                    <Upload className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Choose File</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleCategoryImageFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                  <span className="text-xs text-slate-600 truncate font-mono">
+                    {categoryForm.imageFileName || 'No file chosen'}
+                  </span>
+                </div>
+
+                {categoryImagePreview && (
+                  <div className="mt-2.5 flex items-center gap-3 p-2 bg-emerald-50/50 border border-emerald-100 rounded-xl">
+                    <img
+                      src={categoryImagePreview}
+                      alt="Category Preview"
+                      className="w-12 h-12 rounded-lg object-cover bg-white shadow-2xs border border-emerald-200"
+                    />
+                    <div className="text-xs">
+                      <span className="font-bold text-emerald-800 block">Category Image Ready</span>
+                      <span className="text-[11px] text-emerald-600">Saved to permanent catalog</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddCategoryOpen(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-sm"
+                >
+                  Save Category
+                </button>
+              </div>
             </form>
           </div>
         </div>
