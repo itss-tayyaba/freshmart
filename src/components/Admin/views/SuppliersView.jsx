@@ -92,9 +92,9 @@ export const SuppliersView = ({ onOpenAddSupplierModal }) => {
               <thead>
                 <tr className="text-slate-400 border-b border-slate-100 pb-3">
                   <th className="pb-3 font-semibold">Supplier</th>
-                  <th className="pb-3 font-semibold">Contact Person</th>
-                  <th className="pb-3 font-semibold">Phone</th>
-                  <th className="pb-3 font-semibold">Email</th>
+                  <th className="pb-3 font-semibold">Domain / Category</th>
+                  <th className="pb-3 font-semibold">Contact & Phone</th>
+                  <th className="pb-3 font-semibold">Login Username</th>
                   <th className="pb-3 font-semibold">Status</th>
                   {!isSupplierRole && <th className="pb-3 font-semibold text-right">Actions</th>}
                 </tr>
@@ -111,9 +111,22 @@ export const SuppliersView = ({ onOpenAddSupplierModal }) => {
                         <span className="block text-[10px] text-slate-400 font-mono">{sup.id}</span>
                       </div>
                     </td>
-                    <td className="py-3.5 text-slate-700 font-medium">{sup.contact}</td>
-                    <td className="py-3.5 font-mono text-slate-600">{sup.phone}</td>
-                    <td className="py-3.5 text-slate-500">{sup.email}</td>
+                    <td className="py-3.5 text-slate-700 font-medium">
+                      <span className="bg-emerald-50 text-emerald-800 border border-emerald-200/60 text-[10px] font-bold px-2.5 py-1 rounded-lg">
+                        {sup.category || 'Fresh Milk & Pure Dairy'}
+                      </span>
+                    </td>
+                    <td className="py-3.5">
+                      <p className="font-semibold text-slate-800 text-xs">{sup.contact || sup.name}</p>
+                      <p className="font-mono text-slate-500 text-[11px]">{sup.phone || sup.email}</p>
+                    </td>
+                    <td className="py-3.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] font-bold">
+                          {sup.username || sup.name?.toLowerCase().replace(/\s+/g, '_')}
+                        </span>
+                      </div>
+                    </td>
                     <td className="py-3.5">
                       <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
                         {sup.status || 'Active'}

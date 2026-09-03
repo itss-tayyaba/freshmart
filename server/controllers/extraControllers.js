@@ -1,20 +1,22 @@
 import { isDbOnline } from '../config/db.js';
 import { Product } from '../models/Product.js';
 import { User } from '../models/User.js';
-import { Supplier, Promotion, Delivery } from '../models/ExtraModels.js';
+import { Supplier, Promotion, Delivery, Rider } from '../models/ExtraModels.js';
 import {
   ADMIN_STATS,
   ADMIN_TOP_PRODUCTS,
   ADMIN_RECENT_ORDERS
 } from '../../src/data/freshMartData.js';
 import {
-  ADMIN_CUSTOMERS_DATA,
   ADMIN_INVENTORY_ITEMS,
-  ADMIN_SUPPLIERS_DATA,
   ADMIN_PROMOTIONS_DATA,
   ADMIN_DELIVERIES_DATA,
   ADMIN_REPORTS_BEHAVIOR
 } from '../../src/data/adminSuiteData.js';
+
+// In-Memory state fallback
+let memorySuppliers = [];
+let memoryRiders = [];
 
 // --- INVENTORY CONTROLLER ---
 export const getInventory = async (req, res) => {
@@ -63,41 +65,62 @@ export const restockProduct = async (req, res) => {
 export const getCustomers = async (req, res) => {
   try {
     if (isDbOnline()) {
-      const customers = await User.find({ role: 'customer' }).select('-password');
-      if (customers && customers.length > 0) {
-        return res.json({ success: true, count: customers.length, customers });
-      }
+      const customers = await User.find({ role: 'customer' }).select('-password').sort({ createdAt: -1 });
+      const formatted = (customers || []).map((c) => ({
+        id: c._id.toString(),
+        name: c.name,
+        email: c.email,
+        phone: c.phone || '+92 300 1234567',
+        totalOrders: 0,
+        totalSpent: 'Rs. 0',
+        status: 'Active',
+        createdAt: c.createdAt
+      }));
+      return res.json({ success: true, count: formatted.length, customers: formatted });
     }
-    res.json({ success: true, count: ADMIN_CUSTOMERS_DATA.length, customers: ADMIN_CUSTOMERS_DATA });
+    res.json({ success: true, count: 0, customers: [] });
   } catch (error) {
-    res.json({ success: true, count: ADMIN_CUSTOMERS_DATA.length, customers: ADMIN_CUSTOMERS_DATA });
+    res.json({ success: true, count: 0, customers: [] });
   }
 };
 
 export const addCustomer = async (req, res) => {
   try {
-    const { name, email, phone } = req.body;
+    const { name, email, phone, password } = req.body;
     if (isDbOnline()) {
-      const user = await User.create({
-        name,
-        email,
-        phone,
-        password: 'password123',
-        role: 'customer'
+      let existing = await User.findOne({ email });
+      if (!existing) {
+        existing = await User.create({
+          name,
+          email,
+          phone: phone || '',
+          password: password || 'password123',
+          role: 'customer'
+        });
+      }
+      return res.status(201).json({
+        success: true,
+        customer: {
+          id: existing._id.toString(),
+          name: existing.name,
+          email: existing.email,
+          phone: existing.phone,
+          totalOrders: 0,
+          totalSpent: 'Rs. 0',
+          status: 'Active'
+        }
       });
-      return res.status(201).json({ success: true, customer: user });
     }
 
     const newCust = {
-      id: `CUST-0${ADMIN_CUSTOMERS_DATA.length + 1}`,
+      id: `CUST-${Date.now()}`,
       name,
       email,
       phone: phone || '0300-0000000',
-      totalOrders: 1,
+      totalOrders: 0,
       totalSpent: 'Rs. 0',
       status: 'Active'
     };
-    ADMIN_CUSTOMERS_DATA.unshift(newCust);
     res.status(201).json({ success: true, customer: newCust });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -108,42 +131,145 @@ export const addCustomer = async (req, res) => {
 export const getSuppliers = async (req, res) => {
   try {
     if (isDbOnline()) {
-      const suppliers = await Supplier.find({});
-      if (suppliers && suppliers.length > 0) {
-        return res.json({ success: true, suppliers });
-      }
+      const suppliers = await Supplier.find({}).sort({ createdAt: -1 });
+      const mapped = (suppliers || []).map((s) => ({
+        id: s.supplierId || s._id.toString(),
+        name: s.name,
+        contact: s.contact || s.contactPerson || s.name,
+        phone: s.phone,
+        email: s.email,
+        category: s.category || 'Fresh Milk & Pure Dairy',
+        username: s.username,
+        password: s.password,
+        status: s.status || 'Active'
+      }));
+      return res.json({ success: true, suppliers: mapped });
     }
-    res.json({ success: true, suppliers: ADMIN_SUPPLIERS_DATA });
+    res.json({ success: true, suppliers: memorySuppliers });
   } catch (error) {
-    res.json({ success: true, suppliers: ADMIN_SUPPLIERS_DATA });
+    res.json({ success: true, suppliers: memorySuppliers });
   }
 };
 
 export const addSupplier = async (req, res) => {
   try {
-    const { name, contactPerson, phone, email } = req.body;
-    if (isDbOnline()) {
-      const supplierId = 'SUP-' + Math.floor(10 + Math.random() * 90);
-      const supplier = await Supplier.create({
-        supplierId,
-        name,
-        contactPerson: contactPerson || name,
-        phone,
-        email
-      });
-      return res.status(201).json({ success: true, supplier });
-    }
-
+    const { id, name, contact, contactPerson, phone, email, category, username, password } = req.body;
+    const supplierId = id || 'SUP-' + Math.floor(100 + Math.random() * 900);
     const newSup = {
-      id: `SUP-0${ADMIN_SUPPLIERS_DATA.length + 1}`,
+      id: supplierId,
+      supplierId,
       name,
-      contact: contactPerson || name,
+      contact: contact || contactPerson || name,
       phone,
       email,
+      category: category || 'Fresh Milk & Pure Dairy',
+      username: username || name.toLowerCase().replace(/\s+/g, '_'),
+      password: password || 'supplier123',
       status: 'Active'
     };
-    ADMIN_SUPPLIERS_DATA.unshift(newSup);
+
+    if (isDbOnline()) {
+      await Supplier.create(newSup);
+      return res.status(201).json({ success: true, supplier: newSup });
+    }
+
+    memorySuppliers.unshift(newSup);
     res.status(201).json({ success: true, supplier: newSup });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteSupplier = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (isDbOnline()) {
+      await Supplier.deleteOne({ $or: [{ supplierId: id }, { _id: id }, { id }] });
+    }
+    memorySuppliers = memorySuppliers.filter((s) => s.id !== id && s.supplierId !== id);
+    res.json({ success: true, message: 'Supplier deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// --- RIDERS CONTROLLER ---
+export const getRiders = async (req, res) => {
+  try {
+    if (isDbOnline()) {
+      const riders = await Rider.find({}).sort({ createdAt: -1 });
+      const mapped = (riders || []).map((r) => ({
+        id: r.id || r._id.toString(),
+        name: r.name,
+        phone: r.phone,
+        vehicleType: r.vehicleType,
+        vehicleNumber: r.vehicleNumber,
+        zone: r.zone,
+        status: r.status,
+        username: r.username,
+        password: r.password,
+        deliveriesCount: r.deliveriesCount || 0,
+        rating: r.rating || 5.0
+      }));
+      return res.json({ success: true, riders: mapped });
+    }
+    res.json({ success: true, riders: memoryRiders });
+  } catch (error) {
+    res.json({ success: true, riders: memoryRiders });
+  }
+};
+
+export const addRider = async (req, res) => {
+  try {
+    const { id, name, phone, vehicleType, vehicleNumber, zone, status, username, password, cnic } = req.body;
+    const riderId = id || 'RDR-' + Math.floor(100 + Math.random() * 900);
+    const newRider = {
+      id: riderId,
+      name,
+      phone,
+      vehicleType: vehicleType || '🏍️ Honda 125',
+      vehicleNumber: vehicleNumber || 'LEK-0000',
+      zone: zone || 'Lahore Hub',
+      status: status || 'On-Duty',
+      username: username || name.toLowerCase().replace(/\s+/g, '_'),
+      password: password || 'rider123',
+      cnic: cnic || '',
+      deliveriesCount: 0,
+      rating: 5.0
+    };
+
+    if (isDbOnline()) {
+      await Rider.create(newRider);
+      return res.status(201).json({ success: true, rider: newRider });
+    }
+
+    memoryRiders.unshift(newRider);
+    res.status(201).json({ success: true, rider: newRider });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteRider = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (isDbOnline()) {
+      await Rider.deleteOne({ $or: [{ id }, { _id: id }] });
+    }
+    memoryRiders = memoryRiders.filter((r) => r.id !== id);
+    res.json({ success: true, message: 'Rider removed' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const clearAllRiders = async (req, res) => {
+  try {
+    if (isDbOnline()) {
+      await Rider.deleteMany({});
+    }
+    memoryRiders = [];
+    res.json({ success: true, message: 'All riders cleared' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

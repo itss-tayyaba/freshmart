@@ -2,18 +2,42 @@ import mongoose from 'mongoose';
 
 const supplierSchema = new mongoose.Schema(
   {
-    supplierId: { type: String, required: true, unique: true },
+    id: { type: String },
+    supplierId: { type: String },
     name: { type: String, required: true, trim: true },
-    contactPerson: { type: String, required: true },
-    phone: { type: String, required: true },
-    email: { type: String, required: true },
-    categoriesSupplied: [{ type: String }],
-    status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' }
+    contact: { type: String },
+    contactPerson: { type: String },
+    phone: { type: String },
+    email: { type: String },
+    category: { type: String, default: 'Fresh Milk & Pure Dairy' },
+    username: { type: String },
+    password: { type: String },
+    status: { type: String, default: 'Active' }
   },
   { timestamps: true, bufferCommands: false }
 );
 
 export const Supplier = mongoose.model('Supplier', supplierSchema);
+
+const riderSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, unique: true },
+    name: { type: String, required: true },
+    phone: { type: String, required: true },
+    vehicleType: { type: String, default: '🏍️ Honda 125' },
+    vehicleNumber: { type: String, default: 'LEK-0000' },
+    zone: { type: String, default: 'Lahore Hub' },
+    status: { type: String, default: 'On-Duty' },
+    username: { type: String },
+    password: { type: String },
+    cnic: { type: String },
+    deliveriesCount: { type: Number, default: 0 },
+    rating: { type: Number, default: 5.0 }
+  },
+  { timestamps: true, bufferCommands: false }
+);
+
+export const Rider = mongoose.model('Rider', riderSchema);
 
 const promotionSchema = new mongoose.Schema(
   {

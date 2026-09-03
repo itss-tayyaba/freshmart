@@ -30,6 +30,11 @@ import {
   addCustomer,
   getSuppliers,
   addSupplier,
+  deleteSupplier,
+  getRiders,
+  addRider,
+  deleteRider,
+  clearAllRiders,
   getPromotions,
   validateCoupon,
   getDeliveries,
@@ -74,6 +79,13 @@ router.post('/customers', addCustomer);
 // --- Suppliers Routes ---
 router.get('/suppliers', getSuppliers);
 router.post('/suppliers', addSupplier);
+router.delete('/suppliers/:id', deleteSupplier);
+
+// --- Riders Routes ---
+router.get('/riders', getRiders);
+router.post('/riders', addRider);
+router.delete('/riders/:id', deleteRider);
+router.delete('/riders', clearAllRiders);
 
 // --- Promotions Routes ---
 router.get('/promotions', getPromotions);

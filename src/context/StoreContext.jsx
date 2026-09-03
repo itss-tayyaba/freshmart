@@ -492,37 +492,6 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [suppliers]);
 
-  const addSupplier = (supplierData) => {
-    const newId = `SUP-${Math.floor(100 + Math.random() * 900)}`;
-    const newSupplier = {
-      id: newId,
-      name: supplierData.name,
-      contact: supplierData.contact || supplierData.name,
-      phone: supplierData.phone,
-      email: supplierData.email || `${supplierData.name.toLowerCase().replace(/\s+/g, '')}@supplier.com`,
-      category: supplierData.category || 'Fresh Milk & Pure Dairy',
-      username: supplierData.username || supplierData.name.toLowerCase().replace(/\s+/g, '_'),
-      password: supplierData.password || 'supplier123',
-      status: 'Active',
-      createdAt: new Date().toISOString()
-    };
-    setSuppliers((prev) => [newSupplier, ...prev]);
-    addToast('Supplier Added 🏢', `${newSupplier.name} registered successfully.`);
-    return newSupplier;
-  };
-
-  const deleteSupplier = (id) => {
-    setSuppliers((prev) => prev.filter((s) => s.id !== id));
-    addToast('Supplier Removed', 'Supplier deleted from directory.', 'info');
-  };
-
-  const updateSupplier = (id, updatedFields) => {
-    setSuppliers((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, ...updatedFields } : s))
-    );
-    addToast('Supplier Updated', 'Supplier record updated successfully.');
-  };
-
   // Customers State (Empty initially - added by Admin or Customer Registration)
   const [customers, setCustomers] = useState(() => {
     try {
@@ -538,19 +507,113 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [customers]);
 
+  // Sync suppliers from database on startup
+  useEffect(() => {
+    const syncSuppliers = async () => {
+      try {
+        const res = await apiService.getSuppliers();
+        if (res && res.success && Array.isArray(res.suppliers) && res.suppliers.length > 0) {
+          setSuppliers(res.suppliers);
+          localStorage.setItem('freshmart_suppliers', JSON.stringify(res.suppliers));
+        }
+      } catch (e) {}
+    };
+    syncSuppliers();
+  }, []);
+
+  // Sync riders from database on startup
+  useEffect(() => {
+    const syncRiders = async () => {
+      try {
+        const res = await apiService.getRiders();
+        if (res && res.success && Array.isArray(res.riders)) {
+          setRiders(res.riders);
+          localStorage.setItem('freshmart_riders', JSON.stringify(res.riders));
+        }
+      } catch (e) {}
+    };
+    syncRiders();
+  }, []);
+
+  // Sync customers from database on startup
+  useEffect(() => {
+    const syncCustomers = async () => {
+      try {
+        const res = await apiService.getCustomers();
+        if (res && res.success && Array.isArray(res.customers) && res.customers.length > 0) {
+          setCustomers(res.customers);
+          localStorage.setItem('freshmart_customers', JSON.stringify(res.customers));
+        }
+      } catch (e) {}
+    };
+    syncCustomers();
+  }, []);
+
+  const addSupplier = (supplierData) => {
+    const newId = `SUP-${Math.floor(100 + Math.random() * 900)}`;
+    const newSupplier = {
+      id: newId,
+      name: supplierData.name,
+      contact: supplierData.contact || supplierData.name,
+      phone: supplierData.phone,
+      email: supplierData.email || `${supplierData.name.toLowerCase().replace(/\s+/g, '')}@supplier.com`,
+      category: supplierData.category || 'Fresh Milk & Pure Dairy',
+      username: supplierData.username || supplierData.name.toLowerCase().replace(/\s+/g, '_'),
+      password: supplierData.password || 'supplier123',
+      status: 'Active',
+      createdAt: new Date().toISOString()
+    };
+    setSuppliers((prev) => {
+      const updated = [newSupplier, ...prev];
+      try {
+        localStorage.setItem('freshmart_suppliers', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    apiService.createSupplier(newSupplier);
+    addToast('Supplier Added 🏢', `${newSupplier.name} registered successfully.`);
+    return newSupplier;
+  };
+
+  const deleteSupplier = (id) => {
+    setSuppliers((prev) => {
+      const updated = prev.filter((s) => s.id !== id && s.supplierId !== id);
+      try {
+        localStorage.setItem('freshmart_suppliers', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    apiService.deleteSupplier(id);
+    addToast('Supplier Removed', 'Supplier deleted from directory.', 'info');
+  };
+
+  const updateSupplier = (id, updatedFields) => {
+    setSuppliers((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, ...updatedFields } : s))
+    );
+    addToast('Supplier Updated', 'Supplier record updated successfully.');
+  };
+
   const addCustomer = (customerData) => {
     const newId = `CUST-${Math.floor(100 + Math.random() * 900)}`;
     const newCust = {
       id: newId,
       name: customerData.name,
       email: customerData.email,
-      phone: customerData.phone,
+      phone: customerData.phone || '+92 300 1234567',
       totalOrders: 0,
       totalSpent: 'Rs. 0',
       status: 'Active',
       createdAt: new Date().toISOString()
     };
-    setCustomers((prev) => [newCust, ...prev]);
+    setCustomers((prev) => {
+      const updated = [newCust, ...prev];
+      try {
+        localStorage.setItem('freshmart_customers', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    apiService.createCustomer(newCust);
     addToast('Customer Added 👤', `${newCust.name} added to directory.`);
     return newCust;
   };
@@ -827,20 +890,38 @@ export const StoreProvider = ({ children }) => {
       activeOrderId: null,
       joinedDate: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
     };
-    setRiders((prev) => [riderObj, ...prev]);
+    setRiders((prev) => {
+      const updated = [riderObj, ...prev];
+      try {
+        localStorage.setItem('freshmart_riders', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    apiService.createRider(riderObj);
     addToast('Rider Registered 🛵', `"${riderObj.name}" added to delivery fleet.`);
     return riderObj;
   };
 
   const updateRider = (riderId, updatedData) => {
-    setRiders((prev) =>
-      prev.map((r) => (r.id === riderId ? { ...r, ...updatedData } : r))
-    );
+    setRiders((prev) => {
+      const updated = prev.map((r) => (r.id === riderId ? { ...r, ...updatedData } : r));
+      try {
+        localStorage.setItem('freshmart_riders', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
     addToast('Rider Profile Updated 📝', 'Rider details saved.');
   };
 
   const deleteRider = (riderId) => {
-    setRiders((prev) => prev.filter((r) => r.id !== riderId));
+    setRiders((prev) => {
+      const updated = prev.filter((r) => r.id !== riderId);
+      try {
+        localStorage.setItem('freshmart_riders', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    apiService.deleteRider(riderId);
     addToast('Rider Removed', 'Rider removed from active fleet.', 'info');
   };
 
@@ -849,6 +930,7 @@ export const StoreProvider = ({ children }) => {
     try {
       localStorage.setItem('freshmart_riders', JSON.stringify([]));
     } catch (e) {}
+    apiService.clearAllRiders();
     addToast('Fleet Cleared 🛵', 'All riders removed. You can now add your own riders.', 'info');
   };
 

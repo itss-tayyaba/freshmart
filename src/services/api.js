@@ -225,5 +225,120 @@ export const apiService = {
     } catch (e) {
       return { success: false, error: e.message };
     }
+  },
+
+  async register(userData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // Customers API
+  async getCustomers() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/customers`);
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async createCustomer(customerData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/customers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(customerData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // Suppliers API
+  async getSuppliers() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/suppliers`);
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async createSupplier(supplierData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/suppliers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(supplierData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteSupplier(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/suppliers/${id}`, {
+        method: 'DELETE'
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // Riders API
+  async getRiders() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/riders`);
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async createRider(riderData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/riders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(riderData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteRider(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/riders/${id}`, {
+        method: 'DELETE'
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async clearAllRiders() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/riders`, {
+        method: 'DELETE'
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
   }
 };
