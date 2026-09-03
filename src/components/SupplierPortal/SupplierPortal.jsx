@@ -98,6 +98,46 @@ const SUPPLIER_SPECIALTIES = {
     deliveries: [
       { id: 'DISP-601', poId: 'PO-3014', destination: 'Gulberg Warehouse Hub', driver: 'Shahbaz Ali', phone: '0313-7766554', vehicle: 'Insulated Van (LEH-1192)', status: 'Out for Delivery', eta: 'Today, 5:15 PM', challanNo: 'CH-7740', item: '50 Trays Desi Eggs' }
     ]
+  },
+  'Beverages, Juices & Soft Drinks': {
+    id: 'beverages',
+    label: '🥤 Coca-Cola Beverages Pakistan',
+    category: 'Beverages, Juices & Soft Drinks',
+    companyName: 'Coca-Cola Beverages Pakistan Ltd.',
+    tagline: 'Official Soft Drinks, Juices & Mineral Water Bottler',
+    products: [
+      { id: 'BEV-01', name: 'Coca-Cola Original 1.5L Bottle (Crate of 6)', unitPrice: 1020, unit: 'Crate', minOrder: 30, leadTime: '8 Hours', status: 'Active Supply' },
+      { id: 'BEV-02', name: 'Sprite Lemon-Lime 1.5L Bottle (Crate of 6)', unitPrice: 1020, unit: 'Crate', minOrder: 25, leadTime: '8 Hours', status: 'Active Supply' },
+      { id: 'BEV-03', name: 'Fanta Orange 1.5L Bottle (Crate of 6)', unitPrice: 1020, unit: 'Crate', minOrder: 20, leadTime: '8 Hours', status: 'Active Supply' },
+      { id: 'BEV-04', name: 'Minute Maid Pulpy Orange Juice 1L (Pack of 12)', unitPrice: 2160, unit: 'Pack', minOrder: 15, leadTime: '12 Hours', status: 'Active Supply' },
+      { id: 'BEV-05', name: 'Dasani Pure Drinking Water 1.5L (Crate of 6)', unitPrice: 540, unit: 'Crate', minOrder: 50, leadTime: '6 Hours', status: 'Active Supply' }
+    ],
+    purchaseOrders: [
+      { id: 'PO-4018', item: 'Coca-Cola 1.5L (60 Crates)', qty: '60 Crates', amount: 61200, status: 'Pending Orders', branch: 'Lahore Central Main Hub', dueDate: 'Today, 2:00 PM', poDate: '03 Sept 2026', vehicle: 'Beverage Truck LEC-5542' },
+      { id: 'PO-4017', item: 'Sprite 1.5L (40 Crates) & Fanta (30 Crates)', qty: '70 Crates', amount: 71400, status: 'To Ship', branch: 'Faisalabad Branch Hub', dueDate: 'Tomorrow, 11:00 AM', poDate: '02 Sept 2026', vehicle: 'Bottler Truck LEA-8821' },
+      { id: 'PO-4016', item: 'Dasani Mineral Water 1.5L (100 Crates)', qty: '100 Crates', amount: 54000, status: 'Deliver Today', branch: 'Gulberg Warehouse Hub', dueDate: 'Today, 5:30 PM', poDate: '02 Sept 2026', vehicle: 'Delivery Van LEK-2219' }
+    ],
+    deliveries: [
+      { id: 'DISP-501', poId: 'PO-4016', destination: 'Gulberg Warehouse Hub', driver: 'Waqas Munir', phone: '0333-5566778', vehicle: 'Beverage Truck (LEK-2219)', status: 'Out for Delivery', eta: 'Today, 5:00 PM', challanNo: 'CH-6612', item: '100 Crates Dasani Water' }
+    ]
+  },
+  'Bakery, Flour & Yeast': {
+    id: 'bakery',
+    label: '🍞 Dawn Bakery & Bread Supplies',
+    category: 'Bakery, Flour & Yeast',
+    companyName: 'Dawn Bread & Bakery Supplies',
+    tagline: 'Fresh Sliced Breads, Buns & Rusks Wholesale Partner',
+    products: [
+      { id: 'BAK-01', name: 'Dawn Plain Large Bread 800g (Crate of 20)', unitPrice: 3200, unit: 'Crate', minOrder: 15, leadTime: '2 Hours', status: 'Active Supply' },
+      { id: 'BAK-02', name: 'Dawn Milky Sweet Bread 400g (Crate of 25)', unitPrice: 2750, unit: 'Crate', minOrder: 10, leadTime: '2 Hours', status: 'Active Supply' },
+      { id: 'BAK-03', name: 'Dawn Burger Buns 4-Pack (Box of 30)', unitPrice: 2400, unit: 'Box', minOrder: 20, leadTime: '3 Hours', status: 'Active Supply' }
+    ],
+    purchaseOrders: [
+      { id: 'PO-5012', item: 'Plain Large Bread 800g (40 Crates)', qty: '40 Crates', amount: 128000, status: 'Pending Orders', branch: 'Lahore Central Main Hub', dueDate: 'Tomorrow, 5:00 AM', poDate: '03 Sept 2026', vehicle: 'Bakery Van LEK-1120' }
+    ],
+    deliveries: [
+      { id: 'DISP-401', poId: 'PO-5012', destination: 'Lahore Central Hub', driver: 'Rashid Mahmood', phone: '0301-2233445', vehicle: 'Bakery Van (LEK-1120)', status: 'Scheduled', eta: 'Tomorrow, 5:00 AM', challanNo: 'CH-5510', item: '40 Crates Dawn Bread' }
+    ]
   }
 };
 
