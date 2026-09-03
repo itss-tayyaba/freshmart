@@ -269,7 +269,7 @@ export const FreshMartHeader = () => {
             </li>
           </ul>
 
-          {/* Switchers: Customer Portal & Admin Suite */}
+          {/* Switcher: Customer Portal */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
@@ -287,18 +287,6 @@ export const FreshMartHeader = () => {
             >
               <User className="w-3.5 h-3.5" />
               <span>Customer Portal</span>
-            </button>
-
-            <button
-              onClick={() => navigateTo('admin')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                currentPage === 'admin'
-                  ? 'bg-slate-900 text-white shadow-2xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
-              }`}
-            >
-              <LayoutDashboard className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Admin Suite</span>
             </button>
           </div>
 
@@ -361,15 +349,6 @@ export const FreshMartHeader = () => {
               className="p-2 bg-emerald-100 text-emerald-900 font-bold rounded-xl text-left hover:bg-emerald-200"
             >
               👤 Customer Portal
-            </button>
-            <button
-              onClick={() => {
-                navigateTo('admin');
-                setMobileMenuOpen(false);
-              }}
-              className="p-2 bg-slate-900 text-white rounded-xl text-left col-span-2 text-center font-bold"
-            >
-              📊 Admin Suite
             </button>
           </div>
         </div>
