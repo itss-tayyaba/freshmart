@@ -104,21 +104,32 @@ const SUPPLIER_SPECIALTIES = {
     label: '🥤 Coca-Cola Beverages Pakistan',
     category: 'Beverages, Juices & Soft Drinks',
     companyName: 'Coca-Cola Beverages Pakistan Ltd.',
-    tagline: 'Official Soft Drinks, Juices & Mineral Water Bottler',
+    tagline: 'Official Bottler of Coca-Cola, Sprite, Fanta, Fuze Tea, Powerade & Dasani',
     products: [
-      { id: 'BEV-01', name: 'Coca-Cola Original 1.5L Bottle (Crate of 6)', unitPrice: 1020, unit: 'Crate', minOrder: 30, leadTime: '8 Hours', status: 'Active Supply' },
-      { id: 'BEV-02', name: 'Sprite Lemon-Lime 1.5L Bottle (Crate of 6)', unitPrice: 1020, unit: 'Crate', minOrder: 25, leadTime: '8 Hours', status: 'Active Supply' },
-      { id: 'BEV-03', name: 'Fanta Orange 1.5L Bottle (Crate of 6)', unitPrice: 1020, unit: 'Crate', minOrder: 20, leadTime: '8 Hours', status: 'Active Supply' },
-      { id: 'BEV-04', name: 'Minute Maid Pulpy Orange Juice 1L (Pack of 12)', unitPrice: 2160, unit: 'Pack', minOrder: 15, leadTime: '12 Hours', status: 'Active Supply' },
-      { id: 'BEV-05', name: 'Dasani Pure Drinking Water 1.5L (Crate of 6)', unitPrice: 540, unit: 'Crate', minOrder: 50, leadTime: '6 Hours', status: 'Active Supply' }
+      { id: 'COKE-01', name: 'Coca-Cola Original (250ml Can - Crate of 24)', unitPrice: 2160, unit: 'Crate', minOrder: 20, leadTime: '6 Hours', status: 'Active Supply' },
+      { id: 'COKE-02', name: 'Coca-Cola Original (500ml Bottle - Crate of 12)', unitPrice: 1200, unit: 'Crate', minOrder: 25, leadTime: '6 Hours', status: 'Active Supply' },
+      { id: 'COKE-03', name: 'Coca-Cola Original (1.5L Bottle - Crate of 6)', unitPrice: 1020, unit: 'Crate', minOrder: 30, leadTime: '8 Hours', status: 'Active Supply' },
+      { id: 'COKE-04', name: 'Coca-Cola Original (2.25L Bottle - Crate of 6)', unitPrice: 1440, unit: 'Crate', minOrder: 20, leadTime: '8 Hours', status: 'Active Supply' },
+      { id: 'COKE-05', name: 'Coca-Cola Zero Sugar (500ml Bottle - Crate of 12)', unitPrice: 1320, unit: 'Crate', minOrder: 15, leadTime: '8 Hours', status: 'Active Supply' },
+      { id: 'COKE-06', name: 'Coca-Cola Zero Sugar (1.5L Bottle - Crate of 6)', unitPrice: 1140, unit: 'Crate', minOrder: 20, leadTime: '8 Hours', status: 'Active Supply' },
+      { id: 'COKE-07', name: 'Sprite (500ml Bottle - Crate of 12)', unitPrice: 1200, unit: 'Crate', minOrder: 25, leadTime: '6 Hours', status: 'Active Supply' },
+      { id: 'COKE-08', name: 'Sprite (1.5L Bottle - Crate of 6)', unitPrice: 1020, unit: 'Crate', minOrder: 30, leadTime: '8 Hours', status: 'Active Supply' },
+      { id: 'COKE-09', name: 'Fanta Orange (500ml Bottle - Crate of 12)', unitPrice: 1200, unit: 'Crate', minOrder: 20, leadTime: '6 Hours', status: 'Active Supply' },
+      { id: 'COKE-10', name: 'Fanta Orange (1.5L Bottle - Crate of 6)', unitPrice: 1020, unit: 'Crate', minOrder: 25, leadTime: '8 Hours', status: 'Active Supply' },
+      { id: 'COKE-11', name: 'Fanta (2.25L Bottle - Crate of 6)', unitPrice: 1440, unit: 'Crate', minOrder: 15, leadTime: '8 Hours', status: 'Active Supply' },
+      { id: 'COKE-12', name: 'Fuze Tea Iced Tea (500ml Bottle - Crate of 12)', unitPrice: 1800, unit: 'Crate', minOrder: 10, leadTime: '12 Hours', status: 'Active Supply' },
+      { id: 'COKE-13', name: 'Powerade Sports Drink (500ml Bottle - Crate of 12)', unitPrice: 2400, unit: 'Crate', minOrder: 10, leadTime: '12 Hours', status: 'Active Supply' },
+      { id: 'COKE-14', name: 'Dasani Bottled Water (500ml Bottle - Crate of 12)', unitPrice: 480, unit: 'Crate', minOrder: 40, leadTime: '4 Hours', status: 'Active Supply' },
+      { id: 'COKE-15', name: 'Dasani Bottled Water (1.5L Bottle - Crate of 6)', unitPrice: 540, unit: 'Crate', minOrder: 50, leadTime: '4 Hours', status: 'Active Supply' }
     ],
     purchaseOrders: [
-      { id: 'PO-4018', item: 'Coca-Cola 1.5L (60 Crates)', qty: '60 Crates', amount: 61200, status: 'Pending Orders', branch: 'Lahore Central Main Hub', dueDate: 'Today, 2:00 PM', poDate: '03 Sept 2026', vehicle: 'Beverage Truck LEC-5542' },
-      { id: 'PO-4017', item: 'Sprite 1.5L (40 Crates) & Fanta (30 Crates)', qty: '70 Crates', amount: 71400, status: 'To Ship', branch: 'Faisalabad Branch Hub', dueDate: 'Tomorrow, 11:00 AM', poDate: '02 Sept 2026', vehicle: 'Bottler Truck LEA-8821' },
-      { id: 'PO-4016', item: 'Dasani Mineral Water 1.5L (100 Crates)', qty: '100 Crates', amount: 54000, status: 'Deliver Today', branch: 'Gulberg Warehouse Hub', dueDate: 'Today, 5:30 PM', poDate: '02 Sept 2026', vehicle: 'Delivery Van LEK-2219' }
+      { id: 'PO-4018', item: 'Coca-Cola 1.5L (60 Crates) & 250ml Cans (30 Crates)', qty: '90 Crates', amount: 126000, status: 'Pending Orders', branch: 'Lahore Central Main Hub', dueDate: 'Today, 2:00 PM', poDate: '03 Sept 2026', vehicle: 'Beverage Truck LEC-5542' },
+      { id: 'PO-4017', item: 'Sprite 1.5L (40 Crates) & Fanta 1.5L (30 Crates)', qty: '70 Crates', amount: 71400, status: 'To Ship', branch: 'Faisalabad Branch Hub', dueDate: 'Tomorrow, 11:00 AM', poDate: '02 Sept 2026', vehicle: 'Bottler Truck LEA-8821' },
+      { id: 'PO-4016', item: 'Dasani Bottled Water 1.5L (100 Crates) & 500ml (50 Crates)', qty: '150 Crates', amount: 78000, status: 'Deliver Today', branch: 'Gulberg Warehouse Hub', dueDate: 'Today, 5:30 PM', poDate: '02 Sept 2026', vehicle: 'Delivery Van LEK-2219' },
+      { id: 'PO-4015', item: 'Fuze Tea & Powerade Sports (30 Crates)', qty: '30 Crates', amount: 63000, status: 'Complete Orders', branch: 'DHA Phase 5 Hub', dueDate: '01 Sept 2026', poDate: '01 Sept 2026', vehicle: 'Beverage Van LEK-1120' }
     ],
     deliveries: [
-      { id: 'DISP-501', poId: 'PO-4016', destination: 'Gulberg Warehouse Hub', driver: 'Waqas Munir', phone: '0333-5566778', vehicle: 'Beverage Truck (LEK-2219)', status: 'Out for Delivery', eta: 'Today, 5:00 PM', challanNo: 'CH-6612', item: '100 Crates Dasani Water' }
+      { id: 'DISP-501', poId: 'PO-4016', destination: 'Gulberg Warehouse Hub', driver: 'Waqas Munir', phone: '0333-5566778', vehicle: 'Beverage Truck (LEK-2219)', status: 'Out for Delivery', eta: 'Today, 5:00 PM', challanNo: 'CH-6612', item: '150 Crates Dasani Water' }
     ]
   },
   'Bakery, Flour & Yeast': {
