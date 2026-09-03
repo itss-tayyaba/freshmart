@@ -46,6 +46,15 @@ export const AdminDashboard = () => {
     return 'Dashboard';
   });
 
+  const [headerSearch, setHeaderSearch] = useState('');
+
+  // Modal visibility states (Must be declared before any conditional return!)
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+  const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
+  const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
+  const [isCreatePromoOpen, setIsCreatePromoOpen] = useState(false);
+
   useEffect(() => {
     if (adminRole === 'rider') {
       setActiveTab('Delivery');
@@ -56,19 +65,10 @@ export const AdminDashboard = () => {
     }
   }, [adminRole]);
 
-  const [headerSearch, setHeaderSearch] = useState('');
-
   // If not logged in as Admin, show the Admin Login with Username/Password
   if (!isAdminLoggedIn) {
     return <AdminLogin />;
   }
-
-  // Modal visibility states
-  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
-  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
-  const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
-  const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
-  const [isCreatePromoOpen, setIsCreatePromoOpen] = useState(false);
 
   const roleMeta = {
     admin: { title: 'Store Admin', badge: '🛡️ Store Admin', tag: 'Full Control', iconBg: 'bg-emerald-600' },
