@@ -16,6 +16,7 @@ export const CartDrawer = () => {
     cartTotal,
     appliedCoupon,
     applyCouponCode,
+    removeCouponCode,
     navigateTo,
     currency
   } = useStore();
@@ -177,28 +178,58 @@ export const CartDrawer = () => {
               <div className="relative flex-1">
                 <input
                   type="text"
-                  placeholder="Enter Promo Code (e.g. WELCOME20)"
+                  placeholder="Enter Promo (e.g. WELCOME20, FRESH15)"
                   value={couponInput}
                   onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                  className="w-full text-xs uppercase font-mono bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full text-xs uppercase font-mono bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
                 />
                 <Tag className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               </div>
               <button
                 type="submit"
-                className="px-4 py-2.5 bg-slate-900 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs"
               >
                 Apply
               </button>
             </form>
 
+            {/* Quick Promo Codes Suggestions */}
+            {!appliedCoupon && (
+              <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                <span className="text-slate-400 font-bold">Suggested:</span>
+                {['WELCOME20', 'FRESH15', 'FLASH30'].map((code) => (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => applyCouponCode(code)}
+                    className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg font-mono font-black transition-colors cursor-pointer"
+                  >
+                    {code}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {appliedCoupon && (
-              <div className="flex items-center justify-between text-xs bg-emerald-100/70 border border-emerald-200 text-emerald-900 px-3 py-1.5 rounded-xl font-medium">
-                <span className="flex items-center gap-1.5 font-bold">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Coupon {appliedCoupon.code} Applied</span>
-                </span>
-                <span className="font-bold">-{currency.symbol}{discountAmount}</span>
+              <div className="flex items-center justify-between text-xs bg-emerald-50 border border-emerald-200 text-emerald-900 px-3 py-2 rounded-xl font-medium">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div>
+                    <span className="font-black text-emerald-950 font-mono block">{appliedCoupon.code}</span>
+                    <span className="text-[10px] text-emerald-700 block">{appliedCoupon.description || 'Discount active'}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-emerald-800 text-sm">-{currency.symbol}{discountAmount}</span>
+                  <button
+                    type="button"
+                    onClick={removeCouponCode}
+                    className="p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                    title="Remove coupon"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             )}
 

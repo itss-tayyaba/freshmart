@@ -69,53 +69,68 @@ export const ShopPage = () => {
     setSortBy('featured');
   };
 
-  // Filter & Sort Logic
+  // Filter & Sort Logic (100% Accurate & Multi-Attribute Aware)
   const filteredProducts = useMemo(() => {
     let list = [...products];
 
-    // Category filter
+    // 1. Category Filter (Matches ID, slug, and display label)
     if (activeCategory && activeCategory !== 'all') {
-      list = list.filter((p) => p.category === activeCategory);
+      const cleanCat = String(activeCategory).toLowerCase().trim();
+      list = list.filter((p) => {
+        const pCat = String(p.category || '').toLowerCase().trim();
+        const pCatLabel = String(p.categoryLabel || '').toLowerCase().trim();
+        return pCat === cleanCat || pCatLabel === cleanCat || pCat.includes(cleanCat) || cleanCat.includes(pCat);
+      });
     }
 
-    // Brand filter
-    if (selectedBrands.length > 0) {
-      list = list.filter((p) => selectedBrands.includes(p.brand));
+    // 2. Brand Filter (Multi-brand checkbox selection)
+    if (selectedBrands && selectedBrands.length > 0) {
+      const brandSet = new Set(selectedBrands.map((b) => String(b).toLowerCase().trim()));
+      list = list.filter((p) => p.brand && brandSet.has(String(p.brand).toLowerCase().trim()));
     }
 
-    // Price range
-    list = list.filter((p) => p.price >= priceRange[0] && p.price <= priceRange[1]);
+    // 3. Price Range Filter
+    const minP = Number(priceRange[0]) || 0;
+    const maxP = Number(priceRange[1]) || 5000;
+    list = list.filter((p) => {
+      const pPrice = Number(p.price) || 0;
+      return pPrice >= minP && pPrice <= maxP;
+    });
 
-    // In Stock Only
+    // 4. In Stock Only Filter
     if (inStockOnly) {
-      list = list.filter((p) => p.inStock && p.status !== 'Out of Stock');
+      list = list.filter((p) => p.inStock !== false && p.status !== 'Out of Stock' && (p.stockCount === undefined || p.stockCount > 0));
     }
 
-    // Rating
+    // 5. Customer Rating Filter
     if (minRating > 0) {
-      list = list.filter((p) => (p.rating || 4.5) >= minRating);
+      list = list.filter((p) => (Number(p.rating) || 4.5) >= minRating);
     }
 
-    // Search query
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    // 6. Search Query (Matches Name, Brand, Category, Description)
+    if (searchQuery && searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
       list = list.filter(
         (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.brand?.toLowerCase().includes(q) ||
-          p.categoryLabel?.toLowerCase().includes(q)
+          (p.name && p.name.toLowerCase().includes(q)) ||
+          (p.brand && p.brand.toLowerCase().includes(q)) ||
+          (p.category && p.category.toLowerCase().includes(q)) ||
+          (p.categoryLabel && p.categoryLabel.toLowerCase().includes(q)) ||
+          (p.description && p.description.toLowerCase().includes(q))
       );
     }
 
-    // Sorting
+    // 7. Multi-Mode Sorting
     if (sortBy === 'price-low') {
-      list.sort((a, b) => a.price - b.price);
+      list.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
     } else if (sortBy === 'price-high') {
-      list.sort((a, b) => b.price - a.price);
+      list.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
     } else if (sortBy === 'rating') {
-      list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      list.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
     } else if (sortBy === 'discount') {
-      list.sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
+      list.sort((a, b) => (Number(b.discountPercent) || 0) - (Number(a.discountPercent) || 0));
+    } else if (sortBy === 'popular') {
+      list.sort((a, b) => (Number(b.reviewsCount) || 0) - (Number(a.reviewsCount) || 0));
     }
 
     return list;
@@ -228,7 +243,7 @@ export const ShopPage = () => {
             <input
               type="range"
               min="0"
-              max="3000"
+              max="5000"
               step="50"
               value={priceRange[1]}
               onChange={(e) => setPriceRange([0, Number(e.target.value)])}
@@ -236,7 +251,7 @@ export const ShopPage = () => {
             />
             <div className="flex justify-between text-[10px] text-slate-400 font-bold">
               <span>{currency.symbol}0</span>
-              <span>{currency.symbol}3,000+</span>
+              <span>{currency.symbol}5,000+</span>
             </div>
           </div>
 

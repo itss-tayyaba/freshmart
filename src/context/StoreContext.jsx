@@ -1312,11 +1312,17 @@ export const StoreProvider = ({ children }) => {
   );
   const wishlistCount = validWishlistProducts.length;
 
-  // Cart calculations
+  // Cart calculations - Dynamic real-time discount computation
   const cartSubtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-
   const deliveryCharges = cartSubtotal >= 1500 || cartSubtotal === 0 ? 0 : 50;
-  const discountAmount = appliedCoupon?.amount || 0;
+
+  // Real-time dynamic discount based on applied coupon percentage or flat amount
+  const discountAmount = appliedCoupon
+    ? (appliedCoupon.discountPercent
+        ? Math.round((cartSubtotal * appliedCoupon.discountPercent) / 100)
+        : (appliedCoupon.amount || 0))
+    : 0;
+
   const cartTotal = Math.max(0, cartSubtotal + deliveryCharges - discountAmount);
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -1358,40 +1364,122 @@ export const StoreProvider = ({ children }) => {
     };
   }, []);
 
-  // Validate coupon code via backend
-  const applyCouponCode = async (code) => {
+  // Validate coupon code via database/backend & active promotions state
+  const applyCouponCode = async (rawCode) => {
+    if (!rawCode || !rawCode.trim()) {
+      addToast('Enter Coupon Code', 'Please enter a valid coupon code.', 'info');
+      return false;
+    }
+
+    const code = rawCode.trim().toUpperCase();
+
+    // 1. Check dynamic admin promotions state
+    const matchedPromo = (promotions || []).find(
+      (p) => p.code && p.code.toUpperCase() === code && p.status === 'Active'
+    );
+
+    if (matchedPromo) {
+      let percent = 20;
+      const numMatch = matchedPromo.discount?.match(/(\d+)%/);
+      if (numMatch) {
+        percent = parseInt(numMatch[1], 10);
+      }
+      setAppliedCoupon({
+        code,
+        discountPercent: percent,
+        title: matchedPromo.title,
+        description: `${percent}% discount from "${matchedPromo.title}" applied!`
+      });
+      addToast('Coupon Applied! 🎉', `${percent}% discount applied from ${matchedPromo.title}.`);
+      return true;
+    }
+
+    // 2. Try validating with backend REST API
     try {
       const res = await apiService.validateCoupon(code, cartSubtotal);
       if (res && res.success && res.coupon) {
         setAppliedCoupon(res.coupon);
-        addToast('Coupon Applied! 🎉', res.coupon.description);
+        addToast('Coupon Applied! 🎉', res.coupon.description || 'Promo discount applied.');
         return true;
       }
     } catch (e) {}
 
-    const uc = code.toUpperCase();
-    if (uc === 'WELCOME20' || uc === 'FIRST20') {
-      setAppliedCoupon({ code: uc, discountPercent: 20, amount: Math.round(cartSubtotal * 0.2), description: 'Flat 20% discount applied!' });
-      addToast('Coupon Applied! 🎉', 'Flat 20% discount applied.');
+    // 3. Check official verified store coupon codes
+    if (code === 'WELCOME20' || code === 'FIRST20') {
+      setAppliedCoupon({
+        code,
+        discountPercent: 20,
+        description: 'Flat 20% discount applied to your order!'
+      });
+      addToast('Coupon Applied! 🎉', 'Flat 20% welcome discount applied.');
       return true;
     }
-    if (uc === 'FRESH15') {
-      setAppliedCoupon({ code: 'FRESH15', discountPercent: 15, amount: Math.round(cartSubtotal * 0.15), description: 'Flat 15% discount on your order!' });
+    if (code === 'FRESH15') {
+      setAppliedCoupon({
+        code: 'FRESH15',
+        discountPercent: 15,
+        description: '15% discount applied on all fresh items!'
+      });
       addToast('Coupon Applied! 🎉', '15% discount activated.');
       return true;
     }
-    if (uc === 'VEG10') {
-      setAppliedCoupon({ code: 'VEG10', discountPercent: 10, amount: Math.round(cartSubtotal * 0.1), description: '10% OFF on fresh vegetables!' });
-      addToast('Coupon Applied! 🎉', '10% vegetable discount applied.');
+    if (code === 'FLASH30') {
+      setAppliedCoupon({
+        code: 'FLASH30',
+        discountPercent: 30,
+        description: 'Super Weekend Flash Sale 30% OFF applied!'
+      });
+      addToast('Flash Sale Activated! 🔥', '30% super discount applied.');
       return true;
     }
-    if (uc === 'FRESH50') {
-      setAppliedCoupon({ code: 'FRESH50', amount: 100, description: 'Flat 50% discount added.' });
-      addToast('Coupon Applied! 🎉', 'Flat 50% discount added.');
+    if (code === 'SAVE25' || code === 'SUPER25') {
+      setAppliedCoupon({
+        code,
+        discountPercent: 25,
+        description: '25% discount on your grocery basket!'
+      });
+      addToast('Coupon Applied! 🎉', '25% mega savings applied.');
       return true;
     }
-    addToast('Invalid Coupon', 'Code not recognized', 'error');
+    if (code === 'VEG10' || code === 'VEG20') {
+      const pct = code === 'VEG20' ? 20 : 10;
+      setAppliedCoupon({
+        code,
+        discountPercent: pct,
+        description: `${pct}% OFF on farm fresh produce!`
+      });
+      addToast('Coupon Applied! 🎉', `${pct}% vegetable discount applied.`);
+      return true;
+    }
+    if (code === 'FRESH50') {
+      setAppliedCoupon({
+        code: 'FRESH50',
+        amount: 50,
+        description: 'Flat Rs. 50 instant cash voucher deducted.'
+      });
+      addToast('Voucher Applied! 🎫', 'Flat Rs. 50 discount deducted.');
+      return true;
+    }
+    if (code === 'FRESHMART') {
+      setAppliedCoupon({
+        code: 'FRESHMART',
+        discountPercent: 10,
+        description: 'Official FreshMart Member 10% discount applied.'
+      });
+      addToast('Member Discount! 🛒', '10% member discount applied.');
+      return true;
+    }
+
+    addToast('Invalid Coupon ❌', `Coupon code "${code}" is invalid or expired.`, 'error');
     return false;
+  };
+
+  const removeCouponCode = () => {
+    if (appliedCoupon) {
+      const prevCode = appliedCoupon.code;
+      setAppliedCoupon(null);
+      addToast('Coupon Removed', `Coupon "${prevCode}" has been removed.`, 'info');
+    }
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
@@ -1525,6 +1613,7 @@ export const StoreProvider = ({ children }) => {
         appliedCoupon,
         setAppliedCoupon,
         applyCouponCode,
+        removeCouponCode,
         adminOrders,
         updateOrderStatus,
         adminStats,

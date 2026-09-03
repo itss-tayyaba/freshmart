@@ -4,15 +4,14 @@ import { useStore } from '../../context/StoreContext';
 import { COUPONS } from '../../data/groceryData';
 
 export const OffersModal = () => {
-  const { isOffersOpen, setIsOffersOpen, applyCoupon, addToast } = useStore();
+  const { isOffersOpen, setIsOffersOpen, applyCouponCode, addToast } = useStore();
 
   if (!isOffersOpen) return null;
 
   const handleCopy = (code) => {
     navigator.clipboard?.writeText(code);
-    applyCoupon(code);
+    applyCouponCode(code);
     setIsOffersOpen(false);
-    addToast('Coupon Applied! 🎉', `Code ${code} activated on your cart.`);
   };
 
   return (
