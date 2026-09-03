@@ -71,27 +71,46 @@ export const AdminDashboard = () => {
   const [isCreatePromoOpen, setIsCreatePromoOpen] = useState(false);
 
   const roleMeta = {
-    superadmin: { title: 'Super Admin', badge: '★ Super Admin', tag: 'Full Control', iconBg: 'bg-amber-600' },
-    admin: { title: 'Store Admin', badge: '◆ Store Manager', tag: 'Store Operations', iconBg: 'bg-emerald-600' },
+    admin: { title: 'Store Admin', badge: '🛡️ Store Admin', tag: 'Full Control', iconBg: 'bg-emerald-600' },
     supplier: { title: 'Supplier Partner', badge: '📦 Supplier Portal', tag: 'Supply & Invoices', iconBg: 'bg-indigo-600' },
-    rider: { title: 'Delivery Fleet', badge: '🛵 Delivery Dispatch', tag: 'Rider App', iconBg: 'bg-rose-600' }
+    rider: { title: 'Delivery Fleet', badge: '🛵 Delivery Dispatch', tag: 'Rider Operations', iconBg: 'bg-rose-600' }
   };
 
   const currentRoleInfo = roleMeta[adminRole] || roleMeta.admin;
 
-  const adminNavItems = [
-    { label: 'Dashboard', icon: LayoutDashboard },
-    { label: 'Products', icon: Package },
-    { label: 'Categories', icon: Layers },
-    { label: 'Orders', icon: ShoppingBag },
-    { label: 'Customers', icon: Users },
-    { label: 'Inventory', icon: Boxes },
-    { label: 'Suppliers', icon: Truck },
-    { label: 'Promotions', icon: Tag },
-    { label: 'Delivery', icon: Truck },
-    { label: 'Reports', icon: BarChart3 },
-    { label: 'Settings', icon: Settings }
-  ];
+  const getNavItems = () => {
+    if (adminRole === 'supplier') {
+      return [
+        { label: 'Suppliers', icon: Truck, customName: 'Supplier Hub & Invoices' },
+        { label: 'Inventory', icon: Boxes, customName: 'Stock & Restock' },
+        { label: 'Products', icon: Package, customName: 'Supplied Products' },
+        { label: 'Orders', icon: ShoppingBag, customName: 'Wholesale Orders' },
+        { label: 'Settings', icon: Settings, customName: 'Account Settings' }
+      ];
+    }
+    if (adminRole === 'rider') {
+      return [
+        { label: 'Delivery', icon: Truck, customName: 'Delivery Dispatch & GPS' },
+        { label: 'Orders', icon: ShoppingBag, customName: 'Assigned Parcels' },
+        { label: 'Settings', icon: Settings, customName: 'Rider Settings' }
+      ];
+    }
+    return [
+      { label: 'Dashboard', icon: LayoutDashboard },
+      { label: 'Products', icon: Package },
+      { label: 'Categories', icon: Layers },
+      { label: 'Orders', icon: ShoppingBag },
+      { label: 'Customers', icon: Users },
+      { label: 'Inventory', icon: Boxes },
+      { label: 'Suppliers', icon: Truck },
+      { label: 'Promotions', icon: Tag },
+      { label: 'Delivery', icon: Truck },
+      { label: 'Reports', icon: BarChart3 },
+      { label: 'Settings', icon: Settings }
+    ];
+  };
+
+  const adminNavItems = getNavItems();
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row font-sans text-slate-800 antialiased">
@@ -132,7 +151,7 @@ export const AdminDashboard = () => {
                   }`}
                 >
                   <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
+                  <span>{item.customName || item.label}</span>
                 </button>
               );
             })}
