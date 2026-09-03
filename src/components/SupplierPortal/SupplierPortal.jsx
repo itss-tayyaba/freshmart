@@ -168,15 +168,33 @@ export const SupplierPortal = () => {
 
   // Determine current supplier specialty category
   const [selectedSpecialtyKey, setSelectedSpecialtyKey] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_active_supplier_specialty');
+      if (saved && SUPPLIER_SPECIALTIES[saved]) return saved;
+    } catch (e) {}
+
     // If logged-in user matches a registered supplier's category
+    if (user?.category && SUPPLIER_SPECIALTIES[user.category]) {
+      return user.category;
+    }
     const found = (suppliers || []).find((s) => s.email === user?.email || s.name === user?.name || s.username === user?.name);
     if (found && found.category && SUPPLIER_SPECIALTIES[found.category]) {
       return found.category;
     }
-    return 'Fresh Milk & Pure Dairy';
+    if (user?.name?.toLowerCase().includes('coca') || user?.name?.toLowerCase().includes('coke') || user?.name?.toLowerCase().includes('beverage')) {
+      return 'Beverages, Juices & Soft Drinks';
+    }
+    return 'Beverages, Juices & Soft Drinks';
   });
 
-  const activeSpecialty = SUPPLIER_SPECIALTIES[selectedSpecialtyKey] || SUPPLIER_SPECIALTIES['Fresh Milk & Pure Dairy'];
+  const handleSpecialtyChange = (newKey) => {
+    setSelectedSpecialtyKey(newKey);
+    try {
+      localStorage.setItem('freshmart_active_supplier_specialty', newKey);
+    } catch (e) {}
+  };
+
+  const activeSpecialty = SUPPLIER_SPECIALTIES[selectedSpecialtyKey] || SUPPLIER_SPECIALTIES['Beverages, Juices & Soft Drinks'];
   const supplierName = user?.name && user.name !== 'Store Admin' ? user.name : activeSpecialty.companyName;
 
   // Local state initialized with category-specific dataset
@@ -186,7 +204,7 @@ export const SupplierPortal = () => {
 
   // Sync state when specialty is switched
   useEffect(() => {
-    const spec = SUPPLIER_SPECIALTIES[selectedSpecialtyKey] || SUPPLIER_SPECIALTIES['Fresh Milk & Pure Dairy'];
+    const spec = SUPPLIER_SPECIALTIES[selectedSpecialtyKey] || SUPPLIER_SPECIALTIES['Beverages, Juices & Soft Drinks'];
     setPurchaseOrders(spec.purchaseOrders);
     setSuppliedProducts(spec.products);
     setDeliveries(spec.deliveries);
@@ -364,7 +382,7 @@ export const SupplierPortal = () => {
               <Tag className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
               <select
                 value={selectedSpecialtyKey}
-                onChange={(e) => setSelectedSpecialtyKey(e.target.value)}
+                onChange={(e) => handleSpecialtyChange(e.target.value)}
                 className="bg-transparent text-xs font-bold text-emerald-900 focus:outline-none cursor-pointer"
                 title="Switch supplier domain to view category-specific supply items"
               >
