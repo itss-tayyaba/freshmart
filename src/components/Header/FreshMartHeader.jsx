@@ -267,21 +267,6 @@ export const FreshMartHeader = () => {
                 </span>
               </button>
             </li>
-            <li>
-              <button
-                onClick={() => navigateTo('delivery')}
-                className={`transition-colors pb-1 cursor-pointer flex items-center gap-1 ${
-                  currentPage === 'delivery'
-                    ? 'text-emerald-600 font-bold border-b-2 border-emerald-600'
-                    : 'hover:text-emerald-600 text-emerald-800 font-bold'
-                }`}
-              >
-                <span>Live Delivery</span>
-                <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase">
-                  GPS
-                </span>
-              </button>
-            </li>
           </ul>
 
           {/* Switchers: Customer Portal & Admin Suite */}
