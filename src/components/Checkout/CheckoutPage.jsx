@@ -186,13 +186,12 @@ export const CheckoutPage = () => {
           </p>
         </div>
 
-        {/* 4-Step Stepper Progress */}
+        {/* 3-Step Stepper Progress */}
         <div className="flex items-center gap-2 bg-white px-4 py-3 rounded-2xl border border-slate-200/80 shadow-2xs">
           {[
             { num: 1, label: 'Address' },
-            { num: 2, label: 'Slot' },
-            { num: 3, label: 'Payment' },
-            { num: 4, label: 'Review' }
+            { num: 2, label: 'Payment' },
+            { num: 3, label: 'Preferences' }
           ].map((s, idx) => {
             const isCompleted = isOrderPlaced || currentStep > s.num;
             const isCurrent = currentStep === s.num;
@@ -224,7 +223,7 @@ export const CheckoutPage = () => {
                   </span>
                 </div>
 
-                {idx < 3 && (
+                {idx < 2 && (
                   <div
                     className={`w-4 sm:w-8 h-0.5 rounded-full transition-all ${
                       currentStep > idx + 1 || isOrderPlaced ? 'bg-emerald-600' : 'bg-slate-200'
@@ -464,74 +463,17 @@ export const CheckoutPage = () => {
               )}
             </div>
 
-            {/* Step 2: Delivery Slot */}
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xl shadow-emerald-950/5 space-y-5">
-              <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs shadow-xs">
-                  2
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900">Select Delivery Slot</h3>
-                  <p className="text-[11px] text-slate-400">Choose instant 10-minute dispatch or a scheduled time window</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                {[
-                  { id: '⚡ Instant 10-15 Mins Express Delivery', label: '⚡ Instant Express (10-15 Mins)', tag: 'Fastest 🚀', desc: 'Assigned immediately to closest rider' },
-                  { id: 'Today 2 PM - 4 PM', label: 'Today Afternoon (2:00 PM - 4:00 PM)', tag: 'Standard', desc: 'Guaranteed afternoon time window' },
-                  { id: 'Today 6 PM - 8 PM', label: 'Today Evening (6:00 PM - 8:00 PM)', tag: 'Popular', desc: 'Perfect for dinner preparation' },
-                  { id: 'Tomorrow 9 AM - 11 AM', label: 'Tomorrow Morning (9:00 AM - 11:00 AM)', tag: 'Fresh Batch', desc: 'Fresh sunrise morning harvest' }
-                ].map((slot) => {
-                  const isSelected = selectedSlot === slot.id;
-
-                  return (
-                    <label
-                      key={slot.id}
-                      onClick={() => setSelectedSlot(slot.id)}
-                      className={`p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between gap-2 relative ${
-                        isSelected
-                          ? 'border-emerald-600 bg-emerald-50/70 font-bold text-emerald-950 shadow-md shadow-emerald-900/5 ring-1 ring-emerald-500'
-                          : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <input
-                            type="radio"
-                            name="deliverySlotRadio"
-                            checked={isSelected}
-                            onChange={() => {}}
-                            className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
-                          />
-                          <span className="font-black text-xs">{slot.label}</span>
-                        </div>
-                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
-                          isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
-                        }`}>
-                          {slot.tag}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 pl-6 font-normal">
-                        {slot.desc}
-                      </p>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Step 3: Payment Gateway */}
+            {/* Step 2: Payment Gateway */}
             <PaymentMethodCard
               selectedPayment={selectedPayment}
               setSelectedPayment={setSelectedPayment}
             />
 
-            {/* Step 4: Eco Packaging & Rider Tip */}
+            {/* Step 3: Eco Packaging & Rider Tip */}
             <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xl shadow-emerald-950/5 space-y-6">
               <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100">
                 <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs shadow-xs">
-                  4
+                  3
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-slate-900">Preferences & Courier Appreciation</h3>
