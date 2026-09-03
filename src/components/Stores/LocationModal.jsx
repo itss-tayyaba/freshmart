@@ -31,7 +31,7 @@ export const LocationModal = () => {
       label: 'Home'
     });
     setIsLocationModalOpen(false);
-    addToast('Location Updated 📍', `Delivering to ${cityObj.city} (10-Min Dark Store Connected)`);
+    addToast('Location Updated 📍', `Delivering to ${cityObj.city}`);
   };
 
   return (
@@ -53,7 +53,7 @@ export const LocationModal = () => {
             </div>
             <div>
               <h2 className="text-lg font-extrabold tracking-tight">Select Delivery Location</h2>
-              <p className="text-xs text-emerald-200">Find 10-minute instant delivery coverage in your area</p>
+              <p className="text-xs text-emerald-200">Select your city for doorstep grocery delivery</p>
             </div>
           </div>
           <button
@@ -74,7 +74,7 @@ export const LocationModal = () => {
               placeholder="Search your city or neighborhood..."
               value={citySearch}
               onChange={(e) => setCitySearch(e.target.value)}
-              className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
             />
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           </div>
@@ -85,46 +85,59 @@ export const LocationModal = () => {
               Available Delivery Cities
             </span>
             <div className="space-y-2">
-              {popularCities.map((item) => (
-                <div
-                  key={item.city}
-                  onClick={() => handleSelectCity(item)}
-                  className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                    deliveryLocation.city === item.city
-                      ? 'border-emerald-600 bg-emerald-50/60 font-bold text-emerald-950 shadow-2xs'
-                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Building className="w-4 h-4 text-emerald-600" />
-                    <div>
-                      <h4 className="text-xs font-bold">{item.city}</h4>
-                      <span className="text-[10px] text-slate-400">{item.area}</span>
+              {popularCities
+                .filter(
+                  (c) =>
+                    c.city.toLowerCase().includes(citySearch.toLowerCase()) ||
+                    c.area.toLowerCase().includes(citySearch.toLowerCase())
+                )
+                .map((item) => (
+                  <div
+                    key={item.city}
+                    onClick={() => handleSelectCity(item)}
+                    className={`p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
+                      deliveryLocation.city === item.city
+                        ? 'border-emerald-600 bg-emerald-50/70 font-bold text-emerald-950 shadow-2xs ring-1 ring-emerald-500'
+                        : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                        deliveryLocation.city === item.city ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'
+                      }`}>
+                        <Building className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900">{item.city}</h4>
+                        <span className="text-[10px] text-slate-400 font-medium">{item.area}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {deliveryLocation.city === item.city && (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                          <Check className="w-3 h-3 text-emerald-700" />
+                          Selected
+                        </span>
+                      )}
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <Zap className="w-3 h-3" />
-                      10 Min
-                    </span>
-                    {deliveryLocation.city === item.city && <Check className="w-4 h-4 text-emerald-600" />}
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
           </div>
 
-          {/* Local Dark Stores */}
+          {/* Local Fulfillment Hubs */}
           <div className="pt-3 border-t border-slate-100">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
-              Active Express Dark Stores
+              Active Fulfillment Hubs
             </span>
             <div className="space-y-1.5 text-xs text-slate-600">
               {STORE_LOCATIONS.map((store) => (
-                <div key={store.id} className="p-2 bg-slate-50 rounded-xl flex items-center justify-between">
+                <div key={store.id} className="p-2.5 bg-slate-50 rounded-xl flex items-center justify-between border border-slate-100">
                   <span className="font-semibold text-slate-800">{store.name}</span>
-                  <span className="text-[11px] font-mono text-emerald-700 font-bold">{store.deliveryTime}</span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-md">
+                    {store.deliveryTime || 'Open'}
+                  </span>
                 </div>
               ))}
             </div>
