@@ -1,5 +1,11 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import dns from 'node:dns';
+
+// Fix Windows Node.js DNS resolution for MongoDB Atlas SRV connection strings
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (e) {}
 
 dotenv.config();
 
