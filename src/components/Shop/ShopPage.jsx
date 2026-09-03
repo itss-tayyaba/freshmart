@@ -161,6 +161,22 @@ export const ShopPage = () => {
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Showing {filteredProducts.length} high quality farm-sourced products
           </p>
+
+          {searchQuery && searchQuery.trim() && (
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
+              <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs">
+                <span>🔍 Search: "{searchQuery}"</span>
+                <span className="text-emerald-700 font-medium">({filteredProducts.length} items present)</span>
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="hover:text-rose-600 ml-1 p-0.5 rounded-full hover:bg-emerald-200 cursor-pointer"
+                  title="Clear Search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Mobile Filter Toggle */}

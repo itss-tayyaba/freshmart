@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   MapPin,
   Search,
@@ -32,7 +32,10 @@ export const FreshMartHeader = () => {
     wishlist,
     wishlistCount,
     setIsWishlistOpen,
-
+    products,
+    addToCart,
+    setSelectedProduct,
+    addToast,
     totalCartCount,
     cartTotal,
     setIsCartOpen,
@@ -42,13 +45,38 @@ export const FreshMartHeader = () => {
     customerUser,
     logoutCustomer,
     currency
-
   } = useStore();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchContainerRef = useRef(null);
+
+  // Close search dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setIsSearchFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filter only items currently present in products catalog
+  const trimmedQuery = (searchQuery || '').trim().toLowerCase();
+  const liveSearchResults = trimmedQuery && Array.isArray(products)
+    ? products.filter(
+        (p) =>
+          (p.name && p.name.toLowerCase().includes(trimmedQuery)) ||
+          (p.brand && p.brand.toLowerCase().includes(trimmedQuery)) ||
+          (p.category && p.category.toLowerCase().includes(trimmedQuery)) ||
+          (p.categoryLabel && p.categoryLabel.toLowerCase().includes(trimmedQuery))
+      )
+    : [];
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
+    setIsSearchFocused(false);
     navigateTo('shop');
   };
 
@@ -108,25 +136,174 @@ export const FreshMartHeader = () => {
           </div>
         </div>
 
-        {/* Search Bar with Category Select matching screenshot */}
-        <form
-          onSubmit={handleSearchSubmit}
-          className="flex-1 max-w-xl hidden sm:flex items-center border border-slate-200 rounded-full overflow-hidden bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:bg-white focus-within:border-transparent transition-all shadow-inner"
-        >
-          <input
-            type="text"
-            placeholder="Search for products, categories..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 px-4 py-2.5 text-xs sm:text-sm text-slate-800 placeholder-slate-400 bg-transparent focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold transition-colors shrink-0 cursor-pointer"
+        {/* Search Bar with Live Instant Suggestions Popup */}
+        <div ref={searchContainerRef} className="flex-1 max-w-xl hidden sm:block relative z-50">
+          <form
+            onSubmit={handleSearchSubmit}
+            className="flex items-center border border-slate-200 rounded-full overflow-hidden bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:bg-white focus-within:border-transparent transition-all shadow-inner"
           >
-            Search
-          </button>
-        </form>
+            <div className="pl-4 text-slate-400">
+              <Search className="w-4 h-4" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search products in stock (e.g. Coca-Cola, Milk, Apples)..."
+              value={searchQuery}
+              onFocus={() => setIsSearchFocused(true)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setIsSearchFocused(true);
+              }}
+              className="flex-1 px-3 py-2.5 text-xs sm:text-sm text-slate-800 placeholder-slate-400 bg-transparent focus:outline-none"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full mr-1 cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              type="submit"
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold transition-colors shrink-0 cursor-pointer"
+            >
+              Search
+            </button>
+          </form>
+
+          {/* Live Instant Search Dropdown (Only Showing Items That Are Present) */}
+          {isSearchFocused && searchQuery.trim().length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[420px] flex flex-col">
+              
+              {/* Header */}
+              <div className="p-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-700">
+                  {liveSearchResults.length > 0
+                    ? `Available In-Store (${liveSearchResults.length} items present)`
+                    : 'Search Results'}
+                </span>
+                <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                  Active Catalog
+                </span>
+              </div>
+
+              {/* Items List */}
+              <div className="overflow-y-auto divide-y divide-slate-50 p-1 flex-1">
+                {liveSearchResults.length > 0 ? (
+                  liveSearchResults.slice(0, 6).map((item) => {
+                    const itemId = item.id || item._id;
+                    const inStock = item.inStock !== false && item.status !== 'Out of Stock' && (item.stockCount === undefined || item.stockCount > 0);
+
+                    return (
+                      <div
+                        key={itemId}
+                        onClick={() => {
+                          setSelectedProduct(item);
+                          navigateTo('product-detail', item);
+                          setIsSearchFocused(false);
+                        }}
+                        className="p-2.5 hover:bg-emerald-50/50 rounded-xl transition-colors flex items-center justify-between gap-3 cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-11 h-11 rounded-lg object-cover bg-slate-100 shrink-0 border border-slate-100"
+                          />
+                          <div className="min-w-0">
+                            <h4 className="text-xs font-bold text-slate-900 group-hover:text-emerald-700 transition-colors truncate">
+                              {item.name}
+                            </h4>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-slate-400 font-medium truncate">
+                                {item.brand || item.categoryLabel}
+                              </span>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-sm ${
+                                inStock ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                              }`}>
+                                {inStock ? 'In Stock' : 'Out of Stock'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs font-black text-slate-900 font-mono">
+                            Rs. {item.price}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addToCart(item, 1);
+                              addToast('Added to Cart 🛒', `${item.name} added.`);
+                            }}
+                            className="p-1.5 bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white rounded-lg transition-colors cursor-pointer"
+                            title="Quick Add"
+                          >
+                            <ShoppingCart className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="p-6 text-center space-y-3">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                      <Search className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">
+                        No items found matching "{searchQuery}"
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Only items present in FreshMart inventory are shown.
+                      </p>
+                    </div>
+
+                    {/* Present Items Quick Suggestions */}
+                    <div className="pt-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                        Available Store Items:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 justify-center">
+                        {['Coca-Cola Original', 'Sprite', 'Fanta Orange', 'Olper\'s Milk', 'Fresh Bananas', 'Farm Eggs', 'Dasani'].map((suggest) => (
+                          <button
+                            key={suggest}
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery(suggest);
+                              setIsSearchFocused(true);
+                            }}
+                            className="text-[10px] font-semibold bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-800 px-2.5 py-1 rounded-full transition-colors cursor-pointer"
+                          >
+                            {suggest}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              {liveSearchResults.length > 0 && (
+                <div
+                  onClick={() => {
+                    navigateTo('shop');
+                    setIsSearchFocused(false);
+                  }}
+                  className="p-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-center text-xs font-bold cursor-pointer transition-colors"
+                >
+                  View All {liveSearchResults.length} Present Items in Shop ➔
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Right Header Navigation Icons matching screenshot */}
         <div className="flex items-center gap-2 sm:gap-4">
