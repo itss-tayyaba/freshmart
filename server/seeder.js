@@ -35,7 +35,7 @@ const seedDatabase = async () => {
 
     console.log('🧹 Existing data wiped.');
 
-    // Seed Admin & Demo Customer
+    // Seed Admin & Registered Customer Hafsa
     await User.create([
       {
         name: 'Super Admin',
@@ -44,11 +44,11 @@ const seedDatabase = async () => {
         role: 'admin'
       },
       {
-        name: 'Alex Morgan',
-        email: 'customer@freshmart.com',
+        name: 'Hafsa',
+        email: 'hafsa@gmail.com',
         password: 'password123',
         role: 'customer',
-        address: '123 Main Street, Johar Town, Lahore, Pakistan',
+        address: 'House 12, Street 4, Johar Town, Lahore, Pakistan',
         phone: '0300-1234567'
       }
     ]);

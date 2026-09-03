@@ -9,6 +9,7 @@ import {
 } from '../../src/data/freshMartData.js';
 import {
   ADMIN_INVENTORY_ITEMS,
+  ADMIN_CUSTOMERS_DATA,
   ADMIN_SUPPLIERS_DATA,
   ADMIN_PROMOTIONS_DATA,
   ADMIN_DELIVERIES_DATA,
@@ -79,9 +80,9 @@ export const getCustomers = async (req, res) => {
       }));
       return res.json({ success: true, count: formatted.length, customers: formatted });
     }
-    res.json({ success: true, count: 0, customers: [] });
+    res.json({ success: true, count: ADMIN_CUSTOMERS_DATA.length, customers: ADMIN_CUSTOMERS_DATA });
   } catch (error) {
-    res.json({ success: true, count: 0, customers: [] });
+    res.json({ success: true, count: ADMIN_CUSTOMERS_DATA.length, customers: ADMIN_CUSTOMERS_DATA });
   }
 };
 

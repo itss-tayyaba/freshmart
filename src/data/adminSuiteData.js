@@ -92,7 +92,19 @@ export const ADMIN_CATEGORIES_DATA = [
 
 export const ADMIN_ORDERS_FULL = [];
 
-export const ADMIN_CUSTOMERS_DATA = [];
+export const ADMIN_CUSTOMERS_DATA = [
+  {
+    id: 'CUST-001',
+    name: 'Hafsa',
+    email: 'hafsa@gmail.com',
+    phone: '0300-1234567',
+    address: 'House 12, Street 4, Johar Town, Lahore',
+    totalOrders: 0,
+    totalSpent: 'Rs. 0',
+    status: 'Active',
+    joinedDate: '2026-09-01'
+  }
+];
 
 export const ADMIN_INVENTORY_ITEMS = [];
 

@@ -539,13 +539,31 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [suppliers]);
 
-  // Customers State (Empty initially - added by Admin or Customer Registration)
+  // Default Customer List (Only user Hafsa)
+  const defaultCustomersList = [
+    {
+      id: 'CUST-001',
+      name: 'Hafsa',
+      email: 'hafsa@gmail.com',
+      phone: '0300-1234567',
+      address: 'House 12, Street 4, Johar Town, Lahore',
+      totalOrders: 0,
+      totalSpent: 'Rs. 0',
+      status: 'Active',
+      joinedDate: '2026-09-01'
+    }
+  ];
+
+  // Customers State (Only registered customer Hafsa)
   const [customers, setCustomers] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_customers');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch (e) {}
-    return [];
+    return defaultCustomersList;
   });
 
   useEffect(() => {
@@ -593,6 +611,9 @@ export const StoreProvider = ({ children }) => {
         if (res && res.success && Array.isArray(res.customers) && res.customers.length > 0) {
           setCustomers(res.customers);
           localStorage.setItem('freshmart_customers', JSON.stringify(res.customers));
+        } else {
+          setCustomers(defaultCustomersList);
+          localStorage.setItem('freshmart_customers', JSON.stringify(defaultCustomersList));
         }
       } catch (e) {}
     };

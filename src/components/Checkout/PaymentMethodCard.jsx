@@ -24,7 +24,7 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
   // Card form state
   const [cardForm, setCardForm] = useState({
     number: '4000 1234 5678 9010',
-    name: customerUser?.name || 'Tayyaba Batool',
+    name: customerUser?.name || 'Hafsa',
     expires: '08/28',
     cvv: '842'
   });
@@ -37,7 +37,7 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
 
   // Bank transfer form state
   const [bankForm, setBankForm] = useState({
-    senderBankName: 'HBL – Tayyaba',
+    senderBankName: 'Meezan Bank – Hafsa',
     transactionRef: 'REF-482910'
   });
 
@@ -240,7 +240,7 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
                   value={cardForm.name}
                   onChange={(e) => setCardForm({ ...cardForm, name: e.target.value })}
                   className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                  placeholder="e.g. Tayyaba Batool"
+                  placeholder="e.g. Hafsa"
                 />
               </div>
 
