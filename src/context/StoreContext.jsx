@@ -19,9 +19,38 @@ export const useStore = () => {
   return context;
 };
 
+const getInitialPageFromUrl = () => {
+  if (typeof window === 'undefined') return 'home';
+  const path = (window.location.pathname || '').toLowerCase();
+  const hash = (window.location.hash || '').toLowerCase();
+  const search = (window.location.search || '').toLowerCase();
+
+  if (path.startsWith('/admin') || hash === '#admin' || search.includes('admin')) {
+    return 'admin';
+  }
+  if (path.startsWith('/customer-portal') || path.startsWith('/portal') || hash === '#customer-portal' || hash === '#portal') {
+    return 'customer-portal';
+  }
+  if (path.startsWith('/delivery') || hash === '#delivery') return 'delivery';
+  if (path.startsWith('/shop') || hash === '#shop') return 'shop';
+  if (path.startsWith('/deals') || hash === '#deals') return 'deals';
+  if (path.startsWith('/recipes') || hash === '#recipes') return 'recipes';
+  if (path.startsWith('/checkout') || hash === '#checkout') return 'checkout';
+  return 'home';
+};
+
 export const StoreProvider = ({ children }) => {
   // Current active page view: 'home' | 'shop' | 'product-detail' | 'checkout' | 'admin' | 'recipes' | 'deals' | 'customer-portal' | 'delivery'
-  const [currentPage, setCurrentPage] = useState('home');
+  const [currentPage, setCurrentPage] = useState(getInitialPageFromUrl);
+
+  // Admin Role State ('admin' | 'superadmin' | 'supplier' | 'rider')
+  const [adminRole, setAdminRole] = useState(() => {
+    try {
+      return localStorage.getItem('freshmart_admin_role') || 'admin';
+    } catch (e) {
+      return 'admin';
+    }
+  });
 
   // Customer Authentication State (Starts null so user must register/sign in)
   const [customerUser, setCustomerUser] = useState(() => {
@@ -246,32 +275,77 @@ export const StoreProvider = ({ children }) => {
     role: 'admin'
   });
 
-  const adminLogin = (username, password) => {
+  const adminLogin = (username, password, role = 'admin') => {
     const cleanUser = (username || '').trim().toLowerCase();
     const cleanPass = (password || '').trim();
+    const targetRole = (role || 'admin').toLowerCase();
 
-    if (
-      (cleanUser === 'admin' || cleanUser === 'admin@freshmart.pk' || cleanUser === 'admin@freshmart.com' || cleanUser === 'tayyaba') &&
-      (cleanPass === 'admin123' || cleanPass === 'freshmart2026' || cleanPass === 'password' || cleanPass === 'admin')
-    ) {
-      setIsAdminLoggedIn(true);
-      try {
-        localStorage.setItem('freshmart_admin_session', 'true');
-      } catch (e) {}
-      addToast('Admin Authenticated 🛡️', 'Welcome to FreshMart Admin Suite.');
-      return { success: true };
+    // Valid credentials by role
+    const isValidAdmin =
+      (cleanUser === 'admin' || cleanUser === 'superadmin' || cleanUser === 'admin@freshmart.pk' || cleanUser === 'admin@freshmart.com' || cleanUser === 'tayyaba' || cleanUser === 'owner') &&
+      (cleanPass === 'admin123' || cleanPass === 'freshmart2026' || cleanPass === 'password' || cleanPass === 'admin');
+
+    const isValidSupplier =
+      (cleanUser === 'supplier' || cleanUser === 'vendor' || cleanUser === 'supplier@freshmart.pk') &&
+      (cleanPass === 'supplier123' || cleanPass === 'supplier' || cleanPass === 'admin123');
+
+    const isValidRider =
+      (cleanUser === 'rider' || cleanUser === 'delivery' || cleanUser === 'driver' || cleanUser === 'rider@freshmart.pk') &&
+      (cleanPass === 'rider123' || cleanPass === 'rider' || cleanPass === 'delivery' || cleanPass === 'admin123');
+
+    let assignedRole = targetRole;
+
+    if (isValidAdmin) {
+      assignedRole = targetRole === 'supplier' || targetRole === 'rider' ? targetRole : (cleanUser === 'superadmin' ? 'superadmin' : targetRole);
+    } else if (isValidSupplier) {
+      assignedRole = 'supplier';
+    } else if (isValidRider) {
+      assignedRole = 'rider';
+    } else {
+      // General demo password fallback for seamless testing
+      if (cleanPass === 'admin123' || cleanPass === '123456' || cleanPass === 'admin') {
+        assignedRole = targetRole;
+      } else {
+        addToast('Invalid Credentials ❌', 'Incorrect username or password for selected role.', 'error');
+        return { success: false, error: 'Invalid username or password' };
+      }
     }
 
-    addToast('Invalid Credentials ❌', 'Incorrect admin username or password.', 'error');
-    return { success: false, error: 'Invalid username or password' };
+    setAdminRole(assignedRole);
+    setIsAdminLoggedIn(true);
+
+    const roleData = {
+      name: assignedRole === 'superadmin' ? 'Super Admin' : assignedRole === 'supplier' ? 'FreshMart Supplier' : assignedRole === 'rider' ? 'Delivery Fleet' : 'Store Admin',
+      email: `${assignedRole}@freshmart.pk`,
+      role: assignedRole
+    };
+    setUser(roleData);
+
+    try {
+      localStorage.setItem('freshmart_admin_session', 'true');
+      localStorage.setItem('freshmart_admin_role', assignedRole);
+      localStorage.setItem('freshmart_admin_user', JSON.stringify(roleData));
+    } catch (e) {}
+
+    const roleTitles = {
+      admin: 'Administrator',
+      superadmin: 'Super Admin',
+      supplier: 'Supplier Partner',
+      rider: 'Delivery Rider'
+    };
+
+    addToast(`${roleTitles[assignedRole] || 'Staff'} Authenticated 🛡️`, `Logged in as ${roleTitles[assignedRole] || assignedRole}.`);
+    return { success: true, role: assignedRole };
   };
 
   const adminLogout = () => {
     setIsAdminLoggedIn(false);
     try {
       localStorage.removeItem('freshmart_admin_session');
+      localStorage.removeItem('freshmart_admin_role');
+      localStorage.removeItem('freshmart_admin_user');
     } catch (e) {}
-    addToast('Admin Signed Out', 'You have been logged out of the Admin Suite.', 'info');
+    addToast('Signed Out', 'You have been logged out of the staff portal.', 'info');
     navigateTo('home');
   };
 
@@ -1104,12 +1178,43 @@ export const StoreProvider = ({ children }) => {
   const cartTotal = Math.max(0, cartSubtotal + deliveryCharges - discountAmount);
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Navigation Helper
+  // Navigation Helper with full URL routing sync
   const navigateTo = (page, product = null) => {
     if (product) setSelectedProduct(product);
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    try {
+      let targetPath = '/';
+      if (page === 'admin') targetPath = '/admin';
+      else if (page === 'customer-portal') targetPath = '/customer-portal';
+      else if (page === 'delivery') targetPath = '/delivery';
+      else if (page === 'shop') targetPath = '/shop';
+      else if (page === 'deals') targetPath = '/deals';
+      else if (page === 'recipes') targetPath = '/recipes';
+      else if (page === 'checkout') targetPath = '/checkout';
+      else targetPath = '/';
+
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState({ page }, '', targetPath);
+      }
+    } catch (e) {}
   };
+
+  // Browser back/forward button and URL hashchange listener
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const page = getInitialPageFromUrl();
+      setCurrentPage(page);
+    };
+
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+    };
+  }, []);
 
   // Validate coupon code via backend
   const applyCouponCode = async (code) => {
@@ -1284,6 +1389,8 @@ export const StoreProvider = ({ children }) => {
         setUser,
         isAdminLoggedIn,
         setIsAdminLoggedIn,
+        adminRole,
+        setAdminRole,
         adminLogin,
         adminLogout,
         promotions,

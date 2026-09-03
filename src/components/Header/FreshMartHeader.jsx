@@ -141,7 +141,7 @@ export const FreshMartHeader = () => {
             <span className="text-[10px] font-semibold hidden md:inline">Offers</span>
           </button>
 
-          {/* Customer Account / Sign In / Create Account Buttons */}
+          {/* Customer Account / Sign In */}
           {customerUser ? (
             <div className="flex items-center gap-1.5 bg-emerald-50/80 border border-emerald-200/60 rounded-2xl p-1 pr-2.5">
               <button
@@ -156,7 +156,7 @@ export const FreshMartHeader = () => {
                     className="w-7 h-7 rounded-full object-cover border border-emerald-500"
                   />
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-emerald-700 text-white font-black text-xs flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-full bg-[#a36829] text-white font-black text-xs flex items-center justify-center">
                     {customerUser.name.slice(0, 2).toUpperCase()}
                   </div>
                 )}
@@ -164,7 +164,7 @@ export const FreshMartHeader = () => {
                   <span className="text-[11px] font-black text-slate-900 block leading-tight truncate max-w-[90px]">
                     {customerUser.name.split(' ')[0]}
                   </span>
-                  <span className="text-[9px] text-emerald-700 font-bold block leading-none">Customer</span>
+                  <span className="text-[9px] text-[#a36829] font-bold block leading-none">Customer</span>
                 </div>
               </button>
               <button
@@ -176,23 +176,14 @@ export const FreshMartHeader = () => {
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setIsAuthOpen(true)}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-              >
-                Sign In
-              </button>
-              <button
-                onClick={() => setIsAuthOpen(true)}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors shadow-2xs cursor-pointer hidden sm:flex items-center gap-1"
-              >
-                <User className="w-3.5 h-3.5" />
-                <span>Create Account</span>
-              </button>
-            </div>
+            <button
+              onClick={() => setIsAuthOpen(true)}
+              className="px-3.5 py-2 bg-[#fbf8f3] hover:bg-[#f6f2ec] text-[#8c5720] border border-[#e8ded1] rounded-2xl text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
+            >
+              <User className="w-3.5 h-3.5 text-[#a36829]" />
+              <span>Sign In</span>
+            </button>
           )}
-
 
           {/* Wishlist */}
           <button
@@ -209,8 +200,7 @@ export const FreshMartHeader = () => {
             <span className="text-[10px] font-semibold hidden md:inline">Wishlist</span>
           </button>
 
-
-          {/* Cart with Live Count matching screenshot */}
+          {/* Cart with Live Count */}
           <button
             onClick={() => setIsCartOpen(true)}
             className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition-colors cursor-pointer"
@@ -233,7 +223,7 @@ export const FreshMartHeader = () => {
 
       </div>
 
-      {/* 2. Secondary Navigation Links Bar matching screenshot */}
+      {/* 2. Secondary Navigation Links Bar */}
       <nav className="border-t border-slate-100 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           
@@ -304,26 +294,18 @@ export const FreshMartHeader = () => {
                 </span>
               </button>
             </li>
-            <li>
-              <button
-                onClick={() => navigateTo('customer-portal')}
-                className={`transition-colors pb-1 cursor-pointer flex items-center gap-1.5 ${
-                  currentPage === 'customer-portal'
-                    ? 'text-emerald-600 font-bold border-b-2 border-emerald-600'
-                    : 'hover:text-emerald-600'
-                }`}
-              >
-                <User className="w-3.5 h-3.5" />
-                <span>Customer Portal</span>
-              </button>
-            </li>
           </ul>
 
-
-          {/* Switchers: Customer Portal & Admin Dashboard */}
+          {/* Switchers: Customer Portal & Admin Suite */}
           <div className="flex items-center gap-2">
             <button
-              onClick={() => navigateTo('customer-portal')}
+              onClick={() => {
+                if (customerUser) {
+                  navigateTo('customer-portal');
+                } else {
+                  setIsAuthOpen(true);
+                }
+              }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
                 currentPage === 'customer-portal'
                   ? 'bg-emerald-700 text-white shadow-2xs'

@@ -10,17 +10,61 @@ import {
   AlertCircle,
   KeyRound,
   ArrowLeft,
-  CheckCircle2
+  CheckCircle2,
+  Package,
+  Bike,
+  Star,
+  Layers,
+  Boxes
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 
 export const AdminLogin = () => {
   const { adminLogin, navigateTo } = useStore();
+  const [selectedRole, setSelectedRole] = useState('admin'); // 'admin' | 'supplier' | 'rider' | 'superadmin'
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('admin123');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const roles = [
+    {
+      id: 'admin',
+      label: 'Admin',
+      icon: '◆',
+      defaultUser: 'admin',
+      defaultPass: 'admin123'
+    },
+    {
+      id: 'supplier',
+      label: 'Supplier',
+      icon: '📦',
+      defaultUser: 'supplier',
+      defaultPass: 'supplier123'
+    },
+    {
+      id: 'rider',
+      label: 'Delivery',
+      icon: '🛵',
+      defaultUser: 'rider',
+      defaultPass: 'rider123'
+    },
+    {
+      id: 'superadmin',
+      label: 'Super Admin',
+      icon: '★',
+      defaultUser: 'superadmin',
+      defaultPass: 'admin123'
+    }
+  ];
+
+  const handleRoleSelect = (roleItem) => {
+    setSelectedRole(roleItem.id);
+    setUsername(roleItem.defaultUser);
+    setPassword(roleItem.defaultPass);
+    setErrorMessage('');
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -28,146 +72,141 @@ export const AdminLogin = () => {
     setIsLoading(true);
 
     setTimeout(() => {
-      const result = adminLogin(username, password);
+      const result = adminLogin(username, password, selectedRole);
       if (!result.success) {
-        setErrorMessage('Invalid username or password. Please verify credentials.');
+        setErrorMessage(result.error || 'Invalid credentials. Please verify your login details.');
       }
       setIsLoading(false);
-    }, 400);
-  };
-
-  const handleQuickFill = () => {
-    setUsername('admin');
-    setPassword('admin123');
-    setErrorMessage('');
+    }, 350);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#1c1917] flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans">
       
-      {/* Glow Effects */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Background Subtle Gradient */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-radial from-[#a36829]/10 via-transparent to-transparent pointer-events-none" />
 
-      {/* Back to store link */}
-      <button
-        onClick={() => navigateTo('home')}
-        className="absolute top-6 left-6 px-4 py-2 bg-slate-900/80 hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-bold flex items-center gap-2 border border-slate-800 transition-colors cursor-pointer z-10"
-      >
-        <ArrowLeft className="w-3.5 h-3.5" />
-        <span>Back to Storefront</span>
-      </button>
-
-      <div className="max-w-md w-full bg-slate-900/90 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl space-y-6 text-slate-100 animate-in zoom-in-95 duration-300 z-10">
+      {/* Main Login Card matching screenshot 2 */}
+      <div className="max-w-md w-full bg-white rounded-3xl p-7 sm:p-9 shadow-2xl space-y-6 relative z-10 border border-[#e8ded1] animate-in zoom-in-95 duration-300">
         
-        {/* Header with Admin Shield */}
-        <div className="text-center space-y-2">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-600 to-emerald-400 text-slate-950 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20 text-3xl font-black">
-            🛡️
-          </div>
-
-          <div className="space-y-1">
-            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
-              Restricted Area
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              Admin Suite Login
+        {/* Header matching screenshot 2 */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2.5">
+            <span className="w-3.5 h-3.5 rounded-full bg-[#a36829] inline-block shadow-xs" />
+            <h1 className="text-2xl sm:text-3xl font-serif font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+              <span>FreshMart</span>
+              <span className="text-[#a36829] text-xl font-sans font-bold">&</span>
+              <span>Grocery</span>
             </h1>
-            <p className="text-xs text-slate-400">
-              Enter authorized administrator credentials to manage products, categories, orders & discounts.
-            </p>
           </div>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Sign in to manage orders, inventory, riders & store operations.
+          </p>
         </div>
 
         {/* Error message */}
         {errorMessage && (
-          <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 p-3 rounded-2xl text-xs flex items-center gap-2 animate-in fade-in">
-            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+          <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-2xl text-xs flex items-center gap-2 animate-in fade-in">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
             <span>{errorMessage}</span>
           </div>
         )}
 
-        {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        {/* Form matching screenshot 2 */}
+        <form onSubmit={handleSubmit} className="space-y-5 text-xs">
           
-          <div>
-            <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block mb-1.5">
-              Admin Username / Email
+          {/* "Login as" 2x2 Role Grid */}
+          <div className="space-y-2">
+            <label className="font-semibold text-slate-800 block text-xs">
+              Login as
             </label>
-            <div className="relative">
-              <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="e.g. admin or admin@freshmart.pk"
-                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-10 pr-3.5 py-3 text-white text-xs focus:outline-none focus:border-emerald-400 font-medium"
-              />
+            
+            <div className="grid grid-cols-2 gap-2.5">
+              {roles.map((r) => {
+                const isSelected = selectedRole === r.id;
+
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => handleRoleSelect(r)}
+                    className={`py-3.5 px-3 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
+                      isSelected
+                        ? 'bg-[#fbf8f3] border-2 border-[#a36829] text-[#8c5720] shadow-xs'
+                        : 'bg-[#f6f2ec] border border-[#e8ded1] text-slate-700 hover:bg-[#ede6dc]'
+                    }`}
+                  >
+                    <span className="text-base leading-none">{r.icon}</span>
+                    <span className="text-xs font-bold leading-none">{r.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
+          {/* Username Input */}
           <div>
-            <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block mb-1.5">
-              Admin Password
+            <label className="font-semibold text-slate-800 block mb-1.5 text-xs">
+              Username
+            </label>
+            <input
+              type="text"
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="e.g. admin, supplier, rider"
+              className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-2xl px-4 py-3 font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a36829] text-xs"
+            />
+          </div>
+
+          {/* Password Input */}
+          <div>
+            <label className="font-semibold text-slate-800 block mb-1.5 text-xs">
+              Password
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-10 pr-10 py-3 text-white text-xs focus:outline-none focus:border-emerald-400 font-mono"
+                placeholder="••••••••"
+                className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-2xl px-4 py-3 font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a36829] text-xs pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
           </div>
 
-          {/* Quick Demo Hint */}
-          <div className="bg-slate-950/60 p-3 rounded-2xl border border-slate-800 flex items-center justify-between text-[11px]">
-            <div className="space-y-0.5">
-              <span className="text-slate-400 font-medium block">Default Credentials:</span>
-              <span className="font-mono text-emerald-400 font-bold">admin / admin123</span>
-            </div>
-            <button
-              type="button"
-              onClick={handleQuickFill}
-              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[10px] font-bold transition-colors cursor-pointer border border-slate-700"
-            >
-              Autofill
-            </button>
-          </div>
-
-          {/* Submit Button */}
+          {/* Sign In Primary Button matching screenshot 2 */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all cursor-pointer transform hover:-translate-y-0.5 disabled:opacity-50"
+            className="w-full py-3.5 bg-[#a36829] hover:bg-[#8c5720] text-white rounded-2xl font-bold text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
           >
             {isLoading ? (
               <span>Authenticating...</span>
             ) : (
-              <>
-                <KeyRound className="w-4 h-4 text-slate-950" />
-                <span>Sign In to Admin Suite</span>
-              </>
+              <span>Sign in</span>
             )}
           </button>
 
         </form>
 
-        {/* Security Footer */}
-        <div className="pt-2 text-center text-[11px] text-slate-500 font-medium flex items-center justify-center gap-1.5">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-          <span>256-Bit Encrypted Session • Authorized Admin Access Only</span>
+        {/* Security & Back Link */}
+        <div className="pt-2 text-center border-t border-slate-100">
+          <button
+            type="button"
+            onClick={() => navigateTo('home')}
+            className="text-xs font-semibold text-slate-500 hover:text-[#a36829] transition-colors cursor-pointer"
+          >
+            ← Back to Restaurant Website
+          </button>
         </div>
 
       </div>

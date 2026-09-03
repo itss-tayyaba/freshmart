@@ -3,12 +3,13 @@ import {
   User,
   Mail,
   Lock,
+  Eye,
+  EyeOff,
   Phone,
   MapPin,
   ArrowRight,
   ArrowLeft,
   ShieldCheck,
-
   CheckCircle2,
   Sparkles,
   ShoppingBag
@@ -18,19 +19,20 @@ import { useStore } from '../../context/StoreContext';
 export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
   const { loginCustomer, registerCustomer, navigateTo } = useStore();
   const [authMode, setAuthMode] = useState(initialMode); // 'login' | 'register'
+  const [showPassword, setShowPassword] = useState(false);
 
   // Login form
-  const [loginEmail, setLoginEmail] = useState('aimen.yasin@gmail.com');
+  const [loginEmail, setLoginEmail] = useState('aimenyasin320@gmail.com');
   const [loginPassword, setLoginPassword] = useState('password123');
 
   // Register form
   const [regForm, setRegForm] = useState({
     name: 'Aimen Yasin',
-    email: '',
-    phone: '+92 300 1234567',
+    email: 'aimenyasin320@gmail.com',
+    phone: '03206551699',
     city: 'Lahore, Pakistan',
     address: '123, Block A, Gulberg 3, Lahore',
-    password: ''
+    password: 'password123'
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -41,7 +43,10 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
     setIsLoading(true);
     const success = await loginCustomer(loginEmail, loginPassword);
     setIsLoading(false);
-    if (success && onAuthSuccess) onAuthSuccess();
+    if (success) {
+      if (onAuthSuccess) onAuthSuccess();
+      navigateTo('customer-portal');
+    }
   };
 
   const handleRegisterSubmit = async (e) => {
@@ -50,60 +55,56 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
     setIsLoading(true);
     const success = await registerCustomer(regForm);
     setIsLoading(false);
-    if (success && onAuthSuccess) onAuthSuccess();
+    if (success) {
+      if (onAuthSuccess) onAuthSuccess();
+      navigateTo('customer-portal');
+    }
   };
 
-
   return (
-    <div className="max-w-md mx-auto px-4 py-12 animate-in fade-in duration-300">
+    <div className="max-w-md mx-auto px-4 py-8 animate-in fade-in duration-300 font-sans">
       
-      {/* Back to store button */}
-      <button
-        onClick={() => navigateTo('home')}
-        className="mb-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-colors cursor-pointer shadow-2xs"
-      >
-        <ArrowLeft className="w-3.5 h-3.5" />
-        <span>Back to Storefront</span>
-      </button>
-
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xl space-y-6">
-
+      {/* Card matching screenshot 1 */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#e8ded1] shadow-2xl space-y-6">
         
-        {/* Brand Logo & Header */}
-        <div className="text-center space-y-2">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-md shadow-emerald-600/20 text-2xl">
-            🛒
+        {/* Brand Header */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-[#faf6f0] border border-[#e8ded1] flex items-center justify-center text-xl shadow-2xs">
+              🛒
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-serif font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+              <span>FreshMart</span>
+              <span className="text-[#a36829] text-xl font-sans font-bold">&</span>
+              <span>Grocery</span>
+            </h2>
           </div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-            {authMode === 'login' ? 'Customer Sign In' : 'Create Customer Account'}
-          </h2>
-          <p className="text-xs text-slate-500">
-            {authMode === 'login'
-              ? 'Access your orders, saved addresses, wallet & rewards'
-              : 'Join FreshMart for 10-minute grocery deliveries and discounts'}
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Sign in to track orders, view delivery OTP codes, reserve deals, and manage complaints.
           </p>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex bg-slate-100 p-1 rounded-2xl">
+        {/* Side-by-Side Tabs matching screenshot 1 */}
+        <div className="grid grid-cols-2 gap-3 pt-1">
           <button
             type="button"
             onClick={() => setAuthMode('login')}
-            className={`flex-1 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            className={`py-3 px-4 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer text-center ${
               authMode === 'login'
-                ? 'bg-white text-slate-900 shadow-2xs'
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-[#fbf8f3] border-2 border-[#a36829] text-[#8c5720] shadow-xs'
+                : 'bg-[#f6f2ec] border border-[#e8ded1] text-slate-700 hover:bg-[#ede6dc]'
             }`}
           >
             Sign In
           </button>
+          
           <button
             type="button"
             onClick={() => setAuthMode('register')}
-            className={`flex-1 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            className={`py-3 px-4 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer text-center ${
               authMode === 'register'
-                ? 'bg-white text-slate-900 shadow-2xs'
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-[#fbf8f3] border-2 border-[#a36829] text-[#8c5720] shadow-xs'
+                : 'bg-[#f6f2ec] border border-[#e8ded1] text-slate-700 hover:bg-[#ede6dc]'
             }`}
           >
             Create Account
@@ -114,119 +115,105 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
         {authMode === 'login' ? (
           <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
             <div>
-              <label className="font-bold text-slate-700 block mb-1.5">Email / Phone</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  placeholder="name@email.com or 0300-XXXXXXX"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              </div>
+              <label className="font-semibold text-slate-800 block mb-1.5 text-xs">
+                Email or Phone Number
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. aimenyasin320@gmail.com or 03206551699"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-2xl px-4 py-3 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a36829] text-xs"
+              />
             </div>
 
             <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <label className="font-bold text-slate-700">Password</label>
-                <button
-                  type="button"
-                  onClick={() => setLoginPassword('password123')}
-                  className="text-[10px] text-emerald-700 font-bold hover:underline"
-                >
-                  Forgot Password?
-                </button>
-              </div>
+              <label className="font-semibold text-slate-800 block mb-1.5 text-xs">
+                Password
+              </label>
               <div className="relative">
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
-                  placeholder="Enter your password"
+                  placeholder="••••••••"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-2xl px-4 py-3 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a36829] text-xs pr-10"
                 />
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
+            {/* Submit Button matching screenshot 1 */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-[#a36829] hover:bg-[#8c5720] text-white rounded-2xl font-bold text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
             >
-              <span>{isLoading ? 'Signing In...' : 'Sign In to Customer Portal'}</span>
-              <ArrowRight className="w-4 h-4" />
+              <span>{isLoading ? 'Signing In...' : 'Sign In'}</span>
             </button>
-
-            <div className="text-center pt-2">
-              <span className="text-slate-500">Don't have an account? </span>
-              <button
-                type="button"
-                onClick={() => setAuthMode('register')}
-                className="font-bold text-emerald-700 hover:underline"
-              >
-                Create one for free
-              </button>
-            </div>
           </form>
         ) : (
-          /* Register Form */
-          <form onSubmit={handleRegisterSubmit} className="space-y-3 text-xs">
+          /* Create Account Form */
+          <form onSubmit={handleRegisterSubmit} className="space-y-3.5 text-xs">
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Full Name</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Aimen Yasin"
-                  value={regForm.name}
-                  onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 font-medium"
-                />
-                <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              </div>
+              <label className="font-semibold text-slate-800 block mb-1 text-xs">
+                Full Name
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Aimen Yasin"
+                value={regForm.name}
+                onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
+                className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-2xl px-4 py-2.5 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a36829] text-xs"
+              />
             </div>
 
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Email Address</label>
-              <div className="relative">
-                <input
-                  type="email"
-                  required
-                  placeholder="aimen.yasin@gmail.com"
-                  value={regForm.email}
-                  onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 font-medium"
-                />
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              </div>
+              <label className="font-semibold text-slate-800 block mb-1 text-xs">
+                Email Address
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="aimenyasin320@gmail.com"
+                value={regForm.email}
+                onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
+                className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-2xl px-4 py-2.5 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a36829] text-xs"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Phone Number</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    placeholder="+92 300 1234567"
-                    value={regForm.phone}
-                    onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-2 py-2.5 font-medium"
-                  />
-                  <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                </div>
+                <label className="font-semibold text-slate-800 block mb-1 text-xs">
+                  Phone Number
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="03206551699"
+                  value={regForm.phone}
+                  onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
+                  className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-2xl px-3 py-2.5 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a36829] text-xs"
+                />
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">City</label>
+                <label className="font-semibold text-slate-800 block mb-1 text-xs">
+                  City
+                </label>
                 <select
                   value={regForm.city}
                   onChange={(e) => setRegForm({ ...regForm, city: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-medium"
+                  className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-2xl px-3 py-2.5 font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a36829] text-xs cursor-pointer"
                 >
                   <option>Lahore, Pakistan</option>
                   <option>Karachi, Pakistan</option>
@@ -238,55 +225,43 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
             </div>
 
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Street Address</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="123, Block A, Gulberg 3, Lahore"
-                  value={regForm.address}
-                  onChange={(e) => setRegForm({ ...regForm, address: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 font-medium"
-                />
-                <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              </div>
+              <label className="font-semibold text-slate-800 block mb-1 text-xs">
+                Password
+              </label>
+              <input
+                type="password"
+                required
+                placeholder="At least 6 characters"
+                value={regForm.password}
+                onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
+                className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-2xl px-4 py-2.5 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a36829] text-xs"
+              />
             </div>
 
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">Create Password</label>
-              <div className="relative">
-                <input
-                  type="password"
-                  required
-                  placeholder="At least 6 characters"
-                  value={regForm.password}
-                  onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 font-medium"
-                />
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              </div>
-            </div>
-
+            {/* Create Account Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
+              className="w-full py-3.5 bg-[#a36829] hover:bg-[#8c5720] text-white rounded-2xl font-bold text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
             >
-              <span>{isLoading ? 'Creating Account...' : 'Create Account & Sign In'}</span>
-              <ArrowRight className="w-4 h-4" />
+              <span>{isLoading ? 'Creating Account...' : 'Create Account'}</span>
             </button>
-
-            <div className="text-center pt-2">
-              <span className="text-slate-500">Already registered? </span>
-              <button
-                type="button"
-                onClick={() => setAuthMode('login')}
-                className="font-bold text-emerald-700 hover:underline"
-              >
-                Sign in here
-              </button>
-            </div>
           </form>
         )}
+
+        {/* Back Link matching screenshot 1 */}
+        <div className="text-center pt-2 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={() => {
+              if (onAuthSuccess) onAuthSuccess();
+              navigateTo('home');
+            }}
+            className="text-xs font-semibold text-slate-500 hover:text-[#a36829] transition-colors cursor-pointer"
+          >
+            ← Back to FreshMart Website
+          </button>
+        </div>
 
       </div>
     </div>
