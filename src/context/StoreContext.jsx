@@ -500,6 +500,7 @@ export const StoreProvider = ({ children }) => {
       contact: supplierData.contact || supplierData.name,
       phone: supplierData.phone,
       email: supplierData.email || `${supplierData.name.toLowerCase().replace(/\s+/g, '')}@supplier.com`,
+      category: supplierData.category || 'Fresh Milk & Pure Dairy',
       username: supplierData.username || supplierData.name.toLowerCase().replace(/\s+/g, '_'),
       password: supplierData.password || 'supplier123',
       status: 'Active',

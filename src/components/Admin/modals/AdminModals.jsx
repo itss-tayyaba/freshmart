@@ -53,6 +53,7 @@ export const AdminModals = ({
     contact: '',
     phone: '',
     email: '',
+    category: 'Fresh Milk & Pure Dairy',
     username: '',
     password: ''
   });
@@ -183,6 +184,7 @@ export const AdminModals = ({
       contact: supplierForm.contact,
       phone: supplierForm.phone,
       email: supplierForm.email,
+      category: supplierForm.category || 'Fresh Milk & Pure Dairy',
       username: supplierForm.username.trim() || supplierForm.name.toLowerCase().replace(/\s+/g, '_'),
       password: supplierForm.password.trim() || 'supplier123'
     });
@@ -194,7 +196,7 @@ export const AdminModals = ({
       });
     } catch (err) {}
     setIsAddSupplierOpen(false);
-    setSupplierForm({ name: '', contact: '', phone: '', email: '', username: '', password: '' });
+    setSupplierForm({ name: '', contact: '', phone: '', email: '', category: 'Fresh Milk & Pure Dairy', username: '', password: '' });
   };
 
 
@@ -527,6 +529,24 @@ export const AdminModals = ({
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5"
                 />
               </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Supplier Specialty Category *</label>
+                <select
+                  value={supplierForm.category}
+                  onChange={(e) => setSupplierForm({ ...supplierForm, category: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium cursor-pointer"
+                >
+                  <option value="Fresh Milk & Pure Dairy">🥛 Fresh Milk & Pure Dairy</option>
+                  <option value="Fresh Fruits & Farm Vegetables">🥦 Fresh Fruits & Farm Vegetables</option>
+                  <option value="Poultry & Farm Fresh Eggs">🥚 Poultry & Farm Fresh Eggs</option>
+                  <option value="Bakery, Flour & Yeast">🍞 Bakery, Flour & Yeast</option>
+                  <option value="Rice, Pulses & Organic Grains">🌾 Rice, Pulses & Organic Grains</option>
+                  <option value="Spices, Seasonings & Cooking Oils">🌶️ Spices, Seasonings & Cooking Oils</option>
+                  <option value="Beverages, Juices & Tea">🧃 Beverages, Juices & Tea</option>
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Phone</label>

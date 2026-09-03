@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Package,
@@ -27,9 +27,79 @@ import {
   MapPin,
   ExternalLink,
   ChevronRight,
-  Check
+  Check,
+  Tag
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+
+// Category catalogs mapped by supplier specialty
+const SUPPLIER_SPECIALTIES = {
+  'Fresh Milk & Pure Dairy': {
+    id: 'dairy',
+    label: '🥛 ABC Dairy & Milk Supply',
+    category: 'Fresh Milk & Pure Dairy',
+    companyName: 'ABC Dairy Farms',
+    tagline: 'Pure Cow & Buffalo Milk Supply Partner',
+    products: [
+      { id: 'MLK-01', name: 'Fresh Whole Cow Milk (Pasteurized)', unitPrice: 230, unit: 'Liter', minOrder: 100, leadTime: '3 Hours', status: 'Active Supply' },
+      { id: 'MLK-02', name: 'Pure Farm Buffalo Milk (High Fat 6%)', unitPrice: 260, unit: 'Liter', minOrder: 80, leadTime: '4 Hours', status: 'Active Supply' },
+      { id: 'MLK-03', name: 'Morning Fresh Raw Milk 50L Canister', unitPrice: 220, unit: 'Liter', minOrder: 50, leadTime: '2 Hours', status: 'Active Supply' },
+      { id: 'MLK-04', name: 'Pasteurized Low-Fat Milk 1L Pack', unitPrice: 235, unit: 'Liter', minOrder: 120, leadTime: '5 Hours', status: 'Active Supply' },
+      { id: 'MLK-05', name: 'Organic Full Cream Dairy Milk Batch', unitPrice: 250, unit: 'Liter', minOrder: 60, leadTime: '4 Hours', status: 'Active Supply' }
+    ],
+    purchaseOrders: [
+      { id: 'PO-1024', item: 'Fresh Whole Cow Milk (100 Liters)', qty: '100 Liters', amount: 23000, status: 'Pending Orders', branch: 'Faisalabad Branch Hub', dueDate: 'Today, 4:00 PM', poDate: '03 Sept 2026', vehicle: 'Refrigerated Tanker LEK-8841' },
+      { id: 'PO-1023', item: 'Pure Farm Buffalo Milk (120 Liters)', qty: '120 Liters', amount: 31200, status: 'To Ship', branch: 'Lahore Central Hub', dueDate: 'Tomorrow, 10:00 AM', poDate: '02 Sept 2026', vehicle: 'Chilled Milk Van LEA-9011' },
+      { id: 'PO-1022', item: 'Morning Fresh Raw Milk (80 Liters)', qty: '80 Liters', amount: 17600, status: 'Deliver Today', branch: 'Gulberg Warehouse Hub', dueDate: 'Today, 6:00 PM', poDate: '02 Sept 2026', vehicle: 'Refrigerated Van LEK-8841' },
+      { id: 'PO-1021', item: 'Pasteurized Low-Fat Milk (150 Liters)', qty: '150 Liters', amount: 35250, status: 'Complete Orders', branch: 'DHA Phase 5 Hub', dueDate: '01 Sept 2026', poDate: '01 Sept 2026', vehicle: 'Milk Van LER-4421' },
+      { id: 'PO-1020', item: 'Organic Full Cream Milk (100 Liters)', qty: '100 Liters', amount: 25000, status: 'Complete Orders', branch: 'Lahore Central Hub', dueDate: '29 Aug 2026', poDate: '28 Aug 2026', vehicle: 'Tanker LEK-3310' }
+    ],
+    deliveries: [
+      { id: 'DISP-801', poId: 'PO-1022', destination: 'Gulberg Warehouse Hub', driver: 'Kashif Mehmood', phone: '0321-9988771', vehicle: 'Refrigerated Van (LEK-8841)', status: 'Out for Delivery', eta: 'Today, 5:30 PM', challanNo: 'CH-9921', item: '80L Raw Buffalo Milk' },
+      { id: 'DISP-800', poId: 'PO-1021', destination: 'DHA Phase 5 Hub', driver: 'Nadeem Akhtar', phone: '0300-4455667', vehicle: 'Chilled Van (LEA-9011)', status: 'Delivered & Inspected', eta: '01 Sept, 2:00 PM', challanNo: 'CH-9920', item: '150L Low-Fat Milk' }
+    ]
+  },
+  'Fresh Fruits & Farm Vegetables': {
+    id: 'produce',
+    label: '🥦 Green Valley Farm Produce',
+    category: 'Fresh Fruits & Farm Vegetables',
+    companyName: 'Green Valley Farms',
+    tagline: 'Organic Farm Fresh Produce Partner',
+    products: [
+      { id: 'VEG-01', name: 'Farm Fresh Red Tomatoes (Crate)', unitPrice: 120, unit: 'Kg', minOrder: 200, leadTime: '6 Hours', status: 'Active Supply' },
+      { id: 'VEG-02', name: 'Organic Red Potatoes (Sack 50kg)', unitPrice: 75, unit: 'Kg', minOrder: 500, leadTime: '12 Hours', status: 'Active Supply' },
+      { id: 'VEG-03', name: 'Fresh Farm Onions (Sack 50kg)', unitPrice: 110, unit: 'Kg', minOrder: 300, leadTime: '8 Hours', status: 'Active Supply' },
+      { id: 'VEG-04', name: 'Crisp Green Spinach (Crate 20kg)', unitPrice: 60, unit: 'Kg', minOrder: 100, leadTime: '4 Hours', status: 'Active Supply' }
+    ],
+    purchaseOrders: [
+      { id: 'PO-2011', item: 'Farm Fresh Tomatoes (300 Kg)', qty: '300 Kg', amount: 36000, status: 'Pending Orders', branch: 'Faisalabad Branch Hub', dueDate: 'Today, 5:00 PM', poDate: '03 Sept 2026', vehicle: 'Produce Truck LES-4411' },
+      { id: 'PO-2010', item: 'Organic Red Potatoes (500 Kg)', qty: '500 Kg', amount: 37500, status: 'To Ship', branch: 'Lahore Central Hub', dueDate: 'Tomorrow, 9:00 AM', poDate: '02 Sept 2026', vehicle: 'Farm Truck LEB-7721' },
+      { id: 'PO-2009', item: 'Crisp Green Spinach (150 Kg)', qty: '150 Kg', amount: 9000, status: 'Deliver Today', branch: 'Gulberg Warehouse Hub', dueDate: 'Today, 6:00 PM', poDate: '02 Sept 2026', vehicle: 'Van LEK-9912' }
+    ],
+    deliveries: [
+      { id: 'DISP-702', poId: 'PO-2009', destination: 'Gulberg Warehouse Hub', driver: 'Tariq Javed', phone: '0322-8877112', vehicle: 'Produce Van (LEK-9912)', status: 'Out for Delivery', eta: 'Today, 5:45 PM', challanNo: 'CH-8831', item: '150 Kg Spinach' }
+    ]
+  },
+  'Poultry & Farm Fresh Eggs': {
+    id: 'poultry',
+    label: '🥚 Punjab Poultry & Farm Eggs',
+    category: 'Poultry & Farm Fresh Eggs',
+    companyName: 'Punjab Poultry Farms',
+    tagline: 'Fresh Grade-A Table Eggs & Broiler Supply',
+    products: [
+      { id: 'EGG-01', name: 'Farm Fresh White Table Eggs (Tray of 30)', unitPrice: 340, unit: 'Tray', minOrder: 50, leadTime: '6 Hours', status: 'Active Supply' },
+      { id: 'EGG-02', name: 'Organic Desi Brown Eggs (Tray of 30)', unitPrice: 480, unit: 'Tray', minOrder: 30, leadTime: '12 Hours', status: 'Active Supply' },
+      { id: 'EGG-03', name: 'Free-Range Golden Yolk Eggs (Pack of 12)', unitPrice: 220, unit: 'Pack', minOrder: 60, leadTime: '8 Hours', status: 'Active Supply' }
+    ],
+    purchaseOrders: [
+      { id: 'PO-3015', item: 'White Table Eggs (100 Trays)', qty: '100 Trays', amount: 34000, status: 'Pending Orders', branch: 'Lahore Central Hub', dueDate: 'Today, 3:30 PM', poDate: '03 Sept 2026', vehicle: 'Poultry Van LEH-1192' },
+      { id: 'PO-3014', item: 'Organic Desi Brown Eggs (50 Trays)', qty: '50 Trays', amount: 24000, status: 'Deliver Today', branch: 'Gulberg Warehouse Hub', dueDate: 'Today, 6:00 PM', poDate: '02 Sept 2026', vehicle: 'Poultry Van LEH-1192' }
+    ],
+    deliveries: [
+      { id: 'DISP-601', poId: 'PO-3014', destination: 'Gulberg Warehouse Hub', driver: 'Shahbaz Ali', phone: '0313-7766554', vehicle: 'Insulated Van (LEH-1192)', status: 'Out for Delivery', eta: 'Today, 5:15 PM', challanNo: 'CH-7740', item: '50 Trays Desi Eggs' }
+    ]
+  }
+};
 
 export const SupplierPortal = () => {
   const {
@@ -37,253 +107,138 @@ export const SupplierPortal = () => {
     adminLogout,
     navigateTo,
     currency,
-    addToast
+    addToast,
+    suppliers
   } = useStore();
 
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'products' | 'orders' | 'deliveries' | 'payments' | 'invoices' | 'performance' | 'settings'
   const [orderFilter, setOrderFilter] = useState('All');
   const [selectedPO, setSelectedPO] = useState(null);
 
-  // Supplier Company Details
-  const supplierName = user?.name && user.name !== 'Store Admin' ? user.name : 'ABC Dairy Farms';
-
-  // 1. Mock Purchase Orders from FreshMart (Matching User's ASCII Diagram)
-  const [purchaseOrders, setPurchaseOrders] = useState([
-    {
-      id: 'PO-1024',
-      item: 'Fresh Whole Milk (100 Liters)',
-      qty: '100 Liters',
-      amount: 23000,
-      status: 'Pending Orders',
-      statusCode: 'pending',
-      color: 'amber',
-      branch: 'Faisalabad Branch',
-      dueDate: 'Today, 4:00 PM',
-      poDate: '03 Sept 2026',
-      notes: 'Chill at 4°C during transport'
-    },
-    {
-      id: 'PO-1023',
-      item: 'Greek Yogurt 500g (50 packs)',
-      qty: '50 Packs',
-      amount: 12500,
-      status: 'To Ship',
-      statusCode: 'to-ship',
-      color: 'blue',
-      branch: 'Lahore Main Hub',
-      dueDate: 'Tomorrow, 10:00 AM',
-      poDate: '02 Sept 2026',
-      notes: 'Sealed cold crate packaging'
-    },
-    {
-      id: 'PO-1022',
-      item: 'Dairy Fresh Cream 200ml (30 packs)',
-      qty: '30 Packs',
-      amount: 8000,
-      status: 'Deliver Today',
-      statusCode: 'deliver-today',
-      color: 'emerald',
-      branch: 'Gulberg Warehouse Hub',
-      dueDate: 'Today, 6:00 PM',
-      poDate: '02 Sept 2026',
-      notes: 'Delivery Van: LEK-8841'
-    },
-    {
-      id: 'PO-1021',
-      item: 'Desi Farm Butter 500g (20 packs)',
-      qty: '20 Packs',
-      amount: 17000,
-      status: 'Complete Orders',
-      statusCode: 'completed',
-      color: 'purple',
-      branch: 'DHA Phase 5 Warehouse',
-      dueDate: '01 Sept 2026',
-      poDate: '01 Sept 2026',
-      notes: 'Received & Quality Verified'
-    },
-    {
-      id: 'PO-1020',
-      item: 'Mozzarella Cheese Blocks (15 kg)',
-      qty: '15 Kg',
-      amount: 24000,
-      status: 'Complete Orders',
-      statusCode: 'completed',
-      color: 'purple',
-      branch: 'Lahore Main Hub',
-      dueDate: '29 Aug 2026',
-      poDate: '28 Aug 2026',
-      notes: 'Paid via Meezan Bank'
+  // Determine current supplier specialty category
+  const [selectedSpecialtyKey, setSelectedSpecialtyKey] = useState(() => {
+    // If logged-in user matches a registered supplier's category
+    const found = (suppliers || []).find((s) => s.email === user?.email || s.name === user?.name || s.username === user?.name);
+    if (found && found.category && SUPPLIER_SPECIALTIES[found.category]) {
+      return found.category;
     }
-  ]);
+    return 'Fresh Milk & Pure Dairy';
+  });
 
-  // 2. Supplier Product Catalog
-  const [suppliedProducts, setSuppliedProducts] = useState([
-    {
-      id: 'SUP-P1',
-      name: 'Fresh Whole Cow Milk (Pasteurized)',
-      category: 'Dairy & Eggs',
-      unitPrice: 230,
-      unit: 'Liter',
-      minOrder: 50,
-      leadTime: '4 Hours',
-      status: 'Active Supply'
-    },
-    {
-      id: 'SUP-P2',
-      name: 'Probiotic Greek Yogurt 500g',
-      category: 'Dairy & Eggs',
-      unitPrice: 250,
-      unit: 'Pack',
-      minOrder: 20,
-      leadTime: '12 Hours',
-      status: 'Active Supply'
-    },
-    {
-      id: 'SUP-P3',
-      name: 'Pure Desi Farm Butter 500g',
-      category: 'Dairy & Eggs',
-      unitPrice: 850,
-      unit: 'Pack',
-      minOrder: 10,
-      leadTime: '24 Hours',
-      status: 'Active Supply'
-    },
-    {
-      id: 'SUP-P4',
-      name: 'Heavy Whipping Dairy Cream 200ml',
-      category: 'Dairy & Eggs',
-      unitPrice: 266,
-      unit: 'Pack',
-      minOrder: 15,
-      leadTime: '8 Hours',
-      status: 'Active Supply'
-    },
-    {
-      id: 'SUP-P5',
-      name: 'Artisan Mozzarella Cheese Block',
-      category: 'Dairy & Eggs',
-      unitPrice: 1600,
-      unit: 'Kg',
-      minOrder: 5,
-      leadTime: '24 Hours',
-      status: 'Active Supply'
-    }
-  ]);
+  const activeSpecialty = SUPPLIER_SPECIALTIES[selectedSpecialtyKey] || SUPPLIER_SPECIALTIES['Fresh Milk & Pure Dairy'];
+  const supplierName = user?.name && user.name !== 'Store Admin' ? user.name : activeSpecialty.companyName;
 
-  // 3. Deliveries & Dispatches
-  const [deliveries, setDeliveries] = useState([
-    {
-      id: 'DISP-801',
-      poId: 'PO-1022',
-      destination: 'Gulberg Warehouse Hub',
-      driver: 'Kashif Mehmood',
-      phone: '0321-9988771',
-      vehicle: 'Refrigerated Van (LEK-8841)',
-      status: 'Out for Delivery',
-      eta: 'Today, 5:30 PM',
-      challanNo: 'CH-9921'
-    },
-    {
-      id: 'DISP-800',
-      poId: 'PO-1021',
-      destination: 'DHA Phase 5 Warehouse',
-      driver: 'Nadeem Akhtar',
-      phone: '0300-4455667',
-      vehicle: 'Pickup Truck (LEA-2231)',
-      status: 'Delivered & Inspected',
-      eta: '01 Sept, 2:00 PM',
-      challanNo: 'CH-9920'
-    }
-  ]);
+  // Local state initialized with category-specific dataset
+  const [purchaseOrders, setPurchaseOrders] = useState(activeSpecialty.purchaseOrders);
+  const [suppliedProducts, setSuppliedProducts] = useState(activeSpecialty.products);
+  const [deliveries, setDeliveries] = useState(activeSpecialty.deliveries);
 
-  // 4. Invoices
+  // Sync state when specialty is switched
+  useEffect(() => {
+    const spec = SUPPLIER_SPECIALTIES[selectedSpecialtyKey] || SUPPLIER_SPECIALTIES['Fresh Milk & Pure Dairy'];
+    setPurchaseOrders(spec.purchaseOrders);
+    setSuppliedProducts(spec.products);
+    setDeliveries(spec.deliveries);
+  }, [selectedSpecialtyKey]);
+
+  // Financial summary
   const [invoices, setInvoices] = useState([
     {
       id: 'INV-2026-904',
       poRef: 'PO-1021',
       date: '01 Sept 2026',
       dueDate: '15 Sept 2026',
-      subtotal: 17000,
+      subtotal: 35250,
       tax: 0,
-      total: 17000,
+      total: 35250,
       status: 'Paid',
-      paymentMethod: 'Direct Bank Transfer'
+      paymentMethod: 'Meezan Direct Transfer'
     },
     {
       id: 'INV-2026-903',
       poRef: 'PO-1020',
       date: '28 Aug 2026',
       dueDate: '10 Sept 2026',
-      subtotal: 24000,
+      subtotal: 25000,
       tax: 0,
-      total: 24000,
+      total: 25000,
       status: 'Paid',
-      paymentMethod: 'Direct Bank Transfer'
+      paymentMethod: 'Bank Transfer'
     },
     {
       id: 'INV-2026-905',
       poRef: 'PO-1022',
       date: '02 Sept 2026',
       dueDate: '16 Sept 2026',
-      subtotal: 8000,
+      subtotal: 17600,
       tax: 0,
-      total: 8000,
+      total: 17600,
       status: 'Pending Settlement',
       paymentMethod: 'Net 15 Days'
     }
   ]);
 
-  // Status Handlers
   const handleUpdatePOStatus = (poId, newStatus) => {
     setPurchaseOrders((prev) =>
       prev.map((po) => {
         if (po.id === poId) {
           return {
             ...po,
-            status: newStatus,
-            statusCode: newStatus.toLowerCase().replace(/\s+/g, '-')
+            status: newStatus
           };
         }
         return po;
       })
     );
-    addToast('PO Updated 🧾', `Purchase order ${poId} marked as "${newStatus}".`);
+    addToast('PO Status Updated 🧾', `Purchase order ${poId} updated to "${newStatus}".`);
     setSelectedPO(null);
   };
 
-  // Nav Items Matching User's ASCII Layout
+  // Nav Items matching user's exact ASCII diagram
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'products', label: 'Products', icon: Package, count: suppliedProducts.length },
-    { id: 'orders', label: 'Orders', icon: ShoppingBag, count: 8 },
-    { id: 'deliveries', label: 'Deliveries', icon: Truck, count: 2 },
+    { id: 'orders', label: 'Orders', icon: ShoppingBag, count: purchaseOrders.filter((p) => p.status === 'Pending Orders').length },
+    { id: 'deliveries', label: 'Deliveries', icon: Truck, count: deliveries.length },
     { id: 'payments', label: 'Payments', icon: DollarSign },
     { id: 'invoices', label: 'Invoices', icon: FileText, count: invoices.length },
     { id: 'performance', label: 'Performance', icon: BarChart3 },
     { id: 'settings', label: 'Settings', icon: Settings }
   ];
 
+  // Counts for top cards
+  const pendingCount = purchaseOrders.filter((p) => p.status === 'Pending Orders').length;
+  const toShipCount = purchaseOrders.filter((p) => p.status === 'To Ship').length;
+  const deliverTodayCount = purchaseOrders.filter((p) => p.status === 'Deliver Today').length;
+  const completeCount = purchaseOrders.filter((p) => p.status === 'Complete Orders').length;
+
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row font-sans text-slate-800 antialiased">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row font-sans text-slate-800 antialiased selection:bg-emerald-500 selection:text-white">
       
-      {/* 1. Left Dark Sidebar matching FreshMart & User ASCII */}
-      <aside className="w-full lg:w-64 bg-[#0f172a] text-slate-300 p-5 flex flex-col justify-between shrink-0 border-r border-slate-800">
+      {/* 1. Left Dark Emerald Sidebar (Strict FreshMart Theme) */}
+      <aside className="w-full lg:w-64 bg-[#07241d] text-slate-300 p-5 flex flex-col justify-between shrink-0 border-r border-[#0d3b30]">
         <div>
           {/* Header Brand */}
-          <div className="flex items-center gap-2.5 pb-5 border-b border-slate-800">
-            <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-md">
-              📦
+          <div className="flex items-center gap-2.5 pb-5 border-b border-[#0d3b30]">
+            <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-black text-lg shadow-md shadow-emerald-900/40">
+              🛒
             </div>
             <div>
               <h2 className="text-base font-black text-white leading-none">FreshMart</h2>
-              <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block mt-1">
+              <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block mt-1">
                 Supplier Portal
               </span>
             </div>
           </div>
 
-          {/* Navigation Items Matching ASCII Diagram */}
-          <nav className="mt-5 space-y-1">
+          {/* Supplier Specialty Badge in Sidebar */}
+          <div className="mt-4 p-2.5 bg-[#0b3329] border border-[#13493b] rounded-2xl">
+            <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 block">Vendor Specialty</span>
+            <span className="text-xs font-bold text-white block truncate">{activeSpecialty.category}</span>
+          </div>
+
+          {/* Navigation Items */}
+          <nav className="mt-4 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -294,18 +249,18 @@ export const SupplierPortal = () => {
                   onClick={() => setActiveTab(item.id)}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all text-left cursor-pointer ${
                     isActive
-                      ? 'bg-indigo-600 text-white font-bold shadow-sm'
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-emerald-600 text-white font-bold shadow-sm shadow-emerald-900/50'
+                      : 'text-slate-300 hover:bg-[#0b3329] hover:text-white'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <Icon className="w-4 h-4" />
                     <span>{item.label}</span>
                   </div>
-                  {item.count !== undefined && (
+                  {item.count !== undefined && item.count > 0 && (
                     <span
                       className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
-                        isActive ? 'bg-white text-indigo-900' : 'bg-slate-800 text-slate-400'
+                        isActive ? 'bg-white text-emerald-950' : 'bg-[#0b3329] text-emerald-400'
                       }`}
                     >
                       {item.count}
@@ -317,11 +272,11 @@ export const SupplierPortal = () => {
           </nav>
         </div>
 
-        {/* Bottom Store Link & Sign Out */}
-        <div className="pt-6 border-t border-slate-800 space-y-2 mt-6">
+        {/* Bottom Storefront Link & Sign Out */}
+        <div className="pt-6 border-t border-[#0d3b30] space-y-2 mt-6">
           <button
             onClick={() => navigateTo('home')}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold text-emerald-400 bg-emerald-950/40 hover:bg-emerald-950/70 border border-emerald-800/40 transition-colors cursor-pointer"
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-800/40 transition-colors cursor-pointer"
           >
             <span className="flex items-center gap-2">
               <Store className="w-4 h-4" />
@@ -332,10 +287,10 @@ export const SupplierPortal = () => {
 
           <button
             onClick={adminLogout}
-            className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-950/40 transition-colors cursor-pointer"
+            className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-300 hover:bg-rose-950/40 transition-colors cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
-            <span>Sign Out ({supplierName})</span>
+            <span>Sign Out</span>
           </button>
         </div>
       </aside>
@@ -343,29 +298,47 @@ export const SupplierPortal = () => {
       {/* 2. Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         
-        {/* Top Header Bar matching ASCII Diagram */}
-        <header className="bg-white border-b border-slate-200 px-6 py-3.5 flex items-center justify-between gap-4 sticky top-0 z-30 shadow-xs">
+        {/* Top Header Bar */}
+        <header className="bg-white border-b border-slate-200 px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 z-30 shadow-xs">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-black text-slate-400 uppercase tracking-wider">Vendor Workspace</span>
+            <span className="text-xs font-black text-slate-400 uppercase tracking-wider">FreshMart Supplier</span>
             <span className="text-slate-300">/</span>
-            <span className="text-xs font-black text-indigo-700 capitalize">{activeTab}</span>
+            <span className="text-xs font-black text-emerald-700 capitalize">{activeTab}</span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between sm:justify-end gap-3">
+            
+            {/* Vendor Domain Selector (Allows testing & viewing category-specific logic) */}
+            <div className="flex items-center gap-2 bg-emerald-50/80 border border-emerald-200 px-3 py-1.5 rounded-xl">
+              <Tag className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+              <select
+                value={selectedSpecialtyKey}
+                onChange={(e) => setSelectedSpecialtyKey(e.target.value)}
+                className="bg-transparent text-xs font-bold text-emerald-900 focus:outline-none cursor-pointer"
+                title="Switch supplier domain to view category-specific supply items"
+              >
+                {Object.keys(SUPPLIER_SPECIALTIES).map((k) => (
+                  <option key={k} value={k}>
+                    {SUPPLIER_SPECIALTIES[k].label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Notification Bell */}
             <button className="relative p-2 rounded-full hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-600 rounded-full" />
+              <Bell className="w-4 h-4" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-600 rounded-full" />
             </button>
 
-            {/* Vendor Profile Matching ASCII */}
-            <div className="flex items-center gap-3 pl-3 border-l border-slate-200">
-              <div className="w-9 h-9 rounded-full bg-indigo-600 text-white font-black flex items-center justify-center text-xs shadow-xs">
+            {/* Vendor Profile Avatar */}
+            <div className="flex items-center gap-2.5 pl-3 border-l border-slate-200">
+              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white font-black flex items-center justify-center text-xs shadow-xs">
                 {supplierName.slice(0, 2).toUpperCase()}
               </div>
-              <div className="text-left hidden sm:block">
+              <div className="text-left hidden md:block">
                 <span className="text-xs font-bold text-slate-900 block leading-tight">{supplierName}</span>
-                <span className="text-[10px] text-indigo-600 block font-bold">Verified Vendor Partner</span>
+                <span className="text-[10px] text-emerald-600 block font-bold">{activeSpecialty.category}</span>
               </div>
             </div>
           </div>
@@ -375,29 +348,29 @@ export const SupplierPortal = () => {
         <main className="p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
           
           {/* ================================================================= */}
-          {/* 1. DASHBOARD VIEW (MATCHING USER'S ASCII DIAGRAM EXACTLY)        */}
+          {/* 1. DASHBOARD VIEW (ACCORDING TO USER'S EXACT ASCII & EMERALD THEME) */}
           {/* ================================================================= */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6 animate-in fade-in duration-200">
               
-              {/* Greeting Header */}
-              <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white p-6 rounded-3xl shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              {/* Emerald Greeting Header */}
+              <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-[#07241d] text-white p-6 rounded-3xl shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h1 className="text-2xl font-black tracking-tight flex items-center gap-2">
                     <span>Good Morning, {supplierName}</span>
                     <span>👋</span>
                   </h1>
-                  <p className="text-xs text-indigo-200 mt-1">
-                    Here is your vendor summary for today's FreshMart supply orders & logistics dispatches.
+                  <p className="text-xs text-emerald-100 mt-1">
+                    Specialized Vendor Portal: Managing <strong className="text-white underline">{activeSpecialty.category}</strong> replenishment for FreshMart.
                   </p>
                 </div>
-                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/10 text-xs font-bold">
-                  <Building className="w-4 h-4 text-indigo-300" />
-                  <span>Verified Dairy & Farm Partner</span>
+                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/10 text-xs font-bold self-start sm:self-auto">
+                  <Building className="w-4 h-4 text-emerald-300" />
+                  <span>{activeSpecialty.tagline}</span>
                 </div>
               </div>
 
-              {/* 4 Key Status Cards Matching ASCII: [ 8 Pending ] [ 3 To Ship ] [ 2 Deliver Today ] [ 15 Complete ] */}
+              {/* 4 Key Status Cards Matching ASCII: [ Pending ] [ To Ship ] [ Deliver Today ] [ Complete ] */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 
                 {/* 1. Pending Orders */}
@@ -407,11 +380,11 @@ export const SupplierPortal = () => {
                       🟡
                     </span>
                     <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                      New PO
+                      New Demand
                     </span>
                   </div>
-                  <div className="text-3xl font-black text-slate-900 font-mono">8</div>
-                  <div className="text-xs font-bold text-slate-600">Pending Orders</div>
+                  <div className="text-3xl font-black text-slate-900 font-mono">{pendingCount}</div>
+                  <div className="text-xs font-bold text-slate-700">Pending Orders</div>
                   <p className="text-[10px] text-slate-400">Awaiting vendor confirmation</p>
                 </div>
 
@@ -425,8 +398,8 @@ export const SupplierPortal = () => {
                       Packing
                     </span>
                   </div>
-                  <div className="text-3xl font-black text-slate-900 font-mono">3</div>
-                  <div className="text-xs font-bold text-slate-600">To Ship</div>
+                  <div className="text-3xl font-black text-slate-900 font-mono">{toShipCount}</div>
+                  <div className="text-xs font-bold text-slate-700">To Ship</div>
                   <p className="text-[10px] text-slate-400">Ready for dispatch loading</p>
                 </div>
 
@@ -440,24 +413,24 @@ export const SupplierPortal = () => {
                       En Route
                     </span>
                   </div>
-                  <div className="text-3xl font-black text-slate-900 font-mono">2</div>
-                  <div className="text-xs font-bold text-slate-600">Deliver Today</div>
+                  <div className="text-3xl font-black text-slate-900 font-mono">{deliverTodayCount}</div>
+                  <div className="text-xs font-bold text-slate-700">Deliver Today</div>
                   <p className="text-[10px] text-slate-400">Trucks arriving at hub</p>
                 </div>
 
                 {/* 4. Complete Orders */}
                 <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs space-y-2 hover:shadow-card transition-all">
                   <div className="flex items-center justify-between">
-                    <span className="w-9 h-9 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center font-black text-sm">
+                    <span className="w-9 h-9 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center font-black text-sm">
                       🟢
                     </span>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">
                       Fulfilled
                     </span>
                   </div>
-                  <div className="text-3xl font-black text-slate-900 font-mono">15</div>
-                  <div className="text-xs font-bold text-slate-600">Complete Orders</div>
-                  <p className="text-[10px] text-slate-400">Received & Settled</p>
+                  <div className="text-3xl font-black text-slate-900 font-mono">{completeCount}</div>
+                  <div className="text-xs font-bold text-slate-700">Complete Orders</div>
+                  <p className="text-[10px] text-slate-400">Received & Inspected</p>
                 </div>
 
               </div>
@@ -465,18 +438,20 @@ export const SupplierPortal = () => {
               {/* 2-Column Grid: Recent Purchase Orders + Upcoming Deliveries */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
-                {/* Recent Purchase Orders (2 Cols) Matching User Diagram */}
+                {/* Recent Purchase Orders (Filtered strictly to this supplier's category) */}
                 <div className="lg:col-span-2 bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className="text-base font-black text-slate-900">Recent Purchase Orders</h2>
-                      <p className="text-xs text-slate-400">Incoming stock demand from FreshMart stores</p>
+                      <p className="text-xs text-slate-400">
+                        Orders for <span className="font-bold text-emerald-700">{activeSpecialty.category}</span>
+                      </p>
                     </div>
                     <button
                       onClick={() => setActiveTab('orders')}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                      className="text-xs font-bold text-emerald-600 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
                     >
-                      <span>View All</span>
+                      <span>View All POs</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -495,7 +470,7 @@ export const SupplierPortal = () => {
                       <tbody className="divide-y divide-slate-50 font-medium">
                         {purchaseOrders.slice(0, 4).map((po) => (
                           <tr key={po.id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="py-3.5 font-bold font-mono text-indigo-700">{po.id}</td>
+                            <td className="py-3.5 font-bold font-mono text-emerald-700">{po.id}</td>
                             <td className="py-3.5 text-slate-800">
                               <span className="font-bold block text-slate-900">{po.item}</span>
                               <span className="text-[10px] text-slate-400">{po.branch}</span>
@@ -512,7 +487,7 @@ export const SupplierPortal = () => {
                                     ? 'bg-blue-100 text-blue-800'
                                     : po.status === 'Deliver Today'
                                     ? 'bg-emerald-100 text-emerald-800'
-                                    : 'bg-purple-100 text-purple-800'
+                                    : 'bg-teal-100 text-teal-800'
                                 }`}
                               >
                                 {po.status}
@@ -521,9 +496,9 @@ export const SupplierPortal = () => {
                             <td className="py-3.5 text-right">
                               <button
                                 onClick={() => setSelectedPO(po)}
-                                className="px-3 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                                className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
                               >
-                                Manage
+                                Update
                               </button>
                             </td>
                           </tr>
@@ -533,7 +508,7 @@ export const SupplierPortal = () => {
                   </div>
                 </div>
 
-                {/* Upcoming Deliveries Matching User Diagram */}
+                {/* Upcoming Deliveries */}
                 <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4 flex flex-col justify-between">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -545,33 +520,25 @@ export const SupplierPortal = () => {
                     </div>
 
                     <div className="space-y-3 text-xs">
-                      <div className="p-3.5 bg-indigo-50/70 border border-indigo-100 rounded-2xl space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="font-black text-indigo-900">Faisalabad Branch Hub</span>
-                          <span className="text-[10px] font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-full shadow-2xs">
-                            Today • 4 PM
-                          </span>
+                      {deliveries.map((del) => (
+                        <div key={del.id} className="p-3.5 bg-emerald-50/70 border border-emerald-100 rounded-2xl space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-black text-emerald-900">{del.destination}</span>
+                            <span className="text-[10px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-full shadow-2xs">
+                              {del.eta}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-emerald-800 font-medium">{del.item} • {del.vehicle}</p>
                         </div>
-                        <p className="text-[11px] text-indigo-700">100L Whole Milk Batch • Refrigerated Van LEK-8841</p>
-                      </div>
-
-                      <div className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-slate-800">Lahore Central Main Hub</span>
-                          <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-full">
-                            Tomorrow • 10 AM
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500">50 Greek Yogurt Packs • Cold Crate Box</p>
-                      </div>
+                      ))}
                     </div>
                   </div>
 
                   <button
                     onClick={() => setActiveTab('deliveries')}
-                    className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <span>View Delivery Schedule</span>
+                    <span>View Dispatch Schedule</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -582,21 +549,23 @@ export const SupplierPortal = () => {
           )}
 
           {/* ================================================================= */}
-          {/* 2. SUPPLIED PRODUCTS VIEW                                         */}
+          {/* 2. SUPPLIED PRODUCTS VIEW (CATEGORY-SPECIFIC CATALOG)              */}
           {/* ================================================================= */}
           {activeTab === 'products' && (
             <div className="space-y-4 animate-in fade-in duration-200">
               <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-black text-slate-900">My Supplied Products</h2>
-                  <p className="text-xs text-slate-400">Products and batches currently supplied by {supplierName} to FreshMart stores</p>
+                  <h2 className="text-xl font-black text-slate-900">Supplied Products Catalog</h2>
+                  <p className="text-xs text-slate-400">
+                    Category: <strong className="text-emerald-700">{activeSpecialty.category}</strong> supplied by {supplierName}
+                  </p>
                 </div>
                 <button
-                  onClick={() => addToast('Product Quotation', 'New item quotation form submitted to FreshMart Procurement.')}
-                  className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm cursor-pointer"
+                  onClick={() => addToast('Product Quotation Submitted 📋', `New ${activeSpecialty.category} item quotation sent to FreshMart Procurement.`)}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>+ Submit New Product Quotation</span>
+                  <span>+ Submit New Supply Quotation</span>
                 </button>
               </div>
 
@@ -604,12 +573,12 @@ export const SupplierPortal = () => {
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="text-slate-400 border-b border-slate-100 pb-3">
-                      <th className="pb-3 font-semibold">SKU / Code</th>
+                      <th className="pb-3 font-semibold">Item SKU</th>
                       <th className="pb-3 font-semibold">Product Name</th>
-                      <th className="pb-3 font-semibold">Category</th>
+                      <th className="pb-3 font-semibold">Category Domain</th>
                       <th className="pb-3 font-semibold">Supply Unit Price</th>
-                      <th className="pb-3 font-semibold">Min Supply Qty</th>
-                      <th className="pb-3 font-semibold">Lead Time</th>
+                      <th className="pb-3 font-semibold">Min Batch Supply</th>
+                      <th className="pb-3 font-semibold">Dispatch Lead Time</th>
                       <th className="pb-3 font-semibold">Status</th>
                     </tr>
                   </thead>
@@ -618,8 +587,8 @@ export const SupplierPortal = () => {
                       <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
                         <td className="py-3.5 font-mono text-slate-400 font-bold">{p.id}</td>
                         <td className="py-3.5 font-bold text-slate-900">{p.name}</td>
-                        <td className="py-3.5 text-slate-500">{p.category}</td>
-                        <td className="py-3.5 font-mono font-bold text-indigo-700">
+                        <td className="py-3.5 text-emerald-700 font-semibold">{activeSpecialty.category}</td>
+                        <td className="py-3.5 font-mono font-bold text-emerald-700">
                           {currency.symbol}{p.unitPrice} / {p.unit}
                         </td>
                         <td className="py-3.5 text-slate-600">{p.minOrder} {p.unit}s</td>
@@ -645,17 +614,19 @@ export const SupplierPortal = () => {
               <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-black text-slate-900">Purchase Orders (POs)</h2>
-                  <p className="text-xs text-slate-400">Review, confirm and fulfill replenishment purchase orders</p>
+                  <p className="text-xs text-slate-400">
+                    Incoming replenishment orders for <strong className="text-emerald-700">{activeSpecialty.category}</strong>
+                  </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {['All', 'Pending Orders', 'To Ship', 'Deliver Today', 'Complete Orders'].map((filter) => (
                     <button
                       key={filter}
                       onClick={() => setOrderFilter(filter)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                         orderFilter === filter
-                          ? 'bg-indigo-600 text-white shadow-xs'
+                          ? 'bg-emerald-600 text-white shadow-xs'
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
@@ -670,7 +641,7 @@ export const SupplierPortal = () => {
                   <thead>
                     <tr className="text-slate-400 border-b border-slate-100 pb-3">
                       <th className="pb-3 font-semibold">PO #</th>
-                      <th className="pb-3 font-semibold">Item & Quantity</th>
+                      <th className="pb-3 font-semibold">Item & Batch Quantity</th>
                       <th className="pb-3 font-semibold">Destination Hub</th>
                       <th className="pb-3 font-semibold">Due Schedule</th>
                       <th className="pb-3 font-semibold">Order Total</th>
@@ -683,7 +654,7 @@ export const SupplierPortal = () => {
                       .filter((po) => orderFilter === 'All' || po.status === orderFilter)
                       .map((po) => (
                         <tr key={po.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-4 font-bold font-mono text-indigo-700">{po.id}</td>
+                          <td className="py-4 font-bold font-mono text-emerald-700">{po.id}</td>
                           <td className="py-4">
                             <span className="font-bold text-slate-900 block">{po.item}</span>
                             <span className="text-[11px] text-slate-400">Qty: {po.qty}</span>
@@ -702,7 +673,7 @@ export const SupplierPortal = () => {
                                   ? 'bg-blue-100 text-blue-800'
                                   : po.status === 'Deliver Today'
                                   ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-purple-100 text-purple-800'
+                                  : 'bg-teal-100 text-teal-800'
                               }`}
                             >
                               {po.status}
@@ -711,7 +682,7 @@ export const SupplierPortal = () => {
                           <td className="py-4 text-right">
                             <button
                               onClick={() => setSelectedPO(po)}
-                              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
                             >
                               Update Status
                             </button>
@@ -741,12 +712,12 @@ export const SupplierPortal = () => {
                   <div key={del.id} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                       <div className="flex items-center gap-2.5">
-                        <span className="w-9 h-9 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-black">
+                        <span className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-black">
                           🚚
                         </span>
                         <div>
                           <h3 className="font-black text-sm text-slate-900">{del.id}</h3>
-                          <span className="text-[11px] text-indigo-700 font-mono font-bold">Challan: {del.challanNo}</span>
+                          <span className="text-[11px] text-emerald-700 font-mono font-bold">Challan: {del.challanNo}</span>
                         </div>
                       </div>
                       <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
@@ -755,6 +726,10 @@ export const SupplierPortal = () => {
                     </div>
 
                     <div className="space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Supplied Item:</span>
+                        <span className="font-bold text-emerald-800">{del.item}</span>
+                      </div>
                       <div className="flex justify-between">
                         <span className="text-slate-400">Destination:</span>
                         <span className="font-bold text-slate-800">{del.destination}</span>
@@ -768,14 +743,14 @@ export const SupplierPortal = () => {
                         <span className="font-bold text-slate-800">{del.driver} ({del.phone})</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Expected Time:</span>
-                        <span className="font-bold text-indigo-600">{del.eta}</span>
+                        <span className="text-slate-400">Expected Arrival:</span>
+                        <span className="font-bold text-emerald-700">{del.eta}</span>
                       </div>
                     </div>
 
                     <button
                       onClick={() => addToast('Challan Downloaded 📄', `Delivery challan for ${del.id} generated.`)}
-                      className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span>Download Delivery Challan PDF</span>
@@ -846,7 +821,7 @@ export const SupplierPortal = () => {
                     {invoices.map((inv) => (
                       <tr key={inv.id} className="hover:bg-slate-50/60 transition-colors">
                         <td className="py-3.5 font-mono font-bold text-slate-900">{inv.id}</td>
-                        <td className="py-3.5 font-mono text-indigo-700 font-bold">{inv.poRef}</td>
+                        <td className="py-3.5 font-mono text-emerald-700 font-bold">{inv.poRef}</td>
                         <td className="py-3.5 text-slate-500">{inv.date}</td>
                         <td className="py-3.5 text-slate-600">{inv.paymentMethod}</td>
                         <td className="py-3.5 font-mono font-bold text-slate-900">
@@ -895,7 +870,7 @@ export const SupplierPortal = () => {
                 </div>
 
                 <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xs space-y-2 text-center">
-                  <span className="text-4xl font-black text-indigo-600 font-mono">97.8%</span>
+                  <span className="text-4xl font-black text-emerald-700 font-mono">97.8%</span>
                   <div className="text-xs font-bold text-slate-900">On-Time Arrival</div>
                   <p className="text-[10px] text-slate-400">Delivered within scheduled slot</p>
                 </div>
@@ -923,6 +898,16 @@ export const SupplierPortal = () => {
                     type="text"
                     defaultValue={supplierName}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-semibold text-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Category Specialty</label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={activeSpecialty.category}
+                    className="w-full bg-emerald-50/60 border border-emerald-200 rounded-xl p-3 font-bold text-emerald-900"
                   />
                 </div>
 
@@ -957,7 +942,7 @@ export const SupplierPortal = () => {
                 <button
                   type="button"
                   onClick={() => addToast('Settings Saved 💾', 'Supplier profile updated successfully.')}
-                  className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-colors cursor-pointer"
+                  className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-colors cursor-pointer"
                 >
                   Save Business Details
                 </button>
@@ -993,7 +978,7 @@ export const SupplierPortal = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Total Value:</span>
-                <span className="font-mono font-bold text-indigo-700">{currency.symbol}{selectedPO.amount.toLocaleString()}</span>
+                <span className="font-mono font-bold text-emerald-700">{currency.symbol}{selectedPO.amount.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Current Status:</span>
@@ -1024,7 +1009,7 @@ export const SupplierPortal = () => {
                 </button>
                 <button
                   onClick={() => handleUpdatePOStatus(selectedPO.id, 'Complete Orders')}
-                  className="py-2.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-900 rounded-xl font-bold text-xs border border-purple-200 cursor-pointer"
+                  className="py-2.5 px-3 bg-teal-50 hover:bg-teal-100 text-teal-900 rounded-xl font-bold text-xs border border-teal-200 cursor-pointer"
                 >
                   🟢 Completed
                 </button>
