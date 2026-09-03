@@ -59,39 +59,14 @@ export const CheckoutPage = () => {
   const [placedOrderDetails, setPlacedOrderDetails] = useState(null);
   const [copiedOrderId, setCopiedOrderId] = useState(false);
 
-  // Address State & Saved Address Presets
-  const savedAddressOptions = [
-    {
-      id: 'addr_home',
-      label: 'Home',
-      icon: Home,
-      recipientName: customerUser?.name || 'Tayyaba Batool',
-      phone: customerUser?.phone || '0300-1234567',
-      address: 'House 12, Street 4, Sector B, Johar Town',
-      city: 'Lahore, Pakistan',
-      notes: 'Please ring bell and leave package on porch.'
-    },
-    {
-      id: 'addr_office',
-      label: 'Office',
-      icon: Building,
-      recipientName: customerUser?.name || 'Tayyaba Batool',
-      phone: customerUser?.phone || '0300-1234567',
-      address: 'Floor 3, Tech Hub Plaza, Main Boulevard, Gulberg III',
-      city: 'Lahore, Pakistan',
-      notes: 'Call on arrival. Leave with ground reception guard.'
-    }
-  ];
-
-  const [selectedAddressId, setSelectedAddressId] = useState('addr_home');
-  const [addressData, setAddressData] = useState(savedAddressOptions[0]);
-  const [isEditingAddress, setIsEditingAddress] = useState(false);
-
-  const handleSelectPreset = (addr) => {
-    setSelectedAddressId(addr.id);
-    setAddressData(addr);
-    setIsEditingAddress(false);
-  };
+  // Direct Address State
+  const [addressData, setAddressData] = useState({
+    recipientName: customerUser?.name || 'Tayyaba Batool',
+    phone: customerUser?.phone || '0300-1234567',
+    address: deliveryLocation.address || 'House 12, Street 4, Sector B, Johar Town, Lahore',
+    city: deliveryLocation.city || 'Lahore, Pakistan',
+    notes: 'Please ring bell and leave package at doorstep.'
+  });
 
   const grandTotalWithTip = cartTotal + riderTip;
 
@@ -361,106 +336,70 @@ export const CheckoutPage = () => {
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-slate-900">Delivery Address</h3>
-                    <p className="text-[11px] text-slate-400">Choose a saved address or enter a new drop-off location</p>
+                    <p className="text-[11px] text-slate-400">Enter recipient details and drop-off location</p>
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setIsEditingAddress(!isEditingAddress)}
-                  className="text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200 transition-colors cursor-pointer"
-                >
-                  {isEditingAddress ? 'Save Changes' : 'Edit / Add Custom'}
-                </button>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200/60">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Doorstep Delivery</span>
+                </div>
               </div>
 
-              {/* Saved Address Presets */}
-              {!isEditingAddress && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {savedAddressOptions.map((opt) => {
-                    const Icon = opt.icon;
-                    const isSelected = selectedAddressId === opt.id;
-
-                    return (
-                      <div
-                        key={opt.id}
-                        onClick={() => handleSelectPreset(opt)}
-                        className={`p-4 rounded-2xl border cursor-pointer transition-all space-y-2 relative ${
-                          isSelected
-                            ? 'border-emerald-600 bg-emerald-50/70 shadow-md shadow-emerald-900/5 ring-1 ring-emerald-500'
-                            : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100 text-slate-700'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                              isSelected ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 border border-slate-200'
-                            }`}>
-                              <Icon className="w-3.5 h-3.5" />
-                            </div>
-                            <span className="text-xs font-black text-slate-900">{opt.label}</span>
-                          </div>
-                          {isSelected && (
-                            <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
-                              Active
-                            </span>
-                          )}
-                        </div>
-
-                        <p className="text-xs text-slate-600 font-medium line-clamp-2">
-                          {opt.address}, {opt.city}
-                        </p>
-
-                        <div className="text-[11px] text-slate-400 font-mono">
-                          {opt.phone}
-                        </div>
-                      </div>
-                    );
-                  })}
+              {/* Direct Address Input Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1.5">
+                    Receiver Full Name <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={addressData.recipientName}
+                    onChange={(e) => setAddressData({ ...addressData, recipientName: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all"
+                    placeholder="e.g. Tayyaba Batool"
+                  />
                 </div>
-              )}
 
-              {/* Editable Address Form */}
-              {isEditingAddress && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1">Receiver Name</label>
-                    <input
-                      type="text"
-                      value={addressData.recipientName}
-                      onChange={(e) => setAddressData({ ...addressData, recipientName: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1">Contact Phone</label>
-                    <input
-                      type="text"
-                      value={addressData.phone}
-                      onChange={(e) => setAddressData({ ...addressData, phone: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="font-bold text-slate-700 block mb-1">Street Address & Landmark</label>
-                    <input
-                      type="text"
-                      value={addressData.address}
-                      onChange={(e) => setAddressData({ ...addressData, address: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="font-bold text-slate-700 block mb-1">Driver Instructions / Gate Code</label>
-                    <input
-                      type="text"
-                      value={addressData.notes}
-                      onChange={(e) => setAddressData({ ...addressData, notes: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                      placeholder="e.g. Ring bell, leave package with front gate security"
-                    />
-                  </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1.5">
+                    Contact Phone Number <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={addressData.phone}
+                    onChange={(e) => setAddressData({ ...addressData, phone: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all font-mono"
+                    placeholder="e.g. 0300-1234567"
+                  />
                 </div>
-              )}
+
+                <div className="sm:col-span-2">
+                  <label className="font-bold text-slate-700 block mb-1.5">
+                    Full Delivery Address (Street, House/Flat No, Area) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={addressData.address}
+                    onChange={(e) => setAddressData({ ...addressData, address: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all"
+                    placeholder="e.g. House 12, Street 4, Sector B, Johar Town, Lahore"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="font-bold text-slate-700 block mb-1.5">
+                    Delivery Instructions / Landmark (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={addressData.notes}
+                    onChange={(e) => setAddressData({ ...addressData, notes: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all"
+                    placeholder="e.g. Near Emporium Mall, ring doorbell upon arrival"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Step 2: Payment Gateway */}
