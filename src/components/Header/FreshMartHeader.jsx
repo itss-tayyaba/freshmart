@@ -156,7 +156,7 @@ export const FreshMartHeader = () => {
                     className="w-7 h-7 rounded-full object-cover border border-emerald-500"
                   />
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-[#a36829] text-white font-black text-xs flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-full bg-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
                     {customerUser.name.slice(0, 2).toUpperCase()}
                   </div>
                 )}
@@ -164,7 +164,7 @@ export const FreshMartHeader = () => {
                   <span className="text-[11px] font-black text-slate-900 block leading-tight truncate max-w-[90px]">
                     {customerUser.name.split(' ')[0]}
                   </span>
-                  <span className="text-[9px] text-[#a36829] font-bold block leading-none">Customer</span>
+                  <span className="text-[9px] text-emerald-700 font-bold block leading-none">Customer</span>
                 </div>
               </button>
               <button
@@ -178,9 +178,9 @@ export const FreshMartHeader = () => {
           ) : (
             <button
               onClick={() => setIsAuthOpen(true)}
-              className="px-3.5 py-2 bg-[#fbf8f3] hover:bg-[#f6f2ec] text-[#8c5720] border border-[#e8ded1] rounded-2xl text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-2xl text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
             >
-              <User className="w-3.5 h-3.5 text-[#a36829]" />
+              <User className="w-3.5 h-3.5 text-emerald-700" />
               <span>Sign In</span>
             </button>
           )}

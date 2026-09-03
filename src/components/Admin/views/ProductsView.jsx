@@ -482,7 +482,7 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-[#a36829] hover:bg-[#8c5720] text-white rounded-xl text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <span>Save Changes</span>
                 </button>

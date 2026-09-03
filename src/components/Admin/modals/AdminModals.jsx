@@ -325,14 +325,14 @@ export const AdminModals = ({
                   id="inStockCheck"
                   checked={productForm.inStock}
                   onChange={(e) => setProductForm({ ...productForm, inStock: e.target.checked })}
-                  className="w-4 h-4 rounded text-amber-700 focus:ring-amber-700 border-slate-300 cursor-pointer accent-[#a36829]"
+                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-600 border-slate-300 cursor-pointer accent-emerald-600"
                 />
                 <label htmlFor="inStockCheck" className="text-xs font-semibold text-slate-800 cursor-pointer select-none">
                   Available in store & in stock
                 </label>
               </div>
 
-              {/* Bottom Action Buttons matching screenshot */}
+              {/* Bottom Action Buttons */}
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="button"
@@ -343,7 +343,7 @@ export const AdminModals = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-[#a36829] hover:bg-[#8c5720] text-white rounded-xl text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <span>Save Product</span>
                 </button>

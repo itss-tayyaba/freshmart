@@ -64,35 +64,35 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
   return (
     <div className="max-w-md mx-auto px-4 py-8 animate-in fade-in duration-300 font-sans">
       
-      {/* Card matching screenshot 1 */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#e8ded1] shadow-2xl space-y-6">
+      {/* Card styled with FreshMart Emerald Theme */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-2xl shadow-emerald-950/10 space-y-6">
         
         {/* Brand Header */}
         <div className="space-y-2">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-[#faf6f0] border border-[#e8ded1] flex items-center justify-center text-xl shadow-2xs">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-50 border border-emerald-200/70 flex items-center justify-center text-xl shadow-2xs text-emerald-700">
               🛒
             </div>
             <h2 className="text-2xl sm:text-3xl font-serif font-black text-slate-900 tracking-tight flex items-center gap-1.5">
               <span>FreshMart</span>
-              <span className="text-[#a36829] text-xl font-sans font-bold">&</span>
+              <span className="text-emerald-600 text-xl font-sans font-bold">&</span>
               <span>Grocery</span>
             </h2>
           </div>
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-500 leading-relaxed">
             Sign in to track orders, view delivery OTP codes, reserve deals, and manage complaints.
           </p>
         </div>
 
-        {/* Side-by-Side Tabs matching screenshot 1 */}
+        {/* Side-by-Side Tabs styled in Emerald Theme */}
         <div className="grid grid-cols-2 gap-3 pt-1">
           <button
             type="button"
             onClick={() => setAuthMode('login')}
             className={`py-3 px-4 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer text-center ${
               authMode === 'login'
-                ? 'bg-[#fbf8f3] border-2 border-[#a36829] text-[#8c5720] shadow-xs'
-                : 'bg-[#f6f2ec] border border-[#e8ded1] text-slate-700 hover:bg-[#ede6dc]'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/30'
+                : 'bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200/80 hover:text-emerald-800'
             }`}
           >
             Sign In
@@ -103,8 +103,8 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
             onClick={() => setAuthMode('register')}
             className={`py-3 px-4 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer text-center ${
               authMode === 'register'
-                ? 'bg-[#fbf8f3] border-2 border-[#a36829] text-[#8c5720] shadow-xs'
-                : 'bg-[#f6f2ec] border border-[#e8ded1] text-slate-700 hover:bg-[#ede6dc]'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/30'
+                : 'bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200/80 hover:text-emerald-800'
             }`}
           >
             Create Account
@@ -124,7 +124,7 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
                 placeholder="e.g. aimenyasin320@gmail.com or 03206551699"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
-                className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-2xl px-4 py-3 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a36829] text-xs"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs transition-all"
               />
             </div>
 
@@ -139,23 +139,23 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
                   placeholder="••••••••"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
-                  className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-2xl px-4 py-3 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a36829] text-xs pr-10"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs pr-10 transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-700 cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            {/* Submit Button matching screenshot 1 */}
+            {/* Submit Button in FreshMart Emerald Green */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3.5 bg-[#a36829] hover:bg-[#8c5720] text-white rounded-2xl font-bold text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
+              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all cursor-pointer flex items-center justify-center gap-2 mt-2 transform hover:-translate-y-0.5"
             >
               <span>{isLoading ? 'Signing In...' : 'Sign In'}</span>
             </button>
@@ -173,7 +173,7 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
                 placeholder="e.g. Aimen Yasin"
                 value={regForm.name}
                 onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
-                className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-2xl px-4 py-2.5 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a36829] text-xs"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs transition-all"
               />
             </div>
 
@@ -187,7 +187,7 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
                 placeholder="aimenyasin320@gmail.com"
                 value={regForm.email}
                 onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
-                className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-2xl px-4 py-2.5 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a36829] text-xs"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs transition-all"
               />
             </div>
 
@@ -202,7 +202,7 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
                   placeholder="03206551699"
                   value={regForm.phone}
                   onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
-                  className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-2xl px-3 py-2.5 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a36829] text-xs"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs transition-all"
                 />
               </div>
 
@@ -213,7 +213,7 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
                 <select
                   value={regForm.city}
                   onChange={(e) => setRegForm({ ...regForm, city: e.target.value })}
-                  className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-2xl px-3 py-2.5 font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a36829] text-xs cursor-pointer"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs cursor-pointer transition-all"
                 >
                   <option>Lahore, Pakistan</option>
                   <option>Karachi, Pakistan</option>
@@ -234,22 +234,22 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
                 placeholder="At least 6 characters"
                 value={regForm.password}
                 onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
-                className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-2xl px-4 py-2.5 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#a36829] text-xs"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs transition-all"
               />
             </div>
 
-            {/* Create Account Submit Button */}
+            {/* Create Account Submit Button in FreshMart Emerald */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3.5 bg-[#a36829] hover:bg-[#8c5720] text-white rounded-2xl font-bold text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
+              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all cursor-pointer flex items-center justify-center gap-2 mt-2 transform hover:-translate-y-0.5"
             >
               <span>{isLoading ? 'Creating Account...' : 'Create Account'}</span>
             </button>
           </form>
         )}
 
-        {/* Back Link matching screenshot 1 */}
+        {/* Back Link */}
         <div className="text-center pt-2 border-t border-slate-100">
           <button
             type="button"
@@ -257,7 +257,7 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
               if (onAuthSuccess) onAuthSuccess();
               navigateTo('home');
             }}
-            className="text-xs font-semibold text-slate-500 hover:text-[#a36829] transition-colors cursor-pointer"
+            className="text-xs font-semibold text-slate-500 hover:text-emerald-700 transition-colors cursor-pointer"
           >
             ← Back to FreshMart Website
           </button>
