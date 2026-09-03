@@ -62,17 +62,12 @@ export const AdminLogin = () => {
   };
 
   const handleSubmit = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setErrorMessage('');
-    setIsLoading(true);
-
-    setTimeout(() => {
-      const result = adminLogin(username, password, selectedRole);
-      if (!result.success) {
-        setErrorMessage(result.error || 'Invalid credentials. Please verify your login details.');
-      }
-      setIsLoading(false);
-    }, 250);
+    const result = adminLogin(username, password, selectedRole);
+    if (!result.success) {
+      setErrorMessage(result.error || 'Invalid credentials. Please verify your login details.');
+    }
   };
 
   return (
@@ -188,17 +183,10 @@ export const AdminLogin = () => {
           {/* Sign In Primary Button with FreshMart Green */}
           <button
             type="submit"
-            disabled={isLoading}
-            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-sm shadow-md shadow-emerald-600/25 transition-all cursor-pointer flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
+            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white rounded-2xl font-black text-sm shadow-md shadow-emerald-600/25 transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
           >
-            {isLoading ? (
-              <span>Authenticating...</span>
-            ) : (
-              <>
-                <span>Sign In as {selectedRole === 'admin' ? 'Admin' : selectedRole === 'supplier' ? 'Supplier' : 'Rider'}</span>
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
+            <span>Sign In as {selectedRole === 'admin' ? 'Admin' : selectedRole === 'supplier' ? 'Supplier' : 'Rider'}</span>
+            <ArrowRight className="w-4 h-4" />
           </button>
 
         </form>

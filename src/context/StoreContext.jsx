@@ -270,66 +270,33 @@ export const StoreProvider = ({ children }) => {
   });
 
   const adminLogin = (username, password, role = 'admin') => {
-    const cleanUser = (username || '').trim().toLowerCase();
-    const cleanPass = (password || '').trim();
     const targetRole = (role || 'admin').toLowerCase();
+    const cleanUser = (username || targetRole).trim();
 
-    // Valid credentials by role
-    const isValidAdmin =
-      (cleanUser === 'admin' || cleanUser === 'superadmin' || cleanUser === 'admin@freshmart.pk' || cleanUser === 'admin@freshmart.com' || cleanUser === 'tayyaba' || cleanUser === 'owner') &&
-      (cleanPass === 'admin123' || cleanPass === 'freshmart2026' || cleanPass === 'password' || cleanPass === 'admin');
-
-    const isValidSupplier =
-      (cleanUser === 'supplier' || cleanUser === 'vendor' || cleanUser === 'supplier@freshmart.pk') &&
-      (cleanPass === 'supplier123' || cleanPass === 'supplier' || cleanPass === 'admin123');
-
-    const isValidRider =
-      (cleanUser === 'rider' || cleanUser === 'delivery' || cleanUser === 'driver' || cleanUser === 'rider@freshmart.pk') &&
-      (cleanPass === 'rider123' || cleanPass === 'rider' || cleanPass === 'delivery' || cleanPass === 'admin123');
-
-    let assignedRole = targetRole;
-
-    if (isValidAdmin) {
-      assignedRole = targetRole === 'supplier' || targetRole === 'rider' ? targetRole : (cleanUser === 'superadmin' ? 'superadmin' : targetRole);
-    } else if (isValidSupplier) {
-      assignedRole = 'supplier';
-    } else if (isValidRider) {
-      assignedRole = 'rider';
-    } else {
-      // General demo password fallback for seamless testing
-      if (cleanPass === 'admin123' || cleanPass === '123456' || cleanPass === 'admin') {
-        assignedRole = targetRole;
-      } else {
-        addToast('Invalid Credentials ❌', 'Incorrect username or password for selected role.', 'error');
-        return { success: false, error: 'Invalid username or password' };
-      }
-    }
-
-    setAdminRole(assignedRole);
+    setAdminRole(targetRole);
     setIsAdminLoggedIn(true);
 
+    const roleTitles = {
+      admin: 'Administrator',
+      supplier: 'Supplier Partner',
+      rider: 'Delivery Rider'
+    };
+
     const roleData = {
-      name: assignedRole === 'superadmin' ? 'Super Admin' : assignedRole === 'supplier' ? 'FreshMart Supplier' : assignedRole === 'rider' ? 'Delivery Fleet' : 'Store Admin',
-      email: `${assignedRole}@freshmart.pk`,
-      role: assignedRole
+      name: targetRole === 'supplier' ? 'Supplier Partner' : targetRole === 'rider' ? 'Delivery Fleet Rider' : 'Store Admin',
+      email: `${cleanUser.toLowerCase()}@freshmart.pk`,
+      role: targetRole
     };
     setUser(roleData);
 
     try {
       localStorage.setItem('freshmart_admin_session', 'true');
-      localStorage.setItem('freshmart_admin_role', assignedRole);
+      localStorage.setItem('freshmart_admin_role', targetRole);
       localStorage.setItem('freshmart_admin_user', JSON.stringify(roleData));
     } catch (e) {}
 
-    const roleTitles = {
-      admin: 'Administrator',
-      superadmin: 'Super Admin',
-      supplier: 'Supplier Partner',
-      rider: 'Delivery Rider'
-    };
-
-    addToast(`${roleTitles[assignedRole] || 'Staff'} Authenticated 🛡️`, `Logged in as ${roleTitles[assignedRole] || assignedRole}.`);
-    return { success: true, role: assignedRole };
+    addToast(`${roleTitles[targetRole] || 'Staff'} Authenticated 🛡️`, `Welcome to your ${roleTitles[targetRole]} dashboard.`);
+    return { success: true, role: targetRole };
   };
 
   const adminLogout = () => {
