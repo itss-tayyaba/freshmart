@@ -52,7 +52,9 @@ export const AdminModals = ({
     name: '',
     contact: '',
     phone: '',
-    email: ''
+    email: '',
+    username: '',
+    password: ''
   });
 
   // Create Promo State
@@ -176,7 +178,14 @@ export const AdminModals = ({
   const handleSupplierSubmit = async (e) => {
     e.preventDefault();
     if (!supplierForm.name) return;
-    addSupplier(supplierForm);
+    addSupplier({
+      name: supplierForm.name,
+      contact: supplierForm.contact,
+      phone: supplierForm.phone,
+      email: supplierForm.email,
+      username: supplierForm.username.trim() || supplierForm.name.toLowerCase().replace(/\s+/g, '_'),
+      password: supplierForm.password.trim() || 'supplier123'
+    });
     try {
       await fetch('http://localhost:5000/api/suppliers', {
         method: 'POST',
@@ -185,7 +194,7 @@ export const AdminModals = ({
       });
     } catch (err) {}
     setIsAddSupplierOpen(false);
-    setSupplierForm({ name: '', contact: '', phone: '', email: '' });
+    setSupplierForm({ name: '', contact: '', phone: '', email: '', username: '', password: '' });
   };
 
 
@@ -542,11 +551,41 @@ export const AdminModals = ({
                   />
                 </div>
               </div>
+
+              {/* Supplier Portal Login Credentials (Set by Admin) */}
+              <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-2">
+                <span className="text-[11px] font-black text-emerald-800 uppercase tracking-wider block">
+                  🔐 Supplier Portal Login (Set by Admin)
+                </span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-[11px]">Supplier Username / ID</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. greenvalley_supplier"
+                      value={supplierForm.username}
+                      onChange={(e) => setSupplierForm({ ...supplierForm, username: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2 font-mono font-medium text-xs focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-[11px]">Supplier Password</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. supplier123"
+                      value={supplierForm.password}
+                      onChange={(e) => setSupplierForm({ ...supplierForm, password: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2 font-mono font-medium text-xs focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <button
                 type="submit"
-                className="w-full mt-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl"
+                className="w-full mt-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer"
               >
-                Add Supplier
+                Register Supplier 🏢
               </button>
             </form>
           </div>

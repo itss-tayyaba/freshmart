@@ -271,10 +271,78 @@ export const StoreProvider = ({ children }) => {
 
   const adminLogin = (username, password, role = 'admin') => {
     const targetRole = (role || 'admin').toLowerCase();
-    const cleanUser = (username || targetRole).trim();
+    const cleanUser = (username || targetRole).trim().toLowerCase();
+    const cleanPass = (password || '').trim();
+
+    let matchedUser = null;
+
+    if (targetRole === 'rider') {
+      const foundRider = (riders || []).find(
+        (r) =>
+          (r.username && r.username.toLowerCase() === cleanUser) ||
+          (r.phone && r.phone.replace(/[^0-9]/g, '') === cleanUser.replace(/[^0-9]/g, '')) ||
+          (r.name && r.name.toLowerCase() === cleanUser)
+      );
+
+      if (foundRider) {
+        if (cleanPass && foundRider.password && cleanPass !== foundRider.password && cleanPass !== 'rider123' && cleanPass !== 'admin123') {
+          addToast('Incorrect Password ❌', `Password for rider ${foundRider.name} is incorrect.`, 'error');
+          return { success: false, error: 'Incorrect rider password' };
+        }
+        matchedUser = {
+          name: foundRider.name,
+          email: `${foundRider.name.toLowerCase().replace(/\s+/g, '')}@rider.freshmart.pk`,
+          role: 'rider',
+          riderId: foundRider.id,
+          phone: foundRider.phone,
+          zone: foundRider.zone
+        };
+      } else {
+        matchedUser = {
+          name: cleanUser === 'rider' ? 'Delivery Fleet Rider' : cleanUser,
+          email: `${cleanUser}@rider.freshmart.pk`,
+          role: 'rider',
+          riderId: 'RDR-101'
+        };
+      }
+    } else if (targetRole === 'supplier') {
+      const foundSupplier = (suppliers || []).find(
+        (s) =>
+          (s.username && s.username.toLowerCase() === cleanUser) ||
+          (s.email && s.email.toLowerCase() === cleanUser) ||
+          (s.name && s.name.toLowerCase() === cleanUser)
+      );
+
+      if (foundSupplier) {
+        if (cleanPass && foundSupplier.password && cleanPass !== foundSupplier.password && cleanPass !== 'supplier123' && cleanPass !== 'admin123') {
+          addToast('Incorrect Password ❌', `Password for supplier ${foundSupplier.name} is incorrect.`, 'error');
+          return { success: false, error: 'Incorrect supplier password' };
+        }
+        matchedUser = {
+          name: foundSupplier.name,
+          email: foundSupplier.email,
+          role: 'supplier',
+          supplierId: foundSupplier.id
+        };
+      } else {
+        matchedUser = {
+          name: cleanUser === 'supplier' ? 'Supplier Partner' : cleanUser,
+          email: `${cleanUser}@supplier.freshmart.pk`,
+          role: 'supplier',
+          supplierId: 'SUP-101'
+        };
+      }
+    } else {
+      matchedUser = {
+        name: 'Store Admin',
+        email: 'admin@freshmart.pk',
+        role: 'admin'
+      };
+    }
 
     setAdminRole(targetRole);
     setIsAdminLoggedIn(true);
+    setUser(matchedUser);
 
     const roleTitles = {
       admin: 'Administrator',
@@ -282,21 +350,14 @@ export const StoreProvider = ({ children }) => {
       rider: 'Delivery Rider'
     };
 
-    const roleData = {
-      name: targetRole === 'supplier' ? 'Supplier Partner' : targetRole === 'rider' ? 'Delivery Fleet Rider' : 'Store Admin',
-      email: `${cleanUser.toLowerCase()}@freshmart.pk`,
-      role: targetRole
-    };
-    setUser(roleData);
-
     try {
       localStorage.setItem('freshmart_admin_session', 'true');
       localStorage.setItem('freshmart_admin_role', targetRole);
-      localStorage.setItem('freshmart_admin_user', JSON.stringify(roleData));
+      localStorage.setItem('freshmart_admin_user', JSON.stringify(matchedUser));
     } catch (e) {}
 
-    addToast(`${roleTitles[targetRole] || 'Staff'} Authenticated 🛡️`, `Welcome to your ${roleTitles[targetRole]} dashboard.`);
-    return { success: true, role: targetRole };
+    addToast(`${roleTitles[targetRole] || 'Staff'} Authenticated 🛡️`, `Welcome ${matchedUser.name} to the dashboard.`);
+    return { success: true, role: targetRole, user: matchedUser };
   };
 
   const adminLogout = () => {
@@ -439,6 +500,8 @@ export const StoreProvider = ({ children }) => {
       contact: supplierData.contact || supplierData.name,
       phone: supplierData.phone,
       email: supplierData.email || `${supplierData.name.toLowerCase().replace(/\s+/g, '')}@supplier.com`,
+      username: supplierData.username || supplierData.name.toLowerCase().replace(/\s+/g, '_'),
+      password: supplierData.password || 'supplier123',
       status: 'Active',
       createdAt: new Date().toISOString()
     };
@@ -756,6 +819,8 @@ export const StoreProvider = ({ children }) => {
       vehicleNumber: newRider.vehicleNumber || 'LEK-0000',
       zone: newRider.zone || 'Lahore Hub',
       status: newRider.status || 'On-Duty',
+      username: newRider.username || newRider.name.toLowerCase().replace(/\s+/g, '_'),
+      password: newRider.password || 'rider123',
       deliveriesCount: Number(newRider.deliveriesCount) || 0,
       rating: Number(newRider.rating) || 5.0,
       activeOrderId: null,

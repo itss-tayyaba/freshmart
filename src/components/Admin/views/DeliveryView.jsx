@@ -39,10 +39,13 @@ export const DeliveryView = () => {
     assignRiderToOrder,
     updateDeliveryOrderStatus,
     currency,
-    addToast
+    addToast,
+    adminRole
   } = useStore();
 
-  const [activeSubTab, setActiveSubTab] = useState('fleet'); // 'fleet' | 'queue' | 'rider-app' | 'radar'
+  const isAdmin = adminRole === 'admin';
+
+  const [activeSubTab, setActiveSubTab] = useState(isAdmin ? 'fleet' : 'radar'); // 'fleet' | 'queue' | 'rider-app' | 'radar'
   const [searchRider, setSearchRider] = useState('');
   const [filterZone, setFilterZone] = useState('All');
 
@@ -55,25 +58,28 @@ export const DeliveryView = () => {
     vehicleNumber: '',
     zone: 'Gulberg / Main Hub',
     status: 'On-Duty',
-    cnic: ''
+    cnic: '',
+    username: '',
+    password: ''
   });
 
   // Selected rider for mobile app simulator
   const [simulatedRiderId, setSimulatedRiderId] = useState(riders[0]?.id || 'RDR-101');
 
   // Filter riders based on search and zone
-  const filteredRiders = riders.filter((r) => {
+  const filteredRiders = (riders || []).filter((r) => {
     const matchesSearch =
       r.name.toLowerCase().includes(searchRider.toLowerCase()) ||
       r.phone.includes(searchRider) ||
+      (r.username && r.username.toLowerCase().includes(searchRider.toLowerCase())) ||
       r.vehicleNumber.toLowerCase().includes(searchRider.toLowerCase());
     const matchesZone = filterZone === 'All' || r.zone.includes(filterZone);
     return matchesSearch && matchesZone;
   });
 
   // KPI Metrics
-  const activeRidersCount = riders.filter((r) => r.status === 'On-Duty' || r.status === 'Busy').length;
-  const totalDeliveries = riders.reduce((sum, r) => sum + (r.deliveriesCount || 0), 0);
+  const activeRidersCount = (riders || []).filter((r) => r.status === 'On-Duty' || r.status === 'Busy').length;
+  const totalDeliveries = (riders || []).reduce((sum, r) => sum + (r.deliveriesCount || 0), 0);
   const pendingDispatches = customerOrders.filter((o) => o.status !== 'Delivered');
 
   const handleAddRiderSubmit = (e) => {
@@ -83,6 +89,9 @@ export const DeliveryView = () => {
       return;
     }
 
+    const generatedUsername = newRiderForm.username.trim() || newRiderForm.name.toLowerCase().replace(/\s+/g, '_');
+    const generatedPassword = newRiderForm.password.trim() || 'rider123';
+
     addRider({
       name: newRiderForm.name,
       phone: newRiderForm.phone,
@@ -91,6 +100,8 @@ export const DeliveryView = () => {
       zone: newRiderForm.zone,
       status: newRiderForm.status,
       cnic: newRiderForm.cnic,
+      username: generatedUsername,
+      password: generatedPassword,
       deliveriesCount: 0,
       rating: 5.0
     });
@@ -103,7 +114,9 @@ export const DeliveryView = () => {
       vehicleNumber: '',
       zone: 'Gulberg / Main Hub',
       status: 'On-Duty',
-      cnic: ''
+      cnic: '',
+      username: '',
+      password: ''
     });
   };
 
@@ -111,11 +124,12 @@ export const DeliveryView = () => {
     (riders && riders.find((r) => r.id === simulatedRiderId)) ||
     riders?.[0] || {
       id: 'RDR-000',
-      name: 'No Rider Selected',
+      name: 'Rider Demo',
       phone: '0300-0000000',
-      vehicleType: '🏍️ Honda 125',
+      vehicleType: '🏍️ Motorbike',
       vehicleNumber: 'LEK-0000',
-      status: 'Offline'
+      zone: 'Gulberg',
+      deliveriesCount: 0
     };
 
 
@@ -129,32 +143,39 @@ export const DeliveryView = () => {
             <span className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-sm">
               🛵
             </span>
-            <h2 className="text-xl font-black text-slate-900 tracking-tight">Delivery & Rider Operations</h2>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">
+              {isAdmin ? 'Delivery & Rider Operations' : 'Rider Delivery Hub'}
+            </h2>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Admin centralized control: Manage courier personnel, register new riders, and dispatch customer parcel orders.
+            {isAdmin
+              ? 'Admin centralized control: Manage courier personnel, register new riders with login credentials, and dispatch customer parcel orders.'
+              : 'View your live GPS dispatches, assigned grocery parcels, and update delivery progress.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          {riders && riders.length > 0 && (
-            <button
-              onClick={clearAllRiders}
-              className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-rose-200 transition-all cursor-pointer"
-            >
-              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-              <span>Clear Fleet</span>
-            </button>
-          )}
+        {/* Only Admin can add riders or clear fleet */}
+        {isAdmin && (
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {riders && riders.length > 0 && (
+              <button
+                onClick={clearAllRiders}
+                className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-rose-200 transition-all cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span>Clear Fleet</span>
+              </button>
+            )}
 
-          <button
-            onClick={() => setIsAddRiderModalOpen(true)}
-            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all cursor-pointer"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>+ Add New Rider</span>
-          </button>
-        </div>
+            <button
+              onClick={() => setIsAddRiderModalOpen(true)}
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>+ Add New Rider</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 2. Key Fleet KPI Statistics */}
@@ -341,6 +362,14 @@ export const DeliveryView = () => {
                         <span className="text-slate-400">Customer Rating:</span>
                         <span className="font-black text-amber-600">⭐ {rider.rating} / 5.0</span>
                       </div>
+                      {isAdmin && (
+                        <div className="pt-1.5 border-t border-slate-200/60 flex items-center justify-between text-[10px]">
+                          <span className="text-slate-400 font-semibold">Portal Login:</span>
+                          <span className="font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md">
+                            user: {rider.username || rider.name.toLowerCase().replace(/\s+/g, '_')} | pass: {rider.password || 'rider123'}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -364,13 +393,15 @@ export const DeliveryView = () => {
                       <Smartphone className="w-3.5 h-3.5" />
                     </button>
 
-                    <button
-                      onClick={() => deleteRider(rider.id)}
-                      className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                      title="Delete Rider"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => deleteRider(rider.id)}
+                        className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                        title="Delete Rider"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
 
                 </div>
@@ -708,6 +739,35 @@ export const DeliveryView = () => {
                     onChange={(e) => setNewRiderForm({ ...newRiderForm, cnic: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono font-medium"
                   />
+                </div>
+              </div>
+
+              {/* Rider Portal Login Credentials (Set by Admin) */}
+              <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-2">
+                <span className="text-[11px] font-black text-emerald-800 uppercase tracking-wider block">
+                  🔐 Rider Portal Login Credentials (Set by Admin)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-[11px]">Rider Username / Login ID</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. usman_rider or 03001234567"
+                      value={newRiderForm.username}
+                      onChange={(e) => setNewRiderForm({ ...newRiderForm, username: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2 font-mono font-medium text-xs focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-[11px]">Rider Password</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. rider123"
+                      value={newRiderForm.password}
+                      onChange={(e) => setNewRiderForm({ ...newRiderForm, password: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2 font-mono font-medium text-xs focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
                 </div>
               </div>
 
