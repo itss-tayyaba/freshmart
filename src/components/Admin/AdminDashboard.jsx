@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Package,
@@ -45,6 +45,16 @@ export const AdminDashboard = () => {
     if (adminRole === 'supplier') return 'Suppliers';
     return 'Dashboard';
   });
+
+  useEffect(() => {
+    if (adminRole === 'rider') {
+      setActiveTab('Delivery');
+    } else if (adminRole === 'supplier') {
+      setActiveTab('Suppliers');
+    } else {
+      setActiveTab('Dashboard');
+    }
+  }, [adminRole]);
 
   const [headerSearch, setHeaderSearch] = useState('');
 

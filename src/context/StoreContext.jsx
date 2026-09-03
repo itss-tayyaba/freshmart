@@ -260,14 +260,8 @@ export const StoreProvider = ({ children }) => {
   const [adminStats, setAdminStats] = useState(ADMIN_STATS);
 
 
-  // Admin Profile & Authentication
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
-    try {
-      return localStorage.getItem('freshmart_admin_session') === 'true';
-    } catch (e) {
-      return false;
-    }
-  });
+  // Admin Profile & Authentication (Starts false so visiting /admin asks for role & credentials)
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
 
   const [user, setUser] = useState({
     name: 'Super Admin',
