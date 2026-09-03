@@ -16,7 +16,14 @@ import {
   ChevronRight,
   Plus,
   Tag,
-  AlertCircle
+  AlertCircle,
+  Copy,
+  Home,
+  Building,
+  Navigation,
+  Leaf,
+  Heart,
+  X
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useStore } from '../../context/StoreContext';
@@ -35,29 +42,72 @@ export const CheckoutPage = () => {
     setDeliveryLocation,
     currency,
     appliedCoupon,
+    applyCouponCode,
+    removeCouponCode,
     addToast,
-    placeCustomerOrder
+    placeCustomerOrder,
+    customerUser
   } = useStore();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedSlot, setSelectedSlot] = useState('⚡ Instant 10-15 Mins Express Delivery');
   const [selectedPayment, setSelectedPayment] = useState('card'); // 'card' | 'wallet_raast' | 'bank' | 'cod'
-  const [riderTip, setRiderTip] = useState(0);
+  const [riderTip, setRiderTip] = useState(50);
+  const [isEcoFriendly, setIsEcoFriendly] = useState(true);
+  const [couponInput, setCouponInput] = useState('');
   const [isOrderPlaced, setIsOrderPlaced] = useState(false);
   const [placedOrderDetails, setPlacedOrderDetails] = useState(null);
+  const [copiedOrderId, setCopiedOrderId] = useState(false);
 
-  // Address Form State
-  const [addressData, setAddressData] = useState({
-    recipientName: 'Tayyaba Batool',
-    label: deliveryLocation.label || 'Home',
-    address: deliveryLocation.address || 'House 12, Street 4, Sector B, Johar Town',
-    city: deliveryLocation.city || 'Lahore, Pakistan',
-    phone: '0300-1234567',
-    notes: 'Please ring bell and leave on porch if unavailable.'
-  });
+  // Address State & Saved Address Presets
+  const savedAddressOptions = [
+    {
+      id: 'addr_home',
+      label: 'Home',
+      icon: Home,
+      recipientName: customerUser?.name || 'Tayyaba Batool',
+      phone: customerUser?.phone || '0300-1234567',
+      address: 'House 12, Street 4, Sector B, Johar Town',
+      city: 'Lahore, Pakistan',
+      notes: 'Please ring bell and leave package on porch.'
+    },
+    {
+      id: 'addr_office',
+      label: 'Office',
+      icon: Building,
+      recipientName: customerUser?.name || 'Tayyaba Batool',
+      phone: customerUser?.phone || '0300-1234567',
+      address: 'Floor 3, Tech Hub Plaza, Main Boulevard, Gulberg III',
+      city: 'Lahore, Pakistan',
+      notes: 'Call on arrival. Leave with ground reception guard.'
+    }
+  ];
+
+  const [selectedAddressId, setSelectedAddressId] = useState('addr_home');
+  const [addressData, setAddressData] = useState(savedAddressOptions[0]);
   const [isEditingAddress, setIsEditingAddress] = useState(false);
 
+  const handleSelectPreset = (addr) => {
+    setSelectedAddressId(addr.id);
+    setAddressData(addr);
+    setIsEditingAddress(false);
+  };
+
   const grandTotalWithTip = cartTotal + riderTip;
+
+  const handleApplyPromo = async (e) => {
+    e.preventDefault();
+    if (!couponInput.trim()) return;
+    const ok = await applyCouponCode(couponInput.trim());
+    if (ok) setCouponInput('');
+  };
+
+  const handleCopyOrderId = (id) => {
+    navigator.clipboard?.writeText(id);
+    setCopiedOrderId(true);
+    addToast('Copied Order ID! 📋', `Order ID ${id} copied to clipboard.`);
+    setTimeout(() => setCopiedOrderId(false), 3000);
+  };
 
   const handlePlaceOrder = async () => {
     if (cart.length === 0) {
@@ -73,12 +123,14 @@ export const CheckoutPage = () => {
         name: i.product.name,
         price: i.product.price,
         quantity: i.quantity,
-        unit: i.unit || i.product.unit
+        unit: i.unit || i.product.unit,
+        image: i.product.image
       })),
       subtotal: cartSubtotal,
       deliveryCharges,
       discountAmount,
       riderTip,
+      isEcoFriendly,
       totalAmount: grandTotalWithTip,
       paymentMethod: selectedPayment.toUpperCase().replace('_', ' / '),
       deliverySlot: selectedSlot,
@@ -100,8 +152,8 @@ export const CheckoutPage = () => {
 
     try {
       confetti({
-        particleCount: 160,
-        spread: 90,
+        particleCount: 180,
+        spread: 100,
         origin: { y: 0.6 }
       });
     } catch (e) {}
@@ -112,22 +164,35 @@ export const CheckoutPage = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
       
-      {/* Stepper Header */}
-      <div className="space-y-4">
+      {/* 1. Header & Stepper */}
+      <div className="bg-gradient-to-r from-[#eef9f2] via-white to-[#f7faf8] rounded-3xl p-6 sm:p-8 border border-emerald-100 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Express Checkout
+          <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold mb-1">
+            <span className="hover:text-emerald-700 cursor-pointer" onClick={() => navigateTo('home')}>Home</span>
+            <span>/</span>
+            <span className="hover:text-emerald-700 cursor-pointer" onClick={() => navigateTo('shop')}>Shop</span>
+            <span>/</span>
+            <span className="text-emerald-700 font-bold">Checkout</span>
+          </div>
+          <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+            <span>Express Checkout</span>
+            <span className="text-xs bg-emerald-600 text-white font-bold px-3 py-1 rounded-full uppercase tracking-wider hidden sm:inline-flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5 text-lime-300" />
+              <span>10-Min Fast Dispatch</span>
+            </span>
           </h1>
-          <p className="text-xs text-slate-500">Fast 10-minute grocery dispatch and secure payment gateway</p>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Zero contact delivery, farm-fresh cold storage packaging, and 100% money-back guarantee.
+          </p>
         </div>
 
-        {/* 4-Step Indicator */}
-        <div className="flex items-center justify-between max-w-2xl bg-white p-4 rounded-2xl border border-slate-100 shadow-xs">
+        {/* 4-Step Stepper Progress */}
+        <div className="flex items-center gap-2 bg-white px-4 py-3 rounded-2xl border border-slate-200/80 shadow-2xs">
           {[
-            { num: 1, label: 'Delivery Address' },
-            { num: 2, label: 'Delivery Slot' },
-            { num: 3, label: 'Payment Method' },
-            { num: 4, label: 'Order Review' }
+            { num: 1, label: 'Address' },
+            { num: 2, label: 'Slot' },
+            { num: 3, label: 'Payment' },
+            { num: 4, label: 'Review' }
           ].map((s, idx) => {
             const isCompleted = isOrderPlaced || currentStep > s.num;
             const isCurrent = currentStep === s.num;
@@ -136,22 +201,23 @@ export const CheckoutPage = () => {
               <React.Fragment key={s.num}>
                 <div
                   onClick={() => !isOrderPlaced && setCurrentStep(s.num)}
-                  className="flex items-center gap-2.5 cursor-pointer group"
+                  className="flex items-center gap-1.5 cursor-pointer group"
+                  title={`Step ${s.num}: ${s.label}`}
                 >
                   <div
                     className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all ${
                       isCompleted
-                        ? 'bg-emerald-600 text-white shadow-2xs'
+                        ? 'bg-emerald-600 text-white shadow-xs'
                         : isCurrent
-                        ? 'bg-slate-900 text-white ring-2 ring-emerald-500'
-                        : 'bg-slate-100 text-slate-400'
+                        ? 'bg-emerald-950 text-white ring-2 ring-emerald-500 ring-offset-1'
+                        : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200'
                     }`}
                   >
                     {isCompleted ? <Check className="w-3.5 h-3.5" /> : s.num}
                   </div>
                   <span
                     className={`text-xs font-bold hidden sm:inline ${
-                      isCurrent ? 'text-slate-900' : isCompleted ? 'text-emerald-700' : 'text-slate-400'
+                      isCurrent ? 'text-slate-900 font-black' : isCompleted ? 'text-emerald-700' : 'text-slate-400'
                     }`}
                   >
                     {s.label}
@@ -160,7 +226,7 @@ export const CheckoutPage = () => {
 
                 {idx < 3 && (
                   <div
-                    className={`flex-1 h-0.5 mx-2 sm:mx-4 ${
+                    className={`w-4 sm:w-8 h-0.5 rounded-full transition-all ${
                       currentStep > idx + 1 || isOrderPlaced ? 'bg-emerald-600' : 'bg-slate-200'
                     }`}
                   />
@@ -172,72 +238,112 @@ export const CheckoutPage = () => {
       </div>
 
       {isOrderPlaced ? (
-        /* Order Placed Success Confirmation Screen */
-        <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-100 shadow-xl text-center max-w-2xl mx-auto space-y-6 animate-in zoom-in-95 duration-300">
-          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-lg animate-bounce-soft">
-            <CheckCircle2 className="w-10 h-10" />
+        /* ========================================================================= */
+        /* ORDER SUCCESS CELEBRATION SCREEN                                          */
+        /* ========================================================================= */
+        <div className="bg-white rounded-3xl p-8 sm:p-12 border border-emerald-100 shadow-2xl shadow-emerald-950/10 text-center max-w-2xl mx-auto space-y-8 animate-in zoom-in-95 duration-300">
+          
+          {/* Animated Celebration Icon */}
+          <div className="relative w-24 h-24 mx-auto">
+            <div className="w-24 h-24 bg-gradient-to-tr from-emerald-600 to-teal-400 text-white rounded-3xl flex items-center justify-center shadow-xl shadow-emerald-900/30 rotate-3 transform hover:rotate-0 transition-transform">
+              <CheckCircle2 className="w-12 h-12 text-white" />
+            </div>
+            <div className="absolute -top-2 -right-2 bg-amber-400 text-slate-950 text-[10px] font-black uppercase px-2 py-0.5 rounded-full shadow-md animate-pulse">
+              Confirmed
+            </div>
           </div>
 
-          <div className="space-y-1">
-            <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full uppercase tracking-wider">
-              Payment Confirmed • In Transit
-            </span>
-            <h2 className="text-3xl font-black text-slate-900">Order Confirmed!</h2>
-            <p className="text-xs sm:text-sm text-slate-500">
-              Order <strong className="text-slate-900 font-mono">{placedOrderDetails?.id}</strong> has been assigned to Express Courier (ETA 12 mins).
+          <div className="space-y-2">
+            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+              Order Confirmed & In Transit! 🚀
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
+              Your grocery basket has been packed in temperature-controlled boxes and handed to our express rider.
             </p>
           </div>
 
-          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 text-left text-xs space-y-2.5">
-            <div className="flex justify-between border-b border-slate-200/60 pb-2">
-              <span className="text-slate-500 font-semibold">Delivery Time:</span>
-              <span className="font-black text-slate-900">{placedOrderDetails?.deliverySlot}</span>
+          {/* Order Reference Box */}
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50/60 p-4 rounded-2xl border border-emerald-200/80 flex items-center justify-between">
+            <div className="text-left">
+              <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">Order Reference Number</span>
+              <span className="font-mono font-black text-lg text-emerald-950">{placedOrderDetails?.id}</span>
             </div>
-            <div className="flex justify-between border-b border-slate-200/60 pb-2">
-              <span className="text-slate-500 font-semibold">Destination:</span>
-              <span className="font-bold text-slate-800 truncate max-w-[240px]">{placedOrderDetails?.address}</span>
+            <button
+              onClick={() => handleCopyOrderId(placedOrderDetails?.id)}
+              className="px-3 py-1.5 bg-white hover:bg-emerald-100/70 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              {copiedOrderId ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedOrderId ? 'Copied' : 'Copy ID'}</span>
+            </button>
+          </div>
+
+          {/* ETA Live Timeline Box */}
+          <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200/80 text-left space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                <Clock className="w-4 h-4 text-emerald-600 animate-spin" style={{ animationDuration: '6s' }} />
+                <span>Estimated Arrival: <strong className="text-emerald-700">10-14 Minutes</strong></span>
+              </div>
+              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                Express Courier
+              </span>
             </div>
-            <div className="flex justify-between border-b border-slate-200/60 pb-2">
-              <span className="text-slate-500 font-semibold">Payment Option:</span>
-              <span className="font-black text-emerald-700 uppercase">{placedOrderDetails?.paymentMethod}</span>
-            </div>
-            <div className="flex justify-between pt-1 font-black text-sm">
-              <span className="text-slate-900">Total Paid:</span>
-              <span className="text-emerald-700 font-mono">PKR {placedOrderDetails?.totalAmount}</span>
+
+            <div className="space-y-2.5 text-xs text-slate-600 border-t border-slate-200/60 pt-3">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Destination Address:</span>
+                <span className="font-bold text-slate-800 text-right truncate max-w-[220px]">{placedOrderDetails?.address}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Receiver:</span>
+                <span className="font-bold text-slate-800">{placedOrderDetails?.recipientName} ({placedOrderDetails?.phone})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Payment Gateway:</span>
+                <span className="font-bold text-emerald-800">{placedOrderDetails?.paymentMethod}</span>
+              </div>
+              <div className="flex justify-between font-black text-sm pt-2 border-t border-slate-200 text-slate-900">
+                <span>Total Amount Paid:</span>
+                <span className="text-emerald-700 font-mono">{currency.symbol}{placedOrderDetails?.totalAmount?.toLocaleString()}</span>
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-3">
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <button
               onClick={() => navigateTo('delivery')}
-              className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
+              className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black transition-all shadow-lg shadow-emerald-900/20 cursor-pointer flex items-center justify-center gap-2"
             >
               <Truck className="w-4 h-4" />
-              <span>Track on Live GPS Map</span>
+              <span>Track Courier on Live GPS Map</span>
             </button>
             <button
               onClick={() => navigateTo('customer-portal')}
-              className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-2xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-2"
             >
-              View Order in Portal
+              <ShoppingBag className="w-4 h-4" />
+              <span>View Order in Customer Portal</span>
             </button>
           </div>
+
         </div>
       ) : cart.length === 0 ? (
         /* Empty Cart State */
         <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm max-w-lg mx-auto space-y-4">
-          <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-3xl">
+          <div className="w-20 h-20 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-4xl shadow-inner">
             🛒
           </div>
-          <h2 className="text-xl font-black text-slate-900">Your basket is empty</h2>
+          <h2 className="text-2xl font-black text-slate-900">Your basket is empty</h2>
           <p className="text-xs text-slate-500">
-            Please add grocery items to your basket before checking out.
+            Please add farm-fresh produce and groceries to your basket before checking out.
           </p>
           <button
             onClick={() => navigateTo('shop')}
-            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition-colors cursor-pointer"
+            className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl text-xs shadow-md shadow-emerald-900/20 transition-all cursor-pointer inline-flex items-center gap-2"
           >
-            Browse Products
+            <span>Browse Products</span>
+            <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       ) : (
@@ -248,243 +354,396 @@ export const CheckoutPage = () => {
           <div className="lg:col-span-8 space-y-6">
             
             {/* Step 1: Delivery Address */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xl shadow-emerald-950/5 space-y-5">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs shadow-xs">
                     1
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-slate-900">Delivery Address</h3>
-                    <p className="text-[11px] text-slate-400">Where should we deliver your fresh order?</p>
+                    <p className="text-[11px] text-slate-400">Choose a saved address or enter a new drop-off location</p>
                   </div>
                 </div>
 
                 <button
                   onClick={() => setIsEditingAddress(!isEditingAddress)}
-                  className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
+                  className="text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200 transition-colors cursor-pointer"
                 >
-                  {isEditingAddress ? 'Done Editing' : 'Edit Address'}
+                  {isEditingAddress ? 'Save Changes' : 'Edit / Add Custom'}
                 </button>
               </div>
 
-              {isEditingAddress ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              {/* Saved Address Presets */}
+              {!isEditingAddress && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {savedAddressOptions.map((opt) => {
+                    const Icon = opt.icon;
+                    const isSelected = selectedAddressId === opt.id;
+
+                    return (
+                      <div
+                        key={opt.id}
+                        onClick={() => handleSelectPreset(opt)}
+                        className={`p-4 rounded-2xl border cursor-pointer transition-all space-y-2 relative ${
+                          isSelected
+                            ? 'border-emerald-600 bg-emerald-50/70 shadow-md shadow-emerald-900/5 ring-1 ring-emerald-500'
+                            : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                              isSelected ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 border border-slate-200'
+                            }`}>
+                              <Icon className="w-3.5 h-3.5" />
+                            </div>
+                            <span className="text-xs font-black text-slate-900">{opt.label}</span>
+                          </div>
+                          {isSelected && (
+                            <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                              Active
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-xs text-slate-600 font-medium line-clamp-2">
+                          {opt.address}, {opt.city}
+                        </p>
+
+                        <div className="text-[11px] text-slate-400 font-mono">
+                          {opt.phone}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Editable Address Form */}
+              {isEditingAddress && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">Receiver Name</label>
                     <input
                       type="text"
                       value={addressData.recipientName}
                       onChange={(e) => setAddressData({ ...addressData, recipientName: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1">Phone Number</label>
+                    <label className="font-bold text-slate-700 block mb-1">Contact Phone</label>
                     <input
                       type="text"
                       value={addressData.phone}
                       onChange={(e) => setAddressData({ ...addressData, phone: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="font-bold text-slate-700 block mb-1">Street Address</label>
+                    <label className="font-bold text-slate-700 block mb-1">Street Address & Landmark</label>
                     <input
                       type="text"
                       value={addressData.address}
                       onChange={(e) => setAddressData({ ...addressData, address: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="font-bold text-slate-700 block mb-1">Delivery Instructions</label>
+                    <label className="font-bold text-slate-700 block mb-1">Driver Instructions / Gate Code</label>
                     <input
                       type="text"
                       value={addressData.notes}
                       onChange={(e) => setAddressData({ ...addressData, notes: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium"
-                      placeholder="e.g. Leave with guard, ring doorbell"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      placeholder="e.g. Ring bell, leave package with front gate security"
                     />
                   </div>
-                </div>
-              ) : (
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 text-xs space-y-1">
-                  <div className="flex items-center justify-between font-bold text-slate-900">
-                    <span>{addressData.recipientName} • <span className="text-emerald-700 font-bold">{addressData.label}</span></span>
-                    <span className="font-mono text-slate-500 font-normal">{addressData.phone}</span>
-                  </div>
-                  <p className="text-slate-600 font-medium">{addressData.address}, {addressData.city}</p>
-                  {addressData.notes && (
-                    <p className="text-[11px] text-slate-400 italic">Note: {addressData.notes}</p>
-                  )}
                 </div>
               )}
             </div>
 
             {/* Step 2: Delivery Slot */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4">
-              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xl shadow-emerald-950/5 space-y-5">
+              <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs shadow-xs">
                   2
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-slate-900">Select Delivery Slot</h3>
-                  <p className="text-[11px] text-slate-400">Choose 10-minute dispatch or a convenient time window</p>
+                  <p className="text-[11px] text-slate-400">Choose instant 10-minute dispatch or a scheduled time window</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 {[
-                  { id: '⚡ Instant 10-15 Mins Express Delivery', label: '⚡ Instant Express (10-15 Mins)', tag: 'Fastest' },
-                  { id: 'Today 2 PM - 4 PM', label: 'Today 2:00 PM - 4:00 PM', tag: 'Standard' },
-                  { id: 'Today 6 PM - 8 PM', label: 'Today 6:00 PM - 8:00 PM', tag: 'Standard' },
-                  { id: 'Tomorrow 9 AM - 11 AM', label: 'Tomorrow Morning 9:00 AM - 11:00 AM', tag: 'Standard' }
-                ].map((slot) => (
-                  <label
-                    key={slot.id}
-                    onClick={() => setSelectedSlot(slot.id)}
-                    className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-center justify-between ${
-                      selectedSlot === slot.id
-                        ? 'border-emerald-600 bg-emerald-50/70 font-bold text-emerald-950 shadow-2xs'
-                        : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        type="radio"
-                        name="deliverySlotRadio"
-                        checked={selectedSlot === slot.id}
-                        onChange={() => {}}
-                        className="text-emerald-600 focus:ring-emerald-500"
-                      />
-                      <span>{slot.label}</span>
-                    </div>
-                    <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
-                      {slot.tag}
-                    </span>
-                  </label>
-                ))}
+                  { id: '⚡ Instant 10-15 Mins Express Delivery', label: '⚡ Instant Express (10-15 Mins)', tag: 'Fastest 🚀', desc: 'Assigned immediately to closest rider' },
+                  { id: 'Today 2 PM - 4 PM', label: 'Today Afternoon (2:00 PM - 4:00 PM)', tag: 'Standard', desc: 'Guaranteed afternoon time window' },
+                  { id: 'Today 6 PM - 8 PM', label: 'Today Evening (6:00 PM - 8:00 PM)', tag: 'Popular', desc: 'Perfect for dinner preparation' },
+                  { id: 'Tomorrow 9 AM - 11 AM', label: 'Tomorrow Morning (9:00 AM - 11:00 AM)', tag: 'Fresh Batch', desc: 'Fresh sunrise morning harvest' }
+                ].map((slot) => {
+                  const isSelected = selectedSlot === slot.id;
+
+                  return (
+                    <label
+                      key={slot.id}
+                      onClick={() => setSelectedSlot(slot.id)}
+                      className={`p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between gap-2 relative ${
+                        isSelected
+                          ? 'border-emerald-600 bg-emerald-50/70 font-bold text-emerald-950 shadow-md shadow-emerald-900/5 ring-1 ring-emerald-500'
+                          : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="radio"
+                            name="deliverySlotRadio"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                          />
+                          <span className="font-black text-xs">{slot.label}</span>
+                        </div>
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
+                          isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
+                        }`}>
+                          {slot.tag}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 pl-6 font-normal">
+                        {slot.desc}
+                      </p>
+                    </label>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Step 3: Exact Payment Method Component Matching Reference Screenshots */}
+            {/* Step 3: Payment Gateway */}
             <PaymentMethodCard
               selectedPayment={selectedPayment}
               setSelectedPayment={setSelectedPayment}
             />
 
-            {/* Step 4: Optional Delivery Tip */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="space-y-0.5 text-center sm:text-left">
-                <h4 className="text-xs font-black text-slate-900">Rider Appreciation Tip</h4>
-                <p className="text-[11px] text-slate-400">100% of tip goes directly to your express courier.</p>
+            {/* Step 4: Eco Packaging & Rider Tip */}
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xl shadow-emerald-950/5 space-y-6">
+              <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs shadow-xs">
+                  4
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Preferences & Courier Appreciation</h3>
+                  <p className="text-[11px] text-slate-400">Customize packaging and support our delivery partners</p>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                {[0, 50, 100, 200].map((amount) => (
-                  <button
-                    key={amount}
-                    onClick={() => setRiderTip(amount)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      riderTip === amount
-                        ? 'bg-emerald-600 text-white shadow-2xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {amount === 0 ? 'None' : `PKR ${amount}`}
-                  </button>
-                ))}
+              {/* Eco Packaging Toggle */}
+              <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200/70 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                    <Leaf className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-emerald-950">100% Eco-Friendly Biodegradable Packaging</h4>
+                    <p className="text-[11px] text-emerald-800">Use zero-plastic paper totes and chilled ice-pads that are recyclable.</p>
+                  </div>
+                </div>
+
+                <input
+                  type="checkbox"
+                  checked={isEcoFriendly}
+                  onChange={(e) => setIsEcoFriendly(e.target.checked)}
+                  className="w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                />
+              </div>
+
+              {/* Rider Tip */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+                <div className="space-y-0.5 text-center sm:text-left">
+                  <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                    <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+                    <span>Rider Appreciation Tip</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-400">100% of tips go directly into your courier's pocket.</p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap justify-center">
+                  {[0, 50, 100, 200, 500].map((amount) => (
+                    <button
+                      key={amount}
+                      type="button"
+                      onClick={() => setRiderTip(amount)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        riderTip === amount
+                          ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500 ring-offset-1'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      {amount === 0 ? 'No Tip' : `${currency.symbol}${amount}`}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
           </div>
 
-          {/* Right Column: Order Summary & Action (4 Columns) */}
+          {/* Right Column: Order Summary Sticky Panel (4 Columns) */}
           <div className="lg:col-span-4 space-y-6 sticky top-24">
             
-            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-5">
+            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-100 shadow-xl shadow-emerald-950/5 space-y-5">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 className="font-black text-sm text-slate-900">Order Summary ({cart.length} Items)</h3>
-                <span className="text-xs font-bold text-emerald-700">{selectedSlot.split(' ')[0]}</span>
+                <h3 className="font-black text-sm text-slate-900">
+                  Order Summary <span className="text-slate-400 font-normal">({cart.length} items)</span>
+                </h3>
+                <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+                  {currency.symbol}{grandTotalWithTip.toLocaleString()}
+                </span>
               </div>
 
-              {/* Items List */}
-              <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 pr-1 space-y-3">
+              {/* Items List Preview */}
+              <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 pr-1 space-y-3">
                 {cart.map((item, idx) => (
-                  <div key={idx} className="pt-3 first:pt-0 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2.5">
+                  <div key={idx} className="pt-3 first:pt-0 flex items-center justify-between text-xs gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <img
                         src={item.product.image}
                         alt={item.product.name}
-                        className="w-10 h-10 rounded-xl object-cover bg-slate-50 border border-slate-100 shrink-0"
+                        className="w-11 h-11 rounded-xl object-cover bg-slate-50 border border-slate-100 shrink-0"
                       />
-                      <div className="space-y-0.5 max-w-[140px]">
+                      <div className="min-w-0">
                         <span className="font-bold text-slate-800 truncate block">{item.product.name}</span>
-                        <span className="text-[10px] text-slate-400">{item.quantity}x • {item.unit || item.product.unit}</span>
+                        <span className="text-[10px] text-slate-400 block font-medium">
+                          {item.quantity}x • {item.unit || item.product.unit || 'pack'}
+                        </span>
                       </div>
                     </div>
 
-                    <span className="font-black text-slate-900">
-                      PKR {item.product.price * item.quantity}
+                    <span className="font-black text-slate-900 shrink-0 font-mono">
+                      {currency.symbol}{(item.product.price * item.quantity).toLocaleString()}
                     </span>
                   </div>
                 ))}
               </div>
 
-              {/* Applied Coupon Tag */}
-              {appliedCoupon && (
-                <div className="flex items-center justify-between text-xs bg-emerald-50 text-emerald-800 p-2.5 rounded-xl font-bold">
-                  <span className="flex items-center gap-1.5">
-                    <Tag className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Coupon: {appliedCoupon.code}</span>
-                  </span>
-                  <span>-PKR {discountAmount}</span>
-                </div>
-              )}
+              {/* Promo Code Box */}
+              <div className="pt-3 border-t border-slate-100 space-y-2.5">
+                <form onSubmit={handleApplyPromo} className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      placeholder="Promo Code (WELCOME20)"
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                      className="w-full text-xs font-mono font-bold uppercase bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-2 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <Tag className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  </div>
+                  <button
+                    type="submit"
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+                  >
+                    Apply
+                  </button>
+                </form>
 
-              {/* Pricing Breakdown */}
-              <div className="space-y-2 text-xs text-slate-600 pt-2 border-t border-slate-100">
+                {/* Applied Coupon Display */}
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between text-xs bg-emerald-50 border border-emerald-200 text-emerald-900 p-2.5 rounded-xl font-bold">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-emerald-600" />
+                      <div>
+                        <span className="font-mono block">{appliedCoupon.code}</span>
+                        <span className="text-[10px] text-emerald-700 font-normal">{appliedCoupon.description}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-emerald-800">-{currency.symbol}{discountAmount.toLocaleString()}</span>
+                      <button
+                        type="button"
+                        onClick={removeCouponCode}
+                        className="p-1 text-slate-400 hover:text-rose-600 rounded-md transition-colors cursor-pointer"
+                        title="Remove coupon"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                    <span className="text-slate-400 font-bold">Try:</span>
+                    {['WELCOME20', 'FRESH15', 'FLASH30'].map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => applyCouponCode(c)}
+                        className="px-2 py-0.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 rounded-md font-mono font-bold transition-colors cursor-pointer"
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Detailed Bill Breakdown */}
+              <div className="space-y-2 text-xs text-slate-600 pt-3 border-t border-slate-100">
                 <div className="flex justify-between">
                   <span>Basket Subtotal</span>
-                  <span className="font-semibold text-slate-800">PKR {cartSubtotal}</span>
+                  <span className="font-bold text-slate-800 font-mono">{currency.symbol}{cartSubtotal.toLocaleString()}</span>
                 </div>
+
                 {discountAmount > 0 && (
-                  <div className="flex justify-between text-rose-600 font-semibold">
-                    <span>Discount</span>
-                    <span>-PKR {discountAmount}</span>
+                  <div className="flex justify-between text-rose-600 font-bold">
+                    <span>Coupon Discount</span>
+                    <span className="font-mono">-{currency.symbol}{discountAmount.toLocaleString()}</span>
                   </div>
                 )}
+
                 <div className="flex justify-between">
-                  <span>Delivery Fee</span>
-                  <span className="font-semibold text-slate-800">
-                    {deliveryCharges === 0 ? <span className="text-emerald-700 font-bold">FREE</span> : `PKR ${deliveryCharges}`}
+                  <span>Delivery Charges</span>
+                  <span className="font-bold text-slate-800">
+                    {deliveryCharges === 0 ? (
+                      <span className="text-emerald-700 font-black bg-emerald-50 px-2 py-0.5 rounded">FREE</span>
+                    ) : (
+                      `${currency.symbol}${deliveryCharges}`
+                    )}
                   </span>
                 </div>
+
                 {riderTip > 0 && (
-                  <div className="flex justify-between text-emerald-800">
+                  <div className="flex justify-between text-emerald-800 font-bold">
                     <span>Rider Tip</span>
-                    <span className="font-semibold">PKR {riderTip}</span>
+                    <span className="font-mono">+{currency.symbol}{riderTip.toLocaleString()}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-base font-black text-slate-900 pt-2 border-t border-slate-200">
+
+                <div className="flex justify-between text-base font-black text-slate-900 pt-3 border-t border-slate-200">
                   <span>Grand Total</span>
-                  <span className="text-emerald-700 font-mono">PKR {grandTotalWithTip}</span>
+                  <span className="text-emerald-700 font-mono text-lg">{currency.symbol}{grandTotalWithTip.toLocaleString()}</span>
                 </div>
               </div>
 
-              {/* Place Order CTA Button */}
+              {/* Big Shimmering CTA Button */}
               <button
                 onClick={handlePlaceOrder}
-                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all cursor-pointer transform hover:-translate-y-0.5"
+                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-xl shadow-emerald-900/25 hover:shadow-2xl transition-all cursor-pointer transform hover:-translate-y-0.5"
               >
                 <ShieldCheck className="w-5 h-5 text-emerald-200" />
-                <span>Place Order • PKR {grandTotalWithTip}</span>
+                <span>Place Order • {currency.symbol}{grandTotalWithTip.toLocaleString()}</span>
               </button>
 
-              <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 font-semibold">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Guaranteed 10-Minute Fresh Delivery</span>
+              {/* Safety Badges */}
+              <div className="space-y-2 pt-2 text-[11px] text-slate-400">
+                <div className="flex items-center justify-center gap-1.5 font-semibold text-emerald-800 bg-emerald-50/60 p-2 rounded-xl">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>100% Quality & Freshness Money-Back Guarantee</span>
+                </div>
+                <p className="text-center text-[10px] text-slate-400">
+                  By clicking Place Order you agree to FreshMart terms of service and delivery policy.
+                </p>
               </div>
 
             </div>
