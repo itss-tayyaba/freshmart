@@ -238,8 +238,24 @@ export const StoreProvider = ({ children }) => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState(null);
 
-  // Currency
-  const [currency, setCurrency] = useState({ symbol: 'PKR ', code: 'PKR', rate: 1 });
+  // Currency (Defaults strictly to PKR / Rs.)
+  const [currency, setCurrencyState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_currency');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.code) return parsed;
+      }
+    } catch (e) {}
+    return { symbol: 'Rs. ', code: 'PKR', rate: 1, name: 'PKR (Rs.)' };
+  });
+
+  const setCurrency = (curr) => {
+    setCurrencyState(curr);
+    try {
+      localStorage.setItem('freshmart_currency', JSON.stringify(curr));
+    } catch (e) {}
+  };
 
   // Applied Coupon
   const [appliedCoupon, setAppliedCoupon] = useState({

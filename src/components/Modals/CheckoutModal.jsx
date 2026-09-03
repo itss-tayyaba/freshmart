@@ -159,7 +159,7 @@ export const CheckoutModal = () => {
 
               <div className="pt-4 flex items-center justify-between">
                 <span className="text-xs text-slate-500">
-                  Cart Total: <strong className="text-slate-800">{currency.symbol}{(cartTotal * currency.rate).toFixed(2)}</strong>
+                  Cart Total: <strong className="text-slate-800">{currency.symbol}{Math.round(cartTotal * (currency.rate || 1)).toLocaleString()}</strong>
                 </span>
                 <button
                   onClick={() => setStep(2)}
@@ -248,17 +248,17 @@ export const CheckoutModal = () => {
               <div className="p-3 bg-emerald-50/50 rounded-xl text-xs space-y-1">
                 <div className="flex justify-between text-slate-600">
                   <span>Subtotal:</span>
-                  <span>{currency.symbol}{(cartSubtotal * currency.rate).toFixed(2)}</span>
+                  <span>{currency.symbol}{Math.round(cartSubtotal * (currency.rate || 1)).toLocaleString()}</span>
                 </div>
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-rose-600">
                     <span>Discount:</span>
-                    <span>-{currency.symbol}{(discountAmount * currency.rate).toFixed(2)}</span>
+                    <span>-{currency.symbol}{Math.round(discountAmount * (currency.rate || 1)).toLocaleString()}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-bold text-slate-900 pt-1 border-t border-emerald-100">
                   <span>Total Due:</span>
-                  <span className="text-brand-green">{currency.symbol}{(cartTotal * currency.rate).toFixed(2)}</span>
+                  <span className="text-brand-green">{currency.symbol}{Math.round(cartTotal * (currency.rate || 1)).toLocaleString()}</span>
                 </div>
               </div>
 
@@ -274,7 +274,7 @@ export const CheckoutModal = () => {
                   className="px-6 py-3 bg-brand-accent hover:bg-brand-accentHover text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all cursor-pointer"
                 >
                   <ShieldCheck className="w-4 h-4" />
-                  <span>Place Order • {currency.symbol}{(cartTotal * currency.rate).toFixed(2)}</span>
+                  <span>Place Order • {currency.symbol}{Math.round(cartTotal * (currency.rate || 1)).toLocaleString()}</span>
                 </button>
               </div>
             </div>

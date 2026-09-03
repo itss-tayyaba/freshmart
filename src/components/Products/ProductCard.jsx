@@ -127,11 +127,11 @@ export const ProductCard = ({ product }) => {
         <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between gap-2">
           <div>
             <span className="text-sm sm:text-base font-extrabold text-brand-green">
-              {currency.symbol}{(product.price * currency.rate).toFixed(2)}
+              {currency.symbol}{Math.round(product.price * (currency.rate || 1)).toLocaleString()}
             </span>
             {product.originalPrice > product.price && (
               <span className="text-xs text-slate-400 line-through ml-1.5">
-                {currency.symbol}{(product.originalPrice * currency.rate).toFixed(2)}
+                {currency.symbol}{Math.round(product.originalPrice * (currency.rate || 1)).toLocaleString()}
               </span>
             )}
           </div>

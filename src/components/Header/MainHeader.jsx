@@ -144,10 +144,10 @@ export const MainHeader = () => {
                         </h4>
                         <div className="flex items-center gap-2 text-xs">
                           <span className="font-bold text-emerald-800">
-                            {currency.symbol}{(item.price * currency.rate).toFixed(2)}
+                            {currency.symbol}{Math.round(item.price * (currency.rate || 1)).toLocaleString()}
                           </span>
                           <span className="text-slate-400 line-through text-[11px]">
-                            {currency.symbol}{(item.originalPrice * currency.rate).toFixed(2)}
+                            {currency.symbol}{Math.round(item.originalPrice * (currency.rate || 1)).toLocaleString()}
                           </span>
                           <span className="text-slate-400">• {item.unit}</span>
                         </div>
@@ -234,7 +234,7 @@ export const MainHeader = () => {
               </span>
             </div>
             <span className="hidden sm:inline font-bold text-sm text-lime-400">
-              {currency.symbol}{(cartTotal * currency.rate).toFixed(2)}
+              {currency.symbol}{Math.round(cartTotal * (currency.rate || 1)).toLocaleString()}
             </span>
           </button>
         </div>

@@ -128,10 +128,10 @@ export const FlashDeals = () => {
                 {/* Price */}
                 <div className="flex items-baseline gap-2 mt-3">
                   <span className="text-base font-extrabold text-brand-green">
-                    {currency.symbol}{(product.price * currency.rate).toFixed(2)}
+                    {currency.symbol}{Math.round(product.price * (currency.rate || 1)).toLocaleString()}
                   </span>
                   <span className="text-xs text-slate-400 line-through">
-                    {currency.symbol}{(product.originalPrice * currency.rate).toFixed(2)}
+                    {currency.symbol}{Math.round(product.originalPrice * (currency.rate || 1)).toLocaleString()}
                   </span>
                   <span className="text-[11px] text-slate-500">/ {product.unit}</span>
                 </div>

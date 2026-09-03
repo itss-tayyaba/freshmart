@@ -10,6 +10,7 @@ const LANGUAGES = [
 ];
 
 const CURRENCIES = [
+  { code: 'PKR', symbol: 'Rs. ', name: 'PKR (Rs.)' },
   { code: 'USD', symbol: '$', name: 'USD ($)' },
   { code: 'EUR', symbol: '€', name: 'EUR (€)' },
   { code: 'GBP', symbol: '£', name: 'GBP (£)' }

@@ -113,11 +113,11 @@ export const QuickViewModal = () => {
               {/* Price */}
               <div className="flex items-baseline gap-3 mt-4">
                 <span className="text-2xl font-black text-brand-green">
-                  {currency.symbol}{(product.price * currency.rate).toFixed(2)}
+                  {currency.symbol}{Math.round(product.price * (currency.rate || 1)).toLocaleString()}
                 </span>
                 {product.originalPrice > product.price && (
                   <span className="text-sm text-slate-400 line-through">
-                    {currency.symbol}{(product.originalPrice * currency.rate).toFixed(2)}
+                    {currency.symbol}{Math.round(product.originalPrice * (currency.rate || 1)).toLocaleString()}
                   </span>
                 )}
                 <span className="text-xs text-slate-500 font-medium">/ {selectedUnit}</span>
@@ -201,7 +201,7 @@ export const QuickViewModal = () => {
                 <ShoppingCart className="w-4 h-4" />
                 <span>
                   Add to Cart • {currency.symbol}
-                  {(product.price * quantity * currency.rate).toFixed(2)}
+                  {Math.round(product.price * quantity * (currency.rate || 1)).toLocaleString()}
                 </span>
               </button>
 

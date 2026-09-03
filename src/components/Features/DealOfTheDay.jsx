@@ -35,10 +35,10 @@ export const DealOfTheDay = () => {
             <div className="flex items-center gap-4 pt-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl sm:text-4xl font-black text-white">
-                  {currency.symbol}{(6.99 * currency.rate).toFixed(2)}
+                  {currency.symbol}450
                 </span>
                 <span className="text-base text-amber-200 line-through">
-                  {currency.symbol}{(11.50 * currency.rate).toFixed(2)}
+                  {currency.symbol}750
                 </span>
               </div>
               <span className="bg-white text-orange-600 text-xs font-black px-2.5 py-1 rounded-lg shadow-xs">
