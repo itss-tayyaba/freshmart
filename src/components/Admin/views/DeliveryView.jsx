@@ -33,6 +33,7 @@ export const DeliveryView = () => {
     addRider,
     updateRider,
     deleteRider,
+    clearAllRiders,
     toggleRiderStatus,
     customerOrders,
     assignRiderToOrder,
@@ -135,13 +136,25 @@ export const DeliveryView = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsAddRiderModalOpen(true)}
-          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all cursor-pointer self-start sm:self-auto"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>+ Add New Rider</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {riders && riders.length > 0 && (
+            <button
+              onClick={clearAllRiders}
+              className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-rose-200 transition-all cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+              <span>Clear Fleet</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setIsAddRiderModalOpen(true)}
+            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>+ Add New Rider</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. Key Fleet KPI Statistics */}

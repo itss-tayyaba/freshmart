@@ -35,6 +35,7 @@ export const DeliveryPortal = () => {
     addRider,
     updateRider,
     deleteRider,
+    clearAllRiders,
     toggleRiderStatus,
     customerOrders,
     assignRiderToOrder,
@@ -145,6 +146,16 @@ export const DeliveryPortal = () => {
 
         {/* [ + Add New Rider ] Primary CTA Button */}
         <div className="flex flex-col sm:flex-row gap-3 z-10 shrink-0">
+          {riders && riders.length > 0 && (
+            <button
+              onClick={clearAllRiders}
+              className="px-4 py-3.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border border-rose-800/40 transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4 text-rose-400" />
+              <span>Clear Fleet</span>
+            </button>
+          )}
+
           <button
             onClick={() => setIsAddRiderModalOpen(true)}
             className="px-5 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all cursor-pointer transform hover:-translate-y-0.5"

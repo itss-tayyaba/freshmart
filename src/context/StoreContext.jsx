@@ -817,6 +817,14 @@ export const StoreProvider = ({ children }) => {
     addToast('Rider Removed', 'Rider removed from active fleet.', 'info');
   };
 
+  const clearAllRiders = () => {
+    setRiders([]);
+    try {
+      localStorage.setItem('freshmart_riders', JSON.stringify([]));
+    } catch (e) {}
+    addToast('Fleet Cleared 🛵', 'All riders removed. You can now add your own riders.', 'info');
+  };
+
   const toggleRiderStatus = (riderId) => {
     setRiders((prev) =>
       prev.map((r) => {
@@ -1300,6 +1308,7 @@ export const StoreProvider = ({ children }) => {
         addRider,
         updateRider,
         deleteRider,
+        clearAllRiders,
         toggleRiderStatus,
         assignRiderToOrder,
         updateDeliveryOrderStatus,
