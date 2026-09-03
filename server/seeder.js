@@ -35,7 +35,7 @@ const seedDatabase = async () => {
 
     console.log('🧹 Existing data wiped.');
 
-    // Seed Admin & Registered Customer Hafsa
+    // Seed Admin & Registered Customers (Hafsa & Aimen)
     await User.create([
       {
         name: 'Super Admin',
@@ -50,6 +50,14 @@ const seedDatabase = async () => {
         role: 'customer',
         address: 'House 12, Street 4, Johar Town, Lahore, Pakistan',
         phone: '0300-1234567'
+      },
+      {
+        name: 'Aimen',
+        email: 'aimen@gmail.com',
+        password: 'password123',
+        role: 'customer',
+        address: 'Gulberg III, Main Boulevard, Lahore, Pakistan',
+        phone: '0321-7654321'
       }
     ]);
 

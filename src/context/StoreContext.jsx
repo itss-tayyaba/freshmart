@@ -539,7 +539,7 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [suppliers]);
 
-  // Default Customer List (Only user Hafsa)
+  // Default Customer List (Registered users: Hafsa & Aimen)
   const defaultCustomersList = [
     {
       id: 'CUST-001',
@@ -551,6 +551,17 @@ export const StoreProvider = ({ children }) => {
       totalSpent: 'Rs. 0',
       status: 'Active',
       joinedDate: '2026-09-01'
+    },
+    {
+      id: 'CUST-002',
+      name: 'Aimen',
+      email: 'aimen@gmail.com',
+      phone: '0321-7654321',
+      address: 'Gulberg III, Main Boulevard, Lahore, Pakistan',
+      totalOrders: 0,
+      totalSpent: 'Rs. 0',
+      status: 'Active',
+      joinedDate: '2026-09-03'
     }
   ];
 
