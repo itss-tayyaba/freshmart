@@ -9,13 +9,14 @@ import {
 } from '../../src/data/freshMartData.js';
 import {
   ADMIN_INVENTORY_ITEMS,
+  ADMIN_SUPPLIERS_DATA,
   ADMIN_PROMOTIONS_DATA,
   ADMIN_DELIVERIES_DATA,
   ADMIN_REPORTS_BEHAVIOR
 } from '../../src/data/adminSuiteData.js';
 
 // In-Memory state fallback
-let memorySuppliers = [];
+let memorySuppliers = Array.isArray(ADMIN_SUPPLIERS_DATA) ? [...ADMIN_SUPPLIERS_DATA] : [];
 let memoryRiders = [];
 
 // --- INVENTORY CONTROLLER ---

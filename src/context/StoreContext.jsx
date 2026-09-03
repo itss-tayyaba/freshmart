@@ -502,13 +502,35 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [riders]);
 
-  // Suppliers State (Empty initially - added by Admin)
+  // Default Seed Supplier: Tayyab (Coca-Cola Beverages)
+  const defaultSuppliersList = [
+    {
+      id: 'SUP-101',
+      supplierId: 'SUP-101',
+      name: 'Tayyab (Coca-Cola Beverages)',
+      contact: 'Tayyab',
+      phone: '0300-8765432',
+      email: 'tayyab.cocacola@freshmart.pk',
+      category: 'Beverages, Juices & Soft Drinks',
+      company: 'Coca-Cola Beverages Pakistan Ltd',
+      username: 'tayyab',
+      password: 'cocacola123',
+      status: 'Active',
+      joinedDate: '2026-08-15',
+      productsSupplied: 'Coca-Cola, Sprite, Fanta, Fuze Tea, Dasani'
+    }
+  ];
+
+  // Suppliers State (Includes Tayyab - Coca-Cola)
   const [suppliers, setSuppliers] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_suppliers');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch (e) {}
-    return [];
+    return defaultSuppliersList;
   });
 
   useEffect(() => {
@@ -540,6 +562,9 @@ export const StoreProvider = ({ children }) => {
         if (res && res.success && Array.isArray(res.suppliers) && res.suppliers.length > 0) {
           setSuppliers(res.suppliers);
           localStorage.setItem('freshmart_suppliers', JSON.stringify(res.suppliers));
+        } else {
+          setSuppliers(defaultSuppliersList);
+          localStorage.setItem('freshmart_suppliers', JSON.stringify(defaultSuppliersList));
         }
       } catch (e) {}
     };

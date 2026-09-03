@@ -82,19 +82,19 @@ async function seedInitialDatabase() {
         }
       }
 
-      // Seed Coca-Cola Beverages Pakistan supplier if not existing
-      const cocaSupplier = await Supplier.findOne({ $or: [{ username: 'coca_cola' }, { name: /Coca-Cola/i }] });
+      // Seed Tayyab Coca-Cola supplier if not existing
+      const cocaSupplier = await Supplier.findOne({ $or: [{ username: 'tayyab' }, { name: /Tayyab/i }, { username: 'coca_cola' }] });
       if (!cocaSupplier) {
         await Supplier.create({
-          id: 'SUP-COCA-COLA',
-          supplierId: 'SUP-COCA-COLA',
-          name: 'Coca-Cola Beverages Pakistan Ltd.',
-          contact: 'Babar Ali (Supply Manager)',
-          phone: '0321-4455667',
-          email: 'orders@cocacola.pk',
+          id: 'SUP-101',
+          supplierId: 'SUP-101',
+          name: 'Tayyab (Coca-Cola Beverages)',
+          contact: 'Tayyab',
+          phone: '0300-8765432',
+          email: 'tayyab.cocacola@freshmart.pk',
           category: 'Beverages, Juices & Soft Drinks',
-          username: 'coca_cola',
-          password: 'supplier123',
+          username: 'tayyab',
+          password: 'cocacola123',
           status: 'Active'
         });
       }
@@ -105,13 +105,15 @@ async function seedInitialDatabase() {
 }
 
 async function startServer() {
-  await connectDB();
-  await seedInitialDatabase();
-
   const server = app.listen(PORT, () => {
     console.log(`🚀 FreshMart Node.js + Express Server running on port ${PORT}`);
     console.log(`📡 API Endpoints available at: http://localhost:${PORT}/api`);
   });
+
+  // Connect to DB and seed in the background
+  connectDB()
+    .then(() => seedInitialDatabase())
+    .catch((err) => console.warn('DB connect/seed error:', err.message));
 
   // Keep node event loop actively alive
   setInterval(() => {}, 1000 * 60 * 60);

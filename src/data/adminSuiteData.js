@@ -96,7 +96,23 @@ export const ADMIN_CUSTOMERS_DATA = [];
 
 export const ADMIN_INVENTORY_ITEMS = [];
 
-export const ADMIN_SUPPLIERS_DATA = [];
+export const ADMIN_SUPPLIERS_DATA = [
+  {
+    id: 'SUP-101',
+    supplierId: 'SUP-101',
+    name: 'Tayyab (Coca-Cola Beverages)',
+    contact: 'Tayyab',
+    phone: '0300-8765432',
+    email: 'tayyab.cocacola@freshmart.pk',
+    category: 'Beverages, Juices & Soft Drinks',
+    company: 'Coca-Cola Beverages Pakistan Ltd',
+    username: 'tayyab',
+    password: 'cocacola123',
+    status: 'Active',
+    joinedDate: '2026-08-15',
+    productsSupplied: 'Coca-Cola, Sprite, Fanta, Fuze Tea, Dasani'
+  }
+];
 
 export const ADMIN_PROMOTIONS_DATA = [
   {
