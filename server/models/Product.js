@@ -2,6 +2,14 @@ import mongoose from 'mongoose';
 
 const productSchema = new mongoose.Schema(
   {
+    id: {
+      type: String,
+      index: true
+    },
+    customId: {
+      type: String,
+      index: true
+    },
     name: {
       type: String,
       required: true,
@@ -47,7 +55,6 @@ const productSchema = new mongoose.Schema(
     },
     stock: {
       type: Number,
-      required: true,
       default: 50
     },
     minStock: {
@@ -56,7 +63,6 @@ const productSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Active', 'Low Stock', 'Critical', 'Out of Stock'],
       default: 'Active'
     },
     isFlashDeal: {

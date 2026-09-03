@@ -388,20 +388,29 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [categories]);
 
-  // Fetch live products on startup from Node.js backend if no local changes exist
+  // Fetch live products on startup from Node.js backend
   useEffect(() => {
     const fetchBackendData = async () => {
       try {
-        const saved = localStorage.getItem('freshmart_products');
-        if (!saved) {
-          const data = await apiService.getProducts();
-          if (data && data.success && data.products && data.products.length > 0) {
-            const mapped = data.products.map((p) => ({
-              ...p,
-              id: String(p.id || p._id)
-            }));
-            setProducts(mapped);
-          }
+        const data = await apiService.getProducts();
+        if (data && data.success && data.products && data.products.length > 0) {
+          const mapped = data.products.map((p) => ({
+            ...p,
+            id: String(p.customId || p.id || p._id)
+          }));
+          setProducts((prev) => {
+            const dbMap = new Map(mapped.map((p) => [p.id, p]));
+            const merged = prev.map((p) => (dbMap.has(p.id) ? { ...p, ...dbMap.get(p.id) } : p));
+            for (const dbProduct of mapped) {
+              if (!merged.some((p) => p.id === dbProduct.id)) {
+                merged.unshift(dbProduct);
+              }
+            }
+            try {
+              localStorage.setItem('freshmart_products', JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
         }
       } catch (e) {}
     };

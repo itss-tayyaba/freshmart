@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { isDbOnline } from '../config/db.js';
 import { Product } from '../models/Product.js';
 import { FRESHMART_PRODUCTS } from '../../src/data/freshMartData.js';
@@ -33,12 +34,11 @@ export const getProducts = async (req, res) => {
           const obj = doc.toObject ? doc.toObject() : doc;
           return {
             ...obj,
-            id: String(obj.id || obj._id)
+            id: String(obj.customId || obj.id || obj._id)
           };
         });
         return res.json({ success: true, count: mappedProducts.length, products: mappedProducts });
       }
-
     }
 
     // In-Memory / Instant Fallback filtering
@@ -66,8 +66,15 @@ export const getProducts = async (req, res) => {
 // @route   GET /api/products/:id
 export const getProductById = async (req, res) => {
   try {
+    const { id } = req.params;
     if (isDbOnline()) {
-      const product = await Product.findById(req.params.id);
+      let product = null;
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        product = await Product.findById(id);
+      }
+      if (!product) {
+        product = await Product.findOne({ $or: [{ customId: id }, { id: id }] });
+      }
       if (product) return res.json({ success: true, product });
     }
 
@@ -85,10 +92,13 @@ export const getProductById = async (req, res) => {
 // @route   POST /api/products
 export const createProduct = async (req, res) => {
   try {
-    const { name, brand, category, categoryLabel, price, originalPrice, stock, unit, image, description } = req.body;
+    const { id, name, brand, category, categoryLabel, price, originalPrice, stock, unit, image, description } = req.body;
+    const productId = id || `prod-${Date.now()}`;
 
     if (isDbOnline()) {
       const product = new Product({
+        customId: productId,
+        id: productId,
         name,
         brand: brand || 'Farm Fresh',
         category: category || 'fruits-veg',
@@ -105,7 +115,7 @@ export const createProduct = async (req, res) => {
     }
 
     const newProduct = {
-      id: `p-${Date.now()}`,
+      id: productId,
       name,
       brand: brand || 'Farm Fresh',
       category: category || 'fruits-veg',
@@ -124,17 +134,52 @@ export const createProduct = async (req, res) => {
   }
 };
 
-// @desc    Update a product (Admin)
+// @desc    Update a product or product picture (Admin)
 // @route   PUT /api/products/:id
 export const updateProduct = async (req, res) => {
   try {
+    const { id } = req.params;
+    const updateData = req.body;
+
     if (isDbOnline()) {
-      const product = await Product.findById(req.params.id);
+      let product = null;
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        product = await Product.findById(id);
+      }
+      if (!product) {
+        product = await Product.findOne({ $or: [{ customId: id }, { id: id }, { name: updateData.name }] });
+      }
+
       if (product) {
-        Object.assign(product, req.body);
+        Object.assign(product, updateData);
+        if (updateData.image) product.image = updateData.image;
         const updated = await product.save();
         return res.json({ success: true, product: updated });
+      } else {
+        // Upsert if not existing yet in MongoDB
+        const newProduct = new Product({
+          customId: id,
+          id: id,
+          name: updateData.name || 'Product',
+          brand: updateData.brand || 'Farm Fresh',
+          category: updateData.category || 'fruits-veg',
+          categoryLabel: updateData.categoryLabel || 'Fruits & Vegetables',
+          price: Number(updateData.price || 100),
+          originalPrice: Number(updateData.originalPrice || updateData.price || 100),
+          stock: Number(updateData.stock || 50),
+          unit: updateData.unit || '1 Kg',
+          image: updateData.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
+          description: updateData.description || 'Fresh high-grade grocery product.'
+        });
+        const created = await newProduct.save();
+        return res.json({ success: true, product: created });
       }
+    }
+
+    // Also update in-memory catalog
+    const idx = FRESHMART_PRODUCTS.findIndex((p) => p.id === id);
+    if (idx !== -1) {
+      FRESHMART_PRODUCTS[idx] = { ...FRESHMART_PRODUCTS[idx], ...updateData };
     }
     res.json({ success: true, message: 'Product updated' });
   } catch (error) {
@@ -146,12 +191,16 @@ export const updateProduct = async (req, res) => {
 // @route   DELETE /api/products/:id
 export const deleteProduct = async (req, res) => {
   try {
+    const { id } = req.params;
     if (isDbOnline()) {
-      const product = await Product.findById(req.params.id);
-      if (product) {
-        await product.deleteOne();
-        return res.json({ success: true, message: 'Product removed' });
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        await Product.findByIdAndDelete(id);
       }
+      await Product.deleteOne({ $or: [{ customId: id }, { id: id }] });
+    }
+    const idx = FRESHMART_PRODUCTS.findIndex((p) => p.id === id);
+    if (idx !== -1) {
+      FRESHMART_PRODUCTS.splice(idx, 1);
     }
     res.json({ success: true, message: 'Product removed' });
   } catch (error) {
