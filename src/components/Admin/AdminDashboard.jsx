@@ -35,6 +35,7 @@ import { SettingsView } from './views/SettingsView';
 // Modals
 import { AdminModals } from './modals/AdminModals';
 import { AdminLogin } from './AdminLogin';
+import { SupplierPortal } from '../SupplierPortal/SupplierPortal';
 
 export const AdminDashboard = () => {
   const { navigateTo, isAdminLoggedIn, adminLogout, adminRole, user } = useStore();
@@ -42,7 +43,6 @@ export const AdminDashboard = () => {
   // Set initial activeTab based on logged-in role
   const [activeTab, setActiveTab] = useState(() => {
     if (adminRole === 'rider') return 'Delivery';
-    if (adminRole === 'supplier') return 'Suppliers';
     return 'Dashboard';
   });
 
@@ -58,8 +58,6 @@ export const AdminDashboard = () => {
   useEffect(() => {
     if (adminRole === 'rider') {
       setActiveTab('Delivery');
-    } else if (adminRole === 'supplier') {
-      setActiveTab('Suppliers');
     } else {
       setActiveTab('Dashboard');
     }
@@ -68,6 +66,11 @@ export const AdminDashboard = () => {
   // If not logged in as Admin, show the Admin Login with Username/Password
   if (!isAdminLoggedIn) {
     return <AdminLogin />;
+  }
+
+  // If logged in as Supplier, render the dedicated Supplier Portal matching user's architecture
+  if (adminRole === 'supplier') {
+    return <SupplierPortal />;
   }
 
   const roleMeta = {
