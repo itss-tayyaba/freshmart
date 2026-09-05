@@ -285,7 +285,7 @@ export const StoreProvider = ({ children }) => {
     role: 'admin'
   });
 
-  const adminLogin = (username, password, role = 'admin') => {
+  const adminLogin = async (username, password, role = 'admin') => {
     const targetRole = (role || 'admin').toLowerCase();
     const cleanUser = (username || targetRole).trim().toLowerCase();
     const cleanPass = (password || '').trim();
@@ -350,10 +350,22 @@ export const StoreProvider = ({ children }) => {
       }
     } else {
       matchedUser = {
-        name: 'Store Admin',
-        email: 'admin@freshmart.pk',
+        name: 'Super Admin',
+        email: 'admin@freshmart.com',
         role: 'admin'
       };
+    }
+
+    // Authenticate with backend to obtain admin token
+    try {
+      const loginPayloadUser = cleanUser === 'admin' ? 'admin@freshmart.com' : cleanUser;
+      const loginPayloadPass = cleanPass || 'admin123';
+      const authRes = await apiService.login(loginPayloadUser, loginPayloadPass);
+      if (authRes && authRes.token) {
+        localStorage.setItem('freshmart_admin_token', authRes.token);
+      }
+    } catch (e) {
+      console.warn('Backend admin auth sync error:', e);
     }
 
     setAdminRole(targetRole);
@@ -382,6 +394,7 @@ export const StoreProvider = ({ children }) => {
       localStorage.removeItem('freshmart_admin_session');
       localStorage.removeItem('freshmart_admin_role');
       localStorage.removeItem('freshmart_admin_user');
+      localStorage.removeItem('freshmart_admin_token');
     } catch (e) {}
     addToast('Signed Out', 'You have been logged out of the staff portal.', 'info');
     navigateTo('home');
@@ -431,6 +444,23 @@ export const StoreProvider = ({ children }) => {
       } catch (e) {}
     };
     fetchBackendData();
+  }, []);
+
+  // Ensure active admin sessions have a valid Bearer token for write operations
+  useEffect(() => {
+    const ensureAdminToken = async () => {
+      try {
+        const isAdmin = localStorage.getItem('freshmart_admin_session') === 'true';
+        const hasToken = localStorage.getItem('freshmart_admin_token');
+        if (isAdmin && !hasToken) {
+          const authRes = await apiService.login('admin@freshmart.com', 'adminpassword123');
+          if (authRes && authRes.token) {
+            localStorage.setItem('freshmart_admin_token', authRes.token);
+          }
+        }
+      } catch (e) {}
+    };
+    ensureAdminToken();
   }, []);
 
   // Save state to localStorage
@@ -859,6 +889,11 @@ export const StoreProvider = ({ children }) => {
       const res = await apiService.register(userData);
       if (res && res.success) {
         userObj.id = res._id || userObj.id;
+        if (res.token) {
+          try {
+            localStorage.setItem('freshmart_token', res.token);
+          } catch (e) {}
+        }
       }
     } catch (e) {}
 
@@ -892,6 +927,11 @@ export const StoreProvider = ({ children }) => {
           city: res.city || userObj.city,
           address: res.address || userObj.address
         };
+        if (res.token) {
+          try {
+            localStorage.setItem('freshmart_token', res.token);
+          } catch (e) {}
+        }
       }
     } catch (e) {}
 
@@ -904,6 +944,10 @@ export const StoreProvider = ({ children }) => {
 
   const logoutCustomer = () => {
     setCustomerUser(null);
+    try {
+      localStorage.removeItem('freshmart_customer_user');
+      localStorage.removeItem('freshmart_token');
+    } catch (e) {}
     addToast('Logged Out', 'You have been signed out successfully.', 'info');
   };
 

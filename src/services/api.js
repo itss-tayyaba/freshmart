@@ -1,5 +1,23 @@
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
 
+const getAuthHeaders = (extraHeaders = {}) => {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...extraHeaders
+  };
+  try {
+    const token =
+      localStorage.getItem('freshmart_admin_token') ||
+      localStorage.getItem('freshmart_token') ||
+      localStorage.getItem('freshmart_jwt') ||
+      localStorage.getItem('token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  } catch (e) {}
+  return headers;
+};
+
 const handleResponse = async (res) => {
   try {
     const data = await res.json();
@@ -44,7 +62,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/products`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(productData)
       });
       return await handleResponse(res);
@@ -57,7 +75,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/products/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(productData)
       });
       return await handleResponse(res);
@@ -69,7 +87,8 @@ export const apiService = {
   async deleteProduct(id) {
     try {
       const res = await fetch(`${API_BASE_URL}/products/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getAuthHeaders()
       });
       return await handleResponse(res);
     } catch (e) {
@@ -91,7 +110,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/categories`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(categoryData)
       });
       return await handleResponse(res);
@@ -104,7 +123,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/categories/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(categoryData)
       });
       return await handleResponse(res);
@@ -116,7 +135,8 @@ export const apiService = {
   async deleteCategory(id) {
     try {
       const res = await fetch(`${API_BASE_URL}/categories/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getAuthHeaders()
       });
       return await handleResponse(res);
     } catch (e) {
@@ -129,7 +149,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/orders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(orderPayload)
       });
       return await handleResponse(res);
@@ -140,7 +160,9 @@ export const apiService = {
 
   async getOrders() {
     try {
-      const res = await fetch(`${API_BASE_URL}/orders`);
+      const res = await fetch(`${API_BASE_URL}/orders`, {
+        headers: getAuthHeaders()
+      });
       return await handleResponse(res);
     } catch (e) {
       return { success: false, error: e.message };
@@ -160,7 +182,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/orders/${id}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ status })
       });
       return await handleResponse(res);
@@ -186,7 +208,9 @@ export const apiService = {
   // Analytics & Admin
   async getAnalytics() {
     try {
-      const res = await fetch(`${API_BASE_URL}/analytics/dashboard`);
+      const res = await fetch(`${API_BASE_URL}/analytics/dashboard`, {
+        headers: getAuthHeaders()
+      });
       return await handleResponse(res);
     } catch (e) {
       return { success: false, error: e.message };
@@ -195,7 +219,22 @@ export const apiService = {
 
   async getInventory() {
     try {
-      const res = await fetch(`${API_BASE_URL}/inventory`);
+      const res = await fetch(`${API_BASE_URL}/inventory`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async restockProduct(id, amount) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/inventory/${id}/restock`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ amount })
+      });
       return await handleResponse(res);
     } catch (e) {
       return { success: false, error: e.message };
@@ -204,7 +243,9 @@ export const apiService = {
 
   async getDeliveries() {
     try {
-      const res = await fetch(`${API_BASE_URL}/delivery`);
+      const res = await fetch(`${API_BASE_URL}/delivery`, {
+        headers: getAuthHeaders()
+      });
       return await handleResponse(res);
     } catch (e) {
       return { success: false, error: e.message };
@@ -241,7 +282,9 @@ export const apiService = {
   // Customers API
   async getCustomers() {
     try {
-      const res = await fetch(`${API_BASE_URL}/customers`);
+      const res = await fetch(`${API_BASE_URL}/customers`, {
+        headers: getAuthHeaders()
+      });
       return await handleResponse(res);
     } catch (e) {
       return { success: false, error: e.message };
@@ -252,7 +295,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/customers`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(customerData)
       });
       return await handleResponse(res);
@@ -264,7 +307,9 @@ export const apiService = {
   // Suppliers API
   async getSuppliers() {
     try {
-      const res = await fetch(`${API_BASE_URL}/suppliers`);
+      const res = await fetch(`${API_BASE_URL}/suppliers`, {
+        headers: getAuthHeaders()
+      });
       return await handleResponse(res);
     } catch (e) {
       return { success: false, error: e.message };
@@ -275,7 +320,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/suppliers`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(supplierData)
       });
       return await handleResponse(res);
@@ -287,7 +332,8 @@ export const apiService = {
   async deleteSupplier(id) {
     try {
       const res = await fetch(`${API_BASE_URL}/suppliers/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getAuthHeaders()
       });
       return await handleResponse(res);
     } catch (e) {
@@ -298,7 +344,9 @@ export const apiService = {
   // Riders API
   async getRiders() {
     try {
-      const res = await fetch(`${API_BASE_URL}/riders`);
+      const res = await fetch(`${API_BASE_URL}/riders`, {
+        headers: getAuthHeaders()
+      });
       return await handleResponse(res);
     } catch (e) {
       return { success: false, error: e.message };
@@ -309,7 +357,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/riders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(riderData)
       });
       return await handleResponse(res);
@@ -321,7 +369,8 @@ export const apiService = {
   async deleteRider(id) {
     try {
       const res = await fetch(`${API_BASE_URL}/riders/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getAuthHeaders()
       });
       return await handleResponse(res);
     } catch (e) {
@@ -332,7 +381,8 @@ export const apiService = {
   async clearAllRiders() {
     try {
       const res = await fetch(`${API_BASE_URL}/riders`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getAuthHeaders()
       });
       return await handleResponse(res);
     } catch (e) {
