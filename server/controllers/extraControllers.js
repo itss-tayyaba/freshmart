@@ -142,7 +142,6 @@ export const getSuppliers = async (req, res) => {
         email: s.email,
         category: s.category || 'Fresh Milk & Pure Dairy',
         username: s.username,
-        password: s.password,
         status: s.status || 'Active'
       }));
       return res.json({ success: true, suppliers: mapped });
@@ -171,8 +170,21 @@ export const addSupplier = async (req, res) => {
     };
 
     if (isDbOnline()) {
-      await Supplier.create(newSup);
-      return res.status(201).json({ success: true, supplier: newSup });
+      const createdSupplier = await Supplier.create(newSup);
+      return res.status(201).json({
+        success: true,
+        supplier: {
+          id: createdSupplier.supplierId || createdSupplier._id.toString(),
+          supplierId: createdSupplier.supplierId,
+          name: createdSupplier.name,
+          contact: createdSupplier.contact,
+          phone: createdSupplier.phone,
+          email: createdSupplier.email,
+          category: createdSupplier.category,
+          username: createdSupplier.username,
+          status: createdSupplier.status
+        }
+      });
     }
 
     memorySuppliers.unshift(newSup);
@@ -209,7 +221,6 @@ export const getRiders = async (req, res) => {
         zone: r.zone,
         status: r.status,
         username: r.username,
-        password: r.password,
         deliveriesCount: r.deliveriesCount || 0,
         rating: r.rating || 5.0
       }));
@@ -241,8 +252,22 @@ export const addRider = async (req, res) => {
     };
 
     if (isDbOnline()) {
-      await Rider.create(newRider);
-      return res.status(201).json({ success: true, rider: newRider });
+      const createdRider = await Rider.create(newRider);
+      return res.status(201).json({
+        success: true,
+        rider: {
+          id: createdRider.id,
+          name: createdRider.name,
+          phone: createdRider.phone,
+          vehicleType: createdRider.vehicleType,
+          vehicleNumber: createdRider.vehicleNumber,
+          zone: createdRider.zone,
+          status: createdRider.status,
+          username: createdRider.username,
+          deliveriesCount: createdRider.deliveriesCount,
+          rating: createdRider.rating
+        }
+      });
     }
 
     memoryRiders.unshift(newRider);

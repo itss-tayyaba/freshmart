@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 const supplierSchema = new mongoose.Schema(
   {
@@ -11,11 +12,26 @@ const supplierSchema = new mongoose.Schema(
     email: { type: String },
     category: { type: String, default: 'Fresh Milk & Pure Dairy' },
     username: { type: String },
-    password: { type: String },
+    password: { type: String, default: 'supplier123' },
     status: { type: String, default: 'Active' }
   },
   { timestamps: true, bufferCommands: false }
 );
+
+// Encrypt supplier password before saving (Bcrypt Pre-Save Hook)
+supplierSchema.pre('save', async function (next) {
+  if (!this.isModified('password') || !this.password) {
+    return next();
+  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+});
+
+// Compare password method
+supplierSchema.methods.matchPassword = async function (enteredPassword) {
+  if (!this.password || !enteredPassword) return false;
+  return await bcrypt.compare(enteredPassword, this.password);
+};
 
 export const Supplier = mongoose.model('Supplier', supplierSchema);
 
@@ -29,13 +45,28 @@ const riderSchema = new mongoose.Schema(
     zone: { type: String, default: 'Lahore Hub' },
     status: { type: String, default: 'On-Duty' },
     username: { type: String },
-    password: { type: String },
+    password: { type: String, default: 'rider123' },
     cnic: { type: String },
     deliveriesCount: { type: Number, default: 0 },
     rating: { type: Number, default: 5.0 }
   },
   { timestamps: true, bufferCommands: false }
 );
+
+// Encrypt rider password before saving (Bcrypt Pre-Save Hook)
+riderSchema.pre('save', async function (next) {
+  if (!this.isModified('password') || !this.password) {
+    return next();
+  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+});
+
+// Compare password method
+riderSchema.methods.matchPassword = async function (enteredPassword) {
+  if (!this.password || !enteredPassword) return false;
+  return await bcrypt.compare(enteredPassword, this.password);
+};
 
 export const Rider = mongoose.model('Rider', riderSchema);
 

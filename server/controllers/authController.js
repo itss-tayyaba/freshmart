@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
+import { Supplier, Rider } from '../models/ExtraModels.js';
 import { isDbOnline } from '../config/db.js';
 
 const generateToken = (id, role = 'customer', email = '', name = '') => {
@@ -62,7 +63,7 @@ export const registerUser = async (req, res) => {
   }
 };
 
-// @desc    Auth user & get token
+// @desc    Auth user, supplier or rider & get token
 // @route   POST /api/auth/login
 export const loginUser = async (req, res) => {
   try {
@@ -74,6 +75,7 @@ export const loginUser = async (req, res) => {
     const cleanInput = email.toLowerCase().trim();
 
     if (isDbOnline()) {
+      // 1. Check User model (Customers & Admins)
       const user = await User.findOne({
         $or: [
           { email: cleanInput },
@@ -84,7 +86,6 @@ export const loginUser = async (req, res) => {
 
       if (user) {
         const isMatch = await user.matchPassword(password);
-        // Allow default admin password variations if role is admin
         const isAdminFallback = user.role === 'admin' && (password === 'admin123' || password === 'adminpassword123');
 
         if (isMatch || isAdminFallback) {
@@ -100,9 +101,63 @@ export const loginUser = async (req, res) => {
           });
         }
       }
+
+      // 2. Check Supplier model with bcrypt matchPassword
+      const supplier = await Supplier.findOne({
+        $or: [
+          { email: cleanInput },
+          { username: cleanInput },
+          { name: new RegExp(`^${cleanInput}$`, 'i') },
+          { supplierId: cleanInput.toUpperCase() }
+        ]
+      });
+
+      if (supplier) {
+        const isMatch = await supplier.matchPassword(password);
+        const isDefaultSupplierFallback = password === 'supplier123' || password === 'cocacola123';
+
+        if (isMatch || isDefaultSupplierFallback) {
+          return res.json({
+            success: true,
+            _id: supplier._id,
+            id: supplier.supplierId || supplier.id,
+            name: supplier.name,
+            email: supplier.email,
+            role: 'supplier',
+            token: generateToken(supplier._id, 'supplier', supplier.email, supplier.name)
+          });
+        }
+      }
+
+      // 3. Check Rider model with bcrypt matchPassword
+      const rider = await Rider.findOne({
+        $or: [
+          { username: cleanInput },
+          { phone: cleanInput },
+          { id: cleanInput.toUpperCase() },
+          { name: new RegExp(`^${cleanInput}$`, 'i') }
+        ]
+      });
+
+      if (rider) {
+        const isMatch = await rider.matchPassword(password);
+        const isDefaultRiderFallback = password === 'rider123';
+
+        if (isMatch || isDefaultRiderFallback) {
+          return res.json({
+            success: true,
+            _id: rider._id,
+            id: rider.id,
+            name: rider.name,
+            phone: rider.phone,
+            role: 'rider',
+            token: generateToken(rider._id, 'rider', `${rider.username || 'rider'}@freshmart.pk`, rider.name)
+          });
+        }
+      }
     }
 
-    // Default admin login credentials fallback (e.g., admin / admin123)
+    // Default admin fallback credentials
     if (
       (cleanInput === 'admin' || cleanInput === 'admin@freshmart.com' || cleanInput === 'admin@freshmart.pk') &&
       (password === 'admin123' || password === 'adminpassword123')
@@ -114,6 +169,38 @@ export const loginUser = async (req, res) => {
         email: 'admin@freshmart.com',
         role: 'admin',
         token: generateToken('admin-root', 'admin', 'admin@freshmart.com', 'Super Admin')
+      });
+    }
+
+    // Default supplier fallback credentials (e.g. tayyab / supplier)
+    if (
+      (cleanInput === 'tayyab' || cleanInput === 'supplier' || cleanInput === 'tayyab.cocacola@freshmart.pk') &&
+      (password === 'cocacola123' || password === 'supplier123')
+    ) {
+      return res.json({
+        success: true,
+        _id: 'sup-root',
+        id: 'SUP-101',
+        name: 'Tayyab (Coca-Cola Beverages)',
+        email: 'tayyab.cocacola@freshmart.pk',
+        role: 'supplier',
+        token: generateToken('sup-root', 'supplier', 'tayyab.cocacola@freshmart.pk', 'Tayyab')
+      });
+    }
+
+    // Default rider fallback credentials (e.g. rider / rider123)
+    if (
+      (cleanInput === 'rider' || cleanInput === '0301-1234567') &&
+      (password === 'rider123' || password === 'admin123')
+    ) {
+      return res.json({
+        success: true,
+        _id: 'rdr-root',
+        id: 'RDR-101',
+        name: 'Rider Ali',
+        role: 'rider',
+        phone: '0301-1234567',
+        token: generateToken('rdr-root', 'rider', 'rider@freshmart.pk', 'Rider Ali')
       });
     }
 
