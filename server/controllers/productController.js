@@ -3,11 +3,15 @@ import { isDbOnline } from '../config/db.js';
 import { Product } from '../models/Product.js';
 import { FRESHMART_PRODUCTS } from '../../src/data/freshMartData.js';
 
-// @desc    Fetch all products with filtering & search
+// @desc    Fetch all products with filtering, search & pagination
 // @route   GET /api/products
 export const getProducts = async (req, res) => {
   try {
     const { category, brand, minPrice, maxPrice, search, isFlashDeal, status } = req.query;
+
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = req.query.limit !== undefined ? Math.max(1, parseInt(req.query.limit, 10) || 20) : 50;
+    const skip = (page - 1) * limit;
 
     if (isDbOnline()) {
       let query = {};
@@ -28,7 +32,14 @@ export const getProducts = async (req, res) => {
         ];
       }
 
-      const products = await Product.find(query);
+      const total = await Product.countDocuments(query);
+      const totalPages = Math.ceil(total / limit) || 1;
+
+      const products = await Product.find(query)
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 });
+
       if (products && products.length > 0) {
         const mappedProducts = products.map((doc) => {
           const obj = doc.toObject ? doc.toObject() : doc;
@@ -37,11 +48,19 @@ export const getProducts = async (req, res) => {
             id: String(obj.customId || obj.id || obj._id)
           };
         });
-        return res.json({ success: true, count: mappedProducts.length, products: mappedProducts });
+        return res.json({
+          success: true,
+          page,
+          limit,
+          total,
+          totalPages,
+          count: mappedProducts.length,
+          products: mappedProducts
+        });
       }
     }
 
-    // In-Memory / Instant Fallback filtering
+    // In-Memory / Instant Fallback filtering & pagination
     let filtered = [...FRESHMART_PRODUCTS];
     if (category && category !== 'all') filtered = filtered.filter((p) => p.category === category);
     if (brand) filtered = filtered.filter((p) => p.brand === brand);
@@ -56,9 +75,36 @@ export const getProducts = async (req, res) => {
       );
     }
 
-    res.json({ success: true, count: filtered.length, products: filtered });
+    const total = filtered.length;
+    const totalPages = Math.ceil(total / limit) || 1;
+    const paginated = filtered.slice(skip, skip + limit);
+
+    res.json({
+      success: true,
+      page,
+      limit,
+      total,
+      totalPages,
+      count: paginated.length,
+      products: paginated
+    });
   } catch (error) {
-    res.json({ success: true, count: FRESHMART_PRODUCTS.length, products: FRESHMART_PRODUCTS });
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = req.query.limit !== undefined ? Math.max(1, parseInt(req.query.limit, 10) || 20) : 50;
+    const skip = (page - 1) * limit;
+    const total = FRESHMART_PRODUCTS.length;
+    const totalPages = Math.ceil(total / limit) || 1;
+    const paginated = FRESHMART_PRODUCTS.slice(skip, skip + limit);
+
+    res.json({
+      success: true,
+      page,
+      limit,
+      total,
+      totalPages,
+      count: paginated.length,
+      products: paginated
+    });
   }
 };
 
