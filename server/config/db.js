@@ -10,12 +10,22 @@ try {
 dotenv.config();
 
 let dbLive = false;
+let isConnecting = null;
 
 export const isDbOnline = () => {
   return dbLive && mongoose.connection && mongoose.connection.readyState === 1;
 };
 
 export const connectDB = async () => {
+  if (mongoose.connection && mongoose.connection.readyState === 1) {
+    dbLive = true;
+    return true;
+  }
+
+  if (isConnecting) {
+    return await isConnecting;
+  }
+
   const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI;
 
   if (!mongoURI || mongoURI === 'none') {
@@ -24,16 +34,22 @@ export const connectDB = async () => {
     return false;
   }
 
-  try {
-    const conn = await mongoose.connect(mongoURI, {
-      serverSelectionTimeoutMS: 8000
-    });
-    dbLive = true;
-    console.log(`✅ MongoDB Atlas Connected Successfully: ${conn.connection.host}`);
-    return true;
-  } catch (error) {
-    dbLive = false;
-    console.warn(`⚠️ MongoDB Connection Error (${error.message}). Switched to memory store.`);
-    return false;
-  }
+  isConnecting = (async () => {
+    try {
+      const conn = await mongoose.connect(mongoURI, {
+        serverSelectionTimeoutMS: 8000
+      });
+      dbLive = true;
+      console.log(`✅ MongoDB Atlas Connected Successfully: ${conn.connection.host}`);
+      return true;
+    } catch (error) {
+      dbLive = false;
+      console.warn(`⚠️ MongoDB Connection Error (${error.message}). Switched to memory store.`);
+      return false;
+    } finally {
+      isConnecting = null;
+    }
+  })();
+
+  return await isConnecting;
 };

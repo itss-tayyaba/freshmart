@@ -119,4 +119,8 @@ async function startServer() {
   setInterval(() => {}, 1000 * 60 * 60);
 }
 
-startServer();
+export default app;
+
+if (!process.env.VERCEL) {
+  startServer();
+}
