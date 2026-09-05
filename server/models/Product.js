@@ -37,6 +37,18 @@ const productSchema = new mongoose.Schema(
         return this.price;
       }
     },
+    wholesalePrice: {
+      type: Number,
+      default: function () {
+        return Math.round(this.price * 0.85);
+      }
+    },
+    tierPricing: [
+      {
+        minQty: { type: Number, default: 10 },
+        discountPercent: { type: Number, default: 10 }
+      }
+    ],
     discountPercent: {
       type: Number,
       default: 0
@@ -90,6 +102,15 @@ const productSchema = new mongoose.Schema(
       type: Map,
       of: String,
       default: {}
+    },
+    vendorId: {
+      type: String,
+      index: true,
+      default: 'VND-101'
+    },
+    vendorName: {
+      type: String,
+      default: 'FreshMart Direct Partner'
     }
   },
   {

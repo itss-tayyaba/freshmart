@@ -32,10 +32,10 @@ import { DeliveryView } from './views/DeliveryView';
 import { ReportsView } from './views/ReportsView';
 import { SettingsView } from './views/SettingsView';
 
-// Modals
 import { AdminModals } from './modals/AdminModals';
 import { AdminLogin } from './AdminLogin';
 import { SupplierPortal } from '../SupplierPortal/SupplierPortal';
+import { VendorPortal } from '../VendorPortal/VendorPortal';
 
 export const AdminDashboard = () => {
   const { navigateTo, isAdminLoggedIn, adminLogout, adminRole, user } = useStore();
@@ -68,9 +68,9 @@ export const AdminDashboard = () => {
     return <AdminLogin />;
   }
 
-  // If logged in as Supplier, render the dedicated Supplier Portal matching user's architecture
-  if (adminRole === 'supplier') {
-    return <SupplierPortal />;
+  // If logged in as Supplier or Vendor, render the dedicated Multi-Vendor Portal
+  if (adminRole === 'supplier' || adminRole === 'vendor') {
+    return <VendorPortal />;
   }
 
   const roleMeta = {

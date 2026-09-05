@@ -3,7 +3,7 @@ import { Mail, Phone, MapPin, ArrowUp, Heart, ShieldCheck, Sparkles, Smartphone 
 import { useStore } from '../../context/StoreContext';
 
 export const Footer = () => {
-  const { setActiveCategory } = useStore();
+  const { setActiveCategory, setIsVendorRegisterOpen, navigateTo } = useStore();
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -84,8 +84,24 @@ export const Footer = () => {
             </h4>
             <ul className="space-y-2 text-xs">
               <li><a href="#flash-deals-section" className="hover:text-lime-400 transition-colors">Daily Deals & Coupons</a></li>
-              <li><a href="#" className="hover:text-lime-400 transition-colors">Shipping & Delivery Info</a></li>
-              <li><a href="#" className="hover:text-lime-400 transition-colors">Refunds & Returns Policy</a></li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setIsVendorRegisterOpen(true)}
+                  className="hover:text-lime-400 text-emerald-300 font-bold transition-colors text-left flex items-center gap-1 cursor-pointer"
+                >
+                  <span>🏪 Sell on FreshMart (Vendor)</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => navigateTo('admin')}
+                  className="hover:text-lime-400 text-slate-300 transition-colors text-left cursor-pointer"
+                >
+                  📦 Vendor / Partner Login
+                </button>
+              </li>
               <li><a href="#" className="hover:text-lime-400 transition-colors">Order Tracking</a></li>
               <li><a href="#" className="hover:text-lime-400 transition-colors">FAQ & Support</a></li>
             </ul>

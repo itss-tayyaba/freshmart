@@ -22,14 +22,15 @@ import { OffersModal } from './components/Modals/OffersModal';
 import { QuickViewModal } from './components/Products/QuickViewModal';
 import { LocationModal } from './components/Stores/LocationModal';
 import { AuthModal } from './components/Modals/AuthModal';
+import { VendorRegistrationModal } from './components/VendorPortal/VendorRegistrationModal';
 import { ToastContainer } from './components/Modals/ToastContainer';
 
 
 function FreshMartAppContent() {
-  const { currentPage } = useStore();
+  const { currentPage, isVendorRegisterOpen, setIsVendorRegisterOpen } = useStore();
 
-  // If in Admin Dashboard view, render the dedicated full-screen admin experience
-  if (currentPage === 'admin' || currentPage === 'delivery-portal') {
+  // If in Admin / Vendor Dashboard view, render the dedicated full-screen admin/vendor experience
+  if (currentPage === 'admin' || currentPage === 'vendor' || currentPage === 'vendor-portal' || currentPage === 'delivery-portal') {
     return (
       <div className="min-h-screen bg-slate-100 font-sans">
         <AdminDashboard />
@@ -81,6 +82,7 @@ function FreshMartAppContent() {
       <QuickViewModal />
       <LocationModal />
       <AuthModal />
+      <VendorRegistrationModal isOpen={isVendorRegisterOpen} onClose={() => setIsVendorRegisterOpen(false)} />
       <ToastContainer />
     </div>
 

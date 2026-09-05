@@ -7,6 +7,7 @@ const getAuthHeaders = (extraHeaders = {}) => {
   };
   try {
     const token =
+      localStorage.getItem('freshmart_vendor_token') ||
       localStorage.getItem('freshmart_admin_token') ||
       localStorage.getItem('freshmart_token') ||
       localStorage.getItem('freshmart_jwt') ||
@@ -383,6 +384,277 @@ export const apiService = {
       const res = await fetch(`${API_BASE_URL}/riders`, {
         method: 'DELETE',
         headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // =========================================================
+  // 🏪 MULTI-VENDOR MARKETPLACE & VENDOR DASHBOARD APIS
+  // =========================================================
+
+  async registerVendor(vendorData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/vendor/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vendorData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async loginVendor(email, password) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/vendor/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getVendorProfile(vendorId) {
+    try {
+      const query = vendorId ? `?vendorId=${encodeURIComponent(vendorId)}` : '';
+      const res = await fetch(`${API_BASE_URL}/vendor/profile${query}`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateVendorProfile(profileData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/vendor/profile`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(profileData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getVendorProducts(vendorId) {
+    try {
+      const query = vendorId ? `?vendorId=${encodeURIComponent(vendorId)}` : '';
+      const res = await fetch(`${API_BASE_URL}/vendor/products${query}`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async addVendorProduct(productData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/vendor/products`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(productData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateVendorProduct(id, productData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/vendor/products/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(productData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteVendorProduct(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/vendor/products/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getVendorOrders(vendorId) {
+    try {
+      const query = vendorId ? `?vendorId=${encodeURIComponent(vendorId)}` : '';
+      const res = await fetch(`${API_BASE_URL}/vendor/orders${query}`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateVendorOrderStatus(id, status) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/vendor/orders/${id}/status`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status })
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getVendorInventory(vendorId) {
+    try {
+      const query = vendorId ? `?vendorId=${encodeURIComponent(vendorId)}` : '';
+      const res = await fetch(`${API_BASE_URL}/vendor/inventory${query}`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async restockVendorInventory(id, amount) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/vendor/inventory/${id}/restock`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ amount })
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async addVendorDiscount(discountData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/vendor/discounts`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(discountData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteVendorDiscount(id, vendorId) {
+    try {
+      const query = vendorId ? `?vendorId=${encodeURIComponent(vendorId)}` : '';
+      const res = await fetch(`${API_BASE_URL}/vendor/discounts/${id}${query}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async requestVendorPayout(payoutData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/vendor/payouts/request`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payoutData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async replyToVendorReview(id, reply, vendorId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/vendor/reviews/${id}/reply`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ reply, vendorId })
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async addVendorStaff(staffData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/vendor/staff`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(staffData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteVendorStaff(id, vendorId) {
+    try {
+      const query = vendorId ? `?vendorId=${encodeURIComponent(vendorId)}` : '';
+      const res = await fetch(`${API_BASE_URL}/vendor/staff/${id}${query}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // Admin Vendor Approvals & Payouts
+  async adminGetVendors() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/vendors`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async adminUpdateVendorStatus(id, status) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/vendors/${id}/status`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status })
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async adminProcessVendorPayout(id, payoutId, status, notes = '') {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/vendors/${id}/payouts/${payoutId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status, notes })
       });
       return await handleResponse(res);
     } catch (e) {

@@ -236,6 +236,7 @@ export const StoreProvider = ({ children }) => {
   const [isOrderTrackerOpen, setIsOrderTrackerOpen] = useState(false);
   const [isOffersOpen, setIsOffersOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isVendorRegisterOpen, setIsVendorRegisterOpen] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState(null);
 
   // Currency (Defaults strictly to PKR / Rs.)
@@ -321,7 +322,7 @@ export const StoreProvider = ({ children }) => {
           riderId: 'RDR-101'
         };
       }
-    } else if (targetRole === 'supplier') {
+    } else if (targetRole === 'supplier' || targetRole === 'vendor') {
       const foundSupplier = (suppliers || []).find(
         (s) =>
           (s.username && s.username.toLowerCase() === cleanUser) ||
@@ -330,22 +331,24 @@ export const StoreProvider = ({ children }) => {
       );
 
       if (foundSupplier) {
-        if (cleanPass && foundSupplier.password && cleanPass !== foundSupplier.password && cleanPass !== 'supplier123' && cleanPass !== 'admin123') {
-          addToast('Incorrect Password ❌', `Password for supplier ${foundSupplier.name} is incorrect.`, 'error');
-          return { success: false, error: 'Incorrect supplier password' };
+        if (cleanPass && foundSupplier.password && cleanPass !== foundSupplier.password && cleanPass !== 'supplier123' && cleanPass !== 'vendor123' && cleanPass !== 'admin123') {
+          addToast('Incorrect Password ❌', `Password for vendor ${foundSupplier.name} is incorrect.`, 'error');
+          return { success: false, error: 'Incorrect vendor password' };
         }
         matchedUser = {
           name: foundSupplier.name,
           email: foundSupplier.email,
-          role: 'supplier',
+          role: 'vendor',
+          vendorId: foundSupplier.id || 'VND-101',
           supplierId: foundSupplier.id
         };
       } else {
         matchedUser = {
-          name: cleanUser === 'supplier' ? 'Supplier Partner' : cleanUser,
-          email: `${cleanUser}@supplier.freshmart.pk`,
-          role: 'supplier',
-          supplierId: 'SUP-101'
+          name: (cleanUser === 'supplier' || cleanUser === 'vendor') ? 'Vendor Partner (Coca-Cola)' : cleanUser,
+          email: `${cleanUser}@vendor.freshmart.pk`,
+          role: 'vendor',
+          vendorId: 'VND-101',
+          supplierId: 'VND-101'
         };
       }
     } else {
@@ -356,13 +359,21 @@ export const StoreProvider = ({ children }) => {
       };
     }
 
-    // Authenticate with backend to obtain admin token
+    // Authenticate with backend to obtain admin / vendor token
     try {
       const loginPayloadUser = cleanUser === 'admin' ? 'admin@freshmart.com' : cleanUser;
       const loginPayloadPass = cleanPass || 'admin123';
       const authRes = await apiService.login(loginPayloadUser, loginPayloadPass);
       if (authRes && authRes.token) {
         localStorage.setItem('freshmart_admin_token', authRes.token);
+      }
+      if (targetRole === 'supplier' || targetRole === 'vendor') {
+        try {
+          const vAuth = await apiService.loginVendor(cleanUser, cleanPass || 'vendor123');
+          if (vAuth && vAuth.token) {
+            localStorage.setItem('freshmart_vendor_token', vAuth.token);
+          }
+        } catch (e) {}
       }
     } catch (e) {
       console.warn('Backend admin auth sync error:', e);
@@ -374,7 +385,8 @@ export const StoreProvider = ({ children }) => {
 
     const roleTitles = {
       admin: 'Administrator',
-      supplier: 'Supplier Partner',
+      supplier: 'Vendor Partner',
+      vendor: 'Vendor Partner',
       rider: 'Delivery Rider'
     };
 
@@ -1707,6 +1719,8 @@ export const StoreProvider = ({ children }) => {
         setIsOffersOpen,
         isAuthOpen,
         setIsAuthOpen,
+        isVendorRegisterOpen,
+        setIsVendorRegisterOpen,
         quickViewProduct,
         setQuickViewProduct,
         currency,

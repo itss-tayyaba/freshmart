@@ -40,6 +40,29 @@ import {
   getDeliveries,
   getAnalyticsDashboard
 } from '../controllers/extraControllers.js';
+import {
+  registerVendor,
+  loginVendor,
+  getVendorProfile,
+  updateVendorProfile,
+  getVendorProducts,
+  addVendorProduct,
+  updateVendorProduct,
+  deleteVendorProduct,
+  getVendorOrders,
+  updateVendorOrderStatus,
+  getVendorInventory,
+  restockVendorInventory,
+  addVendorDiscount,
+  deleteVendorDiscount,
+  requestVendorPayout,
+  replyToVendorReview,
+  addVendorStaff,
+  deleteVendorStaff,
+  adminGetVendors,
+  adminUpdateVendorStatus,
+  adminProcessVendorPayout
+} from '../controllers/vendorController.js';
 import { protect, adminOnly } from '../middleware/authMiddleware.js';
 import { authLimiter } from '../middleware/rateLimitMiddleware.js';
 import {
@@ -126,5 +149,48 @@ router.get('/delivery', protect, adminOnly, getDeliveries);
 // --- Analytics Routes ---
 // Admin Locked: Financial metrics, revenue, charts
 router.get('/analytics/dashboard', protect, adminOnly, getAnalyticsDashboard);
+
+// ============================================================
+// 🏪 MULTI-VENDOR MARKETPLACE & VENDOR DASHBOARD ROUTES
+// ============================================================
+
+// Public Vendor Onboarding & Authentication
+router.post('/vendor/register', authLimiter, registerVendor);
+router.post('/vendor/login', authLimiter, loginVendor);
+
+// Vendor Store Profile & Metrics
+router.get('/vendor/profile', getVendorProfile);
+router.put('/vendor/profile', updateVendorProfile);
+
+// Vendor Catalog & Pricing
+router.get('/vendor/products', getVendorProducts);
+router.post('/vendor/products', addVendorProduct);
+router.put('/vendor/products/:id', updateVendorProduct);
+router.delete('/vendor/products/:id', deleteVendorProduct);
+
+// Vendor Order Routing & Fulfillment
+router.get('/vendor/orders', getVendorOrders);
+router.put('/vendor/orders/:id/status', updateVendorOrderStatus);
+
+// Vendor Inventory & Restock
+router.get('/vendor/inventory', getVendorInventory);
+router.post('/vendor/inventory/:id/restock', restockVendorInventory);
+
+// Vendor Discounts & Promos
+router.post('/vendor/discounts', addVendorDiscount);
+router.delete('/vendor/discounts/:id', deleteVendorDiscount);
+
+// Vendor Payouts & Withdrawals
+router.post('/vendor/payouts/request', requestVendorPayout);
+
+// Vendor Reviews & Staff Management
+router.post('/vendor/reviews/:id/reply', replyToVendorReview);
+router.post('/vendor/staff', addVendorStaff);
+router.delete('/vendor/staff/:id', deleteVendorStaff);
+
+// Super Admin Marketplace Controls
+router.get('/admin/vendors', protect, adminOnly, adminGetVendors);
+router.put('/admin/vendors/:id/status', protect, adminOnly, adminUpdateVendorStatus);
+router.put('/admin/vendors/:id/payouts/:payoutId', protect, adminOnly, adminProcessVendorPayout);
 
 export default router;
