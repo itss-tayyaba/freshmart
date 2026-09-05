@@ -248,7 +248,9 @@ export const AdminDashboard = () => {
           {activeTab === 'Categories' && (
             <CategoriesView onOpenAddCategoryModal={() => setIsAddCategoryOpen(true)} />
           )}
-          {activeTab === 'Orders' && <OrdersView />}
+          {activeTab === 'Orders' && (
+            <OrdersView onNavigateToCustomers={() => setActiveTab('Customers')} />
+          )}
           {activeTab === 'Customers' && (
             <CustomersView onOpenAddCustomerModal={() => setIsAddCustomerOpen(true)} />
           )}
