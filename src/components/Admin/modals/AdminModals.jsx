@@ -164,13 +164,9 @@ export const AdminModals = ({
   const handleCustomerSubmit = async (e) => {
     e.preventDefault();
     if (!customerForm.name || !customerForm.email) return;
-    addCustomer(customerForm);
+    const newCust = addCustomer(customerForm);
     try {
-      await fetch('http://localhost:5000/api/customers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(customerForm)
-      });
+      await apiService.createCustomer(newCust || customerForm);
     } catch (err) {}
     setIsAddCustomerOpen(false);
     setCustomerForm({ name: '', email: '', phone: '' });
@@ -179,7 +175,7 @@ export const AdminModals = ({
   const handleSupplierSubmit = async (e) => {
     e.preventDefault();
     if (!supplierForm.name) return;
-    addSupplier({
+    const newSup = addSupplier({
       name: supplierForm.name,
       contact: supplierForm.contact,
       phone: supplierForm.phone,
@@ -189,11 +185,7 @@ export const AdminModals = ({
       password: supplierForm.password.trim() || 'supplier123'
     });
     try {
-      await fetch('http://localhost:5000/api/suppliers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(supplierForm)
-      });
+      await apiService.createSupplier(newSup || supplierForm);
     } catch (err) {}
     setIsAddSupplierOpen(false);
     setSupplierForm({ name: '', contact: '', phone: '', email: '', category: 'Fresh Milk & Pure Dairy', username: '', password: '' });
