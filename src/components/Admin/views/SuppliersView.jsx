@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Phone, Mail, Building, Eye, Trash2, CheckCircle2, XCircle, Clock, Award, DollarSign, Store } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Building, Eye, Trash2, CheckCircle2, XCircle, Clock, Award, DollarSign, Store, ExternalLink } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
 
 export const SuppliersView = ({ onOpenAddSupplierModal }) => {
-  const { suppliers, deleteSupplier, addToast, adminRole } = useStore();
+  const { suppliers, deleteSupplier, addToast, adminRole, setAdminRole, setUser } = useStore();
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'pending' | 'payouts'
   const [vendorsList, setVendorsList] = useState([]);
@@ -225,12 +225,32 @@ export const SuppliersView = ({ onOpenAddSupplierModal }) => {
                                 <span>Approve Vendor</span>
                               </button>
                             ) : (
-                              <button
-                                onClick={() => handleSuspendVendor(sup.vendorId || sup.id)}
-                                className="px-2.5 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold rounded-lg text-[10px] cursor-pointer"
-                              >
-                                Suspend
-                              </button>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setUser({
+                                      name: sup.name,
+                                      email: sup.email || `${sup.name.toLowerCase().replace(/\s+/g, '')}@vendor.freshmart.pk`,
+                                      role: 'vendor',
+                                      vendorId: sup.vendorId || sup.id || 'VND-101'
+                                    });
+                                    setAdminRole('vendor');
+                                    addToast('Opening Vendor Portal 🏪', `Viewing dashboard for ${sup.name}`);
+                                  }}
+                                  className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-lg text-[10px] flex items-center gap-1 border border-emerald-200 cursor-pointer shadow-xs transition-colors"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  <span>View Dashboard</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSuspendVendor(sup.vendorId || sup.id)}
+                                  className="px-2.5 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold rounded-lg text-[10px] cursor-pointer transition-colors"
+                                >
+                                  Suspend
+                                </button>
+                              </div>
                             )}
                           </div>
                         </td>
