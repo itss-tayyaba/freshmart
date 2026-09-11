@@ -1,4 +1,18 @@
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!isLocal) {
+      return `${window.location.origin}/api`;
+    }
+  }
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && !envUrl.includes('localhost')) {
+    return envUrl.replace(/\/$/, '');
+  }
+  return '/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const getAuthHeaders = (extraHeaders = {}) => {
   const headers = {

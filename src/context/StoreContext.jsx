@@ -92,7 +92,7 @@ export const StoreProvider = ({ children }) => {
   const [products, setProducts] = useState(() => {
     try {
       const cacheVersion = localStorage.getItem('freshmart_catalog_v');
-      if (cacheVersion === '5.0') {
+      if (cacheVersion === '6.0') {
         const saved = localStorage.getItem('freshmart_products');
         if (saved) {
           const parsed = JSON.parse(saved);
@@ -105,7 +105,7 @@ export const StoreProvider = ({ children }) => {
           }
         }
       }
-      localStorage.setItem('freshmart_catalog_v', '5.0');
+      localStorage.setItem('freshmart_catalog_v', '6.0');
       localStorage.removeItem('freshmart_products');
     } catch (e) {}
     return FRESHMART_PRODUCTS;
@@ -115,14 +115,14 @@ export const StoreProvider = ({ children }) => {
   const [categories, setCategories] = useState(() => {
     try {
       const catVersion = localStorage.getItem('freshmart_cat_v');
-      if (catVersion === '5.0') {
+      if (catVersion === '6.0') {
         const saved = localStorage.getItem('freshmart_categories');
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
         }
       }
-      localStorage.setItem('freshmart_cat_v', '5.0');
+      localStorage.setItem('freshmart_cat_v', '6.0');
       localStorage.removeItem('freshmart_categories');
     } catch (e) {}
     return FRESHMART_CATEGORIES;
