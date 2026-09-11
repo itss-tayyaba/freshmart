@@ -91,11 +91,22 @@ export const StoreProvider = ({ children }) => {
   // Products state (Single source of truth with localStorage persistence)
   const [products, setProducts] = useState(() => {
     try {
-      const saved = localStorage.getItem('freshmart_products');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      const cacheVersion = localStorage.getItem('freshmart_catalog_v');
+      if (cacheVersion === '5.0') {
+        const saved = localStorage.getItem('freshmart_products');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            // Guard against corrupted state where all items are identical
+            const uniqueNames = new Set(parsed.map((p) => p.name));
+            if (uniqueNames.size > 1) {
+              return parsed;
+            }
+          }
+        }
       }
+      localStorage.setItem('freshmart_catalog_v', '5.0');
+      localStorage.removeItem('freshmart_products');
     } catch (e) {}
     return FRESHMART_PRODUCTS;
   });
@@ -103,23 +114,28 @@ export const StoreProvider = ({ children }) => {
   // Categories state (Single source of truth with localStorage persistence)
   const [categories, setCategories] = useState(() => {
     try {
-      const saved = localStorage.getItem('freshmart_categories');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      const catVersion = localStorage.getItem('freshmart_cat_v');
+      if (catVersion === '5.0') {
+        const saved = localStorage.getItem('freshmart_categories');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
       }
+      localStorage.setItem('freshmart_cat_v', '5.0');
+      localStorage.removeItem('freshmart_categories');
     } catch (e) {}
     return FRESHMART_CATEGORIES;
   });
 
   // Dynamic Landing Page & Admin Store Settings
   const [storeSettings, setStoreSettings] = useState({
-    topAnnouncement: 'Get 20% OFF on your first order - Use code: WELCOME20',
-    topPromoCode: 'WELCOME20',
-    heroBadgeText: 'FLAT 20% OFF',
-    heroDiscountPercent: 20,
+    topAnnouncement: '⚡ 10-15 Min Express Delivery on all farm-fresh fruits, vegetables, dairy & groceries',
+    topPromoCode: '',
+    heroBadgeText: '100% FRESH',
+    heroDiscountPercent: 0,
     dealOfDayProductId: 'fresh-apples-1kg',
-    firstOrderPromoCode: 'FIRST20'
+    firstOrderPromoCode: ''
   });
 
   // Selected product for single product details page
@@ -139,48 +155,33 @@ export const StoreProvider = ({ children }) => {
   });
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
 
-  // Discount & Expiring Deals Notifications with Time Alerts
+  // Time & Service Alerts
   const [customerNotifications, setCustomerNotifications] = useState([
     {
       id: 'notif-1',
-      type: 'discount',
-      title: '🔥 Mega Flash Sale: 20% OFF Everything!',
-      message: 'Use coupon code WELCOME20 to get instant 20% discount on fresh fruits, dairy, and grocery items.',
-      code: 'WELCOME20',
-      discountPercent: 20,
-      expiresAt: 'Ends in 02 hrs 45 mins',
-      urgent: true,
+      type: 'delivery',
+      title: '🥦 Daily Farm Harvest In-Stock',
+      message: 'Fresh organic greens, citrus fruits, and pure dairy are now available for express delivery.',
+      expiresAt: 'Fresh Today',
+      urgent: false,
       time: '10 mins ago',
       read: false
     },
     {
       id: 'notif-2',
-      type: 'discount',
-      title: '🥦 Farm Fresh Veggies: 10% OFF Special',
-      message: 'Farm-fresh organic spinach, tomatoes, and broccoli on sale. Apply coupon code VEG10 at checkout.',
-      code: 'VEG10',
-      discountPercent: 10,
-      expiresAt: 'Ends Tonight at 11:59 PM',
-      urgent: true,
+      type: 'promo',
+      title: '⚡ 10-Minute Express Delivery Active',
+      message: 'Enjoy fast temperature-controlled doorstep delivery across all local hubs.',
+      expiresAt: 'Active Today',
+      urgent: false,
       time: '1 hour ago',
       read: false
     },
     {
       id: 'notif-3',
-      type: 'promo',
-      title: '⚡ 10-Minute Free Express Delivery',
-      message: 'Enjoy free instant delivery on all grocery baskets above PKR 1,500. Guaranteed cold-chain freshness.',
-      code: 'FREESHIP',
-      expiresAt: 'Valid for next 4 hours',
-      urgent: false,
-      time: '3 hours ago',
-      read: true
-    },
-    {
-      id: 'notif-4',
       type: 'wallet',
       title: '🎁 Welcome Bonus PKR 200 Credited',
-      message: 'Your signup bonus of PKR 200 is available in your FreshMart Wallet. Use it on your first grocery basket!',
+      message: 'Your signup bonus of PKR 200 is available in your FreshMart Wallet.',
       expiresAt: 'Valid for 30 days',
       urgent: false,
       time: 'Today',
@@ -258,13 +259,8 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   };
 
-  // Applied Coupon
-  const [appliedCoupon, setAppliedCoupon] = useState({
-    code: 'WELCOME20',
-    discountPercent: 20,
-    amount: 50,
-    description: 'Special 20% Welcome Coupon'
-  });
+  // Applied Coupon (null by default unless customer/admin applies code)
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
 
   // Admin Data State (Starts empty - populated as customer orders arrive)
   const [adminOrders, setAdminOrders] = useState(() => {
@@ -275,6 +271,117 @@ export const StoreProvider = ({ children }) => {
     return [];
   });
   const [adminStats, setAdminStats] = useState(ADMIN_STATS);
+
+  // Admin Promotions & Coupons State
+  const [promotions, setPromotions] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_promotions');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return ADMIN_PROMOTIONS_DATA;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_products', JSON.stringify(products));
+    } catch (e) {}
+  }, [products]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_categories', JSON.stringify(categories));
+    } catch (e) {}
+  }, [categories]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_promotions', JSON.stringify(promotions));
+    } catch (e) {}
+  }, [promotions]);
+
+  useEffect(() => {
+    const fetchPromos = async () => {
+      try {
+        const res = await apiService.getPromotions();
+        if (res && res.success && Array.isArray(res.promotions) && res.promotions.length > 0) {
+          const mapped = res.promotions.map((p) => ({
+            ...p,
+            id: String(p._id || p.id || p.code)
+          }));
+          setPromotions(mapped);
+          try {
+            localStorage.setItem('freshmart_promotions', JSON.stringify(mapped));
+          } catch (e) {}
+        }
+      } catch (e) {}
+    };
+    fetchPromos();
+  }, []);
+
+  const addPromotion = async (promoData) => {
+    const cleanCode = (promoData.code || 'SPECIAL').toUpperCase().trim();
+    const cleanAmount = Number(promoData.discountAmount || 0);
+    const newPromo = {
+      ...promoData,
+      id: `PROMO-${Date.now()}`,
+      code: cleanCode,
+      title: promoData.title?.trim() || `${cleanAmount}${promoData.discountType === 'percentage' ? '%' : ' Rs.'} OFF Coupon`,
+      discountType: promoData.discountType || 'percentage',
+      discountAmount: cleanAmount,
+      discountPercent: promoData.discountType === 'percentage' ? cleanAmount : 0,
+      flatAmount: promoData.discountType === 'fixed' ? cleanAmount : 0,
+      minOrder: Number(promoData.minOrder || 0),
+      maxDiscount: Number(promoData.maxDiscount || 0),
+      startDate: promoData.startDate ? new Date(promoData.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      endDate: promoData.endDate ? new Date(promoData.endDate).toISOString().split('T')[0] : null,
+      usageLimit: Number(promoData.usageLimit || 0),
+      usedCount: 0,
+      status: promoData.status || 'Active',
+      category: promoData.category || 'Coupons',
+      bannerImg: promoData.bannerImg || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80'
+    };
+
+    setPromotions((prev) => [newPromo, ...prev]);
+    addToast('Coupon Created! 🏷️', `Coupon "${cleanCode}" is now active in your store.`);
+
+    try {
+      await apiService.createPromotion(newPromo);
+    } catch (e) {}
+  };
+
+  const updatePromotion = async (id, updatedData) => {
+    setPromotions((prev) =>
+      prev.map((p) => (String(p.id || p._id) === String(id) || p.code === String(id).toUpperCase() ? { ...p, ...updatedData } : p))
+    );
+    addToast('Coupon Updated! ✏️', 'Changes saved successfully.');
+    try {
+      await apiService.updatePromotion(id, updatedData);
+    } catch (e) {}
+  };
+
+  const deletePromotion = async (id) => {
+    setPromotions((prev) => prev.filter((p) => String(p.id || p._id) !== String(id) && p.code !== String(id).toUpperCase()));
+    addToast('Coupon Deleted 🗑️', 'Campaign removed from store.');
+    try {
+      await apiService.deletePromotion(id);
+    } catch (e) {}
+  };
+
+  const togglePromotionStatus = async (id) => {
+    setPromotions((prev) =>
+      prev.map((p) => {
+        if (String(p.id || p._id) === String(id) || p.code === String(id).toUpperCase()) {
+          const nextStatus = p.status === 'Active' ? 'Paused' : 'Active';
+          addToast(nextStatus === 'Active' ? 'Coupon Activated 🟢' : 'Coupon Paused ⏸️', `Status is now ${nextStatus}.`);
+          return { ...p, status: nextStatus };
+        }
+        return p;
+      })
+    );
+    try {
+      await apiService.togglePromotionStatus(id);
+    } catch (e) {}
+  };
 
 
   // Admin Profile & Authentication (Starts false so visiting /admin asks for role & credentials)
@@ -755,88 +862,7 @@ export const StoreProvider = ({ children }) => {
   };
 
 
-  // Promotions & Banner Management State
-  const [promotions, setPromotions] = useState(() => {
-    try {
-      const saved = localStorage.getItem('freshmart_promotions');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return [
-      {
-        id: 'PROMO-1',
-        title: 'Weekend Flash Sale',
-        discount: '30% OFF',
-        validity: 'Valid: 28 - 30 Aug 2026',
-        category: 'Flash Sales',
-        status: 'Active',
-        bannerImg: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
-        code: 'FLASH30'
-      },
-      {
-        id: 'PROMO-2',
-        title: 'Farm Fresh Vegetables',
-        discount: '20% OFF',
-        validity: 'Valid: 25 - 31 Aug 2026',
-        category: 'Coupons',
-        status: 'Active',
-        bannerImg: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=600&q=80',
-        code: 'VEG20'
-      },
-      {
-        id: 'PROMO-3',
-        title: 'Snacks & Beverage Bundles',
-        discount: 'Buy 2 Get 1 Free',
-        validity: 'Valid: 20 - 28 Aug 2026',
-        category: 'Bundles',
-        status: 'Active',
-        bannerImg: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=600&q=80',
-        code: 'BUNDLE1'
-      }
-    ];
-  });
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('freshmart_promotions', JSON.stringify(promotions));
-    } catch (e) {}
-  }, [promotions]);
-
-  const addPromotion = (newPromo) => {
-    const promoItem = {
-      id: `PROMO-${Date.now()}`,
-      title: newPromo.title,
-      discount: newPromo.discount || '20% OFF',
-      validity: newPromo.validity || 'Valid this month',
-      category: newPromo.category || 'Flash Sales',
-      status: newPromo.status || 'Active',
-      bannerImg: newPromo.bannerImg || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
-      code: newPromo.code || 'SAVE20'
-    };
-    setPromotions((prev) => [promoItem, ...prev]);
-    addToast('Promotion Banner Created 🎨', `"${promoItem.title}" is now active.`);
-    return promoItem;
-  };
-
-  const updatePromotion = (id, updatedFields) => {
-    setPromotions((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...updatedFields } : p))
-    );
-    addToast('Banner Updated ✨', 'Promotion banner changes saved.');
-  };
-
-  const deletePromotion = (id) => {
-    setPromotions((prev) => prev.filter((p) => p.id !== id));
-    addToast('Promotion Removed 🗑️', 'Banner deleted successfully.', 'info');
-  };
-
-  const togglePromotionStatus = (id) => {
-    setPromotions((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, status: p.status === 'Active' ? 'Paused' : 'Active' } : p
-      )
-    );
-    addToast('Status Toggled', 'Promotion campaign status updated.');
-  };
 
 
 
@@ -1236,62 +1262,115 @@ export const StoreProvider = ({ children }) => {
 
   // --- Admin CRUD Helpers ---
   const addProductToStore = async (newProduct) => {
+    const priceNum = Number(newProduct.price) || 100;
+    const discountNum = Math.max(0, Number(newProduct.discountPercent !== undefined ? newProduct.discountPercent : 0));
+    const origPriceNum = Number(
+      newProduct.originalPrice !== undefined && Number(newProduct.originalPrice) >= priceNum
+        ? newProduct.originalPrice
+        : discountNum > 0
+        ? Math.round(priceNum / (1 - discountNum / 100))
+        : priceNum
+    );
+
     const fullProduct = {
       id: newProduct.id || `prod-${Date.now()}`,
       name: newProduct.name || 'New Product',
       description: newProduct.description || 'Fresh quality grocery product.',
-      price: Number(newProduct.price) || 100,
-      originalPrice: Number(newProduct.originalPrice) || Math.round(Number(newProduct.price || 100) * 1.2),
-      discountPercent: Number(newProduct.discountPercent) || 0,
+      price: priceNum,
+      originalPrice: origPriceNum,
+      discountPercent: discountNum,
       category: newProduct.category || 'fruits-veg',
       categoryLabel: newProduct.categoryLabel || newProduct.category || 'Fruits & Vegetables',
       unit: newProduct.unit || '1 Kg',
       image: newProduct.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
       stock: Number(newProduct.stock ?? 50),
       stockCount: Number(newProduct.stock ?? 50),
-      inStock: newProduct.inStock !== false,
-      status: newProduct.inStock !== false ? 'Active' : 'Out of Stock',
+      inStock: newProduct.inStock !== false && Number(newProduct.stock ?? 50) > 0,
+      status: newProduct.inStock !== false && Number(newProduct.stock ?? 50) > 0 ? (Number(newProduct.stock ?? 50) < 15 ? 'Low Stock' : 'Active') : 'Out of Stock',
       rating: newProduct.rating || 4.8,
       reviewsCount: newProduct.reviewsCount || 12,
+      isFlashDeal: Boolean(newProduct.isFlashDeal),
+      isBestSeller: Boolean(newProduct.isBestSeller),
       ...newProduct
     };
 
     setProducts((prev) => [fullProduct, ...prev]);
     try {
       await apiService.createProduct(fullProduct);
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Backend createProduct error:', e);
+    }
     addToast('Product Added 🛒', `"${fullProduct.name}" added to catalog.`);
   };
 
   const updateProductInStore = async (updatedProduct) => {
+    if (!updatedProduct) return;
+    const targetId = String(updatedProduct.id || updatedProduct._id || updatedProduct.customId || '');
+    const targetName = updatedProduct.name?.trim();
+
     setProducts((prev) =>
       prev.map((p) => {
-        if (p.id === updatedProduct.id || p._id === updatedProduct.id) {
-          return { ...p, ...updatedProduct };
+        const pId = String(p.id || p._id || p.customId || '');
+        const isMatch = (targetId && pId && pId === targetId) || (targetName && p.name && p.name.trim() === targetName);
+
+        if (isMatch) {
+          return { ...p, ...updatedProduct, id: p.id || targetId };
         }
         return p;
       })
     );
     try {
-      await apiService.updateProduct(updatedProduct.id, updatedProduct);
-    } catch (e) {}
+      if (targetId) {
+        await apiService.updateProduct(targetId, updatedProduct);
+      }
+    } catch (e) {
+      console.warn('Backend updateProduct error:', e);
+    }
     addToast('Product Updated ✨', `"${updatedProduct.name}" updated.`);
   };
 
   const deleteProductFromStore = async (productId, productName) => {
-    setProducts((prev) => prev.filter((p) => p.id !== productId && p._id !== productId));
+    const targetId = String(productId || '');
+    const targetName = productName?.trim();
+    if (!targetId && !targetName) return;
+
+    setProducts((prev) =>
+      prev.filter((p) => {
+        const pId = String(p.id || p._id || p.customId || '');
+        if (targetId && pId && pId === targetId) return false;
+        if (targetName && p.name && p.name.trim() === targetName) return false;
+        return true;
+      })
+    );
     try {
-      await apiService.deleteProduct(productId);
-    } catch (e) {}
+      if (targetId) {
+        await apiService.deleteProduct(targetId);
+      }
+    } catch (e) {
+      console.warn('Backend deleteProduct error:', e);
+    }
     addToast('Product Removed', `"${productName || 'Product'}" removed.`, 'info');
   };
 
   const updateCategoryInStore = async (updatedCat) => {
+    if (!updatedCat) return;
+    const targetId = String(updatedCat.id || updatedCat._id || updatedCat.slug || '');
+    const targetName = updatedCat.name?.trim();
+
     setCategories((prev) =>
-      prev.map((c) => (c.id === updatedCat.id || c._id === updatedCat.id ? { ...c, ...updatedCat } : c))
+      prev.map((c) => {
+        const cId = String(c.id || c._id || c.slug || '');
+        const isMatch = (targetId && cId && cId === targetId) || (targetName && c.name && c.name.trim() === targetName);
+        if (isMatch) {
+          return { ...c, ...updatedCat };
+        }
+        return c;
+      })
     );
     try {
-      await apiService.updateCategory(updatedCat.id, updatedCat);
+      if (targetId) {
+        await apiService.updateCategory(targetId, updatedCat);
+      }
     } catch (e) {}
     addToast('Category Updated 🗂️', `"${updatedCat.name}" updated.`);
   };
@@ -1304,7 +1383,7 @@ export const StoreProvider = ({ children }) => {
       shortName: newCat.shortName || newCat.name,
       itemCount: newCat.itemCount || newCat.productCount || 0,
       image: newCat.image || 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=300&q=80',
-      discountBadge: newCat.discountBadge || 'Fresh Selection',
+      discountBadge: newCat.discountBadge || '',
       subcategories: newCat.subcategories || [newCat.name],
       ...newCat
     };
@@ -1316,9 +1395,22 @@ export const StoreProvider = ({ children }) => {
   };
 
   const deleteCategoryFromStore = async (catId, catName) => {
-    setCategories((prev) => prev.filter((c) => c.id !== catId && c._id !== catId));
+    const targetId = String(catId || '');
+    const targetName = catName?.trim();
+    if (!targetId && !targetName) return;
+
+    setCategories((prev) =>
+      prev.filter((c) => {
+        const cId = String(c.id || c._id || c.slug || '');
+        if (targetId && cId && cId === targetId) return false;
+        if (targetName && c.name && c.name.trim() === targetName) return false;
+        return true;
+      })
+    );
     try {
-      await apiService.deleteCategory(catId);
+      if (targetId) {
+        await apiService.deleteCategory(targetId);
+      }
     } catch (e) {}
     addToast('Category Removed', `"${catName || 'Category'}" removed.`, 'info');
   };
@@ -1427,13 +1519,16 @@ export const StoreProvider = ({ children }) => {
 
   // Cart calculations - Dynamic real-time discount computation
   const cartSubtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const deliveryCharges = cartSubtotal >= 1500 || cartSubtotal === 0 ? 0 : 50;
+  const isFreeDeliveryCoupon = appliedCoupon && (appliedCoupon.discountType === 'free_shipping' || appliedCoupon.freeShipping);
+  const deliveryCharges = (cartSubtotal >= 1500 || cartSubtotal === 0 || isFreeDeliveryCoupon) ? 0 : 50;
 
-  // Real-time dynamic discount based on applied coupon percentage or flat amount
+  // Real-time dynamic discount based on applied coupon with Maximum Discount Cap & Free Shipping
   const discountAmount = appliedCoupon
-    ? (appliedCoupon.discountPercent
-        ? Math.round((cartSubtotal * appliedCoupon.discountPercent) / 100)
-        : (appliedCoupon.amount || 0))
+    ? (appliedCoupon.discountType === 'percentage' || appliedCoupon.discountPercent
+        ? (appliedCoupon.maxDiscount > 0
+            ? Math.min(appliedCoupon.maxDiscount, Math.round((cartSubtotal * (appliedCoupon.discountPercent || appliedCoupon.discountAmount)) / 100))
+            : Math.round((cartSubtotal * (appliedCoupon.discountPercent || appliedCoupon.discountAmount)) / 100))
+        : (appliedCoupon.amount || appliedCoupon.discountAmount || 0))
     : 0;
 
   const cartTotal = Math.max(0, cartSubtotal + deliveryCharges - discountAmount);
@@ -1477,115 +1572,257 @@ export const StoreProvider = ({ children }) => {
     };
   }, []);
 
-  // Validate coupon code via database/backend & active promotions state
-  const applyCouponCode = async (rawCode) => {
+  // Validate coupon code with strict enforcement of all 8 parameters
+  const applyCouponCode = async (rawCode, options = {}) => {
     if (!rawCode || !rawCode.trim()) {
-      addToast('Enter Coupon Code', 'Please enter a valid coupon code.', 'info');
+      if (!options.silent) {
+        addToast('Enter Coupon Code', 'Please enter a valid coupon code.', 'info');
+      }
       return false;
     }
 
     const code = rawCode.trim().toUpperCase();
 
-    // 1. Check dynamic admin promotions state
-    const matchedPromo = (promotions || []).find(
-      (p) => p.code && p.code.toUpperCase() === code && p.status === 'Active'
-    );
-
-    if (matchedPromo) {
-      let percent = 20;
-      const numMatch = matchedPromo.discount?.match(/(\d+)%/);
-      if (numMatch) {
-        percent = parseInt(numMatch[1], 10);
-      }
-      setAppliedCoupon({
-        code,
-        discountPercent: percent,
-        title: matchedPromo.title,
-        description: `${percent}% discount from "${matchedPromo.title}" applied!`
-      });
-      addToast('Coupon Applied! 🎉', `${percent}% discount applied from ${matchedPromo.title}.`);
-      return true;
-    }
-
-    // 2. Try validating with backend REST API
+    // 1. Try validating with backend REST API first
     try {
       const res = await apiService.validateCoupon(code, cartSubtotal);
       if (res && res.success && res.coupon) {
-        setAppliedCoupon(res.coupon);
-        addToast('Coupon Applied! 🎉', res.coupon.description || 'Promo discount applied.');
+        setAppliedCoupon({ ...res.coupon, isAutoApplied: Boolean(options.isAuto) });
+        if (!options.silent) {
+          addToast('Coupon Applied! 🎉', res.coupon.description || 'Promo discount applied.');
+        }
         return true;
+      } else if (res && res.message && !res.success && res.message !== 'Failed to fetch' && !options.silent) {
+        addToast('Cannot Apply Coupon ⚠️', res.message, 'error');
+        return false;
       }
     } catch (e) {}
 
-    // 3. Check official verified store coupon codes
+    // 2. Client-side evaluation against dynamic promotions state (Offline / Local fallback)
+    const matchedPromo = (promotions || []).find(
+      (p) => p.code && p.code.toUpperCase() === code
+    );
+
+    if (matchedPromo) {
+      // 1. Status Check
+      if (matchedPromo.status !== 'Active') {
+        if (!options.silent) {
+          addToast('Inactive Coupon ⏸️', `Coupon "${matchedPromo.code}" is currently ${matchedPromo.status.toLowerCase()}.`, 'error');
+        }
+        return false;
+      }
+
+      const now = new Date();
+
+      // 2. Start Date Check
+      const startDate = matchedPromo.startDate || matchedPromo.validFrom;
+      if (startDate && now < new Date(startDate)) {
+        if (!options.silent) {
+          addToast('Not Active Yet ⏳', `Coupon "${matchedPromo.code}" starts on ${new Date(startDate).toLocaleDateString()}.`, 'error');
+        }
+        return false;
+      }
+
+      // 3. End Date Check
+      const endDate = matchedPromo.endDate || matchedPromo.validTo;
+      if (endDate && now > new Date(endDate)) {
+        if (!options.silent) {
+          addToast('Coupon Expired ❌', `Coupon "${matchedPromo.code}" expired on ${new Date(endDate).toLocaleDateString()}.`, 'error');
+        }
+        return false;
+      }
+
+      // 4. Minimum Order Check
+      const minOrder = Number(matchedPromo.minOrder || matchedPromo.minSpend || 0);
+      if (minOrder > 0 && cartSubtotal > 0 && cartSubtotal < minOrder) {
+        if (!options.silent) {
+          addToast('Minimum Order Required 🛒', `Order at least Rs. ${minOrder.toLocaleString()} to use coupon "${matchedPromo.code}".`, 'error');
+        }
+        return false;
+      }
+
+      // 5. Usage Limit Check
+      const usageLimit = Number(matchedPromo.usageLimit || 0);
+      const usedCount = Number(matchedPromo.usedCount || 0);
+      if (usageLimit > 0 && usedCount >= usageLimit) {
+        if (!options.silent) {
+          addToast('Usage Limit Reached 🚫', `Coupon "${matchedPromo.code}" has reached its limit of ${usageLimit} uses.`, 'error');
+        }
+        return false;
+      }
+
+      // 6. Calculate Final Discount
+      const discountType = matchedPromo.discountType || (matchedPromo.discount?.includes('%') ? 'percentage' : 'fixed');
+      const discountAmount = Number(matchedPromo.discountAmount || (matchedPromo.discount ? parseInt(matchedPromo.discount, 10) : 10));
+      const maxDiscount = Number(matchedPromo.maxDiscount || 0);
+
+      let calcAmount = 0;
+      let desc = '';
+
+      if (discountType === 'percentage') {
+        const rawPct = Math.round((cartSubtotal * discountAmount) / 100);
+        calcAmount = maxDiscount > 0 ? Math.min(maxDiscount, rawPct) : rawPct;
+        desc = `${discountAmount}% discount applied${maxDiscount > 0 ? ` (capped at Rs. ${maxDiscount.toLocaleString()})` : ''}!`;
+      } else if (discountType === 'fixed') {
+        calcAmount = cartSubtotal > 0 ? Math.min(cartSubtotal, discountAmount) : discountAmount;
+        desc = `Flat Rs. ${discountAmount.toLocaleString()} discount applied!`;
+      } else if (discountType === 'free_shipping' || matchedPromo.freeShipping) {
+        calcAmount = 0;
+        desc = 'Free Express Delivery applied!';
+      }
+
+      const couponPayload = {
+        code: matchedPromo.code,
+        title: matchedPromo.title,
+        discountType,
+        discountAmount,
+        discountPercent: discountType === 'percentage' ? discountAmount : 0,
+        amount: calcAmount,
+        minOrder,
+        maxDiscount,
+        freeShipping: discountType === 'free_shipping' || matchedPromo.freeShipping,
+        startDate,
+        endDate,
+        usageLimit,
+        usedCount,
+        description: desc,
+        isAutoApplied: Boolean(options.isAuto)
+      };
+
+      setAppliedCoupon(couponPayload);
+      if (!options.silent) {
+        addToast('Coupon Applied! 🎉', desc);
+      }
+      return true;
+    }
+
+    // 3. Check official fallback store coupon codes
     if (code === 'WELCOME20' || code === 'FIRST20') {
       setAppliedCoupon({
         code,
+        discountType: 'percentage',
         discountPercent: 20,
-        description: 'Flat 20% discount applied to your order!'
+        minOrder: 500,
+        maxDiscount: 500,
+        description: 'Flat 20% discount applied to your order!',
+        isAutoApplied: Boolean(options.isAuto)
       });
-      addToast('Coupon Applied! 🎉', 'Flat 20% welcome discount applied.');
+      if (!options.silent) {
+        addToast('Coupon Applied! 🎉', 'Flat 20% welcome discount applied.');
+      }
       return true;
     }
     if (code === 'FRESH15') {
       setAppliedCoupon({
         code: 'FRESH15',
+        discountType: 'percentage',
         discountPercent: 15,
-        description: '15% discount applied on all fresh items!'
+        minOrder: 500,
+        maxDiscount: 400,
+        description: '15% discount applied on all fresh items!',
+        isAutoApplied: Boolean(options.isAuto)
       });
-      addToast('Coupon Applied! 🎉', '15% discount activated.');
+      if (!options.silent) {
+        addToast('Coupon Applied! 🎉', '15% discount activated.');
+      }
       return true;
     }
     if (code === 'FLASH30') {
       setAppliedCoupon({
         code: 'FLASH30',
+        discountType: 'percentage',
         discountPercent: 30,
-        description: 'Super Weekend Flash Sale 30% OFF applied!'
+        minOrder: 1000,
+        maxDiscount: 500,
+        description: 'Super Weekend Flash Sale 30% OFF applied!',
+        isAutoApplied: Boolean(options.isAuto)
       });
-      addToast('Flash Sale Activated! 🔥', '30% super discount applied.');
-      return true;
-    }
-    if (code === 'SAVE25' || code === 'SUPER25') {
-      setAppliedCoupon({
-        code,
-        discountPercent: 25,
-        description: '25% discount on your grocery basket!'
-      });
-      addToast('Coupon Applied! 🎉', '25% mega savings applied.');
-      return true;
-    }
-    if (code === 'VEG10' || code === 'VEG20') {
-      const pct = code === 'VEG20' ? 20 : 10;
-      setAppliedCoupon({
-        code,
-        discountPercent: pct,
-        description: `${pct}% OFF on farm fresh produce!`
-      });
-      addToast('Coupon Applied! 🎉', `${pct}% vegetable discount applied.`);
+      if (!options.silent) {
+        addToast('Flash Sale Activated! 🔥', '30% super discount applied.');
+      }
       return true;
     }
     if (code === 'FRESH50') {
       setAppliedCoupon({
         code: 'FRESH50',
+        discountType: 'fixed',
         amount: 50,
-        description: 'Flat Rs. 50 instant cash voucher deducted.'
+        minOrder: 300,
+        description: 'Flat Rs. 50 instant cash voucher deducted.',
+        isAutoApplied: Boolean(options.isAuto)
       });
-      addToast('Voucher Applied! 🎫', 'Flat Rs. 50 discount deducted.');
+      if (!options.silent) {
+        addToast('Voucher Applied! 🎫', 'Flat Rs. 50 discount deducted.');
+      }
       return true;
     }
-    if (code === 'FRESHMART') {
+    if (code === 'FREESHIP') {
       setAppliedCoupon({
-        code: 'FRESHMART',
-        discountPercent: 10,
-        description: 'Official FreshMart Member 10% discount applied.'
+        code: 'FREESHIP',
+        discountType: 'free_shipping',
+        freeShipping: true,
+        amount: 0,
+        minOrder: 800,
+        description: 'Free Express Doorstep Delivery applied!',
+        isAutoApplied: Boolean(options.isAuto)
       });
-      addToast('Member Discount! 🛒', '10% member discount applied.');
+      if (!options.silent) {
+        addToast('Free Shipping! 🚚', 'Delivery fee waived.');
+      }
       return true;
     }
 
-    addToast('Invalid Coupon ❌', `Coupon code "${code}" is invalid or expired.`, 'error');
+    if (!options.silent) {
+      addToast('Invalid Coupon ❌', `Coupon code "${code}" is invalid or expired.`, 'error');
+    }
     return false;
   };
+
+  // Auto-apply the best available coupon/discount when items exist in cart
+  useEffect(() => {
+    if (cartSubtotal > 0 && !appliedCoupon) {
+      const validAdminPromos = (promotions || []).filter((p) => {
+        if (p.status !== 'Active') return false;
+        const now = new Date();
+        const start = p.startDate || p.validFrom;
+        if (start && now < new Date(start)) return false;
+        const end = p.endDate || p.validTo;
+        if (end && now > new Date(end)) return false;
+        const minOrder = Number(p.minOrder || p.minSpend || 0);
+        if (minOrder > 0 && cartSubtotal < minOrder) return false;
+        const usageLimit = Number(p.usageLimit || 0);
+        const usedCount = Number(p.usedCount || 0);
+        if (usageLimit > 0 && usedCount >= usageLimit) return false;
+        return true;
+      });
+
+      const defaultPromos = [
+        { code: 'WELCOME20', discountType: 'percentage', discountPercent: 20, minOrder: 500, maxDiscount: 500 },
+        { code: 'FRESH15', discountType: 'percentage', discountPercent: 15, minOrder: 500, maxDiscount: 400 },
+        { code: 'FREESHIP', discountType: 'free_shipping', freeShipping: true, minOrder: 800 }
+      ].filter((p) => cartSubtotal >= p.minOrder);
+
+      const candidates = [...validAdminPromos, ...defaultPromos];
+      if (candidates.length > 0) {
+        const best = candidates.sort((a, b) => {
+          const calcVal = (p) => {
+            const amt = Number(p.discountAmount || p.discountPercent || (p.discountType === 'percentage' ? 20 : 0));
+            if (p.discountType === 'percentage' || amt > 0) {
+              const raw = (cartSubtotal * (p.discountPercent || amt)) / 100;
+              return p.maxDiscount > 0 ? Math.min(p.maxDiscount, raw) : raw;
+            }
+            if (p.discountType === 'free_shipping' || p.freeShipping) return 50;
+            return Number(p.amount || amt || 0);
+          };
+          return calcVal(b) - calcVal(a);
+        })[0];
+
+        if (best && best.code) {
+          applyCouponCode(best.code, { silent: true, isAuto: true });
+        }
+      }
+    }
+  }, [cartSubtotal, promotions, appliedCoupon]);
 
   const removeCouponCode = () => {
     if (appliedCoupon) {

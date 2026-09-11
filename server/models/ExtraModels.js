@@ -72,16 +72,29 @@ export const Rider = mongoose.model('Rider', riderSchema);
 
 const promotionSchema = new mongoose.Schema(
   {
-    code: { type: String, required: true, unique: true, uppercase: true },
-    title: { type: String, required: true },
-    discountPercent: { type: Number, default: 0 },
-    flatAmount: { type: Number, default: 0 },
-    minSpend: { type: Number, default: 0 },
+    code: { type: String, required: true, unique: true, uppercase: true, trim: true },
+    title: { type: String, default: '' },
+    discountType: {
+      type: String,
+      enum: ['percentage', 'fixed', 'free_shipping'],
+      default: 'percentage'
+    },
+    discountAmount: { type: Number, required: true, default: 10 },
+    minOrder: { type: Number, default: 0 },
+    maxDiscount: { type: Number, default: 0 }, // 0 = no cap
+    startDate: { type: Date, default: Date.now },
+    endDate: { type: Date },
+    usageLimit: { type: Number, default: 0 }, // 0 = unlimited
+    usedCount: { type: Number, default: 0 },
+    discountPercent: { type: Number, default: 0 }, // legacy compatibility
+    flatAmount: { type: Number, default: 0 }, // legacy compatibility
+    minSpend: { type: Number, default: 0 }, // legacy compatibility
     freeShipping: { type: Boolean, default: false },
     validFrom: { type: Date, default: Date.now },
     validTo: { type: Date },
-    type: { type: String, default: 'Coupon' },
-    status: { type: String, default: 'Active' }
+    category: { type: String, default: 'Coupons' },
+    bannerImg: { type: String, default: '' },
+    status: { type: String, enum: ['Active', 'Paused', 'Expired'], default: 'Active' }
   },
   { timestamps: true, bufferCommands: false }
 );

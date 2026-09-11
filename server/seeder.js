@@ -69,6 +69,7 @@ const seedDatabase = async () => {
       shortName: c.shortName,
       image: c.image,
       productCount: c.itemCount,
+      discountBadge: c.discountBadge || '',
       subcategories: c.subcategories || []
     }));
     await Category.insertMany(categoriesToSeed);

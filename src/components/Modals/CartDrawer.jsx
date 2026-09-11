@@ -17,6 +17,7 @@ export const CartDrawer = () => {
     appliedCoupon,
     applyCouponCode,
     removeCouponCode,
+    promotions,
     navigateTo,
     currency
   } = useStore();
@@ -178,7 +179,7 @@ export const CartDrawer = () => {
               <div className="relative flex-1">
                 <input
                   type="text"
-                  placeholder="Enter Promo (e.g. WELCOME20, FRESH15)"
+                  placeholder="Enter Promo Code"
                   value={couponInput}
                   onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                   className="w-full text-xs uppercase font-mono bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
@@ -193,20 +194,23 @@ export const CartDrawer = () => {
               </button>
             </form>
 
-            {/* Quick Promo Codes Suggestions */}
-            {!appliedCoupon && (
+            {/* Quick Promo Codes Suggestions (Dynamic from Admin) */}
+            {!appliedCoupon && promotions && promotions.filter(p => p.status === 'Active').length > 0 && (
               <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
                 <span className="text-slate-400 font-bold">Suggested:</span>
-                {['WELCOME20', 'FRESH15', 'FLASH30'].map((code) => (
-                  <button
-                    key={code}
-                    type="button"
-                    onClick={() => applyCouponCode(code)}
-                    className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg font-mono font-black transition-colors cursor-pointer"
-                  >
-                    {code}
-                  </button>
-                ))}
+                {promotions
+                  .filter(p => p.status === 'Active')
+                  .slice(0, 3)
+                  .map((p) => (
+                    <button
+                      key={p.code}
+                      type="button"
+                      onClick={() => applyCouponCode(p.code)}
+                      className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg font-mono font-black transition-colors cursor-pointer"
+                    >
+                      {p.code}
+                    </button>
+                  ))}
               </div>
             )}
 

@@ -10,7 +10,7 @@ export const protect = async (req, res, next) => {
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'freshmart_secret_key_2026');
 
-      if (isDbOnline() && decoded.id) {
+      if (isDbOnline() && decoded.id && typeof decoded.id === 'string' && decoded.id.match(/^[0-9a-fA-F]{24}$/)) {
         try {
           const dbUser = await User.findById(decoded.id).select('-password');
           if (dbUser) {

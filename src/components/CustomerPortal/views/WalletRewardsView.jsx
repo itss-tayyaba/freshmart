@@ -18,7 +18,7 @@ import {
 import { useStore } from '../../../context/StoreContext';
 
 export const WalletRewardsView = () => {
-  const { currency, addToast, applyCouponCode, customerUser } = useStore();
+  const { currency, addToast, applyCouponCode, customerUser, promotions } = useStore();
   const [walletBalance, setWalletBalance] = useState(customerUser?.walletBalance || 320);
   const [loyaltyPoints, setLoyaltyPoints] = useState(150);
   const [copiedCode, setCopiedCode] = useState(null);
@@ -39,32 +39,19 @@ export const WalletRewardsView = () => {
   const [newPaymentType, setNewPaymentType] = useState('jazzcash');
   const [newPaymentDetail, setNewPaymentDetail] = useState('');
 
-  const vouchers = [
-    {
-      code: 'WELCOME20',
-      title: 'Flat 20% Off Your Order',
-      desc: 'Valid on all fresh fruits, dairy, and grocery items',
-      expiry: 'Expires in 02 hrs 45 mins',
-      discount: '20% OFF',
-      color: 'from-rose-500 to-amber-500'
-    },
-    {
-      code: 'VEG10',
-      title: '10% Extra Off on Organic Vegetables',
-      desc: 'Farm fresh picked vegetables direct to doorstep',
-      expiry: 'Ends Tonight at 11:59 PM',
-      discount: '10% OFF',
-      color: 'from-emerald-600 to-teal-600'
-    },
-    {
-      code: 'FREESHIP',
-      title: 'Unlimited Free 10-Minute Express Deliveries',
-      desc: 'Zero delivery fee on all orders above PKR 1,500',
-      expiry: 'Valid for next 4 hours',
-      discount: 'FREE SHIP',
-      color: 'from-green-600 to-emerald-700'
-    }
-  ];
+  const vouchers = (promotions || [])
+    .filter((p) => p.status === 'Active')
+    .map((p) => ({
+      code: p.code,
+      title: p.title || `${p.discountAmount || p.discountPercent || 0}% OFF Order`,
+      desc: p.minOrder > 0 ? `Minimum order value: Rs. ${p.minOrder}` : 'Valid on fresh store items',
+      expiry: p.endDate ? `Valid until ${p.endDate}` : 'Active promotion',
+      discount: p.discountType === 'percentage'
+        ? `${p.discountAmount || p.discountPercent || 0}% OFF`
+        : p.discountType === 'fixed'
+        ? `Rs. ${p.discountAmount || p.flatAmount || 0} OFF`
+        : 'FREE SHIP'
+    }));
 
   const handleCopyCode = (code) => {
     navigator.clipboard.writeText(code);
@@ -105,68 +92,88 @@ export const WalletRewardsView = () => {
     <div className="space-y-6">
       
       {/* 1. Wallet Card & Loyalty Points Header */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         
         {/* Wallet Balance Card */}
-        <div className="bg-gradient-to-br from-emerald-800 via-emerald-900 to-slate-900 rounded-3xl p-6 text-white shadow-lg space-y-4 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-black uppercase text-emerald-300 tracking-wider">
-              FreshMart Instant Wallet
+        <div className="bg-gradient-to-br from-[#07382c] via-[#0b4d3c] to-[#14765d] rounded-3xl p-6 text-white shadow-xl shadow-emerald-950/20 border border-emerald-600/30 space-y-4 relative overflow-hidden">
+          <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-emerald-400/20 rounded-full blur-2xl pointer-events-none"></div>
+          
+          <div className="flex items-center justify-between relative z-10">
+            <span className="text-xs font-black uppercase text-emerald-300 tracking-wider flex items-center gap-1.5">
+              <span>FreshMart Instant Wallet</span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
             </span>
-            <span className="text-2xl">👛</span>
-          </div>
-
-          <div className="space-y-1">
-            <span className="text-xs text-emerald-200">Available Cash Balance</span>
-            <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white">
-              PKR {walletBalance}
+            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-xl">
+              👛
             </div>
           </div>
 
-          <div className="pt-2 flex items-center gap-2">
+          <div className="space-y-1 relative z-10">
+            <span className="text-xs text-emerald-200/90 font-medium">Available Cash Balance</span>
+            <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white flex items-baseline gap-2">
+              <span>PKR {walletBalance}</span>
+              <span className="text-xs font-bold text-emerald-300">Available</span>
+            </div>
+          </div>
+
+          <div className="pt-2 flex items-center gap-3 relative z-10">
             <button
               onClick={() => setIsTopUpOpen(true)}
-              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black rounded-xl text-xs transition-colors cursor-pointer shadow-xs"
+              className="px-4 py-2 bg-amber-400 hover:bg-amber-500 text-slate-950 font-black rounded-xl text-xs transition-all cursor-pointer shadow-md hover:scale-105"
             >
               + Top Up Balance
             </button>
-            <span className="text-[11px] text-emerald-200/90 font-medium">1-Click instant checkout</span>
+            <span className="text-[11px] text-emerald-200 font-medium">⚡ 1-Click instant checkout</span>
           </div>
         </div>
 
         {/* Loyalty Reward Points Card */}
-        <div className="bg-gradient-to-br from-amber-600 via-amber-700 to-amber-900 rounded-3xl p-6 text-white shadow-lg space-y-4 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-black uppercase text-amber-200 tracking-wider">
-              FreshMart Reward Points
-            </span>
-            <span className="text-2xl">⭐</span>
-          </div>
+        <div className="bg-gradient-to-br from-amber-500 via-orange-500 to-rose-600 rounded-3xl p-6 text-white shadow-xl shadow-orange-950/20 border border-orange-300/40 space-y-4 relative overflow-hidden">
+          <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-yellow-300/20 rounded-full blur-2xl pointer-events-none"></div>
 
-          <div className="space-y-1">
-            <span className="text-xs text-amber-100">Loyalty Cashback Points</span>
-            <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white">
-              {loyaltyPoints} <span className="text-sm font-bold text-amber-200">Points</span>
+          <div className="flex items-center justify-between relative z-10">
+            <span className="text-xs font-black uppercase text-amber-100 tracking-wider flex items-center gap-1.5">
+              <span>FreshMart Reward Club</span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center text-xl">
+              ⭐
             </div>
           </div>
 
-          <div className="pt-2 flex items-center gap-2">
-            <span className="text-[11px] text-amber-100 font-medium">Earn 5 points on every PKR 100 spent</span>
+          <div className="space-y-1 relative z-10">
+            <span className="text-xs text-orange-100 font-medium">Loyalty Cashback Points</span>
+            <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white flex items-baseline gap-2">
+              <span>{loyaltyPoints}</span>
+              <span className="text-sm font-bold text-amber-200">Points</span>
+            </div>
+          </div>
+
+          <div className="pt-2 flex items-center justify-between relative z-10">
+            <span className="text-[11px] text-orange-100 font-medium">Earn 5 points on every PKR 100 spent</span>
+            <span className="text-xs bg-white/20 text-white font-bold px-2.5 py-1 rounded-full">
+              = PKR {Math.round(loyaltyPoints * 0.5)} Cash
+            </span>
           </div>
         </div>
 
       </div>
 
-      {/* 2. Complete Pakistani Payment Options Suite */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <div>
-            <h3 className="font-black text-sm text-slate-900">Supported Payment Methods</h3>
-            <p className="text-xs text-slate-400">Cash on delivery, mobile wallets, online banking, and cards</p>
+      {/* 2. Pakistani Payment Options Suite */}
+      <div className="bg-white rounded-3xl p-6 border border-emerald-100 shadow-sm space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-emerald-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl font-bold">
+              💳
+            </div>
+            <div>
+              <h3 className="font-black text-base text-slate-900">Supported Payment Accounts</h3>
+              <p className="text-xs text-slate-400">Cash on delivery, mobile wallets, online banking, and cards</p>
+            </div>
           </div>
           <button
             onClick={() => setIsAddPaymentOpen(true)}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md hover:scale-105"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Account</span>
@@ -174,95 +181,123 @@ export const WalletRewardsView = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-          {paymentAccounts.map((acc) => (
-            <div
-              key={acc.id}
-              className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-emerald-400 transition-all space-y-2 flex flex-col justify-between"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xl">{acc.icon}</span>
-                  {acc.isDefault && (
-                    <span className="text-[9px] font-black uppercase text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">
-                      Default
-                    </span>
-                  )}
-                </div>
-                <h4 className="font-black text-slate-900">{acc.name}</h4>
-                <p className="text-[11px] text-slate-500 font-mono">
-                  {acc.number || acc.handle || acc.iban || acc.desc}
-                </p>
-              </div>
+          {paymentAccounts.map((acc) => {
+            const isJazz = acc.type === 'jazzcash';
+            const isEasy = acc.type === 'easypaisa';
+            const isSada = acc.type === 'sadapay';
+            const isNaya = acc.type === 'nayapay';
 
-              <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
-                <span className="text-emerald-700 font-bold">Verified ✓</span>
-                <span className="text-slate-400">Instant</span>
+            return (
+              <div
+                key={acc.id}
+                className={`p-4 rounded-2xl border transition-all space-y-2.5 flex flex-col justify-between shadow-2xs hover:shadow-md ${
+                  acc.isDefault
+                    ? 'bg-gradient-to-br from-emerald-50/90 via-white to-teal-50/40 border-emerald-400 ring-2 ring-emerald-400/20'
+                    : 'bg-white border-emerald-100/80 hover:border-emerald-300'
+                }`}
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{acc.icon}</span>
+                      <h4 className="font-black text-slate-900 text-xs">{acc.name}</h4>
+                    </div>
+                    {acc.isDefault && (
+                      <span className="text-[9px] font-black uppercase text-emerald-900 bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-full">
+                        Default
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-600 font-mono pl-1">
+                    {acc.number || acc.handle || acc.iban || acc.desc}
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                  <span className="text-emerald-700 font-bold flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    <span>Verified</span>
+                  </span>
+                  <span className="text-slate-400 font-semibold">Instant Dispatch</span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       {/* 3. Available Vouchers & Promo Discounts */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <div>
-            <h3 className="font-black text-sm text-slate-900">Your Exclusive Vouchers</h3>
-            <p className="text-xs text-slate-400">1-Click apply promotional discount codes</p>
-          </div>
-          <span className="text-xs font-bold text-emerald-700">{vouchers.length} Active Vouchers</span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-          {vouchers.map((v, i) => (
-            <div
-              key={i}
-              className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-emerald-400 transition-all space-y-2 flex flex-col justify-between shadow-2xs"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-mono">
-                    {v.code}
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-bold">{v.discount}</span>
-                </div>
-                <h4 className="font-black text-slate-900 leading-snug">{v.title}</h4>
-                <p className="text-[11px] text-slate-500">{v.desc}</p>
-                <span className="text-[10px] text-rose-500 font-bold block">{v.expiry}</span>
-              </div>
-
-              <button
-                onClick={() => handleCopyCode(v.code)}
-                className="w-full py-2 bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-800 rounded-xl font-bold text-xs transition-colors cursor-pointer"
-              >
-                {copiedCode === v.code ? 'Applied ✓' : 'Apply Coupon'}
-              </button>
+      <div className="bg-white rounded-3xl p-6 border border-emerald-100 shadow-sm space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-emerald-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-xl font-bold">
+              🏷️
             </div>
-          ))}
+            <div>
+              <h3 className="font-black text-base text-slate-900">Your Exclusive Vouchers</h3>
+              <p className="text-xs text-slate-400">1-Click apply promotional discount codes to your cart</p>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">{vouchers.length} Active Promos</span>
         </div>
+
+        {vouchers.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
+            {vouchers.map((v, i) => (
+              <div
+                key={i}
+                className="p-4 rounded-2xl border-2 border-dashed border-emerald-200 bg-gradient-to-br from-emerald-50/50 via-white to-teal-50/30 hover:border-emerald-400 transition-all space-y-2.5 flex flex-col justify-between shadow-2xs hover:shadow-md"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-emerald-800 bg-emerald-100/90 border border-emerald-200 px-2.5 py-0.5 rounded-lg font-mono text-xs">
+                      {v.code}
+                    </span>
+                    <span className="text-[10px] font-black uppercase text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">{v.discount}</span>
+                  </div>
+                  <h4 className="font-black text-slate-900 leading-snug">{v.title}</h4>
+                  <p className="text-[11px] text-slate-500">{v.desc}</p>
+                  <span className="text-[10px] text-rose-600 font-bold block">{v.expiry}</span>
+                </div>
+
+                <button
+                  onClick={() => handleCopyCode(v.code)}
+                  className="w-full py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl font-bold text-xs transition-all cursor-pointer shadow-2xs hover:scale-[1.02]"
+                >
+                  {copiedCode === v.code ? 'Applied ✓' : 'Apply Promo Code'}
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-6 bg-emerald-50/30 rounded-2xl border border-emerald-100 text-center">
+            <p className="text-xs text-slate-700 font-semibold">No store vouchers active at the moment.</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Admin-created discount coupons will appear here automatically.</p>
+          </div>
+        )}
       </div>
 
       {/* Top Up Modal */}
       {isTopUpOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in zoom-in-95 text-xs">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in zoom-in-95 text-xs border border-emerald-100">
+            <div className="flex items-center justify-between pb-2 border-b border-emerald-100">
               <h3 className="font-black text-base text-slate-900">Top Up FreshMart Wallet</h3>
-              <button onClick={() => setIsTopUpOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <button onClick={() => setIsTopUpOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">✕</button>
             </div>
 
             <form onSubmit={handleTopUpSubmit} className="space-y-3">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Select Amount (PKR)</label>
+                <label className="font-bold text-slate-700 block mb-1.5">Select Top Up Amount (PKR)</label>
                 <div className="grid grid-cols-3 gap-2">
                   {['200', '500', '1000'].map((amt) => (
                     <button
                       type="button"
                       key={amt}
                       onClick={() => setTopUpAmount(amt)}
-                      className={`py-2 rounded-xl font-black transition-all ${
+                      className={`py-2.5 rounded-xl font-black transition-all cursor-pointer ${
                         topUpAmount === amt
-                          ? 'bg-emerald-600 text-white shadow-2xs'
+                          ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-md'
                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                       }`}
                     >
@@ -275,7 +310,7 @@ export const WalletRewardsView = () => {
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-md hover:bg-emerald-700 cursor-pointer"
+                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl font-bold shadow-md cursor-pointer transition-all hover:scale-105"
                 >
                   Load PKR {topUpAmount} Instantly
                 </button>
@@ -288,10 +323,10 @@ export const WalletRewardsView = () => {
       {/* Add Payment Method Modal */}
       {isAddPaymentOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in zoom-in-95 text-xs">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in zoom-in-95 text-xs border border-emerald-100">
+            <div className="flex items-center justify-between pb-2 border-b border-emerald-100">
               <h3 className="font-black text-base text-slate-900">Connect Payment Account</h3>
-              <button onClick={() => setIsAddPaymentOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <button onClick={() => setIsAddPaymentOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">✕</button>
             </div>
 
             <form onSubmit={handleAddPaymentSubmit} className="space-y-3">
@@ -300,7 +335,7 @@ export const WalletRewardsView = () => {
                 <select
                   value={newPaymentType}
                   onChange={(e) => setNewPaymentType(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium"
+                  className="w-full bg-emerald-50/40 border border-emerald-200/80 rounded-xl p-2.5 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                 >
                   <option value="jazzcash">JazzCash Mobile Account</option>
                   <option value="easypaisa">EasyPaisa Mobile Account</option>
@@ -318,14 +353,14 @@ export const WalletRewardsView = () => {
                   placeholder="e.g. 0300-1234567 or @username"
                   value={newPaymentDetail}
                   onChange={(e) => setNewPaymentDetail(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium font-mono"
+                  className="w-full bg-emerald-50/40 border border-emerald-200/80 rounded-xl p-2.5 font-medium font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-md hover:bg-emerald-700 cursor-pointer"
+                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl font-bold shadow-md cursor-pointer transition-all hover:scale-105"
                 >
                   Connect Account
                 </button>

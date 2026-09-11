@@ -26,7 +26,7 @@ export const CategoriesView = ({ onOpenAddCategoryModal }) => {
     setEditingCategory(cat);
     setEditForm({
       name: cat.name,
-      discountBadge: cat.discountBadge || 'Fresh Selection',
+      discountBadge: cat.discountBadge || '',
       image: cat.image,
       imageFileName: ''
     });

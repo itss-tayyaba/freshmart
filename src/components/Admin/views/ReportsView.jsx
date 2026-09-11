@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Download,
   Calendar,
@@ -17,94 +17,85 @@ import {
   FileText,
   CreditCard,
   Layers,
-  ChevronDown
+  ChevronDown,
+  AlertTriangle,
+  Building2,
+  MapPin,
+  XCircle,
+  Truck,
+  ShieldCheck,
+  Percent,
+  Activity,
+  Award
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useStore } from '../../../context/StoreContext';
+import { apiService } from '../../../services/api';
+import {
+  ADMIN_ANALYTICS_KPIS,
+  ADMIN_DAILY_SALES_CHART,
+  ADMIN_MONTHLY_SALES_CHART,
+  ADMIN_BEST_SELLING_PRODUCTS,
+  ADMIN_MOST_PROFITABLE_PRODUCTS,
+  ADMIN_BRANCH_PERFORMANCE,
+  ADMIN_CUSTOMER_GROWTH_CHART,
+  ADMIN_CANCELLED_ORDERS_ANALYTICS,
+  ADMIN_DELIVERY_PERFORMANCE
+} from '../../../data/adminSuiteData';
 
 export const ReportsView = () => {
   const { customerOrders, products, customers, addToast } = useStore();
-  const [timeframe, setTimeframe] = useState('Weekly'); // 'Daily' | 'Weekly' | 'Monthly' | 'Yearly'
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('All');
-  const [hoveredDataPoint, setHoveredDataPoint] = useState(null);
+  const [timeframe, setTimeframe] = useState('Daily'); // 'Daily' | 'Weekly' | 'Monthly' | 'Yearly'
+  const [selectedBranch, setSelectedBranch] = useState('All');
+  const [hoveredDailyPoint, setHoveredDailyPoint] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Timeframe-specific chart data
-  const chartDatasets = {
-    Daily: {
-      labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-      revenue: [45000, 52000, 48000, 61000, 75000, 92000, 88000],
-      orders: [28, 34, 31, 42, 53, 68, 62],
-      totalRevenue: 'PKR 461,000',
-      avgDaily: 'PKR 65,857'
-    },
-    Weekly: {
-      labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-      revenue: [210000, 245000, 280000, 310230],
-      orders: [160, 185, 210, 248],
-      totalRevenue: 'PKR 1,045,230',
-      avgDaily: 'PKR 261,307'
-    },
-    Monthly: {
-      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-      revenue: [620000, 680000, 710000, 740000, 790000, 830000, 870000, 920000, 960000, 1010000, 1080000, 1150000],
-      orders: [510, 560, 590, 620, 670, 710, 750, 790, 830, 870, 920, 980],
-      totalRevenue: 'PKR 10,360,000',
-      avgDaily: 'PKR 863,333'
-    },
-    Yearly: {
-      labels: ['2023', '2024', '2025', '2026 (YTD)'],
-      revenue: [4200000, 6800000, 9400000, 12850000],
-      orders: [3800, 5900, 8200, 11400],
-      totalRevenue: 'PKR 12,850,000',
-      avgDaily: 'PKR 3,212,500'
-    }
-  };
+  // Live analytics state with fallbacks
+  const [kpiData, setKpiData] = useState(ADMIN_ANALYTICS_KPIS);
+  const [dailySalesData, setDailySalesData] = useState(ADMIN_DAILY_SALES_CHART);
+  const [monthlySalesData, setMonthlySalesData] = useState(ADMIN_MONTHLY_SALES_CHART);
+  const [bestSellers, setBestSellers] = useState(ADMIN_BEST_SELLING_PRODUCTS);
+  const [profitableProducts, setProfitableProducts] = useState(ADMIN_MOST_PROFITABLE_PRODUCTS);
+  const [branches, setBranches] = useState(ADMIN_BRANCH_PERFORMANCE);
+  const [customerGrowth, setCustomerGrowth] = useState(ADMIN_CUSTOMER_GROWTH_CHART);
+  const [cancellations, setCancellations] = useState(ADMIN_CANCELLED_ORDERS_ANALYTICS);
+  const [deliverySLA, setDeliverySLA] = useState(ADMIN_DELIVERY_PERFORMANCE);
 
-  const currentData = chartDatasets[timeframe] || chartDatasets.Weekly;
-  const maxRevenue = Math.max(...currentData.revenue);
+  useEffect(() => {
+    const fetchLiveAnalytics = async () => {
+      try {
+        const res = await apiService.getAnalytics();
+        if (res && res.success) {
+          if (res.kpis) setKpiData(res.kpis);
+          if (res.charts?.dailySales) setDailySalesData(res.charts.dailySales);
+          if (res.charts?.monthlySales) setMonthlySalesData(res.charts.monthlySales);
+          if (res.charts?.bestSellingProducts) setBestSellers(res.charts.bestSellingProducts);
+          if (res.charts?.mostProfitableProducts) setProfitableProducts(res.charts.mostProfitableProducts);
+          if (res.charts?.branchPerformance) setBranches(res.charts.branchPerformance);
+          if (res.charts?.customerGrowth) setCustomerGrowth(res.charts.customerGrowth);
+          if (res.charts?.cancelledOrders) setCancellations(res.charts.cancelledOrders);
+          if (res.charts?.deliveryPerformance) setDeliverySLA(res.charts.deliveryPerformance);
+        }
+      } catch (err) {
+        console.warn('Live analytics fetch fallback to static dataset:', err.message);
+      }
+    };
+    fetchLiveAnalytics();
+  }, []);
 
-  // Category Distribution Data
-  const categoryDistribution = [
-    { name: 'Fruits & Vegetables', percent: 38, amount: 'Rs. 397,187', color: '#10b981', dot: 'bg-emerald-500' },
-    { name: 'Dairy & Farm Eggs', percent: 24, amount: 'Rs. 250,855', color: '#3b82f6', dot: 'bg-blue-500' },
-    { name: 'Fresh Bakery & Bread', percent: 16, amount: 'Rs. 167,236', color: '#f59e0b', dot: 'bg-amber-500' },
-    { name: 'Beverages & Juices', percent: 12, amount: 'Rs. 125,427', color: '#8b5cf6', dot: 'bg-purple-500' },
-    { name: 'Snacks & Pantry Staples', percent: 10, amount: 'Rs. 104,525', color: '#ec4899', dot: 'bg-pink-500' }
-  ];
+  // Filter branches if selected
+  const displayBranches = selectedBranch === 'All'
+    ? branches
+    : branches.filter((b) => b.branch.toLowerCase().includes(selectedBranch.toLowerCase()));
 
-  // Hourly Peak Order Hours
-  const hourlyTraffic = [
-    { hour: '8 AM', orders: 18, pct: 25 },
-    { hour: '10 AM', orders: 42, pct: 60 },
-    { hour: '12 PM', orders: 68, pct: 90 },
-    { hour: '2 PM', orders: 35, pct: 50 },
-    { hour: '4 PM', orders: 48, pct: 68 },
-    { hour: '6 PM', orders: 74, pct: 100 }, // Peak
-    { hour: '8 PM', orders: 65, pct: 88 },
-    { hour: '10 PM', orders: 28, pct: 40 }
-  ];
-
-  // Payment Channels Breakdown
-  const paymentChannels = [
-    { method: 'JazzCash', share: 34, amount: 'Rs. 355,378', color: 'bg-rose-500' },
-    { method: 'SadaPay & NayaPay', share: 28, amount: 'Rs. 292,664', color: 'bg-teal-500' },
-    { method: 'Cash on Delivery (COD)', share: 23, amount: 'Rs. 240,402', color: 'bg-emerald-500' },
-    { method: 'Direct Bank Transfer', share: 15, amount: 'Rs. 156,786', color: 'bg-indigo-500' }
-  ];
-
-  // Top Products Leaderboard
-  const topProducts = [
-    { name: 'Farm Fresh Banana 1Kg', category: 'Fruits', sold: '1,420 kg', revenue: 'Rs. 255,600', growth: '+18.4%' },
-    { name: 'Olpers Full Cream Milk 1L', category: 'Dairy', sold: '980 packs', revenue: 'Rs. 205,800', growth: '+14.2%' },
-    { name: 'Organic Red Tomatoes 1Kg', category: 'Vegetables', sold: '1,150 kg', revenue: 'Rs. 126,500', growth: '+22.5%' },
-    { name: 'Farm Fresh Eggs (30 Pcs)', category: 'Dairy', sold: '320 crates', revenue: 'Rs. 144,000', growth: '+9.8%' },
-    { name: 'Premium Basmati Rice 5kg', category: 'Pantry', sold: '145 bags', revenue: 'Rs. 181,250', growth: '+11.0%' }
-  ];
+  // Max values for SVG chart scaling
+  const maxDailySales = Math.max(...dailySalesData.map((d) => d.sales));
+  const maxMonthlyRevenue = Math.max(...monthlySalesData.map((m) => m.revenue));
+  const maxCustomerGrowth = Math.max(...customerGrowth.map((c) => c.total));
 
   // =========================================================================
-  // 📄 REAL PDF EXPORT GENERATION USING jsPDF + AutoTable
+  // 📄 PROFESSIONAL MULTI-PAGE EXECUTIVE PDF REPORT GENERATOR
   // =========================================================================
   const handleExportPDF = () => {
     try {
@@ -115,151 +106,196 @@ export const ReportsView = () => {
         format: 'a4'
       });
 
-      const today = new Date().toLocaleDateString('en-US', {
+      const todayStr = new Date().toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
       });
 
-      // 1. Header Banner
-      doc.setFillColor(16, 185, 129); // Emerald green #10b981
+      // --- PAGE 1: Header & Executive KPIs ---
+      doc.setFillColor(16, 185, 129); // Emerald #10b981
       doc.rect(0, 0, 210, 28, 'F');
 
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
-      doc.text('FreshMart - Executive Business Performance Report', 14, 13);
+      doc.text('FreshMart - Executive Business Intelligence Report', 14, 13);
 
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Generated on: ${today}  |  Period: ${timeframe} Analytics  |  Confidential & Proprietary`, 14, 21);
+      doc.text(`Generated on: ${todayStr} | Branch: ${selectedBranch === 'All' ? 'All Hubs (HQ)' : selectedBranch} | Confidential`, 14, 21);
 
-      // 2. Executive Summary Metrics Box
-      doc.setTextColor(30, 41, 59);
+      // Section 1: Executive KPI Metrics
+      doc.setTextColor(15, 23, 42);
       doc.setFontSize(13);
       doc.setFont('helvetica', 'bold');
-      doc.text('1. Executive Business Summary & Key Metrics', 14, 38);
+      doc.text('1. Core Executive KPIs & Store Vitals', 14, 38);
 
       autoTable(doc, {
         startY: 42,
-        head: [['Metric Indicator', 'Value (PKR / Units)', 'Growth vs Prev Period', 'Benchmark Performance']],
+        head: [['Metric Indicator', 'Value (PKR / Count)', 'Growth / Variance', 'Operational Status']],
         body: [
-          ['Gross Sales Revenue', currentData.totalRevenue, '+14.8% YoY', 'Above Target (108%)'],
-          ['Total Orders Fulfilled', `${currentData.orders.reduce((a, b) => a + b, 0).toLocaleString()} Orders`, '+9.2%', '99.4% Delivery Success'],
-          ['Active Registered Customers', `${customers?.length || 5842} Customers`, '+16.3%', 'High Retention'],
-          ['Average Order Basket (AOV)', 'PKR 2,450', '+4.5%', 'Optimal Margins'],
-          ['Cold-Chain Express Delivery Speed', '12.4 Mins Average', '-1.2 Mins', '10-15 Min SLA Met']
+          ["Today's Gross Sales", kpiData.todaySales.formatted, kpiData.todaySales.growth, 'Peak Daily Volume'],
+          ['Total Orders Fulfilled', `${kpiData.orders.formatted} Orders`, kpiData.orders.growth, '99.4% Delivery SLA Met'],
+          ['Active Registered Customers', `${kpiData.customers.formatted} Shoppers`, kpiData.customers.growth, 'High 30-Day Retention'],
+          ['Catalog Product SKUs', `${kpiData.products.formatted} Items`, kpiData.products.growth, '12 Categories Active'],
+          ['Low Stock Inventory Alert', `${kpiData.lowStock.formatted} SKUs`, kpiData.lowStock.growth, 'Restock Queued']
         ],
         theme: 'striped',
         headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold' },
         styles: { fontSize: 9, cellPadding: 2.5 }
       });
 
-      // 3. Sales Trend Data Breakdown Table
+      // Section 2: Daily Sales Breakdown
       const currentY1 = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(13);
       doc.setFont('helvetica', 'bold');
-      doc.text(`2. Sales & Revenue Trend Breakdown (${timeframe})`, 14, currentY1);
+      doc.text('2. 7-Day Daily Sales Velocity & Order Volume', 14, currentY1);
 
-      const salesRows = currentData.labels.map((label, idx) => [
-        label,
-        `PKR ${currentData.revenue[idx].toLocaleString()}`,
-        `${currentData.orders[idx]} Orders`,
-        `PKR ${Math.round(currentData.revenue[idx] / (currentData.orders[idx] || 1)).toLocaleString()}`
+      const dailyRows = dailySalesData.map((d) => [
+        `${d.day} (${d.date})`,
+        `Rs. ${d.sales.toLocaleString()}`,
+        `${d.orders} Orders`,
+        `Rs. ${d.aov.toLocaleString()}`
       ]);
 
       autoTable(doc, {
         startY: currentY1 + 4,
-        head: [['Time Period / Timeline', 'Gross Revenue (PKR)', 'Orders Volume', 'Average Ticket Size']],
-        body: salesRows,
+        head: [['Day / Date', 'Daily Gross Sales', 'Orders Count', 'Average Basket (AOV)']],
+        body: dailyRows,
         theme: 'grid',
-        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
-        styles: { fontSize: 8.5, cellPadding: 2.2 }
+        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255] },
+        styles: { fontSize: 8.5, cellPadding: 2 }
       });
 
-      // 4. Category Performance Breakdown Table
+      // Section 3: Monthly Sales Trajectory
       const currentY2 = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(13);
       doc.setFont('helvetica', 'bold');
-      doc.text('3. Category Revenue Distribution', 14, currentY2);
+      doc.text('3. 12-Month Revenue & Target Performance', 14, currentY2);
 
-      const categoryRows = categoryDistribution.map((c) => [
-        c.name,
-        `${c.percent}%`,
-        c.amount,
-        'High Margin / Fresh Produce'
+      const monthlyRows = monthlySalesData.slice(0, 6).map((m) => [
+        m.month,
+        `Rs. ${(m.revenue / 1000000).toFixed(2)}M`,
+        `Rs. ${(m.target / 1000000).toFixed(2)}M`,
+        `${m.orders.toLocaleString()} Orders`,
+        m.revenue >= m.target ? 'Target Met (100%+)' : 'In Progress'
       ]);
 
       autoTable(doc, {
         startY: currentY2 + 4,
-        head: [['Category Department', 'Revenue Share (%)', 'Gross Volume (PKR)', 'Category Margin Status']],
-        body: categoryRows,
+        head: [['Month', 'Revenue (PKR)', 'Target (PKR)', 'Orders Volume', 'Benchmark']],
+        body: monthlyRows,
         theme: 'striped',
-        headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] },
+        headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255] },
         styles: { fontSize: 8.5, cellPadding: 2 }
       });
 
-      // 5. Top-Selling Products Table
-      const currentY3 = doc.lastAutoTable.finalY + 10;
-      if (currentY3 > 240) doc.addPage();
+      // --- PAGE 2: Catalog & Branch Performance ---
+      doc.addPage();
 
-      const startY3 = currentY3 > 240 ? 20 : currentY3;
+      // Section 4: Best-Selling Products
       doc.setFontSize(13);
       doc.setFont('helvetica', 'bold');
-      doc.text('4. Top-Selling Grocery Products Leaderboard', 14, startY3);
+      doc.setTextColor(15, 23, 42);
+      doc.text('4. Best-Selling Products Leaderboard', 14, 20);
 
-      const productRows = topProducts.map((p, idx) => [
-        `#${idx + 1} ${p.name}`,
+      const bestSellerRows = bestSellers.map((p) => [
+        `#${p.rank} ${p.name}`,
         p.category,
-        p.sold,
-        p.revenue,
-        p.growth
+        `${p.unitsSold.toLocaleString()} Units`,
+        `Rs. ${p.revenue.toLocaleString()}`,
+        `${p.share}% Volume Share`
       ]);
 
       autoTable(doc, {
-        startY: startY3 + 4,
-        head: [['Product Name', 'Department', 'Units Sold', 'Total Revenue', 'MoM Growth']],
-        body: productRows,
+        startY: 24,
+        head: [['Product Name', 'Category', 'Units Sold', 'Gross Revenue', 'Share']],
+        body: bestSellerRows,
         theme: 'grid',
-        headStyles: { fillColor: [51, 65, 85], textColor: [255, 255, 255] },
+        headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] },
         styles: { fontSize: 8.5, cellPadding: 2 }
       });
 
-      // 6. Payment Channels
-      const currentY4 = doc.lastAutoTable.finalY + 10;
-      if (currentY4 > 240) doc.addPage();
-      const startY4 = currentY4 > 240 ? 20 : currentY4;
-
+      // Section 5: Most Profitable Products
+      const currentY3 = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(13);
       doc.setFont('helvetica', 'bold');
-      doc.text('5. Customer Payment Methods Breakdown', 14, startY4);
+      doc.text('5. Most Profitable Products & Margin Contribution', 14, currentY3);
 
-      const paymentRows = paymentChannels.map((pm) => [
-        pm.method,
-        `${pm.share}% Share`,
-        pm.amount,
-        'Instant Settlement / 0% Failure Rate'
+      const profitRows = profitableProducts.map((p) => [
+        p.name,
+        p.category,
+        `Rs. ${p.revenue.toLocaleString()}`,
+        `Rs. ${p.profit.toLocaleString()}`,
+        `${p.margin}% Net Margin`
       ]);
 
       autoTable(doc, {
-        startY: startY4 + 4,
-        head: [['Payment Gateway / Channel', 'Market Share', 'Settlement Volume', 'Status']],
-        body: paymentRows,
+        startY: currentY3 + 4,
+        head: [['Product Name', 'Department', 'Gross Sales', 'Gross Profit', 'Margin %']],
+        body: profitRows,
+        theme: 'striped',
+        headStyles: { fillColor: [245, 158, 11], textColor: [255, 255, 255] },
+        styles: { fontSize: 8.5, cellPadding: 2 }
+      });
+
+      // Section 6: Branch Performance
+      const currentY4 = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.text('6. Branch & City Hub Performance', 14, currentY4);
+
+      const branchRows = branches.map((b) => [
+        b.branch,
+        b.city,
+        `Rs. ${b.sales.toLocaleString()}`,
+        `${b.orders} Orders`,
+        `${b.share}%`,
+        `${b.onTimeRate}% SLA`
+      ]);
+
+      autoTable(doc, {
+        startY: currentY4 + 4,
+        head: [['Branch Hub', 'City', 'Daily Sales', 'Orders', 'Revenue Share', 'On-Time SLA']],
+        body: branchRows,
+        theme: 'grid',
+        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255] },
+        styles: { fontSize: 8.5, cellPadding: 2 }
+      });
+
+      // Section 7: Operations, Cancellations & Delivery SLAs
+      const currentY5 = doc.lastAutoTable.finalY + 10;
+      if (currentY5 > 240) doc.addPage();
+      const startY5 = currentY5 > 240 ? 20 : currentY5;
+
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.text('7. Delivery SLAs & Order Cancellation Audit', 14, startY5);
+
+      autoTable(doc, {
+        startY: startY5 + 4,
+        head: [['Operational Metric', 'Performance Benchmark', 'Audit Result', 'Status']],
+        body: [
+          ['Average Delivery Speed', '10-15 Minutes SLA', deliverySLA.avgDeliveryTime, 'Optimal Cold-Chain Met'],
+          ['On-Time Delivery Success Rate', 'Above 98.0%', deliverySLA.onTimeRate, 'Industry Leading'],
+          ['Active Rider Dispatch Fleet', '25+ Couriers Active', `${deliverySLA.fleetActive} Riders On-Duty`, 'Full Fleet Coverage'],
+          ['Total Cancelled Orders Today', '< 3.0% Threshold', `${cancellations.cancelledCount} Orders (${cancellations.cancellationRate})`, 'Low Dispute Rate']
+        ],
         theme: 'striped',
         headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] },
         styles: { fontSize: 8.5, cellPadding: 2 }
       });
 
-      // Footer with signature note
+      // Footer
       const finalY = doc.lastAutoTable.finalY + 12;
       doc.setFontSize(8);
       doc.setFont('helvetica', 'italic');
       doc.setTextColor(100, 116, 139);
-      doc.text('FreshMart Business Intelligence Suite - Automatically verified & audited. Contact: finance@freshmart.pk', 14, finalY > 280 ? 285 : finalY);
+      doc.text('FreshMart Business Intelligence Suite - Certified & Audited automatically. Contact: analytics@freshmart.pk', 14, finalY > 280 ? 285 : finalY);
 
-      // Download the PDF
-      doc.save(`FreshMart_Executive_Report_${timeframe}_${Date.now()}.pdf`);
-      addToast('PDF Report Exported! 📄', 'Downloaded FreshMart Executive Business Report PDF.');
+      doc.save(`FreshMart_Executive_Analytics_Report_${Date.now()}.pdf`);
+      addToast('PDF Report Exported! 📄', 'Executive analytics report downloaded successfully.');
     } catch (err) {
       console.error('PDF export error:', err);
       addToast('Export Error', 'Unable to generate PDF report.', 'error');
@@ -271,19 +307,39 @@ export const ReportsView = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
-      {/* 1. Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-xs">
+      {/* ========================================================================= */}
+      {/* 1. HEADER CONTROLS & TIME/BRANCH FILTERS                                 */}
+      {/* ========================================================================= */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-black text-slate-900 tracking-tight">Business Analytics & Reports</h2>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 uppercase tracking-wider">
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">Reports & Analytics</h2>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 uppercase tracking-wider flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               Live BI Engine
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">Real-time revenue performance, conversion funnel & PDF intelligence export</p>
+          <p className="text-xs text-slate-500 mt-0.5">Real-time revenue, product profitability, branch metrics & delivery performance</p>
         </div>
 
         <div className="flex items-center flex-wrap gap-2.5">
+          {/* Branch Filter Selector */}
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700">
+            <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+            <select
+              value={selectedBranch}
+              onChange={(e) => setSelectedBranch(e.target.value)}
+              className="bg-transparent border-none outline-none font-bold text-slate-800 cursor-pointer pr-1"
+            >
+              <option value="All">All Branches (HQ)</option>
+              <option value="Gulberg">Gulberg Flagship Hub</option>
+              <option value="DHA">DHA Phase 5 Express</option>
+              <option value="Johar Town">Johar Town Central</option>
+              <option value="Bahria Town">Bahria Town Sector C</option>
+              <option value="Islamabad">Islamabad F-7 Store</option>
+            </select>
+          </div>
+
           {/* Timeframe Switcher */}
           <div className="flex items-center bg-slate-100 rounded-xl p-1 text-xs font-bold shadow-inner">
             {['Daily', 'Weekly', 'Monthly', 'Yearly'].map((t) => (
@@ -305,7 +361,7 @@ export const ReportsView = () => {
           <button
             onClick={handleExportPDF}
             disabled={isExporting}
-            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-950 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all hover:scale-105 cursor-pointer disabled:opacity-50"
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-950 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all hover:scale-105 cursor-pointer disabled:opacity-50"
           >
             <Download className="w-4 h-4 text-emerald-400" />
             <span>{isExporting ? 'Generating PDF...' : 'Export PDF Report'}</span>
@@ -313,141 +369,189 @@ export const ReportsView = () => {
         </div>
       </div>
 
-      {/* 2. Executive KPI Cards (6 Grid) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+      {/* ========================================================================= */}
+      {/* 2. TOP 5 EXECUTIVE KPI METRIC CARDS                                      */}
+      {/* ========================================================================= */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         
-        {/* Gross Sales */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card space-y-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Gross Revenue</span>
-          <h3 className="text-lg font-black text-slate-900 tracking-tight">{currentData.totalRevenue}</h3>
-          <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600">
-            <TrendingUp className="w-3 h-3" />
-            <span>+14.8%</span>
+        {/* KPI 1: Today's Sales */}
+        <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-3xl p-5 text-white shadow-lg shadow-emerald-500/10 relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 translate-x-3 -translate-y-3 w-20 h-20 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-emerald-100 uppercase tracking-wider">Today's Sales</span>
+            <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white">
+              <DollarSign className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-2xl font-black tracking-tight">{kpiData.todaySales.formatted}</h3>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-black bg-white/20 text-white">
+                <TrendingUp className="w-3 h-3" />
+                {kpiData.todaySales.growth}
+              </span>
+              <span className="text-[10px] text-emerald-100">{kpiData.todaySales.subtitle}</span>
+            </div>
           </div>
         </div>
 
-        {/* Total Orders */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card space-y-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Orders</span>
-          <h3 className="text-lg font-black text-slate-900 tracking-tight">
-            {currentData.orders.reduce((a, b) => a + b, 0).toLocaleString()}
-          </h3>
-          <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600">
-            <TrendingUp className="w-3 h-3" />
-            <span>+9.2%</span>
+        {/* KPI 2: Orders */}
+        <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-card flex flex-col justify-between hover:border-slate-200 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Orders</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <ShoppingCart className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-2xl font-black text-slate-900 tracking-tight">{kpiData.orders.formatted}</h3>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-black bg-blue-50 text-blue-700">
+                <TrendingUp className="w-3 h-3" />
+                {kpiData.orders.growth}
+              </span>
+              <span className="text-[10px] text-slate-400">{kpiData.orders.subtitle}</span>
+            </div>
           </div>
         </div>
 
-        {/* Avg Order Value */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card space-y-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Average Ticket</span>
-          <h3 className="text-lg font-black text-slate-900 tracking-tight">PKR 2,450</h3>
-          <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600">
-            <TrendingUp className="w-3 h-3" />
-            <span>+4.5%</span>
+        {/* KPI 3: Customers */}
+        <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-card flex flex-col justify-between hover:border-slate-200 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Customers</span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <Users className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-2xl font-black text-slate-900 tracking-tight">{kpiData.customers.formatted}</h3>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-black bg-indigo-50 text-indigo-700">
+                <TrendingUp className="w-3 h-3" />
+                {kpiData.customers.growth}
+              </span>
+              <span className="text-[10px] text-slate-400">{kpiData.customers.subtitle}</span>
+            </div>
           </div>
         </div>
 
-        {/* Active Customers */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card space-y-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Customers</span>
-          <h3 className="text-lg font-black text-slate-900 tracking-tight">
-            {customers?.length > 0 ? customers.length : '5,842'}
-          </h3>
-          <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600">
-            <TrendingUp className="w-3 h-3" />
-            <span>+16.3%</span>
+        {/* KPI 4: Products */}
+        <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-card flex flex-col justify-between hover:border-slate-200 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Products</span>
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+              <Package className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-2xl font-black text-slate-900 tracking-tight">{kpiData.products.formatted}</h3>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-black bg-purple-50 text-purple-700">
+                <Sparkles className="w-3 h-3" />
+                {kpiData.products.growth}
+              </span>
+              <span className="text-[10px] text-slate-400">{kpiData.products.subtitle}</span>
+            </div>
           </div>
         </div>
 
-        {/* Net Profit Margin */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card space-y-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Net Margin</span>
-          <h3 className="text-lg font-black text-slate-900 tracking-tight">24.6%</h3>
-          <span className="text-[10px] text-slate-400 font-medium">After cold-chain ops</span>
-        </div>
-
-        {/* Delivery Success Rate */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card space-y-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Delivery SLA</span>
-          <h3 className="text-lg font-black text-emerald-700 tracking-tight">99.4%</h3>
-          <span className="text-[10px] text-slate-400 font-medium">Under 15 Mins</span>
+        {/* KPI 5: Low Stock */}
+        <div className="bg-white rounded-3xl p-5 border border-amber-200/80 shadow-card flex flex-col justify-between bg-gradient-to-br from-amber-50/40 to-white">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Low Stock</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+              <AlertTriangle className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-2xl font-black text-amber-900 tracking-tight">{kpiData.lowStock.formatted}</h3>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-100 text-amber-800">
+                {kpiData.lowStock.growth}
+              </span>
+              <span className="text-[10px] text-amber-700/80 font-medium">{kpiData.lowStock.subtitle}</span>
+            </div>
+          </div>
         </div>
 
       </div>
 
-      {/* 3. Main Analytics Grid: Sales Trend Graph + Category Donut Chart */}
+      {/* ========================================================================= */}
+      {/* 3. SECTION 1: SALES VELOCITY (DAILY SALES + MONTHLY SALES CHARTS)         */}
+      {/* ========================================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* GRAPH 1: Interactive Revenue & Sales Trend Graph (7 Cols) */}
+        {/* CHART 1: Daily Sales & Order Velocity (7 Cols) */}
         <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-5">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <BarChart2 className="w-4 h-4 text-emerald-600" />
-                <span>Revenue & Sales Velocity</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">Real-time revenue curve for {timeframe} timeframe</p>
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+                  <BarChart2 className="w-4 h-4" />
+                </span>
+                <h3 className="text-sm font-black text-slate-900">Daily Sales Velocity</h3>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">Day-by-day gross revenue and order frequency this week</p>
             </div>
             
             <div className="text-right">
-              <span className="text-[11px] text-slate-400 font-bold block">Avg / Period</span>
-              <span className="text-xs font-black text-emerald-700 font-mono">{currentData.avgDaily}</span>
+              <span className="text-[11px] text-slate-400 font-bold block">Peak Day (Sat)</span>
+              <span className="text-xs font-black text-emerald-700 font-mono">Rs. 548,900</span>
             </div>
           </div>
 
-          {/* Interactive SVG Area Chart */}
-          <div className="h-64 relative flex flex-col justify-end pt-4 pb-4">
+          {/* Interactive Daily Sales SVG Area Chart */}
+          <div className="h-64 relative flex flex-col justify-end pt-4 pb-2">
             
-            {/* Hover Tooltip Popup */}
-            {hoveredDataPoint !== null && (
-              <div
-                className="absolute top-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl border border-slate-700 pointer-events-none z-10 flex items-center gap-2"
-              >
-                <span>{currentData.labels[hoveredDataPoint]}:</span>
-                <span className="text-emerald-400 font-mono">
-                  PKR {currentData.revenue[hoveredDataPoint].toLocaleString()}
+            {/* Tooltip on Hover */}
+            {hoveredDailyPoint !== null && (
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xl border border-slate-700 pointer-events-none z-10 flex items-center gap-3">
+                <span className="font-semibold text-slate-300">{dailySalesData[hoveredDailyPoint].day} ({dailySalesData[hoveredDailyPoint].date}):</span>
+                <span className="text-emerald-400 font-mono font-black">
+                  Rs. {dailySalesData[hoveredDailyPoint].sales.toLocaleString()}
                 </span>
-                <span className="text-slate-400 text-[10px]">
-                  ({currentData.orders[hoveredDataPoint]} orders)
+                <span className="text-slate-400 text-[11px]">
+                  • {dailySalesData[hoveredDailyPoint].orders} orders
+                </span>
+                <span className="text-slate-400 text-[11px]">
+                  • AOV: Rs. {dailySalesData[hoveredDailyPoint].aov.toLocaleString()}
                 </span>
               </div>
             )}
 
             <svg className="w-full h-44 overflow-visible" viewBox="0 0 400 120" preserveAspectRatio="none">
               <defs>
-                <linearGradient id="emeraldGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.35" />
+                <linearGradient id="dailySalesGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.4" />
                   <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
 
               {/* Grid Lines */}
-              <line x1="0" y1="30" x2="400" y2="30" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-              <line x1="0" y1="60" x2="400" y2="60" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-              <line x1="0" y1="90" x2="400" y2="90" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+              <line x1="0" y1="25" x2="400" y2="25" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+              <line x1="0" y1="55" x2="400" y2="55" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+              <line x1="0" y1="85" x2="400" y2="85" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
 
-              {/* Area Fill */}
+              {/* Area */}
               {(() => {
-                const points = currentData.revenue.map((val, idx) => {
-                  const x = (idx / (currentData.revenue.length - 1)) * 380 + 10;
-                  const y = 110 - (val / maxRevenue) * 90;
+                const pts = dailySalesData.map((d, i) => {
+                  const x = (i / (dailySalesData.length - 1)) * 380 + 10;
+                  const y = 110 - (d.sales / maxDailySales) * 85;
                   return `${x},${y}`;
                 });
-                const d = `M 10,110 L ${points.join(' L ')} L 390,110 Z`;
-                return <path d={d} fill="url(#emeraldGradient)" />;
+                return <path d={`M 10,110 L ${pts.join(' L ')} L 390,110 Z`} fill="url(#dailySalesGradient)" />;
               })()}
 
-              {/* Line Stroke */}
+              {/* Stroke */}
               {(() => {
-                const points = currentData.revenue.map((val, idx) => {
-                  const x = (idx / (currentData.revenue.length - 1)) * 380 + 10;
-                  const y = 110 - (val / maxRevenue) * 90;
+                const pts = dailySalesData.map((d, i) => {
+                  const x = (i / (dailySalesData.length - 1)) * 380 + 10;
+                  const y = 110 - (d.sales / maxDailySales) * 85;
                   return `${x},${y}`;
                 });
                 return (
                   <path
-                    d={`M ${points.join(' L ')}`}
+                    d={`M ${pts.join(' L ')}`}
                     fill="none"
                     stroke="#10b981"
                     strokeWidth="3.5"
@@ -457,14 +561,14 @@ export const ReportsView = () => {
                 );
               })()}
 
-              {/* Interactive Circles on Points */}
-              {currentData.revenue.map((val, idx) => {
-                const x = (idx / (currentData.revenue.length - 1)) * 380 + 10;
-                const y = 110 - (val / maxRevenue) * 90;
-                const isHovered = hoveredDataPoint === idx;
+              {/* Data points */}
+              {dailySalesData.map((d, i) => {
+                const x = (i / (dailySalesData.length - 1)) * 380 + 10;
+                const y = 110 - (d.sales / maxDailySales) * 85;
+                const isHovered = hoveredDailyPoint === i;
 
                 return (
-                  <g key={idx} onMouseEnter={() => setHoveredDataPoint(idx)} onMouseLeave={() => setHoveredDataPoint(null)}>
+                  <g key={i} onMouseEnter={() => setHoveredDailyPoint(i)} onMouseLeave={() => setHoveredDailyPoint(null)}>
                     <circle
                       cx={x}
                       cy={y}
@@ -479,132 +583,159 @@ export const ReportsView = () => {
               })}
             </svg>
 
-            {/* X-Axis Labels */}
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 mt-2 px-2">
-              {currentData.labels.map((lbl, idx) => (
+            {/* X-Axis */}
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 mt-3 px-2">
+              {dailySalesData.map((d, i) => (
                 <span
-                  key={idx}
-                  className={`cursor-pointer transition-colors ${hoveredDataPoint === idx ? 'text-emerald-700 font-black' : ''}`}
+                  key={i}
+                  className={`transition-colors cursor-pointer ${hoveredDailyPoint === i ? 'text-emerald-700 font-black' : ''}`}
                 >
-                  {lbl}
+                  {d.day}
                 </span>
               ))}
             </div>
           </div>
         </div>
 
-        {/* GRAPH 2: Category Revenue Distribution (Donut & Breakdown) (5 Cols) */}
-        <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <PieChart className="w-4 h-4 text-emerald-600" />
-                <span>Category Sales Share</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">Revenue distribution across grocery departments</p>
-            </div>
-          </div>
-
-          {/* Radial / Donut SVG Simulation */}
-          <div className="space-y-3 pt-1">
-            {categoryDistribution.map((cat, idx) => (
-              <div key={idx} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${cat.dot}`} />
-                    <span className="font-bold text-slate-700">{cat.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-slate-900">{cat.amount}</span>
-                    <span className="font-bold text-slate-400 text-[11px]">({cat.percent}%)</span>
-                  </div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${cat.percent}%`, backgroundColor: cat.color }}
-                  />
-                </div>
+        {/* CHART 2: Monthly Sales Trajectory (5 Cols) */}
+        <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-5 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-blue-50 text-blue-600">
+                  <Calendar className="w-4 h-4" />
+                </span>
+                <h3 className="text-sm font-black text-slate-900">Monthly Sales (12M)</h3>
               </div>
-            ))}
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-50 text-blue-700">
+                +31.4% YoY
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">Revenue vs baseline forecast across active retail months</p>
           </div>
 
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-600">
-            <span>Highest Growth Department:</span>
-            <span className="text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg">🥬 Organic Fruits & Veg (+22%)</span>
+          {/* Bar Chart Representation */}
+          <div className="space-y-2 pt-2">
+            {monthlySalesData.slice(0, 6).map((m, idx) => {
+              const pct = Math.round((m.revenue / maxMonthlyRevenue) * 100);
+              return (
+                <div key={idx} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs font-semibold">
+                    <span className="text-slate-700 font-bold">{m.month}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-400 text-[10px]">{m.orders.toLocaleString()} orders</span>
+                      <span className="font-mono font-black text-slate-900">Rs. {(m.revenue / 1000000).toFixed(2)}M</span>
+                    </div>
+                  </div>
+                  <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-500"
+                      style={{ width: `${pct}%` }}
+                    ></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span>Year-to-Date (YTD) Revenue</span>
+            <span className="font-mono font-black text-slate-900">Rs. 98.42 Million</span>
           </div>
         </div>
 
       </div>
 
-      {/* 4. Second Grid: Hourly Peak Hours + Payment Methods Breakdown */}
+      {/* ========================================================================= */}
+      {/* 4. SECTION 2: CATALOG & PROFITABILITY (BEST-SELLING + PROFITABLE PRODUCTS)*/}
+      {/* ========================================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* GRAPH 3: Hourly Peak Order Hours (6 Cols) */}
+        {/* CHART 3: Best-Selling Products (6 Cols) */}
         <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-emerald-600" />
-                <span>Peak Ordering Hours</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">Hourly order volume surge distribution</p>
+            <div className="flex items-center gap-2">
+              <span className="p-2 rounded-xl bg-amber-50 text-amber-600">
+                <Award className="w-4 h-4" />
+              </span>
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Best-Selling Products</h3>
+                <p className="text-xs text-slate-400">Ranked by volume units sold & consumer demand</p>
+              </div>
             </div>
-            <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg">
-              🔥 Peak Surge: 6 PM - 9 PM
+            <span className="text-xs font-bold text-slate-500">Top 6 SKUs</span>
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {bestSellers.map((item) => (
+              <div key={item.rank} className="py-3 flex items-center justify-between gap-3 hover:bg-slate-50/60 rounded-xl px-2 transition-all">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center shrink-0 ${
+                    item.rank === 1 ? 'bg-amber-100 text-amber-800' :
+                    item.rank === 2 ? 'bg-slate-200 text-slate-800' :
+                    item.rank === 3 ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    #{item.rank}
+                  </span>
+                  <img src={item.image} alt={item.name} className="w-9 h-9 rounded-lg object-cover border border-slate-100 shrink-0" />
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-black text-slate-900 truncate">{item.name}</h4>
+                    <span className="text-[10px] text-slate-400 block">{item.category}</span>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <span className="text-xs font-black text-slate-900 font-mono block">
+                    Rs. {item.revenue.toLocaleString()}
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-600">
+                    {item.unitsSold.toLocaleString()} units sold
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* CHART 4: Most Profitable Products & Margin Analysis (6 Cols) */}
+        <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+                <Percent className="w-4 h-4" />
+              </span>
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Most Profitable Products</h3>
+                <p className="text-xs text-slate-400">High-margin items generating maximum gross profit</p>
+              </div>
+            </div>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">
+              Avg Margin: 45.3%
             </span>
           </div>
 
-          <div className="flex items-end justify-between gap-2 h-44 pt-6 pb-2 px-1">
-            {hourlyTraffic.map((item, idx) => (
-              <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
-                <span className="text-[10px] font-bold text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {item.orders}
-                </span>
-                <div
-                  className={`w-full rounded-t-xl transition-all duration-300 group-hover:brightness-95 ${
-                    item.pct === 100
-                      ? 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-sm'
-                      : 'bg-slate-200 group-hover:bg-emerald-300'
-                  }`}
-                  style={{ height: `${item.pct}%` }}
-                />
-                <span className="text-[10px] font-bold text-slate-500 whitespace-nowrap">{item.hour}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* GRAPH 4: Payment Methods Distribution (6 Cols) */}
-        <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-emerald-600" />
-                <span>Payment Gateways & Settlement</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">JazzCash, SadaPay, NayaPay, COD & Bank Settlement</p>
-            </div>
-          </div>
-
-          <div className="space-y-3.5 pt-1">
-            {paymentChannels.map((pm, idx) => (
-              <div key={idx} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-slate-800">{pm.method}</span>
-                  <div className="flex items-center gap-2 font-mono">
-                    <span className="font-bold text-slate-900">{pm.amount}</span>
-                    <span className="text-[11px] font-bold text-slate-400">({pm.share}%)</span>
+          <div className="space-y-3">
+            {profitableProducts.map((p, idx) => (
+              <div key={idx} className="p-3 bg-slate-50/70 rounded-2xl border border-slate-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-900">{p.name}</h4>
+                    <span className="text-[10px] text-slate-400">{p.category}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="px-2 py-0.5 rounded-md text-[11px] font-black bg-emerald-600 text-white font-mono">
+                      {p.margin}% Margin
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-bold block mt-0.5 font-mono">
+                      Profit: Rs. {p.profit.toLocaleString()}
+                    </span>
                   </div>
                 </div>
 
-                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${pm.color}`}
-                    style={{ width: `${pm.share}%` }}
-                  />
+                {/* Visual Margin Bar */}
+                <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden flex">
+                  <div className="bg-emerald-500 h-full" style={{ width: `${p.margin}%` }}></div>
+                  <div className="bg-slate-300 h-full" style={{ width: `${100 - p.margin}%` }}></div>
                 </div>
               </div>
             ))}
@@ -613,51 +744,210 @@ export const ReportsView = () => {
 
       </div>
 
-      {/* 5. Top-Selling Products Leaderboard Table */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-card p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-black text-slate-900">Top-Selling Grocery Products Leaderboard</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Highest grossing items sorted by customer purchase volume</p>
+      {/* ========================================================================= */}
+      {/* 5. SECTION 3: OPERATIONS & SCALE (BRANCH PERFORMANCE + CUSTOMER GROWTH)   */}
+      {/* ========================================================================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* CHART 5: Branch Performance (7 Cols) */}
+        <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+                <Building2 className="w-4 h-4" />
+              </span>
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Branch & City Hub Performance</h3>
+                <p className="text-xs text-slate-400">Multi-branch sales volume, fulfillment speed & SLA rate</p>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-slate-500">5 Active Hubs</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400 uppercase text-[10px] tracking-wider font-bold">
+                  <th className="pb-2.5">Branch Location</th>
+                  <th className="pb-2.5">Daily Sales</th>
+                  <th className="pb-2.5">Orders</th>
+                  <th className="pb-2.5">Share</th>
+                  <th className="pb-2.5 text-right">Fulfillment SLA</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {displayBranches.map((b, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3">
+                      <div className="font-black text-slate-900">{b.branch}</div>
+                      <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-slate-400" />
+                        {b.city}
+                      </div>
+                    </td>
+                    <td className="py-3 font-mono font-black text-slate-900">
+                      Rs. {b.sales.toLocaleString()}
+                    </td>
+                    <td className="py-3 font-semibold text-slate-700">
+                      {b.orders} orders
+                    </td>
+                    <td className="py-3">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-indigo-50 text-indigo-700 font-mono">
+                        {b.share}%
+                      </span>
+                    </td>
+                    <td className="py-3 text-right">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        {b.onTimeRate}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="text-slate-400 border-b border-slate-100 pb-3 font-semibold">
-                <th className="pb-3">Product Name</th>
-                <th className="pb-3">Category</th>
-                <th className="pb-3">Units Sold</th>
-                <th className="pb-3">Total Gross Revenue</th>
-                <th className="pb-3">MoM Growth</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {topProducts.map((prod, idx) => (
-                <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="py-3 font-bold text-slate-900 flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-md bg-emerald-50 text-emerald-800 flex items-center justify-center text-[10px] font-black">
-                      #{idx + 1}
-                    </span>
-                    <span>{prod.name}</span>
-                  </td>
-                  <td className="py-3 text-slate-600 font-medium">
-                    <span className="bg-slate-100 px-2 py-0.5 rounded text-[11px] font-semibold text-slate-700">
-                      {prod.category}
-                    </span>
-                  </td>
-                  <td className="py-3 font-mono font-bold text-slate-800">{prod.sold}</td>
-                  <td className="py-3 font-mono font-black text-emerald-700">{prod.revenue}</td>
-                  <td className="py-3 font-bold text-emerald-600 flex items-center gap-1">
-                    <ArrowUpRight className="w-3.5 h-3.5" />
-                    <span>{prod.growth}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* CHART 6: Customer Growth Trajectory (5 Cols) */}
+        <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-4 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-purple-50 text-purple-600">
+                  <Users className="w-4 h-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Customer Growth</h3>
+                  <p className="text-xs text-slate-400">Total active registered customer cohort</p>
+                </div>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-800">
+                1,842 Total
+              </span>
+            </div>
+
+            {/* Growth Curve */}
+            <div className="mt-4 space-y-2.5">
+              {customerGrowth.map((cg, i) => {
+                const widthPct = Math.round((cg.total / maxCustomerGrowth) * 100);
+                return (
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-slate-700">{cg.month}</span>
+                      <div className="flex items-center gap-2 font-mono">
+                        <span className="text-[10px] text-emerald-600 font-bold">{cg.rate}</span>
+                        <span className="font-black text-slate-900">{cg.total.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full transition-all duration-500"
+                        style={{ width: `${widthPct}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="p-3 bg-purple-50/60 rounded-2xl border border-purple-100 text-xs flex items-center justify-between">
+            <span className="text-purple-900 font-bold">Monthly Retention Rate</span>
+            <span className="font-black text-purple-900 font-mono">88.4% Loyal Buyers</span>
+          </div>
         </div>
+
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 6. SECTION 4: FULFILLMENT & QUALITY (CANCELLED ORDERS + DELIVERY SLA)      */}
+      {/* ========================================================================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* CHART 7: Cancelled Orders Analytics (6 Cols) */}
+        <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="p-2 rounded-xl bg-rose-50 text-rose-600">
+                <XCircle className="w-4 h-4" />
+              </span>
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Cancelled Orders Breakdown</h3>
+                <p className="text-xs text-slate-400">Root-cause audit of customer cancellation requests</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Dispute Rate</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">
+                {cancellations.cancellationRate} (Ultra Low)
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {cancellations.reasons.map((r, idx) => (
+              <div key={idx} className="p-3 bg-slate-50/70 rounded-2xl border border-slate-100 space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="text-slate-800 font-bold">{r.reason}</span>
+                  <span className="font-mono font-black text-slate-900">{r.count} orders ({r.pct}%)</span>
+                </div>
+                <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: `${r.pct}%`, backgroundColor: r.color }}></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* CHART 8: Delivery Speed & SLA Performance (6 Cols) */}
+        <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+                <Truck className="w-4 h-4" />
+              </span>
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Delivery Speed & SLA Performance</h3>
+                <p className="text-xs text-slate-400">Courier fulfillment speed & cold-chain express tracking</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Avg Speed</span>
+              <span className="text-xs font-black text-emerald-700 font-mono">{deliverySLA.avgDeliveryTime}</span>
+            </div>
+          </div>
+
+          {/* Delivery SLA Distribution */}
+          <div className="space-y-3">
+            {deliverySLA.slaBreakdown.map((sla, idx) => (
+              <div key={idx} className="p-3 bg-slate-50/70 rounded-2xl border border-slate-100 space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="text-slate-800 font-bold flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    {sla.bucket}
+                  </span>
+                  <span className="font-mono font-black text-slate-900">{sla.count} deliveries ({sla.pct}%)</span>
+                </div>
+                <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: `${sla.pct}%`, backgroundColor: sla.color }}></div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className="p-2.5 bg-emerald-50/60 rounded-xl border border-emerald-100 text-center">
+              <span className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider block">On-Time Success</span>
+              <span className="text-sm font-black text-emerald-900 font-mono">{deliverySLA.onTimeRate}</span>
+            </div>
+            <div className="p-2.5 bg-blue-50/60 rounded-xl border border-blue-100 text-center">
+              <span className="text-[10px] text-blue-800 font-bold uppercase tracking-wider block">Active Courier Fleet</span>
+              <span className="text-sm font-black text-blue-900 font-mono">{deliverySLA.fleetActive} Riders On-Duty</span>
+            </div>
+          </div>
+        </div>
+
       </div>
 
     </div>

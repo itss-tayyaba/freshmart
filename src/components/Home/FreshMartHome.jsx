@@ -98,23 +98,25 @@ export const FreshMartHome = () => {
   return (
     <div className="space-y-10 pb-16 animate-in fade-in duration-300">
       
-      {/* 🌟 1. Top Green Announcement Bar matching GreenMart design */}
+      {/* 🌟 1. Top Green Announcement Bar */}
       <div className="bg-[#0f6b3a] text-white text-xs font-semibold py-2 px-4 text-center flex items-center justify-center gap-3 shadow-inner">
         <div className="flex items-center gap-2 flex-wrap justify-center">
           <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-            Limited Offer
+            Fast Delivery
           </span>
-          <span>Get 20% OFF on your first order - Use code: <strong className="font-mono font-bold text-amber-300">WELCOME20</strong></span>
+          <span>{storeSettings?.topAnnouncement || '⚡ 10-15 Min Express Delivery on all farm-fresh fruits, vegetables, dairy & daily groceries'}</span>
         </div>
-        <button
-          onClick={() => handleCopyCoupon('WELCOME20')}
-          className="px-2.5 py-0.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
-        >
-          {copiedCode === 'WELCOME20' ? 'Copied! ✓' : 'Copy Code'}
-        </button>
+        {storeSettings?.topPromoCode && (
+          <button
+            onClick={() => handleCopyCoupon(storeSettings.topPromoCode)}
+            className="px-2.5 py-0.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+          >
+            {copiedCode === storeSettings.topPromoCode ? 'Copied! ✓' : `Code: ${storeSettings.topPromoCode}`}
+          </button>
+        )}
       </div>
 
-      {/* 🚀 2. Hero Section matching Collective Best-in-Class designs */}
+      {/* 🚀 2. Hero Section */}
       <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="relative rounded-3xl bg-gradient-to-r from-[#eef9f2] via-[#f7faf8] to-[#f4ede4] overflow-hidden border border-emerald-950/5 shadow-xl p-6 sm:p-10 lg:p-14 flex flex-col lg:flex-row items-center justify-between gap-8 min-h-[440px]">
           
@@ -144,11 +146,11 @@ export const FreshMartHome = () => {
               </button>
 
               <button
-                onClick={() => navigateTo('deals')}
+                onClick={() => navigateTo('shop')}
                 className="px-6 py-3.5 bg-white hover:bg-slate-50 text-slate-800 font-bold rounded-2xl text-sm border border-slate-200 shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
               >
-                <Tag className="w-4 h-4 text-emerald-600" />
-                <span>View Offers</span>
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <span>Explore Catalog</span>
               </button>
             </div>
 
@@ -156,7 +158,7 @@ export const FreshMartHome = () => {
             <div className="pt-4 flex items-center gap-6 text-xs text-slate-500 font-semibold border-t border-emerald-900/10">
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>100% Organic Sourced</span>
+                <span>100% Farm Sourced</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -165,15 +167,25 @@ export const FreshMartHome = () => {
             </div>
           </div>
 
-          {/* Right Hero Image + 20% Off Floating Badge matching screenshots */}
+          {/* Right Hero Image + Dynamic Floating Badge */}
           <div className="relative z-10 flex items-center justify-center max-w-md w-full">
             <div className="relative">
               
-              {/* Floating Discount Badge */}
+              {/* Floating Badge (Dynamic from Admin / 100% Fresh) */}
               <div className="absolute -top-4 right-2 sm:-right-4 w-22 h-22 sm:w-26 sm:h-26 rounded-full bg-emerald-600 text-white shadow-2xl flex flex-col items-center justify-center p-2 text-center border-4 border-white animate-bounce-soft z-20">
-                <span className="text-[10px] font-bold uppercase tracking-wider leading-none">FLAT</span>
-                <span className="text-xl sm:text-3xl font-black leading-none my-0.5">20%</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider leading-none">OFF</span>
+                {storeSettings?.heroDiscountPercent > 0 ? (
+                  <>
+                    <span className="text-[10px] font-bold uppercase tracking-wider leading-none">FLAT</span>
+                    <span className="text-xl sm:text-3xl font-black leading-none my-0.5">{storeSettings.heroDiscountPercent}%</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider leading-none">OFF</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[10px] font-bold uppercase tracking-wider leading-none">100%</span>
+                    <span className="text-sm sm:text-base font-black leading-tight my-0.5">FRESH</span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider leading-none">ORGANIC</span>
+                  </>
+                )}
               </div>
 
               {/* High Res Produce Artwork */}
@@ -317,9 +329,15 @@ export const FreshMartHome = () => {
                 <h3 className="text-xs sm:text-sm font-black text-slate-900 group-hover:text-emerald-700 transition-colors line-clamp-1">
                   {cat.name}
                 </h3>
-                <span className="text-[11px] font-bold text-emerald-600 block mt-0.5">
-                  {cat.discountBadge || 'Up to 25% OFF'}
-                </span>
+                {cat.discountBadge ? (
+                  <span className="text-[11px] font-bold text-emerald-600 block mt-0.5">
+                    {cat.discountBadge}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-slate-400 font-semibold block mt-0.5">
+                    {cat.itemCount ? `${cat.itemCount} items` : 'Fresh Daily'}
+                  </span>
+                )}
               </div>
 
               <div className="h-24 sm:h-28 rounded-2xl overflow-hidden mt-3 bg-slate-50">
@@ -335,16 +353,18 @@ export const FreshMartHome = () => {
         </div>
       </section>
 
-      {/* ⏰ 6. Deal of the Day & Flat 20% OFF Banner matching FreshBasket design */}
+      {/* ⏰ 6. Featured Produce & Express Delivery Guarantee Banner */}
       <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           
-          {/* Left Deal of the Day Card with Countdown */}
+          {/* Left Spotlight Product Card */}
           <div className="lg:col-span-7 bg-[#fff8ed] border border-amber-200 rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
             
-            {/* Timer Block */}
+            {/* Timer / Spotlight Block */}
             <div className="space-y-2 shrink-0 text-center sm:text-left">
-              <span className="text-xs font-black text-amber-800 uppercase tracking-wider block">Deal of the Day</span>
+              <span className="text-xs font-black text-amber-800 uppercase tracking-wider block">
+                {spotlightApple.discountPercent > 0 ? 'Deal of the Day' : '⭐ Farm Fresh Harvest'}
+              </span>
               <div className="flex items-center gap-1.5">
                 <div className="bg-amber-500 text-white font-mono font-black text-base px-2.5 py-1 rounded-xl shadow-xs">
                   {format2Digits(dealTime.hours)}
@@ -372,8 +392,12 @@ export const FreshMartHome = () => {
                 <h4 className="font-black text-sm text-slate-900 leading-snug">{spotlightApple.name}</h4>
                 <div className="flex items-baseline gap-2">
                   <span className="text-base font-black text-slate-900">{currency.symbol}{spotlightApple.price}</span>
-                  <span className="text-xs text-slate-400 line-through">{currency.symbol}{spotlightApple.originalPrice}</span>
-                  <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">28% OFF</span>
+                  {spotlightApple.discountPercent > 0 && spotlightApple.originalPrice > spotlightApple.price && (
+                    <span className="text-xs text-slate-400 line-through">{currency.symbol}{spotlightApple.originalPrice}</span>
+                  )}
+                  {spotlightApple.discountPercent > 0 && (
+                    <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">{spotlightApple.discountPercent}% OFF</span>
+                  )}
                 </div>
                 <button
                   onClick={() => addToCart(spotlightApple, 1)}
@@ -386,21 +410,36 @@ export const FreshMartHome = () => {
 
           </div>
 
-          {/* Right Flat 20% OFF First Order Card */}
+          {/* Right Banner Card */}
           <div className="lg:col-span-5 bg-gradient-to-br from-emerald-800 to-emerald-950 rounded-3xl p-6 text-white shadow-md flex items-center justify-between gap-4 relative overflow-hidden">
             <div className="space-y-1.5 z-10">
-              <span className="text-2xl sm:text-3xl font-black block">Flat 20% OFF</span>
-              <p className="text-xs text-emerald-200">On your first grocery order today</p>
+              <span className="text-2xl sm:text-3xl font-black block">
+                {storeSettings?.firstOrderPromoCode ? 'Special Offer' : 'Express Delivery'}
+              </span>
+              <p className="text-xs text-emerald-200">
+                {storeSettings?.firstOrderPromoCode ? 'Use promo code at checkout' : 'Farm fresh groceries at your door in 10-15 mins'}
+              </p>
               <div className="pt-2 flex items-center gap-2">
-                <span className="text-xs font-bold bg-white/20 px-3 py-1 rounded-xl font-mono tracking-wider">
-                  Use Code: <strong className="text-amber-300">FIRST20</strong>
-                </span>
-                <button
-                  onClick={() => handleCopyCoupon('FIRST20')}
-                  className="px-2.5 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl text-[11px] font-black transition-colors cursor-pointer"
-                >
-                  {copiedCode === 'FIRST20' ? 'Applied ✓' : 'Apply'}
-                </button>
+                {storeSettings?.firstOrderPromoCode ? (
+                  <>
+                    <span className="text-xs font-bold bg-white/20 px-3 py-1 rounded-xl font-mono tracking-wider">
+                      Use Code: <strong className="text-amber-300">{storeSettings.firstOrderPromoCode}</strong>
+                    </span>
+                    <button
+                      onClick={() => handleCopyCoupon(storeSettings.firstOrderPromoCode)}
+                      className="px-2.5 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl text-[11px] font-black transition-colors cursor-pointer"
+                    >
+                      {copiedCode === storeSettings.firstOrderPromoCode ? 'Applied ✓' : 'Apply'}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => navigateTo('shop')}
+                    className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl text-xs font-black transition-colors cursor-pointer"
+                  >
+                    Shop Now ➔
+                  </button>
+                )}
               </div>
             </div>
 
@@ -569,7 +608,7 @@ export const FreshMartHome = () => {
               <span className="text-xs font-black text-amber-800 uppercase tracking-wider block">Smart Savings</span>
               <h3 className="text-xl sm:text-2xl font-black text-slate-900">Subscribe & Save More</h3>
               <p className="text-xs text-slate-600 max-w-xs">
-                Get up to <strong>15% OFF</strong> on weekly milk, bread, egg and fresh fruit recurring deliveries.
+                Schedule automatic recurring deliveries for your weekly milk, bread, farm eggs, and fruits.
               </p>
               <div className="pt-2">
                 <button

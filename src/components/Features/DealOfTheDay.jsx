@@ -37,12 +37,9 @@ export const DealOfTheDay = () => {
                 <span className="text-3xl sm:text-4xl font-black text-white">
                   {currency.symbol}450
                 </span>
-                <span className="text-base text-amber-200 line-through">
-                  {currency.symbol}750
-                </span>
               </div>
               <span className="bg-white text-orange-600 text-xs font-black px-2.5 py-1 rounded-lg shadow-xs">
-                SAVE 40%
+                Fresh Deal
               </span>
             </div>
 

@@ -36,6 +36,10 @@ import {
   deleteRider,
   clearAllRiders,
   getPromotions,
+  createPromotion,
+  updatePromotion,
+  deletePromotion,
+  togglePromotionStatus,
   validateCoupon,
   getDeliveries,
   getAnalyticsDashboard
@@ -137,9 +141,13 @@ router.post('/riders', protect, adminOnly, validate(createRiderSchema), addRider
 router.delete('/riders/:id', protect, adminOnly, deleteRider);
 router.delete('/riders', protect, adminOnly, clearAllRiders);
 
-// --- Promotions Routes ---
+// --- Promotions & Coupons Routes ---
 // Public: Active coupons and checkout promo validation
 router.get('/promotions', getPromotions);
+router.post('/promotions', protect, adminOnly, createPromotion);
+router.put('/promotions/:id', protect, adminOnly, updatePromotion);
+router.delete('/promotions/:id', protect, adminOnly, deletePromotion);
+router.put('/promotions/:id/status', protect, adminOnly, togglePromotionStatus);
 router.post('/promotions/validate', validate(validateCouponSchema), validateCoupon);
 
 // --- Delivery Routes ---

@@ -27,6 +27,10 @@ const categorySchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    discountBadge: {
+      type: String,
+      default: ''
+    },
     subcategories: [
       {
         type: String

@@ -44,9 +44,10 @@ export const CheckoutPage = () => {
     appliedCoupon,
     applyCouponCode,
     removeCouponCode,
+    promotions,
+    customerUser,
     addToast,
-    placeCustomerOrder,
-    customerUser
+    placeCustomerOrder
   } = useStore();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -515,7 +516,7 @@ export const CheckoutPage = () => {
                   <div className="relative flex-1">
                     <input
                       type="text"
-                      placeholder="Promo Code (WELCOME20)"
+                      placeholder="Promo Code"
                       value={couponInput}
                       onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                       className="w-full text-xs font-mono font-bold uppercase bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-2 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -532,16 +533,21 @@ export const CheckoutPage = () => {
 
                 {/* Applied Coupon Display */}
                 {appliedCoupon ? (
-                  <div className="flex items-center justify-between text-xs bg-emerald-50 border border-emerald-200 text-emerald-900 p-2.5 rounded-xl font-bold">
+                  <div className="flex items-center justify-between text-xs bg-emerald-50 border border-emerald-200 text-emerald-900 p-2.5 rounded-xl font-bold animate-in fade-in">
                     <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-emerald-600" />
+                      <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
                       <div>
-                        <span className="font-mono block">{appliedCoupon.code}</span>
-                        <span className="text-[10px] text-emerald-700 font-normal">{appliedCoupon.description}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono block">{appliedCoupon.code}</span>
+                          <span className="text-[9px] font-black uppercase bg-emerald-600 text-white px-1.5 py-0.5 rounded-md">
+                            {appliedCoupon.isAutoApplied ? 'Auto-Applied' : 'Active'}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-emerald-700 font-normal block">{appliedCoupon.description}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-black text-emerald-800">-{currency.symbol}{discountAmount.toLocaleString()}</span>
+                      <span className="font-black text-emerald-800 shrink-0">-{currency.symbol}{discountAmount.toLocaleString()}</span>
                       <button
                         type="button"
                         onClick={removeCouponCode}
@@ -553,19 +559,24 @@ export const CheckoutPage = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
-                    <span className="text-slate-400 font-bold">Try:</span>
-                    {['WELCOME20', 'FRESH15', 'FLASH30'].map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => applyCouponCode(c)}
-                        className="px-2 py-0.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 rounded-md font-mono font-bold transition-colors cursor-pointer"
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
+                  promotions && promotions.filter(p => p.status === 'Active').length > 0 && (
+                    <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                      <span className="text-slate-400 font-bold">Try:</span>
+                      {promotions
+                        .filter(p => p.status === 'Active')
+                        .slice(0, 3)
+                        .map((p) => (
+                          <button
+                            key={p.code}
+                            type="button"
+                            onClick={() => applyCouponCode(p.code)}
+                            className="px-2 py-0.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 rounded-md font-mono font-bold transition-colors cursor-pointer"
+                          >
+                            {p.code}
+                          </button>
+                        ))}
+                    </div>
+                  )
                 )}
               </div>
 

@@ -29,6 +29,7 @@ export const DealsPage = () => {
     navigateTo,
     currency,
     applyCouponCode,
+    promotions,
     addToast
   } = useStore();
 
@@ -93,11 +94,11 @@ export const DealsPage = () => {
 
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
             Today's Hot Deals & <br />
-            <span className="text-amber-200">Super Saver Discounts</span>
+            <span className="text-amber-200">Exclusive Fresh Specials</span>
           </h1>
 
           <p className="text-xs sm:text-sm text-rose-100 max-w-md">
-            Save up to <strong>50% OFF</strong> on daily grocery essentials, dairy, fresh farm produce, and kitchen staples. Grab them before stock runs out!
+            Save on daily grocery essentials, dairy, fresh farm produce, and kitchen staples with official store discounts and coupon codes.
           </p>
 
           {/* Countdown Clock */}
@@ -138,10 +139,14 @@ export const DealsPage = () => {
                 <h3 className="text-sm font-black text-slate-900 line-clamp-1">{spotlightDeal.name}</h3>
                 <div className="flex items-baseline gap-2">
                   <span className="text-lg font-black text-slate-900">{currency.symbol}{spotlightDeal.price}</span>
-                  <span className="text-xs text-slate-400 line-through">{currency.symbol}{spotlightDeal.originalPrice}</span>
-                  <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">
-                    -{spotlightDeal.discountPercent || 25}%
-                  </span>
+                  {spotlightDeal.discountPercent > 0 && spotlightDeal.originalPrice > spotlightDeal.price && (
+                    <span className="text-xs text-slate-400 line-through">{currency.symbol}{spotlightDeal.originalPrice}</span>
+                  )}
+                  {spotlightDeal.discountPercent > 0 && (
+                    <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">
+                      -{spotlightDeal.discountPercent}%
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -168,33 +173,50 @@ export const DealsPage = () => {
         )}
       </div>
 
-      {/* 2. Hot Deals Promo Vouchers Strip */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          { code: 'WELCOME20', discount: '20% OFF', desc: 'First Order Special Discount', min: 'Min. Rs. 500', color: 'from-amber-500 to-orange-500' },
-          { code: 'FRESH50', discount: '50% FLAT', desc: 'Weekend Flash Super Deal', min: 'Min. Rs. 1000', color: 'from-rose-500 to-pink-600' },
-          { code: 'FREESHIP', discount: 'FREE DELIVERY', desc: 'Zero Delivery Fee on All Orders', min: 'No Minimum', color: 'from-emerald-600 to-teal-600' }
-        ].map((v) => (
-          <div
-            key={v.code}
-            className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex items-center justify-between gap-4 relative overflow-hidden"
-          >
-            <div className={`w-1.5 h-full absolute left-0 top-0 bg-gradient-to-b ${v.color}`} />
-            <div className="space-y-1 pl-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-rose-600">{v.discount}</span>
-              <h4 className="text-sm font-bold text-slate-900 leading-snug">{v.desc}</h4>
-              <p className="text-[11px] text-slate-400 font-mono">{v.min} • Code: <strong className="text-slate-800">{v.code}</strong></p>
-            </div>
-            <button
-              onClick={() => handleCopyCode(v.code)}
-              className="px-3.5 py-2 bg-slate-900 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 shadow-sm"
-            >
-              {copiedCode === v.code ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedCode === v.code ? 'Applied' : 'Apply'}</span>
-            </button>
-          </div>
-        ))}
-      </div>
+      {/* 2. Hot Deals Promo Vouchers Strip (Dynamic from Admin) */}
+      {promotions && promotions.filter(p => p.status === 'Active').length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {promotions
+            .filter(p => p.status === 'Active')
+            .slice(0, 3)
+            .map((v, idx) => {
+              const discountText = v.discountType === 'percentage'
+                ? `${v.discountAmount || v.discountPercent || 0}% OFF`
+                : v.discountType === 'fixed'
+                ? `Rs. ${v.discountAmount || v.flatAmount || 0} OFF`
+                : 'FREE SHIPPING';
+              const colorClasses = [
+                'from-emerald-500 to-teal-600',
+                'from-amber-500 to-orange-500',
+                'from-rose-500 to-pink-600'
+              ];
+              const color = colorClasses[idx % colorClasses.length];
+
+              return (
+                <div
+                  key={v.code || v.id}
+                  className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex items-center justify-between gap-4 relative overflow-hidden"
+                >
+                  <div className={`w-1.5 h-full absolute left-0 top-0 bg-gradient-to-b ${color}`} />
+                  <div className="space-y-1 pl-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-rose-600">{discountText}</span>
+                    <h4 className="text-sm font-bold text-slate-900 leading-snug">{v.title}</h4>
+                    <p className="text-[11px] text-slate-400 font-mono">
+                      {v.minOrder > 0 ? `Min. Rs. ${v.minOrder}` : 'No Minimum'} • Code: <strong className="text-slate-800">{v.code}</strong>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleCopyCode(v.code)}
+                    className="px-3.5 py-2 bg-slate-900 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 shadow-sm"
+                  >
+                    {copiedCode === v.code ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedCode === v.code ? 'Applied' : 'Apply'}</span>
+                  </button>
+                </div>
+              );
+            })}
+        </div>
+      )}
 
       {/* 3. Deal Filter Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
@@ -244,9 +266,15 @@ export const DealsPage = () => {
             >
               {/* Top Discount Tag & Heart */}
               <div className="flex items-center justify-between mb-2">
-                <span className="bg-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded-lg shadow-xs">
-                  -{product.discountPercent || 20}% OFF
-                </span>
+                {product.discountPercent > 0 ? (
+                  <span className="bg-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded-lg shadow-xs">
+                    -{product.discountPercent}% OFF
+                  </span>
+                ) : (
+                  <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-lg shadow-xs">
+                    Deal
+                  </span>
+                )}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

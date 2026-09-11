@@ -22,7 +22,7 @@ export const getCategories = async (req, res) => {
 // @route   POST /api/categories
 export const createCategory = async (req, res) => {
   try {
-    const { name, image, subcategories, productCount } = req.body;
+    const { name, image, subcategories, productCount, discountBadge } = req.body;
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
     if (isDbOnline()) {
@@ -32,6 +32,7 @@ export const createCategory = async (req, res) => {
         shortName: name,
         image: image || 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=300&q=80',
         productCount: Number(productCount || 0),
+        discountBadge: discountBadge || '',
         subcategories: subcategories || []
       });
       const created = await category.save();
@@ -45,6 +46,7 @@ export const createCategory = async (req, res) => {
       image: image || 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=300&q=80',
       itemCount: Number(productCount || 15),
       productCount: Number(productCount || 15),
+      discountBadge: discountBadge || '',
       subcategories: subcategories || []
     };
     FRESHMART_CATEGORIES.push(newCat);
@@ -58,7 +60,7 @@ export const createCategory = async (req, res) => {
 // @route   PUT /api/categories/:id
 export const updateCategory = async (req, res) => {
   try {
-    const { name, image, productCount, subcategories } = req.body;
+    const { name, image, productCount, subcategories, discountBadge } = req.body;
     if (isDbOnline()) {
       const category = await Category.findOne({ $or: [{ _id: req.params.id }, { slug: req.params.id }] });
       if (category) {
@@ -67,6 +69,7 @@ export const updateCategory = async (req, res) => {
         if (image) category.image = image;
         if (productCount !== undefined) category.productCount = Number(productCount);
         if (subcategories) category.subcategories = subcategories;
+        if (discountBadge !== undefined) category.discountBadge = discountBadge;
         const updated = await category.save();
         return res.json({ success: true, category: updated });
       }

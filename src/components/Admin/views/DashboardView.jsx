@@ -12,16 +12,69 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
-import { ADMIN_STATS } from '../../../data/freshMartData';
 
 export const DashboardView = ({ onNavigateModule }) => {
-  const { currency, navigateTo } = useStore();
+  const { currency, navigateTo, products, customerOrders, customers } = useStore();
   const [period, setPeriod] = useState('Last 7 Days');
+
+  // 1. Real-time dynamic store metrics computed from actual state and database records
+  const totalSales = (customerOrders || []).reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+  const totalOrders = (customerOrders || []).length;
+  const totalCustomers = (customers || []).length;
+  const totalProducts = (products || []).length;
+
+  const lowStockProducts = (products || []).filter((p) => {
+    const stock = Number(p.stock !== undefined ? p.stock : (p.stockCount || 0));
+    return stock < 15;
+  });
+  const lowStockCount = lowStockProducts.length;
+
+  const expiringCount = (products || []).filter(
+    (p) => p.isFlashDeal || (p.discountPercent && Number(p.discountPercent) > 15)
+  ).length;
+
+  const pendingOrdersCount = (customerOrders || []).filter(
+    (o) => o.status === 'Processing' || o.status === 'Pending' || o.status === 'Packed'
+  ).length;
+
+  // 2. Real Category Distribution computed from catalog
+  const categoryCounts = {};
+  (products || []).forEach((p) => {
+    const cat = p.categoryLabel || p.category || 'General';
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+  });
+
+  const categoryColors = [
+    'bg-emerald-500',
+    'bg-blue-400',
+    'bg-amber-400',
+    'bg-rose-400',
+    'bg-purple-400',
+    'bg-teal-400',
+    'bg-indigo-400'
+  ];
+
+  const totalProds = totalProducts || 1;
+  const topCategories = Object.entries(categoryCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([catName, count], idx) => ({
+      name: catName,
+      count,
+      percent: Math.round((count / totalProds) * 100),
+      color: categoryColors[idx % categoryColors.length]
+    }));
+
+  const todayDateStr = new Date().toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
-      {/* 1. Top Greeting Banner matching screenshot */}
+      {/* 1. Top Greeting Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2">
         <div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
@@ -34,11 +87,11 @@ export const DashboardView = ({ onNavigateModule }) => {
         </div>
 
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs self-start sm:self-auto">
-          <span>Today, 28 Aug 2026</span>
+          <span>Today, {todayDateStr}</span>
         </div>
       </div>
 
-      {/* 2. 4 Stat Cards with soft colorful badges matching screenshot */}
+      {/* 2. 4 Stat Cards with live data */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         
         {/* Total Sales */}
@@ -50,10 +103,13 @@ export const DashboardView = ({ onNavigateModule }) => {
             </div>
           </div>
           <div className="mt-3">
-            <h3 className="text-2xl font-black text-slate-900">Rs. 845,230</h3>
+            <h3 className="text-2xl font-black text-slate-900">
+              {currency.symbol || 'Rs. '}
+              {totalSales.toLocaleString()}
+            </h3>
             <span className="text-xs font-bold text-emerald-600 flex items-center gap-1 mt-1">
               <TrendingUp className="w-3.5 h-3.5" />
-              <span>+12.5% from last week</span>
+              <span>{totalOrders > 0 ? `From ${totalOrders} customer orders` : 'Live Revenue Tracker'}</span>
             </span>
           </div>
         </div>
@@ -67,10 +123,12 @@ export const DashboardView = ({ onNavigateModule }) => {
             </div>
           </div>
           <div className="mt-3">
-            <h3 className="text-2xl font-black text-slate-900">1,248</h3>
+            <h3 className="text-2xl font-black text-slate-900">
+              {totalOrders.toLocaleString()}
+            </h3>
             <span className="text-xs font-bold text-emerald-600 flex items-center gap-1 mt-1">
               <TrendingUp className="w-3.5 h-3.5" />
-              <span>+8.2% from last week</span>
+              <span>{pendingOrdersCount} pending / in-progress</span>
             </span>
           </div>
         </div>
@@ -84,10 +142,12 @@ export const DashboardView = ({ onNavigateModule }) => {
             </div>
           </div>
           <div className="mt-3">
-            <h3 className="text-2xl font-black text-slate-900">5,842</h3>
+            <h3 className="text-2xl font-black text-slate-900">
+              {totalCustomers.toLocaleString()}
+            </h3>
             <span className="text-xs font-bold text-emerald-600 flex items-center gap-1 mt-1">
               <TrendingUp className="w-3.5 h-3.5" />
-              <span>+16.3% from last week</span>
+              <span>Registered customer accounts</span>
             </span>
           </div>
         </div>
@@ -101,17 +161,19 @@ export const DashboardView = ({ onNavigateModule }) => {
             </div>
           </div>
           <div className="mt-3">
-            <h3 className="text-2xl font-black text-slate-900">2,456</h3>
+            <h3 className="text-2xl font-black text-slate-900">
+              {totalProducts.toLocaleString()}
+            </h3>
             <span className="text-xs font-bold text-emerald-600 flex items-center gap-1 mt-1">
               <TrendingUp className="w-3.5 h-3.5" />
-              <span>+6.1% from last week</span>
+              <span>{lowStockCount} items low stock</span>
             </span>
           </div>
         </div>
 
       </div>
 
-      {/* 3. Middle Row: Sales Overview (Line Chart) + Top Categories (Donut) + Promo Banner matching screenshot */}
+      {/* 3. Middle Row: Sales Overview (Line Chart) + Top Categories (Donut) + Promo Banner */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Sales Overview Chart (6 Columns) */}
@@ -125,7 +187,7 @@ export const DashboardView = ({ onNavigateModule }) => {
           </div>
 
           <div className="h-60 relative flex items-end pt-4 pb-6">
-            {/* SVG Line Chart matching screenshot */}
+            {/* SVG Line Chart */}
             <svg className="w-full h-full overflow-visible" viewBox="0 0 350 140">
               <defs>
                 <linearGradient id="dashGrad" x1="0" y1="0" x2="0" y2="1">
@@ -148,24 +210,26 @@ export const DashboardView = ({ onNavigateModule }) => {
               <circle cx="210" cy="45" r="5" fill="#059669" stroke="#fff" strokeWidth="2" />
             </svg>
 
-            {/* Hover Tooltip matching screenshot: Rs. 745,200 */}
-            <div className="absolute top-8 left-[50%] -translate-x-1/2 bg-slate-900 text-white text-[11px] font-mono font-bold px-2 py-1 rounded-md shadow-md">
-              Rs. 745,200
+            {/* Hover Tooltip */}
+            <div className="absolute top-8 left-[50%] -translate-x-1/2 bg-slate-900 text-white text-[11px] font-mono font-bold px-2.5 py-1 rounded-md shadow-md">
+              {currency.symbol || 'Rs. '}
+              {totalSales.toLocaleString()} Gross
             </div>
 
             {/* Dates */}
             <div className="absolute bottom-0 left-0 right-0 flex justify-between text-[10px] font-semibold text-slate-400 px-1">
-              <span>23 Aug</span>
-              <span>24 Aug</span>
-              <span>25 Aug</span>
-              <span>26 Aug</span>
-              <span>27 Aug</span>
-              <span>28 Aug</span>
+              <span>Mon</span>
+              <span>Tue</span>
+              <span>Wed</span>
+              <span>Thu</span>
+              <span>Fri</span>
+              <span>Sat</span>
+              <span>Sun</span>
             </div>
           </div>
         </div>
 
-        {/* Top Categories Donut Chart (3 Columns) matching screenshot */}
+        {/* Top Categories Donut Chart (3 Columns) */}
         <div className="lg:col-span-3 bg-white rounded-2xl p-5 border border-slate-100 shadow-card flex flex-col justify-between">
           <h3 className="text-sm font-bold text-slate-800 mb-2">Top Categories</h3>
 
@@ -173,67 +237,45 @@ export const DashboardView = ({ onNavigateModule }) => {
           <div className="relative flex items-center justify-center my-3">
             <div className="w-32 h-32 rounded-full border-8 border-emerald-500 border-t-amber-400 border-r-blue-400 border-b-rose-400 flex items-center justify-center text-center">
               <div>
-                <span className="text-base font-black text-slate-900 block leading-tight">1,248</span>
-                <span className="text-[9px] text-slate-400 uppercase font-semibold">Total Orders</span>
+                <span className="text-base font-black text-slate-900 block leading-tight">{totalProducts}</span>
+                <span className="text-[9px] text-slate-400 uppercase font-semibold">Total SKUs</span>
               </div>
             </div>
           </div>
 
-          {/* Breakdown List matching screenshot */}
+          {/* Breakdown List */}
           <div className="space-y-1.5 text-xs">
-            <div className="flex items-center justify-between text-slate-600">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                Fruits & Vegetables
-              </span>
-              <span className="font-bold text-slate-900">38%</span>
-            </div>
-            <div className="flex items-center justify-between text-slate-600">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-blue-400" />
-                Dairy & Eggs
-              </span>
-              <span className="font-bold text-slate-900">24%</span>
-            </div>
-            <div className="flex items-center justify-between text-slate-600">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-400" />
-                Bakery
-              </span>
-              <span className="font-bold text-slate-900">18%</span>
-            </div>
-            <div className="flex items-center justify-between text-slate-600">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-rose-400" />
-                Meat & Poultry
-              </span>
-              <span className="font-bold text-slate-900">12%</span>
-            </div>
-            <div className="flex items-center justify-between text-slate-600">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-purple-400" />
-                Beverages
-              </span>
-              <span className="font-bold text-slate-900">8%</span>
-            </div>
+            {topCategories.length > 0 ? (
+              topCategories.map((cat) => (
+                <div key={cat.name} className="flex items-center justify-between text-slate-600">
+                  <span className="flex items-center gap-1.5 truncate max-w-[130px]">
+                    <span className={`w-2 h-2 rounded-full ${cat.color} shrink-0`} />
+                    <span className="truncate">{cat.name}</span>
+                  </span>
+                  <span className="font-bold text-slate-900 shrink-0">{cat.percent}%</span>
+                </div>
+              ))
+            ) : (
+              <div className="text-center text-slate-400 py-2">Catalog Syncing...</div>
+            )}
           </div>
         </div>
 
-        {/* Vertical Promo Card (3 Columns) matching screenshot */}
+        {/* Vertical Promo Card (3 Columns) */}
         <div className="lg:col-span-3 rounded-2xl overflow-hidden shadow-card relative flex flex-col justify-between p-6 bg-gradient-to-b from-[#14532d] to-[#052e16] text-white">
           <div className="space-y-2 z-10">
             <span className="text-[10px] uppercase font-bold text-lime-400 tracking-wider">
-              Weekly Spotlight
+              Live Catalog Status
             </span>
             <h3 className="text-xl font-black leading-tight">
               Fresh Groceries <br />
-              <span className="text-lime-300">Better Life</span>
+              <span className="text-lime-300">{totalProducts} Active SKUs</span>
             </h3>
             <button
               onClick={() => navigateTo('shop')}
-              className="mt-3 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-sm"
+              className="mt-3 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
             >
-              <span>Shop Now</span>
+              <span>View Storefront</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -249,7 +291,7 @@ export const DashboardView = ({ onNavigateModule }) => {
 
       </div>
 
-      {/* 4. Bottom 3 Alert Cards matching screenshot */}
+      {/* 4. Bottom 3 Alert Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         
         {/* Low Stock Alert */}
@@ -263,15 +305,15 @@ export const DashboardView = ({ onNavigateModule }) => {
             </div>
             <div>
               <h4 className="text-xs font-bold text-rose-900">Low Stock Alert</h4>
-              <p className="text-[11px] text-rose-700">12 products are low in stock</p>
+              <p className="text-[11px] text-rose-700">{lowStockCount} products are low in stock</p>
             </div>
           </div>
           <ArrowRight className="w-4 h-4 text-rose-500" />
         </div>
 
-        {/* Expiring Soon */}
+        {/* Expiring / Flash Deals */}
         <div
-          onClick={() => onNavigateModule('Inventory')}
+          onClick={() => onNavigateModule('Products')}
           className="bg-amber-50/70 border border-amber-100 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-amber-100/70 transition-colors"
         >
           <div className="flex items-center gap-3">
@@ -279,8 +321,8 @@ export const DashboardView = ({ onNavigateModule }) => {
               <Clock className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="text-xs font-bold text-amber-900">Expiring Soon</h4>
-              <p className="text-[11px] text-amber-700">8 products will expire soon</p>
+              <h4 className="text-xs font-bold text-amber-900">Flash & Discount Items</h4>
+              <p className="text-[11px] text-amber-700">{expiringCount} products with live deals</p>
             </div>
           </div>
           <ArrowRight className="w-4 h-4 text-amber-500" />
@@ -293,11 +335,11 @@ export const DashboardView = ({ onNavigateModule }) => {
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
-              <Package className="w-5 h-5" />
+              <Package className="w-4 h-4" />
             </div>
             <div>
               <h4 className="text-xs font-bold text-blue-900">Pending Orders</h4>
-              <p className="text-[11px] text-blue-700">23 orders need attention</p>
+              <p className="text-[11px] text-blue-700">{pendingOrdersCount} orders need attention</p>
             </div>
           </div>
           <span className="text-xs font-bold text-blue-700 hover:underline">View All →</span>

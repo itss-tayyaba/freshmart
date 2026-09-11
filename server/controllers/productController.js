@@ -138,8 +138,33 @@ export const getProductById = async (req, res) => {
 // @route   POST /api/products
 export const createProduct = async (req, res) => {
   try {
-    const { id, name, brand, category, categoryLabel, price, originalPrice, stock, unit, image, description } = req.body;
+    const {
+      id,
+      name,
+      brand,
+      category,
+      categoryLabel,
+      price,
+      originalPrice,
+      discountPercent,
+      stock,
+      unit,
+      image,
+      description,
+      isFlashDeal,
+      isBestSeller,
+      status
+    } = req.body;
     const productId = id || `prod-${Date.now()}`;
+    const priceNum = Number(price) || 0;
+    const discountNum = Math.max(0, Number(discountPercent !== undefined ? discountPercent : 0));
+    const origPriceNum = Number(
+      originalPrice !== undefined && Number(originalPrice) >= priceNum
+        ? originalPrice
+        : discountNum > 0
+        ? Math.round(priceNum / (1 - discountNum / 100))
+        : priceNum
+    );
 
     if (isDbOnline()) {
       const product = new Product({
@@ -149,12 +174,16 @@ export const createProduct = async (req, res) => {
         brand: brand || 'Farm Fresh',
         category: category || 'fruits-veg',
         categoryLabel: categoryLabel || 'Fruits & Vegetables',
-        price: Number(price),
-        originalPrice: Number(originalPrice || price),
-        stock: Number(stock || 50),
+        price: priceNum,
+        originalPrice: origPriceNum,
+        discountPercent: discountNum,
+        stock: Number(stock !== undefined ? stock : 50),
         unit: unit || '1 Kg',
         image: image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
-        description: description || 'Fresh high-grade grocery product.'
+        description: description || 'Fresh high-grade grocery product.',
+        isFlashDeal: Boolean(isFlashDeal),
+        isBestSeller: Boolean(isBestSeller),
+        status: status || (Number(stock) > 0 ? 'Active' : 'Out of Stock')
       });
       const created = await product.save();
       return res.status(201).json({ success: true, product: created });
@@ -166,12 +195,16 @@ export const createProduct = async (req, res) => {
       brand: brand || 'Farm Fresh',
       category: category || 'fruits-veg',
       categoryLabel: categoryLabel || 'Fruits & Vegetables',
-      price: Number(price),
-      originalPrice: Number(originalPrice || price),
-      stock: Number(stock || 50),
+      price: priceNum,
+      originalPrice: origPriceNum,
+      discountPercent: discountNum,
+      stock: Number(stock !== undefined ? stock : 50),
       unit: unit || '1 Kg',
       image: image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
-      description: description || 'Fresh high-grade grocery product.'
+      description: description || 'Fresh high-grade grocery product.',
+      isFlashDeal: Boolean(isFlashDeal),
+      isBestSeller: Boolean(isBestSeller),
+      status: status || (Number(stock) > 0 ? 'Active' : 'Out of Stock')
     };
     FRESHMART_PRODUCTS.unshift(newProduct);
     res.status(201).json({ success: true, product: newProduct });
@@ -197,12 +230,35 @@ export const updateProduct = async (req, res) => {
       }
 
       if (product) {
-        Object.assign(product, updateData);
+        if (updateData.name !== undefined) product.name = updateData.name;
+        if (updateData.description !== undefined) product.description = updateData.description;
+        if (updateData.price !== undefined) product.price = Number(updateData.price);
+        if (updateData.originalPrice !== undefined) product.originalPrice = Number(updateData.originalPrice);
+        if (updateData.discountPercent !== undefined) product.discountPercent = Number(updateData.discountPercent);
+        if (updateData.stock !== undefined) product.stock = Number(updateData.stock);
+        if (updateData.unit !== undefined) product.unit = updateData.unit;
+        if (updateData.category !== undefined) product.category = updateData.category;
+        if (updateData.categoryLabel !== undefined) product.categoryLabel = updateData.categoryLabel;
+        if (updateData.brand !== undefined) product.brand = updateData.brand;
         if (updateData.image) product.image = updateData.image;
+        if (updateData.isFlashDeal !== undefined) product.isFlashDeal = Boolean(updateData.isFlashDeal);
+        if (updateData.isBestSeller !== undefined) product.isBestSeller = Boolean(updateData.isBestSeller);
+        if (updateData.status !== undefined) product.status = updateData.status;
+
         const updated = await product.save();
         return res.json({ success: true, product: updated });
       } else {
         // Upsert if not existing yet in MongoDB
+        const price = Number(updateData.price || 100);
+        const discountPercent = Math.max(0, Number(updateData.discountPercent !== undefined ? updateData.discountPercent : 0));
+        const originalPrice = Number(
+          updateData.originalPrice !== undefined && Number(updateData.originalPrice) >= price
+            ? updateData.originalPrice
+            : discountPercent > 0
+            ? Math.round(price / (1 - discountPercent / 100))
+            : price
+        );
+
         const newProduct = new Product({
           customId: id,
           id: id,
@@ -210,12 +266,16 @@ export const updateProduct = async (req, res) => {
           brand: updateData.brand || 'Farm Fresh',
           category: updateData.category || 'fruits-veg',
           categoryLabel: updateData.categoryLabel || 'Fruits & Vegetables',
-          price: Number(updateData.price || 100),
-          originalPrice: Number(updateData.originalPrice || updateData.price || 100),
+          price: price,
+          originalPrice: originalPrice,
+          discountPercent: discountPercent,
           stock: Number(updateData.stock || 50),
           unit: updateData.unit || '1 Kg',
           image: updateData.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
-          description: updateData.description || 'Fresh high-grade grocery product.'
+          description: updateData.description || 'Fresh high-grade grocery product.',
+          isFlashDeal: Boolean(updateData.isFlashDeal),
+          isBestSeller: Boolean(updateData.isBestSeller),
+          status: updateData.status || 'Active'
         });
         const created = await newProduct.save();
         return res.json({ success: true, product: created });
@@ -223,11 +283,11 @@ export const updateProduct = async (req, res) => {
     }
 
     // Also update in-memory catalog
-    const idx = FRESHMART_PRODUCTS.findIndex((p) => p.id === id);
+    const idx = FRESHMART_PRODUCTS.findIndex((p) => p.id === id || p.customId === id);
     if (idx !== -1) {
       FRESHMART_PRODUCTS[idx] = { ...FRESHMART_PRODUCTS[idx], ...updateData };
     }
-    res.json({ success: true, message: 'Product updated' });
+    res.json({ success: true, message: 'Product updated', product: updateData });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

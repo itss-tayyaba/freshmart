@@ -22,6 +22,8 @@ export const AdminModals = ({
     name: '',
     description: '',
     price: '',
+    originalPrice: '',
+    discountPercent: 0,
     category: categories?.[0]?.name || 'Fruits & Vegetables',
     unit: '1 Kg',
     image: '',
@@ -36,7 +38,7 @@ export const AdminModals = ({
     name: '',
     image: '',
     imageFileName: '',
-    discountBadge: 'Up to 20% OFF'
+    discountBadge: ''
   });
   const [categoryImagePreview, setCategoryImagePreview] = useState(null);
 
@@ -108,17 +110,25 @@ export const AdminModals = ({
       (c) => c.name.toLowerCase() === productForm.category.toLowerCase() || c.id === productForm.category
     );
 
+    const priceNum = Number(productForm.price) || 0;
+    const discountNum = Math.max(0, Number(productForm.discountPercent || 0));
+    const origPriceNum = discountNum > 0
+      ? (Number(productForm.originalPrice) > priceNum ? Number(productForm.originalPrice) : Math.round(priceNum / (1 - discountNum / 100)))
+      : (Number(productForm.originalPrice) || priceNum);
+
     const newProductPayload = {
-      name: productForm.name,
+      name: productForm.name.trim(),
       description: productForm.description || 'Fresh quality grocery product.',
-      price: Number(productForm.price),
-      originalPrice: Math.round(Number(productForm.price) * 1.15),
+      price: priceNum,
+      originalPrice: origPriceNum,
+      discountPercent: discountNum,
       category: matchedCategory ? matchedCategory.id : productForm.category.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       categoryLabel: productForm.category,
       unit: productForm.unit || '1 Kg',
       image: productForm.image || fallbackImg,
       stock: productForm.inStock ? 50 : 0,
       inStock: productForm.inStock,
+      isFlashDeal: discountNum > 0,
       status: productForm.inStock ? 'Active' : 'Out of Stock'
     };
 
@@ -131,6 +141,8 @@ export const AdminModals = ({
       name: '',
       description: '',
       price: '',
+      originalPrice: '',
+      discountPercent: 0,
       category: categories?.[0]?.name || 'Fruits & Vegetables',
       unit: '1 Kg',
       image: '',
@@ -150,14 +162,14 @@ export const AdminModals = ({
       name: categoryForm.name.trim(),
       shortName: categoryForm.name.trim(),
       image: categoryForm.image || fallbackCatImg,
-      discountBadge: categoryForm.discountBadge || 'Fresh Selection',
+      discountBadge: categoryForm.discountBadge || '',
       itemCount: 0
     };
 
     addCategoryToStore(newCategoryPayload);
 
     setIsAddCategoryOpen(false);
-    setCategoryForm({ name: '', image: '', imageFileName: '', discountBadge: 'Up to 20% OFF' });
+    setCategoryForm({ name: '', image: '', imageFileName: '', discountBadge: '' });
     setCategoryImagePreview(null);
   };
 
@@ -244,7 +256,7 @@ export const AdminModals = ({
                 />
               </div>
 
-              {/* Price & Category Side-by-Side matching screenshot */}
+              {/* Price & Category Side-by-Side */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="font-semibold text-slate-800 block mb-1.5 text-xs">Price (Rs.)</label>
@@ -272,6 +284,35 @@ export const AdminModals = ({
                       </option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              {/* Discount & Unit Side-by-Side */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="font-semibold text-slate-800 block mb-1.5 text-xs">
+                    Discount (% OFF) <span className="text-[10px] text-slate-400 font-normal">(Optional, 0 = No Discount)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="90"
+                    placeholder="0"
+                    value={productForm.discountPercent || ''}
+                    onChange={(e) => setProductForm({ ...productForm, discountPercent: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                    className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3.5 py-2.5 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-700 text-xs font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-800 block mb-1.5 text-xs">Unit / Packaging</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 1 Kg, 1 Litre, 500g, 30 pcs"
+                    value={productForm.unit}
+                    onChange={(e) => setProductForm({ ...productForm, unit: e.target.value })}
+                    className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3.5 py-2.5 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-700 text-xs font-medium"
+                  />
                 </div>
               </div>
 

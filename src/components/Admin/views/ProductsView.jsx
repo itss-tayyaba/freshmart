@@ -31,20 +31,30 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
   // Handle open edit product
   const handleOpenEditProduct = (item) => {
     setEditingProduct(item);
+    const price = Number(item.price) || 0;
+    const discount = Math.max(0, Number(item.discountPercent || 0));
+    const origPrice = Number(
+      item.originalPrice !== undefined && Number(item.originalPrice) >= price
+        ? item.originalPrice
+        : discount > 0
+        ? Math.round(price / (1 - discount / 100))
+        : price
+    );
+
     setEditProductForm({
-      name: item.name,
+      name: item.name || '',
       description: item.description || 'Fresh quality grocery product.',
-      price: item.price,
-      originalPrice: item.originalPrice || Math.round(item.price * 1.2),
-      discountPercent: item.discountPercent || (item.originalPrice > item.price ? Math.round(((item.originalPrice - item.price) / item.originalPrice) * 100) : 0),
+      price: price,
+      originalPrice: origPrice,
+      discountPercent: discount,
       category: item.category || 'fruits-veg',
       categoryLabel: item.categoryLabel || item.category || 'Fruits & Vegetables',
-      stock: item.stock || item.stockCount || 50,
-      image: item.image,
+      stock: item.stock !== undefined ? item.stock : (item.stockCount || 50),
+      image: item.image || '',
       imageFileName: '',
       inStock: item.inStock !== false && item.status !== 'Out of Stock',
-      isFlashDeal: item.isFlashDeal || false,
-      isBestSeller: item.isBestSeller || false
+      isFlashDeal: Boolean(item.isFlashDeal || discount > 0),
+      isBestSeller: Boolean(item.isBestSeller)
     });
     setEditImagePreview(item.image);
   };
@@ -71,9 +81,11 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
     e.preventDefault();
     if (!editingProduct) return;
 
-    const priceNum = Number(editProductForm.price);
-    const origPriceNum = Number(editProductForm.originalPrice || priceNum);
-    const discountNum = Number(editProductForm.discountPercent) || (origPriceNum > priceNum ? Math.round(((origPriceNum - priceNum) / origPriceNum) * 100) : 0);
+    const priceNum = Number(editProductForm.price) || 0;
+    const discountNum = Math.max(0, Number(editProductForm.discountPercent || 0));
+    const origPriceNum = discountNum > 0
+      ? (Number(editProductForm.originalPrice) > priceNum ? Number(editProductForm.originalPrice) : Math.round(priceNum / (1 - discountNum / 100)))
+      : priceNum;
 
     const updated = {
       ...editingProduct,
@@ -88,8 +100,8 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
       stockCount: Number(editProductForm.stock),
       image: editProductForm.image || editingProduct.image,
       inStock: editProductForm.inStock && Number(editProductForm.stock) > 0,
-      isFlashDeal: editProductForm.isFlashDeal,
-      isBestSeller: editProductForm.isBestSeller,
+      isFlashDeal: Boolean(editProductForm.isFlashDeal || discountNum > 0),
+      isBestSeller: Boolean(editProductForm.isBestSeller),
       status: !editProductForm.inStock || Number(editProductForm.stock) === 0 ? 'Out of Stock' : Number(editProductForm.stock) < 15 ? 'Low Stock' : 'Active'
     };
 
@@ -334,10 +346,11 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
                     min="1"
                     value={editProductForm.price}
                     onChange={(e) => {
-                      const newPrice = Number(e.target.value);
+                      const val = e.target.value;
+                      const newPrice = Number(val);
                       const orig = Number(editProductForm.originalPrice || newPrice);
-                      const disc = orig > newPrice ? Math.round(((orig - newPrice) / orig) * 100) : 0;
-                      setEditProductForm({ ...editProductForm, price: e.target.value, discountPercent: disc });
+                      const disc = orig > newPrice && orig > 0 ? Math.round(((orig - newPrice) / orig) * 100) : 0;
+                      setEditProductForm({ ...editProductForm, price: val, discountPercent: disc });
                     }}
                     className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3 py-2 text-slate-800 text-xs font-bold"
                   />
@@ -350,10 +363,18 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
                     min="1"
                     value={editProductForm.originalPrice}
                     onChange={(e) => {
-                      const newOrig = Number(e.target.value);
-                      const p = Number(editProductForm.price);
-                      const disc = newOrig > p ? Math.round(((newOrig - p) / newOrig) * 100) : 0;
-                      setEditProductForm({ ...editProductForm, originalPrice: e.target.value, discountPercent: disc });
+                      const val = e.target.value;
+                      const newOrig = Number(val);
+                      const disc = Number(editProductForm.discountPercent || 0);
+                      let newPrice = Number(editProductForm.price);
+                      if (disc > 0 && newOrig > 0) {
+                        newPrice = Math.round(newOrig * (1 - disc / 100));
+                      }
+                      setEditProductForm({
+                        ...editProductForm,
+                        originalPrice: val,
+                        price: disc > 0 && newPrice > 0 ? newPrice : editProductForm.price
+                      });
                     }}
                     className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3 py-2 text-slate-800 text-xs font-medium"
                   />
@@ -366,7 +387,21 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
                     min="0"
                     max="99"
                     value={editProductForm.discountPercent}
-                    onChange={(e) => setEditProductForm({ ...editProductForm, discountPercent: Number(e.target.value) })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setEditProductForm({ ...editProductForm, discountPercent: '' });
+                        return;
+                      }
+                      const disc = Math.max(0, Math.min(99, Number(val)));
+                      const orig = Number(editProductForm.originalPrice || editProductForm.price || 0);
+                      const newPrice = orig > 0 ? Math.round(orig * (1 - disc / 100)) : editProductForm.price;
+                      setEditProductForm({
+                        ...editProductForm,
+                        discountPercent: disc,
+                        price: newPrice > 0 ? newPrice : editProductForm.price
+                      });
+                    }}
                     className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3 py-2 text-rose-600 text-xs font-black"
                   />
                 </div>

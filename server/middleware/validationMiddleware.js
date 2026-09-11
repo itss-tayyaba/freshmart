@@ -49,10 +49,14 @@ export const createProductSchema = z
     categoryLabel: z.string().optional(),
     price: z.coerce.number().positive('Price must be greater than 0'),
     originalPrice: z.coerce.number().optional(),
+    discountPercent: z.coerce.number().min(0).max(99).optional(),
     stock: z.coerce.number().min(0, 'Stock count cannot be negative').optional().default(50),
     unit: z.string().optional().default('1 Kg'),
     image: z.string().optional(),
-    description: z.string().optional()
+    description: z.string().optional(),
+    isFlashDeal: z.boolean().optional(),
+    isBestSeller: z.boolean().optional(),
+    status: z.string().optional()
   })
   .passthrough();
 
@@ -64,10 +68,13 @@ export const updateProductSchema = z
     categoryLabel: z.string().optional(),
     price: z.coerce.number().positive().optional(),
     originalPrice: z.coerce.number().optional(),
+    discountPercent: z.coerce.number().min(0).max(99).optional(),
     stock: z.coerce.number().min(0).optional(),
     unit: z.string().optional(),
     image: z.string().optional(),
     description: z.string().optional(),
+    isFlashDeal: z.boolean().optional(),
+    isBestSeller: z.boolean().optional(),
     status: z.string().optional()
   })
   .passthrough();

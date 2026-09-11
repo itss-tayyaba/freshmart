@@ -193,6 +193,65 @@ export const apiService = {
   },
 
   // Coupons / Promotions API
+  async getPromotions() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/promotions`);
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async createPromotion(promoData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/promotions`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(promoData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updatePromotion(id, promoData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/promotions/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(promoData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deletePromotion(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/promotions/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async togglePromotionStatus(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/promotions/${id}/status`, {
+        method: 'PUT',
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
   async validateCoupon(code, cartSubtotal) {
     try {
       const res = await fetch(`${API_BASE_URL}/promotions/validate`, {
