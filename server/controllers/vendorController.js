@@ -220,6 +220,14 @@ export const loginVendor = async (req, res) => {
   }
 };
 
+export const getVerifiedVendorId = (req) => {
+  const role = req.user?.role;
+  if (role === 'admin' || role === 'superadmin') {
+    return req.query?.vendorId || req.body?.vendorId || req.user?.vendorId || 'VND-101';
+  }
+  return req.user?.vendorId || req.user?.id || 'VND-101';
+};
+
 // ==========================================
 // 2. VENDOR PROFILE & DASHBOARD METRICS
 // ==========================================
@@ -228,31 +236,34 @@ export const loginVendor = async (req, res) => {
 // @route   GET /api/vendor/profile
 export const getVendorProfile = async (req, res) => {
   try {
-    const targetVendorId = req.query.vendorId || req.user?.vendorId || 'VND-101';
+    const targetVendorId = getVerifiedVendorId(req);
 
     if (isDbOnline()) {
-      let vendor = await Vendor.findOne({
-        $or: [{ vendorId: targetVendorId }, { _id: req.user?._id }]
-      });
+      let vendor = await Vendor.findOne({ vendorId: targetVendorId });
 
-      if (!vendor) {
+      if (!vendor && (req.user?.role === 'admin' || req.user?.role === 'superadmin')) {
         vendor = await Vendor.findOne({});
       }
 
       if (vendor) {
         // Calculate dynamic product counts and orders
-        const productCount = await Product.countDocuments({ vendorId: vendor.vendorId });
+        const productQuery =
+          vendor.vendorId === 'VND-101'
+            ? { $or: [{ vendorId: vendor.vendorId }, { vendorId: { $exists: false } }, { vendorId: null }] }
+            : { vendorId: vendor.vendorId };
+
+        const productCount = await Product.countDocuments(productQuery);
         const orders = await Order.find({}).sort({ createdAt: -1 });
         const vendorOrders = orders.filter((o) =>
-          o.orderItems.some((item) => item.vendorId === vendor.vendorId || !item.vendorId)
+          o.orderItems.some((item) => item.vendorId === vendor.vendorId || (!item.vendorId && vendor.vendorId === 'VND-101'))
         );
 
         return res.json({
           success: true,
           vendor,
           stats: {
-            productCount: productCount || 15,
-            totalOrders: vendorOrders.length || 24,
+            productCount: productCount || 0,
+            totalOrders: vendorOrders.length || 0,
             pendingOrders: vendorOrders.filter((o) => o.status === 'Confirmed' || o.status === 'Preparing').length,
             balance: vendor.balance,
             pendingBalance: vendor.pendingBalance,
@@ -261,22 +272,28 @@ export const getVendorProfile = async (req, res) => {
           }
         });
       }
+
+      return res.status(404).json({ success: false, message: `Vendor ${targetVendorId} not found` });
     }
 
-    const v = memoryVendors[0];
-    res.json({
-      success: true,
-      vendor: v,
-      stats: {
-        productCount: 12,
-        totalOrders: 28,
-        pendingOrders: 3,
-        balance: v.balance,
-        pendingBalance: v.pendingBalance,
-        totalEarnings: v.totalEarnings,
-        performanceScore: v.performanceScore
-      }
-    });
+    const v = memoryVendors.find((m) => m.vendorId === targetVendorId) || memoryVendors[0];
+    if (v) {
+      return res.json({
+        success: true,
+        vendor: v,
+        stats: {
+          productCount: 12,
+          totalOrders: 28,
+          pendingOrders: 3,
+          balance: v.balance,
+          pendingBalance: v.pendingBalance,
+          totalEarnings: v.totalEarnings,
+          performanceScore: v.performanceScore
+        }
+      });
+    }
+
+    res.status(404).json({ success: false, message: 'Vendor not found' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -286,13 +303,11 @@ export const getVendorProfile = async (req, res) => {
 // @route   PUT /api/vendor/profile
 export const updateVendorProfile = async (req, res) => {
   try {
-    const targetVendorId = req.body.vendorId || req.user?.vendorId || 'VND-101';
+    const targetVendorId = getVerifiedVendorId(req);
     const { name, phone, bio, address, city, operatingHours, bankDetails, logo, banner } = req.body;
 
     if (isDbOnline()) {
-      const vendor = await Vendor.findOne({
-        $or: [{ vendorId: targetVendorId }, { _id: req.user?._id }]
-      });
+      const vendor = await Vendor.findOne({ vendorId: targetVendorId });
 
       if (vendor) {
         if (name) vendor.name = name;
@@ -308,15 +323,19 @@ export const updateVendorProfile = async (req, res) => {
         const updated = await vendor.save();
         return res.json({ success: true, message: 'Vendor store profile updated successfully', vendor: updated });
       }
+
+      return res.status(404).json({ success: false, message: `Vendor ${targetVendorId} not found` });
     }
 
-    if (memoryVendors[0]) {
-      Object.assign(memoryVendors[0].storeProfile, { bio, address, city, operatingHours, bankDetails, logo, banner });
-      if (name) memoryVendors[0].name = name;
-      if (phone) memoryVendors[0].phone = phone;
+    const v = memoryVendors.find((m) => m.vendorId === targetVendorId) || memoryVendors[0];
+    if (v) {
+      Object.assign(v.storeProfile, { bio, address, city, operatingHours, bankDetails, logo, banner });
+      if (name) v.name = name;
+      if (phone) v.phone = phone;
+      return res.json({ success: true, message: 'Vendor store profile updated', vendor: v });
     }
 
-    res.json({ success: true, message: 'Vendor store profile updated', vendor: memoryVendors[0] });
+    res.status(404).json({ success: false, message: 'Vendor not found' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -330,12 +349,15 @@ export const updateVendorProfile = async (req, res) => {
 // @route   GET /api/vendor/products
 export const getVendorProducts = async (req, res) => {
   try {
-    const targetVendorId = req.query.vendorId || req.user?.vendorId || 'VND-101';
+    const targetVendorId = getVerifiedVendorId(req);
 
     if (isDbOnline()) {
-      const products = await Product.find({
-        $or: [{ vendorId: targetVendorId }, { vendorId: { $exists: false } }]
-      }).sort({ createdAt: -1 });
+      const query =
+        targetVendorId === 'VND-101'
+          ? { $or: [{ vendorId: 'VND-101' }, { vendorId: { $exists: false } }, { vendorId: null }] }
+          : { vendorId: targetVendorId };
+
+      const products = await Product.find(query).sort({ createdAt: -1 });
 
       const mapped = products.map((p) => ({
         ...p.toObject(),
@@ -345,7 +367,7 @@ export const getVendorProducts = async (req, res) => {
       return res.json({ success: true, count: mapped.length, products: mapped });
     }
 
-    res.json({ success: true, count: 15, products: [] });
+    res.json({ success: true, count: 0, products: [] });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -356,7 +378,7 @@ export const getVendorProducts = async (req, res) => {
 export const addVendorProduct = async (req, res) => {
   try {
     const { name, brand, category, categoryLabel, price, originalPrice, wholesalePrice, stock, unit, image, description, tierPricing } = req.body;
-    const vendorId = req.user?.vendorId || req.body.vendorId || 'VND-101';
+    const vendorId = getVerifiedVendorId(req);
     const vendorName = req.user?.name || req.body.vendorName || 'FreshMart Vendor Partner';
     const productId = `prod-vnd-${Date.now()}`;
 
@@ -404,20 +426,31 @@ export const updateVendorProduct = async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
+    const callerVendorId = getVerifiedVendorId(req);
 
     if (isDbOnline()) {
       const product = await Product.findOne({
         $or: [{ _id: id }, { id: id }, { customId: id }]
       });
 
-      if (product) {
-        Object.assign(product, updateData);
-        if (updateData.price) product.price = Number(updateData.price);
-        if (updateData.stock !== undefined) product.stock = Number(updateData.stock);
-        if (updateData.wholesalePrice) product.wholesalePrice = Number(updateData.wholesalePrice);
-        const updated = await product.save();
-        return res.json({ success: true, message: 'Product updated successfully', product: updated });
+      if (!product) {
+        return res.status(404).json({ success: false, message: 'Product not found' });
       }
+
+      // Check vendor ownership unless Super Admin
+      if (req.user?.role !== 'admin' && req.user?.role !== 'superadmin') {
+        if (product.vendorId && product.vendorId !== callerVendorId) {
+          return res.status(403).json({ success: false, message: 'Access denied: You cannot edit products belonging to another vendor' });
+        }
+        delete updateData.vendorId;
+      }
+
+      Object.assign(product, updateData);
+      if (updateData.price) product.price = Number(updateData.price);
+      if (updateData.stock !== undefined) product.stock = Number(updateData.stock);
+      if (updateData.wholesalePrice) product.wholesalePrice = Number(updateData.wholesalePrice);
+      const updated = await product.save();
+      return res.json({ success: true, message: 'Product updated successfully', product: updated });
     }
 
     res.json({ success: true, message: 'Product updated' });
@@ -431,9 +464,25 @@ export const updateVendorProduct = async (req, res) => {
 export const deleteVendorProduct = async (req, res) => {
   try {
     const { id } = req.params;
+    const callerVendorId = getVerifiedVendorId(req);
+
     if (isDbOnline()) {
-      await Product.deleteOne({ $or: [{ _id: id }, { id: id }, { customId: id }] });
+      const product = await Product.findOne({ $or: [{ _id: id }, { id: id }, { customId: id }] });
+      if (!product) {
+        return res.status(404).json({ success: false, message: 'Product not found' });
+      }
+
+      // Check vendor ownership unless Super Admin
+      if (req.user?.role !== 'admin' && req.user?.role !== 'superadmin') {
+        if (product.vendorId && product.vendorId !== callerVendorId) {
+          return res.status(403).json({ success: false, message: 'Access denied: You cannot delete products belonging to another vendor' });
+        }
+      }
+
+      await Product.deleteOne({ _id: product._id });
+      return res.json({ success: true, message: 'Vendor product removed from catalog' });
     }
+
     res.json({ success: true, message: 'Vendor product removed from catalog' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -448,12 +497,12 @@ export const deleteVendorProduct = async (req, res) => {
 // @route   GET /api/vendor/orders
 export const getVendorOrders = async (req, res) => {
   try {
-    const targetVendorId = req.query.vendorId || req.user?.vendorId || 'VND-101';
+    const targetVendorId = getVerifiedVendorId(req);
 
     if (isDbOnline()) {
       const allOrders = await Order.find({}).sort({ createdAt: -1 });
       const vendorOrders = allOrders.filter((o) =>
-        o.orderItems.some((item) => item.vendorId === targetVendorId || !item.vendorId)
+        o.orderItems.some((item) => item.vendorId === targetVendorId || (!item.vendorId && targetVendorId === 'VND-101'))
       );
 
       return res.json({ success: true, count: vendorOrders.length, orders: vendorOrders });
@@ -471,14 +520,26 @@ export const updateVendorOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+    const callerVendorId = getVerifiedVendorId(req);
 
     if (isDbOnline()) {
       const order = await Order.findOne({ $or: [{ _id: id }, { orderId: id }] });
-      if (order) {
-        order.status = status;
-        await order.save();
-        return res.json({ success: true, message: `Order status updated to ${status}`, order });
+      if (!order) {
+        return res.status(404).json({ success: false, message: 'Order not found' });
       }
+
+      if (req.user?.role !== 'admin' && req.user?.role !== 'superadmin') {
+        const hasItem = order.orderItems.some(
+          (item) => item.vendorId === callerVendorId || (!item.vendorId && callerVendorId === 'VND-101')
+        );
+        if (!hasItem) {
+          return res.status(403).json({ success: false, message: 'Access denied: Order does not contain products for your vendor store' });
+        }
+      }
+
+      order.status = status;
+      await order.save();
+      return res.json({ success: true, message: `Order status updated to ${status}`, order });
     }
 
     res.json({ success: true, message: `Order status updated to ${status}` });
@@ -495,12 +556,15 @@ export const updateVendorOrderStatus = async (req, res) => {
 // @route   GET /api/vendor/inventory
 export const getVendorInventory = async (req, res) => {
   try {
-    const targetVendorId = req.query.vendorId || req.user?.vendorId || 'VND-101';
+    const targetVendorId = getVerifiedVendorId(req);
 
     if (isDbOnline()) {
-      const products = await Product.find({
-        $or: [{ vendorId: targetVendorId }, { vendorId: { $exists: false } }]
-      }).sort({ stock: 1 });
+      const query =
+        targetVendorId === 'VND-101'
+          ? { $or: [{ vendorId: 'VND-101' }, { vendorId: { $exists: false } }, { vendorId: null }] }
+          : { vendorId: targetVendorId };
+
+      const products = await Product.find(query).sort({ stock: 1 });
 
       const inventoryItems = products.map((p) => ({
         id: String(p.customId || p.id || p._id),
@@ -528,15 +592,24 @@ export const restockVendorInventory = async (req, res) => {
     const { id } = req.params;
     const { amount } = req.body;
     const restockQty = Number(amount || 50);
+    const callerVendorId = getVerifiedVendorId(req);
 
     if (isDbOnline()) {
       const product = await Product.findOne({ $or: [{ _id: id }, { id: id }, { customId: id }] });
-      if (product) {
-        product.stock += restockQty;
-        product.status = 'Active';
-        await product.save();
-        return res.json({ success: true, message: `Restocked ${product.name} with +${restockQty} units`, product });
+      if (!product) {
+        return res.status(404).json({ success: false, message: 'Product not found' });
       }
+
+      if (req.user?.role !== 'admin' && req.user?.role !== 'superadmin') {
+        if (product.vendorId && product.vendorId !== callerVendorId) {
+          return res.status(403).json({ success: false, message: 'Access denied: You cannot restock products belonging to another vendor' });
+        }
+      }
+
+      product.stock += restockQty;
+      product.status = 'Active';
+      await product.save();
+      return res.json({ success: true, message: `Restocked ${product.name} with +${restockQty} units`, product });
     }
 
     res.json({ success: true, message: `Restocked +${restockQty} units` });
@@ -553,7 +626,7 @@ export const restockVendorInventory = async (req, res) => {
 // @route   POST /api/vendor/discounts
 export const addVendorDiscount = async (req, res) => {
   try {
-    const targetVendorId = req.user?.vendorId || req.body.vendorId || 'VND-101';
+    const targetVendorId = getVerifiedVendorId(req);
     const { code, discountPercent, minSpend, validUntil } = req.body;
 
     const newDiscount = {
@@ -573,10 +646,12 @@ export const addVendorDiscount = async (req, res) => {
         await vendor.save();
         return res.status(201).json({ success: true, message: 'Store discount code created', discount: newDiscount });
       }
+      return res.status(404).json({ success: false, message: `Vendor ${targetVendorId} not found` });
     }
 
-    if (memoryVendors[0]) {
-      memoryVendors[0].discounts.unshift(newDiscount);
+    const v = memoryVendors.find((m) => m.vendorId === targetVendorId) || memoryVendors[0];
+    if (v) {
+      v.discounts.unshift(newDiscount);
     }
     res.status(201).json({ success: true, discount: newDiscount });
   } catch (error) {
@@ -589,7 +664,7 @@ export const addVendorDiscount = async (req, res) => {
 export const deleteVendorDiscount = async (req, res) => {
   try {
     const { id } = req.params;
-    const targetVendorId = req.user?.vendorId || req.query.vendorId || 'VND-101';
+    const targetVendorId = getVerifiedVendorId(req);
 
     if (isDbOnline()) {
       const vendor = await Vendor.findOne({ vendorId: targetVendorId });
@@ -598,10 +673,12 @@ export const deleteVendorDiscount = async (req, res) => {
         await vendor.save();
         return res.json({ success: true, message: 'Discount coupon removed' });
       }
+      return res.status(404).json({ success: false, message: `Vendor ${targetVendorId} not found` });
     }
 
-    if (memoryVendors[0]) {
-      memoryVendors[0].discounts = memoryVendors[0].discounts.filter((d) => d.id !== id);
+    const v = memoryVendors.find((m) => m.vendorId === targetVendorId) || memoryVendors[0];
+    if (v) {
+      v.discounts = v.discounts.filter((d) => d.id !== id);
     }
     res.json({ success: true, message: 'Discount removed' });
   } catch (error) {
@@ -617,7 +694,7 @@ export const deleteVendorDiscount = async (req, res) => {
 // @route   POST /api/vendor/payouts/request
 export const requestVendorPayout = async (req, res) => {
   try {
-    const targetVendorId = req.user?.vendorId || req.body.vendorId || 'VND-101';
+    const targetVendorId = getVerifiedVendorId(req);
     const { amount, bankDetails } = req.body;
     const withdrawAmount = Number(amount);
 
@@ -652,6 +729,7 @@ export const requestVendorPayout = async (req, res) => {
           newBalance: vendor.balance
         });
       }
+      return res.status(404).json({ success: false, message: `Vendor ${targetVendorId} not found` });
     }
 
     const mockPayout = {
@@ -660,9 +738,10 @@ export const requestVendorPayout = async (req, res) => {
       status: 'Pending',
       requestedAt: new Date()
     };
-    if (memoryVendors[0]) {
-      memoryVendors[0].balance -= withdrawAmount;
-      memoryVendors[0].payouts.unshift(mockPayout);
+    const v = memoryVendors.find((m) => m.vendorId === targetVendorId) || memoryVendors[0];
+    if (v) {
+      v.balance -= withdrawAmount;
+      v.payouts.unshift(mockPayout);
     }
 
     res.status(201).json({ success: true, payout: mockPayout });
@@ -681,7 +760,7 @@ export const replyToVendorReview = async (req, res) => {
   try {
     const { id } = req.params;
     const { reply } = req.body;
-    const targetVendorId = req.user?.vendorId || req.body.vendorId || 'VND-101';
+    const targetVendorId = getVerifiedVendorId(req);
 
     if (isDbOnline()) {
       const vendor = await Vendor.findOne({ vendorId: targetVendorId });
@@ -692,7 +771,9 @@ export const replyToVendorReview = async (req, res) => {
           await vendor.save();
           return res.json({ success: true, message: 'Reply sent to customer', review: rev });
         }
+        return res.status(404).json({ success: false, message: 'Review not found' });
       }
+      return res.status(404).json({ success: false, message: `Vendor ${targetVendorId} not found` });
     }
 
     res.json({ success: true, message: 'Reply recorded' });
@@ -705,7 +786,7 @@ export const replyToVendorReview = async (req, res) => {
 // @route   POST /api/vendor/staff
 export const addVendorStaff = async (req, res) => {
   try {
-    const targetVendorId = req.user?.vendorId || req.body.vendorId || 'VND-101';
+    const targetVendorId = getVerifiedVendorId(req);
     const { name, email, role } = req.body;
 
     const newStaff = {
@@ -723,10 +804,12 @@ export const addVendorStaff = async (req, res) => {
         await vendor.save();
         return res.status(201).json({ success: true, message: 'Staff member added', staff: newStaff });
       }
+      return res.status(404).json({ success: false, message: `Vendor ${targetVendorId} not found` });
     }
 
-    if (memoryVendors[0]) {
-      memoryVendors[0].staff.push(newStaff);
+    const v = memoryVendors.find((m) => m.vendorId === targetVendorId) || memoryVendors[0];
+    if (v) {
+      v.staff.push(newStaff);
     }
     res.status(201).json({ success: true, staff: newStaff });
   } catch (error) {
@@ -739,7 +822,7 @@ export const addVendorStaff = async (req, res) => {
 export const deleteVendorStaff = async (req, res) => {
   try {
     const { id } = req.params;
-    const targetVendorId = req.user?.vendorId || req.query.vendorId || 'VND-101';
+    const targetVendorId = getVerifiedVendorId(req);
 
     if (isDbOnline()) {
       const vendor = await Vendor.findOne({ vendorId: targetVendorId });
@@ -748,10 +831,12 @@ export const deleteVendorStaff = async (req, res) => {
         await vendor.save();
         return res.json({ success: true, message: 'Staff member removed' });
       }
+      return res.status(404).json({ success: false, message: `Vendor ${targetVendorId} not found` });
     }
 
-    if (memoryVendors[0]) {
-      memoryVendors[0].staff = memoryVendors[0].staff.filter((s) => s.id !== id);
+    const v = memoryVendors.find((m) => m.vendorId === targetVendorId) || memoryVendors[0];
+    if (v) {
+      v.staff = v.staff.filter((s) => s.id !== id);
     }
     res.json({ success: true, message: 'Staff removed' });
   } catch (error) {

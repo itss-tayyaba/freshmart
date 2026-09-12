@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { isDbOnline } from '../config/db.js';
 import { User } from '../models/User.js';
+import { Vendor } from '../models/Vendor.js';
+import { Supplier } from '../models/ExtraModels.js';
 
 export const protect = async (req, res, next) => {
   let token;
@@ -12,9 +14,32 @@ export const protect = async (req, res, next) => {
 
       if (isDbOnline() && decoded.id && typeof decoded.id === 'string' && decoded.id.match(/^[0-9a-fA-F]{24}$/)) {
         try {
+          // Check User model
           const dbUser = await User.findById(decoded.id).select('-password');
           if (dbUser) {
-            req.user = dbUser;
+            req.user = dbUser.toObject ? dbUser.toObject() : { ...dbUser };
+            req.user.id = String(dbUser._id);
+            req.user.vendorId = decoded.vendorId || dbUser.vendorId;
+            return next();
+          }
+
+          // Check Vendor model
+          const dbVendor = await Vendor.findById(decoded.id).select('-password');
+          if (dbVendor) {
+            req.user = dbVendor.toObject ? dbVendor.toObject() : { ...dbVendor };
+            req.user.id = String(dbVendor._id);
+            req.user.vendorId = dbVendor.vendorId || decoded.vendorId;
+            req.user.role = 'vendor';
+            return next();
+          }
+
+          // Check Supplier model
+          const dbSupplier = await Supplier.findById(decoded.id).select('-password');
+          if (dbSupplier) {
+            req.user = dbSupplier.toObject ? dbSupplier.toObject() : { ...dbSupplier };
+            req.user.id = String(dbSupplier._id);
+            req.user.vendorId = dbSupplier.supplierId || dbSupplier.id || decoded.vendorId || 'VND-101';
+            req.user.role = 'supplier';
             return next();
           }
         } catch (dbErr) {
@@ -27,9 +52,10 @@ export const protect = async (req, res, next) => {
         req.user = {
           _id: decoded.id || 'admin-root',
           id: decoded.id || 'admin-root',
-          name: decoded.name || 'Store Admin',
-          email: decoded.email || 'admin@freshmart.com',
-          role: decoded.role || (decoded.id === 'admin-root' ? 'admin' : 'customer')
+          name: decoded.name || 'Store User',
+          email: decoded.email || 'user@freshmart.com',
+          role: decoded.role || (decoded.id === 'admin-root' ? 'admin' : 'customer'),
+          vendorId: decoded.vendorId || (decoded.role === 'vendor' || decoded.role === 'supplier' ? (decoded.id || 'VND-101') : undefined)
         };
         return next();
       }
@@ -50,3 +76,37 @@ export const adminOnly = (req, res, next) => {
   }
   return res.status(403).json({ success: false, message: 'Access denied: Admin privileges required' });
 };
+
+// Vendor Access & IDOR Protection Middleware
+export const protectVendor = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: 'Not authorized, no user context' });
+  }
+
+  const role = req.user.role;
+  const isAllowedRole = role === 'admin' || role === 'superadmin' || role === 'vendor' || role === 'supplier';
+  if (!isAllowedRole) {
+    return res.status(403).json({ success: false, message: 'Access denied: Vendor or Admin privileges required' });
+  }
+
+  // If Admin / Superadmin, full marketplace access is permitted
+  if (role === 'admin' || role === 'superadmin') {
+    return next();
+  }
+
+  // For Vendors / Suppliers: Enforce IDOR protection
+  const userVendorId = req.user.vendorId || req.user.id || 'VND-101';
+  const targetVendorId = req.query.vendorId || req.body?.vendorId || req.params?.vendorId;
+
+  if (targetVendorId && targetVendorId.toUpperCase() !== userVendorId.toUpperCase()) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied: You cannot access or modify another vendor\'s resources'
+    });
+  }
+
+  // Attach verified vendorId to req.user for downstream controllers
+  req.user.vendorId = userVendorId;
+  return next();
+};
+

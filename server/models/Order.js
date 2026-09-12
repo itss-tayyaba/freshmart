@@ -9,7 +9,8 @@ const orderItemSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   quantity: { type: Number, required: true, default: 1 },
   unit: { type: String, default: '1 Kg' },
-  image: { type: String }
+  image: { type: String },
+  vendorId: { type: String, default: 'VND-101' }
 });
 
 const timelineStepSchema = new mongoose.Schema({

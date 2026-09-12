@@ -67,7 +67,7 @@ import {
   adminUpdateVendorStatus,
   adminProcessVendorPayout
 } from '../controllers/vendorController.js';
-import { protect, adminOnly } from '../middleware/authMiddleware.js';
+import { protect, adminOnly, protectVendor } from '../middleware/authMiddleware.js';
 import { authLimiter } from '../middleware/rateLimitMiddleware.js';
 import {
   validate,
@@ -166,35 +166,35 @@ router.get('/analytics/dashboard', protect, adminOnly, getAnalyticsDashboard);
 router.post('/vendor/register', authLimiter, registerVendor);
 router.post('/vendor/login', authLimiter, loginVendor);
 
-// Vendor Store Profile & Metrics
-router.get('/vendor/profile', getVendorProfile);
-router.put('/vendor/profile', updateVendorProfile);
+// Vendor Store Profile & Metrics (Protected with Vendor Access & IDOR Verification)
+router.get('/vendor/profile', protect, protectVendor, getVendorProfile);
+router.put('/vendor/profile', protect, protectVendor, updateVendorProfile);
 
-// Vendor Catalog & Pricing
-router.get('/vendor/products', getVendorProducts);
-router.post('/vendor/products', addVendorProduct);
-router.put('/vendor/products/:id', updateVendorProduct);
-router.delete('/vendor/products/:id', deleteVendorProduct);
+// Vendor Catalog & Pricing (Protected & Scoped to Vendor)
+router.get('/vendor/products', protect, protectVendor, getVendorProducts);
+router.post('/vendor/products', protect, protectVendor, addVendorProduct);
+router.put('/vendor/products/:id', protect, protectVendor, updateVendorProduct);
+router.delete('/vendor/products/:id', protect, protectVendor, deleteVendorProduct);
 
-// Vendor Order Routing & Fulfillment
-router.get('/vendor/orders', getVendorOrders);
-router.put('/vendor/orders/:id/status', updateVendorOrderStatus);
+// Vendor Order Routing & Fulfillment (Protected & Scoped to Vendor)
+router.get('/vendor/orders', protect, protectVendor, getVendorOrders);
+router.put('/vendor/orders/:id/status', protect, protectVendor, updateVendorOrderStatus);
 
-// Vendor Inventory & Restock
-router.get('/vendor/inventory', getVendorInventory);
-router.post('/vendor/inventory/:id/restock', restockVendorInventory);
+// Vendor Inventory & Restock (Protected & Scoped to Vendor)
+router.get('/vendor/inventory', protect, protectVendor, getVendorInventory);
+router.post('/vendor/inventory/:id/restock', protect, protectVendor, restockVendorInventory);
 
-// Vendor Discounts & Promos
-router.post('/vendor/discounts', addVendorDiscount);
-router.delete('/vendor/discounts/:id', deleteVendorDiscount);
+// Vendor Discounts & Promos (Protected & Scoped to Vendor)
+router.post('/vendor/discounts', protect, protectVendor, addVendorDiscount);
+router.delete('/vendor/discounts/:id', protect, protectVendor, deleteVendorDiscount);
 
-// Vendor Payouts & Withdrawals
-router.post('/vendor/payouts/request', requestVendorPayout);
+// Vendor Payouts & Withdrawals (Protected & Scoped to Vendor)
+router.post('/vendor/payouts/request', protect, protectVendor, requestVendorPayout);
 
-// Vendor Reviews & Staff Management
-router.post('/vendor/reviews/:id/reply', replyToVendorReview);
-router.post('/vendor/staff', addVendorStaff);
-router.delete('/vendor/staff/:id', deleteVendorStaff);
+// Vendor Reviews & Staff Management (Protected & Scoped to Vendor)
+router.post('/vendor/reviews/:id/reply', protect, protectVendor, replyToVendorReview);
+router.post('/vendor/staff', protect, protectVendor, addVendorStaff);
+router.delete('/vendor/staff/:id', protect, protectVendor, deleteVendorStaff);
 
 // Super Admin Marketplace Controls
 router.get('/admin/vendors', protect, adminOnly, adminGetVendors);

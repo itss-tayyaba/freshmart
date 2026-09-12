@@ -3,9 +3,9 @@ import { User } from '../models/User.js';
 import { Supplier, Rider } from '../models/ExtraModels.js';
 import { isDbOnline } from '../config/db.js';
 
-const generateToken = (id, role = 'customer', email = '', name = '') => {
+const generateToken = (id, role = 'customer', email = '', name = '', vendorId = undefined) => {
   return jwt.sign(
-    { id, role, email, name },
+    { id, role, email, name, ...(vendorId ? { vendorId } : {}) },
     process.env.JWT_SECRET || 'freshmart_secret_key_2026',
     { expiresIn: '30d' }
   );
@@ -117,14 +117,16 @@ export const loginUser = async (req, res) => {
         const isDefaultSupplierFallback = password === 'supplier123' || password === 'cocacola123';
 
         if (isMatch || isDefaultSupplierFallback) {
+          const vId = supplier.supplierId || supplier.id || 'VND-101';
           return res.json({
             success: true,
             _id: supplier._id,
-            id: supplier.supplierId || supplier.id,
+            id: vId,
+            vendorId: vId,
             name: supplier.name,
             email: supplier.email,
             role: 'supplier',
-            token: generateToken(supplier._id, 'supplier', supplier.email, supplier.name)
+            token: generateToken(supplier._id, 'supplier', supplier.email, supplier.name, vId)
           });
         }
       }
@@ -181,10 +183,11 @@ export const loginUser = async (req, res) => {
         success: true,
         _id: 'sup-root',
         id: 'SUP-101',
+        vendorId: 'VND-101',
         name: 'Tayyab (Coca-Cola Beverages)',
         email: 'tayyab.cocacola@freshmart.pk',
         role: 'supplier',
-        token: generateToken('sup-root', 'supplier', 'tayyab.cocacola@freshmart.pk', 'Tayyab')
+        token: generateToken('sup-root', 'supplier', 'tayyab.cocacola@freshmart.pk', 'Tayyab', 'VND-101')
       });
     }
 

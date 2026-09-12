@@ -88,7 +88,8 @@ export const VendorPortal = () => {
   const loadVendorProfile = async () => {
     setLoading(true);
     try {
-      const res = await apiService.getVendorProfile('VND-101');
+      const targetVId = user?.vendorId || user?.supplierId || 'VND-101';
+      const res = await apiService.getVendorProfile(targetVId);
       if (res && res.success && res.vendor) {
         setVendorData(res.vendor);
       }
@@ -101,7 +102,7 @@ export const VendorPortal = () => {
 
   useEffect(() => {
     loadVendorProfile();
-  }, []);
+  }, [user]);
 
   // Vendor Defaults Fallback
   const currentVendor = vendorData || {
