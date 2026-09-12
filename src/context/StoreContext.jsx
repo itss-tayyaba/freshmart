@@ -8,6 +8,9 @@ import {
   COUPONS
 } from '../data/freshMartData';
 import { apiService } from '../services/api';
+import { parseRouteFromUrl, getSeoMetadata } from '../utils/routeUtils';
+
+export { parseRouteFromUrl, getSeoMetadata };
 
 const StoreContext = createContext();
 
@@ -19,29 +22,12 @@ export const useStore = () => {
   return context;
 };
 
-const getInitialPageFromUrl = () => {
-  if (typeof window === 'undefined') return 'home';
-  const path = (window.location.pathname || '').toLowerCase();
-  const hash = (window.location.hash || '').toLowerCase();
-  const search = (window.location.search || '').toLowerCase();
-
-  if (path.startsWith('/admin') || hash === '#admin' || search.includes('admin')) {
-    return 'admin';
-  }
-  if (path.startsWith('/customer-portal') || path.startsWith('/portal') || hash === '#customer-portal' || hash === '#portal') {
-    return 'customer-portal';
-  }
-  if (path.startsWith('/delivery') || hash === '#delivery') return 'delivery';
-  if (path.startsWith('/shop') || hash === '#shop') return 'shop';
-  if (path.startsWith('/deals') || hash === '#deals') return 'deals';
-  if (path.startsWith('/recipes') || hash === '#recipes') return 'recipes';
-  if (path.startsWith('/checkout') || hash === '#checkout') return 'checkout';
-  return 'home';
-};
-
 export const StoreProvider = ({ children }) => {
-  // Current active page view: 'home' | 'shop' | 'product-detail' | 'checkout' | 'admin' | 'recipes' | 'deals' | 'customer-portal' | 'delivery'
-  const [currentPage, setCurrentPage] = useState(getInitialPageFromUrl);
+  // Initial route resolution
+  const initialRoute = parseRouteFromUrl(FRESHMART_PRODUCTS);
+
+  // Current active page view
+  const [currentPage, setCurrentPage] = useState(initialRoute.page);
 
   // Admin Role State ('admin' | 'superadmin' | 'supplier' | 'rider')
   const [adminRole, setAdminRole] = useState(() => {
@@ -139,7 +125,7 @@ export const StoreProvider = ({ children }) => {
   });
 
   // Selected product for single product details page
-  const [selectedProduct, setSelectedProduct] = useState(FRESHMART_PRODUCTS[0]);
+  const [selectedProduct, setSelectedProduct] = useState(() => initialRoute.product || FRESHMART_PRODUCTS[0]);
 
   // Delivery Location (Starts empty until user adds their address)
   const [deliveryLocation, setDeliveryLocation] = useState(() => {
@@ -1676,25 +1662,39 @@ export const StoreProvider = ({ children }) => {
   const cartTotal = Math.max(0, cartSubtotal + deliveryCharges - discountAmount);
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Navigation Helper with full URL routing sync
-  const navigateTo = (page, product = null) => {
+  // Navigation Helper with shareable URLs and browser history synchronization
+  const navigateTo = (page, product = null, options = {}) => {
     if (product) setSelectedProduct(product);
+    if (options.category) setActiveCategory(options.category);
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     try {
       let targetPath = '/';
       if (page === 'admin') targetPath = '/admin';
+      else if (page === 'vendor' || page === 'vendor-portal') targetPath = '/vendor';
+      else if (page === 'delivery-portal') targetPath = '/delivery-portal';
       else if (page === 'customer-portal') targetPath = '/customer-portal';
       else if (page === 'delivery') targetPath = '/delivery';
-      else if (page === 'shop') targetPath = '/shop';
+      else if (page === 'shop') {
+        const cat = options.category || (activeCategory && activeCategory !== 'All' ? activeCategory : null);
+        targetPath = cat ? `/shop?category=${encodeURIComponent(cat)}` : '/shop';
+      }
       else if (page === 'deals') targetPath = '/deals';
       else if (page === 'recipes') targetPath = '/recipes';
       else if (page === 'checkout') targetPath = '/checkout';
+      else if (page === 'product-detail') {
+        const targetProd = product || selectedProduct;
+        const slug = targetProd
+          ? (targetProd.customId || (targetProd.name ? targetProd.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : targetProd.id || targetProd._id))
+          : 'item';
+        targetPath = `/product/${slug}`;
+      }
       else targetPath = '/';
 
-      if (window.location.pathname !== targetPath) {
-        window.history.pushState({ page }, '', targetPath);
+      const currentFullUrl = window.location.pathname + window.location.search;
+      if (currentFullUrl !== targetPath) {
+        window.history.pushState({ page, productId: (product || selectedProduct)?.id, category: options.category }, '', targetPath);
       }
     } catch (e) {}
   };
@@ -1702,8 +1702,14 @@ export const StoreProvider = ({ children }) => {
   // Browser back/forward button and URL hashchange listener
   useEffect(() => {
     const handleLocationChange = () => {
-      const page = getInitialPageFromUrl();
-      setCurrentPage(page);
+      const route = parseRouteFromUrl(products);
+      setCurrentPage(route.page);
+      if (route.product) {
+        setSelectedProduct(route.product);
+      }
+      if (route.category) {
+        setActiveCategory(route.category);
+      }
     };
 
     window.addEventListener('popstate', handleLocationChange);
@@ -1712,7 +1718,66 @@ export const StoreProvider = ({ children }) => {
       window.removeEventListener('popstate', handleLocationChange);
       window.removeEventListener('hashchange', handleLocationChange);
     };
-  }, []);
+  }, [products]);
+
+  // Dynamic SEO metadata & page title synchronization
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    let pageTitle = 'FreshMart - 100% Organic & Farm Fresh Groceries Delivered in Minutes';
+    let metaDesc = 'Order farm-fresh vegetables, organic fruits, pure dairy, bakery, and daily grocery essentials with FreshMart. 10-15 min express delivery.';
+
+    switch (currentPage) {
+      case 'shop':
+        pageTitle = activeCategory && activeCategory !== 'All'
+          ? `${activeCategory} - FreshMart Online Grocery`
+          : 'Shop All Fresh Groceries & Daily Essentials | FreshMart';
+        metaDesc = 'Explore our complete catalog of farm-fresh fruits, organic vegetables, dairy, bakery, meat, and pantry essentials.';
+        break;
+      case 'product-detail':
+        if (selectedProduct) {
+          pageTitle = `${selectedProduct.name} (Rs. ${selectedProduct.price}) | FreshMart`;
+          metaDesc = `Buy ${selectedProduct.name} for Rs. ${selectedProduct.price} online. Fresh stock, 10-15 min express delivery, and 100% satisfaction guarantee.`;
+        }
+        break;
+      case 'deals':
+        pageTitle = 'Hot Deals, Bundles & Mega Discounts | FreshMart';
+        metaDesc = 'Save big on weekly grocery combos, flash deals, and exclusive promo codes at FreshMart.';
+        break;
+      case 'delivery':
+        pageTitle = 'Express 15-Min Delivery Tracking | FreshMart';
+        metaDesc = 'Real-time live map tracking and delivery status for your FreshMart orders.';
+        break;
+      case 'recipes':
+        pageTitle = 'Chef Recipes & Instant Grocery Meal Kits | FreshMart';
+        metaDesc = 'Cook fresh homemade meals with 1-click recipe ingredient carts from FreshMart.';
+        break;
+      case 'checkout':
+        pageTitle = 'Secure Checkout & Payment | FreshMart';
+        metaDesc = 'Fast, secure checkout with multiple payment options and express delivery scheduling.';
+        break;
+      case 'admin':
+        pageTitle = 'FreshMart Operations & Store Admin Suite';
+        break;
+      case 'vendor':
+      case 'vendor-portal':
+        pageTitle = 'Vendor Partner Portal & Marketplace Dashboard | FreshMart';
+        break;
+      case 'customer-portal':
+        pageTitle = 'My Account, Saved Addresses & Orders | FreshMart';
+        break;
+      default:
+        pageTitle = 'FreshMart - 100% Organic & Farm Fresh Groceries Delivered in Minutes';
+        break;
+    }
+
+    document.title = pageTitle;
+
+    const metaDescriptionEl = document.querySelector('meta[name="description"]');
+    if (metaDescriptionEl) {
+      metaDescriptionEl.setAttribute('content', metaDesc);
+    }
+  }, [currentPage, selectedProduct, activeCategory]);
 
   // Validate coupon code with strict enforcement of all 8 parameters
   const applyCouponCode = async (rawCode, options = {}) => {

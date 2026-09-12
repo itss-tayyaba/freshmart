@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="fm-emerald" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+    <linearGradient id="fm-amber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.25" />
+    </filter>
+  </defs>
+  
+  <!-- Rounded Base Badge -->
+  <rect width="128" height="128" rx="28" fill="url(#fm-emerald)" filter="url(#shadow)" />
+  
+  <!-- Fresh Leaf Accent -->
+  <path d="M78 30 C96 30 102 46 98 62 C82 66 66 58 64 42 C64 34 70 30 78 30 Z" fill="url(#fm-amber)" />
+  <path d="M70 46 C80 50 88 48 94 40" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" />
+
+  <!-- Grocery Basket / Cart Body -->
+  <path d="M34 52 L94 52 C98 52 101 55 100 59 L92 90 C91 94 88 96 84 96 L44 96 C40 96 37 94 36 90 L28 59 C27 55 30 52 34 52 Z" fill="#ffffff" />
+  
+  <!-- Basket Grid Slits -->
+  <path d="M46 62 L48 86" stroke="#059669" stroke-width="3.5" stroke-linecap="round" />
+  <path d="M64 62 L64 86" stroke="#059669" stroke-width="3.5" stroke-linecap="round" />
+  <path d="M82 62 L80 86" stroke="#059669" stroke-width="3.5" stroke-linecap="round" />
+  
+  <!-- Cart Wheels -->
+  <circle cx="46" cy="106" r="6" fill="#ffffff" />
+  <circle cx="82" cy="106" r="6" fill="#ffffff" />
+  <circle cx="46" cy="106" r="2.5" fill="#047857" />
+  <circle cx="82" cy="106" r="2.5" fill="#047857" />
+</svg>

@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDB } from '../server/config/db.js';
+import { corsOptions } from '../server/config/corsOptions.js';
 import apiRoutes from '../server/routes/apiRoutes.js';
 import { notFound, errorHandler } from '../server/middleware/errorMiddleware.js';
 
@@ -9,11 +10,7 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+app.use(cors(corsOptions));
 
 app.use(express.json());
 

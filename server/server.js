@@ -3,6 +3,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { connectDB, isDbOnline } from './config/db.js';
+import { corsOptions } from './config/corsOptions.js';
 import apiRoutes from './routes/apiRoutes.js';
 import { notFound, errorHandler } from './middleware/errorMiddleware.js';
 import { Product } from './models/Product.js';
@@ -14,7 +15,7 @@ dotenv.config();
 const app = express();
 
 // Middlewares
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 if (process.env.NODE_ENV !== 'production') {
