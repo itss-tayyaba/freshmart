@@ -24,10 +24,12 @@ import {
   Sparkles,
   RefreshCw,
   TrendingUp,
+  Building,
   Compass,
   ArrowRight
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { PAKISTAN_CITIES } from '../../data/pakistanLocations';
 
 export const DeliveryPortal = () => {
   const {
@@ -168,8 +170,8 @@ export const DeliveryPortal = () => {
             onClick={() => navigateTo('delivery')}
             className="px-4 py-3.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border border-slate-700 transition-colors cursor-pointer"
           >
-            <Compass className="w-4 h-4 text-emerald-400" />
-            <span>Customer GPS Tracker</span>
+            <MapPin className="w-4 h-4 text-emerald-400" />
+            <span>Order Delivery Tracker</span>
           </button>
         </div>
 
@@ -238,7 +240,7 @@ export const DeliveryPortal = () => {
           { id: 'riders', label: 'Rider Fleet Management', icon: Bike, count: riders.length },
           { id: 'dispatches', label: 'Live Parcel Dispatches', icon: Package, count: pendingDispatches.length },
           { id: 'simulator', label: 'Rider Mobile App View', icon: Smartphone, tag: 'Live App' },
-          { id: 'radar', label: 'GPS Hub Radar Map', icon: Compass }
+          { id: 'coverage', label: 'Hubs & Service Cities', icon: Building }
         ].map((t) => {
           const Icon = t.icon;
           const isActive = activeTab === t.id;
@@ -629,39 +631,36 @@ export const DeliveryPortal = () => {
       )}
 
       {/* ===================================================================== */}
-      {/* TAB 4: GPS RADAR MAP VIEW                                             */}
+      {/* TAB 4: LOGISTICS HUBS & SERVICE CITIES                                */}
       {/* ===================================================================== */}
-      {activeTab === 'radar' && (
-        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4">
+      {activeTab === 'coverage' && (
+        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-5">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
-              <h3 className="font-black text-base text-slate-900">Dark Store Dispatch Radar</h3>
-              <p className="text-xs text-slate-400">Live GPS tracking of Lahore and Punjab delivery sectors</p>
+              <h3 className="font-black text-base text-slate-900">Logistics Hubs & Pakistan City Coverage</h3>
+              <p className="text-xs text-slate-400">Centrally managed Dark Store fulfillment centers across major cities</p>
             </div>
             <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
-              ● All Systems Operational
+              ● All Logistics Hubs Operational
             </span>
           </div>
 
-          <div className="h-80 bg-slate-900 rounded-3xl relative overflow-hidden border border-slate-800 flex items-center justify-center">
-            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:16px_16px]" />
-            
-            {/* Dark store central hub */}
-            <div className="relative z-10 flex flex-col items-center gap-1 text-center animate-pulse">
-              <div className="w-14 h-14 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-black text-xl shadow-[0_0_30px_rgba(16,185,129,0.5)]">
-                🏬
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {PAKISTAN_CITIES.map((c) => (
+              <div key={c.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-xs text-slate-900">{c.city}</span>
+                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                    Active Hub
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-700 font-bold">{c.hubName}</p>
+                <div className="text-[11px] text-slate-500 space-y-0.5 pt-1 border-t border-slate-200/60">
+                  <span className="block font-semibold">Covered Neighborhoods:</span>
+                  <span className="block text-slate-700">{c.neighborhoods.map((n) => n.name).join(', ')}</span>
+                </div>
               </div>
-              <span className="font-black text-xs text-white">FreshMart Dark Store #1</span>
-              <span className="text-[10px] text-emerald-400 font-mono">Gulberg Hub • 10-Min Radius</span>
-            </div>
-
-            {/* Simulated moving riders */}
-            <div className="absolute top-1/4 left-1/4 flex items-center gap-1 bg-slate-800/90 text-white px-2 py-1 rounded-xl text-[10px] font-bold border border-slate-700">
-              <span>🛵 Hamza (LEK-8420)</span>
-            </div>
-            <div className="absolute bottom-1/4 right-1/4 flex items-center gap-1 bg-slate-800/90 text-white px-2 py-1 rounded-xl text-[10px] font-bold border border-slate-700">
-              <span>🛵 Ali (LEA-1903)</span>
-            </div>
+            ))}
           </div>
         </div>
       )}

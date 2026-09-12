@@ -1067,7 +1067,9 @@ export const StoreProvider = ({ children }) => {
       name: targetRider.name,
       phone: targetRider.phone,
       vehicle: targetRider.vehicleNumber || targetRider.vehicleType,
-      eta: '10-15 mins'
+      zone: targetRider.zone || 'Lahore Hub',
+      assignedAt: new Date().toISOString(),
+      eta: '15-25 mins'
     };
 
     setCustomerOrders((prev) =>
@@ -1076,7 +1078,20 @@ export const StoreProvider = ({ children }) => {
           ? {
               ...o,
               assignedRider: assignedInfo,
-              status: 'Dispatched to Rider'
+              status: 'Out for Delivery',
+              statusClass: 'bg-purple-100 text-purple-800'
+            }
+          : o
+      )
+    );
+    setAdminOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              assignedRider: assignedInfo,
+              status: 'Out for Delivery',
+              statusClass: 'bg-purple-100 text-purple-800'
             }
           : o
       )
@@ -1085,10 +1100,11 @@ export const StoreProvider = ({ children }) => {
       setActiveDeliveryOrder((prev) => ({
         ...prev,
         assignedRider: assignedInfo,
-        status: 'Dispatched to Rider'
+        status: 'Out for Delivery',
+        statusClass: 'bg-purple-100 text-purple-800'
       }));
     }
-    addToast('Rider Assigned 🛵', `${targetRider.name} assigned to Order ${orderId}.`);
+    addToast('Rider Assigned 🛵', `${targetRider.name} assigned to Order ${orderId}. Status updated to Out for Delivery.`);
   };
 
   const updateDeliveryOrderStatus = (orderId, newStatus) => {
@@ -1373,11 +1389,14 @@ export const StoreProvider = ({ children }) => {
       total: orderTotal,
       subtotal: orderData.subtotal || cartSubtotal,
       deliveryCharges: orderData.deliveryCharges || deliveryCharges,
-      status: 'Preparing',
-      statusClass: 'bg-blue-100 text-blue-800',
+      status: 'Pending', // Order goes to Admin for review and rider assignment
+      statusClass: 'bg-amber-100 text-amber-800',
+      assignedRider: null,
       payment: orderData.paymentMethod || 'Cash on Delivery',
-      deliverySlot: orderData.deliverySlot || '⚡ 10-15 Mins Express',
+      deliverySlot: orderData.deliverySlot || '⚡ 25-35 Mins Express Delivery',
       address: orderData.address || deliveryLocation?.address || '123, Block A, Gulberg 3, Lahore',
+      city: orderData.city || deliveryLocation?.city || 'Lahore',
+      neighborhood: orderData.neighborhood || deliveryLocation?.neighborhood || 'Gulberg',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       createdAt: new Date().toISOString(),
       dateFormatted: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })

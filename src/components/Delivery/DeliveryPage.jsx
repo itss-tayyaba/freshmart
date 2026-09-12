@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MapPin,
   Truck,
@@ -7,29 +7,25 @@ import {
   Clock,
   ShieldCheck,
   CheckCircle2,
-  Navigation,
-  Sparkles,
   Building,
   Home,
   Briefcase,
-  ChevronRight,
   Plus,
-  Compass,
   Zap,
   ShoppingBag,
   Info,
   Check,
   Trash2,
-  Radio,
-  ThermometerSnowflake,
-  ExternalLink,
-  RotateCcw,
-  Play,
-  Pause,
-  AlertCircle
+  AlertCircle,
+  Sparkles,
+  Search,
+  ChevronRight,
+  User,
+  CheckCircle,
+  Package
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
-import { PAKISTAN_CITIES, findNearestCity, calculateDistanceKm } from '../../data/pakistanLocations';
+import { PAKISTAN_CITIES } from '../../data/pakistanLocations';
 
 export const DeliveryPage = () => {
   const {
@@ -56,16 +52,10 @@ export const DeliveryPage = () => {
 
   // Active tracked order selection
   const [trackedOrderId, setTrackedOrderId] = useState(
-    activeDeliveryOrder?.id || (customerOrders.length > 0 ? customerOrders[0].id : '#ORD-1049')
+    activeDeliveryOrder?.id || (customerOrders.length > 0 ? customerOrders[0].id : '')
   );
+  const [orderSearchQuery, setOrderSearchQuery] = useState('');
 
-  // Live GPS simulation state
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [riderProgress, setRiderProgress] = useState(35); // 0% to 100%
-  const [riderSpeed, setRiderSpeed] = useState(34); // km/h
-  const [etaSecondsTotal, setEtaSecondsTotal] = useState(540); // 9 mins
-  const [bagTemp, setBagTemp] = useState(3.2); // Celsius
-  const [isLocating, setIsLocating] = useState(false);
   const [deliveryNote, setDeliveryNote] = useState('call_gate'); // 'doorstep' | 'ring' | 'call_gate'
 
   // Add Address Form Modal
@@ -89,101 +79,22 @@ export const DeliveryPage = () => {
     }
   }, [deliveryLocation]);
 
-  // Live GPS Telemetry Simulation Interval
+  // Keep trackedOrderId synced if activeDeliveryOrder updates
   useEffect(() => {
-    if (!isPlaying) return;
-
-    const interval = setInterval(() => {
-      setRiderProgress((prev) => {
-        if (prev >= 100) return 100;
-        return Number((prev + 0.5).toFixed(1));
-      });
-
-      setEtaSecondsTotal((prev) => (prev > 0 ? prev - 1 : 0));
-
-      // Fluctuating realistic city speed (30-38 km/h)
-      setRiderSpeed((prev) => {
-        const delta = (Math.random() - 0.5) * 2;
-        const newSpeed = Math.min(39, Math.max(28, prev + delta));
-        return Math.round(newSpeed);
-      });
-
-      // Subtle refrigerated bag temperature sensor
-      setBagTemp((prev) => {
-        const delta = (Math.random() - 0.5) * 0.1;
-        return Number(Math.min(3.8, Math.max(2.8, prev + delta)).toFixed(1));
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isPlaying]);
-
-  // Calculate dynamic coordinates for moving rider along route
-  const hubCoords = selectedCity.hubCoords;
-  const destCoords = selectedNeighborhood.coords;
-  const currentRiderLat = hubCoords.lat + (destCoords.lat - hubCoords.lat) * (riderProgress / 100);
-  const currentRiderLng = hubCoords.lng + (destCoords.lng - hubCoords.lng) * (riderProgress / 100);
-  
-  const totalTripDistanceKm = calculateDistanceKm(hubCoords.lat, hubCoords.lng, destCoords.lat, destCoords.lng);
-  const distanceRemainingKm = Number((totalTripDistanceKm * (1 - riderProgress / 100)).toFixed(2));
-
-  const formatEta = (totalSec) => {
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  };
-
-  // Determine active assigned rider dynamically from Admin-created fleet or active order
-  const activeOrder = activeDeliveryOrder || customerOrders.find((o) => o.id === trackedOrderId) || customerOrders[0];
-  const assignedRider = activeOrder?.assignedRider || (Array.isArray(riders) && riders.length > 0 ? riders[0] : null);
-
-  // Real-time Geolocation via Browser API
-  const handleAutoDetectGPS = () => {
-    setIsLocating(true);
-    if (!navigator.geolocation) {
-      addToast('GPS Not Supported', 'Geolocation is not supported by your browser.', 'error');
-      setIsLocating(false);
-      return;
+    if (activeDeliveryOrder?.id) {
+      setTrackedOrderId(activeDeliveryOrder.id);
+    } else if (!trackedOrderId && customerOrders.length > 0) {
+      setTrackedOrderId(customerOrders[0].id);
     }
+  }, [activeDeliveryOrder, customerOrders]);
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const { city, distanceKm } = findNearestCity(latitude, longitude);
+  // Current active order being tracked
+  const currentOrder =
+    customerOrders.find((o) => o.id === trackedOrderId) ||
+    activeDeliveryOrder ||
+    (customerOrders.length > 0 ? customerOrders[0] : null);
 
-        let closestNeighborhood = city.neighborhoods[0];
-        let minD = Infinity;
-        city.neighborhoods.forEach((n) => {
-          const d = calculateDistanceKm(latitude, longitude, n.coords.lat, n.coords.lng);
-          if (d < minD) {
-            minD = d;
-            closestNeighborhood = n;
-          }
-        });
-
-        setSelectedCity(city);
-        setSelectedNeighborhood(closestNeighborhood);
-        setDeliveryLocation({
-          city: city.city,
-          address: `${closestNeighborhood.defaultAddress} (Exact GPS ${latitude.toFixed(4)}, ${longitude.toFixed(4)})`,
-          neighborhood: closestNeighborhood.name,
-          coords: { lat: latitude, lng: longitude },
-          hubName: city.hubName,
-          label: 'Current GPS Location'
-        });
-
-        setIsLocating(false);
-        setRiderProgress(15);
-        setEtaSecondsTotal(620);
-        addToast('Exact GPS Locked 🎯', `Connected to ${city.hubName} (${distanceKm} km away)`);
-      },
-      (err) => {
-        setIsLocating(false);
-        addToast('GPS Permission Needed', 'Please allow location permission in your browser or select your city manually.', 'info');
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
+  const assignedRider = currentOrder?.assignedRider || null;
 
   const handleCityChange = (city) => {
     setSelectedCity(city);
@@ -197,9 +108,7 @@ export const DeliveryPage = () => {
       hubName: city.hubName,
       label: 'Home'
     });
-    setRiderProgress(20);
-    setEtaSecondsTotal(580);
-    addToast('City Switched 📍', `Now tracking delivery from ${city.hubName}`);
+    addToast('City Switched 📍', `Selected ${city.city} (${city.hubName})`);
   };
 
   const handleNeighborhoodChange = (n) => {
@@ -212,16 +121,7 @@ export const DeliveryPage = () => {
       hubName: selectedCity.hubName,
       label: 'Home'
     });
-    setRiderProgress(25);
-    setEtaSecondsTotal(520);
-    addToast('Neighborhood Set 📍', `Destination updated to ${n.name}, ${selectedCity.city}`);
-  };
-
-  const handleResetSimulation = () => {
-    setRiderProgress(0);
-    setEtaSecondsTotal(660);
-    setIsPlaying(true);
-    addToast('Route Reset 🔄', 'Live dispatch animation restarted from Dark Store Hub.');
+    addToast('Area Updated 📍', `Drop-off area set to ${n.name}, ${selectedCity.city}`);
   };
 
   const handleCreateAddress = (e) => {
@@ -233,84 +133,100 @@ export const DeliveryPage = () => {
     setAddressForm({ label: 'Home', address: '', city: selectedCity.city, phone: '' });
   };
 
+  const handleSearchOrder = (e) => {
+    e.preventDefault();
+    const q = orderSearchQuery.trim().toUpperCase();
+    if (!q) return;
+
+    const found = customerOrders.find(
+      (o) => o.id.toUpperCase() === q || o.id.toUpperCase().includes(q)
+    );
+
+    if (found) {
+      setTrackedOrderId(found.id);
+      addToast('Order Found 📦', `Tracking Order ${found.id}`);
+    } else {
+      addToast('Order Not Found', `No placed order matching "${orderSearchQuery}".`, 'error');
+    }
+  };
+
+  // Determine active milestone stage
+  const getStageIndex = (order) => {
+    if (!order) return 1;
+    const s = (order.status || '').toLowerCase();
+    if (s.includes('delivered') || s.includes('completed')) return 5;
+    if (s.includes('arrived') || s.includes('doorstep')) return 4;
+    if (s.includes('out for delivery') || s.includes('picked up') || s.includes('transit') || order.assignedRider) return 3;
+    if (s.includes('packing') || s.includes('processing')) return 2;
+    return 1; // Pending / Placed
+  };
+
+  const activeStage = getStageIndex(currentOrder);
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
       
-      {/* 1. Header Banner & Live Telemetry HUD */}
+      {/* 1. Header Banner */}
       <div className="bg-gradient-to-r from-[#04281e] via-[#074132] to-[#0f243a] rounded-3xl p-6 sm:p-8 text-white shadow-2xl border border-emerald-500/30 flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative overflow-hidden">
         <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-emerald-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="space-y-2.5 z-10 max-w-xl">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs font-black uppercase tracking-wider">
-            <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-            <span>EXACT SATELLITE GPS RADAR • 10-15 MIN DARK STORE DISPATCH</span>
+            <Truck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>EXPRESS COLD-CHAIN DISPATCH • 15-30 MIN FULFILLMENT</span>
           </div>
 
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
-            Live Order Tracking & <br />
-            <span className="text-emerald-400">Express Courier Radar</span>
+            Order Fulfillment & <br />
+            <span className="text-emerald-400">Address-Based Delivery Tracker</span>
           </h1>
 
           <p className="text-xs sm:text-sm text-emerald-100/85 font-medium leading-relaxed">
-            Direct telemetry from <strong className="text-white">{selectedCity.hubName}</strong> straight to <strong className="text-white">{selectedNeighborhood.name}</strong>.
+            Every order is dispatched from <strong className="text-white">{selectedCity.hubName}</strong> straight to your delivery address.
           </p>
         </div>
 
-        {/* Live HUD Telemetry Card */}
-        <div className="bg-white/10 backdrop-blur-md p-5 rounded-3xl border border-white/20 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-4 z-10 shrink-0">
+        {/* Quick Order Stats / Status Widget */}
+        <div className="bg-white/10 backdrop-blur-md p-5 rounded-3xl border border-white/20 grid grid-cols-2 sm:grid-cols-3 gap-4 z-10 shrink-0 text-xs">
           <div className="space-y-0.5">
-            <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block">Estimated Arrival</span>
-            <div className="text-2xl font-black font-mono tracking-tight text-white flex items-center gap-1.5">
-              <Clock className="w-5 h-5 text-amber-300" />
-              <span>{formatEta(etaSecondsTotal)}</span>
+            <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block">Hub Zone</span>
+            <div className="text-sm font-black text-white flex items-center gap-1.5">
+              <Building className="w-4 h-4 text-emerald-400" />
+              <span>{selectedCity.city}</span>
             </div>
-            <span className="text-[10px] text-emerald-200 font-semibold">{riderProgress >= 100 ? 'Arrived at Doorstep' : 'Rider in transit'}</span>
+            <span className="text-[10px] text-emerald-200">{selectedCity.hubName.split('(')[0]}</span>
           </div>
 
           <div className="space-y-0.5">
-            <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block">Distance Remaining</span>
-            <div className="text-2xl font-black font-mono tracking-tight text-white flex items-center gap-1.5">
-              <Navigation className="w-5 h-5 text-emerald-300" />
-              <span>{distanceRemainingKm} <span className="text-xs text-emerald-200 font-bold">km</span></span>
+            <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block">Fulfillment Slot</span>
+            <div className="text-sm font-black text-white flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-amber-300" />
+              <span>{currentOrder?.deliverySlot ? currentOrder.deliverySlot.replace(/[^0-9- ]/g, '').trim() || 'Express' : '15-25 Mins'}</span>
             </div>
-            <span className="text-[10px] text-emerald-200 font-semibold">Speed: {riderSpeed} km/h</span>
+            <span className="text-[10px] text-emerald-200 font-semibold">Priority Dispatch</span>
           </div>
 
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block">Cold Chain Chilled</span>
-            <div className="text-2xl font-black font-mono tracking-tight text-white flex items-center gap-1.5">
-              <ThermometerSnowflake className="w-5 h-5 text-cyan-300" />
-              <span>{bagTemp}°C</span>
+          <div className="space-y-0.5 col-span-2 sm:col-span-1">
+            <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block">Order Status</span>
+            <div className="text-sm font-black text-emerald-300 flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>{currentOrder?.status || 'Active Order'}</span>
             </div>
-            <span className="text-[10px] text-cyan-200 font-semibold">Freshness Guaranteed</span>
-          </div>
-
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block">GPS Satellite Lock</span>
-            <div className="text-2xl font-black font-mono tracking-tight text-emerald-300 flex items-center gap-1.5">
-              <Radio className="w-5 h-5 text-emerald-400 animate-ping" />
-              <span className="text-lg">4G LTE</span>
-            </div>
-            <span className="text-[10px] text-emerald-200 font-semibold">High Accuracy Pin</span>
+            <span className="text-[10px] text-emerald-200">
+              {assignedRider ? `Assigned: ${assignedRider.name}` : 'Awaiting Rider Assignment'}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* 2. City Switcher Tabs */}
-      <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-100 shadow-sm space-y-3">
+      {/* 2. City & Hub Selector */}
+      <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Building className="w-4 h-4 text-emerald-600" />
-            <span className="text-xs font-black uppercase tracking-wider text-slate-700">Select City & Logistics Hub:</span>
+            <span className="text-xs font-black uppercase tracking-wider text-slate-700">Logistics Hub & Service Cities:</span>
           </div>
-          <button
-            onClick={handleAutoDetectGPS}
-            disabled={isLocating}
-            className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border border-emerald-200"
-          >
-            <Compass className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
-            <span>{isLocating ? 'Locating...' : 'Use Exact GPS'}</span>
-          </button>
+          <span className="text-xs text-slate-400 font-medium">Dark Store fulfillment across Pakistan</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
@@ -335,9 +251,9 @@ export const DeliveryPage = () => {
           })}
         </div>
 
-        {/* Neighborhood Pills for Active City */}
+        {/* Neighborhood Area Selector */}
         <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-bold text-slate-400">Neighborhood:</span>
+          <span className="text-[11px] font-bold text-slate-400">Popular Delivery Areas:</span>
           {selectedCity.neighborhoods.map((n) => {
             const isNActive = selectedNeighborhood.id === n.id;
             return (
@@ -357,147 +273,255 @@ export const DeliveryPage = () => {
         </div>
       </div>
 
-      {/* 3. Main Grid: Interactive Map Radar & Order Details */}
+      {/* 3. Main Tracking & Order Details Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
-        {/* Left 8 Cols: Interactive Route Map Radar */}
+        {/* Left 8 Cols: Order Milestone Progress & Assigned Courier */}
         <div className="lg:col-span-8 space-y-6">
           
+          {/* Order Search & Order Switcher */}
           <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-5">
             
-            {/* Map Header & Controls */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-black">
-                  <Navigation className="w-5 h-5 text-emerald-600" />
+                  <Package className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-black text-base text-slate-900">Live GPS Highway Radar</h3>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                      Order {trackedOrderId}
-                    </span>
-                  </div>
+                  <h3 className="font-black text-base text-slate-900">Order Delivery Progression</h3>
                   <p className="text-xs text-slate-400">
-                    GPS Coordinates: <span className="font-mono text-slate-600">{currentRiderLat.toFixed(4)}°N, {currentRiderLng.toFixed(4)}°E</span>
+                    {currentOrder ? `Tracking Order ID: ${currentOrder.id}` : 'No active order selected'}
                   </p>
                 </div>
               </div>
 
-              {/* Simulation Action Controls */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setIsPlaying(!isPlaying)}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
-                  title={isPlaying ? 'Pause simulation' : 'Resume simulation'}
-                >
-                  {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                  <span>{isPlaying ? 'Pause' : 'Resume'}</span>
-                </button>
-                <button
-                  onClick={handleResetSimulation}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
-                  title="Restart route animation"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Restart</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Interactive Vector Route Radar Canvas */}
-            <div className="relative h-72 sm:h-96 rounded-3xl bg-[#091522] overflow-hidden border border-slate-800 shadow-2xl p-6 select-none">
-              
-              {/* Tactical Grid Background */}
-              <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px]" />
-              <div className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#334155_1px,transparent_1px),linear-gradient(to_bottom,#334155_1px,transparent_1px)] [background-size:48px_48px]" />
-
-              {/* Satellite City Watermark */}
-              <div className="absolute top-4 left-6 text-[11px] font-mono text-emerald-400/60 uppercase tracking-widest z-0 pointer-events-none">
-                SECTOR: {selectedCity.city.toUpperCase()} • HUB LAT {hubCoords.lat}°N / LNG {hubCoords.lng}°E
-              </div>
-
-              {/* Road Polyline SVG */}
-              <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none">
-                {/* Secondary Street Network */}
-                <path d="M 0 140 L 900 140" stroke="#1e293b" strokeWidth="3" strokeDasharray="4 4" />
-                <path d="M 0 260 L 900 260" stroke="#1e293b" strokeWidth="3" strokeDasharray="4 4" />
-                <path d="M 280 0 L 280 400" stroke="#1e293b" strokeWidth="3" strokeDasharray="4 4" />
-                <path d="M 580 0 L 580 400" stroke="#1e293b" strokeWidth="3" strokeDasharray="4 4" />
-
-                {/* Primary Express Route */}
-                <path
-                  d="M 80 280 C 260 280, 240 120, 500 120 C 680 120, 720 180, 820 80"
-                  fill="none"
-                  stroke="#1e3a5f"
-                  strokeWidth="20"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M 80 280 C 260 280, 240 120, 500 120 C 680 120, 720 180, 820 80"
-                  fill="none"
-                  stroke="#059669"
-                  strokeWidth="6"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M 80 280 C 260 280, 240 120, 500 120 C 680 120, 720 180, 820 80"
-                  fill="none"
-                  stroke="#34d399"
-                  strokeWidth="2"
-                  strokeDasharray="8 8"
-                  className="animate-pulse"
-                />
-              </svg>
-
-              {/* Node 1: Dark Store Hub */}
-              <div className="absolute left-6 bottom-6 bg-slate-900/90 text-white p-3 rounded-2xl border-2 border-emerald-500 shadow-2xl flex items-center gap-3 z-10 backdrop-blur-xs">
-                <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white text-lg font-bold shadow-md">
-                  🏬
-                </div>
-                <div className="text-left text-xs">
-                  <span className="font-black text-emerald-400 block">{selectedCity.hubName.split('(')[0].trim()}</span>
-                  <span className="text-[10px] text-slate-300 font-mono">{hubCoords.lat.toFixed(3)}°N, {hubCoords.lng.toFixed(3)}°E</span>
-                </div>
-              </div>
-
-              {/* Node 2: Live Rider Marker (interpolated along path) */}
-              <div
-                className="absolute transition-all duration-1000 z-20 flex flex-col items-center"
-                style={{
-                  left: `${Math.min(84, Math.max(8, 8 + riderProgress * 0.74))}%`,
-                  top: `${Math.min(75, Math.max(15, 68 - Math.sin((riderProgress / 100) * Math.PI) * 45))}%`
-                }}
-              >
-                {/* Rider Telemetry Tooltip */}
-                <div className="bg-amber-400 text-slate-950 px-2.5 py-1 rounded-xl text-[10px] font-black shadow-xl mb-1.5 flex items-center gap-1.5 border border-amber-300 shrink-0 whitespace-nowrap animate-bounce">
-                  <span>🛵 {assignedRider ? assignedRider.name : 'Express Courier'}</span>
-                  <span className="bg-slate-950 text-white px-1.5 py-0.2 rounded-md font-mono">{riderSpeed} km/h</span>
-                </div>
-
-                {/* Pulsing Beacon */}
+              {/* Order Search Input */}
+              <form onSubmit={handleSearchOrder} className="flex items-center gap-2">
                 <div className="relative">
-                  <div className="w-11 h-11 rounded-full bg-emerald-500 text-white flex items-center justify-center border-4 border-white shadow-2xl text-lg font-bold">
-                    🛵
-                  </div>
-                  <div className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-75"></div>
+                  <input
+                    type="text"
+                    placeholder="Search Order ID..."
+                    value={orderSearchQuery}
+                    onChange={(e) => setOrderSearchQuery(e.target.value)}
+                    className="w-40 sm:w-48 bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 font-mono text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 </div>
-              </div>
-
-              {/* Node 3: Customer Destination Doorstep */}
-              <div className="absolute right-6 top-6 bg-slate-900/90 text-white p-3 rounded-2xl border-2 border-amber-400 shadow-2xl flex items-center gap-3 z-10 backdrop-blur-xs">
-                <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center text-slate-950 text-lg font-bold shadow-md">
-                  🏠
-                </div>
-                <div className="text-left text-xs max-w-[140px]">
-                  <span className="font-black text-amber-300 block">{selectedNeighborhood.name}</span>
-                  <span className="text-[10px] text-slate-300 font-mono truncate block">{destCoords.lat.toFixed(3)}°N, {destCoords.lng.toFixed(3)}°E</span>
-                </div>
-              </div>
-
+                <button
+                  type="submit"
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer transition-colors"
+                >
+                  Track
+                </button>
+              </form>
             </div>
 
-            {/* Rider Profile & Contact Bar */}
+            {/* If Placed Customer Orders exist, show quick pill switcher */}
+            {customerOrders.length > 1 && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+                <span className="text-slate-400 font-bold shrink-0">Your Placed Orders:</span>
+                {customerOrders.map((ord) => (
+                  <button
+                    key={ord.id}
+                    onClick={() => setTrackedOrderId(ord.id)}
+                    className={`px-3 py-1 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                      trackedOrderId === ord.id
+                        ? 'bg-emerald-700 text-white shadow-2xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {ord.id} ({ord.status || 'Pending'})
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Current Order Summary Card */}
+            {currentOrder ? (
+              <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/80 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Order ID</span>
+                    <span className="font-mono font-black text-slate-900 text-sm">{currentOrder.id}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Customer</span>
+                    <span className="font-bold text-slate-800">{currentOrder.customer || 'Customer'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Total Amount</span>
+                    <span className="font-mono font-black text-emerald-700 text-sm">PKR {currentOrder.totalAmount}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Payment</span>
+                    <span className="font-bold text-slate-700">{currentOrder.payment || 'Cash on Delivery'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Order Status</span>
+                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] ${currentOrder.statusClass || 'bg-amber-100 text-amber-800'}`}>
+                      {currentOrder.status || 'Pending Admin Assignment'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Delivery Destination Snapshot */}
+                <div className="pt-3 border-t border-slate-200/60 flex items-start gap-2.5 text-xs">
+                  <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-slate-800">Destination: </span>
+                    <span className="text-slate-600">{currentOrder.address || selectedNeighborhood.defaultAddress}</span>
+                    <span className="text-slate-400 block text-[11px]">
+                      {currentOrder.city || selectedCity.city} • Recipient Contact: {currentOrder.customerPhone || '+92 300 1234567'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                <p className="text-xs text-slate-500 font-medium">No order placed yet. Place an order from the shop to track delivery.</p>
+                <button
+                  onClick={() => navigateTo('shop')}
+                  className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 cursor-pointer shadow-xs"
+                >
+                  Start Shopping &rarr;
+                </button>
+              </div>
+            )}
+
+            {/* 5-Step Order Milestone Tracker */}
+            <div className="pt-2 space-y-3">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-400 block">
+                Fulfillment Milestones
+              </span>
+
+              <div className="space-y-3">
+                
+                {/* Milestone 1: Order Placed */}
+                <div className="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 text-xs">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-emerald-900">1. Order Received & Invoiced</h4>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Completed</span>
+                    </div>
+                    <p className="text-slate-600 text-[11px] mt-0.5">
+                      Order details sent to the Store Admin dashboard for packing and rider allocation.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Milestone 2: Packing */}
+                <div className={`p-3.5 rounded-2xl border flex items-start gap-3 transition-all ${
+                  activeStage >= 2 ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200 opacity-60'
+                }`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
+                    activeStage >= 2 ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-600'
+                  }`}>
+                    {activeStage >= 2 ? <CheckCircle2 className="w-4 h-4" /> : '2'}
+                  </div>
+                  <div className="flex-1 text-xs">
+                    <div className="flex items-center justify-between">
+                      <h4 className={`font-bold ${activeStage >= 2 ? 'text-emerald-900' : 'text-slate-700'}`}>
+                        2. Dark Store Packing & Cold-Chain Prep
+                      </h4>
+                      {activeStage >= 2 && (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Completed</span>
+                      )}
+                    </div>
+                    <p className="text-slate-600 text-[11px] mt-0.5">
+                      Items carefully verified and packed in insulated chilled packaging at {selectedCity.hubName}.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Milestone 3: Rider Assigned by Admin */}
+                <div className={`p-3.5 rounded-2xl border flex items-start gap-3 transition-all ${
+                  assignedRider
+                    ? 'bg-emerald-50 border-emerald-200 ring-2 ring-emerald-500/20'
+                    : activeStage === 1
+                    ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-400/20'
+                    : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
+                    assignedRider
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-amber-500 text-white'
+                  }`}>
+                    {assignedRider ? <CheckCircle2 className="w-4 h-4" /> : '3'}
+                  </div>
+                  <div className="flex-1 text-xs">
+                    <div className="flex items-center justify-between">
+                      <h4 className={`font-bold ${assignedRider ? 'text-emerald-900' : 'text-amber-900'}`}>
+                        3. Admin Courier Allocation & Dispatch
+                      </h4>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        assignedRider ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {assignedRider ? 'Rider Assigned' : 'Awaiting Admin Assignment'}
+                      </span>
+                    </div>
+                    <p className="text-slate-600 text-[11px] mt-0.5">
+                      {assignedRider
+                        ? `Assigned to courier ${assignedRider.name} (${assignedRider.vehicle || assignedRider.vehicleType}). Parcel handed over for express dispatch.`
+                        : `The Store Admin is reviewing your drop-off address and assigning the closest on-duty courier from ${selectedCity.city}.`}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Milestone 4: Out for Delivery */}
+                <div className={`p-3.5 rounded-2xl border flex items-start gap-3 transition-all ${
+                  activeStage >= 4 ? 'bg-emerald-50 border-emerald-200' : activeStage === 3 ? 'bg-purple-50 border-purple-300 ring-2 ring-purple-400/20' : 'bg-slate-50 border-slate-200 opacity-60'
+                }`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
+                    activeStage >= 4 ? 'bg-emerald-600 text-white' : activeStage === 3 ? 'bg-purple-600 text-white' : 'bg-slate-300 text-slate-600'
+                  }`}>
+                    {activeStage >= 4 ? <CheckCircle2 className="w-4 h-4" /> : '4'}
+                  </div>
+                  <div className="flex-1 text-xs">
+                    <div className="flex items-center justify-between">
+                      <h4 className={`font-bold ${activeStage >= 3 ? 'text-purple-900' : 'text-slate-700'}`}>
+                        4. Out for Delivery & Heading to Destination
+                      </h4>
+                      {activeStage === 3 && (
+                        <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full animate-pulse">In Progress</span>
+                      )}
+                    </div>
+                    <p className="text-slate-600 text-[11px] mt-0.5">
+                      Rider is en route to <strong className="text-slate-800">{currentOrder?.address || selectedNeighborhood.name}</strong>.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Milestone 5: Delivered */}
+                <div className={`p-3.5 rounded-2xl border flex items-start gap-3 transition-all ${
+                  activeStage === 5 ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-500/20' : 'bg-slate-50 border-slate-200 opacity-60'
+                }`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
+                    activeStage === 5 ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-600'
+                  }`}>
+                    {activeStage === 5 ? <CheckCircle2 className="w-4 h-4" /> : '5'}
+                  </div>
+                  <div className="flex-1 text-xs">
+                    <div className="flex items-center justify-between">
+                      <h4 className={`font-bold ${activeStage === 5 ? 'text-emerald-900' : 'text-slate-700'}`}>
+                        5. Delivered to Doorstep
+                      </h4>
+                      {activeStage === 5 && (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Delivered</span>
+                      )}
+                    </div>
+                    <p className="text-slate-600 text-[11px] mt-0.5">
+                      Package handed over at delivery address. Thank you for shopping with FreshMart!
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Courier Contact Card */}
             {assignedRider ? (
               <div className="bg-slate-50 p-4 sm:p-5 rounded-3xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -508,15 +532,15 @@ export const DeliveryPage = () => {
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <h4 className="font-black text-sm text-slate-900">{assignedRider.name}</h4>
                       <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full">
-                        ★ {assignedRider.rating || 5.0} ({assignedRider.deliveriesCount || 0} deliveries)
+                        ★ {assignedRider.rating || 5.0} Certified Courier
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 font-medium">
-                      {assignedRider.vehicleNumber || assignedRider.vehicle || assignedRider.vehicleType || 'Motorbike'} • FreshMart Certified Courier
+                      {assignedRider.vehicle || assignedRider.vehicleType || 'Motorbike'} • FreshMart Fleet ({assignedRider.zone || 'Central Zone'})
                     </p>
                     <p className="text-[11px] text-emerald-700 font-bold flex items-center gap-1">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Admin-Registered Rider • Insulated Cold-Chain Bag Attached</span>
+                      <span>Admin-Assigned Courier • Chilled Insulated Box</span>
                     </p>
                   </div>
                 </div>
@@ -532,7 +556,7 @@ export const DeliveryPage = () => {
                       <span>Call Rider</span>
                     </a>
                     <a
-                      href={`https://wa.me/${assignedRider.phone.replace(/[^0-9]/g, '')}?text=Hi%20${encodeURIComponent(assignedRider.name)},%20checking%20on%20my%20order%20${trackedOrderId}`}
+                      href={`https://wa.me/${assignedRider.phone.replace(/[^0-9]/g, '')}?text=Hi%20${encodeURIComponent(assignedRider.name)},%20checking%20on%20my%20order%20${currentOrder?.id || ''}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="px-4 py-2.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer hover:scale-105"
@@ -544,65 +568,26 @@ export const DeliveryPage = () => {
                 )}
               </div>
             ) : (
-              <div className="bg-emerald-50/70 p-4 sm:p-5 rounded-3xl border border-emerald-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="bg-amber-50/70 p-4 sm:p-5 rounded-3xl border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black text-xl shadow-xs">
-                    🛵
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-xl shadow-xs">
+                    ⏳
                   </div>
                   <div>
-                    <h4 className="font-black text-sm text-slate-900">Awaiting Rider Assignment</h4>
-                    <p className="text-xs text-slate-500">The Store Admin will register and assign a fleet rider to this dispatch.</p>
+                    <h4 className="font-black text-sm text-slate-900">Order Sent to Admin for Rider Dispatch</h4>
+                    <p className="text-xs text-slate-600">
+                      Our dispatch manager is reviewing your delivery address ({currentOrder?.address || selectedNeighborhood.defaultAddress}) to assign the nearest fleet courier.
+                    </p>
                   </div>
                 </div>
                 <button
                   onClick={() => navigateTo('admin')}
-                  className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 shadow-2xs hover:scale-105"
+                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 shadow-2xs hover:scale-105"
                 >
-                  Manage Fleet in Admin &rarr;
+                  Admin Dispatch Portal &rarr;
                 </button>
               </div>
             )}
-
-            {/* 4-Stage Real-Time Lifecycle Timeline */}
-            <div className="pt-4 border-t border-slate-100 space-y-3">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-400 block">
-                Dispatch Lifecycle Status
-              </span>
-
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
-                <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-1">
-                  <div className="flex items-center gap-1.5 font-bold text-emerald-800">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>1. Confirmed</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Order invoice & picking list generated</p>
-                </div>
-
-                <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-1">
-                  <div className="flex items-center gap-1.5 font-bold text-emerald-800">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>2. Packed (3°C)</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Refrigerated items packed in cold chain</p>
-                </div>
-
-                <div className={`p-3 rounded-2xl border space-y-1 ${riderProgress < 100 ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-400/20' : 'bg-emerald-50 border-emerald-200'}`}>
-                  <div className="flex items-center gap-1.5 font-bold text-amber-900">
-                    <Radio className="w-4 h-4 text-amber-600 animate-pulse" />
-                    <span>3. In Transit</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600">Rider moving with live GPS telemetry</p>
-                </div>
-
-                <div className={`p-3 rounded-2xl border space-y-1 ${riderProgress >= 100 ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-400/20' : 'bg-slate-50 border-slate-200'}`}>
-                  <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                    <CheckCircle2 className={`w-4 h-4 ${riderProgress >= 100 ? 'text-emerald-600' : 'text-slate-300'}`} />
-                    <span>4. Delivered</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400">Doorstep drop & OTP confirmation</p>
-                </div>
-              </div>
-            </div>
 
           </div>
 
@@ -631,7 +616,7 @@ export const DeliveryPage = () => {
             {/* Current Selected Drop-off Display */}
             <div className="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200 text-xs space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-emerald-800 uppercase">Active Delivery Drop-Off:</span>
+                <span className="text-[10px] font-bold text-emerald-800 uppercase">Active Drop-off:</span>
                 <span className="text-emerald-800 font-bold text-[10px] bg-emerald-200 px-2 py-0.5 rounded-full">Selected</span>
               </div>
               <h4 className="font-black text-slate-900">{selectedNeighborhood.name}</h4>
@@ -734,6 +719,25 @@ export const DeliveryPage = () => {
               )}
             </div>
 
+          </div>
+
+          {/* Quality & Cold-Chain Badges */}
+          <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs space-y-3 text-xs">
+            <h4 className="font-black text-slate-800 text-xs">FreshMart Delivery Guarantee</h4>
+            <div className="space-y-2 text-slate-600 text-[11px]">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>100% Halal certified & fresh farm-picked produce</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+                <span>Insulated thermal bags maintain 3°C cold chain</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-teal-600 shrink-0" />
+                <span>Contact-free doorstep delivery option available</span>
+              </div>
+            </div>
           </div>
 
         </div>

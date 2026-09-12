@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Search, Truck, CheckCircle2, Clock, MapPin, Phone, User, Package, ShieldCheck, Navigation, Radio, ExternalLink } from 'lucide-react';
+import { X, Search, Truck, CheckCircle2, Clock, MapPin, Phone, MessageSquare, User, Package, ShieldCheck, ChevronRight } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { MOCK_TRACKING_ORDERS } from '../../data/groceryData';
 
@@ -21,27 +21,62 @@ export const OrderTrackerModal = () => {
       (o) => o.id.toUpperCase() === cleanId || o.id.toUpperCase().includes(cleanId)
     );
     if (foundReal) {
+      const isAssigned = !!foundReal.assignedRider;
+      const isDelivered = (foundReal.status || '').toLowerCase() === 'delivered';
+      const isOutForDelivery = (foundReal.status || '').toLowerCase().includes('out') || isAssigned;
+
       return {
         orderId: foundReal.id,
         placedAt: foundReal.time || 'Today, Express Slot',
-        estimatedDelivery: foundReal.deliverySlot || '⚡ 10-15 Mins Express',
+        estimatedDelivery: foundReal.deliverySlot || '⚡ 15-25 Mins Express Delivery',
         itemsCount: foundReal.rawItems ? foundReal.rawItems.length : 3,
         total: `PKR ${foundReal.totalAmount || foundReal.total || 850}`,
-        currentStage: foundReal.status === 'Delivered' ? 4 : 3,
-        driverName: foundReal.assignedRider?.name || 'Awaiting Rider Assignment',
+        address: foundReal.address || 'Standard Delivery Address',
+        city: foundReal.city || 'Lahore',
+        currentStage: isDelivered ? 4 : isOutForDelivery ? 3 : 1,
+        driverName: foundReal.assignedRider?.name || 'Awaiting Admin Assignment',
         driverPhone: foundReal.assignedRider?.phone || null,
         driverVehicle: foundReal.assignedRider?.vehicle || 'Fleet Courier',
+        isAssigned,
         timeline: [
-          { title: 'Order Confirmed', time: '0 mins ago', desc: `Invoice generated for ${foundReal.customer || 'Customer'}`, completed: true },
-          { title: 'Dark Store Packing', time: '2 mins ago', desc: 'Chilled cold-chain packaging complete', completed: true },
-          { title: 'Courier Dispatched', time: 'In Transit', desc: 'Rider is on the way with live satellite GPS', completed: foundReal.status !== 'Pending' },
-          { title: 'Delivered', time: 'Pending', desc: 'Handover at destination address', completed: foundReal.status === 'Delivered' }
+          {
+            title: '1. Order Confirmed',
+            time: 'Completed',
+            desc: `Invoice generated for ${foundReal.customer || 'Customer'}`,
+            completed: true
+          },
+          {
+            title: '2. Dark Store Packing',
+            time: isOutForDelivery || isDelivered ? 'Completed' : 'In Progress',
+            desc: 'Chilled cold-chain packaging at logistics hub',
+            completed: isOutForDelivery || isDelivered
+          },
+          {
+            title: '3. Courier Dispatched',
+            time: isDelivered ? 'Completed' : isOutForDelivery ? 'In Transit' : 'Pending',
+            desc: isAssigned
+              ? `Assigned to ${foundReal.assignedRider.name} (${foundReal.assignedRider.vehicle || 'Bike'})`
+              : 'Store Admin is reviewing address to assign fleet rider',
+            completed: isOutForDelivery || isDelivered
+          },
+          {
+            title: '4. Delivered',
+            time: isDelivered ? 'Delivered' : 'Pending',
+            desc: `Handover at ${foundReal.address || 'drop-off address'}`,
+            completed: isDelivered
+          }
         ]
       };
     }
 
     if (MOCK_TRACKING_ORDERS[cleanId]) {
-      return MOCK_TRACKING_ORDERS[cleanId];
+      const mock = MOCK_TRACKING_ORDERS[cleanId];
+      return {
+        ...mock,
+        address: 'House 14, Block C, Gulberg 3',
+        city: 'Lahore',
+        isAssigned: !!mock.driverPhone
+      };
     }
 
     return null;
@@ -69,7 +104,7 @@ export const OrderTrackerModal = () => {
     }
   };
 
-  const handleOpenRadar = () => {
+  const handleOpenDeliveryPage = () => {
     setIsOrderTrackerOpen(false);
     navigateTo('delivery');
   };
@@ -92,8 +127,8 @@ export const OrderTrackerModal = () => {
               <Truck className="w-5 h-5 text-emerald-300" />
             </div>
             <div>
-              <h2 className="text-lg font-black tracking-tight">Live Order & GPS Tracking</h2>
-              <p className="text-xs text-emerald-200">Real-time express dispatch & cold-chain status</p>
+              <h2 className="text-lg font-black tracking-tight">Order Fulfillment & Delivery Status</h2>
+              <p className="text-xs text-emerald-200">Real-time order milestone tracking & courier contact</p>
             </div>
           </div>
           <button
@@ -186,7 +221,7 @@ export const OrderTrackerModal = () => {
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                    ETA Delivery
+                    Fulfillment Slot
                   </span>
                   <p className="text-xs font-bold text-emerald-700">{currentOrder.estimatedDelivery}</p>
                 </div>
@@ -197,6 +232,16 @@ export const OrderTrackerModal = () => {
                   <p className="text-xs font-bold text-slate-800">
                     {currentOrder.itemsCount} items • {currentOrder.total}
                   </p>
+                </div>
+              </div>
+
+              {/* Delivery Destination Address */}
+              <div className="p-3.5 bg-emerald-50/60 rounded-2xl border border-emerald-200/70 flex items-start gap-2.5 text-xs">
+                <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-slate-800">Drop-off Address: </span>
+                  <span className="text-slate-700">{currentOrder.address || 'Standard Delivery Address'}</span>
+                  <span className="text-slate-400 block text-[11px] font-mono">{currentOrder.city || 'Lahore'}</span>
                 </div>
               </div>
 
@@ -237,7 +282,7 @@ export const OrderTrackerModal = () => {
                 ))}
               </div>
 
-              {/* Driver Details Card (if in transit) */}
+              {/* Driver Details Card (if in transit / assigned) */}
               <div className="bg-emerald-50/80 rounded-2xl p-4 border border-emerald-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold">
@@ -245,7 +290,7 @@ export const OrderTrackerModal = () => {
                   </div>
                   <div>
                     <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">
-                      Assigned Courier Driver
+                      Assigned Courier Rider
                     </span>
                     <h4 className="text-xs sm:text-sm font-bold text-slate-800">
                       {currentOrder.driverName}
@@ -255,19 +300,21 @@ export const OrderTrackerModal = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <a
-                    href={`tel:${currentOrder.driverPhone}`}
-                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-                  >
-                    <Phone className="w-3.5 h-3.5" />
-                    <span>Call Driver</span>
-                  </a>
+                  {currentOrder.driverPhone && (
+                    <a
+                      href={`tel:${currentOrder.driverPhone}`}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>Call Driver</span>
+                    </a>
+                  )}
                   <button
-                    onClick={handleOpenRadar}
+                    onClick={handleOpenDeliveryPage}
                     className="px-3.5 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
                   >
-                    <Navigation className="w-3.5 h-3.5" />
-                    <span>Full GPS Radar Map</span>
+                    <span>Full Delivery Tracker</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>

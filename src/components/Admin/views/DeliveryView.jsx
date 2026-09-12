@@ -12,7 +12,6 @@ import {
   Plus,
   Trash2,
   Edit2,
-  Navigation,
   Package,
   Zap,
   Star,
@@ -22,10 +21,12 @@ import {
   Smartphone,
   Sparkles,
   RefreshCw,
-  Compass,
+  Building,
+  Navigation,
   ExternalLink
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
+import { PAKISTAN_CITIES } from '../../../data/pakistanLocations';
 
 export const DeliveryView = () => {
   const {
@@ -45,7 +46,7 @@ export const DeliveryView = () => {
 
   const isAdmin = adminRole === 'admin';
 
-  const [activeSubTab, setActiveSubTab] = useState(isAdmin ? 'fleet' : 'radar'); // 'fleet' | 'queue' | 'rider-app' | 'radar'
+  const [activeSubTab, setActiveSubTab] = useState('queue'); // 'queue' | 'fleet' | 'rider-app' | 'coverage'
   const [searchRider, setSearchRider] = useState('');
   const [filterZone, setFilterZone] = useState('All');
 
@@ -132,7 +133,6 @@ export const DeliveryView = () => {
       deliveriesCount: 0
     };
 
-
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
@@ -149,12 +149,12 @@ export const DeliveryView = () => {
           </div>
           <p className="text-xs text-slate-400 mt-1">
             {isAdmin
-              ? 'Admin centralized control: Manage courier personnel, register new riders with login credentials, and dispatch customer parcel orders.'
-              : 'View your live GPS dispatches, assigned grocery parcels, and update delivery progress.'}
+              ? 'Review customer delivery addresses, assign available fleet riders, and manage courier personnel accounts.'
+              : 'View your assigned grocery parcels and update delivery progress.'}
           </p>
         </div>
 
-        {/* Only Admin can add riders or clear fleet */}
+        {/* Admin actions */}
         {isAdmin && (
           <div className="flex items-center gap-2 self-start sm:self-auto">
             {riders && riders.length > 0 && (
@@ -181,45 +181,45 @@ export const DeliveryView = () => {
       {/* 2. Key Fleet KPI Statistics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-xs space-y-1">
+          <span className="text-[11px] font-bold text-slate-400 block">Pending Orders</span>
+          <div className="text-2xl font-black text-amber-600 font-mono">
+            {pendingDispatches.length} <span className="text-xs font-normal text-slate-400">Orders</span>
+          </div>
+          <span className="text-[10px] text-amber-600 font-bold block">Awaiting / In Transit</span>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-xs space-y-1">
           <span className="text-[11px] font-bold text-slate-400 block">Active On-Duty Riders</span>
           <div className="text-2xl font-black text-slate-900 font-mono">
             {activeRidersCount} <span className="text-xs font-normal text-slate-400">/ {riders.length} Fleet</span>
           </div>
-          <span className="text-[10px] text-emerald-600 font-bold block">Ready for 10-min dispatch</span>
+          <span className="text-[10px] text-emerald-600 font-bold block">Available for assignment</span>
         </div>
 
         <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-xs space-y-1">
-          <span className="text-[11px] font-bold text-slate-400 block">Pending Parcel Orders</span>
-          <div className="text-2xl font-black text-slate-900 font-mono">
-            {pendingDispatches.length} <span className="text-xs font-normal text-slate-400">Orders</span>
-          </div>
-          <span className="text-[10px] text-amber-600 font-bold block">In fulfillment / transit</span>
-        </div>
-
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-xs space-y-1">
-          <span className="text-[11px] font-bold text-slate-400 block">Total Completed Parcels</span>
+          <span className="text-[11px] font-bold text-slate-400 block">Completed Deliveries</span>
           <div className="text-2xl font-black text-slate-900 font-mono">
             {totalDeliveries} <span className="text-xs font-normal text-slate-400">Parcels</span>
           </div>
-          <span className="text-[10px] text-blue-600 font-bold block">Guaranteed doorstep arrival</span>
+          <span className="text-[10px] text-blue-600 font-bold block">Doorstep verified</span>
         </div>
 
         <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-xs space-y-1">
-          <span className="text-[11px] font-bold text-slate-400 block">Avg Dispatch Speed</span>
+          <span className="text-[11px] font-bold text-slate-400 block">Avg Fulfillment Time</span>
           <div className="text-2xl font-black text-slate-900 font-mono">
-            9.4 <span className="text-xs font-normal text-slate-400">Mins</span>
+            18.5 <span className="text-xs font-normal text-slate-400">Mins</span>
           </div>
-          <span className="text-[10px] text-purple-600 font-bold block">Ultra-fast Dark Store Hub</span>
+          <span className="text-[10px] text-purple-600 font-bold block">Dark Store Express</span>
         </div>
       </div>
 
       {/* 3. Sub-Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto text-xs font-bold">
         {[
+          { id: 'queue', label: 'Order Dispatch Queue', icon: Package, count: pendingDispatches.length },
           { id: 'fleet', label: 'Riders Fleet Manager', icon: Bike, count: riders.length },
-          { id: 'queue', label: 'Parcel Dispatch Queue', icon: Package, count: pendingDispatches.length },
           { id: 'rider-app', label: 'Rider App Simulator', icon: Smartphone },
-          { id: 'radar', label: 'GPS Hub Radar', icon: Compass }
+          { id: 'coverage', label: 'Hubs & Service Cities', icon: Building }
         ].map((t) => {
           const Icon = t.icon;
           const isActive = activeSubTab === t.id;
@@ -250,7 +250,177 @@ export const DeliveryView = () => {
       </div>
 
       {/* ===================================================================== */}
-      {/* SUB-VIEW 1: RIDER FLEET MANAGEMENT                                    */}
+      {/* SUB-VIEW 1: ORDER DISPATCH QUEUE                                      */}
+      {/* ===================================================================== */}
+      {activeSubTab === 'queue' && (
+        <div className="space-y-4">
+          
+          <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
+            <div>
+              <h3 className="font-black text-sm text-slate-900">Active Order Dispatch Queue</h3>
+              <p className="text-xs text-slate-400">
+                Review the customer's delivery address, location, and assign an on-duty courier.
+              </p>
+            </div>
+            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
+              {customerOrders.length} Total Orders
+            </span>
+          </div>
+
+          {customerOrders.length === 0 ? (
+            <div className="bg-white rounded-3xl p-10 text-center border border-slate-100 shadow-xs space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-xl">
+                📦
+              </div>
+              <h4 className="font-black text-xs text-slate-900">No Orders in Queue</h4>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Customer orders placed during checkout will appear here with their address for rider assignment.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {customerOrders.map((order) => {
+                const isUnassigned = !order.assignedRider;
+
+                return (
+                  <div
+                    key={order.id}
+                    className={`bg-white rounded-3xl p-5 border shadow-2xs space-y-3 transition-all ${
+                      isUnassigned ? 'border-amber-200 ring-2 ring-amber-400/10' : 'border-slate-100'
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-base ${
+                          isUnassigned ? 'bg-amber-100 text-amber-800 font-bold' : 'bg-emerald-50 text-emerald-700'
+                        }`}>
+                          {isUnassigned ? '⏳' : '📦'}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-xs text-slate-900 font-mono">{order.id}</span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              order.status === 'Delivered'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : order.assignedRider
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {order.status || (isUnassigned ? 'Awaiting Rider Assignment' : 'Out for Delivery')}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-slate-400">
+                            Customer: <strong className="text-slate-700">{order.customer || 'Customer'}</strong> • {order.dateFormatted || 'Today'} • {order.deliverySlot}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="font-black text-sm text-slate-900 font-mono block">
+                          PKR {order.totalAmount}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium">{order.payment || 'Cash on Delivery'}</span>
+                      </div>
+                    </div>
+
+                    {/* Delivery Address & Rider Assignment */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      
+                      {/* Customer Address Details */}
+                      <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/60 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400 font-bold text-[10px] uppercase flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-emerald-600" />
+                            <span>Customer Delivery Address</span>
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.2 rounded-full">
+                            {order.city || 'Lahore'}
+                          </span>
+                        </div>
+                        <p className="font-bold text-slate-800 leading-snug">{order.address || 'Standard Street Address'}</p>
+                        <p className="text-slate-500 font-mono text-[11px]">
+                          📞 {order.customerPhone || order.phone || '+92 300 1234567'}
+                        </p>
+                      </div>
+
+                      {/* Admin Rider Assignment Dropdown */}
+                      <div className={`p-3.5 rounded-2xl border space-y-1.5 ${
+                        isUnassigned ? 'bg-amber-50/60 border-amber-200' : 'bg-slate-50 border-slate-200/60'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400 font-bold text-[10px] uppercase flex items-center gap-1">
+                            <Bike className="w-3 h-3 text-emerald-600" />
+                            <span>Assign Fleet Courier</span>
+                          </span>
+                          {order.assignedRider && (
+                            <span className="text-emerald-700 font-bold text-[10px] bg-emerald-100 px-2 py-0.5 rounded-full">
+                              ✓ Assigned to {order.assignedRider.name}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-0.5">
+                          <select
+                            value={order.assignedRider?.id || ''}
+                            onChange={(e) => assignRiderToOrder(order.id, e.target.value)}
+                            className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-800 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+                          >
+                            <option value="">-- Choose Rider to Dispatch --</option>
+                            {riders.map((r) => (
+                              <option key={r.id} value={r.id}>
+                                {r.name} ({r.vehicleType || 'Bike'} - {r.zone || 'Hub'})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Status Progression Workflow */}
+                    <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-[11px] text-slate-400">
+                        {order.rawItems ? `${order.rawItems.length} items in cart` : 'Standard Package'}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          onClick={() => updateDeliveryOrderStatus(order.id, 'Packed (Chilled Box)')}
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-[11px] transition-colors cursor-pointer"
+                        >
+                          🏬 Packed
+                        </button>
+                        <button
+                          onClick={() => updateDeliveryOrderStatus(order.id, 'Out for Delivery')}
+                          className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-xl font-bold text-[11px] transition-colors cursor-pointer"
+                        >
+                          🛵 Out for Delivery
+                        </button>
+                        <button
+                          onClick={() => updateDeliveryOrderStatus(order.id, 'Arrived at Customer')}
+                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-xl font-bold text-[11px] transition-colors cursor-pointer"
+                        >
+                          📍 At Doorstep
+                        </button>
+                        <button
+                          onClick={() => updateDeliveryOrderStatus(order.id, 'Delivered')}
+                          className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-[11px] transition-colors cursor-pointer shadow-2xs"
+                        >
+                          ✅ Delivered
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* SUB-VIEW 2: RIDER FLEET MANAGEMENT                                    */}
       {/* ===================================================================== */}
       {activeSubTab === 'fleet' && (
         <div className="space-y-4">
@@ -273,7 +443,7 @@ export const DeliveryView = () => {
               <select
                 value={filterZone}
                 onChange={(e) => setFilterZone(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 font-medium text-xs focus:outline-none"
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 font-medium text-xs focus:outline-none cursor-pointer"
               >
                 <option value="All">All Hub Zones</option>
                 <option value="Gulberg">Gulberg Hub</option>
@@ -293,7 +463,7 @@ export const DeliveryView = () => {
               <div className="space-y-1">
                 <h3 className="text-sm font-black text-slate-800">No Delivery Riders in Fleet</h3>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  All sample rider records have been removed. Click '+ Add New Rider' to register your delivery personnel.
+                  Click '+ Add New Rider' to register your courier personnel and set their login credentials.
                 </p>
               </div>
               <button
@@ -411,127 +581,6 @@ export const DeliveryView = () => {
         </div>
       )}
 
-
-      {/* ===================================================================== */}
-      {/* SUB-VIEW 2: PARCEL DISPATCH QUEUE                                     */}
-      {/* ===================================================================== */}
-      {activeSubTab === 'queue' && (
-        <div className="space-y-4">
-          
-          <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
-            <div>
-              <h3 className="font-black text-sm text-slate-900">Active Parcel Dispatch Queue</h3>
-              <p className="text-xs text-slate-400">Assign grocery orders to riders and monitor status</p>
-            </div>
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
-              {customerOrders.length} Total Orders
-            </span>
-          </div>
-
-          {customerOrders.length === 0 ? (
-            <div className="bg-white rounded-3xl p-10 text-center border border-slate-100 shadow-xs space-y-2">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-xl">
-                📦
-              </div>
-              <h4 className="font-black text-xs text-slate-900">No Orders in Queue</h4>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                Customer orders placed during checkout will appear here for rider assignment.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {customerOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="bg-white rounded-3xl p-5 border border-slate-100 shadow-2xs space-y-3"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-base">
-                        📦
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-black text-xs text-slate-900 font-mono">{order.id}</span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                            {order.status || 'Out for Delivery'}
-                          </span>
-                        </div>
-                        <span className="text-[11px] text-slate-400">{order.dateFormatted || 'Today'} • {order.deliverySlot}</span>
-                      </div>
-                    </div>
-
-                    <span className="font-black text-sm text-slate-900 font-mono">
-                      PKR {order.totalAmount}
-                    </span>
-                  </div>
-
-                  {/* Drop-off Address & Rider Assignment */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 space-y-1">
-                      <span className="text-slate-400 font-bold text-[10px] uppercase block">Customer Drop-off</span>
-                      <p className="font-bold text-slate-800 truncate">{order.address || 'Standard Delivery Address'}</p>
-                      <p className="text-slate-500 font-mono text-[11px]">{order.phone || '+92 300 1234567'}</p>
-                    </div>
-
-                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 space-y-1">
-                      <span className="text-slate-400 font-bold text-[10px] uppercase block">Assign Delivery Rider</span>
-                      <div className="flex items-center justify-between pt-0.5">
-                        <select
-                          value={order.assignedRider?.id || ''}
-                          onChange={(e) => assignRiderToOrder(order.id, e.target.value)}
-                          className="bg-white border border-slate-200 rounded-xl px-2.5 py-1 font-bold text-slate-800 text-xs focus:outline-none"
-                        >
-                          <option value="">-- Select Rider --</option>
-                          {riders.map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.name} ({r.vehicleNumber})
-                            </option>
-                          ))}
-                        </select>
-
-                        {order.assignedRider && (
-                          <span className="text-emerald-700 font-bold text-[11px]">✓ Assigned</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Status Progression Workflow */}
-                  <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-end gap-2">
-                    <button
-                      onClick={() => updateDeliveryOrderStatus(order.id, 'Picked Up from Dark Store')}
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-[11px] transition-colors cursor-pointer"
-                    >
-                      🏬 Mark Picked Up
-                    </button>
-                    <button
-                      onClick={() => updateDeliveryOrderStatus(order.id, 'Out for Delivery')}
-                      className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl font-bold text-[11px] transition-colors cursor-pointer"
-                    >
-                      🛵 Out for Delivery
-                    </button>
-                    <button
-                      onClick={() => updateDeliveryOrderStatus(order.id, 'Arrived at Customer')}
-                      className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-xl font-bold text-[11px] transition-colors cursor-pointer"
-                    >
-                      📍 Arrived at Doorstep
-                    </button>
-                    <button
-                      onClick={() => updateDeliveryOrderStatus(order.id, 'Delivered')}
-                      className="px-3.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-[11px] transition-colors cursor-pointer shadow-2xs"
-                    >
-                      ✅ Mark Delivered
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-        </div>
-      )}
-
       {/* ===================================================================== */}
       {/* SUB-VIEW 3: RIDER MOBILE APP SIMULATOR                                */}
       {/* ===================================================================== */}
@@ -546,7 +595,7 @@ export const DeliveryView = () => {
                 </div>
                 <div>
                   <span className="font-black text-xs block">Rider App Preview</span>
-                  <span className="text-[10px] text-emerald-400">● GPS Connected</span>
+                  <span className="text-[10px] text-emerald-400">● On-Duty Status</span>
                 </div>
               </div>
 
@@ -606,30 +655,36 @@ export const DeliveryView = () => {
       )}
 
       {/* ===================================================================== */}
-      {/* SUB-VIEW 4: GPS RADAR MAP VIEW                                        */}
+      {/* SUB-VIEW 4: LOGISTICS HUBS & SERVICE CITIES                           */}
       {/* ===================================================================== */}
-      {activeSubTab === 'radar' && (
-        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4">
+      {activeSubTab === 'coverage' && (
+        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-5">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
-              <h3 className="font-black text-sm text-slate-900">Dark Store Dispatch Radar</h3>
-              <p className="text-xs text-slate-400">Live GPS tracking of Lahore Dark Store Hub zones</p>
+              <h3 className="font-black text-base text-slate-900">Logistics Hubs & Pakistan City Coverage</h3>
+              <p className="text-xs text-slate-400">Centrally managed Dark Store fulfillment centers across major cities</p>
             </div>
             <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
-              ● Central Hub Active
+              ● All Logistics Hubs Operational
             </span>
           </div>
 
-          <div className="h-72 bg-slate-900 rounded-3xl relative overflow-hidden border border-slate-800 flex items-center justify-center">
-            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:16px_16px]" />
-            
-            <div className="relative z-10 flex flex-col items-center gap-1 text-center animate-pulse">
-              <div className="w-12 h-12 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-black text-lg shadow-[0_0_30px_rgba(16,185,129,0.5)]">
-                🏬
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {PAKISTAN_CITIES.map((c) => (
+              <div key={c.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-xs text-slate-900">{c.city}</span>
+                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                    Active Hub
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-700 font-bold">{c.hubName}</p>
+                <div className="text-[11px] text-slate-500 space-y-0.5 pt-1 border-t border-slate-200/60">
+                  <span className="block font-semibold">Covered Neighborhoods:</span>
+                  <span className="block text-slate-700">{c.neighborhoods.map((n) => n.name).join(', ')}</span>
+                </div>
               </div>
-              <span className="font-black text-xs text-white">FreshMart Central Dark Store</span>
-              <span className="text-[10px] text-emerald-400 font-mono">Gulberg Hub • 10-Min Radius</span>
-            </div>
+            ))}
           </div>
         </div>
       )}

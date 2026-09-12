@@ -60,6 +60,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   // Statistics KPI counts
   const stats = useMemo(() => {
     const total = liveOrders.length;
+    const pending = liveOrders.filter((o) => o.status === 'Pending').length;
     const preparing = liveOrders.filter((o) => o.status === 'Preparing').length;
     const outForDelivery = liveOrders.filter(
       (o) => o.status === 'Out for Delivery' || o.status === 'Dispatched to Rider'
@@ -67,13 +68,14 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     const delivered = liveOrders.filter((o) => o.status === 'Delivered').length;
     const cancelled = liveOrders.filter((o) => o.status === 'Cancelled').length;
 
-    return { total, preparing, outForDelivery, delivered, cancelled };
+    return { total, pending, preparing, outForDelivery, delivered, cancelled };
   }, [liveOrders]);
 
   // Filtered orders
   const filteredOrders = useMemo(() => {
     return liveOrders.filter((o) => {
       // Tab filter
+      if (activeTab === 'Pending' && o.status !== 'Pending') return false;
       if (activeTab === 'Preparing' && o.status !== 'Preparing') return false;
       if (
         activeTab === 'Out for Delivery' &&
@@ -91,8 +93,9 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
         const matchesCustomer = o.customer && o.customer.toLowerCase().includes(q);
         const matchesEmail = o.customerEmail && o.customerEmail.toLowerCase().includes(q);
         const matchesPhone = o.customerPhone && o.customerPhone.toLowerCase().includes(q);
-        const matchesAddress = o.address && o.address.toLowerCase().includes(q);
-        if (!matchesId && !matchesCustomer && !matchesEmail && !matchesPhone && !matchesAddress)
+        const matchesAddress = (o.address || '').toLowerCase().includes(q);
+        const matchesCity = (o.city || '').toLowerCase().includes(q);
+        if (!matchesId && !matchesCustomer && !matchesEmail && !matchesPhone && !matchesAddress && !matchesCity)
           return false;
       }
 
@@ -109,6 +112,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   };
 
   const handleAssignRider = (orderId, riderId) => {
+    if (!riderId) return;
     assignRiderToOrder(orderId, riderId);
     const assignedRiderObj = riders.find((r) => r.id === riderId);
     if (selectedOrder && selectedOrder.id === orderId) {
@@ -117,7 +121,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
           ? {
               ...prev,
               assignedRider: assignedRiderObj,
-              status: 'Dispatched to Rider'
+              status: 'Out for Delivery'
             }
           : null
       );
@@ -214,102 +218,121 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
         </div>
       </div>
 
-      {/* 2. Top KPI Summary Cards matching Screenshot */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+      {/* 2. Top KPI Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         
         {/* All Orders */}
         <div
           onClick={() => setActiveTab('All')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+          className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
             activeTab === 'All'
               ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
               : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-2xs'
           }`}
         >
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] font-bold text-slate-500">All Orders</span>
-            <div className="w-7 h-7 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-xs">
-              <ShoppingBag className="w-3.5 h-3.5" />
+            <div className="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs">
+              <ShoppingBag className="w-3 h-3" />
             </div>
           </div>
-          <div className="text-2xl font-black text-slate-900">{stats.total}</div>
-          <span className="text-[10px] text-slate-400 mt-1 block">View all orders</span>
+          <div className="text-xl font-black text-slate-900">{stats.total}</div>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">Total volume</span>
+        </div>
+
+        {/* Pending (Awaiting Rider) */}
+        <div
+          onClick={() => setActiveTab('Pending')}
+          className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
+            activeTab === 'Pending'
+              ? 'bg-amber-50/80 border-amber-500 ring-2 ring-amber-500/20 shadow-xs'
+              : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-2xs'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-bold text-amber-700">Pending</span>
+            <div className="w-6 h-6 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-xs">
+              <Clock className="w-3 h-3" />
+            </div>
+          </div>
+          <div className="text-xl font-black text-amber-900">{stats.pending}</div>
+          <span className="text-[10px] text-amber-600 font-medium mt-0.5 block">Awaiting Rider</span>
         </div>
 
         {/* Preparing */}
         <div
           onClick={() => setActiveTab('Preparing')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+          className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
             activeTab === 'Preparing'
               ? 'bg-blue-50/80 border-blue-500 ring-2 ring-blue-500/20 shadow-xs'
               : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-2xs'
           }`}
         >
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] font-bold text-blue-700">Preparing</span>
-            <div className="w-7 h-7 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-xs">
-              <Package className="w-3.5 h-3.5" />
+            <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center text-xs">
+              <Package className="w-3 h-3" />
             </div>
           </div>
-          <div className="text-2xl font-black text-slate-900">{stats.preparing}</div>
-          <span className="text-[10px] text-blue-600 font-medium mt-1 block">View preparing</span>
+          <div className="text-xl font-black text-slate-900">{stats.preparing}</div>
+          <span className="text-[10px] text-blue-600 font-medium mt-0.5 block">In Packing</span>
         </div>
 
         {/* Out for Delivery */}
         <div
           onClick={() => setActiveTab('Out for Delivery')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+          className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
             activeTab === 'Out for Delivery'
               ? 'bg-purple-50/80 border-purple-500 ring-2 ring-purple-500/20 shadow-xs'
               : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-2xs'
           }`}
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-bold text-purple-700">Out for Delivery</span>
-            <div className="w-7 h-7 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center text-xs">
-              <Truck className="w-3.5 h-3.5" />
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-bold text-purple-700">In Transit</span>
+            <div className="w-6 h-6 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center text-xs">
+              <Truck className="w-3 h-3" />
             </div>
           </div>
-          <div className="text-2xl font-black text-slate-900">{stats.outForDelivery}</div>
-          <span className="text-[10px] text-purple-600 font-medium mt-1 block">View in-transit</span>
+          <div className="text-xl font-black text-slate-900">{stats.outForDelivery}</div>
+          <span className="text-[10px] text-purple-600 font-medium mt-0.5 block">With Rider</span>
         </div>
 
         {/* Delivered */}
         <div
           onClick={() => setActiveTab('Delivered')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+          className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
             activeTab === 'Delivered'
               ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
               : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-2xs'
           }`}
         >
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] font-bold text-emerald-700">Delivered</span>
-            <div className="w-7 h-7 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs">
-              <CheckCircle2 className="w-3.5 h-3.5" />
+            <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs">
+              <CheckCircle2 className="w-3 h-3" />
             </div>
           </div>
-          <div className="text-2xl font-black text-slate-900">{stats.delivered}</div>
-          <span className="text-[10px] text-emerald-600 font-medium mt-1 block">View delivered</span>
+          <div className="text-xl font-black text-slate-900">{stats.delivered}</div>
+          <span className="text-[10px] text-emerald-600 font-medium mt-0.5 block">Completed</span>
         </div>
 
         {/* Cancelled */}
         <div
           onClick={() => setActiveTab('Cancelled')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+          className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
             activeTab === 'Cancelled'
               ? 'bg-rose-50/80 border-rose-500 ring-2 ring-rose-500/20 shadow-xs'
               : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-2xs'
           }`}
         >
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] font-bold text-rose-700">Cancelled</span>
-            <div className="w-7 h-7 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center text-xs">
-              <AlertCircle className="w-3.5 h-3.5" />
+            <div className="w-6 h-6 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center text-xs">
+              <AlertCircle className="w-3 h-3" />
             </div>
           </div>
-          <div className="text-2xl font-black text-slate-900">{stats.cancelled}</div>
-          <span className="text-[10px] text-rose-600 font-medium mt-1 block">View cancelled</span>
+          <div className="text-xl font-black text-slate-900">{stats.cancelled}</div>
+          <span className="text-[10px] text-rose-600 font-medium mt-0.5 block">Cancelled</span>
         </div>
 
       </div>
@@ -320,12 +343,12 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
         {/* Left Side: Table & Search Card */}
         <div className="flex-1 w-full bg-white rounded-3xl border border-slate-100 shadow-card p-5 sm:p-6 space-y-5">
           
-          {/* Search & Filter Bar matching Screenshot */}
+          {/* Search & Filter Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md">
               <input
                 type="text"
-                placeholder="Search by order ID, customer, phone, address..."
+                placeholder="Search by order ID, customer, phone, address, city..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full text-xs bg-slate-50 border border-slate-200 rounded-2xl pl-9 pr-8 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-800"
@@ -334,7 +357,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               {search && (
                 <button
                   onClick={() => setSearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-full"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -358,10 +381,11 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
             </div>
           </div>
 
-          {/* Status Tabs Pills matching Screenshot */}
+          {/* Status Tabs Pills */}
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
             {[
               { label: 'All', count: stats.total },
+              { label: 'Pending', count: stats.pending, sub: 'Awaiting Rider' },
               { label: 'Preparing', count: stats.preparing },
               { label: 'Out for Delivery', count: stats.outForDelivery },
               { label: 'Delivered', count: stats.delivered },
@@ -370,7 +394,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               <button
                 key={tab.label}
                 onClick={() => setActiveTab(tab.label)}
-                className={`text-xs font-bold px-3.5 py-1.5 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+                className={`text-xs font-bold px-3 py-1.5 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
                   activeTab === tab.label
                     ? 'bg-emerald-600 text-white shadow-2xs ring-2 ring-emerald-600/20'
                     : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/70'
@@ -381,7 +405,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
             ))}
           </div>
 
-          {/* Orders Table matching Screenshot */}
+          {/* Orders Table */}
           {liveOrders.length === 0 ? (
             <div className="text-center py-16 px-4 space-y-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
               <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-3xl shadow-xs">
@@ -390,7 +414,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               <div className="space-y-1">
                 <h3 className="font-black text-slate-900 text-base">No Customer Orders Yet</h3>
                 <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-                  When a customer (like Hafsa or Aimen) completes checkout in FreshMart, their live order and historical statistics will automatically appear here.
+                  When a customer completes checkout, their order will appear here with delivery address details for you to assign a fleet courier.
                 </p>
               </div>
             </div>
@@ -404,12 +428,11 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                 <thead>
                   <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase tracking-wider text-[10px]">
                     <th className="pb-3.5 pl-1">ORDER ID</th>
-                    <th className="pb-3.5">CUSTOMER (CLICK TO VIEW)</th>
-                    <th className="pb-3.5">ITEMS</th>
-                    <th className="pb-3.5">TOTAL AMOUNT</th>
-                    <th className="pb-3.5">PAYMENT</th>
+                    <th className="pb-3.5">CUSTOMER</th>
+                    <th className="pb-3.5">DELIVERY ADDRESS & CITY</th>
+                    <th className="pb-3.5">TOTAL</th>
+                    <th className="pb-3.5">ASSIGN RIDER</th>
                     <th className="pb-3.5">STATUS</th>
-                    <th className="pb-3.5">ORDER DATE</th>
                     <th className="pb-3.5 text-right pr-2">ACTION</th>
                   </tr>
                 </thead>
@@ -432,10 +455,15 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                       >
                         {/* Order ID */}
                         <td className="py-4 pl-1 font-mono font-black text-emerald-700">
-                          {ord.id}
+                          <div>
+                            <span>{ord.id}</span>
+                            <span className="block text-[10px] text-slate-400 font-normal font-sans">
+                              {ord.time || 'Today'}
+                            </span>
+                          </div>
                         </td>
 
-                        {/* Customer (Clickable -> Opens Customer Details Modal!) */}
+                        {/* Customer */}
                         <td className="py-4">
                           <div
                             onClick={(e) => {
@@ -465,22 +493,63 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                           </div>
                         </td>
 
-                        {/* Items */}
-                        <td className="py-4 text-slate-600 font-medium">
-                          {itemsText}
+                        {/* Delivery Address & City (Prominent for Admin Location Review) */}
+                        <td className="py-4 max-w-[220px]">
+                          <div className="flex items-start gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+                            <div className="min-w-0">
+                              <p className="font-bold text-slate-800 text-[11px] truncate leading-tight">
+                                {ord.address || 'Street address'}
+                              </p>
+                              <span className="inline-block mt-0.5 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
+                                {ord.city || 'Lahore'} {ord.neighborhood ? `• ${ord.neighborhood}` : ''}
+                              </span>
+                            </div>
+                          </div>
                         </td>
 
                         {/* Total Amount */}
                         <td className="py-4 font-black text-slate-900 font-mono">
-                          Rs. {Number(ord.total || ord.totalAmount || 0).toLocaleString()}
+                          <div>
+                            <span>Rs. {Number(ord.total || ord.totalAmount || 0).toLocaleString()}</span>
+                            <span className="block text-[10px] text-slate-400 font-sans font-normal">{itemsText}</span>
+                          </div>
                         </td>
 
-                        {/* Payment */}
-                        <td className="py-4">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold">
-                            <CreditCard className="w-3 h-3 text-slate-500" />
-                            {ord.payment || 'Cash on Delivery'}
-                          </span>
+                        {/* Direct Rider Assignment Dropdown in Row */}
+                        <td className="py-4" onClick={(e) => e.stopPropagation()}>
+                          {ord.status === 'Delivered' ? (
+                            <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Delivered</span>
+                            </span>
+                          ) : ord.status === 'Cancelled' ? (
+                            <span className="text-[11px] font-bold text-rose-500">Cancelled</span>
+                          ) : (
+                            <div className="min-w-[160px]">
+                              <select
+                                value={ord.assignedRider?.id || ''}
+                                onChange={(e) => handleAssignRider(ord.id, e.target.value)}
+                                className={`w-full text-[11px] font-bold rounded-xl px-2.5 py-1.5 border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                                  ord.assignedRider
+                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                                    : 'bg-amber-50 border-amber-300 text-amber-900'
+                                }`}
+                              >
+                                <option value="">-- 🛵 Assign Rider --</option>
+                                {(riders || []).map((r) => (
+                                  <option key={r.id} value={r.id}>
+                                    {r.name} ({r.zone || 'Hub'})
+                                  </option>
+                                ))}
+                              </select>
+                              {riders.length === 0 && (
+                                <span className="text-[9px] text-rose-500 font-bold block mt-0.5">
+                                  No riders added yet
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </td>
 
                         {/* Status Badge */}
@@ -490,20 +559,8 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                               ord.status
                             )}`}
                           >
-                            {ord.status || 'Preparing'}
+                            {ord.status || 'Pending'}
                           </span>
-                        </td>
-
-                        {/* Order Date */}
-                        <td className="py-4 text-slate-500 text-[11px]">
-                          <span className="block font-medium">
-                            {ord.dateFormatted || ord.time || 'Recently'}
-                          </span>
-                          {ord.time && ord.dateFormatted && (
-                            <span className="text-[10px] text-slate-400 block font-mono">
-                              {ord.time}
-                            </span>
-                          )}
                         </td>
 
                         {/* Action View Button */}
