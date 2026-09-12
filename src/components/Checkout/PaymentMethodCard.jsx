@@ -272,9 +272,14 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
               </div>
             </div>
 
-            <div className="flex items-center justify-center gap-1.5 text-[11px] text-emerald-800 bg-emerald-50 p-2 rounded-xl font-medium">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Instant tokenized card checkout. Your sensitive card credentials are never stored.</span>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-emerald-800 bg-emerald-50/80 p-3 rounded-2xl font-medium border border-emerald-100">
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Sandbox UI Simulation Mode. Raw card PAN/CVV are never sent, logged, or stored.</span>
+              </span>
+              <span className="text-[10px] text-emerald-700 font-bold bg-white px-2 py-0.5 rounded-md border border-emerald-200">
+                PCI-DSS Compliant (Use Hosted Fields for Live Gateways)
+              </span>
             </div>
           </div>
 
