@@ -1377,39 +1377,116 @@ export const StoreProvider = ({ children }) => {
 
   // --- Order Placement ---
   const placeCustomerOrder = async (orderData) => {
-    const custName = orderData.customerName || customerUser?.name || 'Customer';
+    const custName = orderData.customerName || orderData.recipientName || orderData.customer || customerUser?.name || 'Customer';
     const custEmail = orderData.customerEmail || customerUser?.email || '';
-    const custPhone = orderData.customerPhone || customerUser?.phone || '+92 300 1234567';
-    const orderTotal = orderData.totalAmount || cartTotal;
-    const orderItems = orderData.items || cart;
+    const custPhone = orderData.customerPhone || orderData.phone || customerUser?.phone || '+92 300 1234567';
+    const orderTotal = Number(orderData.totalAmount !== undefined ? orderData.totalAmount : (orderData.total !== undefined ? orderData.total : cartTotal));
 
-    const newOrder = {
-      id: orderData.id || `#ORD${Math.floor(1000 + Math.random() * 9000)}`,
-      customer: custName,
-      customerEmail: custEmail,
-      customerPhone: custPhone,
-      items: `${orderItems.length} Item${orderItems.length > 1 ? 's' : ''}`,
+    // Normalize order items structure
+    const rawItemsList = Array.isArray(orderData.rawItems)
+      ? orderData.rawItems
+      : Array.isArray(orderData.items)
+      ? orderData.items
+      : cart || [];
+
+    const orderItems = rawItemsList.map((i) => {
+      const p = i.product && typeof i.product === 'object' ? i.product : i;
+      const prodId = p._id || p.id || i.id || i.productId;
+      return {
+        product: prodId,
+        id: prodId ? String(prodId) : undefined,
+        name: p.name || i.name || 'Grocery Item',
+        price: Number(p.price !== undefined ? p.price : (i.price || 0)),
+        quantity: Number(i.quantity || 1),
+        unit: p.unit || i.unit || '1 unit',
+        image: p.image || i.image || '',
+        vendorId: p.vendorId || i.vendorId || 'VND-101'
+      };
+    });
+
+    const shippingAddress =
+      typeof orderData.shippingAddress === 'object' && orderData.shippingAddress !== null
+        ? orderData.shippingAddress
+        : {
+            address: orderData.address || deliveryLocation?.address || '123, Block A, Gulberg 3, Lahore',
+            city: orderData.city || deliveryLocation?.city || 'Lahore, Pakistan',
+            deliverySlot: orderData.deliverySlot || '⚡ 25-35 Mins Express Delivery'
+          };
+
+    const localOrderId = orderData.orderId || orderData.id || ('#FM' + Math.floor(10000 + Math.random() * 90000));
+    const paymentMethod = orderData.paymentMethod || orderData.payment || 'Cash on Delivery';
+
+    const backendPayload = {
+      orderId: localOrderId,
+      id: localOrderId,
+      orderItems,
       rawItems: orderItems,
+      customerName: custName,
+      customer: custName,
+      customerPhone: custPhone,
+      customerEmail: custEmail,
+      shippingAddress,
+      address: shippingAddress.address,
+      city: shippingAddress.city,
+      deliverySlot: shippingAddress.deliverySlot,
+      paymentMethod,
+      payment: paymentMethod,
+      itemsPrice: Number(orderData.subtotal !== undefined ? orderData.subtotal : cartSubtotal),
+      subtotal: Number(orderData.subtotal !== undefined ? orderData.subtotal : cartSubtotal),
+      deliveryPrice: Number(orderData.deliveryCharges !== undefined ? orderData.deliveryCharges : deliveryCharges),
+      deliveryCharges: Number(orderData.deliveryCharges !== undefined ? orderData.deliveryCharges : deliveryCharges),
+      discountPrice: Number(orderData.discountAmount || 0),
+      discountAmount: Number(orderData.discountAmount || 0),
+      totalPrice: orderTotal,
       totalAmount: orderTotal,
       total: orderTotal,
-      subtotal: orderData.subtotal || cartSubtotal,
-      deliveryCharges: orderData.deliveryCharges || deliveryCharges,
-      status: 'Pending', // Order goes to Admin for review and rider assignment
+      status: 'Pending'
+    };
+
+    let confirmedOrder = {
+      ...backendPayload,
+      id: localOrderId,
+      items: `${orderItems.length} Item${orderItems.length > 1 ? 's' : ''}`,
+      status: 'Pending',
       statusClass: 'bg-amber-100 text-amber-800',
       assignedRider: null,
-      payment: orderData.paymentMethod || 'Cash on Delivery',
-      deliverySlot: orderData.deliverySlot || '⚡ 25-35 Mins Express Delivery',
-      address: orderData.address || deliveryLocation?.address || '123, Block A, Gulberg 3, Lahore',
-      city: orderData.city || deliveryLocation?.city || 'Lahore',
-      neighborhood: orderData.neighborhood || deliveryLocation?.neighborhood || 'Gulberg',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       createdAt: new Date().toISOString(),
       dateFormatted: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     };
 
-    setCustomerOrders((prev) => [newOrder, ...prev]);
-    setAdminOrders((prev) => [newOrder, ...prev]);
-    setActiveDeliveryOrder(newOrder);
+    try {
+      const res = await apiService.createOrder(backendPayload);
+      if (res && res.success && res.order) {
+        const bOrder = res.order;
+        const realId = bOrder.orderId || bOrder.id || bOrder._id || localOrderId;
+        confirmedOrder = {
+          ...confirmedOrder,
+          ...bOrder,
+          id: realId,
+          orderId: realId,
+          rawItems: orderItems,
+          orderItems: orderItems,
+          items: `${orderItems.length} Item${orderItems.length > 1 ? 's' : ''}`,
+          status: bOrder.status || 'Pending',
+          statusClass: bOrder.statusClass || 'bg-amber-100 text-amber-800',
+          address: bOrder.shippingAddress?.address || shippingAddress.address,
+          city: bOrder.shippingAddress?.city || shippingAddress.city,
+          deliverySlot: bOrder.shippingAddress?.deliverySlot || shippingAddress.deliverySlot,
+          totalAmount: Number(bOrder.totalPrice || bOrder.totalAmount || orderTotal),
+          total: Number(bOrder.totalPrice || bOrder.totalAmount || orderTotal),
+          customer: bOrder.customerName || bOrder.customer || custName,
+          customerPhone: bOrder.customerPhone || custPhone,
+          payment: bOrder.paymentMethod || paymentMethod
+        };
+      }
+    } catch (e) {
+      console.error('Backend order creation sync error:', e);
+    }
+
+    setCustomerOrders((prev) => [confirmedOrder, ...prev]);
+    setAdminOrders((prev) => [confirmedOrder, ...prev]);
+    setActiveDeliveryOrder(confirmedOrder);
 
     // Automatically record / update the customer in Customer Directory
     setCustomers((prev) => {
@@ -1472,12 +1549,8 @@ export const StoreProvider = ({ children }) => {
       return updated;
     });
 
-    try {
-      await apiService.createOrder(newOrder);
-    } catch (e) {}
-
     clearCart();
-    return newOrder;
+    return confirmedOrder;
   };
 
   // --- Inventory & Stock Management ---

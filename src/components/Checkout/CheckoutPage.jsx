@@ -92,39 +92,56 @@ export const CheckoutPage = () => {
     }
 
     const orderId = '#FM' + Math.floor(10000 + Math.random() * 90000);
+    const orderItems = cart.map((i) => ({
+      product: i.product?.id || i.product?._id,
+      id: i.product?.id || i.product?._id,
+      name: i.product?.name || 'Grocery Item',
+      price: Number(i.product?.price || 0),
+      quantity: Number(i.quantity || 1),
+      unit: i.unit || i.product?.unit || '1 unit',
+      image: i.product?.image || '',
+      vendorId: i.product?.vendorId || 'VND-101'
+    }));
+
     const orderPayload = {
       id: orderId,
-      items: cart.map((i) => ({
-        id: i.product.id || i.product._id,
-        name: i.product.name,
-        price: i.product.price,
-        quantity: i.quantity,
-        unit: i.unit || i.product.unit,
-        image: i.product.image
-      })),
+      orderId,
+      orderItems,
+      rawItems: orderItems,
+      items: orderItems,
       subtotal: cartSubtotal,
       deliveryCharges,
       discountAmount,
       riderTip,
       isEcoFriendly,
       totalAmount: grandTotalWithTip,
+      totalPrice: grandTotalWithTip,
       paymentMethod: selectedPayment.toUpperCase().replace('_', ' / '),
       deliverySlot: selectedSlot,
+      shippingAddress: {
+        address: addressData.address,
+        city: addressData.city,
+        deliverySlot: selectedSlot
+      },
       address: `${addressData.address}, ${addressData.city}`,
+      city: addressData.city,
+      customerName: addressData.recipientName,
       recipientName: addressData.recipientName,
+      customerPhone: addressData.phone,
       phone: addressData.phone,
-      status: 'Out for Delivery',
+      status: 'Pending',
       createdAt: new Date().toISOString()
     };
 
-    setPlacedOrderDetails(orderPayload);
-    setIsOrderPlaced(true);
-
+    let resultOrder = orderPayload;
     if (placeCustomerOrder) {
-      await placeCustomerOrder(orderPayload);
+      resultOrder = (await placeCustomerOrder(orderPayload)) || orderPayload;
     } else {
       clearCart();
     }
+
+    setPlacedOrderDetails(resultOrder);
+    setIsOrderPlaced(true);
 
     try {
       confetti({
@@ -134,7 +151,7 @@ export const CheckoutPage = () => {
       });
     } catch (e) {}
 
-    addToast('Order Placed Successfully! 🎉', `Order ${orderId} confirmed for 10-minute dispatch.`);
+    addToast('Order Placed Successfully! 🎉', `Order ${resultOrder.id || orderId} confirmed for 10-minute dispatch.`);
   };
 
   return (

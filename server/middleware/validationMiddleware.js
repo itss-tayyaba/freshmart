@@ -101,13 +101,34 @@ export const updateCategorySchema = z
 // --- ORDER VALIDATION SCHEMAS ---
 export const createOrderSchema = z
   .object({
-    orderItems: z.array(z.any()).min(1, 'Order must contain at least one item'),
+    orderItems: z.array(z.any()).optional(),
+    rawItems: z.array(z.any()).optional(),
+    items: z.union([z.array(z.any()), z.string()]).optional(),
     customerName: z.string().optional(),
+    customer: z.string().optional(),
+    recipientName: z.string().optional(),
     customerPhone: z.string().optional(),
+    phone: z.string().optional(),
     shippingAddress: z.any().optional(),
+    address: z.string().optional(),
     paymentMethod: z.string().optional(),
-    discountPrice: z.coerce.number().optional()
+    payment: z.string().optional(),
+    discountPrice: z.coerce.number().optional(),
+    discountAmount: z.coerce.number().optional(),
+    totalAmount: z.coerce.number().optional(),
+    totalPrice: z.coerce.number().optional(),
+    total: z.coerce.number().optional()
   })
+  .refine(
+    (data) => {
+      const itemsList = data.orderItems || data.rawItems || (Array.isArray(data.items) ? data.items : null);
+      return Array.isArray(itemsList) && itemsList.length > 0;
+    },
+    {
+      message: 'Order must contain at least one item (in orderItems, rawItems, or items)',
+      path: ['orderItems']
+    }
+  )
   .passthrough();
 
 export const updateOrderStatusSchema = z
