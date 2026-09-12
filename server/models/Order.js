@@ -20,6 +20,33 @@ const timelineStepSchema = new mongoose.Schema({
   desc: { type: String }
 });
 
+const assignedRiderSchema = new mongoose.Schema(
+  {
+    id: { type: String },
+    riderId: { type: String },
+    name: { type: String },
+    phone: { type: String },
+    vehicle: { type: String },
+    vehicleType: { type: String },
+    vehicleNumber: { type: String },
+    zone: { type: String },
+    rating: { type: Number, default: 5.0 },
+    coordinates: {
+      lat: { type: Number },
+      lng: { type: Number }
+    },
+    currentLat: { type: Number },
+    currentLng: { type: Number },
+    speed: { type: Number, default: 0 },
+    heading: { type: Number, default: 0 },
+    eta: { type: String },
+    etaMinutes: { type: Number },
+    assignedAt: { type: Date, default: Date.now },
+    status: { type: String, default: 'On-Duty' }
+  },
+  { _id: false }
+);
+
 const orderSchema = new mongoose.Schema(
   {
     orderId: {
@@ -43,12 +70,32 @@ const orderSchema = new mongoose.Schema(
     shippingAddress: {
       address: { type: String, required: true },
       city: { type: String, default: 'Lahore, Pakistan' },
-      deliverySlot: { type: String, default: 'Today 2 PM - 4 PM' }
+      area: { type: String },
+      neighborhood: { type: String },
+      deliverySlot: { type: String, default: '⚡ 15-25 Mins Express Delivery' },
+      postalCode: { type: String }
+    },
+    destinationCoords: {
+      lat: { type: Number },
+      lng: { type: Number }
+    },
+    hubCoords: {
+      lat: { type: Number },
+      lng: { type: Number }
+    },
+    distanceKm: {
+      type: Number
+    },
+    eta: {
+      type: String
+    },
+    etaMinutes: {
+      type: Number
     },
     orderItems: [orderItemSchema],
     paymentMethod: {
       type: String,
-      enum: ['Cash on Delivery', 'Credit / Debit Card', 'Easypaisa', 'Bank Transfer'],
+      enum: ['Cash on Delivery', 'Credit / Debit Card', 'Easypaisa', 'JazzCash', 'Bank Transfer'],
       default: 'Cash on Delivery'
     },
     paymentStatus: {
@@ -81,9 +128,8 @@ const orderSchema = new mongoose.Schema(
       default: 'Confirmed'
     },
     assignedRider: {
-      name: { type: String, default: 'Rider Ali' },
-      phone: { type: String, default: '+92 301 1234567' },
-      eta: { type: String, default: '12 mins' }
+      type: assignedRiderSchema,
+      default: null
     },
     timeline: [timelineStepSchema]
   },
@@ -94,3 +140,4 @@ const orderSchema = new mongoose.Schema(
 );
 
 export const Order = mongoose.model('Order', orderSchema);
+

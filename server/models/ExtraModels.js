@@ -48,7 +48,14 @@ const riderSchema = new mongoose.Schema(
     password: { type: String, default: 'rider123' },
     cnic: { type: String },
     deliveriesCount: { type: Number, default: 0 },
-    rating: { type: Number, default: 5.0 }
+    rating: { type: Number, default: 5.0 },
+    coordinates: {
+      lat: { type: Number },
+      lng: { type: Number }
+    },
+    currentLat: { type: Number },
+    currentLng: { type: Number },
+    activeOrders: [{ type: String }]
   },
   { timestamps: true, bufferCommands: false }
 );

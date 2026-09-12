@@ -674,42 +674,5 @@ export const TESTIMONIALS = [
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'
   }
 ];
+export const MOCK_TRACKING_ORDERS = {};
 
-export const MOCK_TRACKING_ORDERS = {
-  'GROC-8924': {
-    orderId: 'GROC-8924',
-    customer: 'Alex Morgan',
-    itemsCount: 4,
-    total: '$34.80',
-    placedAt: 'Today, 2:15 PM',
-    estimatedDelivery: 'Today, 3:45 PM',
-    currentStage: 3, // 1: Placed, 2: Packed, 3: On the Way, 4: Delivered
-    driverName: 'Carlos Rivera',
-    driverPhone: '+1 (555) 234-8901',
-    driverVehicle: 'Electric Delivery Van #14',
-    timeline: [
-      { title: 'Order Confirmed', time: '2:15 PM', completed: true, desc: 'Payment verified & sent to warehouse' },
-      { title: 'Picked & Packed Fresh', time: '2:35 PM', completed: true, desc: 'Inspected for quality and cold-sealed' },
-      { title: 'Out for Express Delivery', time: '3:05 PM', completed: true, desc: 'Driver is 12 mins away from your location' },
-      { title: 'Delivered to Doorstep', time: 'Est. 3:45 PM', completed: false, desc: 'Contactless delivery requested' }
-    ]
-  },
-  'GROC-5120': {
-    orderId: 'GROC-5120',
-    customer: 'Sarah Jenkins',
-    itemsCount: 6,
-    total: '$52.10',
-    placedAt: 'Yesterday, 10:00 AM',
-    estimatedDelivery: 'Delivered',
-    currentStage: 4,
-    driverName: 'Marcus Bell',
-    driverPhone: '+1 (555) 890-1234',
-    driverVehicle: 'Eco Hybrid Van #07',
-    timeline: [
-      { title: 'Order Confirmed', time: '10:00 AM', completed: true, desc: 'Payment verified' },
-      { title: 'Picked & Packed Fresh', time: '10:20 AM', completed: true, desc: 'Packed in eco cooling bag' },
-      { title: 'Out for Express Delivery', time: '10:45 AM', completed: true, desc: 'Driver dispatched' },
-      { title: 'Delivered to Doorstep', time: '11:15 AM', completed: true, desc: 'Delivered & signed by customer' }
-    ]
-  }
-};

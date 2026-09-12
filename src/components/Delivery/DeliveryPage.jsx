@@ -22,9 +22,11 @@ import {
   ChevronRight,
   User,
   CheckCircle,
-  Package
+  Package,
+  Loader2
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { apiService } from '../../services/api';
 import { PAKISTAN_CITIES } from '../../data/pakistanLocations';
 
 export const DeliveryPage = () => {
@@ -79,6 +81,9 @@ export const DeliveryPage = () => {
     }
   }, [deliveryLocation]);
 
+  const [remoteOrder, setRemoteOrder] = useState(null);
+  const [isSearchingOrder, setIsSearchingOrder] = useState(false);
+
   // Keep trackedOrderId synced if activeDeliveryOrder updates
   useEffect(() => {
     if (activeDeliveryOrder?.id) {
@@ -88,13 +93,39 @@ export const DeliveryPage = () => {
     }
   }, [activeDeliveryOrder, customerOrders]);
 
-  // Current active order being tracked
+  // Current active order being tracked (from remote DB lookup, local state, or active delivery)
   const currentOrder =
-    customerOrders.find((o) => o.id === trackedOrderId) ||
-    activeDeliveryOrder ||
-    (customerOrders.length > 0 ? customerOrders[0] : null);
+    (remoteOrder && (remoteOrder.id === trackedOrderId || remoteOrder.orderId === trackedOrderId))
+      ? remoteOrder
+      : customerOrders.find((o) => o.id === trackedOrderId || o.orderId === trackedOrderId) ||
+        activeDeliveryOrder ||
+        (customerOrders.length > 0 ? customerOrders[0] : null);
 
   const assignedRider = currentOrder?.assignedRider || null;
+
+  // Calculate actual Haversine distance in KM between rider / hub and drop-off
+  const dropoffCoords = currentOrder?.destinationCoords || selectedNeighborhood.coords;
+  const hubCoords = currentOrder?.hubCoords || selectedCity.hubCoords;
+  const riderCoords = assignedRider?.coordinates || (assignedRider?.currentLat ? { lat: assignedRider.currentLat, lng: assignedRider.currentLng } : hubCoords);
+
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return 3.2;
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round(R * c * 10) / 10;
+  };
+
+  const dynamicDistanceKm = calculateDistance(riderCoords.lat, riderCoords.lng, dropoffCoords.lat, dropoffCoords.lng);
+  const dynamicEtaMins = dynamicDistanceKm <= 0.2 ? 2 : Math.max(2, Math.round((dynamicDistanceKm / 25) * 60 + 2));
+  const dynamicEtaText = assignedRider ? (dynamicDistanceKm <= 0.2 ? 'Arriving now (1-2 mins)' : `${dynamicEtaMins} mins`) : `${dynamicEtaMins} mins (Upon dispatch)`;
 
   const handleCityChange = (city) => {
     setSelectedCity(city);
@@ -133,20 +164,52 @@ export const DeliveryPage = () => {
     setAddressForm({ label: 'Home', address: '', city: selectedCity.city, phone: '' });
   };
 
-  const handleSearchOrder = (e) => {
-    e.preventDefault();
-    const q = orderSearchQuery.trim().toUpperCase();
+  const handleSearchOrder = async (e) => {
+    if (e) e.preventDefault();
+    const q = orderSearchQuery.trim();
     if (!q) return;
 
-    const found = customerOrders.find(
-      (o) => o.id.toUpperCase() === q || o.id.toUpperCase().includes(q)
+    // 1. Check in local customerOrders state first
+    const foundLocal = customerOrders.find(
+      (o) =>
+        o.id.toUpperCase() === q.toUpperCase() ||
+        o.id.toUpperCase().includes(q.toUpperCase()) ||
+        (o.orderId && o.orderId.toUpperCase() === q.toUpperCase())
     );
 
-    if (found) {
-      setTrackedOrderId(found.id);
-      addToast('Order Found 📦', `Tracking Order ${found.id}`);
-    } else {
-      addToast('Order Not Found', `No placed order matching "${orderSearchQuery}".`, 'error');
+    if (foundLocal) {
+      setTrackedOrderId(foundLocal.id);
+      addToast('Order Found 📦', `Tracking Order ${foundLocal.id}`);
+      return;
+    }
+
+    // 2. Query real MongoDB backend via API
+    setIsSearchingOrder(true);
+    try {
+      const res = await apiService.trackOrder(q);
+      if (res && res.success && res.order) {
+        const bOrder = res.order;
+        const normalized = {
+          ...bOrder,
+          id: bOrder.orderId || bOrder.id || bOrder._id,
+          orderId: bOrder.orderId || bOrder.id || bOrder._id,
+          customer: bOrder.customerName || bOrder.customer || 'Customer',
+          totalAmount: bOrder.totalPrice !== undefined ? bOrder.totalPrice : bOrder.totalAmount,
+          address: typeof bOrder.shippingAddress === 'string' ? bOrder.shippingAddress : (bOrder.shippingAddress?.address || bOrder.address),
+          city: typeof bOrder.shippingAddress === 'object' ? (bOrder.shippingAddress?.city || bOrder.city) : bOrder.city,
+          deliverySlot: typeof bOrder.shippingAddress === 'object' ? (bOrder.shippingAddress?.deliverySlot || bOrder.deliverySlot) : bOrder.deliverySlot,
+          statusClass: bOrder.status === 'Delivered' ? 'bg-emerald-100 text-emerald-800' : bOrder.status === 'Out for Delivery' ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'
+        };
+        setRemoteOrder(normalized);
+        setTrackedOrderId(normalized.id);
+        addToast('Order Found 📦', `Live Database Order ${normalized.id} retrieved.`);
+      } else {
+        addToast('Order Not Found', res?.message || `No database order matching "${q}".`, 'error');
+      }
+    } catch (err) {
+      addToast('Search Error', `Could not reach backend to track order "${q}".`, 'error');
+    } finally {
+      setIsSearchingOrder(false);
     }
   };
 
@@ -538,7 +601,18 @@ export const DeliveryPage = () => {
                     <p className="text-xs text-slate-500 font-medium">
                       {assignedRider.vehicle || assignedRider.vehicleType || 'Motorbike'} • FreshMart Fleet ({assignedRider.zone || 'Central Zone'})
                     </p>
-                    <p className="text-[11px] text-emerald-700 font-bold flex items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-2 pt-1 text-[10px]">
+                      <span className="bg-slate-200/80 text-slate-700 px-2 py-0.5 rounded-md font-mono font-bold flex items-center gap-1">
+                        📍 GPS: {riderCoords.lat.toFixed(4)}, {riderCoords.lng.toFixed(4)}
+                      </span>
+                      <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-bold">
+                        📏 {dynamicDistanceKm} km away
+                      </span>
+                      <span className="bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md font-bold">
+                        ⚡ ETA: {dynamicEtaText}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-700 font-bold flex items-center gap-1 pt-0.5">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Verified Fleet Courier • Chilled Insulated Box</span>
                     </p>

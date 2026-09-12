@@ -21,7 +21,9 @@ import {
   createOrder,
   getOrders,
   trackOrder,
-  updateOrderStatus
+  updateOrderStatus,
+  assignRiderToOrder,
+  updateRiderLocation
 } from '../controllers/orderController.js';
 import {
   getInventory,
@@ -114,7 +116,9 @@ router.delete('/categories/:id', protect, adminOnly, deleteCategory);
 // Public: Shoppers place orders (validated) and track delivery status
 router.post('/orders', validate(createOrderSchema), createOrder);
 router.get('/orders/track/:orderId', trackOrder);
-// Admin Locked & Validated: Viewing all store orders and updating status
+// Admin & Fleet: Assign rider, update live GPS location, and update order status
+router.put('/orders/:id/assign-rider', assignRiderToOrder);
+router.put('/orders/:id/rider-location', updateRiderLocation);
 router.get('/orders', protect, adminOnly, getOrders);
 router.put('/orders/:id/status', protect, adminOnly, validate(updateOrderStatusSchema), updateOrderStatus);
 

@@ -1,113 +1,154 @@
-import React, { useState } from 'react';
-import { X, Search, Truck, CheckCircle2, Clock, MapPin, Phone, MessageSquare, User, Package, ShieldCheck, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Search, Truck, CheckCircle2, Clock, MapPin, Phone, MessageSquare, User, Package, ShieldCheck, ChevronRight, Loader2 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
-import { MOCK_TRACKING_ORDERS } from '../../data/groceryData';
+import { apiService } from '../../services/api';
 
 export const OrderTrackerModal = () => {
-  const { isOrderTrackerOpen, setIsOrderTrackerOpen, customerOrders, navigateTo } = useStore();
-  const [orderInput, setOrderInput] = useState(
-    customerOrders.length > 0 ? customerOrders[0].id : 'GROC-8924'
-  );
+  const { isOrderTrackerOpen, setIsOrderTrackerOpen, customerOrders, navigateTo, trackOrderRemote } = useStore();
+  const [orderInput, setOrderInput] = useState('');
+  const [currentOrder, setCurrentOrder] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
 
-  if (!isOrderTrackerOpen) return null;
+  // Format a real order (from local store or backend API) into tracker modal format
+  const formatOrderForTracking = (rawOrder) => {
+    if (!rawOrder) return null;
+    const isAssigned = !!rawOrder.assignedRider;
+    const status = (rawOrder.status || 'Pending').toLowerCase();
+    const isDelivered = status === 'delivered' || status === 'completed';
+    const isOutForDelivery = status.includes('out') || status.includes('transit') || isAssigned;
 
-  // Build a resolved tracking object whether from customerOrders or MOCK_TRACKING_ORDERS
-  const resolveOrder = (searchId) => {
-    const cleanId = (searchId || '').trim().toUpperCase();
-    
-    // Check placed customer orders first
-    const foundReal = customerOrders.find(
-      (o) => o.id.toUpperCase() === cleanId || o.id.toUpperCase().includes(cleanId)
-    );
-    if (foundReal) {
-      const isAssigned = !!foundReal.assignedRider;
-      const isDelivered = (foundReal.status || '').toLowerCase() === 'delivered';
-      const isOutForDelivery = (foundReal.status || '').toLowerCase().includes('out') || isAssigned;
+    const shipping = rawOrder.shippingAddress || {};
+    const addr = typeof shipping === 'string' ? shipping : (shipping.address || rawOrder.address || 'Delivery Address');
+    const city = typeof shipping === 'object' ? (shipping.city || rawOrder.city || 'Pakistan') : (rawOrder.city || 'Pakistan');
+    const slot = typeof shipping === 'object' ? (shipping.deliverySlot || rawOrder.deliverySlot || '⚡ 15-25 Mins Express Delivery') : (rawOrder.deliverySlot || '⚡ 15-25 Mins Express Delivery');
 
-      return {
-        orderId: foundReal.id,
-        placedAt: foundReal.time || 'Today, Express Slot',
-        estimatedDelivery: foundReal.deliverySlot || '⚡ 15-25 Mins Express Delivery',
-        itemsCount: foundReal.rawItems ? foundReal.rawItems.length : 3,
-        total: `PKR ${foundReal.totalAmount || foundReal.total || 850}`,
-        address: foundReal.address || 'Standard Delivery Address',
-        city: foundReal.city || 'Lahore',
-        currentStage: isDelivered ? 4 : isOutForDelivery ? 3 : 1,
-        driverName: foundReal.assignedRider?.name || 'Awaiting Courier Assignment',
-        driverPhone: foundReal.assignedRider?.phone || null,
-        driverVehicle: foundReal.assignedRider?.vehicle || 'Fleet Courier',
-        isAssigned,
-        timeline: [
+    const totalStr = rawOrder.totalPrice !== undefined ? `PKR ${rawOrder.totalPrice}` : `PKR ${rawOrder.totalAmount || rawOrder.total || 0}`;
+    const rawItemsCount = rawOrder.orderItems?.length || rawOrder.rawItems?.length || (Array.isArray(rawOrder.items) ? rawOrder.items.length : 1);
+
+    const rider = rawOrder.assignedRider || null;
+    const eta = rider?.eta || rawOrder.eta || '15-25 mins';
+
+    // Build or use timeline
+    const timeline = Array.isArray(rawOrder.timeline) && rawOrder.timeline.length > 0
+      ? rawOrder.timeline
+      : [
           {
             title: '1. Order Confirmed',
-            time: 'Completed',
-            desc: `Invoice generated for ${foundReal.customer || 'Customer'}`,
+            time: rawOrder.time || 'Completed',
+            desc: `Payment: ${rawOrder.paymentMethod || rawOrder.payment || 'Cash on Delivery'}`,
             completed: true
           },
           {
             title: '2. Dark Store Packing',
             time: isOutForDelivery || isDelivered ? 'Completed' : 'In Progress',
-            desc: 'Chilled cold-chain packaging at logistics hub',
+            desc: 'Quality checked & packed at logistics hub',
             completed: isOutForDelivery || isDelivered
           },
           {
             title: '3. Courier Dispatched',
-            time: isDelivered ? 'Completed' : isOutForDelivery ? 'In Transit' : 'Pending',
+            time: isDelivered ? 'Completed' : isOutForDelivery ? `ETA: ${eta}` : 'Pending',
             desc: isAssigned
-              ? `Assigned to ${foundReal.assignedRider.name} (${foundReal.assignedRider.vehicle || 'Bike'})`
-              : 'Dispatch team is reviewing address to assign fleet rider',
+              ? `Assigned to courier ${rider.name} (${rider.vehicle || rider.vehicleType || 'Motorbike'})`
+              : 'Dispatch manager reviewing address to assign fleet rider',
             completed: isOutForDelivery || isDelivered
           },
           {
-            title: '4. Delivered',
+            title: '4. Delivered to Doorstep',
             time: isDelivered ? 'Delivered' : 'Pending',
-            desc: `Handover at ${foundReal.address || 'drop-off address'}`,
+            desc: `Handover at ${addr}`,
             completed: isDelivered
           }
-        ]
-      };
-    }
+        ];
 
-    if (MOCK_TRACKING_ORDERS[cleanId]) {
-      const mock = MOCK_TRACKING_ORDERS[cleanId];
-      return {
-        ...mock,
-        address: 'House 14, Block C, Gulberg 3',
-        city: 'Lahore',
-        isAssigned: !!mock.driverPhone
-      };
-    }
-
-    return null;
+    return {
+      orderId: rawOrder.orderId || rawOrder.id || rawOrder._id,
+      customer: rawOrder.customerName || rawOrder.customer || 'Customer',
+      placedAt: rawOrder.time || rawOrder.createdAt ? (rawOrder.time || new Date(rawOrder.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) : 'Today',
+      estimatedDelivery: slot,
+      itemsCount: rawItemsCount,
+      total: totalStr,
+      address: addr,
+      city: city,
+      status: rawOrder.status || 'Pending',
+      driverName: rider?.name || 'Awaiting Courier Assignment',
+      driverPhone: rider?.phone || null,
+      driverVehicle: rider?.vehicle || rider?.vehicleType || 'Fleet Courier',
+      driverZone: rider?.zone || 'Central Zone',
+      isAssigned,
+      eta,
+      distanceKm: rawOrder.distanceKm || null,
+      timeline
+    };
   };
 
-  const [currentOrder, setCurrentOrder] = useState(resolveOrder(orderInput) || MOCK_TRACKING_ORDERS['GROC-8924']);
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    setSearchError('');
-    const resolved = resolveOrder(orderInput);
-    if (resolved) {
-      setCurrentOrder(resolved);
-    } else {
-      setSearchError(`Order ID "${orderInput}" not found. Try sample order GROC-8924 or GROC-5120.`);
-    }
-  };
-
-  const selectSample = (id) => {
-    setOrderInput(id);
-    const resolved = resolveOrder(id);
-    if (resolved) {
-      setCurrentOrder(resolved);
+  // Initialize with latest placed customer order if available
+  useEffect(() => {
+    if (isOrderTrackerOpen) {
       setSearchError('');
+      if (customerOrders.length > 0) {
+        const topOrder = customerOrders[0];
+        setOrderInput(topOrder.id);
+        setCurrentOrder(formatOrderForTracking(topOrder));
+      } else {
+        setOrderInput('');
+        setCurrentOrder(null);
+      }
     }
+  }, [isOrderTrackerOpen, customerOrders]);
+
+  const handleSearch = async (e) => {
+    if (e) e.preventDefault();
+    setSearchError('');
+    const cleanId = (orderInput || '').trim();
+    if (!cleanId) {
+      setSearchError('Please enter an Order ID to track.');
+      return;
+    }
+
+    // 1. Check in local customerOrders state first
+    const foundLocal = customerOrders.find(
+      (o) =>
+        o.id.toUpperCase() === cleanId.toUpperCase() ||
+        o.id.toUpperCase().includes(cleanId.toUpperCase()) ||
+        (o.orderId && o.orderId.toUpperCase() === cleanId.toUpperCase())
+    );
+
+    if (foundLocal) {
+      setCurrentOrder(formatOrderForTracking(foundLocal));
+      return;
+    }
+
+    // 2. Fetch live from MongoDB backend via API
+    setIsSearching(true);
+    try {
+      const res = await apiService.trackOrder(cleanId);
+      if (res && res.success && res.order) {
+        setCurrentOrder(formatOrderForTracking(res.order));
+      } else {
+        setCurrentOrder(null);
+        setSearchError(res?.message || `Order "${cleanId}" not found in database. Please check your order reference number.`);
+      }
+    } catch (err) {
+      setCurrentOrder(null);
+      setSearchError(`Unable to track order "${cleanId}". Please verify the ID.`);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const selectOrder = (ord) => {
+    setOrderInput(ord.id);
+    setSearchError('');
+    setCurrentOrder(formatOrderForTracking(ord));
   };
 
   const handleOpenDeliveryPage = () => {
     setIsOrderTrackerOpen(false);
     navigateTo('delivery');
   };
+
+  if (!isOrderTrackerOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
@@ -127,8 +168,8 @@ export const OrderTrackerModal = () => {
               <Truck className="w-5 h-5 text-emerald-300" />
             </div>
             <div>
-              <h2 className="text-lg font-black tracking-tight">Order Fulfillment & Delivery Status</h2>
-              <p className="text-xs text-emerald-200">Real-time order milestone tracking & courier contact</p>
+              <h2 className="text-lg font-black tracking-tight">Real-Time Order & Rider Tracking</h2>
+              <p className="text-xs text-emerald-200">Database verified milestone progress & courier dispatch</p>
             </div>
           </div>
           <button
@@ -148,7 +189,7 @@ export const OrderTrackerModal = () => {
               <div className="relative flex-1">
                 <input
                   type="text"
-                  placeholder="Enter Order ID (e.g. #ORD1024 or GROC-8924)"
+                  placeholder="Enter Order ID (e.g. #FM92841 or ORD-1024)"
                   value={orderInput}
                   onChange={(e) => setOrderInput(e.target.value)}
                   className="w-full text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 uppercase font-mono font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -157,46 +198,36 @@ export const OrderTrackerModal = () => {
               </div>
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                disabled={isSearching}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-60"
               >
-                Track
+                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                <span>{isSearching ? 'Searching...' : 'Track'}</span>
               </button>
             </form>
 
-            {/* Quick Sample or Recent Orders */}
-            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-slate-500">
-              <span>Quick track:</span>
-              {customerOrders.slice(0, 2).map((o) => (
-                <button
-                  type="button"
-                  key={o.id}
-                  onClick={() => selectSample(o.id)}
-                  className="font-mono text-emerald-700 font-bold hover:underline"
-                >
-                  {o.id} (Your Order)
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => selectSample('GROC-8924')}
-                className="font-mono text-emerald-700 font-bold hover:underline"
-              >
-                GROC-8924 (In-Transit)
-              </button>
-              <span>•</span>
-              <button
-                type="button"
-                onClick={() => selectSample('GROC-5120')}
-                className="font-mono text-emerald-700 font-bold hover:underline"
-              >
-                GROC-5120 (Delivered)
-              </button>
-            </div>
+            {/* Placed Customer Orders Quick Select */}
+            {customerOrders.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-slate-500">
+                <span className="font-semibold">Your Placed Orders:</span>
+                {customerOrders.map((o) => (
+                  <button
+                    type="button"
+                    key={o.id}
+                    onClick={() => selectOrder(o)}
+                    className="font-mono text-emerald-700 font-bold bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-md cursor-pointer transition-colors"
+                  >
+                    {o.id} ({o.status || 'Pending'})
+                  </button>
+                ))}
+              </div>
+            )}
 
             {searchError && (
-              <p className="text-xs text-rose-600 mt-2 bg-rose-50 p-2.5 rounded-lg border border-rose-100">
-                {searchError}
-              </p>
+              <div className="text-xs text-rose-700 mt-3 bg-rose-50 p-3 rounded-xl border border-rose-200 flex items-start gap-2">
+                <span className="font-bold shrink-0">⚠️ Error:</span>
+                <span>{searchError}</span>
+              </div>
             )}
           </div>
 

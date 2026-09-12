@@ -1063,7 +1063,7 @@ export const StoreProvider = ({ children }) => {
     });
   };
 
-  const assignRiderToOrder = (orderId, riderId) => {
+  const assignRiderToOrder = async (orderId, riderId) => {
     const targetRider = riders.find((r) => r.id === riderId);
     if (!targetRider) return;
 
@@ -1073,8 +1073,10 @@ export const StoreProvider = ({ children }) => {
       phone: targetRider.phone,
       vehicle: targetRider.vehicleNumber || targetRider.vehicleType,
       zone: targetRider.zone || 'Lahore Hub',
+      rating: targetRider.rating || 5.0,
+      coordinates: targetRider.coordinates || { lat: 31.5150, lng: 74.3450 },
       assignedAt: new Date().toISOString(),
-      eta: '15-25 mins'
+      eta: '12-18 mins'
     };
 
     setCustomerOrders((prev) =>
@@ -1109,10 +1111,70 @@ export const StoreProvider = ({ children }) => {
         statusClass: 'bg-purple-100 text-purple-800'
       }));
     }
+
     addToast('Rider Assigned 🛵', `${targetRider.name} assigned to Order ${orderId}. Status updated to Out for Delivery.`);
+
+    // Persist to backend database
+    try {
+      await apiService.assignRiderToOrder(orderId, {
+        riderId: targetRider.id,
+        rider: assignedInfo,
+        status: 'Out for Delivery'
+      });
+    } catch (e) {
+      console.warn('Could not sync rider assignment to backend:', e.message);
+    }
   };
 
-  const updateDeliveryOrderStatus = (orderId, newStatus) => {
+  const updateRiderLiveLocation = async (orderId, coords) => {
+    setCustomerOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId && o.assignedRider
+          ? {
+              ...o,
+              assignedRider: {
+                ...o.assignedRider,
+                coordinates: coords,
+                currentLat: coords.lat,
+                currentLng: coords.lng
+              }
+            }
+          : o
+      )
+    );
+
+    if (activeDeliveryOrder && activeDeliveryOrder.id === orderId && activeDeliveryOrder.assignedRider) {
+      setActiveDeliveryOrder((prev) => ({
+        ...prev,
+        assignedRider: {
+          ...prev.assignedRider,
+          coordinates: coords,
+          currentLat: coords.lat,
+          currentLng: coords.lng
+        }
+      }));
+    }
+
+    try {
+      await apiService.updateRiderLocation(orderId, coords);
+    } catch (e) {
+      console.warn('Could not sync rider coordinates to backend:', e.message);
+    }
+  };
+
+  const trackOrderRemote = async (orderId) => {
+    try {
+      const res = await apiService.trackOrder(orderId);
+      if (res && res.success && res.order) {
+        return res.order;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const updateDeliveryOrderStatus = async (orderId, newStatus) => {
     setCustomerOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
     );
@@ -1120,6 +1182,12 @@ export const StoreProvider = ({ children }) => {
       setActiveDeliveryOrder((prev) => ({ ...prev, status: newStatus }));
     }
     addToast('Delivery Status Updated 🚚', `Order ${orderId}: ${newStatus}`);
+
+    try {
+      await apiService.updateOrderStatus(orderId, newStatus);
+    } catch (e) {
+      console.warn('Could not sync order status to backend:', e.message);
+    }
   };
 
   // --- 🏪 Multi-Vendor Applications & Approvals ---
@@ -2299,6 +2367,8 @@ export const StoreProvider = ({ children }) => {
         toggleRiderStatus,
         assignRiderToOrder,
         updateDeliveryOrderStatus,
+        updateRiderLiveLocation,
+        trackOrderRemote,
         suppliers,
         setSuppliers,
         addSupplier,
