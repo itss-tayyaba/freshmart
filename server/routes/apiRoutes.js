@@ -42,7 +42,8 @@ import {
   togglePromotionStatus,
   validateCoupon,
   getDeliveries,
-  getAnalyticsDashboard
+  getAnalyticsDashboard,
+  uploadImage
 } from '../controllers/extraControllers.js';
 import {
   registerVendor,
@@ -157,6 +158,9 @@ router.get('/delivery', protect, adminOnly, getDeliveries);
 // --- Analytics Routes ---
 // Admin Locked: Financial metrics, revenue, charts
 router.get('/analytics/dashboard', protect, adminOnly, getAnalyticsDashboard);
+
+// --- Media & Object Storage Upload Routes ---
+router.post('/upload', protect, adminOnly, uploadImage);
 
 // ============================================================
 // 🏪 MULTI-VENDOR MARKETPLACE & VENDOR DASHBOARD ROUTES

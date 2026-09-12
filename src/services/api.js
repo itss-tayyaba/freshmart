@@ -279,6 +279,20 @@ export const apiService = {
     }
   },
 
+  // Media / Object Storage API
+  async uploadImage(imageData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/upload`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(typeof imageData === 'string' ? { image: imageData } : imageData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
   // Analytics & Admin
   async getAnalytics() {
     try {

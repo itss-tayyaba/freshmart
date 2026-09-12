@@ -63,9 +63,32 @@ export const createOrder = async (req, res) => {
       });
 
       const createdOrder = await order.save();
+
+      // Deduct stock for all ordered products
+      for (const item of orderItems) {
+        const prodId = item.product || item.id || item.productId;
+        const qty = Number(item.quantity) || 1;
+        const filter = {
+          $or: [
+            ...(prodId && typeof prodId === 'string' && prodId.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: prodId }] : []),
+            ...(prodId ? [{ id: String(prodId) }, { customId: String(prodId) }] : []),
+            ...(item.name ? [{ name: item.name }] : [])
+          ]
+        };
+
+        const prod = await Product.findOne(filter);
+        if (prod) {
+          prod.stock = Math.max(0, (prod.stock || 0) - qty);
+          prod.stockCount = prod.stock;
+          prod.status = prod.stock === 0 ? 'Out of Stock' : prod.stock < 15 ? 'Low Stock' : 'Active';
+          prod.inStock = prod.stock > 0;
+          await prod.save();
+        }
+      }
+
       return res.status(201).json({
         success: true,
-        message: 'Order created in MongoDB',
+        message: 'Order created and product stock updated in MongoDB',
         order: createdOrder
       });
     }
@@ -153,15 +176,53 @@ export const updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
     if (isDbOnline()) {
-      const order = await Order.findById(req.params.id);
+      const order = await Order.findOne({
+        $or: [
+          ...(req.params.id && req.params.id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: req.params.id }] : []),
+          { orderId: req.params.id },
+          { id: req.params.id }
+        ]
+      });
       if (order) {
+        const previousStatus = order.status;
         order.status = status;
         const updated = await order.save();
+
+        // If order was cancelled, restore inventory
+        if (status === 'Cancelled' && previousStatus !== 'Cancelled' && Array.isArray(order.orderItems)) {
+          for (const item of order.orderItems) {
+            const prodId = item.product || item.id || item.productId;
+            const qty = Number(item.quantity) || 1;
+            const filter = {
+              $or: [
+                ...(prodId && typeof prodId === 'string' && prodId.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: prodId }] : []),
+                ...(prodId ? [{ id: String(prodId) }, { customId: String(prodId) }] : []),
+                ...(item.name ? [{ name: item.name }] : [])
+              ]
+            };
+            const prod = await Product.findOne(filter);
+            if (prod) {
+              prod.stock = (prod.stock || 0) + qty;
+              prod.stockCount = prod.stock;
+              prod.status = prod.stock === 0 ? 'Out of Stock' : prod.stock < 15 ? 'Low Stock' : 'Active';
+              prod.inStock = prod.stock > 0;
+              await prod.save();
+            }
+          }
+        }
+
         return res.json({ success: true, order: updated });
       }
     }
+
+    const memOrder = ADMIN_ORDERS_FULL.find((o) => o.id === req.params.id || o.orderId === req.params.id);
+    if (memOrder) {
+      memOrder.status = status;
+      return res.json({ success: true, message: `Status updated to ${status}`, order: memOrder });
+    }
+
     res.json({ success: true, message: `Status updated to ${status}` });
   } catch (error) {
-    res.json({ success: true, message: `Status updated to ${req.body.status}` });
+    res.status(500).json({ success: false, message: error.message });
   }
 };

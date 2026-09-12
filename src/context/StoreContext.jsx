@@ -1323,6 +1323,34 @@ export const StoreProvider = ({ children }) => {
       }
     });
 
+    // Automatically decrement inventory for ordered items
+    setProducts((prev) => {
+      const updated = prev.map((p) => {
+        const matchingItem = (orderItems || []).find(
+          (item) =>
+            String(item.id || item.product?.id || item.product?._id || item.product) === String(p.id || p._id) ||
+            (item.name && item.name.toLowerCase().trim() === p.name.toLowerCase().trim())
+        );
+        if (matchingItem) {
+          const qty = Number(matchingItem.quantity) || 1;
+          const currentStock = Number(p.stock !== undefined ? p.stock : (p.stockCount || 50));
+          const newStock = Math.max(0, currentStock - qty);
+          return {
+            ...p,
+            stock: newStock,
+            stockCount: newStock,
+            inStock: newStock > 0,
+            status: newStock === 0 ? 'Out of Stock' : newStock < 15 ? 'Low Stock' : 'Active'
+          };
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem('freshmart_products', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
     try {
       await apiService.createOrder(newOrder);
     } catch (e) {}
