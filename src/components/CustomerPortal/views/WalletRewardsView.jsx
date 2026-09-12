@@ -95,16 +95,16 @@ export const WalletRewardsView = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         
         {/* Wallet Balance Card */}
-        <div className="bg-gradient-to-br from-[#07382c] via-[#0b4d3c] to-[#14765d] rounded-3xl p-6 text-white shadow-xl shadow-emerald-950/20 border border-emerald-600/30 space-y-4 relative overflow-hidden">
-          <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-emerald-400/20 rounded-full blur-2xl pointer-events-none"></div>
+        <div className="bg-gradient-to-br from-[#063327] via-[#094c39] to-[#0f6b52] rounded-3xl p-6 text-white shadow-xl shadow-emerald-950/25 border border-emerald-500/30 space-y-4 relative overflow-hidden">
+          <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-emerald-400/15 rounded-full blur-2xl pointer-events-none"></div>
           
           <div className="flex items-center justify-between relative z-10">
             <span className="text-xs font-black uppercase text-emerald-300 tracking-wider flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
               <span>FreshMart Instant Wallet</span>
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
             </span>
-            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-xl">
-              👛
+            <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center text-emerald-200 shadow-inner">
+              <Wallet className="w-5 h-5" />
             </div>
           </div>
 
@@ -112,7 +112,7 @@ export const WalletRewardsView = () => {
             <span className="text-xs text-emerald-200/90 font-medium">Available Cash Balance</span>
             <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white flex items-baseline gap-2">
               <span>PKR {walletBalance}</span>
-              <span className="text-xs font-bold text-emerald-300">Available</span>
+              <span className="text-xs font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-md border border-emerald-400/30">Active</span>
             </div>
           </div>
 
@@ -123,36 +123,39 @@ export const WalletRewardsView = () => {
             >
               + Top Up Balance
             </button>
-            <span className="text-[11px] text-emerald-200 font-medium">⚡ 1-Click instant checkout</span>
+            <span className="text-[11px] text-emerald-200 font-medium flex items-center gap-1">
+              <Zap className="w-3 h-3 text-amber-300" />
+              <span>1-Click instant grocery checkout</span>
+            </span>
           </div>
         </div>
 
         {/* Loyalty Reward Points Card */}
-        <div className="bg-gradient-to-br from-amber-500 via-orange-500 to-rose-600 rounded-3xl p-6 text-white shadow-xl shadow-orange-950/20 border border-orange-300/40 space-y-4 relative overflow-hidden">
-          <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-yellow-300/20 rounded-full blur-2xl pointer-events-none"></div>
+        <div className="bg-gradient-to-br from-slate-900 via-[#182333] to-[#1e2f47] rounded-3xl p-6 text-white shadow-xl shadow-slate-950/25 border border-slate-700/60 space-y-4 relative overflow-hidden">
+          <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-amber-400/10 rounded-full blur-2xl pointer-events-none"></div>
 
           <div className="flex items-center justify-between relative z-10">
-            <span className="text-xs font-black uppercase text-amber-100 tracking-wider flex items-center gap-1.5">
-              <span>FreshMart Reward Club</span>
-              <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+            <span className="text-xs font-black uppercase text-amber-300 tracking-wider flex items-center gap-1.5">
+              <Coins className="w-4 h-4 text-amber-400" />
+              <span>Cashback & Reward Credits</span>
             </span>
-            <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center text-xl">
-              ⭐
+            <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center text-amber-300 shadow-inner">
+              <Gift className="w-5 h-5" />
             </div>
           </div>
 
           <div className="space-y-1 relative z-10">
-            <span className="text-xs text-orange-100 font-medium">Loyalty Cashback Points</span>
+            <span className="text-xs text-slate-300 font-medium">Accumulated Cashback Points</span>
             <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white flex items-baseline gap-2">
               <span>{loyaltyPoints}</span>
-              <span className="text-sm font-bold text-amber-200">Points</span>
+              <span className="text-sm font-bold text-amber-300">Points</span>
             </div>
           </div>
 
           <div className="pt-2 flex items-center justify-between relative z-10">
-            <span className="text-[11px] text-orange-100 font-medium">Earn 5 points on every PKR 100 spent</span>
-            <span className="text-xs bg-white/20 text-white font-bold px-2.5 py-1 rounded-full">
-              = PKR {Math.round(loyaltyPoints * 0.5)} Cash
+            <span className="text-[11px] text-slate-300 font-medium">Earn 5 pts per PKR 100 spent</span>
+            <span className="text-xs bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold px-3 py-1 rounded-full font-mono">
+              = PKR {Math.round(loyaltyPoints * 0.5)} Cash Discount
             </span>
           </div>
         </div>

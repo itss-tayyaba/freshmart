@@ -307,15 +307,17 @@ export const CustomerPortal = () => {
                   <h3 className="font-black text-sm text-white truncate leading-snug">
                     {customerUser.name}
                   </h3>
-                  <span className="text-[9px] bg-amber-400 text-slate-950 font-black px-1.5 py-0.2 rounded-full uppercase shrink-0">
-                    VIP
+                  <span className="text-[9px] bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 flex items-center gap-1">
+                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-300" />
+                    Verified
                   </span>
                 </div>
                 <p className="text-xs text-emerald-200/90 font-medium truncate mt-0.5">
                   {customerUser.phone || customerUser.email}
                 </p>
-                <div className="flex items-center gap-1 mt-1 text-[10px] text-amber-300 font-bold">
-                  <span>👛 Wallet: PKR {customerUser.walletBalance || 320}</span>
+                <div className="flex items-center gap-1 mt-1 text-[10px] text-emerald-200 font-medium">
+                  <Wallet className="w-3 h-3 text-emerald-300" />
+                  <span>Wallet: <strong className="text-white font-mono font-bold">PKR {customerUser.walletBalance || 320}</strong></span>
                 </div>
               </div>
             </div>

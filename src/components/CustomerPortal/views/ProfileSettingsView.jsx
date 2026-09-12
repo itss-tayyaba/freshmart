@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Mail, Phone, Lock, Bell, Shield, Save, Check } from 'lucide-react';
+import { User, Mail, Phone, Lock, Bell, Shield, Save, Check, ShieldCheck } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 
 export const ProfileSettingsView = () => {
@@ -28,14 +28,17 @@ export const ProfileSettingsView = () => {
 
   const getInitials = (name) => {
     if (!name) return 'CU';
-    const parts = name.trim().split(' ');
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return name.slice(0, 2).toUpperCase();
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
   };
 
   const handleProfileSave = (e) => {
     e.preventDefault();
-    addToast('Profile Updated 👤', 'Your personal account details have been saved.');
+    addToast('Profile Saved 👤', 'Your account details have been updated successfully.');
   };
 
   const handleSecuritySave = (e) => {
@@ -63,8 +66,9 @@ export const ProfileSettingsView = () => {
               <p className="text-xs text-slate-500">Update your primary contact details used for express grocery delivery.</p>
             </div>
           </div>
-          <span className="text-xs font-black text-amber-950 bg-gradient-to-r from-amber-300 to-amber-400 px-3.5 py-1 rounded-full shadow-xs border border-amber-400/40">
-            ★ VIP Gold Member
+          <span className="text-xs font-bold text-emerald-800 bg-emerald-100 border border-emerald-300/80 px-3 py-1 rounded-full shadow-2xs flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Verified Account</span>
           </span>
         </div>
 

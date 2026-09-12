@@ -1,31 +1,77 @@
 import React, { useState } from 'react';
-import { X, Search, Truck, CheckCircle2, Clock, MapPin, Phone, User, Package, ShieldCheck } from 'lucide-react';
+import { X, Search, Truck, CheckCircle2, Clock, MapPin, Phone, User, Package, ShieldCheck, Navigation, Radio, ExternalLink } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { MOCK_TRACKING_ORDERS } from '../../data/groceryData';
 
 export const OrderTrackerModal = () => {
-  const { isOrderTrackerOpen, setIsOrderTrackerOpen } = useStore();
-  const [orderInput, setOrderInput] = useState('GROC-8924');
-  const [currentOrder, setCurrentOrder] = useState(MOCK_TRACKING_ORDERS['GROC-8924']);
+  const { isOrderTrackerOpen, setIsOrderTrackerOpen, customerOrders, navigateTo } = useStore();
+  const [orderInput, setOrderInput] = useState(
+    customerOrders.length > 0 ? customerOrders[0].id : 'GROC-8924'
+  );
   const [searchError, setSearchError] = useState('');
 
   if (!isOrderTrackerOpen) return null;
 
+  // Build a resolved tracking object whether from customerOrders or MOCK_TRACKING_ORDERS
+  const resolveOrder = (searchId) => {
+    const cleanId = (searchId || '').trim().toUpperCase();
+    
+    // Check placed customer orders first
+    const foundReal = customerOrders.find(
+      (o) => o.id.toUpperCase() === cleanId || o.id.toUpperCase().includes(cleanId)
+    );
+    if (foundReal) {
+      return {
+        orderId: foundReal.id,
+        placedAt: foundReal.time || 'Today, Express Slot',
+        estimatedDelivery: foundReal.deliverySlot || '⚡ 10-15 Mins Express',
+        itemsCount: foundReal.rawItems ? foundReal.rawItems.length : 3,
+        total: `PKR ${foundReal.totalAmount || foundReal.total || 850}`,
+        currentStage: foundReal.status === 'Delivered' ? 4 : 3,
+        driverName: foundReal.assignedRider?.name || 'Ali Khan',
+        driverPhone: foundReal.assignedRider?.phone || '+92 300 9876543',
+        driverVehicle: foundReal.assignedRider?.vehicle || 'Honda CG-125 (LEA-4892)',
+        timeline: [
+          { title: 'Order Confirmed', time: '0 mins ago', desc: `Invoice generated for ${foundReal.customer || 'Customer'}`, completed: true },
+          { title: 'Dark Store Packing', time: '2 mins ago', desc: 'Chilled cold-chain packaging complete', completed: true },
+          { title: 'Courier Dispatched', time: 'In Transit', desc: 'Rider is on the way with live satellite GPS', completed: foundReal.status !== 'Pending' },
+          { title: 'Delivered', time: 'Pending', desc: 'Handover at destination address', completed: foundReal.status === 'Delivered' }
+        ]
+      };
+    }
+
+    if (MOCK_TRACKING_ORDERS[cleanId]) {
+      return MOCK_TRACKING_ORDERS[cleanId];
+    }
+
+    return null;
+  };
+
+  const [currentOrder, setCurrentOrder] = useState(resolveOrder(orderInput) || MOCK_TRACKING_ORDERS['GROC-8924']);
+
   const handleSearch = (e) => {
     e.preventDefault();
     setSearchError('');
-    const id = orderInput.trim().toUpperCase();
-    if (MOCK_TRACKING_ORDERS[id]) {
-      setCurrentOrder(MOCK_TRACKING_ORDERS[id]);
+    const resolved = resolveOrder(orderInput);
+    if (resolved) {
+      setCurrentOrder(resolved);
     } else {
-      setSearchError(`Order ID "${id}" not found. Try sample order GROC-8924 or GROC-5120.`);
+      setSearchError(`Order ID "${orderInput}" not found. Try sample order GROC-8924 or GROC-5120.`);
     }
   };
 
   const selectSample = (id) => {
     setOrderInput(id);
-    setCurrentOrder(MOCK_TRACKING_ORDERS[id]);
-    setSearchError('');
+    const resolved = resolveOrder(id);
+    if (resolved) {
+      setCurrentOrder(resolved);
+      setSearchError('');
+    }
+  };
+
+  const handleOpenRadar = () => {
+    setIsOrderTrackerOpen(false);
+    navigateTo('delivery');
   };
 
   return (
@@ -40,19 +86,19 @@ export const OrderTrackerModal = () => {
       <div className="relative bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden z-10 border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="p-6 bg-brand-green text-white flex items-center justify-between">
+        <div className="p-6 bg-gradient-to-r from-emerald-800 to-teal-900 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-700/80 flex items-center justify-center">
-              <Truck className="w-5 h-5 text-lime-400" />
+            <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center">
+              <Truck className="w-5 h-5 text-emerald-300" />
             </div>
             <div>
-              <h2 className="text-lg font-extrabold tracking-tight">Live Order Tracking</h2>
-              <p className="text-xs text-emerald-200">Real-time GPS dispatch & cold-chain status</p>
+              <h2 className="text-lg font-black tracking-tight">Live Order & GPS Tracking</h2>
+              <p className="text-xs text-emerald-200">Real-time express dispatch & cold-chain status</p>
             </div>
           </div>
           <button
             onClick={() => setIsOrderTrackerOpen(false)}
-            className="p-1.5 rounded-full hover:bg-emerald-800 text-white/90 focus:outline-none"
+            className="p-1.5 rounded-full hover:bg-white/10 text-white/90 focus:outline-none cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -67,7 +113,7 @@ export const OrderTrackerModal = () => {
               <div className="relative flex-1">
                 <input
                   type="text"
-                  placeholder="Enter Order ID (e.g. GROC-8924)"
+                  placeholder="Enter Order ID (e.g. #ORD1024 or GROC-8924)"
                   value={orderInput}
                   onChange={(e) => setOrderInput(e.target.value)}
                   className="w-full text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 uppercase font-mono font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -76,15 +122,25 @@ export const OrderTrackerModal = () => {
               </div>
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-brand-green hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
                 Track
               </button>
             </form>
 
-            {/* Quick Sample IDs */}
-            <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
-              <span>Try sample orders:</span>
+            {/* Quick Sample or Recent Orders */}
+            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-slate-500">
+              <span>Quick track:</span>
+              {customerOrders.slice(0, 2).map((o) => (
+                <button
+                  type="button"
+                  key={o.id}
+                  onClick={() => selectSample(o.id)}
+                  className="font-mono text-emerald-700 font-bold hover:underline"
+                >
+                  {o.id} (Your Order)
+                </button>
+              ))}
               <button
                 type="button"
                 onClick={() => selectSample('GROC-8924')}
@@ -145,7 +201,7 @@ export const OrderTrackerModal = () => {
               </div>
 
               {/* Graphical Timeline */}
-              <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-3 sm:before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+              <div className="relative pl-6 sm:pl-8 space-y-5 before:absolute before:left-3 sm:before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
                 {currentOrder.timeline.map((item, idx) => (
                   <div key={idx} className="relative flex items-start gap-4">
                     {/* Circle Node */}
@@ -182,32 +238,39 @@ export const OrderTrackerModal = () => {
               </div>
 
               {/* Driver Details Card (if in transit) */}
-              {currentOrder.currentStage === 3 && (
-                <div className="bg-emerald-50/80 rounded-2xl p-4 border border-emerald-200/80 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold">
-                      <User className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">
-                        Assigned Courier Driver
-                      </span>
-                      <h4 className="text-xs sm:text-sm font-bold text-slate-800">
-                        {currentOrder.driverName}
-                      </h4>
-                      <p className="text-[11px] text-slate-500">{currentOrder.driverVehicle}</p>
-                    </div>
+              <div className="bg-emerald-50/80 rounded-2xl p-4 border border-emerald-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold">
+                    <User className="w-5 h-5" />
                   </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">
+                      Assigned Courier Driver
+                    </span>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-800">
+                      {currentOrder.driverName}
+                    </h4>
+                    <p className="text-[11px] text-slate-500">{currentOrder.driverVehicle}</p>
+                  </div>
+                </div>
 
+                <div className="flex items-center gap-2">
                   <a
                     href={`tel:${currentOrder.driverPhone}`}
-                    className="px-3.5 py-2 rounded-xl bg-brand-green hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors"
+                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                   >
                     <Phone className="w-3.5 h-3.5" />
                     <span>Call Driver</span>
                   </a>
+                  <button
+                    onClick={handleOpenRadar}
+                    className="px-3.5 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>Full GPS Radar Map</span>
+                  </button>
                 </div>
-              )}
+              </div>
 
             </div>
           )}
