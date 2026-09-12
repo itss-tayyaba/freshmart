@@ -28,9 +28,9 @@ export const OrderTrackerModal = () => {
         itemsCount: foundReal.rawItems ? foundReal.rawItems.length : 3,
         total: `PKR ${foundReal.totalAmount || foundReal.total || 850}`,
         currentStage: foundReal.status === 'Delivered' ? 4 : 3,
-        driverName: foundReal.assignedRider?.name || 'Ali Khan',
-        driverPhone: foundReal.assignedRider?.phone || '+92 300 9876543',
-        driverVehicle: foundReal.assignedRider?.vehicle || 'Honda CG-125 (LEA-4892)',
+        driverName: foundReal.assignedRider?.name || 'Awaiting Rider Assignment',
+        driverPhone: foundReal.assignedRider?.phone || null,
+        driverVehicle: foundReal.assignedRider?.vehicle || 'Fleet Courier',
         timeline: [
           { title: 'Order Confirmed', time: '0 mins ago', desc: `Invoice generated for ${foundReal.customer || 'Customer'}`, completed: true },
           { title: 'Dark Store Packing', time: '2 mins ago', desc: 'Chilled cold-chain packaging complete', completed: true },

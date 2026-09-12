@@ -69,7 +69,7 @@ test('GPS Distance Calculations & Nearest City Resolution', async (t) => {
   });
 });
 
-test('Authentic UI Verification: No Inauthentic VIP Gold Medals', async (t) => {
+test('Authentic UI Verification: No Inauthentic VIP Gold Medals & No Hardcoded Riders', async (t) => {
   await t.test('ProfileSettingsView does not contain inauthentic VIP Gold Member string', () => {
     const profileFile = fs.readFileSync(
       path.join(__dirname, '../src/components/CustomerPortal/views/ProfileSettingsView.jsx'),
@@ -86,5 +86,19 @@ test('Authentic UI Verification: No Inauthentic VIP Gold Medals', async (t) => {
     );
     assert.strictEqual(portalFile.includes('>VIP</span>'), false);
     assert.ok(portalFile.includes('Verified'));
+  });
+
+  await t.test('pakistanLocations registry contains 0 hardcoded defaultRider entries', () => {
+    PAKISTAN_CITIES.forEach((city) => {
+      assert.strictEqual(city.defaultRider, undefined, `City ${city.city} must not have hardcoded defaultRider`);
+    });
+  });
+
+  await t.test('StoreContext default riders list starts empty for Admin control', () => {
+    const contextFile = fs.readFileSync(
+      path.join(__dirname, '../src/context/StoreContext.jsx'),
+      'utf8'
+    );
+    assert.ok(contextFile.includes('const defaultRidersList = [];'));
   });
 });

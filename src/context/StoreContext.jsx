@@ -586,22 +586,25 @@ export const StoreProvider = ({ children }) => {
           (r.name && r.name.toLowerCase() === cleanUser)
       );
 
-      const isValidPass =
-        (foundRider && foundRider.password && cleanPass === foundRider.password) ||
-        ((cleanUser === 'rider' || cleanUser === '0301-1234567') && cleanPass === 'rider123');
+      if (!foundRider) {
+        addToast('Rider Not Found ❌', 'No rider profile found with this phone number. Store Admin must register the rider first in the Admin Dashboard.', 'error');
+        return { success: false, error: 'No rider profile found. Please have the Store Admin add your rider account in the Delivery Fleet dashboard.' };
+      }
+
+      const isValidPass = foundRider.password && cleanPass === foundRider.password;
 
       if (!isValidPass) {
-        addToast('Authentication Failed ❌', 'Invalid rider username or password.', 'error');
-        return { success: false, error: 'Invalid rider username or password.' };
+        addToast('Authentication Failed ❌', 'Invalid rider password.', 'error');
+        return { success: false, error: 'Invalid rider password.' };
       }
 
       const riderUser = {
-        name: foundRider ? foundRider.name : 'Rider Ali',
-        email: `${(foundRider ? foundRider.name : 'rider').toLowerCase().replace(/\s+/g, '')}@rider.freshmart.pk`,
+        name: foundRider.name,
+        email: `${foundRider.name.toLowerCase().replace(/\s+/g, '')}@rider.freshmart.pk`,
         role: 'rider',
-        riderId: (foundRider && foundRider.id) || 'RDR-101',
-        phone: (foundRider && foundRider.phone) || '0301-1234567',
-        zone: (foundRider && foundRider.zone) || 'Lahore Hub'
+        riderId: foundRider.id,
+        phone: foundRider.phone,
+        zone: foundRider.zone || 'Main Hub'
       };
 
       const fallbackToken = `mock-rider-token-${Date.now()}`;
@@ -754,35 +757,18 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [activeDeliveryOrder]);
 
-  // Default Fleet Rider: Rider Ali (Phone: 0301-1234567, Pass: rider123)
-  const defaultRidersList = [
-    {
-      id: 'RDR-101',
-      name: 'Rider Ali',
-      phone: '0301-1234567',
-      username: 'rider',
-      password: 'rider123',
-      vehicleType: '🏍️ Honda 125',
-      vehicleNumber: 'LEK-4921',
-      zone: 'Gulberg / Main Hub',
-      status: 'On-Duty',
-      cnic: '35201-1234567-1',
-      deliveriesCount: 48,
-      rating: 4.9,
-      joinedDate: '2026-08-10'
-    }
-  ];
+  // Riders State (Created & Managed exclusively by Store Admin)
+  const defaultRidersList = [];
 
-  // Riders State
   const [riders, setRiders] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_riders');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {}
-    return defaultRidersList;
+    return [];
   });
 
   useEffect(() => {

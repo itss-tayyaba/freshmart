@@ -1,6 +1,7 @@
 /**
  * FreshMart Pakistan City & GPS Delivery Hub Registry
  * Exact coordinates for Dark Store Hubs, Neighborhoods, and Distance Telemetry
+ * NOTE: No hardcoded riders. Riders are created exclusively by the Admin in the Dashboard.
  */
 
 export const PAKISTAN_CITIES = [
@@ -36,14 +37,7 @@ export const PAKISTAN_CITIES = [
         defaultAddress: 'Sector C, Phase 5 DHA, Lahore Cantt',
         postalCode: '54792'
       }
-    ],
-    defaultRider: {
-      name: 'Ali Khan',
-      phone: '+92 300 9876543',
-      vehicle: 'Honda CG-125 (LEA-4892)',
-      rating: 4.9,
-      deliveriesCount: 1420
-    }
+    ]
   },
   {
     id: 'karachi',
@@ -77,14 +71,7 @@ export const PAKISTAN_CITIES = [
         defaultAddress: 'House 22, Block 13-D, Gulshan-e-Iqbal, Karachi',
         postalCode: '75300'
       }
-    ],
-    defaultRider: {
-      name: 'Bilal Ahmed',
-      phone: '+92 321 4455667',
-      vehicle: 'Yamaha YBR-125 (KHI-9120)',
-      rating: 4.95,
-      deliveriesCount: 1890
-    }
+    ]
   },
   {
     id: 'islamabad',
@@ -118,14 +105,7 @@ export const PAKISTAN_CITIES = [
         defaultAddress: 'Flat 12, G-11/3, Islamabad',
         postalCode: '44080'
       }
-    ],
-    defaultRider: {
-      name: 'Usman Tariq',
-      phone: '+92 333 7788990',
-      vehicle: 'Suzuki GD-110S (ICT-3041)',
-      rating: 5.0,
-      deliveriesCount: 960
-    }
+    ]
   },
   {
     id: 'rawalpindi',
@@ -151,14 +131,7 @@ export const PAKISTAN_CITIES = [
         defaultAddress: 'Villa 110, Sector B, Bahria Town Phase 4, Rawalpindi',
         postalCode: '46220'
       }
-    ],
-    defaultRider: {
-      name: 'Hamza Farooq',
-      phone: '+92 345 1122334',
-      vehicle: 'Honda Pridor (RWP-6082)',
-      rating: 4.88,
-      deliveriesCount: 1150
-    }
+    ]
   },
   {
     id: 'faisalabad',
@@ -184,14 +157,7 @@ export const PAKISTAN_CITIES = [
         defaultAddress: 'Street 4, Peoples Colony No. 2, Faisalabad',
         postalCode: '38040'
       }
-    ],
-    defaultRider: {
-      name: 'Zubair Raza',
-      phone: '+92 301 5566778',
-      vehicle: 'United 125 (FSD-2204)',
-      rating: 4.92,
-      deliveriesCount: 820
-    }
+    ]
   }
 ];
 

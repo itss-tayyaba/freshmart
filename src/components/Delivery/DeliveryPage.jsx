@@ -43,7 +43,8 @@ export const DeliveryPage = () => {
     addSavedAddress,
     removeSavedAddress,
     customerOrders,
-    activeDeliveryOrder
+    activeDeliveryOrder,
+    riders
   } = useStore();
 
   // Active City & Hub state
@@ -55,7 +56,7 @@ export const DeliveryPage = () => {
 
   // Active tracked order selection
   const [trackedOrderId, setTrackedOrderId] = useState(
-    activeDeliveryOrder?.id || (customerOrders.length > 0 ? customerOrders[0].id : 'GROC-8924')
+    activeDeliveryOrder?.id || (customerOrders.length > 0 ? customerOrders[0].id : '#ORD-1049')
   );
 
   // Live GPS simulation state
@@ -132,8 +133,9 @@ export const DeliveryPage = () => {
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  // Find rider info for selected city
-  const activeRider = selectedCity.defaultRider;
+  // Determine active assigned rider dynamically from Admin-created fleet or active order
+  const activeOrder = activeDeliveryOrder || customerOrders.find((o) => o.id === trackedOrderId) || customerOrders[0];
+  const assignedRider = activeOrder?.assignedRider || (Array.isArray(riders) && riders.length > 0 ? riders[0] : null);
 
   // Real-time Geolocation via Browser API
   const handleAutoDetectGPS = () => {
@@ -230,10 +232,6 @@ export const DeliveryPage = () => {
     setIsAddModalOpen(false);
     setAddressForm({ label: 'Home', address: '', city: selectedCity.city, phone: '' });
   };
-
-  // WhatsApp link generator
-  const cleanPhone = activeRider.phone.replace(/[^0-9]/g, '');
-  const whatsappUrl = `https://wa.me/${cleanPhone}?text=Hi%20${encodeURIComponent(activeRider.name)},%20checking%20on%20my%20FreshMart%20order%20${trackedOrderId}`;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
@@ -473,7 +471,7 @@ export const DeliveryPage = () => {
               >
                 {/* Rider Telemetry Tooltip */}
                 <div className="bg-amber-400 text-slate-950 px-2.5 py-1 rounded-xl text-[10px] font-black shadow-xl mb-1.5 flex items-center gap-1.5 border border-amber-300 shrink-0 whitespace-nowrap animate-bounce">
-                  <span>🛵 {activeRider.name}</span>
+                  <span>🛵 {assignedRider ? assignedRider.name : 'Express Courier'}</span>
                   <span className="bg-slate-950 text-white px-1.5 py-0.2 rounded-md font-mono">{riderSpeed} km/h</span>
                 </div>
 
@@ -500,46 +498,70 @@ export const DeliveryPage = () => {
             </div>
 
             {/* Rider Profile & Contact Bar */}
-            <div className="bg-slate-50 p-4 sm:p-5 rounded-3xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 text-white flex items-center justify-center font-black text-2xl shadow-md">
-                  👨‍✈️
-                </div>
-                <div className="space-y-0.5 text-center sm:text-left">
-                  <div className="flex items-center gap-2 justify-center sm:justify-start">
-                    <h4 className="font-black text-sm text-slate-900">{activeRider.name}</h4>
-                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full">
-                      ★ {activeRider.rating} ({activeRider.deliveriesCount} trips)
-                    </span>
+            {assignedRider ? (
+              <div className="bg-slate-50 p-4 sm:p-5 rounded-3xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 text-white flex items-center justify-center font-black text-2xl shadow-md">
+                    👨‍✈️
                   </div>
-                  <p className="text-xs text-slate-500 font-medium">{activeRider.vehicle} • FreshMart Certified Courier</p>
-                  <p className="text-[11px] text-emerald-700 font-bold flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Background Verified • Insulated Cold-Chain Bag Attached</span>
-                  </p>
+                  <div className="space-y-0.5 text-center sm:text-left">
+                    <div className="flex items-center gap-2 justify-center sm:justify-start">
+                      <h4 className="font-black text-sm text-slate-900">{assignedRider.name}</h4>
+                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full">
+                        ★ {assignedRider.rating || 5.0} ({assignedRider.deliveriesCount || 0} deliveries)
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium">
+                      {assignedRider.vehicleNumber || assignedRider.vehicle || assignedRider.vehicleType || 'Motorbike'} • FreshMart Certified Courier
+                    </p>
+                    <p className="text-[11px] text-emerald-700 font-bold flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Admin-Registered Rider • Insulated Cold-Chain Bag Attached</span>
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              {/* Direct Communication Buttons */}
-              <div className="flex items-center gap-2 shrink-0">
-                <a
-                  href={`tel:${activeRider.phone}`}
-                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer hover:scale-105"
-                >
-                  <Phone className="w-3.5 h-3.5" />
-                  <span>Call Rider</span>
-                </a>
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer hover:scale-105"
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>WhatsApp</span>
-                </a>
+                {/* Direct Communication Buttons */}
+                {assignedRider.phone && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <a
+                      href={`tel:${assignedRider.phone}`}
+                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer hover:scale-105"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>Call Rider</span>
+                    </a>
+                    <a
+                      href={`https://wa.me/${assignedRider.phone.replace(/[^0-9]/g, '')}?text=Hi%20${encodeURIComponent(assignedRider.name)},%20checking%20on%20my%20order%20${trackedOrderId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer hover:scale-105"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>WhatsApp</span>
+                    </a>
+                  </div>
+                )}
               </div>
-            </div>
+            ) : (
+              <div className="bg-emerald-50/70 p-4 sm:p-5 rounded-3xl border border-emerald-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black text-xl shadow-xs">
+                    🛵
+                  </div>
+                  <div>
+                    <h4 className="font-black text-sm text-slate-900">Awaiting Rider Assignment</h4>
+                    <p className="text-xs text-slate-500">The Store Admin will register and assign a fleet rider to this dispatch.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigateTo('admin')}
+                  className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 shadow-2xs hover:scale-105"
+                >
+                  Manage Fleet in Admin &rarr;
+                </button>
+              </div>
+            )}
 
             {/* 4-Stage Real-Time Lifecycle Timeline */}
             <div className="pt-4 border-t border-slate-100 space-y-3">
