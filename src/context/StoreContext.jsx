@@ -384,127 +384,240 @@ export const StoreProvider = ({ children }) => {
   };
 
 
-  // Admin Profile & Authentication (Starts false so visiting /admin asks for role & credentials)
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  // Admin Profile & Authentication (Gated by strict authentication)
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
+    try {
+      const isSession = localStorage.getItem('freshmart_admin_session') === 'true';
+      const hasToken = Boolean(localStorage.getItem('freshmart_admin_token'));
+      return isSession && hasToken;
+    } catch (e) {
+      return false;
+    }
+  });
 
-  const [user, setUser] = useState({
-    name: 'Super Admin',
-    email: 'admin@freshmart.com',
-    role: 'admin'
+  const [user, setUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('freshmart_admin_user');
+      if (savedUser) return JSON.parse(savedUser);
+    } catch (e) {}
+    return {
+      name: 'Super Admin',
+      email: 'admin@freshmart.com',
+      role: 'admin'
+    };
   });
 
   const adminLogin = async (username, password, role = 'admin') => {
     const targetRole = (role || 'admin').toLowerCase();
-    const cleanUser = (username || targetRole).trim().toLowerCase();
+    const cleanUser = (username || '').trim().toLowerCase();
     const cleanPass = (password || '').trim();
 
-    let matchedUser = null;
+    if (!cleanUser || !cleanPass) {
+      addToast('Missing Credentials ⚠️', 'Please enter your username/email and password.', 'error');
+      return { success: false, error: 'Please enter your username/email and password.' };
+    }
+
+    let authRes = null;
+    let backendResponded = false;
+
+    // 1. Authenticate with backend API
+    try {
+      let loginPayloadUser = cleanUser;
+      if (cleanUser === 'admin' || cleanUser === 'superadmin') {
+        loginPayloadUser = 'admin@freshmart.com';
+      }
+      authRes = await apiService.login(loginPayloadUser, cleanPass);
+      if (authRes && typeof authRes === 'object') {
+        backendResponded = true;
+      }
+    } catch (e) {
+      console.warn('Backend admin auth sync error:', e);
+    }
+
+    // 2. If the backend responded, strictly verify success and token
+    if (backendResponded && authRes) {
+      if (!authRes.success || !authRes.token) {
+        const errorMsg = authRes.message || authRes.error || 'Invalid credentials. Please verify your username and password.';
+        addToast('Authentication Failed ❌', errorMsg, 'error');
+        return { success: false, error: errorMsg };
+      }
+
+      // Role check: verify permissions match or allow admin override
+      const returnedRole = (authRes.role || targetRole).toLowerCase();
+      if (targetRole === 'admin' && returnedRole !== 'admin' && returnedRole !== 'superadmin') {
+        addToast('Access Denied 🚫', 'You do not have administrative permissions.', 'error');
+        return { success: false, error: 'Access denied: Administrative privileges required.' };
+      }
+
+      if (targetRole === 'rider' && returnedRole !== 'rider' && returnedRole !== 'admin') {
+        addToast('Access Denied 🚫', 'This account is not registered as a delivery rider.', 'error');
+        return { success: false, error: 'Access denied: Account is not a delivery rider.' };
+      }
+
+      if ((targetRole === 'supplier' || targetRole === 'vendor') && returnedRole !== 'supplier' && returnedRole !== 'vendor' && returnedRole !== 'admin') {
+        addToast('Access Denied 🚫', 'This account is not registered as a vendor/supplier.', 'error');
+        return { success: false, error: 'Access denied: Account is not a vendor/supplier.' };
+      }
+
+      const activeRole = targetRole === 'supplier' || targetRole === 'vendor' ? 'supplier' : targetRole === 'rider' ? 'rider' : 'admin';
+      const authenticatedUser = {
+        id: authRes._id || authRes.id || `usr-${Date.now()}`,
+        name: authRes.name || (activeRole === 'admin' ? 'Super Admin' : cleanUser),
+        email: authRes.email || `${cleanUser}@freshmart.com`,
+        role: activeRole,
+        phone: authRes.phone || '',
+        address: authRes.address || '',
+        ...(activeRole === 'rider' ? { riderId: authRes.id || 'RDR-101' } : {}),
+        ...(activeRole === 'supplier' ? { vendorId: authRes.id || 'VND-101', supplierId: authRes.id || 'SUP-101' } : {})
+      };
+
+      localStorage.setItem('freshmart_admin_token', authRes.token);
+      if (activeRole === 'supplier') {
+        localStorage.setItem('freshmart_vendor_token', authRes.token);
+      }
+
+      setAdminRole(activeRole);
+      setIsAdminLoggedIn(true);
+      setUser(authenticatedUser);
+
+      try {
+        localStorage.setItem('freshmart_admin_session', 'true');
+        localStorage.setItem('freshmart_admin_role', activeRole);
+        localStorage.setItem('freshmart_admin_user', JSON.stringify(authenticatedUser));
+      } catch (e) {}
+
+      const roleTitles = {
+        admin: 'Administrator',
+        supplier: 'Vendor Partner',
+        vendor: 'Vendor Partner',
+        rider: 'Delivery Rider'
+      };
+
+      addToast(`${roleTitles[activeRole] || 'Staff'} Authenticated 🛡️`, `Welcome ${authenticatedUser.name} to the dashboard.`);
+      return { success: true, role: activeRole, user: authenticatedUser };
+    }
+
+    // 3. Fallback check ONLY if backend was completely unreachable / offline
+    if (targetRole === 'admin') {
+      const isAdminUser = cleanUser === 'admin' || cleanUser === 'admin@freshmart.com';
+      const isAdminPass = cleanPass === 'adminpassword123' || cleanPass === 'admin123';
+      if (!isAdminUser || !isAdminPass) {
+        addToast('Authentication Failed ❌', 'Invalid admin username or password.', 'error');
+        return { success: false, error: 'Invalid admin username or password.' };
+      }
+
+      const adminUser = {
+        name: 'Super Admin',
+        email: 'admin@freshmart.com',
+        role: 'admin'
+      };
+
+      const fallbackToken = `mock-admin-token-${Date.now()}`;
+      localStorage.setItem('freshmart_admin_token', fallbackToken);
+
+      setAdminRole('admin');
+      setIsAdminLoggedIn(true);
+      setUser(adminUser);
+
+      try {
+        localStorage.setItem('freshmart_admin_session', 'true');
+        localStorage.setItem('freshmart_admin_role', 'admin');
+        localStorage.setItem('freshmart_admin_user', JSON.stringify(adminUser));
+      } catch (e) {}
+
+      addToast('Administrator Authenticated 🛡️', 'Welcome Super Admin to the dashboard.');
+      return { success: true, role: 'admin', user: adminUser };
+    }
+
+    if (targetRole === 'supplier' || targetRole === 'vendor') {
+      const foundSupplier = (suppliers || []).find(
+        (s) =>
+          (s.username && s.username.toLowerCase() === cleanUser) ||
+          (s.email && s.email.toLowerCase() === cleanUser) ||
+          (s.name && s.name.toLowerCase() === cleanUser) ||
+          (s.supplierId && s.supplierId.toLowerCase() === cleanUser)
+      );
+
+      const isValidPass =
+        (foundSupplier && foundSupplier.password && cleanPass === foundSupplier.password) ||
+        ((cleanUser === 'tayyab' || cleanUser === 'supplier') && (cleanPass === 'cocacola123' || cleanPass === 'supplier123'));
+
+      if (!isValidPass) {
+        addToast('Authentication Failed ❌', 'Invalid vendor username or password.', 'error');
+        return { success: false, error: 'Invalid vendor username or password.' };
+      }
+
+      const supplierUser = {
+        name: foundSupplier ? foundSupplier.name : 'Tayyab (Coca-Cola Beverages)',
+        email: foundSupplier ? foundSupplier.email : 'tayyab.cocacola@freshmart.pk',
+        role: 'vendor',
+        vendorId: (foundSupplier && foundSupplier.id) || 'VND-101',
+        supplierId: (foundSupplier && foundSupplier.id) || 'SUP-101'
+      };
+
+      const fallbackToken = `mock-vendor-token-${Date.now()}`;
+      localStorage.setItem('freshmart_admin_token', fallbackToken);
+      localStorage.setItem('freshmart_vendor_token', fallbackToken);
+
+      setAdminRole('supplier');
+      setIsAdminLoggedIn(true);
+      setUser(supplierUser);
+
+      try {
+        localStorage.setItem('freshmart_admin_session', 'true');
+        localStorage.setItem('freshmart_admin_role', 'supplier');
+        localStorage.setItem('freshmart_admin_user', JSON.stringify(supplierUser));
+      } catch (e) {}
+
+      addToast('Vendor Partner Authenticated 📦', `Welcome ${supplierUser.name} to the portal.`);
+      return { success: true, role: 'supplier', user: supplierUser };
+    }
 
     if (targetRole === 'rider') {
       const foundRider = (riders || []).find(
         (r) =>
           (r.username && r.username.toLowerCase() === cleanUser) ||
           (r.phone && r.phone.replace(/[^0-9]/g, '') === cleanUser.replace(/[^0-9]/g, '')) ||
+          (r.id && r.id.toLowerCase() === cleanUser) ||
           (r.name && r.name.toLowerCase() === cleanUser)
       );
 
-      if (foundRider) {
-        if (cleanPass && foundRider.password && cleanPass !== foundRider.password && cleanPass !== 'rider123' && cleanPass !== 'admin123') {
-          addToast('Incorrect Password ❌', `Password for rider ${foundRider.name} is incorrect.`, 'error');
-          return { success: false, error: 'Incorrect rider password' };
-        }
-        matchedUser = {
-          name: foundRider.name,
-          email: `${foundRider.name.toLowerCase().replace(/\s+/g, '')}@rider.freshmart.pk`,
-          role: 'rider',
-          riderId: foundRider.id,
-          phone: foundRider.phone,
-          zone: foundRider.zone
-        };
-      } else {
-        matchedUser = {
-          name: cleanUser === 'rider' ? 'Delivery Fleet Rider' : cleanUser,
-          email: `${cleanUser}@rider.freshmart.pk`,
-          role: 'rider',
-          riderId: 'RDR-101'
-        };
-      }
-    } else if (targetRole === 'supplier' || targetRole === 'vendor') {
-      const foundSupplier = (suppliers || []).find(
-        (s) =>
-          (s.username && s.username.toLowerCase() === cleanUser) ||
-          (s.email && s.email.toLowerCase() === cleanUser) ||
-          (s.name && s.name.toLowerCase() === cleanUser)
-      );
+      const isValidPass =
+        (foundRider && foundRider.password && cleanPass === foundRider.password) ||
+        ((cleanUser === 'rider' || cleanUser === '0301-1234567') && cleanPass === 'rider123');
 
-      if (foundSupplier) {
-        if (cleanPass && foundSupplier.password && cleanPass !== foundSupplier.password && cleanPass !== 'supplier123' && cleanPass !== 'vendor123' && cleanPass !== 'admin123') {
-          addToast('Incorrect Password ❌', `Password for vendor ${foundSupplier.name} is incorrect.`, 'error');
-          return { success: false, error: 'Incorrect vendor password' };
-        }
-        matchedUser = {
-          name: foundSupplier.name,
-          email: foundSupplier.email,
-          role: 'vendor',
-          vendorId: foundSupplier.id || 'VND-101',
-          supplierId: foundSupplier.id
-        };
-      } else {
-        matchedUser = {
-          name: (cleanUser === 'supplier' || cleanUser === 'vendor') ? 'Vendor Partner (Coca-Cola)' : cleanUser,
-          email: `${cleanUser}@vendor.freshmart.pk`,
-          role: 'vendor',
-          vendorId: 'VND-101',
-          supplierId: 'VND-101'
-        };
+      if (!isValidPass) {
+        addToast('Authentication Failed ❌', 'Invalid rider username or password.', 'error');
+        return { success: false, error: 'Invalid rider username or password.' };
       }
-    } else {
-      matchedUser = {
-        name: 'Super Admin',
-        email: 'admin@freshmart.com',
-        role: 'admin'
+
+      const riderUser = {
+        name: foundRider ? foundRider.name : 'Rider Ali',
+        email: `${(foundRider ? foundRider.name : 'rider').toLowerCase().replace(/\s+/g, '')}@rider.freshmart.pk`,
+        role: 'rider',
+        riderId: (foundRider && foundRider.id) || 'RDR-101',
+        phone: (foundRider && foundRider.phone) || '0301-1234567',
+        zone: (foundRider && foundRider.zone) || 'Lahore Hub'
       };
+
+      const fallbackToken = `mock-rider-token-${Date.now()}`;
+      localStorage.setItem('freshmart_admin_token', fallbackToken);
+
+      setAdminRole('rider');
+      setIsAdminLoggedIn(true);
+      setUser(riderUser);
+
+      try {
+        localStorage.setItem('freshmart_admin_session', 'true');
+        localStorage.setItem('freshmart_admin_role', 'rider');
+        localStorage.setItem('freshmart_admin_user', JSON.stringify(riderUser));
+      } catch (e) {}
+
+      addToast('Delivery Rider Authenticated 🛵', `Welcome ${riderUser.name} to dispatch.`);
+      return { success: true, role: 'rider', user: riderUser };
     }
 
-    // Authenticate with backend to obtain admin / vendor token
-    try {
-      const loginPayloadUser = cleanUser === 'admin' ? 'admin@freshmart.com' : cleanUser;
-      const loginPayloadPass = cleanPass || 'admin123';
-      const authRes = await apiService.login(loginPayloadUser, loginPayloadPass);
-      if (authRes && authRes.token) {
-        localStorage.setItem('freshmart_admin_token', authRes.token);
-      }
-      if (targetRole === 'supplier' || targetRole === 'vendor') {
-        try {
-          const vAuth = await apiService.loginVendor(cleanUser, cleanPass || 'vendor123');
-          if (vAuth && vAuth.token) {
-            localStorage.setItem('freshmart_vendor_token', vAuth.token);
-          }
-        } catch (e) {}
-      }
-    } catch (e) {
-      console.warn('Backend admin auth sync error:', e);
-    }
-
-    setAdminRole(targetRole);
-    setIsAdminLoggedIn(true);
-    setUser(matchedUser);
-
-    const roleTitles = {
-      admin: 'Administrator',
-      supplier: 'Vendor Partner',
-      vendor: 'Vendor Partner',
-      rider: 'Delivery Rider'
-    };
-
-    try {
-      localStorage.setItem('freshmart_admin_session', 'true');
-      localStorage.setItem('freshmart_admin_role', targetRole);
-      localStorage.setItem('freshmart_admin_user', JSON.stringify(matchedUser));
-    } catch (e) {}
-
-    addToast(`${roleTitles[targetRole] || 'Staff'} Authenticated 🛡️`, `Welcome ${matchedUser.name} to the dashboard.`);
-    return { success: true, role: targetRole, user: matchedUser };
+    return { success: false, error: 'Invalid credentials. Access denied.' };
   };
 
   const adminLogout = () => {
@@ -514,6 +627,7 @@ export const StoreProvider = ({ children }) => {
       localStorage.removeItem('freshmart_admin_role');
       localStorage.removeItem('freshmart_admin_user');
       localStorage.removeItem('freshmart_admin_token');
+      localStorage.removeItem('freshmart_vendor_token');
     } catch (e) {}
     addToast('Signed Out', 'You have been logged out of the staff portal.', 'info');
     navigateTo('home');

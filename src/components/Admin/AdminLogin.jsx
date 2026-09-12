@@ -6,26 +6,23 @@ import {
   Eye,
   EyeOff,
   ArrowRight,
-  Sparkles,
   AlertCircle,
-  KeyRound,
-  ArrowLeft,
-  CheckCircle2,
-  Package,
-  Bike,
-  Shield,
-  Truck
+  Loader2,
+  Info,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 
 export const AdminLogin = () => {
   const { adminLogin, navigateTo } = useStore();
   const [selectedRole, setSelectedRole] = useState('admin'); // 'admin' | 'supplier' | 'rider'
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showCredentialsHelp, setShowCredentialsHelp] = useState(false);
 
   const roles = [
     {
@@ -33,40 +30,58 @@ export const AdminLogin = () => {
       label: 'Admin',
       icon: '🛡️',
       sublabel: 'Store Manager',
-      defaultUser: 'admin',
-      defaultPass: 'admin123'
+      userPlaceholder: 'admin@freshmart.com or admin',
+      passPlaceholder: 'Enter admin password'
     },
     {
       id: 'supplier',
       label: 'Supplier',
       icon: '📦',
       sublabel: 'Vendor Portal',
-      defaultUser: 'supplier',
-      defaultPass: 'supplier123'
+      userPlaceholder: 'tayyab or vendor email',
+      passPlaceholder: 'Enter vendor password'
     },
     {
       id: 'rider',
       label: 'Rider',
       icon: '🛵',
       sublabel: 'Delivery Fleet',
-      defaultUser: 'rider',
-      defaultPass: 'rider123'
+      userPlaceholder: 'rider or phone (0301-1234567)',
+      passPlaceholder: 'Enter rider password'
     }
   ];
 
+  const currentRoleConfig = roles.find((r) => r.id === selectedRole) || roles[0];
+
   const handleRoleSelect = (roleItem) => {
     setSelectedRole(roleItem.id);
-    setUsername(roleItem.defaultUser);
-    setPassword(roleItem.defaultPass);
+    setUsername('');
+    setPassword('');
     setErrorMessage('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     setErrorMessage('');
-    const result = adminLogin(username, password, selectedRole);
-    if (!result.success) {
-      setErrorMessage(result.error || 'Invalid credentials. Please verify your login details.');
+
+    const cleanUser = username.trim();
+    const cleanPass = password.trim();
+
+    if (!cleanUser || !cleanPass) {
+      setErrorMessage('Please enter both username/email and password.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await adminLogin(cleanUser, cleanPass, selectedRole);
+      if (!result || !result.success) {
+        setErrorMessage(result?.error || 'Invalid credentials. Please verify your login details.');
+      }
+    } catch (err) {
+      setErrorMessage(err.message || 'Login failed. Please check your credentials and try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -98,9 +113,9 @@ export const AdminLogin = () => {
 
         {/* Error message */}
         {errorMessage && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-2xl text-xs flex items-center gap-2 animate-in fade-in">
-            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-            <span>{errorMessage}</span>
+          <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3.5 rounded-2xl text-xs flex items-start gap-2.5 animate-in fade-in">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+            <span className="leading-relaxed">{errorMessage}</span>
           </div>
         )}
 
@@ -140,16 +155,20 @@ export const AdminLogin = () => {
           {/* Username Input */}
           <div>
             <label className="font-bold text-slate-700 block mb-1 text-xs">
-              Username
+              Username or Email
             </label>
             <div className="relative">
               <input
                 type="text"
                 required
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="e.g. admin, supplier, rider"
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-3.5 py-3 font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs"
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  if (errorMessage) setErrorMessage('');
+                }}
+                placeholder={currentRoleConfig.userPlaceholder}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-3.5 py-3 font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs transition-colors"
+                autoComplete="username"
               />
               <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             </div>
@@ -165,15 +184,20 @@ export const AdminLogin = () => {
                 type={showPassword ? 'text' : 'password'}
                 required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-10 py-3 font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs"
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (errorMessage) setErrorMessage('');
+                }}
+                placeholder={currentRoleConfig.passPlaceholder}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-10 py-3 font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs transition-colors"
+                autoComplete="current-password"
               />
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                tabIndex={-1}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -183,13 +207,55 @@ export const AdminLogin = () => {
           {/* Sign In Primary Button with FreshMart Green */}
           <button
             type="submit"
-            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white rounded-2xl font-black text-sm shadow-md shadow-emerald-600/25 transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
+            disabled={isLoading}
+            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-2xl font-black text-sm shadow-md shadow-emerald-600/25 transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
           >
-            <span>Sign In as {selectedRole === 'admin' ? 'Admin' : selectedRole === 'supplier' ? 'Supplier' : 'Rider'}</span>
-            <ArrowRight className="w-4 h-4" />
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Authenticating...</span>
+              </>
+            ) : (
+              <>
+                <span>Sign In as {selectedRole === 'admin' ? 'Admin' : selectedRole === 'supplier' ? 'Supplier' : 'Rider'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
 
         </form>
+
+        {/* Authorized Accounts Helper Accordion */}
+        <div className="rounded-2xl border border-emerald-100/90 bg-emerald-50/40 p-3 text-xs">
+          <button
+            type="button"
+            onClick={() => setShowCredentialsHelp(!showCredentialsHelp)}
+            className="w-full flex items-center justify-between text-[11px] font-bold text-emerald-800 hover:text-emerald-950 transition-colors"
+          >
+            <span className="flex items-center gap-1.5">
+              <Info className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Registered Staff Accounts</span>
+            </span>
+            {showCredentialsHelp ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+
+          {showCredentialsHelp && (
+            <div className="mt-2.5 pt-2 border-t border-emerald-200/50 space-y-1.5 text-[11px] text-slate-600 animate-in fade-in">
+              <div className="flex justify-between items-center py-0.5">
+                <span className="font-semibold text-slate-800">🛡️ Super Admin:</span>
+                <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-emerald-900 font-mono text-[10px]">admin@freshmart.com / adminpassword123</code>
+              </div>
+              <div className="flex justify-between items-center py-0.5">
+                <span className="font-semibold text-slate-800">📦 Supplier (Tayyab):</span>
+                <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-emerald-900 font-mono text-[10px]">tayyab / cocacola123</code>
+              </div>
+              <div className="flex justify-between items-center py-0.5">
+                <span className="font-semibold text-slate-800">🛵 Fleet Rider:</span>
+                <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-emerald-900 font-mono text-[10px]">rider / rider123</code>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Back Link to Storefront */}
         <div className="pt-2 text-center border-t border-slate-100">
