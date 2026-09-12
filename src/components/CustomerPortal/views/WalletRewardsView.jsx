@@ -20,8 +20,8 @@ import { useStore } from '../../../context/StoreContext';
 
 export const WalletRewardsView = () => {
   const { currency, addToast, applyCouponCode, customerUser, promotions } = useStore();
-  const [walletBalance, setWalletBalance] = useState(customerUser?.walletBalance || 320);
-  const [loyaltyPoints, setLoyaltyPoints] = useState(150);
+  const [walletBalance, setWalletBalance] = useState(customerUser?.walletBalance || 0);
+  const [loyaltyPoints, setLoyaltyPoints] = useState(customerUser?.loyaltyPoints || 0);
   const [copiedCode, setCopiedCode] = useState(null);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState('500');

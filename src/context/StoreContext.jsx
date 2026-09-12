@@ -42,7 +42,12 @@ export const StoreProvider = ({ children }) => {
   const [customerUser, setCustomerUser] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_customer_user');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.walletBalance === 320) parsed.walletBalance = 0;
+        if (parsed.loyaltyPoints === 150 || parsed.loyaltyPoints === 100) parsed.loyaltyPoints = 0;
+        return parsed;
+      }
     } catch (e) {}
     return null;
   });
@@ -1252,8 +1257,8 @@ export const StoreProvider = ({ children }) => {
       phone: userData.phone || '+92 300 1234567',
       city: userData.city || 'Lahore, Pakistan',
       address: userData.address || '123 Main Street',
-      walletBalance: 320,
-      loyaltyPoints: 100
+      walletBalance: 0,
+      loyaltyPoints: 0
     };
 
     try {
@@ -1282,8 +1287,8 @@ export const StoreProvider = ({ children }) => {
       phone: '+92 300 1234567',
       city: 'Lahore, Pakistan',
       address: '123, Block A, Gulberg 3, Lahore',
-      walletBalance: 320,
-      loyaltyPoints: 150
+      walletBalance: 0,
+      loyaltyPoints: 0
     };
 
     try {

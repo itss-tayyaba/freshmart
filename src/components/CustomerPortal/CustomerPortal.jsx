@@ -316,10 +316,9 @@ export const CustomerPortal = () => {
                 <p className="text-xs text-emerald-200/90 font-medium truncate mt-0.5">
                   {customerUser.phone || customerUser.email}
                 </p>
-                <div className="flex items-center gap-1 mt-1 text-[10px] text-emerald-200 font-medium">
-                  <Wallet className="w-3 h-3 text-emerald-300" />
-                  <span>Wallet: <strong className="text-white font-mono font-bold">PKR {customerUser.walletBalance || 320}</strong></span>
-                </div>
+                <p className="text-[11px] text-emerald-300 font-semibold mt-1 flex items-center gap-1">
+                  <span>FreshMart Registered Member</span>
+                </p>
               </div>
             </div>
 
@@ -575,16 +574,12 @@ export const CustomerPortal = () => {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className="px-3 py-1.5 bg-white border border-emerald-200 rounded-2xl shadow-2xs text-center">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Points</span>
-                    <span className="text-xs font-black text-emerald-700">⭐ 150</span>
-                  </div>
-                  <div className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-2xl shadow-xs text-center">
-                    <span className="text-[10px] text-emerald-100 font-bold block uppercase">Balance</span>
-                    <span className="text-xs font-black">PKR {customerUser.walletBalance || 320}</span>
-                  </div>
-                </div>
+                <button
+                  onClick={() => navigateTo('shop')}
+                  className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-2xl text-xs font-black shadow-md shadow-emerald-900/20 transition-all cursor-pointer hover:scale-105 shrink-0 self-start sm:self-auto"
+                >
+                  Shop Groceries →
+                </button>
               </div>
 
               {/* 8 Beautiful Pastel Gradient Category Chips */}
@@ -703,9 +698,9 @@ export const CustomerPortal = () => {
                     👛
                   </div>
                   <div>
-                    <h4 className="font-black text-xs text-slate-900 group-hover:text-emerald-700">FreshMart Wallet</h4>
-                    <p className="text-[10px] text-slate-600 font-bold">
-                      Balance: <strong className="text-emerald-700 font-mono">PKR {customerUser.walletBalance || 320}</strong>
+                    <h4 className="font-black text-xs text-slate-900 group-hover:text-emerald-700">Payment Methods</h4>
+                    <p className="text-[10px] text-slate-500 font-medium">
+                      Manage COD, JazzCash, EasyPaisa
                     </p>
                   </div>
                 </div>
