@@ -777,32 +777,16 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [riders]);
 
-  // Default Seed Supplier: Tayyab (Coca-Cola Beverages)
-  const defaultSuppliersList = [
-    {
-      id: 'SUP-101',
-      supplierId: 'SUP-101',
-      name: 'Tayyab (Coca-Cola Beverages)',
-      contact: 'Tayyab',
-      phone: '0300-8765432',
-      email: 'tayyab.cocacola@freshmart.pk',
-      category: 'Beverages, Juices & Soft Drinks',
-      company: 'Coca-Cola Beverages Pakistan Ltd',
-      username: 'tayyab',
-      password: 'cocacola123',
-      status: 'Active',
-      joinedDate: '2026-08-15',
-      productsSupplied: 'Coca-Cola, Sprite, Fanta, Fuze Tea, Dasani'
-    }
-  ];
+  // Default Suppliers List (Zero mock seeds: populated strictly via live Admin additions or Vendor onboarding applications)
+  const defaultSuppliersList = [];
 
-  // Suppliers State (Includes Tayyab - Coca-Cola)
+  // Suppliers State
   const [suppliers, setSuppliers] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_suppliers');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {}
     return defaultSuppliersList;
@@ -863,12 +847,9 @@ export const StoreProvider = ({ children }) => {
     const syncSuppliers = async () => {
       try {
         const res = await apiService.getSuppliers();
-        if (res && res.success && Array.isArray(res.suppliers) && res.suppliers.length > 0) {
+        if (res && res.success && Array.isArray(res.suppliers)) {
           setSuppliers(res.suppliers);
           localStorage.setItem('freshmart_suppliers', JSON.stringify(res.suppliers));
-        } else {
-          setSuppliers(defaultSuppliersList);
-          localStorage.setItem('freshmart_suppliers', JSON.stringify(defaultSuppliersList));
         }
       } catch (e) {}
     };

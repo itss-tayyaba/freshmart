@@ -19,60 +19,7 @@ const generateVendorToken = (vendor) => {
 };
 
 // In-Memory Fallback Store for Vendors
-let memoryVendors = [
-  {
-    vendorId: 'VND-101',
-    name: 'Tayyab (Coca-Cola Beverages)',
-    ownerName: 'Tayyab',
-    email: 'tayyab.cocacola@freshmart.pk',
-    phone: '0300-8765432',
-    category: 'Beverages, Juices & Soft Drinks',
-    status: 'Approved',
-    commissionRate: 10,
-    balance: 54000,
-    pendingBalance: 14200,
-    totalEarnings: 312000,
-    performanceScore: {
-      fulfillmentRate: 98.6,
-      onTimeDispatch: 97.5,
-      rating: 4.9,
-      reviewCount: 94,
-      tier: 'Platinum Seller'
-    },
-    storeProfile: {
-      logo: 'https://images.unsplash.com/photo-1554866585-cd94860890b7?auto=format&fit=crop&w=200&q=80',
-      banner: 'https://images.unsplash.com/photo-1556881286-fc6915169721?auto=format&fit=crop&w=1200&q=80',
-      bio: 'Official authorized beverage distribution partner supplying Coca-Cola, Sprite, Fanta, Dasani and juices.',
-      address: 'Plot 44, Industrial Estate, Kot Lakhpat, Lahore',
-      city: 'Lahore, Pakistan',
-      operatingHours: 'Mon - Sat: 8:00 AM - 9:00 PM',
-      licenseNumber: 'PK-BEV-99021',
-      deliveryRadius: 'All Lahore Hubs',
-      bankDetails: {
-        bankName: 'Habib Bank Limited (HBL)',
-        accountTitle: 'Coca-Cola Beverages Vendor Hub',
-        accountNumber: '123400987654321',
-        iban: 'PK44HABB0012340098765432'
-      }
-    },
-    staff: [
-      { id: 'STF-1', name: 'Zeeshan Ali', email: 'zeeshan@vendor.coke.pk', role: 'Store Manager', status: 'Active' },
-      { id: 'STF-2', name: 'Farhan Tariq', email: 'farhan@vendor.coke.pk', role: 'Order Packer', status: 'Active' }
-    ],
-    discounts: [
-      { id: 'DSC-1', code: 'COKE20', discountPercent: 20, minSpend: 1000, validUntil: '2026-12-31', status: 'Active', usageCount: 48 },
-      { id: 'DSC-2', code: 'SUMMERDRINKS', discountPercent: 15, minSpend: 800, validUntil: '2026-10-31', status: 'Active', usageCount: 22 }
-    ],
-    payouts: [
-      { id: 'POUT-901', amount: 25000, bankDetails: { bankName: 'HBL', accountTitle: 'Coca-Cola Hub' }, status: 'Processed', requestedAt: new Date(Date.now() - 7 * 86400000), processedAt: new Date() },
-      { id: 'POUT-902', amount: 15000, bankDetails: { bankName: 'HBL', accountTitle: 'Coca-Cola Hub' }, status: 'Pending', requestedAt: new Date() }
-    ],
-    reviews: [
-      { id: 'REV-1', customerName: 'Aimen Khan', rating: 5, comment: 'Always fresh and super fast dispatch. Cans were well-packed!', date: '2026-09-02', reply: 'Thank you for your valuable feedback!' },
-      { id: 'REV-2', customerName: 'Bilal Ahmed', rating: 5, comment: 'Chilled delivery and perfect order fulfillment.', date: '2026-08-28', reply: 'Glad you loved our prompt service.' }
-    ]
-  }
-];
+let memoryVendors = [];
 
 // ==========================================
 // 1. VENDOR REGISTRATION & AUTHENTICATION

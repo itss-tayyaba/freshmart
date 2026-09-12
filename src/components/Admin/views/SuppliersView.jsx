@@ -59,18 +59,32 @@ export const SuppliersView = ({ onOpenAddSupplierModal }) => {
     } catch (e) {}
   };
 
-  // Combine supplier data with marketplace vendors seamlessly
+  // Combine supplier data with marketplace vendors seamlessly without duplicates
   const allEntries = useMemo(() => {
     const map = new Map();
-    (suppliers || []).forEach((s) => map.set(s.id || s.vendorId || s.email, s));
-    vendorsList.forEach((v) => {
-      const key = v.id || v.vendorId || v.email;
-      if (map.has(key)) {
-        map.set(key, { ...map.get(key), ...v });
-      } else {
-        map.set(key, v);
+    const normalizeKey = (item) => {
+      if (!item) return '';
+      if (item.email && typeof item.email === 'string') return item.email.toLowerCase().trim();
+      if (item.name && typeof item.name === 'string') return item.name.toLowerCase().trim();
+      return (item.vendorId || item.supplierId || item.id || '').toString().toLowerCase().trim();
+    };
+
+    (suppliers || []).forEach((s) => {
+      const key = normalizeKey(s);
+      if (key) map.set(key, s);
+    });
+
+    (vendorsList || []).forEach((v) => {
+      const key = normalizeKey(v);
+      if (key) {
+        if (map.has(key)) {
+          map.set(key, { ...map.get(key), ...v });
+        } else {
+          map.set(key, v);
+        }
       }
     });
+
     return Array.from(map.values());
   }, [suppliers, vendorsList]);
 
