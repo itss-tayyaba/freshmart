@@ -276,7 +276,7 @@ export const WalletRewardsView = () => {
         ) : (
           <div className="p-6 bg-emerald-50/30 rounded-2xl border border-emerald-100 text-center">
             <p className="text-xs text-slate-700 font-semibold">No store vouchers active at the moment.</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Admin-created discount coupons will appear here automatically.</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Promotional discount coupons and vouchers will appear here automatically.</p>
           </div>
         )}
       </div>

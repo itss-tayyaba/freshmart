@@ -34,7 +34,7 @@ export const OrderTrackerModal = () => {
         address: foundReal.address || 'Standard Delivery Address',
         city: foundReal.city || 'Lahore',
         currentStage: isDelivered ? 4 : isOutForDelivery ? 3 : 1,
-        driverName: foundReal.assignedRider?.name || 'Awaiting Admin Assignment',
+        driverName: foundReal.assignedRider?.name || 'Awaiting Courier Assignment',
         driverPhone: foundReal.assignedRider?.phone || null,
         driverVehicle: foundReal.assignedRider?.vehicle || 'Fleet Courier',
         isAssigned,
@@ -56,7 +56,7 @@ export const OrderTrackerModal = () => {
             time: isDelivered ? 'Completed' : isOutForDelivery ? 'In Transit' : 'Pending',
             desc: isAssigned
               ? `Assigned to ${foundReal.assignedRider.name} (${foundReal.assignedRider.vehicle || 'Bike'})`
-              : 'Store Admin is reviewing address to assign fleet rider',
+              : 'Dispatch team is reviewing address to assign fleet rider',
             completed: isOutForDelivery || isDelivered
           },
           {

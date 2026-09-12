@@ -359,7 +359,7 @@ export const DeliveryPage = () => {
                   <div>
                     <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Order Status</span>
                     <span className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] ${currentOrder.statusClass || 'bg-amber-100 text-amber-800'}`}>
-                      {currentOrder.status || 'Pending Admin Assignment'}
+                      {currentOrder.status || 'Pending Dispatch'}
                     </span>
                   </div>
                 </div>
@@ -407,7 +407,7 @@ export const DeliveryPage = () => {
                       <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Completed</span>
                     </div>
                     <p className="text-slate-600 text-[11px] mt-0.5">
-                      Order details sent to the Store Admin dashboard for packing and rider allocation.
+                      Order details received and verified by the fulfillment center for packing.
                     </p>
                   </div>
                 </div>
@@ -436,7 +436,7 @@ export const DeliveryPage = () => {
                   </div>
                 </div>
 
-                {/* Milestone 3: Rider Assigned by Admin */}
+                {/* Milestone 3: Rider Assigned */}
                 <div className={`p-3.5 rounded-2xl border flex items-start gap-3 transition-all ${
                   assignedRider
                     ? 'bg-emerald-50 border-emerald-200 ring-2 ring-emerald-500/20'
@@ -454,18 +454,18 @@ export const DeliveryPage = () => {
                   <div className="flex-1 text-xs">
                     <div className="flex items-center justify-between">
                       <h4 className={`font-bold ${assignedRider ? 'text-emerald-900' : 'text-amber-900'}`}>
-                        3. Admin Courier Allocation & Dispatch
+                        3. Courier Allocation & Dispatch
                       </h4>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                         assignedRider ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                       }`}>
-                        {assignedRider ? 'Rider Assigned' : 'Awaiting Admin Assignment'}
+                        {assignedRider ? 'Rider Assigned' : 'Awaiting Courier Assignment'}
                       </span>
                     </div>
                     <p className="text-slate-600 text-[11px] mt-0.5">
                       {assignedRider
                         ? `Assigned to courier ${assignedRider.name} (${assignedRider.vehicle || assignedRider.vehicleType}). Parcel handed over for express dispatch.`
-                        : `The Store Admin is reviewing your drop-off address and assigning the closest on-duty courier from ${selectedCity.city}.`}
+                        : `The dispatch manager is reviewing your drop-off address and assigning the closest on-duty courier from ${selectedCity.city}.`}
                     </p>
                   </div>
                 </div>
@@ -540,7 +540,7 @@ export const DeliveryPage = () => {
                     </p>
                     <p className="text-[11px] text-emerald-700 font-bold flex items-center gap-1">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Admin-Assigned Courier • Chilled Insulated Box</span>
+                      <span>Verified Fleet Courier • Chilled Insulated Box</span>
                     </p>
                   </div>
                 </div>
@@ -574,18 +574,16 @@ export const DeliveryPage = () => {
                     ⏳
                   </div>
                   <div>
-                    <h4 className="font-black text-sm text-slate-900">Order Sent to Admin for Rider Dispatch</h4>
+                    <h4 className="font-black text-sm text-slate-900">Order Received & Awaiting Dispatch</h4>
                     <p className="text-xs text-slate-600">
                       Our dispatch manager is reviewing your delivery address ({currentOrder?.address || selectedNeighborhood.defaultAddress}) to assign the nearest fleet courier.
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => navigateTo('admin')}
-                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 shadow-2xs hover:scale-105"
-                >
-                  Admin Dispatch Portal &rarr;
-                </button>
+                <div className="px-3.5 py-1.5 bg-amber-100/90 border border-amber-300/80 text-amber-900 rounded-xl text-xs font-bold shrink-0 flex items-center gap-1.5 shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                  <span>Awaiting Courier Assignment</span>
+                </div>
               </div>
             )}
 
