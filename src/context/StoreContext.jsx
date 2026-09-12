@@ -91,7 +91,7 @@ export const StoreProvider = ({ children }) => {
           }
         }
       }
-      localStorage.setItem('freshmart_catalog_v', '6.0');
+      localStorage.setItem('freshmart_catalog_v', '7.0');
       localStorage.removeItem('freshmart_products');
     } catch (e) {}
     return FRESHMART_PRODUCTS;
@@ -108,7 +108,7 @@ export const StoreProvider = ({ children }) => {
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
         }
       }
-      localStorage.setItem('freshmart_cat_v', '6.0');
+      localStorage.setItem('freshmart_cat_v', '7.0');
       localStorage.removeItem('freshmart_categories');
     } catch (e) {}
     return FRESHMART_CATEGORIES;
