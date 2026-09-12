@@ -38,11 +38,49 @@ const handleResponse = async (res) => {
     const data = await res.json();
     return data;
   } catch (e) {
-    return { success: false, message: 'Invalid JSON from server' };
+    return { success: false, message: 'Invalid JSON from server', isNonJsonResponse: true };
   }
 };
 
 export const apiService = {
+  // Auth API
+  async login(email, password) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message, isNetworkError: true };
+    }
+  },
+
+  async register(userData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message, isNetworkError: true };
+    }
+  },
+
+  async getUserProfile() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/profile`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message, isNetworkError: true };
+    }
+  },
+
   // Health check
   async checkHealth() {
     try {

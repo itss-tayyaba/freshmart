@@ -413,7 +413,14 @@ export const StoreProvider = ({ children }) => {
         loginPayloadUser = 'admin@freshmart.com';
       }
       authRes = await apiService.login(loginPayloadUser, cleanPass);
-      if (authRes && typeof authRes === 'object') {
+      if (
+        authRes &&
+        typeof authRes === 'object' &&
+        !authRes.isNonJsonResponse &&
+        !authRes.isNetworkError &&
+        authRes.message !== 'Invalid JSON from server' &&
+        authRes.message !== 'Failed to fetch'
+      ) {
         backendResponded = true;
       }
     } catch (e) {
