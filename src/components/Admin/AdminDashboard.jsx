@@ -41,7 +41,6 @@ import { SettingsView } from './views/SettingsView';
 
 import { AdminModals } from './modals/AdminModals';
 import { AdminLogin } from './AdminLogin';
-import { SupplierPortal } from '../SupplierPortal/SupplierPortal';
 import { VendorPortal } from '../VendorPortal/VendorPortal';
 
 export const AdminDashboard = () => {
