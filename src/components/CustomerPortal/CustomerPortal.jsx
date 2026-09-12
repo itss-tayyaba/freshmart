@@ -30,7 +30,9 @@ import {
   AlertTriangle,
   Flame,
   Tag,
-  Store
+  Store,
+  Wallet,
+  CheckCircle2
 } from 'lucide-react';
 
 
@@ -47,25 +49,24 @@ export const CustomerPortal = () => {
     customerUser,
     logoutCustomer,
     updateCustomerAvatar,
-    customerNotifications,
+    customerNotifications = [],
     navigateTo,
-    cart,
+    cart = [],
     updateCartQuantity,
     removeFromCart,
-    cartSubtotal,
-    deliveryCharges,
-    cartTotal,
-    wishlist,
-    wishlistCount,
+    cartSubtotal = 0,
+    deliveryCharges = 0,
+    cartTotal = 0,
+    wishlist = [],
+    wishlistCount = 0,
     deliveryLocation,
-
     setIsLocationModalOpen,
-    currency,
+    currency = 'PKR',
     applyCouponCode,
-    promotions,
-    storeSettings,
+    promotions = [],
+    storeSettings = {},
     addToast,
-    customerOrders,
+    customerOrders = [],
     addToCart
   } = useStore();
 

@@ -4,7 +4,7 @@ import { useStore } from '../../../context/StoreContext';
 
 export const AddressesView = () => {
   const {
-    savedDeliveryAddresses,
+    savedDeliveryAddresses = [],
     addSavedAddress,
     removeSavedAddress,
     deliveryLocation,

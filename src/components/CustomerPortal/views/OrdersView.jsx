@@ -3,7 +3,7 @@ import { Package, Clock, CheckCircle2, Truck, RefreshCw, FileText, ChevronRight,
 import { useStore } from '../../../context/StoreContext';
 
 export const OrdersView = () => {
-  const { customerOrders, currency, addToCart, addToast, navigateTo } = useStore();
+  const { customerOrders = [], currency = 'PKR', addToCart, addToast, navigateTo } = useStore();
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(null);
 
