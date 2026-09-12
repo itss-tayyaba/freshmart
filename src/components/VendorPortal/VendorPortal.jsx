@@ -140,22 +140,10 @@ export const VendorPortal = () => {
         iban: 'PK44HABB0012340098765432'
       }
     },
-    staff: [
-      { id: 'STF-1', name: 'Zeeshan Ali', email: 'zeeshan@vendor.coke.pk', role: 'Store Manager', status: 'Active' },
-      { id: 'STF-2', name: 'Farhan Tariq', email: 'farhan@vendor.coke.pk', role: 'Order Packer', status: 'Active' }
-    ],
-    discounts: [
-      { id: 'DSC-1', code: 'COKE20', discountPercent: 20, minSpend: 1000, validUntil: '2026-12-31', status: 'Active', usageCount: 48 },
-      { id: 'DSC-2', code: 'SUMMERDRINKS', discountPercent: 15, minSpend: 800, validUntil: '2026-10-31', status: 'Active', usageCount: 22 }
-    ],
-    payouts: [
-      { id: 'POUT-901', amount: 25000, bankDetails: { bankName: 'HBL', accountTitle: 'Coca-Cola Hub' }, status: 'Processed', requestedAt: '2026-08-28', processedAt: '2026-08-29' },
-      { id: 'POUT-902', amount: 15000, bankDetails: { bankName: 'HBL', accountTitle: 'Coca-Cola Hub' }, status: 'Pending', requestedAt: '2026-09-04' }
-    ],
-    reviews: [
-      { id: 'REV-1', customerName: 'Aimen Khan', rating: 5, comment: 'Always fresh and super fast dispatch. Cans were well-packed!', date: '2026-09-02', reply: 'Thank you for your valuable feedback!' },
-      { id: 'REV-2', customerName: 'Bilal Ahmed', rating: 5, comment: 'Chilled delivery and perfect order fulfillment.', date: '2026-08-28', reply: 'Glad you loved our prompt service.' }
-    ]
+    staff: [],
+    discounts: [],
+    payouts: [],
+    reviews: []
   };
 
   // Vendor Catalog Sample
@@ -796,37 +784,49 @@ export const VendorPortal = () => {
               <p className="text-xs text-slate-500">Customer feedback and instant vendor response system.</p>
             </div>
             <div className="space-y-4">
-              {(currentVendor.reviews || []).map((rev) => (
-                <div key={rev.id} className="p-4 rounded-2xl border border-slate-100 bg-slate-50/60 space-y-2.5 text-xs">
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-slate-900">{rev.customerName}</span>
-                    <span className="text-amber-500 font-bold">{'★'.repeat(rev.rating)}</span>
+              {(currentVendor.reviews || []).length === 0 ? (
+                <div className="p-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-center space-y-2">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-xl font-bold">
+                    💬
                   </div>
-                  <p className="text-slate-600 italic">"{rev.comment}"</p>
-                  {rev.reply ? (
-                    <div className="p-3 bg-white border border-emerald-100 rounded-xl text-[11px] text-slate-700">
-                      <strong className="text-emerald-700 block mb-0.5">Your Response:</strong>
-                      <span>{rev.reply}</span>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Write a response to this review..."
-                        value={replyTextMap[rev.id] || ''}
-                        onChange={(e) => setReplyTextMap({ ...replyTextMap, [rev.id]: e.target.value })}
-                        className="flex-1 text-xs bg-white border border-slate-200 rounded-xl px-3 py-2"
-                      />
-                      <button
-                        onClick={() => handleSendReply(rev.id)}
-                        className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs cursor-pointer"
-                      >
-                        Reply
-                      </button>
-                    </div>
-                  )}
+                  <h4 className="font-bold text-slate-800 text-sm">No Customer Reviews Yet</h4>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    Ratings and feedback submitted by real shoppers on your delivered products will appear here.
+                  </p>
                 </div>
-              ))}
+              ) : (
+                (currentVendor.reviews || []).map((rev) => (
+                  <div key={rev.id} className="p-4 rounded-2xl border border-slate-100 bg-slate-50/60 space-y-2.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-slate-900">{rev.customerName}</span>
+                      <span className="text-amber-500 font-bold">{'★'.repeat(rev.rating)}</span>
+                    </div>
+                    <p className="text-slate-600 italic">"{rev.comment}"</p>
+                    {rev.reply ? (
+                      <div className="p-3 bg-white border border-emerald-100 rounded-xl text-[11px] text-slate-700">
+                        <strong className="text-emerald-700 block mb-0.5">Your Response:</strong>
+                        <span>{rev.reply}</span>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Write a response to this review..."
+                          value={replyTextMap[rev.id] || ''}
+                          onChange={(e) => setReplyTextMap({ ...replyTextMap, [rev.id]: e.target.value })}
+                          className="flex-1 text-xs bg-white border border-slate-200 rounded-xl px-3 py-2"
+                        />
+                        <button
+                          onClick={() => handleSendReply(rev.id)}
+                          className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs cursor-pointer"
+                        >
+                          Reply
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
