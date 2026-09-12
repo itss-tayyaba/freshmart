@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Search, Phone, Mail, Building, Eye, Trash2, CheckCircle2, XCircle, Clock, Award, DollarSign, Store, ExternalLink } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
 
 export const SuppliersView = ({ onOpenAddSupplierModal }) => {
-  const { suppliers, deleteSupplier, addToast, adminRole, setAdminRole, setUser } = useStore();
+  const { suppliers, approveVendor, rejectVendor, addToast, adminRole, setAdminRole, setUser } = useStore();
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'pending' | 'payouts'
   const [vendorsList, setVendorsList] = useState([]);
@@ -32,23 +32,23 @@ export const SuppliersView = ({ onOpenAddSupplierModal }) => {
   }, []);
 
   const handleApproveVendor = async (vendorId) => {
+    if (typeof approveVendor === 'function') {
+      await approveVendor(vendorId);
+    }
     try {
       await apiService.adminUpdateVendorStatus(vendorId, 'Approved');
-      setVendorsList(vendorsList.map((v) => (v.vendorId === vendorId ? { ...v, status: 'Approved' } : v)));
-      addToast('Vendor Approved! 🎉', `Store ${vendorId} is now live on the marketplace.`);
-    } catch (e) {
-      addToast('Status Updated', 'Vendor marked as Approved.');
-    }
+      setVendorsList((prev) => prev.map((v) => (v.vendorId === vendorId || v.id === vendorId ? { ...v, status: 'Approved' } : v)));
+    } catch (e) {}
   };
 
   const handleSuspendVendor = async (vendorId) => {
+    if (typeof rejectVendor === 'function') {
+      await rejectVendor(vendorId);
+    }
     try {
       await apiService.adminUpdateVendorStatus(vendorId, 'Suspended');
-      setVendorsList(vendorsList.map((v) => (v.vendorId === vendorId ? { ...v, status: 'Suspended' } : v)));
-      addToast('Vendor Suspended ⚠️', `Store ${vendorId} has been suspended.`);
-    } catch (e) {
-      addToast('Status Updated', 'Vendor marked as Suspended.');
-    }
+      setVendorsList((prev) => prev.map((v) => (v.vendorId === vendorId || v.id === vendorId ? { ...v, status: 'Suspended' } : v)));
+    } catch (e) {}
   };
 
   const handleProcessPayout = async (vendorId, payoutId) => {
@@ -59,8 +59,20 @@ export const SuppliersView = ({ onOpenAddSupplierModal }) => {
     } catch (e) {}
   };
 
-  // Combine supplier data with marketplace vendors
-  const allEntries = vendorsList.length > 0 ? vendorsList : (suppliers || []);
+  // Combine supplier data with marketplace vendors seamlessly
+  const allEntries = useMemo(() => {
+    const map = new Map();
+    (suppliers || []).forEach((s) => map.set(s.id || s.vendorId || s.email, s));
+    vendorsList.forEach((v) => {
+      const key = v.id || v.vendorId || v.email;
+      if (map.has(key)) {
+        map.set(key, { ...map.get(key), ...v });
+      } else {
+        map.set(key, v);
+      }
+    });
+    return Array.from(map.values());
+  }, [suppliers, vendorsList]);
 
   const pendingVendors = allEntries.filter((v) => v.status === 'Pending');
   const activeVendors = allEntries.filter((v) => v.status !== 'Pending');

@@ -4,7 +4,7 @@ import { apiService } from '../../services/api';
 import { useStore } from '../../context/StoreContext';
 
 export const VendorRegistrationModal = ({ isOpen, onClose }) => {
-  const { addToast } = useStore();
+  const { registerVendorApplication, addToast } = useStore();
   const [formData, setFormData] = useState({
     name: '',
     ownerName: '',
@@ -25,14 +25,12 @@ export const VendorRegistrationModal = ({ isOpen, onClose }) => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const res = await apiService.registerVendor(formData);
-      if (res && res.success) {
-        setSubmitted(true);
-        addToast('Application Received! 🏪', 'Your marketplace vendor application has been sent for admin review.');
+      if (typeof registerVendorApplication === 'function') {
+        await registerVendorApplication(formData);
       } else {
-        addToast('Registration Note', res?.message || 'Application submitted for review.');
-        setSubmitted(true);
+        await apiService.registerVendor(formData);
       }
+      setSubmitted(true);
     } catch (err) {
       setSubmitted(true);
     } finally {

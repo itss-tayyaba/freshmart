@@ -528,8 +528,19 @@ export const StoreProvider = ({ children }) => {
           (s.username && s.username.toLowerCase() === cleanUser) ||
           (s.email && s.email.toLowerCase() === cleanUser) ||
           (s.name && s.name.toLowerCase() === cleanUser) ||
-          (s.supplierId && s.supplierId.toLowerCase() === cleanUser)
+          (s.supplierId && s.supplierId.toLowerCase() === cleanUser) ||
+          (s.vendorId && s.vendorId.toLowerCase() === cleanUser)
       );
+
+      if (foundSupplier && foundSupplier.status === 'Pending') {
+        addToast('Application Pending ⏳', 'Your vendor application is awaiting Admin review.', 'info');
+        return { success: false, error: 'Your vendor application is pending Admin approval. Please wait for store admin approval.' };
+      }
+
+      if (foundSupplier && foundSupplier.status === 'Rejected') {
+        addToast('Application Rejected ❌', 'This vendor application was rejected.', 'error');
+        return { success: false, error: 'This vendor account was rejected by the administration.' };
+      }
 
       const isValidPass =
         (foundSupplier && foundSupplier.password && cleanPass === foundSupplier.password) ||
@@ -541,11 +552,11 @@ export const StoreProvider = ({ children }) => {
       }
 
       const supplierUser = {
-        name: foundSupplier ? foundSupplier.name : 'Tayyab (Coca-Cola Beverages)',
+        name: foundSupplier ? (foundSupplier.ownerName || foundSupplier.name) : 'Tayyab (Coca-Cola Beverages)',
         email: foundSupplier ? foundSupplier.email : 'tayyab.cocacola@freshmart.pk',
         role: 'vendor',
-        vendorId: (foundSupplier && foundSupplier.id) || 'VND-101',
-        supplierId: (foundSupplier && foundSupplier.id) || 'SUP-101'
+        vendorId: (foundSupplier && (foundSupplier.vendorId || foundSupplier.id)) || 'VND-101',
+        supplierId: (foundSupplier && (foundSupplier.supplierId || foundSupplier.id)) || 'SUP-101'
       };
 
       const fallbackToken = `mock-vendor-token-${Date.now()}`;
@@ -743,13 +754,35 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [activeDeliveryOrder]);
 
-  // Riders State (Empty initially - added by Admin)
+  // Default Fleet Rider: Rider Ali (Phone: 0301-1234567, Pass: rider123)
+  const defaultRidersList = [
+    {
+      id: 'RDR-101',
+      name: 'Rider Ali',
+      phone: '0301-1234567',
+      username: 'rider',
+      password: 'rider123',
+      vehicleType: '🏍️ Honda 125',
+      vehicleNumber: 'LEK-4921',
+      zone: 'Gulberg / Main Hub',
+      status: 'On-Duty',
+      cnic: '35201-1234567-1',
+      deliveriesCount: 48,
+      rating: 4.9,
+      joinedDate: '2026-08-10'
+    }
+  ];
+
+  // Riders State
   const [riders, setRiders] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_riders');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch (e) {}
-    return [];
+    return defaultRidersList;
   });
 
   useEffect(() => {
@@ -968,6 +1001,216 @@ export const StoreProvider = ({ children }) => {
     addToast('Customer Updated', 'Customer record updated successfully.');
   };
 
+  // --- 🛵 Rider Fleet Management (Admin Controlled) ---
+  const addRider = async (riderData) => {
+    const newId = `RDR-${Math.floor(100 + Math.random() * 900)}`;
+    const newRider = {
+      id: newId,
+      name: riderData.name,
+      phone: riderData.phone,
+      vehicleType: riderData.vehicleType || '🏍️ Honda 125',
+      vehicleNumber: riderData.vehicleNumber || `LEK-${Math.floor(1000 + Math.random() * 9000)}`,
+      zone: riderData.zone || 'Gulberg / Main Hub',
+      status: riderData.status || 'On-Duty',
+      cnic: riderData.cnic || '',
+      username: (riderData.username || riderData.phone || riderData.name).toLowerCase().replace(/\s+/g, '_'),
+      password: riderData.password || 'rider123',
+      deliveriesCount: 0,
+      rating: 5.0,
+      joinedDate: new Date().toISOString().split('T')[0]
+    };
+
+    setRiders((prev) => {
+      const updated = [newRider, ...prev];
+      try {
+        localStorage.setItem('freshmart_riders', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    addToast('Rider Registered 🛵', `${newRider.name} registered. Credentials: ${newRider.phone} / ${newRider.password}`);
+
+    try {
+      await apiService.createRider(newRider);
+    } catch (e) {}
+    return newRider;
+  };
+
+  const updateRider = async (id, updatedFields) => {
+    setRiders((prev) => {
+      const updated = prev.map((r) => (r.id === id ? { ...r, ...updatedFields } : r));
+      try {
+        localStorage.setItem('freshmart_riders', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    addToast('Rider Updated', 'Rider profile saved.');
+    try {
+      await apiService.updateRider(id, updatedFields);
+    } catch (e) {}
+  };
+
+  const deleteRider = async (id) => {
+    setRiders((prev) => {
+      const updated = prev.filter((r) => r.id !== id);
+      try {
+        localStorage.setItem('freshmart_riders', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    addToast('Rider Removed', 'Rider deleted from fleet.', 'info');
+    try {
+      await apiService.deleteRider(id);
+    } catch (e) {}
+  };
+
+  const clearAllRiders = async () => {
+    setRiders([]);
+    try {
+      localStorage.removeItem('freshmart_riders');
+    } catch (e) {}
+    addToast('Fleet Cleared', 'All riders removed from system.', 'info');
+    try {
+      await apiService.clearAllRiders();
+    } catch (e) {}
+  };
+
+  const toggleRiderStatus = async (id) => {
+    setRiders((prev) => {
+      const updated = prev.map((r) => {
+        if (r.id === id) {
+          const nextStatus = r.status === 'On-Duty' ? 'Off-Duty' : 'On-Duty';
+          return { ...r, status: nextStatus };
+        }
+        return r;
+      });
+      try {
+        localStorage.setItem('freshmart_riders', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  const assignRiderToOrder = (orderId, riderId) => {
+    const targetRider = riders.find((r) => r.id === riderId);
+    if (!targetRider) return;
+
+    const assignedInfo = {
+      id: targetRider.id,
+      name: targetRider.name,
+      phone: targetRider.phone,
+      vehicle: targetRider.vehicleNumber || targetRider.vehicleType,
+      eta: '10-15 mins'
+    };
+
+    setCustomerOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              assignedRider: assignedInfo,
+              status: 'Dispatched to Rider'
+            }
+          : o
+      )
+    );
+    if (activeDeliveryOrder && activeDeliveryOrder.id === orderId) {
+      setActiveDeliveryOrder((prev) => ({
+        ...prev,
+        assignedRider: assignedInfo,
+        status: 'Dispatched to Rider'
+      }));
+    }
+    addToast('Rider Assigned 🛵', `${targetRider.name} assigned to Order ${orderId}.`);
+  };
+
+  const updateDeliveryOrderStatus = (orderId, newStatus) => {
+    setCustomerOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+    );
+    if (activeDeliveryOrder && activeDeliveryOrder.id === orderId) {
+      setActiveDeliveryOrder((prev) => ({ ...prev, status: newStatus }));
+    }
+    addToast('Delivery Status Updated 🚚', `Order ${orderId}: ${newStatus}`);
+  };
+
+  // --- 🏪 Multi-Vendor Applications & Approvals ---
+  const registerVendorApplication = async (vendorData) => {
+    const vendorId = `VND-${Math.floor(100 + Math.random() * 900)}`;
+    const newVendorRecord = {
+      id: vendorId,
+      vendorId: vendorId,
+      supplierId: vendorId,
+      name: vendorData.name,
+      ownerName: vendorData.ownerName || vendorData.name,
+      email: (vendorData.email || '').toLowerCase().trim(),
+      password: vendorData.password || 'vendor123',
+      phone: vendorData.phone || '',
+      category: vendorData.category || 'Fresh Fruits & Farm Vegetables',
+      status: 'Pending', // Pending Admin Approval
+      address: vendorData.address || '',
+      bio: vendorData.bio || '',
+      appliedDate: new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString()
+    };
+
+    setSuppliers((prev) => {
+      const updated = [newVendorRecord, ...prev.filter((s) => s.email !== newVendorRecord.email)];
+      try {
+        localStorage.setItem('freshmart_suppliers', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    addToast('Application Received 🏪', `Application for "${vendorData.name}" submitted. Awaiting Admin Approval.`);
+
+    try {
+      await apiService.registerVendor(vendorData);
+    } catch (e) {}
+
+    return { success: true, vendor: newVendorRecord };
+  };
+
+  const approveVendor = async (vendorId) => {
+    setSuppliers((prev) => {
+      const updated = prev.map((s) =>
+        (s.id === vendorId || s.vendorId === vendorId || s.supplierId === vendorId)
+          ? { ...s, status: 'Approved' }
+          : s
+      );
+      try {
+        localStorage.setItem('freshmart_suppliers', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    addToast('Vendor Approved! 🎉', `Store ${vendorId} is now approved and can log in.`);
+
+    try {
+      await apiService.adminUpdateVendorStatus(vendorId, 'Approved');
+    } catch (e) {}
+  };
+
+  const rejectVendor = async (vendorId) => {
+    setSuppliers((prev) => {
+      const updated = prev.map((s) =>
+        (s.id === vendorId || s.vendorId === vendorId || s.supplierId === vendorId)
+          ? { ...s, status: 'Rejected' }
+          : s
+      );
+      try {
+        localStorage.setItem('freshmart_suppliers', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    addToast('Application Rejected', `Vendor application ${vendorId} was rejected.`, 'info');
+
+    try {
+      await apiService.adminUpdateVendorStatus(vendorId, 'Rejected');
+    } catch (e) {}
+  };
+
 
 
 
@@ -1142,112 +1385,6 @@ export const StoreProvider = ({ children }) => {
   const removeSavedAddress = (id) => {
     setSavedDeliveryAddresses((prev) => prev.filter((a) => a.id !== id));
     addToast('Address Removed', 'Location removed from your list.', 'info');
-  };
-
-  // --- Rider Management Methods ---
-  const addRider = (newRider) => {
-    const riderObj = {
-      id: newRider.id || `RDR-${Math.floor(100 + Math.random() * 900)}`,
-      name: newRider.name,
-      phone: newRider.phone || '0300-0000000',
-      vehicleType: newRider.vehicleType || '🏍️ Honda 125',
-      vehicleNumber: newRider.vehicleNumber || 'LEK-0000',
-      zone: newRider.zone || 'Lahore Hub',
-      status: newRider.status || 'On-Duty',
-      username: newRider.username || newRider.name.toLowerCase().replace(/\s+/g, '_'),
-      password: newRider.password || 'rider123',
-      deliveriesCount: Number(newRider.deliveriesCount) || 0,
-      rating: Number(newRider.rating) || 5.0,
-      activeOrderId: null,
-      joinedDate: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-    };
-    setRiders((prev) => {
-      const updated = [riderObj, ...prev];
-      try {
-        localStorage.setItem('freshmart_riders', JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
-    apiService.createRider(riderObj);
-    addToast('Rider Registered 🛵', `"${riderObj.name}" added to delivery fleet.`);
-    return riderObj;
-  };
-
-  const updateRider = (riderId, updatedData) => {
-    setRiders((prev) => {
-      const updated = prev.map((r) => (r.id === riderId ? { ...r, ...updatedData } : r));
-      try {
-        localStorage.setItem('freshmart_riders', JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
-    addToast('Rider Profile Updated 📝', 'Rider details saved.');
-  };
-
-  const deleteRider = (riderId) => {
-    setRiders((prev) => {
-      const updated = prev.filter((r) => r.id !== riderId);
-      try {
-        localStorage.setItem('freshmart_riders', JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
-    apiService.deleteRider(riderId);
-    addToast('Rider Removed', 'Rider removed from active fleet.', 'info');
-  };
-
-  const clearAllRiders = () => {
-    setRiders([]);
-    try {
-      localStorage.setItem('freshmart_riders', JSON.stringify([]));
-    } catch (e) {}
-    apiService.clearAllRiders();
-    addToast('Fleet Cleared 🛵', 'All riders removed. You can now add your own riders.', 'info');
-  };
-
-  const toggleRiderStatus = (riderId) => {
-    setRiders((prev) =>
-      prev.map((r) => {
-        if (r.id === riderId) {
-          const nextStatus = r.status === 'On-Duty' ? 'Offline' : 'On-Duty';
-          return { ...r, status: nextStatus };
-        }
-        return r;
-      })
-    );
-  };
-
-  const assignRiderToOrder = (orderId, riderId) => {
-    const rider = riders.find((r) => r.id === riderId);
-    setCustomerOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              assignedRider: rider ? { id: rider.id, name: rider.name, phone: rider.phone, vehicle: rider.vehicleNumber } : null,
-              status: 'Dispatched to Rider'
-            }
-          : o
-      )
-    );
-    if (activeDeliveryOrder && activeDeliveryOrder.id === orderId) {
-      setActiveDeliveryOrder((prev) => ({
-        ...prev,
-        assignedRider: rider ? { id: rider.id, name: rider.name, phone: rider.phone, vehicle: rider.vehicleNumber } : null,
-        status: 'Dispatched to Rider'
-      }));
-    }
-    addToast('Order Assigned 📦', `Order ${orderId} assigned to ${rider?.name || 'Rider'}.`);
-  };
-
-  const updateDeliveryOrderStatus = (orderId, newStatus) => {
-    setCustomerOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-    );
-    if (activeDeliveryOrder && activeDeliveryOrder.id === orderId) {
-      setActiveDeliveryOrder((prev) => ({ ...prev, status: newStatus }));
-    }
-    addToast('Delivery Status Updated 🚚', `Order ${orderId}: ${newStatus}`);
   };
 
   // --- Order Placement ---
@@ -2103,6 +2240,9 @@ export const StoreProvider = ({ children }) => {
         addSupplier,
         deleteSupplier,
         updateSupplier,
+        registerVendorApplication,
+        approveVendor,
+        rejectVendor,
         customers,
         setCustomers,
         addCustomer,
