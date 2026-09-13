@@ -7,6 +7,7 @@ import {
   ADMIN_INVENTORY_ALERTS,
   COUPONS
 } from '../data/freshMartData';
+import { ADMIN_PROMOTIONS_DATA } from '../data/adminSuiteData';
 import { INITIAL_TENANTS, SUBSCRIPTION_PLANS } from '../data/tenantData';
 import { apiService } from '../services/api';
 import { parseRouteFromUrl, getSeoMetadata } from '../utils/routeUtils';
@@ -24,6 +25,19 @@ export const useStore = () => {
 };
 
 export const StoreProvider = ({ children }) => {
+  // Toast notifications state & helpers (available across the whole provider)
+  const [toasts, setToasts] = useState([]);
+  const addToast = (title, message, type = 'success') => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  };
+  const removeToast = (id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
   // Initial route resolution
   const initialRoute = parseRouteFromUrl(FRESHMART_PRODUCTS);
 
@@ -332,7 +346,7 @@ export const StoreProvider = ({ children }) => {
       const saved = localStorage.getItem('freshmart_promotions');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
-    return ADMIN_PROMOTIONS_DATA;
+    return Array.isArray(ADMIN_PROMOTIONS_DATA) ? ADMIN_PROMOTIONS_DATA : [];
   });
 
   useEffect(() => {
@@ -766,9 +780,6 @@ export const StoreProvider = ({ children }) => {
     navigateTo('home');
   };
 
-
-  // Toasts
-  const [toasts, setToasts] = useState([]);
 
   // Save products and categories to localStorage on any modification
   useEffect(() => {
@@ -1504,19 +1515,6 @@ export const StoreProvider = ({ children }) => {
       localStorage.setItem('freshmart_saved_addresses', JSON.stringify(savedDeliveryAddresses));
     } catch (e) {}
   }, [savedDeliveryAddresses]);
-
-  // Toast Helpers
-  const addToast = (title, message, type = 'success') => {
-    const id = Date.now() + Math.random();
-    setToasts((prev) => [...prev, { id, title, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
-  };
-
-  const removeToast = (id) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
 
   // --- 🏢 Super Admin & Multi-Tenant Management Engine ---
   const addTenant = async (tenantData) => {
