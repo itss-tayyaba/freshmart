@@ -10,52 +10,64 @@ import {
   Loader2,
   Info,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  CheckCircle2,
+  Building2,
+  Store,
+  Truck
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 
 export const AdminLogin = () => {
   const { adminLogin, navigateTo } = useStore();
-  const [selectedRole, setSelectedRole] = useState('admin'); // 'admin' | 'supplier' | 'rider'
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [selectedRole, setSelectedRole] = useState('superadmin'); // Default to Super Admin as requested
+  const [username, setUsername] = useState('superadmin');
+  const [password, setPassword] = useState('superadmin123');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showCredentialsHelp, setShowCredentialsHelp] = useState(false);
+  const [showCredentialsHelp, setShowCredentialsHelp] = useState(true);
 
   const roles = [
     {
       id: 'superadmin',
       label: 'Super Admin',
       icon: '👑',
-      sublabel: 'Platform Owner',
-      userPlaceholder: 'superadmin or admin@supergrocery.pk',
-      passPlaceholder: 'Enter superadmin password (superadmin123)'
+      sublabel: 'Platform HQ',
+      userPlaceholder: 'superadmin',
+      passPlaceholder: 'superadmin123',
+      defaultUser: 'superadmin',
+      defaultPass: 'superadmin123'
     },
     {
       id: 'admin',
       label: 'Store Admin',
       icon: '🛡️',
-      sublabel: 'Store Manager',
-      userPlaceholder: 'admin@alfatah.pk or admin',
-      passPlaceholder: 'Enter admin password (admin123)'
+      sublabel: 'Al-Fatah / Chase',
+      userPlaceholder: 'admin@alfatah.pk',
+      passPlaceholder: 'admin123',
+      defaultUser: 'admin@alfatah.pk',
+      defaultPass: 'admin123'
     },
     {
       id: 'supplier',
       label: 'Supplier',
       icon: '📦',
       sublabel: 'Vendor Portal',
-      userPlaceholder: 'tayyab or vendor email',
-      passPlaceholder: 'Enter vendor password'
+      userPlaceholder: 'tayyab',
+      passPlaceholder: 'cocacola123',
+      defaultUser: 'tayyab',
+      defaultPass: 'cocacola123'
     },
     {
       id: 'rider',
-      label: 'Rider',
+      label: 'Rider Fleet',
       icon: '🛵',
-      sublabel: 'Delivery Fleet',
-      userPlaceholder: 'rider or phone (0301-1234567)',
-      passPlaceholder: 'Enter rider password'
+      sublabel: 'Fulfillment',
+      userPlaceholder: 'rider',
+      passPlaceholder: 'rider123',
+      defaultUser: 'rider',
+      defaultPass: 'rider123'
     }
   ];
 
@@ -63,8 +75,8 @@ export const AdminLogin = () => {
 
   const handleRoleSelect = (roleItem) => {
     setSelectedRole(roleItem.id);
-    setUsername('');
-    setPassword('');
+    setUsername(roleItem.defaultUser);
+    setPassword(roleItem.defaultPass);
     setErrorMessage('');
   };
 
@@ -94,76 +106,75 @@ export const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#07241d] via-[#0b3b2f] to-[#0f172a] flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#f5f6f9] flex flex-col justify-center items-center p-4 sm:p-6 font-sans antialiased text-[#12172b]">
       
-      {/* Background Subtle Emerald Glow */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-lime-500/15 rounded-full blur-3xl pointer-events-none" />
+      {/* Top Ledgerly Monogram Brand Header */}
+      <div className="mb-6 text-center">
+        <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white border border-[#e6e8ef] shadow-2xs mb-3">
+          <div className="w-2 h-2 rounded-full bg-[#0e7c66] animate-pulse" />
+          <span className="text-[11px] font-semibold tracking-wider text-[#4d536e] uppercase">
+            Super Grocery Multi-Tenant Platform
+          </span>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#12172b] flex items-center justify-center gap-2 font-serif">
+          <span>Enterprise Portal</span>
+        </h1>
+        <p className="text-xs text-[#6e7489] mt-1">
+          Secure central authentication for platform owners, supermarket store admins, and staff
+        </p>
+      </div>
 
-      {/* Main Login Card with FreshMart Website Styling */}
-      <div className="max-w-md w-full bg-white rounded-3xl p-7 sm:p-9 shadow-2xl space-y-6 relative z-10 border border-emerald-100 animate-in zoom-in-95 duration-300">
+      {/* Main Login Card */}
+      <div className="max-w-lg w-full bg-white rounded-xl p-6 sm:p-8 shadow-[0_2px_12px_rgba(16,24,40,0.06)] border border-[#e6e8ef] space-y-6">
         
-        {/* Brand Header matching FreshMart Website */}
-        <div className="space-y-1.5 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mx-auto text-2xl shadow-lg shadow-emerald-600/30">
-            🛒
+        {/* Role Selector Tabs (Grid of 4) */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-semibold text-[#6e7489] uppercase tracking-wider">
+              Select Console Role
+            </span>
+            <span className="text-[11px] text-[#0e7c66] font-medium">
+              Active: {currentRoleConfig.label}
+            </span>
           </div>
-          <div className="pt-1">
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-1.5">
-              <span>FreshMart</span>
-              <span className="text-emerald-600 font-serif">Staff</span>
-            </h1>
-            <p className="text-xs text-slate-500 mt-1">
-              Select your role to access store management, inventory, or delivery fleet.
-            </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {roles.map((r) => {
+              const isSelected = selectedRole === r.id;
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => handleRoleSelect(r)}
+                  className={`p-2.5 rounded-lg flex flex-col items-center justify-center text-center transition-all cursor-pointer border ${
+                    isSelected
+                      ? 'bg-[#dff3ee] border-[#0e7c66] text-[#0a5d4c] font-semibold shadow-2xs'
+                      : 'bg-[#fafbfc] border-[#e6e8ef] text-[#4d536e] hover:bg-white hover:border-[#d6d9e3]'
+                  }`}
+                >
+                  <span className="text-lg leading-none mb-1">{r.icon}</span>
+                  <span className="text-xs leading-tight font-medium">{r.label}</span>
+                  <span className="text-[10px] text-[#9297a8] mt-0.5 leading-none">{r.sublabel}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Error message */}
         {errorMessage && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3.5 rounded-2xl text-xs flex items-start gap-2.5 animate-in fade-in">
-            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-            <span className="leading-relaxed">{errorMessage}</span>
+          <div className="bg-[#fce8e6] border border-[#f5c2bd] text-[#dc4c3f] p-3 rounded-lg text-xs flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-[#dc4c3f]" />
+            <span className="leading-relaxed font-medium">{errorMessage}</span>
           </div>
         )}
 
-        {/* Form with FreshMart Emerald Theme */}
+        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          
-          {/* "Login as" 3 Role Cards Grid */}
-          <div className="space-y-2">
-            <label className="font-bold text-slate-800 block text-xs">
-              Login as
-            </label>
-            
-            <div className="grid grid-cols-3 gap-2">
-              {roles.map((r) => {
-                const isSelected = selectedRole === r.id;
-
-                return (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => handleRoleSelect(r)}
-                    className={`py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer select-none ${
-                      isSelected
-                        ? 'bg-emerald-50 border-2 border-emerald-600 text-emerald-900 shadow-xs font-bold'
-                        : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 hover:border-slate-300'
-                    }`}
-                  >
-                    <span className="text-xl leading-none">{r.icon}</span>
-                    <span className="text-xs font-black leading-tight mt-0.5">{r.label}</span>
-                    <span className="text-[10px] text-slate-400 font-medium leading-none hidden sm:block">{r.sublabel}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Username Input */}
           <div>
-            <label className="font-bold text-slate-700 block mb-1 text-xs">
-              Username or Email
+            <label className="block text-xs font-semibold text-[#12172b] mb-1.5">
+              Username / Account ID
             </label>
             <div className="relative">
               <input
@@ -175,18 +186,20 @@ export const AdminLogin = () => {
                   if (errorMessage) setErrorMessage('');
                 }}
                 placeholder={currentRoleConfig.userPlaceholder}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-3.5 py-3 font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs transition-colors"
+                className="w-full bg-white border border-[#e6e8ef] rounded-lg pl-9 pr-3.5 py-2.5 font-medium text-xs text-[#12172b] focus:border-[#0e7c66] focus:ring-1 focus:ring-[#0e7c66] focus:outline-none transition-all placeholder:text-[#9297a8]"
                 autoComplete="username"
               />
-              <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <User className="w-4 h-4 text-[#9297a8] absolute left-3 top-1/2 -translate-y-1/2" />
             </div>
           </div>
 
           {/* Password Input */}
           <div>
-            <label className="font-bold text-slate-700 block mb-1 text-xs">
-              Password
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-[#12172b]">
+                Access Password
+              </label>
+            </div>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -197,14 +210,14 @@ export const AdminLogin = () => {
                   if (errorMessage) setErrorMessage('');
                 }}
                 placeholder={currentRoleConfig.passPlaceholder}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-10 py-3 font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs transition-colors"
+                className="w-full bg-white border border-[#e6e8ef] rounded-lg pl-9 pr-9 py-2.5 font-medium text-xs text-[#12172b] focus:border-[#0e7c66] focus:ring-1 focus:ring-[#0e7c66] focus:outline-none transition-all placeholder:text-[#9297a8]"
                 autoComplete="current-password"
               />
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Lock className="w-4 h-4 text-[#9297a8] absolute left-3 top-1/2 -translate-y-1/2" />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9297a8] hover:text-[#12172b] cursor-pointer"
                 tabIndex={-1}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -212,102 +225,130 @@ export const AdminLogin = () => {
             </div>
           </div>
 
-          {/* Sign In Primary Button with FreshMart Green */}
+          {/* Primary Action Button */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-2xl font-black text-sm shadow-md shadow-emerald-600/25 transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
+            className="w-full py-2.5 px-4 bg-[#0e7c66] hover:bg-[#0a5d4c] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg font-semibold text-xs shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-2 mt-1"
           >
             {isLoading ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Authenticating...</span>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Authenticating Console Session...</span>
               </>
             ) : (
               <>
-                <span>Sign In as {selectedRole === 'superadmin' ? 'Super Admin' : selectedRole === 'admin' ? 'Store Admin' : selectedRole === 'supplier' ? 'Supplier' : 'Rider'}</span>
-                <ArrowRight className="w-4 h-4" />
+                <span>Sign In to {currentRoleConfig.label}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </>
             )}
           </button>
-
         </form>
 
-        {/* Authorized Accounts Helper Accordion */}
-        <div className="rounded-2xl border border-emerald-100/90 bg-emerald-50/40 p-3 text-xs">
+        {/* Quick Demo Credentials Assistant */}
+        <div className="rounded-lg border border-[#e6e8ef] bg-[#fafbfc] p-3 text-xs">
           <button
             type="button"
             onClick={() => setShowCredentialsHelp(!showCredentialsHelp)}
-            className="w-full flex items-center justify-between text-[11px] font-bold text-emerald-800 hover:text-emerald-950 transition-colors cursor-pointer"
+            className="w-full flex items-center justify-between text-[11px] font-semibold text-[#4d536e] hover:text-[#12172b] transition-colors cursor-pointer"
           >
             <span className="flex items-center gap-1.5">
-              <Info className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Demo Staff Credentials (Click to fill)</span>
+              <Info className="w-3.5 h-3.5 text-[#0e7c66]" />
+              <span>Quick Login Accounts (1-Click Fill)</span>
             </span>
             {showCredentialsHelp ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
 
           {showCredentialsHelp && (
-            <div className="mt-2.5 pt-2 border-t border-emerald-200/50 space-y-2 text-[11px] text-slate-600 animate-in fade-in">
+            <div className="mt-2.5 pt-2.5 border-t border-[#e6e8ef] grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
               <div
                 onClick={() => {
                   setSelectedRole('superadmin');
                   setUsername('superadmin');
                   setPassword('superadmin123');
                 }}
-                className="flex justify-between items-center p-1.5 rounded-lg hover:bg-emerald-100/60 cursor-pointer transition"
+                className={`p-2 rounded-md border cursor-pointer transition ${
+                  selectedRole === 'superadmin' ? 'bg-[#dff3ee] border-[#0e7c66]' : 'bg-white border-[#e6e8ef] hover:border-[#d6d9e3]'
+                }`}
               >
-                <span className="font-bold text-amber-700">👑 Super Admin:</span>
-                <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-slate-900 font-mono text-[10px]">superadmin / superadmin123</code>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-[#12172b]">👑 Super Admin</span>
+                  {selectedRole === 'superadmin' && <span className="text-[10px] text-[#0e7c66] font-bold">Selected</span>}
+                </div>
+                <div className="font-mono text-[10px] text-[#6e7489] mt-0.5">superadmin / superadmin123</div>
               </div>
+
               <div
                 onClick={() => {
                   setSelectedRole('admin');
                   setUsername('admin@alfatah.pk');
                   setPassword('admin123');
                 }}
-                className="flex justify-between items-center p-1.5 rounded-lg hover:bg-emerald-100/60 cursor-pointer transition"
+                className={`p-2 rounded-md border cursor-pointer transition ${
+                  selectedRole === 'admin' ? 'bg-[#dff3ee] border-[#0e7c66]' : 'bg-white border-[#e6e8ef] hover:border-[#d6d9e3]'
+                }`}
               >
-                <span className="font-bold text-emerald-800">🛡️ Store Admin:</span>
-                <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-slate-900 font-mono text-[10px]">admin@alfatah.pk / admin123</code>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-[#12172b]">🛡️ Store Admin</span>
+                  {selectedRole === 'admin' && <span className="text-[10px] text-[#0e7c66] font-bold">Selected</span>}
+                </div>
+                <div className="font-mono text-[10px] text-[#6e7489] mt-0.5">admin@alfatah.pk / admin123</div>
               </div>
+
               <div
                 onClick={() => {
                   setSelectedRole('supplier');
                   setUsername('tayyab');
                   setPassword('cocacola123');
                 }}
-                className="flex justify-between items-center p-1.5 rounded-lg hover:bg-emerald-100/60 cursor-pointer transition"
+                className={`p-2 rounded-md border cursor-pointer transition ${
+                  selectedRole === 'supplier' ? 'bg-[#dff3ee] border-[#0e7c66]' : 'bg-white border-[#e6e8ef] hover:border-[#d6d9e3]'
+                }`}
               >
-                <span className="font-semibold text-slate-800">📦 Supplier:</span>
-                <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-slate-900 font-mono text-[10px]">tayyab / cocacola123</code>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-[#12172b]">📦 Supplier Portal</span>
+                  {selectedRole === 'supplier' && <span className="text-[10px] text-[#0e7c66] font-bold">Selected</span>}
+                </div>
+                <div className="font-mono text-[10px] text-[#6e7489] mt-0.5">tayyab / cocacola123</div>
               </div>
+
               <div
                 onClick={() => {
                   setSelectedRole('rider');
                   setUsername('rider');
                   setPassword('rider123');
                 }}
-                className="flex justify-between items-center p-1.5 rounded-lg hover:bg-emerald-100/60 cursor-pointer transition"
+                className={`p-2 rounded-md border cursor-pointer transition ${
+                  selectedRole === 'rider' ? 'bg-[#dff3ee] border-[#0e7c66]' : 'bg-white border-[#e6e8ef] hover:border-[#d6d9e3]'
+                }`}
               >
-                <span className="font-semibold text-slate-800">🛵 Rider:</span>
-                <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-slate-900 font-mono text-[10px]">rider / rider123</code>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-[#12172b]">🛵 Rider Fleet</span>
+                  {selectedRole === 'rider' && <span className="text-[10px] text-[#0e7c66] font-bold">Selected</span>}
+                </div>
+                <div className="font-mono text-[10px] text-[#6e7489] mt-0.5">rider / rider123</div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Back Link to Storefront */}
-        <div className="pt-2 text-center border-t border-slate-100">
+        {/* Footer Navigation */}
+        <div className="pt-2 text-center border-t border-[#e6e8ef] flex items-center justify-between text-xs text-[#6e7489]">
           <button
             type="button"
             onClick={() => navigateTo('home')}
-            className="text-xs font-bold text-slate-500 hover:text-emerald-700 transition-colors cursor-pointer"
+            className="hover:text-[#12172b] font-medium transition-colors cursor-pointer"
           >
-            ← Back to FreshMart Website
+            ← Return to Customer Storefront
           </button>
+          <span className="text-[11px] text-[#9297a8]">v2.4 Multi-Tenant Engine</span>
         </div>
 
+      </div>
+
+      {/* Trust & Compliance Subtext */}
+      <div className="mt-6 text-center text-[11px] text-[#9297a8]">
+        Encrypted TLS 1.3 Enterprise Session &bull; ISO 27001 Multi-Tenant Tenant Isolation &bull; Pakistan Supermarkets Network
       </div>
 
     </div>

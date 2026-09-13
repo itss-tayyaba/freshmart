@@ -71,3 +71,213 @@
   animation: shimmer 2s infinite;
   content: '';
 }
+
+/* =======================================================
+   Ledgerly Enterprise Design System Tokens & Classes
+   (Clean, simple, unique, and professional enterprise layout)
+======================================================= */
+:root {
+  --ink: #12172b;
+  --ink-2: #1e2542;
+  --green: #0e7c66;
+  --green-dark: #0a5d4c;
+  --green-light: #dff3ee;
+  --parchment: #f5f6f9;
+  --surface: #ffffff;
+  --border: #e6e8ef;
+  --border-strong: #d6d9e3;
+  --text-primary: #171b2e;
+  --text-secondary: #5a6072;
+  --text-muted: #9297a8;
+  --brick: #dc4c3f;
+  --brick-light: #fce8e6;
+  --amber: #c8790f;
+  --amber-light: #fdf1dc;
+  --radius: 8px;
+  --radius-lg: 14px;
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-sm: 0 2px 6px rgba(16, 24, 40, 0.05), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-md: 0 8px 20px rgba(16, 24, 40, 0.07), 0 2px 6px rgba(16, 24, 40, 0.05);
+}
+
+.ledger-sidebar {
+  width: 250px;
+  flex-shrink: 0;
+  background: var(--ink);
+  color: #aeb4c9;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  overflow-y: auto;
+}
+
+.ledger-stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.15s ease;
+}
+
+.ledger-stat-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.ledger-stat-card .label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.ledger-stat-card .value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.card-ledger {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.ledger-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ledger-table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 12px 16px;
+  background: #fafbfc;
+  border-bottom: 1px solid var(--border);
+}
+
+.ledger-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13.5px;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.ledger-table tr:last-child td {
+  border-bottom: none;
+}
+
+.ledger-table tr:hover td {
+  background: #f9fafb;
+}
+
+.btn-ledger-primary {
+  background: var(--green);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius);
+  padding: 8px 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(14, 124, 102, 0.2);
+}
+
+.btn-ledger-primary:hover {
+  background: var(--green-dark);
+  box-shadow: 0 4px 12px rgba(14, 124, 102, 0.28);
+}
+
+.btn-ledger-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  transition: all 0.15s ease;
+}
+
+.btn-ledger-ghost:hover {
+  background: var(--parchment);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.badge-ledger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: capitalize;
+}
+
+.badge-ledger.active {
+  background: var(--green-light);
+  color: var(--green-dark);
+}
+
+.badge-ledger.suspended {
+  background: var(--brick-light);
+  color: var(--brick);
+}
+
+.badge-ledger.pending {
+  background: var(--amber-light);
+  color: var(--amber);
+}
+
+.badge-ledger.superadmin {
+  background: #ece9fd;
+  color: #5b4fcf;
+}
+
+.action-link-ledger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: 6px;
+  transition: background 0.13s;
+}
+
+.action-link-ledger:hover {
+  background: var(--green-light);
+}
+
+.action-link-ledger.danger {
+  color: var(--brick);
+}
+
+.action-link-ledger.danger:hover {
+  background: var(--brick-light);
+}

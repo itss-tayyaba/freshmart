@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  ShieldAlert,
   Building2,
   Users,
   CreditCard,
@@ -17,12 +16,10 @@ import {
   Filter,
   RefreshCw,
   Clock,
-  Sparkles,
   Store,
   ChevronRight,
   ChevronDown,
   ShieldCheck,
-  Award,
   Layers,
   Truck,
   MapPin,
@@ -31,7 +28,11 @@ import {
   Copy,
   Check,
   Sliders,
-  DollarSign
+  DollarSign,
+  Activity,
+  LogOut,
+  FileText,
+  SlidersHorizontal
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { SUBSCRIPTION_PLANS } from '../../data/tenantData';
@@ -87,7 +88,7 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
     name: '',
     legalName: '',
     slug: '',
-    tagline: 'Fresh Groceries & Household Goods',
+    tagline: 'Fresh Groceries & Household Essentials',
     ownerName: '',
     ownerEmail: '',
     phone: '',
@@ -95,7 +96,7 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
     address: '',
     plan: 'Pro',
     billingCycle: 'monthly',
-    color: '#16a34a',
+    color: '#0e7c66',
     logo: '',
     banner: ''
   });
@@ -169,7 +170,7 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
       name: '',
       legalName: '',
       slug: '',
-      tagline: 'Fresh Groceries & Household Goods',
+      tagline: 'Fresh Groceries & Household Essentials',
       ownerName: '',
       ownerEmail: '',
       phone: '',
@@ -177,7 +178,7 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
       address: '',
       plan: 'Pro',
       billingCycle: 'monthly',
-      color: '#16a34a',
+      color: '#0e7c66',
       logo: '',
       banner: ''
     });
@@ -211,894 +212,823 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
     } else {
       navigateTo('admin');
     }
-    addToast('Store Admin View 🏬', `Switched into ${tenant.name} dashboard`);
+    addToast('Store Admin View 🏬', `Now inspecting ${tenant.name} dashboard`);
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased">
-      {/* Top Super Admin Header */}
-      <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-2xl shadow-lg shadow-amber-500/20 ring-2 ring-amber-400/40">
-              👑
+    <div className="flex min-h-screen bg-[#f5f6f9] text-[#171b2e] font-sans antialiased">
+      {/* 1. LEFT SIDEBAR (Sticky Ledgerly Navy) */}
+      <aside className="ledger-sidebar">
+        {/* Brand Block */}
+        <div className="p-5 border-b border-[#1e2542] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-[#0e7c66] flex items-center justify-center text-white text-base shadow-sm">
+              🛒
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xl font-bold tracking-tight text-white">Super Grocery Platform</span>
-                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  Super Admin
-                </span>
+              <div className="font-semibold text-white text-[14px] leading-tight tracking-tight">
+                Super Grocery
               </div>
-              <p className="text-xs text-slate-400">
-                Multi-Tenant Enterprise Operating System • Al-Fatah, Chase Value, Chase Up & FreshMart
-              </p>
+              <div className="text-[11px] text-[#9297a8] font-medium flex items-center gap-1 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#0e7c66]"></span>
+                Super Admin Panel
+              </div>
             </div>
           </div>
-
-          <div className="flex items-center gap-3">
-            {/* Store Admin Quick Jump Dropdown */}
-            <div className="hidden md:flex items-center gap-2 bg-slate-800/80 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-300">
-              <Store className="w-4 h-4 text-emerald-400" />
-              <span>Inspect Store:</span>
-              <select
-                className="bg-transparent text-white font-medium focus:outline-none cursor-pointer"
-                value={currentTenant?.id || ''}
-                onChange={(e) => {
-                  const t = tenants.find((item) => item.id === e.target.value);
-                  if (t) handleImpersonateTenant(t);
-                }}
-              >
-                {tenants.map((t) => (
-                  <option key={t.id} value={t.id} className="bg-slate-900 text-white">
-                    🏬 {t.name} ({t.status})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              onClick={() => {
-                setGeneratedInviteLink('');
-                setIsInviteModalOpen(true);
-              }}
-              className="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
-            >
-              <Mail className="w-4 h-4 text-amber-400" />
-              Invite Tenant
-            </button>
-
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-lg shadow-emerald-600/30 transition active:scale-95"
-            >
-              <Plus className="w-4 h-4" />
-              Add Tenant
-            </button>
-
-            <button
-              onClick={adminLogout}
-              className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition"
-              title="Sign Out"
-            >
-              <ArrowUpRight className="w-5 h-5" />
-            </button>
-          </div>
+          <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#1e2542] text-[#aeb4c9]">
+            v2.4
+          </span>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-1 sm:space-x-8 border-t border-slate-800/80 overflow-x-auto">
-          {[
-            { id: 'tenants', label: '🏬 Tenants Hub', count: tenants.length },
-            { id: 'subscriptions', label: '💳 Subscription Center', count: tenants.length },
-            { id: 'orders', label: '📦 Cross-Tenant Orders', count: adminOrders.length },
-            { id: 'performance', label: '📈 Platform Performance', count: null }
-          ].map((tab) => (
+        {/* Grouped Navigation */}
+        <div className="flex-1 py-4 px-3 space-y-6 overflow-y-auto">
+          {/* Main Platform Section */}
+          <div className="space-y-1">
+            <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-[#9297a8] mb-2">
+              Platform Overview
+            </div>
+
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`py-3.5 px-3 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap transition flex items-center gap-2 ${
-                activeTab === tab.id
-                  ? 'border-emerald-500 text-emerald-400'
-                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
+              onClick={() => setActiveTab('tenants')}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition ${
+                activeTab === 'tenants'
+                  ? 'bg-[#0e7c66] text-white shadow-sm'
+                  : 'text-[#aeb4c9] hover:bg-[#1e2542] hover:text-white'
               }`}
             >
-              <span>{tab.label}</span>
-              {tab.count !== null && (
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full ${
-                    activeTab === tab.id ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  {tab.count}
-                </span>
-              )}
+              <div className="flex items-center gap-2.5">
+                <Building2 className="w-4 h-4" />
+                <span>Supermarkets</span>
+              </div>
+              <span className={`text-[11px] font-bold px-1.5 py-0.2 rounded ${
+                activeTab === 'tenants' ? 'bg-white/20 text-white' : 'bg-[#1e2542] text-[#aeb4c9]'
+              }`}>
+                {tenants.length}
+              </span>
             </button>
-          ))}
+
+            <button
+              onClick={() => setActiveTab('subscriptions')}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition ${
+                activeTab === 'subscriptions'
+                  ? 'bg-[#0e7c66] text-white shadow-sm'
+                  : 'text-[#aeb4c9] hover:bg-[#1e2542] hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <CreditCard className="w-4 h-4" />
+                <span>Subscriptions</span>
+              </div>
+              <span className={`text-[11px] font-medium px-1.5 rounded ${
+                activeTab === 'subscriptions' ? 'bg-white/20 text-white' : 'text-[#9297a8]'
+              }`}>
+                Tiers
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('orders')}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition ${
+                activeTab === 'orders'
+                  ? 'bg-[#0e7c66] text-white shadow-sm'
+                  : 'text-[#aeb4c9] hover:bg-[#1e2542] hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <ShoppingBag className="w-4 h-4" />
+                <span>Cross-Store Orders</span>
+              </div>
+              <span className={`text-[11px] font-bold px-1.5 py-0.2 rounded ${
+                activeTab === 'orders' ? 'bg-white/20 text-white' : 'bg-[#1e2542] text-[#aeb4c9]'
+              }`}>
+                {adminOrders.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('performance')}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition ${
+                activeTab === 'performance'
+                  ? 'bg-[#0e7c66] text-white shadow-sm'
+                  : 'text-[#aeb4c9] hover:bg-[#1e2542] hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <TrendingUp className="w-4 h-4" />
+                <span>Performance & GMV</span>
+              </div>
+              <span className={`text-[11px] font-medium px-1.5 rounded ${
+                activeTab === 'performance' ? 'bg-white/20 text-white' : 'text-[#9297a8]'
+              }`}>
+                SLA
+              </span>
+            </button>
+          </div>
+
+          {/* Quick Impersonate Supermarket Section */}
+          <div className="space-y-1.5 pt-2 border-t border-[#1e2542]">
+            <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-[#9297a8] mb-1 flex items-center justify-between">
+              <span>Inspect Stores</span>
+              <span className="text-[10px] text-[#0e7c66] font-semibold">Live</span>
+            </div>
+            {tenants.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => handleImpersonateTenant(t)}
+                className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[12px] text-[#aeb4c9] hover:bg-[#1e2542] hover:text-white transition group text-left"
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: t.themeColor || '#0e7c66' }} />
+                  <span className="truncate">{t.name}</span>
+                </div>
+                <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-[#0e7c66] transition" />
+              </button>
+            ))}
+          </div>
         </div>
-      </header>
 
-      {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* KPI Platform Overview Strip */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-          <div className="bg-slate-900 border border-slate-800/90 rounded-2xl p-5 relative overflow-hidden group hover:border-slate-700 transition shadow-lg">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Total Platform GMV</span>
-              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
-                <TrendingUp className="w-5 h-5" />
+        {/* User Profile & Sign Out Footer */}
+        <div className="p-3 border-t border-[#1e2542] bg-[#0b1021]">
+          <div className="p-2 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-2.5 truncate">
+              <div className="w-8 h-8 rounded-full bg-[#1e2542] border border-[#2d375a] flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                👑
+              </div>
+              <div className="truncate">
+                <div className="text-[12.5px] font-semibold text-white leading-tight truncate">
+                  Super Admin
+                </div>
+                <div className="text-[10.5px] text-[#9297a8] truncate">
+                  superadmin@supergrocery.pk
+                </div>
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              Rs. {(overview.totalGmv || 0).toLocaleString()}
-            </div>
-            <p className="text-xs text-emerald-400 mt-2 font-medium flex items-center gap-1">
-              <span>+18.4%</span>
-              <span className="text-slate-500 font-normal">vs last month</span>
-            </p>
+            <button
+              onClick={adminLogout}
+              className="p-1.5 rounded-md text-[#9297a8] hover:text-[#dc4c3f] hover:bg-[#1e2542] transition flex-shrink-0"
+              title="Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
+        </div>
+      </aside>
 
-          <div className="bg-slate-900 border border-slate-800/90 rounded-2xl p-5 relative overflow-hidden group hover:border-slate-700 transition shadow-lg">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Active Tenants</span>
-              <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
-                <Building2 className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-baseline gap-2">
-              <span>{overview.activeTenants}</span>
-              <span className="text-sm font-semibold text-slate-500">/ {overview.totalTenants} total</span>
-            </div>
-            <p className="text-xs text-slate-400 mt-2">
-              {tenants.filter((t) => t.status === 'Pending').length} pending approval
-            </p>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800/90 rounded-2xl p-5 relative overflow-hidden group hover:border-slate-700 transition shadow-lg">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Commission Revenue</span>
-              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
-                <CreditCard className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-amber-400 tracking-tight">
-              Rs. {(overview.totalCommission || 0).toLocaleString()}
-            </div>
-            <p className="text-xs text-slate-400 mt-2">Avg 5% platform take rate</p>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800/90 rounded-2xl p-5 relative overflow-hidden group hover:border-slate-700 transition shadow-lg">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Fulfillment SLA</span>
-              <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-cyan-400 tracking-tight">
-              {overview.avgSla || '99.2%'}
-            </div>
-            <p className="text-xs text-slate-400 mt-2">
-              {overview.totalRiders || 8} Active delivery riders
-            </p>
-          </div>
-        </section>
-
-        {/* TAB 1: TENANTS HUB */}
-        {activeTab === 'tenants' && (
-          <div className="space-y-6">
-            {/* Toolbar */}
-            <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
-              <div className="relative flex-1 max-w-md">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search stores by name, slug, email, city..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                {['all', 'Active', 'Pending', 'Suspended'].map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => setStatusFilter(status)}
-                    className={`px-3 py-2 rounded-xl text-xs font-semibold transition ${
-                      statusFilter === status
-                        ? 'bg-emerald-600 text-white shadow-md'
-                        : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'
-                    }`}
-                  >
-                    {status === 'all' ? 'All Stores' : status}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Tenants Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-              {filteredTenants.map((tenant) => {
-                const isTenantActive = tenant.status === 'Active';
-                const isPending = tenant.status === 'Pending';
-                const isSuspended = tenant.status === 'Suspended';
-                const planDetails = SUBSCRIPTION_PLANS[tenant.subscription?.plan || 'Starter'] || SUBSCRIPTION_PLANS.Starter;
-                const perf = getTenantPerformance(tenant.id);
-
-                return (
-                  <div
-                    key={tenant.id}
-                    className="bg-slate-900 border border-slate-800 rounded-3xl p-6 relative overflow-hidden group hover:border-slate-700 transition flex flex-col justify-between shadow-xl"
-                  >
-                    {/* Top Accent Strip with tenant brand color */}
-                    <div
-                      className="absolute top-0 left-0 right-0 h-1.5"
-                      style={{ backgroundColor: tenant.color || '#16a34a' }}
-                    />
-
-                    <div>
-                      {/* Card Header */}
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                          <img
-                            src={tenant.logo}
-                            alt={tenant.name}
-                            className="w-16 h-16 rounded-2xl object-cover border border-slate-800 bg-slate-800 p-1 shadow-md"
-                            onError={(e) => {
-                              e.target.src =
-                                'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=160&q=80';
-                            }}
-                          />
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-lg font-bold text-white tracking-tight">{tenant.name}</h3>
-                              <span
-                                className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                                  isTenantActive
-                                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                                    : isPending
-                                    ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                                    : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
-                                }`}
-                              >
-                                {tenant.status}
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-400 mt-0.5">{tenant.legalName}</p>
-                            <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
-                              <span className="flex items-center gap-1">
-                                <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                                {tenant.city || 'Pakistan'}
-                              </span>
-                              <span className="font-mono text-slate-500">ID: {tenant.slug}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Subscription Tier Badge */}
-                        <div className="text-right">
-                          <span className="inline-block px-3 py-1 rounded-xl text-xs font-bold bg-slate-800 text-amber-400 border border-slate-700">
-                            ⭐ {tenant.subscription?.plan || 'Starter'}
-                          </span>
-                          <p className="text-[11px] text-slate-500 mt-1">
-                            Rs. {(tenant.subscription?.price || 15000).toLocaleString()}/{tenant.subscription?.billingCycle || 'mo'}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Store Details Strip */}
-                      <div className="grid grid-cols-3 gap-3 my-5 p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 text-center">
-                        <div>
-                          <span className="text-[11px] text-slate-500 font-semibold block uppercase">Hubs</span>
-                          <span className="text-base font-bold text-white">{(tenant.hubs || []).length || 1} Branches</span>
-                        </div>
-                        <div>
-                          <span className="text-[11px] text-slate-500 font-semibold block uppercase">Store GMV</span>
-                          <span className="text-base font-bold text-emerald-400">
-                            Rs. {(perf.gmv || 0).toLocaleString()}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[11px] text-slate-500 font-semibold block uppercase">Orders</span>
-                          <span className="text-base font-bold text-white">{perf.totalOrders || 0}</span>
-                        </div>
-                      </div>
-
-                      {/* Owner contact */}
-                      <div className="text-xs text-slate-400 space-y-1 mb-5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500">Store Manager:</span>
-                          <span className="font-medium text-slate-300">{tenant.ownerName}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500">Email:</span>
-                          <span className="font-mono text-slate-300">{tenant.ownerEmail}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action Bar for this Tenant */}
-                    <div className="pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => {
-                            setSelectedTenant(tenant);
-                            setIsDetailsModalOpen(true);
-                          }}
-                          className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
-                          title="View Tenant Details"
-                        >
-                          Details
-                        </button>
-
-                        <button
-                          onClick={() => handleOpenSubscription(tenant)}
-                          className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/20 transition"
-                          title="Manage Plan & Billing"
-                        >
-                          Subscription
-                        </button>
-
-                        {/* Status Toggles: Approve / Suspend / Activate */}
-                        {isPending && (
-                          <button
-                            onClick={() => approveTenant(tenant.id)}
-                            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm"
-                          >
-                            Approve
-                          </button>
-                        )}
-
-                        {isTenantActive && (
-                          <button
-                            onClick={() => suspendTenant(tenant.id, 'Super Admin Manual Suspension')}
-                            className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition"
-                          >
-                            Suspend
-                          </button>
-                        )}
-
-                        {isSuspended && (
-                          <button
-                            onClick={() => activateTenant(tenant.id)}
-                            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm"
-                          >
-                            Activate
-                          </button>
-                        )}
-
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Are you sure you want to completely delete ${tenant.name}?`)) {
-                              deleteTenant(tenant.id);
-                            }
-                          }}
-                          className="p-1.5 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition"
-                          title="Delete Tenant"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      {/* Impersonate into Store Admin */}
-                      <button
-                        onClick={() => handleImpersonateTenant(tenant)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 transition"
-                      >
-                        <Store className="w-3.5 h-3.5" />
-                        Manage Store Admin
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: SUBSCRIPTION CENTER */}
-        {activeTab === 'subscriptions' && (
-          <div className="space-y-8">
-            {/* Tier Overview Cards */}
+      {/* 2. MAIN CONTENT AREA */}
+      <main className="flex-1 min-w-0 flex flex-col min-h-screen">
+        {/* Sticky Top Header */}
+        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-[#e6e8ef] px-6 sm:px-8 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-xl font-bold text-white mb-2">Available Multi-Tenant Subscription Tiers</h2>
-              <p className="text-xs text-slate-400 mb-6">
-                Platform subscription tiers determine the tenant's hub count, fleet limit, and platform commission.
+              <div className="flex items-center gap-2 text-[12px] text-[#5a6072] font-medium">
+                <span>Platform</span>
+                <span>/</span>
+                <span className="text-[#171b2e] font-semibold">Super Admin Panel</span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-bold text-[#171b2e] tracking-tight mt-0.5">
+                {activeTab === 'tenants' && 'Supermarkets & Multi-Tenant Registry'}
+                {activeTab === 'subscriptions' && 'Tenant Subscriptions & SaaS Billing'}
+                {activeTab === 'orders' && 'Cross-Supermarket Real-Time Orders'}
+                {activeTab === 'performance' && 'Platform Performance & Commission Analytics'}
+              </h1>
+              <p className="text-[12px] text-[#5a6072] mt-0.5">
+                Independent retail governance across Al-Fatah, Chase Value, Chase Up, and FreshMart Direct
               </p>
+            </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {Object.entries(SUBSCRIPTION_PLANS).map(([planKey, plan]) => (
-                  <div
-                    key={planKey}
-                    className={`rounded-3xl p-6 border transition flex flex-col justify-between ${
-                      planKey === 'Enterprise'
-                        ? 'bg-gradient-to-b from-amber-500/10 to-slate-900 border-amber-500/40 shadow-xl shadow-amber-500/5'
-                        : planKey === 'Pro'
-                        ? 'bg-gradient-to-b from-emerald-500/10 to-slate-900 border-emerald-500/40 shadow-xl shadow-emerald-500/5'
-                        : 'bg-slate-900 border-slate-800'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-extrabold text-white">{plan.name}</h3>
-                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
-                          {plan.commissionRate}% Commission
+            {/* Quick Action Toolbar */}
+            <div className="flex items-center gap-2.5 flex-shrink-0">
+              <button
+                onClick={() => {
+                  setGeneratedInviteLink('');
+                  setIsInviteModalOpen(true);
+                }}
+                className="btn-ledger-ghost"
+              >
+                <Mail className="w-3.5 h-3.5 text-[#5a6072]" />
+                <span>Invite Tenant</span>
+              </button>
+
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="btn-ledger-primary"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Onboard Supermarket</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content Body */}
+        <div className="p-6 sm:p-8 space-y-6 flex-1">
+          {/* Impersonation Alert Banner */}
+          {currentTenant && (
+            <div className="bg-[#dff3ee] border border-[#0e7c66]/30 text-[#0a5d4c] px-4 py-3 rounded-xl flex items-center justify-between shadow-xs">
+              <div className="flex items-center gap-2 text-xs font-medium">
+                <span className="text-base">👑</span>
+                <span>
+                  Currently inspecting Store Admin for <strong>{currentTenant.name}</strong> ({currentTenant.city}).
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleImpersonateTenant(currentTenant)}
+                  className="px-3 py-1 rounded bg-[#0e7c66] text-white text-xs font-semibold hover:bg-[#0a5d4c] transition"
+                >
+                  Open Store Console →
+                </button>
+                <button
+                  onClick={() => {
+                    setCurrentTenant(tenants[0]);
+                    addToast('Global View', 'Returned to Global Super Admin view');
+                  }}
+                  className="px-2.5 py-1 rounded text-xs font-semibold text-[#0a5d4c] hover:bg-[#0e7c66]/10 transition"
+                >
+                  Reset Focus
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 5-Metric Stat Grid (Ledgerly stat-card style) */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+            <div className="ledger-stat-card">
+              <div className="label">Companies (Tenants)</div>
+              <div className="value">{overview.totalTenants}</div>
+              <div className="text-[11px] text-[#5a6072] mt-1 font-medium">Pakistani Hypermarkets</div>
+            </div>
+
+            <div className="ledger-stat-card">
+              <div className="label">Active Stores</div>
+              <div className="value text-[#0e7c66]">{overview.activeTenants}</div>
+              <div className="text-[11px] text-[#0e7c66] mt-1 font-medium">100% Operational</div>
+            </div>
+
+            <div className="ledger-stat-card">
+              <div className="label">Suspended</div>
+              <div className="value text-[#5a6072]">
+                {tenants.filter((t) => t.status === 'Suspended').length}
+              </div>
+              <div className="text-[11px] text-[#5a6072] mt-1 font-medium">0 under restriction</div>
+            </div>
+
+            <div className="ledger-stat-card">
+              <div className="label">Platform Orders</div>
+              <div className="value">{overview.totalOrders}</div>
+              <div className="text-[11px] text-[#5a6072] mt-1 font-medium">Live synced orders</div>
+            </div>
+
+            <div className="ledger-stat-card">
+              <div className="label">Gross Platform GMV</div>
+              <div className="value text-[#0e7c66]">
+                Rs. {(overview.totalGmv || 0).toLocaleString()}
+              </div>
+              <div className="text-[11px] text-[#0e7c66] mt-1 font-medium">+18.4% this month</div>
+            </div>
+          </div>
+
+          {/* TAB 1: TENANTS REGISTRY (The Main Ledgerly Table View) */}
+          {activeTab === 'tenants' && (
+            <div className="space-y-4">
+              {/* Filter & Search Bar */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="relative w-full sm:w-80">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#9297a8]" />
+                  <input
+                    type="text"
+                    placeholder="Search by store name, slug, email, or city..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-white border border-[#e6e8ef] rounded-lg text-[13px] text-[#171b2e] placeholder-[#9297a8] focus:outline-none focus:border-[#0e7c66] focus:ring-1 focus:ring-[#0e7c66] transition shadow-xs"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <span className="text-xs text-[#5a6072] font-medium hidden sm:inline">Status:</span>
+                  <div className="flex items-center bg-white border border-[#e6e8ef] p-0.5 rounded-lg shadow-xs">
+                    {['all', 'Active', 'Pending', 'Suspended'].map((st) => (
+                      <button
+                        key={st}
+                        onClick={() => setStatusFilter(st)}
+                        className={`px-3 py-1 rounded text-xs font-medium transition ${
+                          statusFilter === st
+                            ? 'bg-[#0e7c66] text-white shadow-xs'
+                            : 'text-[#5a6072] hover:text-[#171b2e]'
+                        }`}
+                      >
+                        {st === 'all' ? 'All Stores' : st}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* The Ledgerly Supermarket Table */}
+              <div className="card-ledger">
+                <div className="overflow-x-auto">
+                  <table className="ledger-table">
+                    <thead>
+                      <tr>
+                        <th>Supermarket Chain</th>
+                        <th>Branches & Hubs</th>
+                        <th>Plan & Tier</th>
+                        <th>Status</th>
+                        <th>SLA & Fleet</th>
+                        <th className="text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredTenants.length === 0 ? (
+                        <tr>
+                          <td colSpan="6" className="text-center py-12 text-[#9297a8]">
+                            No supermarkets match the selected filters.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredTenants.map((tenant) => {
+                          const isSuspended = tenant.status === 'Suspended';
+                          const isPending = tenant.status === 'Pending';
+
+                          return (
+                            <tr key={tenant.id} className="transition">
+                              {/* Store Identity */}
+                              <td>
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white text-base shadow-xs flex-shrink-0"
+                                    style={{ backgroundColor: tenant.themeColor || '#0e7c66' }}
+                                  >
+                                    {tenant.name.substring(0, 2).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold text-[#171b2e] flex items-center gap-1.5">
+                                      <span>{tenant.name}</span>
+                                      <span className="text-[11px] text-[#9297a8] font-normal font-mono">
+                                        ({tenant.slug})
+                                      </span>
+                                    </div>
+                                    <div className="text-[12px] text-[#5a6072]">
+                                      {tenant.legalName || tenant.name} • {tenant.ownerEmail || 'admin@store.pk'}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Hubs & City */}
+                              <td>
+                                <div className="text-xs font-medium text-[#171b2e] flex items-center gap-1">
+                                  <MapPin className="w-3.5 h-3.5 text-[#0e7c66]" />
+                                  <span>{tenant.city || 'Pakistan'}</span>
+                                </div>
+                                <div className="text-[11.5px] text-[#5a6072] mt-0.5">
+                                  {(tenant.deliveryHubs && tenant.deliveryHubs.length) || 4} fulfillment branches
+                                </div>
+                              </td>
+
+                              {/* Subscription & Commission */}
+                              <td>
+                                <div className="text-xs font-semibold text-[#171b2e]">
+                                  {tenant.subscription?.plan || 'Pro'} Tier
+                                </div>
+                                <div className="text-[11.5px] text-[#5a6072] mt-0.5">
+                                  Rs. {(tenant.subscription?.price || 25000).toLocaleString()}/mo • {tenant.subscription?.commissionRate || 5}% take
+                                </div>
+                              </td>
+
+                              {/* Status Badge */}
+                              <td>
+                                <span
+                                  className={`badge-ledger ${
+                                    tenant.status === 'Active'
+                                      ? 'active'
+                                      : isSuspended
+                                      ? 'suspended'
+                                      : 'pending'
+                                  }`}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                  {tenant.status}
+                                </span>
+                              </td>
+
+                              {/* SLA & Fleet */}
+                              <td>
+                                <div className="text-xs font-semibold text-[#171b2e]">
+                                  {tenant.performance?.fulfillmentSla || '99.2%'} SLA
+                                </div>
+                                <div className="text-[11.5px] text-[#5a6072] mt-0.5 flex items-center gap-1">
+                                  <Truck className="w-3 h-3 text-[#5a6072]" />
+                                  <span>{tenant.performance?.activeRiders || 4} dedicated riders</span>
+                                </div>
+                              </td>
+
+                              {/* Actions Dropdown / Links */}
+                              <td className="text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    onClick={() => handleImpersonateTenant(tenant)}
+                                    className="action-link-ledger text-[12px] font-semibold"
+                                    title="Impersonate & manage store admin"
+                                  >
+                                    Manage Store →
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      setSelectedTenant(tenant);
+                                      setIsDetailsModalOpen(true);
+                                    }}
+                                    className="action-link-ledger text-[#5a6072] hover:text-[#171b2e]"
+                                    title="View tenant profile details"
+                                  >
+                                    Details
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleOpenSubscription(tenant)}
+                                    className="action-link-ledger text-[#5a6072] hover:text-[#171b2e]"
+                                    title="Edit SaaS Subscription"
+                                  >
+                                    Plan
+                                  </button>
+
+                                  {/* Quick Suspend / Activate Toggle */}
+                                  {isSuspended ? (
+                                    <button
+                                      onClick={() => activateTenant(tenant.id)}
+                                      className="action-link-ledger text-[#0e7c66]"
+                                      title="Resume operations"
+                                    >
+                                      Activate
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => suspendTenant(tenant.id)}
+                                      className="action-link-ledger danger"
+                                      title="Suspend store access"
+                                    >
+                                      Suspend
+                                    </button>
+                                  )}
+
+                                  {/* Safe Delete */}
+                                  <button
+                                    onClick={() => {
+                                      if (confirm(`Remove tenant "${tenant.name}" from platform?`)) {
+                                        deleteTenant(tenant.id);
+                                      }
+                                    }}
+                                    className="p-1 rounded text-[#9297a8] hover:text-[#dc4c3f] transition"
+                                    title="Delete tenant"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Table Footer Stats */}
+                <div className="p-3 bg-[#fafbfc] border-t border-[#e6e8ef] text-xs text-[#5a6072] flex items-center justify-between px-4">
+                  <span>Showing {filteredTenants.length} of {tenants.length} supermarkets</span>
+                  <span>Ledgerly Multi-Tenant Operating Protocol</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: SUBSCRIPTIONS CENTER */}
+          {activeTab === 'subscriptions' && (
+            <div className="space-y-6">
+              {/* Plan Tiers Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {Object.entries(SUBSCRIPTION_PLANS).map(([planKey, plan]) => {
+                  const assignedCount = tenants.filter((t) => (t.subscription?.plan || 'Starter') === planKey).length;
+                  return (
+                    <div key={planKey} className="card-ledger p-6 relative">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[#0e7c66]">
+                          {planKey}
+                        </span>
+                        <span className="text-xs font-medium px-2 py-0.5 rounded bg-[#f5f6f9] text-[#5a6072]">
+                          {assignedCount} stores
                         </span>
                       </div>
-                      <div className="text-3xl font-black text-white mb-1">
+                      <div className="text-2xl font-bold text-[#171b2e]">
                         Rs. {plan.price.toLocaleString()}
-                        <span className="text-xs font-normal text-slate-400"> / month</span>
+                        <span className="text-xs font-normal text-[#5a6072]"> /month</span>
                       </div>
-                      <p className="text-xs text-slate-400 mb-6">{plan.description}</p>
+                      <div className="text-xs text-[#5a6072] mt-1">
+                        Commission: <strong className="text-[#171b2e]">{plan.commissionRate}% per order</strong>
+                      </div>
 
-                      <div className="space-y-2.5 text-xs text-slate-300">
-                        <div className="flex items-center gap-2">
-                          <Check className="w-4 h-4 text-emerald-400" />
-                          <span>Max Hubs: <strong>{plan.maxHubs}</strong></span>
+                      <ul className="mt-4 pt-4 border-t border-[#e6e8ef] space-y-2 text-xs text-[#5a6072]">
+                        {plan.features.map((f, i) => (
+                          <li key={i} className="flex items-center gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#0e7c66] flex-shrink-0" />
+                            <span>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Subscriptions Ledger */}
+              <div className="card-ledger">
+                <table className="ledger-table">
+                  <thead>
+                    <tr>
+                      <th>Supermarket</th>
+                      <th>Current Plan</th>
+                      <th>Billing Cycle</th>
+                      <th>Monthly Fee</th>
+                      <th>Take Rate</th>
+                      <th className="text-right">Manage</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tenants.map((t) => (
+                      <tr key={t.id}>
+                        <td className="font-semibold text-[#171b2e]">{t.name}</td>
+                        <td>
+                          <span className="badge-ledger superadmin">
+                            {t.subscription?.plan || 'Starter'}
+                          </span>
+                        </td>
+                        <td className="text-xs text-[#5a6072] capitalize">{t.subscription?.billingCycle || 'monthly'}</td>
+                        <td className="text-xs font-semibold text-[#171b2e]">
+                          Rs. {(t.subscription?.price || 15000).toLocaleString()}
+                        </td>
+                        <td className="text-xs text-[#0e7c66] font-semibold">{t.subscription?.commissionRate || 5}%</td>
+                        <td className="text-right">
+                          <button
+                            onClick={() => handleOpenSubscription(t)}
+                            className="btn-ledger-ghost text-xs py-1 px-2.5"
+                          >
+                            Update Plan
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: CROSS-TENANT ORDERS */}
+          {activeTab === 'orders' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[#5a6072] font-medium">Filter by Store:</span>
+                  <select
+                    value={selectedOrderTenant}
+                    onChange={(e) => setSelectedOrderTenant(e.target.value)}
+                    className="bg-white border border-[#e6e8ef] text-xs font-semibold text-[#171b2e] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#0e7c66]"
+                  >
+                    <option value="all">All Supermarkets (Global Stream)</option>
+                    {tenants.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="text-xs text-[#5a6072]">
+                  Total orders: <strong>{crossTenantOrders.length}</strong>
+                </div>
+              </div>
+
+              <div className="card-ledger">
+                <table className="ledger-table">
+                  <thead>
+                    <tr>
+                      <th>Order ID</th>
+                      <th>Supermarket</th>
+                      <th>Customer & Address</th>
+                      <th>Amount</th>
+                      <th>Status</th>
+                      <th>Handover OTP</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {crossTenantOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="text-center py-10 text-[#9297a8]">
+                          No orders recorded for this supermarket yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      crossTenantOrders.map((o) => (
+                        <tr key={o.id}>
+                          <td className="font-mono text-xs font-semibold text-[#171b2e]">{o.id}</td>
+                          <td className="text-xs font-medium text-[#171b2e]">{o.tenantName || 'FreshMart Direct'}</td>
+                          <td className="text-xs text-[#5a6072]">
+                            {o.customerName || 'Customer'} • {o.shippingAddress?.city || o.city || 'Lahore'}
+                          </td>
+                          <td className="text-xs font-bold text-[#171b2e]">
+                            Rs. {(o.totalAmount || 0).toLocaleString()}
+                          </td>
+                          <td>
+                            <span className={`badge-ledger ${
+                              o.status === 'Delivered' ? 'active' : 'pending'
+                            }`}>
+                              {o.status || 'Processing'}
+                            </span>
+                          </td>
+                          <td className="font-mono text-xs text-[#0e7c66] font-bold">
+                            {o.deliveryOtp || '9999'}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: PLATFORM PERFORMANCE & GMV */}
+          {activeTab === 'performance' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {tenants.map((t) => {
+                  const perf = t.performance || {};
+                  return (
+                    <div key={t.id} className="card-ledger p-5 space-y-4">
+                      <div className="flex items-center justify-between border-b border-[#e6e8ef] pb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: t.themeColor || '#0e7c66' }}
+                          />
+                          <span className="font-bold text-[#171b2e] text-sm">{t.name}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Check className="w-4 h-4 text-emerald-400" />
-                          <span>Fleet Riders: <strong>{plan.maxRiders}</strong></span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Check className="w-4 h-4 text-emerald-400" />
-                          <span>Priority SLA: <strong>{plan.slaGuarantee}</strong></span>
-                        </div>
-                        {plan.customDomain && (
-                          <div className="flex items-center gap-2">
-                            <Check className="w-4 h-4 text-emerald-400" />
-                            <span>Custom Domain Routing</span>
+                        <span className="badge-ledger active">{t.status}</span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3 text-center">
+                        <div className="p-2.5 bg-[#fafbfc] rounded-lg border border-[#e6e8ef]">
+                          <div className="text-[10px] text-[#9297a8] uppercase font-bold">Store GMV</div>
+                          <div className="text-sm font-bold text-[#171b2e] mt-1">
+                            Rs. {(perf.gmv || 450000).toLocaleString()}
                           </div>
-                        )}
-                        {plan.dedicatedSupport && (
-                          <div className="flex items-center gap-2">
-                            <Check className="w-4 h-4 text-emerald-400" />
-                            <span>24/7 Dedicated Account Manager</span>
+                        </div>
+                        <div className="p-2.5 bg-[#fafbfc] rounded-lg border border-[#e6e8ef]">
+                          <div className="text-[10px] text-[#9297a8] uppercase font-bold">Orders</div>
+                          <div className="text-sm font-bold text-[#171b2e] mt-1">
+                            {perf.totalOrders || 42}
                           </div>
-                        )}
+                        </div>
+                        <div className="p-2.5 bg-[#fafbfc] rounded-lg border border-[#e6e8ef]">
+                          <div className="text-[10px] text-[#9297a8] uppercase font-bold">SLA Rating</div>
+                          <div className="text-sm font-bold text-[#0e7c66] mt-1">
+                            {perf.fulfillmentSla || '99.2%'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 text-xs text-[#5a6072]">
+                        <span>Commission take: <strong>{t.subscription?.commissionRate || 5}%</strong></span>
+                        <button
+                          onClick={() => handleImpersonateTenant(t)}
+                          className="action-link-ledger"
+                        >
+                          View Full Store Telematics →
+                        </button>
                       </div>
                     </div>
-
-                    <div className="mt-6 pt-4 border-t border-slate-800 text-xs text-slate-500 text-center">
-                      Assigned to {tenants.filter((t) => t.subscription?.plan === planKey).length} stores
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
-
-            {/* Tenant Subscriptions Table */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
-              <h3 className="text-lg font-bold text-white mb-4">Active Tenant Subscription Register</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-slate-950/60 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
-                    <tr>
-                      <th className="py-3 px-4 font-semibold">Store / Tenant</th>
-                      <th className="py-3 px-4 font-semibold">Plan Tier</th>
-                      <th className="py-3 px-4 font-semibold">Billing Cycle</th>
-                      <th className="py-3 px-4 font-semibold">Monthly Price</th>
-                      <th className="py-3 px-4 font-semibold">Commission</th>
-                      <th className="py-3 px-4 font-semibold">Renewal Date</th>
-                      <th className="py-3 px-4 font-semibold">Status</th>
-                      <th className="py-3 px-4 font-semibold text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60 font-sans">
-                    {tenants.map((t) => {
-                      const planKey = t.subscription?.plan || 'Starter';
-                      const plan = SUBSCRIPTION_PLANS[planKey] || SUBSCRIPTION_PLANS.Starter;
-                      return (
-                        <tr key={t.id} className="hover:bg-slate-800/40 transition">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-3">
-                              <img src={t.logo} alt={t.name} className="w-8 h-8 rounded-lg object-cover bg-slate-800" />
-                              <div>
-                                <span className="font-bold text-white block">{t.name}</span>
-                                <span className="text-[11px] text-slate-500 font-mono">{t.slug}</span>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-800 text-amber-300 border border-slate-700">
-                              {plan.name}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 capitalize">{t.subscription?.billingCycle || 'monthly'}</td>
-                          <td className="py-3 px-4 font-bold text-white">
-                            Rs. {(t.subscription?.price || plan.price).toLocaleString()}
-                          </td>
-                          <td className="py-3 px-4 text-emerald-400 font-semibold">{plan.commissionRate}%</td>
-                          <td className="py-3 px-4 text-slate-400">
-                            {t.subscription?.renewAt
-                              ? new Date(t.subscription.renewAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                              : '30 days from signup'}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                              {t.subscription?.status || 'Active'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <button
-                              onClick={() => handleOpenSubscription(t)}
-                              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/20 transition"
-                            >
-                              Modify Plan
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: CROSS-TENANT ORDERS */}
-        {activeTab === 'orders' && (
-          <div className="space-y-6">
-            {/* Filter Bar */}
-            <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-              <div className="flex items-center gap-3">
-                <Filter className="w-4 h-4 text-slate-500" />
-                <span className="text-xs font-bold text-slate-300">Filter By Supermarket:</span>
-                <select
-                  value={selectedOrderTenant}
-                  onChange={(e) => setSelectedOrderTenant(e.target.value)}
-                  className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-                >
-                  <option value="all">🏬 All Supermarkets (Global Platform Stream)</option>
-                  {tenants.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      🏬 {t.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="text-xs text-slate-400">
-                Showing <strong className="text-white">{crossTenantOrders.length}</strong> orders across tenant stores
-              </div>
-            </div>
-
-            {/* Orders Table */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-slate-950/60 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
-                    <tr>
-                      <th className="py-3 px-4 font-semibold">Order ID</th>
-                      <th className="py-3 px-4 font-semibold">Supermarket Store</th>
-                      <th className="py-3 px-4 font-semibold">Customer</th>
-                      <th className="py-3 px-4 font-semibold">Items & Total</th>
-                      <th className="py-3 px-4 font-semibold">Payment</th>
-                      <th className="py-3 px-4 font-semibold">Status</th>
-                      <th className="py-3 px-4 font-semibold">Assigned Rider</th>
-                      <th className="py-3 px-4 font-semibold text-right">Time</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60 font-sans">
-                    {crossTenantOrders.map((order) => {
-                      const matchedTenant =
-                        tenants.find((t) => t.id === order.tenantId) ||
-                        tenants.find((t) => t.name === order.tenantName) ||
-                        tenants[0];
-
-                      return (
-                        <tr key={order.id} className="hover:bg-slate-800/40 transition">
-                          <td className="py-3 px-4 font-mono font-bold text-white">{order.id}</td>
-                          <td className="py-3 px-4">
-                            <span
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border"
-                              style={{
-                                borderColor: matchedTenant?.color ? `${matchedTenant.color}50` : '#16a34a50',
-                                backgroundColor: matchedTenant?.color ? `${matchedTenant.color}15` : '#16a34a15',
-                                color: matchedTenant?.color || '#22c55e'
-                              }}
-                            >
-                              🏬 {matchedTenant?.name || order.tenantName || 'FreshMart'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="font-semibold text-white">{order.customer || order.customerName || 'Customer'}</div>
-                            <div className="text-[11px] text-slate-500">{order.customerPhone || order.city || 'Lahore'}</div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="font-bold text-emerald-400">
-                              Rs. {(order.total || order.totalAmount || order.totalPrice || 0).toLocaleString()}
-                            </div>
-                            <div className="text-[11px] text-slate-400">
-                              {order.items || `${(order.orderItems || []).length || 2} Items`}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-slate-300 font-medium">
-                            {order.payment || order.paymentMethod || 'Cash on Delivery'}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                                order.status === 'Delivered'
-                                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                                  : order.status === 'Out for Delivery'
-                                  ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                                  : 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
-                              }`}
-                            >
-                              {order.status}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-slate-300">
-                            {order.assignedRider?.name || order.assignedRider || '🛵 Auto-Dispatching'}
-                          </td>
-                          <td className="py-3 px-4 text-right text-slate-500 text-[11px]">
-                            {order.time || 'Today'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 4: PLATFORM PERFORMANCE & ANALYTICS */}
-        {activeTab === 'performance' && (
-          <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col justify-between">
-                <div>
-                  <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-400 w-fit mb-4">
-                    <Award className="w-6 h-6" />
-                  </div>
-                  <span className="text-xs uppercase tracking-wider text-slate-400 font-bold">Top Performing Tenant</span>
-                  <h3 className="text-2xl font-black text-white mt-1">Al-Fatah Supermarket</h3>
-                  <p className="text-xs text-slate-400 mt-1">Leading platform GMV with Rs. 845,000+ volume</p>
-                </div>
-                <div className="mt-6 pt-4 border-t border-slate-800 flex justify-between text-xs">
-                  <span className="text-slate-400">Active SLA</span>
-                  <span className="font-bold text-emerald-400">99.4% On-time</span>
-                </div>
-              </div>
-
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col justify-between">
-                <div>
-                  <div className="p-3 rounded-2xl bg-cyan-500/10 text-cyan-400 w-fit mb-4">
-                    <Truck className="w-6 h-6" />
-                  </div>
-                  <span className="text-xs uppercase tracking-wider text-slate-400 font-bold">Fastest Express Dispatch</span>
-                  <h3 className="text-2xl font-black text-white mt-1">FreshMart Direct</h3>
-                  <p className="text-xs text-slate-400 mt-1">Avg delivery time: 14 mins across Lahore hubs</p>
-                </div>
-                <div className="mt-6 pt-4 border-t border-slate-800 flex justify-between text-xs">
-                  <span className="text-slate-400">Active Riders</span>
-                  <span className="font-bold text-cyan-400">4 Fleet Units</span>
-                </div>
-              </div>
-
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col justify-between">
-                <div>
-                  <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-400 w-fit mb-4">
-                    <DollarSign className="w-6 h-6" />
-                  </div>
-                  <span className="text-xs uppercase tracking-wider text-slate-400 font-bold">Total Platform Commission</span>
-                  <h3 className="text-2xl font-black text-emerald-400 mt-1">
-                    Rs. {(overview.totalCommission || 0).toLocaleString()}
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-1">Earned via multi-tenant 2-5% tiered rake</p>
-                </div>
-                <div className="mt-6 pt-4 border-t border-slate-800 flex justify-between text-xs">
-                  <span className="text-slate-400">Projected MRR</span>
-                  <span className="font-bold text-white">Rs. 110,000 / mo</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Tenant Comparative Table */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
-              <h3 className="text-lg font-bold text-white mb-4">Store Performance Comparison Matrix</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-slate-950/60 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
-                    <tr>
-                      <th className="py-3 px-4 font-semibold">Store / Brand</th>
-                      <th className="py-3 px-4 font-semibold">Subscription Plan</th>
-                      <th className="py-3 px-4 font-semibold">Orders Fulfilled</th>
-                      <th className="py-3 px-4 font-semibold">Gross Merchandise Value (GMV)</th>
-                      <th className="py-3 px-4 font-semibold">Commission Rate</th>
-                      <th className="py-3 px-4 font-semibold">Platform Commission</th>
-                      <th className="py-3 px-4 font-semibold">SLA %</th>
-                      <th className="py-3 px-4 font-semibold text-right">Rider Fleet</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60 font-sans">
-                    {tenants.map((t) => {
-                      const perf = getTenantPerformance(t.id);
-                      return (
-                        <tr key={t.id} className="hover:bg-slate-800/40 transition">
-                          <td className="py-3.5 px-4 font-bold text-white flex items-center gap-2.5">
-                            <img src={t.logo} alt={t.name} className="w-7 h-7 rounded-lg object-cover" />
-                            {t.name}
-                          </td>
-                          <td className="py-3.5 px-4">
-                            <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-slate-800 text-amber-300">
-                              {perf.plan}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 font-semibold text-slate-200">{perf.totalOrders} orders</td>
-                          <td className="py-3.5 px-4 font-bold text-emerald-400">
-                            Rs. {(perf.gmv || 0).toLocaleString()}
-                          </td>
-                          <td className="py-3.5 px-4 text-slate-400 font-mono">{perf.commissionRate}%</td>
-                          <td className="py-3.5 px-4 font-bold text-amber-400">
-                            Rs. {(perf.commission || 0).toLocaleString()}
-                          </td>
-                          <td className="py-3.5 px-4 text-cyan-400 font-bold">{perf.fulfillmentSla}</td>
-                          <td className="py-3.5 px-4 text-right text-slate-300 font-medium">
-                            {perf.activeRiders} Active Riders
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </main>
 
-      {/* --- MODAL 1: ADD NEW TENANT --- */}
+      {/* --- MODAL: ONBOARD SUPERMARKET TENANT --- */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 sm:p-8 space-y-5 relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setIsAddModalOpen(false)}
-              className="absolute top-6 right-6 text-slate-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div>
-              <h3 className="text-xl font-extrabold text-white">Add New Supermarket Tenant</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Onboard a new grocery brand (e.g. Al-Fatah, Chase Value, Chase Up) onto the platform.
-              </p>
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-[#e6e8ef] animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-4 border-b border-[#e6e8ef]">
+              <div>
+                <h2 className="text-base font-bold text-[#171b2e]">Onboard Supermarket Chain</h2>
+                <p className="text-xs text-[#5a6072]">Register a new supermarket tenant into the platform registry</p>
+              </div>
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="p-1 rounded-md text-[#9297a8] hover:text-[#171b2e]"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <form onSubmit={handleAddSubmit} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <form onSubmit={handleAddSubmit} className="space-y-4 pt-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Store Brand Name *</label>
+                  <label className="block text-[11px] font-semibold text-[#5a6072] uppercase mb-1">
+                    Store Brand Name *
+                  </label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Imtiaz Super Market"
                     value={addForm.name}
                     onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-1.5 text-xs border border-[#e6e8ef] rounded-lg focus:outline-none focus:border-[#0e7c66]"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Legal Company Name</label>
+                  <label className="block text-[11px] font-semibold text-[#5a6072] uppercase mb-1">
+                    Slug ID *
+                  </label>
                   <input
                     type="text"
-                    placeholder="e.g. Imtiaz Super Market Pvt Ltd"
-                    value={addForm.legalName}
-                    onChange={(e) => setAddForm({ ...addForm, legalName: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
+                    placeholder="e.g. imtiaz"
+                    value={addForm.slug}
+                    onChange={(e) => setAddForm({ ...addForm, slug: e.target.value })}
+                    className="w-full px-3 py-1.5 text-xs border border-[#e6e8ef] rounded-lg focus:outline-none focus:border-[#0e7c66]"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Owner / Store Manager Name</label>
+                  <label className="block text-[11px] font-semibold text-[#5a6072] uppercase mb-1">
+                    Owner / Executive Name
+                  </label>
                   <input
                     type="text"
-                    placeholder="e.g. Tariq Imtiaz"
+                    placeholder="Store Manager Name"
                     value={addForm.ownerName}
                     onChange={(e) => setAddForm({ ...addForm, ownerName: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-1.5 text-xs border border-[#e6e8ef] rounded-lg focus:outline-none focus:border-[#0e7c66]"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Owner Admin Email *</label>
+                  <label className="block text-[11px] font-semibold text-[#5a6072] uppercase mb-1">
+                    Owner Email *
+                  </label>
                   <input
                     type="email"
                     required
-                    placeholder="admin@store.pk"
+                    placeholder="admin@imtiaz.pk"
                     value={addForm.ownerEmail}
                     onChange={(e) => setAddForm({ ...addForm, ownerEmail: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-1.5 text-xs border border-[#e6e8ef] rounded-lg focus:outline-none focus:border-[#0e7c66]"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">City & Base</label>
+                  <label className="block text-[11px] font-semibold text-[#5a6072] uppercase mb-1">
+                    Primary City
+                  </label>
                   <input
                     type="text"
-                    placeholder="e.g. Karachi, Pakistan"
+                    placeholder="Lahore, Pakistan"
                     value={addForm.city}
                     onChange={(e) => setAddForm({ ...addForm, city: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-1.5 text-xs border border-[#e6e8ef] rounded-lg focus:outline-none focus:border-[#0e7c66]"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Phone Contact</label>
-                  <input
-                    type="text"
-                    placeholder="+92 21 111 222 333"
-                    value={addForm.phone}
-                    onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Subscription Plan Tier</label>
+                  <label className="block text-[11px] font-semibold text-[#5a6072] uppercase mb-1">
+                    SaaS Tier
+                  </label>
                   <select
                     value={addForm.plan}
                     onChange={(e) => setAddForm({ ...addForm, plan: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-1.5 text-xs border border-[#e6e8ef] rounded-lg focus:outline-none focus:border-[#0e7c66]"
                   >
-                    <option value="Starter">Starter (Rs. 15,000 / mo)</option>
-                    <option value="Pro">Pro (Rs. 35,000 / mo)</option>
-                    <option value="Enterprise">Enterprise (Rs. 75,000 / mo)</option>
+                    <option value="Starter">Starter (Rs. 15,000/mo)</option>
+                    <option value="Pro">Pro (Rs. 25,000/mo)</option>
+                    <option value="Enterprise">Enterprise (Rs. 50,000/mo)</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Brand Color Hex</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={addForm.color}
-                      onChange={(e) => setAddForm({ ...addForm, color: e.target.value })}
-                      className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-0"
-                    />
-                    <input
-                      type="text"
-                      value={addForm.color}
-                      onChange={(e) => setAddForm({ ...addForm, color: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono"
-                    />
-                  </div>
-                </div>
               </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1 font-semibold">Main Flagship Branch Address</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Main Boulevard, Gulberg, Lahore"
-                  value={addForm.address}
-                  onChange={(e) => setAddForm({ ...addForm, address: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div className="pt-4 flex items-center justify-end gap-3">
+              <div className="flex justify-end gap-2 pt-3 border-t border-[#e6e8ef]">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white bg-slate-800 transition font-semibold"
+                  className="btn-ledger-ghost text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-lg shadow-emerald-600/30"
+                  className="btn-ledger-primary text-xs"
                 >
-                  Create & Activate Tenant
+                  Onboard Tenant
                 </button>
               </div>
             </form>
@@ -1106,232 +1036,85 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
         </div>
       )}
 
-      {/* --- MODAL 2: INVITE TENANT --- */}
+      {/* --- MODAL: INVITE TENANT --- */}
       {isInviteModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-5 relative">
-            <button
-              onClick={() => setIsInviteModalOpen(false)}
-              className="absolute top-6 right-6 text-slate-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div>
-              <h3 className="text-xl font-extrabold text-white">Invite Supermarket Partner</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Generate an invitation token and link for a supermarket to register their branch network.
-              </p>
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#e6e8ef] animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-4 border-b border-[#e6e8ef]">
+              <div>
+                <h2 className="text-base font-bold text-[#171b2e]">Invite Supermarket</h2>
+                <p className="text-xs text-[#5a6072]">Generate a secure registration invitation</p>
+              </div>
+              <button
+                onClick={() => setIsInviteModalOpen(false)}
+                className="p-1 rounded-md text-[#9297a8] hover:text-[#171b2e]"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            {!generatedInviteLink ? (
-              <form onSubmit={handleInviteSubmit} className="space-y-4 text-xs">
-                <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Supermarket Brand Name *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Metro Cash & Carry"
-                    value={inviteForm.name}
-                    onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Partner Decision Maker Email *</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="partnerships@metro.pk"
-                    value={inviteForm.email}
-                    onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">Offered Plan</label>
-                    <select
-                      value={inviteForm.plan}
-                      onChange={(e) => setInviteForm({ ...inviteForm, plan: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-amber-500"
-                    >
-                      <option value="Starter">Starter Tier</option>
-                      <option value="Pro">Professional Tier</option>
-                      <option value="Enterprise">Enterprise Tier</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">Billing Cycle</label>
-                    <select
-                      value={inviteForm.billingCycle}
-                      onChange={(e) => setInviteForm({ ...inviteForm, billingCycle: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-amber-500"
-                    >
-                      <option value="monthly">Monthly</option>
-                      <option value="annual">Annual (-15% discount)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Custom Welcome Note</label>
-                  <textarea
-                    rows={2}
-                    placeholder="We'd love to bring your retail inventory onto the Super Grocery network."
-                    value={inviteForm.message}
-                    onChange={(e) => setInviteForm({ ...inviteForm, message: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div className="pt-2 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsInviteModalOpen(false)}
-                    className="px-4 py-2 rounded-xl text-slate-400 hover:text-white bg-slate-800 transition font-semibold"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition shadow-lg shadow-amber-500/20"
-                  >
-                    Generate Invitation
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="space-y-4 text-xs">
-                <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
-                  <span className="font-bold block text-sm mb-1">🎉 Invitation Dispatched!</span>
-                  <p>
-                    A new pending tenant record has been recorded for <strong>{inviteForm.name}</strong>. Share the
-                    onboarding registration link below:
-                  </p>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="block text-slate-400 font-semibold">One-Time Onboarding Link:</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      readOnly
-                      value={generatedInviteLink}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono text-[11px]"
-                    />
-                    <button
-                      onClick={() => copyToClipboard(generatedInviteLink)}
-                      className="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition flex items-center gap-1 shrink-0"
-                    >
-                      {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      <span>{isCopied ? 'Copied' : 'Copy'}</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="pt-3 flex justify-end">
-                  <button
-                    onClick={() => setIsInviteModalOpen(false)}
-                    className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition"
-                  >
-                    Done
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* --- MODAL 3: MANAGE SUBSCRIPTION --- */}
-      {isSubModalOpen && selectedTenant && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-5 relative">
-            <button
-              onClick={() => setIsSubModalOpen(false)}
-              className="absolute top-6 right-6 text-slate-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div>
-              <h3 className="text-xl font-extrabold text-white">Manage Tenant Subscription</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Update billing tier and pricing for <strong>{selectedTenant.name}</strong>.
-              </p>
-            </div>
-
-            <form onSubmit={handleSaveSubscription} className="space-y-4 text-xs">
+            <form onSubmit={handleInviteSubmit} className="space-y-4 pt-4">
               <div>
-                <label className="block text-slate-400 mb-1 font-semibold">Subscription Plan</label>
-                <select
-                  value={subForm.plan}
-                  onChange={(e) => {
-                    const newPlan = e.target.value;
-                    setSubForm({
-                      ...subForm,
-                      plan: newPlan,
-                      price: SUBSCRIPTION_PLANS[newPlan]?.price || 15000
-                    });
-                  }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-amber-500 font-semibold"
-                >
-                  <option value="Starter">Starter (Rs. 15,000 / mo - 5% Take Rate)</option>
-                  <option value="Pro">Pro (Rs. 35,000 / mo - 3.5% Take Rate)</option>
-                  <option value="Enterprise">Enterprise (Rs. 75,000 / mo - 2% Take Rate)</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Billing Cycle</label>
-                  <select
-                    value={subForm.billingCycle}
-                    onChange={(e) => setSubForm({ ...subForm, billingCycle: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none"
-                  >
-                    <option value="monthly">Monthly</option>
-                    <option value="annual">Annual</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Monthly Price (PKR)</label>
-                  <input
-                    type="number"
-                    value={subForm.price}
-                    onChange={(e) => setSubForm({ ...subForm, price: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-bold"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1 font-semibold">Next Renewal Date</label>
+                <label className="block text-[11px] font-semibold text-[#5a6072] uppercase mb-1">
+                  Supermarket Name *
+                </label>
                 <input
-                  type="date"
-                  value={subForm.renewAt}
-                  onChange={(e) => setSubForm({ ...subForm, renewAt: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
+                  type="text"
+                  required
+                  placeholder="e.g. Metro Cash & Carry"
+                  value={inviteForm.name}
+                  onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })}
+                  className="w-full px-3 py-1.5 text-xs border border-[#e6e8ef] rounded-lg focus:outline-none focus:border-[#0e7c66]"
                 />
               </div>
 
-              <div className="pt-3 flex justify-end gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-[#5a6072] uppercase mb-1">
+                  Executive / Owner Email *
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="executive@store.pk"
+                  value={inviteForm.email}
+                  onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                  className="w-full px-3 py-1.5 text-xs border border-[#e6e8ef] rounded-lg focus:outline-none focus:border-[#0e7c66]"
+                />
+              </div>
+
+              {generatedInviteLink && (
+                <div className="p-3 bg-[#dff3ee] border border-[#0e7c66]/30 rounded-lg">
+                  <div className="text-[11px] font-bold text-[#0a5d4c] uppercase">Invitation Link Generated:</div>
+                  <div className="flex items-center justify-between gap-2 mt-1">
+                    <input
+                      readOnly
+                      value={generatedInviteLink}
+                      className="bg-white border border-[#0e7c66]/30 px-2 py-1 text-xs rounded text-[#171b2e] w-full font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(generatedInviteLink)}
+                      className="p-1.5 rounded bg-[#0e7c66] text-white flex-shrink-0"
+                    >
+                      {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-[#e6e8ef]">
                 <button
                   type="button"
-                  onClick={() => setIsSubModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white bg-slate-800 transition font-semibold"
+                  onClick={() => setIsInviteModalOpen(false)}
+                  className="btn-ledger-ghost text-xs"
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition shadow-lg shadow-amber-500/20"
+                  className="btn-ledger-primary text-xs"
                 >
-                  Save Changes
+                  Generate Invitation
                 </button>
               </div>
             </form>
@@ -1339,80 +1122,134 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
         </div>
       )}
 
-      {/* --- MODAL 4: TENANT DETAILS --- */}
-      {isDetailsModalOpen && selectedTenant && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-6 relative max-h-[90vh] overflow-y-auto text-xs">
-            <button
-              onClick={() => setIsDetailsModalOpen(false)}
-              className="absolute top-6 right-6 text-slate-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-4">
-              <img
-                src={selectedTenant.logo}
-                alt={selectedTenant.name}
-                className="w-16 h-16 rounded-2xl object-cover border border-slate-800 bg-slate-800 p-1"
-              />
+      {/* --- MODAL: EDIT SUBSCRIPTION --- */}
+      {isSubModalOpen && selectedTenant && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#e6e8ef] animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-4 border-b border-[#e6e8ef]">
               <div>
-                <h3 className="text-xl font-extrabold text-white">{selectedTenant.name}</h3>
-                <p className="text-slate-400">{selectedTenant.legalName}</p>
-                <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                  {selectedTenant.status}
-                </span>
+                <h2 className="text-base font-bold text-[#171b2e]">
+                  Manage Subscription: {selectedTenant.name}
+                </h2>
+                <p className="text-xs text-[#5a6072]">Configure plan tier and SaaS renewal</p>
               </div>
+              <button
+                onClick={() => setIsSubModalOpen(false)}
+                className="p-1 rounded-md text-[#9297a8] hover:text-[#171b2e]"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <div className="space-y-3 bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Tenant Slug:</span>
-                <span className="font-mono text-slate-300">{selectedTenant.slug}</span>
+            <form onSubmit={handleSaveSubscription} className="space-y-4 pt-4">
+              <div>
+                <label className="block text-[11px] font-semibold text-[#5a6072] uppercase mb-1">
+                  Plan Tier
+                </label>
+                <select
+                  value={subForm.plan}
+                  onChange={(e) => {
+                    const p = e.target.value;
+                    setSubForm({
+                      ...subForm,
+                      plan: p,
+                      price: SUBSCRIPTION_PLANS[p]?.price || 15000
+                    });
+                  }}
+                  className="w-full px-3 py-1.5 text-xs border border-[#e6e8ef] rounded-lg focus:outline-none focus:border-[#0e7c66]"
+                >
+                  <option value="Starter">Starter (Rs. 15,000/mo)</option>
+                  <option value="Pro">Pro (Rs. 25,000/mo)</option>
+                  <option value="Enterprise">Enterprise (Rs. 50,000/mo)</option>
+                </select>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Owner / Manager:</span>
-                <span className="text-slate-300 font-medium">{selectedTenant.ownerName}</span>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-[#5a6072] uppercase mb-1">
+                  Custom Monthly Price (PKR)
+                </label>
+                <input
+                  type="number"
+                  value={subForm.price}
+                  onChange={(e) => setSubForm({ ...subForm, price: e.target.value })}
+                  className="w-full px-3 py-1.5 text-xs border border-[#e6e8ef] rounded-lg focus:outline-none focus:border-[#0e7c66]"
+                />
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Contact Email:</span>
-                <span className="font-mono text-slate-300">{selectedTenant.ownerEmail}</span>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-[#e6e8ef]">
+                <button
+                  type="button"
+                  onClick={() => setIsSubModalOpen(false)}
+                  className="btn-ledger-ghost text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-ledger-primary text-xs"
+                >
+                  Save Subscription
+                </button>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Phone:</span>
-                <span className="text-slate-300">{selectedTenant.phone || 'N/A'}</span>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL: TENANT DETAILS --- */}
+      {isDetailsModalOpen && selectedTenant && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-[#e6e8ef] animate-in zoom-in-95 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#e6e8ef]">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                  style={{ backgroundColor: selectedTenant.themeColor || '#0e7c66' }}
+                >
+                  {selectedTenant.name.substring(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#171b2e]">{selectedTenant.name}</h3>
+                  <p className="text-[11px] text-[#5a6072]">{selectedTenant.legalName || selectedTenant.name}</p>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Main Address:</span>
-                <span className="text-slate-300 text-right">{selectedTenant.address || 'Flagship Store'}</span>
+              <button
+                onClick={() => setIsDetailsModalOpen(false)}
+                className="p-1 rounded-md text-[#9297a8] hover:text-[#171b2e]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="p-3 bg-[#fafbfc] rounded-lg border border-[#e6e8ef]">
+                <div className="text-[#9297a8] text-[10px] uppercase font-bold">Owner Email</div>
+                <div className="font-semibold text-[#171b2e] mt-0.5">{selectedTenant.ownerEmail || 'N/A'}</div>
+              </div>
+              <div className="p-3 bg-[#fafbfc] rounded-lg border border-[#e6e8ef]">
+                <div className="text-[#9297a8] text-[10px] uppercase font-bold">Primary City</div>
+                <div className="font-semibold text-[#171b2e] mt-0.5">{selectedTenant.city || 'Pakistan'}</div>
               </div>
             </div>
 
             <div>
-              <h4 className="font-bold text-white mb-2">Delivery & Fulfillment Hubs</h4>
-              <div className="space-y-2">
-                {(selectedTenant.hubs || []).map((hub, idx) => (
-                  <div key={idx} className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex justify-between">
-                    <div>
-                      <span className="font-semibold text-white block">{hub.name}</span>
-                      <span className="text-[11px] text-slate-500">{hub.address}</span>
-                    </div>
-                    <span className="text-[11px] font-bold text-emerald-400">Active Hub</span>
+              <div className="text-xs font-bold text-[#171b2e] mb-1.5">Fulfillment Branches:</div>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {(selectedTenant.deliveryHubs || []).map((h, i) => (
+                  <div key={i} className="text-xs p-2 rounded bg-[#fafbfc] border border-[#e6e8ef] flex items-center justify-between">
+                    <span>{h.name}</span>
+                    <span className="text-[11px] text-[#5a6072]">{h.city}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="pt-2 flex justify-end gap-3">
+            <div className="flex justify-end pt-3 border-t border-[#e6e8ef]">
               <button
-                onClick={() => {
-                  setIsDetailsModalOpen(false);
-                  handleImpersonateTenant(selectedTenant);
-                }}
-                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition flex items-center gap-1.5"
+                onClick={() => setIsDetailsModalOpen(false)}
+                className="btn-ledger-ghost text-xs"
               >
-                <Store className="w-4 h-4" />
-                Open Store Admin View
+                Close
               </button>
             </div>
           </div>
