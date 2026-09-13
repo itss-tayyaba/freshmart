@@ -159,18 +159,47 @@ export const loginUser = async (req, res) => {
       }
     }
 
-    // Default admin fallback credentials
+    // Super Admin Platform Owner credentials (e.g. superadmin / superadmin123)
     if (
-      (cleanInput === 'admin' || cleanInput === 'admin@freshmart.com' || cleanInput === 'admin@freshmart.pk') &&
-      (password === 'admin123' || password === 'adminpassword123')
+      (cleanInput === 'superadmin' || cleanInput === 'superadmin@supergrocery.pk' || cleanInput === 'admin@supergrocery.pk') &&
+      (password === 'superadmin123' || password === 'admin123' || password === 'adminpassword123')
     ) {
       return res.json({
         success: true,
-        _id: 'admin-root',
-        name: 'Super Admin',
-        email: 'admin@freshmart.com',
+        _id: 'superadmin-root',
+        name: 'Platform Super Admin',
+        email: 'superadmin@supergrocery.pk',
+        role: 'superadmin',
+        isSuperAdmin: true,
+        token: generateToken('superadmin-root', 'superadmin', 'superadmin@supergrocery.pk', 'Platform Super Admin')
+      });
+    }
+
+    // Default admin and Store Admin credentials (e.g. admin, admin@alfatah.pk / admin123)
+    if (
+      (cleanInput === 'admin' ||
+        cleanInput === 'admin@freshmart.com' ||
+        cleanInput === 'admin@freshmart.pk' ||
+        cleanInput === 'admin@alfatah.pk' ||
+        cleanInput === 'admin@chasevalue.pk' ||
+        cleanInput === 'admin@chaseup.pk') &&
+      (password === 'admin123' || password === 'adminpassword123' || password === 'superadmin123')
+    ) {
+      const tenantMap = {
+        'admin@alfatah.pk': { id: 'tenant-alfatah', name: 'Al-Fatah Supermarket' },
+        'admin@chasevalue.pk': { id: 'tenant-chasevalue', name: 'Chase Value' },
+        'admin@chaseup.pk': { id: 'tenant-chaseup', name: 'Chase Up' }
+      };
+      const t = tenantMap[cleanInput] || { id: 'tenant-freshmart', name: 'FreshMart Direct' };
+      return res.json({
+        success: true,
+        _id: `admin-${t.id}`,
+        name: `${t.name} Admin`,
+        email: cleanInput,
         role: 'admin',
-        token: generateToken('admin-root', 'admin', 'admin@freshmart.com', 'Super Admin')
+        tenantId: t.id,
+        tenantName: t.name,
+        token: generateToken(`admin-${t.id}`, 'admin', cleanInput, `${t.name} Admin`)
       });
     }
 

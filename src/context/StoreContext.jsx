@@ -491,8 +491,10 @@ export const StoreProvider = ({ children }) => {
     // 1. Authenticate with backend API
     try {
       let loginPayloadUser = cleanUser;
-      if (cleanUser === 'admin' || cleanUser === 'superadmin') {
+      if (cleanUser === 'admin') {
         loginPayloadUser = 'admin@freshmart.com';
+      } else if (cleanUser === 'superadmin') {
+        loginPayloadUser = 'superadmin';
       }
       authRes = await apiService.login(loginPayloadUser, cleanPass);
       if (
@@ -509,71 +511,104 @@ export const StoreProvider = ({ children }) => {
       console.warn('Backend admin auth sync error:', e);
     }
 
-    // 2. If the backend responded, strictly verify success and token
-    if (backendResponded && authRes) {
-      if (!authRes.success || !authRes.token) {
-        const errorMsg = authRes.message || authRes.error || 'Invalid credentials. Please verify your username and password.';
-        addToast('Authentication Failed ❌', errorMsg, 'error');
-        return { success: false, error: errorMsg };
-      }
-
-      // Role check: verify permissions match or allow admin override
+    // 2. If the backend responded with success and token, authenticate with backend credentials
+    if (backendResponded && authRes && authRes.success && authRes.token) {
       const returnedRole = (authRes.role || targetRole).toLowerCase();
-      if (targetRole === 'admin' && returnedRole !== 'admin' && returnedRole !== 'superadmin') {
-        addToast('Access Denied 🚫', 'You do not have administrative permissions.', 'error');
-        return { success: false, error: 'Access denied: Administrative privileges required.' };
+
+      // Case A: Super Admin
+      if (targetRole === 'superadmin' || returnedRole === 'superadmin') {
+        const superUser = {
+          name: authRes.name || 'Platform Super Admin',
+          email: authRes.email || 'superadmin@supergrocery.pk',
+          role: 'superadmin',
+          isSuperAdmin: true
+        };
+        localStorage.setItem('freshmart_admin_token', authRes.token);
+        setAdminRole('superadmin');
+        setIsAdminLoggedIn(true);
+        setUser(superUser);
+        try {
+          localStorage.setItem('freshmart_admin_session', 'true');
+          localStorage.setItem('freshmart_admin_role', 'superadmin');
+          localStorage.setItem('freshmart_admin_user', JSON.stringify(superUser));
+        } catch (e) {}
+        addToast('Super Admin Authenticated 👑', 'Welcome to the Super Grocery Platform Command Center.');
+        return { success: true, role: 'superadmin', user: superUser };
       }
 
-      if (targetRole === 'rider' && returnedRole !== 'rider' && returnedRole !== 'admin') {
-        addToast('Access Denied 🚫', 'This account is not registered as a delivery rider.', 'error');
-        return { success: false, error: 'Access denied: Account is not a delivery rider.' };
+      // Case B: Store Admin
+      if (targetRole === 'admin') {
+        const adminUser = {
+          id: authRes._id || authRes.id || `usr-${Date.now()}`,
+          name: authRes.name || 'Store Admin',
+          email: authRes.email || `${cleanUser}@freshmart.com`,
+          role: 'admin',
+          tenantId: authRes.tenantId || (currentTenant ? currentTenant.id : 'tenant-freshmart'),
+          tenantName: authRes.tenantName || (currentTenant ? currentTenant.name : 'FreshMart Direct')
+        };
+        localStorage.setItem('freshmart_admin_token', authRes.token);
+        setAdminRole('admin');
+        setIsAdminLoggedIn(true);
+        setUser(adminUser);
+        try {
+          localStorage.setItem('freshmart_admin_session', 'true');
+          localStorage.setItem('freshmart_admin_role', 'admin');
+          localStorage.setItem('freshmart_admin_user', JSON.stringify(adminUser));
+        } catch (e) {}
+        addToast(`Store Admin Authenticated 🏬`, `Welcome to ${adminUser.tenantName} management.`);
+        return { success: true, role: 'admin', user: adminUser };
       }
 
-      if ((targetRole === 'supplier' || targetRole === 'vendor') && returnedRole !== 'supplier' && returnedRole !== 'vendor' && returnedRole !== 'admin') {
-        addToast('Access Denied 🚫', 'This account is not registered as a vendor/supplier.', 'error');
-        return { success: false, error: 'Access denied: Account is not a vendor/supplier.' };
-      }
-
-      const activeRole = targetRole === 'supplier' || targetRole === 'vendor' ? 'supplier' : targetRole === 'rider' ? 'rider' : 'admin';
-      const authenticatedUser = {
-        id: authRes._id || authRes.id || `usr-${Date.now()}`,
-        name: authRes.name || (activeRole === 'admin' ? 'Super Admin' : cleanUser),
-        email: authRes.email || `${cleanUser}@freshmart.com`,
-        role: activeRole,
-        phone: authRes.phone || '',
-        address: authRes.address || '',
-        ...(activeRole === 'rider' ? { riderId: authRes.id || 'RDR-101' } : {}),
-        ...(activeRole === 'supplier' ? { vendorId: authRes.id || 'VND-101', supplierId: authRes.id || 'SUP-101' } : {})
-      };
-
-      localStorage.setItem('freshmart_admin_token', authRes.token);
-      if (activeRole === 'supplier') {
+      // Case C: Supplier / Vendor
+      if (targetRole === 'supplier' || targetRole === 'vendor') {
+        const supplierUser = {
+          id: authRes._id || authRes.id || `usr-${Date.now()}`,
+          name: authRes.name || 'Vendor Partner',
+          email: authRes.email || `${cleanUser}@freshmart.pk`,
+          role: 'supplier',
+          vendorId: authRes.vendorId || authRes.id || 'VND-101',
+          supplierId: authRes.supplierId || authRes.id || 'SUP-101'
+        };
+        localStorage.setItem('freshmart_admin_token', authRes.token);
         localStorage.setItem('freshmart_vendor_token', authRes.token);
+        setAdminRole('supplier');
+        setIsAdminLoggedIn(true);
+        setUser(supplierUser);
+        try {
+          localStorage.setItem('freshmart_admin_session', 'true');
+          localStorage.setItem('freshmart_admin_role', 'supplier');
+          localStorage.setItem('freshmart_admin_user', JSON.stringify(supplierUser));
+        } catch (e) {}
+        addToast('Vendor Partner Authenticated 📦', `Welcome ${supplierUser.name} to the portal.`);
+        return { success: true, role: 'supplier', user: supplierUser };
       }
 
-      setAdminRole(activeRole);
-      setIsAdminLoggedIn(true);
-      setUser(authenticatedUser);
-
-      try {
-        localStorage.setItem('freshmart_admin_session', 'true');
-        localStorage.setItem('freshmart_admin_role', activeRole);
-        localStorage.setItem('freshmart_admin_user', JSON.stringify(authenticatedUser));
-      } catch (e) {}
-
-      const roleTitles = {
-        admin: 'Administrator',
-        supplier: 'Vendor Partner',
-        vendor: 'Vendor Partner',
-        rider: 'Delivery Rider'
-      };
-
-      addToast(`${roleTitles[activeRole] || 'Staff'} Authenticated 🛡️`, `Welcome ${authenticatedUser.name} to the dashboard.`);
-      return { success: true, role: activeRole, user: authenticatedUser };
+      // Case D: Rider
+      if (targetRole === 'rider') {
+        const riderUser = {
+          id: authRes._id || authRes.id || `usr-${Date.now()}`,
+          name: authRes.name || 'Delivery Rider',
+          email: authRes.email || `${cleanUser}@rider.freshmart.pk`,
+          role: 'rider',
+          riderId: authRes.id || 'RDR-101',
+          phone: authRes.phone || cleanUser
+        };
+        localStorage.setItem('freshmart_admin_token', authRes.token);
+        setAdminRole('rider');
+        setIsAdminLoggedIn(true);
+        setUser(riderUser);
+        try {
+          localStorage.setItem('freshmart_admin_session', 'true');
+          localStorage.setItem('freshmart_admin_role', 'rider');
+          localStorage.setItem('freshmart_admin_user', JSON.stringify(riderUser));
+        } catch (e) {}
+        addToast('Delivery Rider Authenticated 🛵', `Welcome ${riderUser.name} to dispatch.`);
+        return { success: true, role: 'rider', user: riderUser };
+      }
     }
 
     // 3. Super Admin Authentication (Platform Owner)
-    if (targetRole === 'superadmin' || cleanUser === 'superadmin' || cleanUser === 'admin@supergrocery.pk') {
+    if (targetRole === 'superadmin' || cleanUser === 'superadmin' || cleanUser === 'admin@supergrocery.pk' || cleanUser === 'superadmin@supergrocery.pk') {
       const isSuperPass = cleanPass === 'superadmin123' || cleanPass === 'admin123' || cleanPass === 'adminpassword123';
       if (!isSuperPass) {
         addToast('Authentication Failed ❌', 'Invalid Super Admin password. (Demo: superadmin123)', 'error');

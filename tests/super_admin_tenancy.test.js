@@ -276,4 +276,48 @@ describe('Super Grocery Multi-Tenant Platform Architecture', () => {
       assert.ok(overviewData.overview.totalGmv > 0);
     });
   });
+
+  describe('3. Super Admin & Store Admin Authentication API', () => {
+    it('authenticates Super Admin with superadmin / superadmin123', async () => {
+      const { loginUser } = await import('../server/controllers/authController.js');
+      const req = { body: { email: 'superadmin', password: 'superadmin123' } };
+      const res = createMockRes();
+
+      await loginUser(req, res);
+
+      assert.equal(res.getStatusCode(), 200);
+      const data = res.getData();
+      assert.ok(data.success);
+      assert.equal(data.role, 'superadmin');
+      assert.equal(data.isSuperAdmin, true);
+      assert.ok(data.token);
+    });
+
+    it('authenticates Store Admin with admin@alfatah.pk / admin123', async () => {
+      const { loginUser } = await import('../server/controllers/authController.js');
+      const req = { body: { email: 'admin@alfatah.pk', password: 'admin123' } };
+      const res = createMockRes();
+
+      await loginUser(req, res);
+
+      assert.equal(res.getStatusCode(), 200);
+      const data = res.getData();
+      assert.ok(data.success);
+      assert.equal(data.role, 'admin');
+      assert.equal(data.tenantId, 'tenant-alfatah');
+      assert.ok(data.token);
+    });
+
+    it('rejects incorrect credentials with 401 status', async () => {
+      const { loginUser } = await import('../server/controllers/authController.js');
+      const req = { body: { email: 'superadmin', password: 'wrongpassword' } };
+      const res = createMockRes();
+
+      await loginUser(req, res);
+
+      assert.equal(res.getStatusCode(), 401);
+      const data = res.getData();
+      assert.equal(data.success, false);
+    });
+  });
 });
