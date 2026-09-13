@@ -71,6 +71,8 @@ export const OrderTrackerModal = () => {
       address: addr,
       city: city,
       status: rawOrder.status || 'Pending',
+      deliveryOtp: rawOrder.deliveryOtp || '9999',
+      isDelivered,
       driverName: rider?.name || 'Awaiting Courier Assignment',
       driverPhone: rider?.phone || null,
       driverVehicle: rider?.vehicle || rider?.vehicleType || 'Fleet Courier',
@@ -275,6 +277,50 @@ export const OrderTrackerModal = () => {
                   <span className="text-slate-400 block text-[11px] font-mono">{currentOrder.city || 'Lahore'}</span>
                 </div>
               </div>
+
+              {/* Handover OTP PIN */}
+              {!currentOrder.isDelivered ? (
+                <div className="bg-amber-50 border border-amber-300/80 rounded-2xl p-4 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-base shadow-xs">
+                      🔐
+                    </div>
+                    <div>
+                      <div className="font-black text-amber-950 flex items-center gap-1.5">
+                        <span>Doorstep Handover OTP</span>
+                        <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-bold uppercase">Required</span>
+                      </div>
+                      <p className="text-[11px] text-amber-800 font-medium">
+                        Share this 4-digit PIN with rider {currentOrder.driverName !== 'Awaiting Courier Assignment' ? currentOrder.driverName : ''} at delivery
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-black text-lg px-3.5 py-1 bg-white border border-amber-300 rounded-xl text-amber-950 tracking-widest shadow-2xs">
+                      {currentOrder.deliveryOtp || '9999'}
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(currentOrder.deliveryOtp || '9999');
+                      }}
+                      className="p-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg cursor-pointer transition-colors text-xs"
+                      title="Copy OTP PIN"
+                    >
+                      📋
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-2.5 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 text-emerald-800 font-bold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Doorstep Delivery Verified & Completed</span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-md">
+                    OTP Verified
+                  </span>
+                </div>
+              )}
 
               {/* Graphical Timeline */}
               <div className="relative pl-6 sm:pl-8 space-y-5 before:absolute before:left-3 sm:before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">

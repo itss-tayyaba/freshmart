@@ -55,6 +55,11 @@ const orderSchema = new mongoose.Schema(
       unique: true,
       trim: true
     },
+    tenantId: {
+      type: String,
+      index: true,
+      default: 'tenant-freshmart'
+    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
@@ -130,6 +135,13 @@ const orderSchema = new mongoose.Schema(
     assignedRider: {
       type: assignedRiderSchema,
       default: null
+    },
+    deliveryOtp: {
+      type: String,
+      default: () => Math.floor(1000 + Math.random() * 9000).toString()
+    },
+    deliveredAt: {
+      type: Date
     },
     timeline: [timelineStepSchema]
   },

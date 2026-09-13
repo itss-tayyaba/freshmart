@@ -7,10 +7,11 @@ import {
   ADMIN_INVENTORY_ALERTS,
   COUPONS
 } from '../data/freshMartData';
+import { INITIAL_TENANTS, SUBSCRIPTION_PLANS } from '../data/tenantData';
 import { apiService } from '../services/api';
 import { parseRouteFromUrl, getSeoMetadata } from '../utils/routeUtils';
 
-export { parseRouteFromUrl, getSeoMetadata };
+export { parseRouteFromUrl, getSeoMetadata, INITIAL_TENANTS, SUBSCRIPTION_PLANS };
 
 const StoreContext = createContext();
 
@@ -44,9 +45,11 @@ export const StoreProvider = ({ children }) => {
       const saved = localStorage.getItem('freshmart_customer_user');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.walletBalance === 320) parsed.walletBalance = 0;
-        if (parsed.loyaltyPoints === 150 || parsed.loyaltyPoints === 100) parsed.loyaltyPoints = 0;
-        return parsed;
+        if (parsed && typeof parsed === 'object') {
+          if (parsed.walletBalance === 320) parsed.walletBalance = 0;
+          if (parsed.loyaltyPoints === 150 || parsed.loyaltyPoints === 100) parsed.loyaltyPoints = 0;
+          return parsed;
+        }
       }
     } catch (e) {}
     return null;
@@ -78,6 +81,46 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
     return [];
   });
+
+  // --- 🏬 Multi-Tenant Platform State (Al-Fatah, Chase Value, Chase Up, FreshMart) ---
+  const [tenants, setTenants] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_tenants');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_TENANTS;
+  });
+
+  const [currentTenant, setCurrentTenantState] = useState(() => {
+    try {
+      const savedId = localStorage.getItem('freshmart_current_tenant_id');
+      if (savedId) {
+        const found = INITIAL_TENANTS.find((t) => t.id === savedId || t.slug === savedId);
+        if (found) return found;
+      }
+    } catch (e) {}
+    return INITIAL_TENANTS[0];
+  });
+
+  const setCurrentTenant = (tenantOrId) => {
+    const target = typeof tenantOrId === 'string'
+      ? (tenants.find((t) => t.id === tenantOrId || t.slug === tenantOrId) || INITIAL_TENANTS[0])
+      : tenantOrId;
+    setCurrentTenantState(target);
+    try {
+      localStorage.setItem('freshmart_current_tenant_id', target.id);
+    } catch (e) {}
+    addToast('Store Switched 🏬', `Now viewing ${target.name}`);
+  };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_tenants', JSON.stringify(tenants));
+    } catch (e) {}
+  }, [tenants]);
 
   // Products state (Single source of truth with localStorage persistence)
   const [products, setProducts] = useState(() => {
@@ -136,10 +179,13 @@ export const StoreProvider = ({ children }) => {
   const [deliveryLocation, setDeliveryLocation] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_delivery_location');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
     } catch (e) {}
     return {
-      city: '',
+      city: 'Lahore, Pakistan',
       address: '',
       label: ''
     };
@@ -184,7 +230,24 @@ export const StoreProvider = ({ children }) => {
   const [cart, setCart] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_cart');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const normalized = parsed
+            .map((item) => {
+              if (!item) return null;
+              const prod = item.product || item;
+              if (!prod || typeof prod !== 'object') return null;
+              return {
+                product: prod,
+                quantity: Math.max(1, Number(item.quantity || 1)),
+                unit: item.unit || prod.unit || '1 unit'
+              };
+            })
+            .filter(Boolean);
+          if (normalized.length > 0) return normalized;
+        }
+      }
     } catch (e) {
       console.error(e);
     }
@@ -495,19 +558,77 @@ export const StoreProvider = ({ children }) => {
       return { success: true, role: activeRole, user: authenticatedUser };
     }
 
-    // 3. Fallback check ONLY if backend was completely unreachable / offline
+    // 3. Super Admin Authentication (Platform Owner)
+    if (targetRole === 'superadmin' || cleanUser === 'superadmin' || cleanUser === 'admin@supergrocery.pk') {
+      const isSuperPass = cleanPass === 'superadmin123' || cleanPass === 'admin123' || cleanPass === 'adminpassword123';
+      if (!isSuperPass) {
+        addToast('Authentication Failed ❌', 'Invalid Super Admin password. (Demo: superadmin123)', 'error');
+        return { success: false, error: 'Invalid Super Admin password. (Default: superadmin123)' };
+      }
+
+      const superUser = {
+        name: 'Platform Super Admin',
+        email: 'superadmin@supergrocery.pk',
+        role: 'superadmin',
+        isSuperAdmin: true
+      };
+
+      const fallbackToken = `mock-superadmin-token-${Date.now()}`;
+      localStorage.setItem('freshmart_admin_token', fallbackToken);
+
+      setAdminRole('superadmin');
+      setIsAdminLoggedIn(true);
+      setUser(superUser);
+
+      try {
+        localStorage.setItem('freshmart_admin_session', 'true');
+        localStorage.setItem('freshmart_admin_role', 'superadmin');
+        localStorage.setItem('freshmart_admin_user', JSON.stringify(superUser));
+      } catch (e) {}
+
+      addToast('Super Admin Authenticated 👑', 'Welcome to the Super Grocery Platform Command Center.');
+      return { success: true, role: 'superadmin', user: superUser };
+    }
+
+    // 4. Store Admin Authentication (Scoped to Tenant or Global Admin)
     if (targetRole === 'admin') {
-      const isAdminUser = cleanUser === 'admin' || cleanUser === 'admin@freshmart.com';
-      const isAdminPass = cleanPass === 'adminpassword123' || cleanPass === 'admin123';
+      // Check if logging in as a specific tenant owner (e.g. admin@alfatah.pk, admin@chasevalue.pk)
+      const matchedTenant = (tenants || []).find(
+        (t) =>
+          (t.ownerEmail && t.ownerEmail.toLowerCase() === cleanUser) ||
+          t.slug === cleanUser ||
+          cleanUser.startsWith(t.slug)
+      );
+
+      const isAdminUser =
+        cleanUser === 'admin' ||
+        cleanUser === 'admin@freshmart.com' ||
+        cleanUser === 'admin@freshmart.pk' ||
+        !!matchedTenant;
+
+      const isAdminPass =
+        cleanPass === 'adminpassword123' ||
+        cleanPass === 'admin123' ||
+        cleanPass === 'storeadmin123' ||
+        cleanPass === 'alfatah123' ||
+        cleanPass === 'chase123';
+
       if (!isAdminUser || !isAdminPass) {
         addToast('Authentication Failed ❌', 'Invalid admin username or password.', 'error');
-        return { success: false, error: 'Invalid admin username or password.' };
+        return { success: false, error: 'Invalid admin username or password. (Demo: admin123)' };
+      }
+
+      const activeTenant = matchedTenant || currentTenant || tenants[0];
+      if (matchedTenant) {
+        setCurrentTenant(matchedTenant);
       }
 
       const adminUser = {
-        name: 'Super Admin',
-        email: 'admin@freshmart.com',
-        role: 'admin'
+        name: activeTenant ? `${activeTenant.name} Admin` : 'Store Admin',
+        email: cleanUser.includes('@') ? cleanUser : `${cleanUser}@supergrocery.pk`,
+        role: 'admin',
+        tenantId: activeTenant ? activeTenant.id : 'tenant-freshmart',
+        tenantName: activeTenant ? activeTenant.name : 'FreshMart Direct'
       };
 
       const fallbackToken = `mock-admin-token-${Date.now()}`;
@@ -523,7 +644,7 @@ export const StoreProvider = ({ children }) => {
         localStorage.setItem('freshmart_admin_user', JSON.stringify(adminUser));
       } catch (e) {}
 
-      addToast('Administrator Authenticated 🛡️', 'Welcome Super Admin to the dashboard.');
+      addToast(`Store Admin Authenticated 🏬`, `Welcome to ${adminUser.tenantName} management.`);
       return { success: true, role: 'admin', user: adminUser };
     }
 
@@ -1174,6 +1295,111 @@ export const StoreProvider = ({ children }) => {
     }
   };
 
+  const addCustomerNotification = (notif) => {
+    setCustomerNotifications((prev) => [
+      {
+        id: notif.id || `notif-${Date.now()}`,
+        type: notif.type || 'delivery',
+        title: notif.title || 'Notification',
+        message: notif.message || '',
+        time: notif.time || 'Just now',
+        urgent: notif.urgent !== undefined ? notif.urgent : false,
+        read: false,
+        ...notif
+      },
+      ...prev
+    ]);
+  };
+
+  const verifyOrderDeliveryOtp = async (orderId, otp, riderId) => {
+    try {
+      const res = await apiService.verifyDeliveryOtp(orderId, { otp, riderId });
+      if (res && res.success) {
+        setCustomerOrders((prev) =>
+          prev.map((o) =>
+            o.id === orderId || o.orderId === orderId || o._id === orderId
+              ? {
+                  ...o,
+                  status: 'Delivered',
+                  statusClass: 'bg-emerald-100 text-emerald-800',
+                  isDelivered: true,
+                  deliveredAt: new Date().toISOString(),
+                  isPaid: true,
+                  paymentStatus: 'Paid',
+                  paymentCollected: true
+                }
+              : o
+          )
+        );
+
+        setAdminOrders((prev) =>
+          prev.map((o) =>
+            o.id === orderId || o.orderId === orderId || o._id === orderId
+              ? {
+                  ...o,
+                  status: 'Delivered',
+                  statusClass: 'bg-emerald-100 text-emerald-800',
+                  isDelivered: true,
+                  deliveredAt: new Date().toISOString(),
+                  isPaid: true,
+                  paymentStatus: 'Paid',
+                  paymentCollected: true
+                }
+              : o
+          )
+        );
+
+        if (activeDeliveryOrder && (activeDeliveryOrder.id === orderId || activeDeliveryOrder.orderId === orderId || activeDeliveryOrder._id === orderId)) {
+          setActiveDeliveryOrder((prev) => ({
+            ...prev,
+            status: 'Delivered',
+            statusClass: 'bg-emerald-100 text-emerald-800',
+            isDelivered: true,
+            deliveredAt: new Date().toISOString(),
+            isPaid: true,
+            paymentStatus: 'Paid',
+            paymentCollected: true
+          }));
+        }
+
+        if (riderId) {
+          setRiders((prev) => {
+            const updated = prev.map((r) =>
+              r.id === riderId || r._id === riderId
+                ? { ...r, deliveriesCount: (r.deliveriesCount || 0) + 1, totalDeliveries: (r.totalDeliveries || 0) + 1 }
+                : r
+            );
+            try {
+              localStorage.setItem('freshmart_riders', JSON.stringify(updated));
+            } catch (e) {}
+            return updated;
+          });
+        }
+
+        addCustomerNotification({
+          id: `notif-${Date.now()}`,
+          type: 'delivery',
+          title: '🎉 Order Delivered Successfully!',
+          message: `Order #${orderId} was delivered. Handover OTP was verified and cash/payment is confirmed. Thank you for shopping with FreshMart!`,
+          time: 'Just now',
+          urgent: true,
+          read: false
+        });
+
+        addToast('Delivery Complete! 📦✨', `Order #${orderId} delivered & verified via OTP. Payment collected.`);
+        return { success: true, order: res.order };
+      } else {
+        const errMsg = res?.message || 'Invalid Handover OTP PIN. Please ask customer for correct 4-digit code.';
+        addToast('OTP Verification Failed ❌', errMsg, 'error');
+        return { success: false, message: errMsg };
+      }
+    } catch (err) {
+      const errMsg = err?.response?.data?.message || err.message || 'OTP verification failed';
+      addToast('Verification Error ❌', errMsg, 'error');
+      return { success: false, message: errMsg };
+    }
+  };
+
   const updateDeliveryOrderStatus = async (orderId, newStatus) => {
     setCustomerOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
@@ -1291,6 +1517,253 @@ export const StoreProvider = ({ children }) => {
   const removeToast = (id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
+
+  // --- 🏢 Super Admin & Multi-Tenant Management Engine ---
+  const addTenant = async (tenantData) => {
+    const slug = (tenantData.slug || tenantData.name || `store-${Date.now()}`)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    const id = tenantData.id || `tenant-${slug}`;
+
+    const newTenant = {
+      id,
+      name: tenantData.name || 'New Supermarket',
+      legalName: tenantData.legalName || tenantData.name || `${tenantData.name || 'Store'} Pvt Ltd`,
+      slug,
+      tagline: tenantData.tagline || 'Groceries & Household Essentials',
+      status: tenantData.status || 'Active',
+      logo: tenantData.logo || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=160&q=80',
+      banner: tenantData.banner || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80',
+      color: tenantData.color || '#16a34a',
+      ownerName: tenantData.ownerName || 'Store Admin',
+      ownerEmail: tenantData.ownerEmail || `admin@${slug}.pk`,
+      phone: tenantData.phone || '+92 42 111 222 333',
+      city: tenantData.city || 'Lahore, Pakistan',
+      address: tenantData.address || 'Flagship Hypermarket, Lahore',
+      hubs: tenantData.hubs || [
+        { id: `${slug}-hub-1`, name: `${tenantData.name || 'Main'} Hub 1`, address: 'Main Hub', city: tenantData.city || 'Lahore', active: true }
+      ],
+      subscription: {
+        plan: tenantData.plan || 'Starter',
+        status: 'Active',
+        billingCycle: tenantData.billingCycle || 'monthly',
+        price: tenantData.price || (SUBSCRIPTION_PLANS[tenantData.plan || 'Starter']?.price || 15000),
+        startedAt: new Date().toISOString(),
+        renewAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      stats: {
+        totalGmv: 0,
+        ordersCount: 0,
+        activeRiders: 3,
+        fulfillmentSla: '99.1%'
+      },
+      createdAt: new Date().toISOString()
+    };
+
+    setTenants((prev) => [newTenant, ...prev.filter((t) => t.id !== newTenant.id)]);
+    try {
+      await apiService.createTenant(newTenant);
+    } catch (e) {
+      console.warn('Backend createTenant sync error:', e);
+    }
+    addToast('Tenant Onboarded 🏬', `"${newTenant.name}" has been successfully added.`);
+    return { success: true, tenant: newTenant };
+  };
+
+  const inviteTenant = async (inviteData) => {
+    const slug = (inviteData.name || 'tenant')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    const id = `tenant-${slug}-${Date.now().toString().slice(-4)}`;
+    const inviteToken = `inv_${Math.random().toString(36).substring(2)}${Date.now()}`;
+    const inviteLink = `${window.location.origin}/admin/join?token=${inviteToken}&tenant=${id}`;
+
+    const invitedTenant = {
+      id,
+      name: inviteData.name,
+      legalName: inviteData.name,
+      slug,
+      tagline: 'Awaiting Onboarding Setup',
+      status: 'Pending',
+      ownerName: inviteData.ownerName || 'Pending Invitee',
+      ownerEmail: inviteData.email,
+      phone: inviteData.phone || '',
+      invitationToken: inviteToken,
+      invitationSentAt: new Date().toISOString(),
+      invitationExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      subscription: {
+        plan: inviteData.plan || 'Starter',
+        status: 'Pending',
+        billingCycle: inviteData.billingCycle || 'monthly',
+        price: SUBSCRIPTION_PLANS[inviteData.plan || 'Starter']?.price || 15000
+      },
+      stats: { totalGmv: 0, ordersCount: 0, activeRiders: 0, fulfillmentSla: '100%' },
+      createdAt: new Date().toISOString()
+    };
+
+    setTenants((prev) => [invitedTenant, ...prev.filter((t) => t.id !== invitedTenant.id)]);
+    try {
+      await apiService.inviteTenant({
+        ...inviteData,
+        id,
+        inviteToken,
+        inviteLink
+      });
+    } catch (e) {}
+
+    addToast('Tenant Invited ✉️', `Invitation link generated for ${inviteData.email}`);
+    return { success: true, inviteLink, tenant: invitedTenant };
+  };
+
+  const approveTenant = async (tenantId) => {
+    setTenants((prev) =>
+      prev.map((t) => (t.id === tenantId ? { ...t, status: 'Active', subscription: { ...t.subscription, status: 'Active' } } : t))
+    );
+    try {
+      await apiService.approveTenant(tenantId);
+    } catch (e) {}
+    addToast('Tenant Approved! 🏬', 'Store is now active on the Super Grocery Platform.');
+    return { success: true };
+  };
+
+  const suspendTenant = async (tenantId, reason = 'Administrative review') => {
+    setTenants((prev) =>
+      prev.map((t) => (t.id === tenantId ? { ...t, status: 'Suspended', suspendReason: reason } : t))
+    );
+    try {
+      await apiService.suspendTenant(tenantId);
+    } catch (e) {}
+    addToast('Tenant Suspended ⚠️', 'Store operations have been temporarily suspended.', 'error');
+    return { success: true };
+  };
+
+  const activateTenant = async (tenantId) => {
+    setTenants((prev) =>
+      prev.map((t) => (t.id === tenantId ? { ...t, status: 'Active', suspendReason: null } : t))
+    );
+    try {
+      await apiService.activateTenant(tenantId);
+    } catch (e) {}
+    addToast('Tenant Activated ✅', 'Store operations have been resumed.');
+    return { success: true };
+  };
+
+  const deleteTenant = async (tenantId) => {
+    if (tenants.length <= 1) {
+      addToast('Cannot Delete ⚠️', 'Platform must keep at least one active tenant.', 'error');
+      return { success: false, error: 'Cannot delete the only remaining tenant' };
+    }
+    const target = tenants.find((t) => t.id === tenantId);
+    setTenants((prev) => prev.filter((t) => t.id !== tenantId));
+    if (currentTenant?.id === tenantId) {
+      const remaining = tenants.filter((t) => t.id !== tenantId);
+      if (remaining.length > 0) {
+        setCurrentTenant(remaining[0]);
+      }
+    }
+    try {
+      await apiService.deleteTenant(tenantId);
+    } catch (e) {}
+    addToast('Tenant Deleted 🗑️', `"${target?.name || 'Store'}" removed from platform.`, 'info');
+    return { success: true };
+  };
+
+  const updateTenantSubscription = async (tenantId, subPayload) => {
+    setTenants((prev) =>
+      prev.map((t) => {
+        if (t.id === tenantId) {
+          return {
+            ...t,
+            subscription: {
+              ...t.subscription,
+              ...subPayload
+            }
+          };
+        }
+        return t;
+      })
+    );
+    try {
+      await apiService.updateTenantSubscription(tenantId, subPayload);
+    } catch (e) {}
+    addToast('Subscription Updated 💳', `Plan updated to ${subPayload.plan || 'new tier'}.`);
+    return { success: true };
+  };
+
+  const getTenantOrders = (tenantId = 'all') => {
+    if (!tenantId || tenantId === 'all') {
+      return adminOrders;
+    }
+    return adminOrders.filter(
+      (o) => o.tenantId === tenantId || o.storeId === tenantId || (tenantId === 'tenant-freshmart' && !o.tenantId)
+    );
+  };
+
+  const getTenantPerformance = (tenantId) => {
+    const target = tenants.find((t) => t.id === tenantId) || currentTenant;
+    const orders = getTenantOrders(target?.id);
+    const gmv = orders.reduce((sum, o) => sum + Number(o.total || o.totalAmount || o.totalPrice || 0), 0);
+    const plan = target?.subscription?.plan || 'Starter';
+    const planDetails = SUBSCRIPTION_PLANS[plan] || SUBSCRIPTION_PLANS.Starter;
+    const commissionRate = planDetails.commissionRate !== undefined ? planDetails.commissionRate : 5;
+    const commission = Math.round((gmv * commissionRate) / 100);
+
+    return {
+      tenantId: target?.id,
+      name: target?.name,
+      totalOrders: orders.length,
+      gmv,
+      commission,
+      commissionRate,
+      activeRiders: (riders || []).filter((r) => r.status === 'Available' || r.status === 'Busy').length || 4,
+      fulfillmentSla: target?.stats?.fulfillmentSla || '99.2%',
+      plan
+    };
+  };
+
+  const getPlatformOverview = () => {
+    const totalGmv = adminOrders.reduce((sum, o) => sum + Number(o.total || o.totalAmount || o.totalPrice || 0), 0) + 1450000;
+    const totalCommission = Math.round(totalGmv * 0.05);
+    const activeTenants = tenants.filter((t) => t.status === 'Active').length;
+    return {
+      totalTenants: tenants.length,
+      activeTenants,
+      pendingTenants: tenants.filter((t) => t.status === 'Pending').length,
+      suspendedTenants: tenants.filter((t) => t.status === 'Suspended').length,
+      totalGmv,
+      totalCommission,
+      totalOrders: adminOrders.length + 150,
+      totalRiders: (riders || []).length || 8,
+      avgSla: '98.8%'
+    };
+  };
+
+  // Sync tenants from backend on startup
+  useEffect(() => {
+    const fetchBackendTenants = async () => {
+      try {
+        const res = await apiService.getTenants();
+        if (res && res.success && Array.isArray(res.tenants) && res.tenants.length > 0) {
+          setTenants((prev) => {
+            const remoteMap = new Map(res.tenants.map((t) => [t.id, t]));
+            const merged = prev.map((t) => (remoteMap.has(t.id) ? { ...t, ...remoteMap.get(t.id) } : t));
+            for (const rTenant of res.tenants) {
+              if (!merged.some((t) => t.id === rTenant.id)) {
+                merged.push(rTenant);
+              }
+            }
+            try {
+              localStorage.setItem('freshmart_tenants', JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
+        }
+      } catch (e) {}
+    };
+    fetchBackendTenants();
+  }, []);
 
   // Helper to auto-enroll customer into Admin Customer Directory
   const autoEnrollCustomer = (userObj) => {
@@ -1483,10 +1956,14 @@ export const StoreProvider = ({ children }) => {
 
     const localOrderId = orderData.orderId || orderData.id || ('#FM' + Math.floor(10000 + Math.random() * 90000));
     const paymentMethod = orderData.paymentMethod || orderData.payment || 'Cash on Delivery';
+    const generatedOtp = String(Math.floor(1000 + Math.random() * 9000));
 
     const backendPayload = {
       orderId: localOrderId,
       id: localOrderId,
+      tenantId: orderData.tenantId || currentTenant?.id || 'tenant-freshmart',
+      tenantName: orderData.tenantName || currentTenant?.name || 'FreshMart Direct',
+      deliveryOtp: orderData.deliveryOtp || generatedOtp,
       orderItems,
       rawItems: orderItems,
       customerName: custName,
@@ -1514,6 +1991,9 @@ export const StoreProvider = ({ children }) => {
     let confirmedOrder = {
       ...backendPayload,
       id: localOrderId,
+      tenantId: backendPayload.tenantId,
+      tenantName: backendPayload.tenantName,
+      deliveryOtp: backendPayload.deliveryOtp,
       items: `${orderItems.length} Item${orderItems.length > 1 ? 's' : ''}`,
       status: 'Pending',
       statusClass: 'bg-amber-100 text-amber-800',
@@ -1533,6 +2013,7 @@ export const StoreProvider = ({ children }) => {
           ...bOrder,
           id: realId,
           orderId: realId,
+          deliveryOtp: bOrder.deliveryOtp || backendPayload.deliveryOtp,
           rawItems: orderItems,
           orderItems: orderItems,
           items: `${orderItems.length} Item${orderItems.length > 1 ? 's' : ''}`,
@@ -1922,7 +2403,12 @@ export const StoreProvider = ({ children }) => {
   const wishlistCount = validWishlistProducts.length;
 
   // Cart calculations - Dynamic real-time discount computation
-  const cartSubtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const cartSubtotal = (cart || []).reduce((sum, item) => {
+    const prod = item?.product || item;
+    const price = Number(prod?.price || 0);
+    const qty = Number(item?.quantity || 1);
+    return sum + (price * qty);
+  }, 0);
   const isFreeDeliveryCoupon = appliedCoupon && (appliedCoupon.discountType === 'free_shipping' || appliedCoupon.freeShipping);
   const deliveryCharges = (cartSubtotal >= 1500 || cartSubtotal === 0 || isFreeDeliveryCoupon) ? 0 : 50;
 
@@ -1936,7 +2422,7 @@ export const StoreProvider = ({ children }) => {
     : 0;
 
   const cartTotal = Math.max(0, cartSubtotal + deliveryCharges - discountAmount);
-  const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const totalCartCount = (cart || []).reduce((sum, item) => sum + Number(item?.quantity || 0), 0);
 
   // Navigation Helper with shareable URLs and browser history synchronization
   const navigateTo = (page, product = null, options = {}) => {
@@ -2348,6 +2834,7 @@ export const StoreProvider = ({ children }) => {
         updateCustomerProfile,
         customerNotifications,
         setCustomerNotifications,
+        addCustomerNotification,
         customerOrders,
 
         setCustomerOrders,
@@ -2358,6 +2845,7 @@ export const StoreProvider = ({ children }) => {
         addSavedAddress,
         removeSavedAddress,
         placeCustomerOrder,
+        verifyOrderDeliveryOtp,
         riders,
         setRiders,
         addRider,
@@ -2476,7 +2964,21 @@ export const StoreProvider = ({ children }) => {
         toggleProductStockStatus,
         toasts,
         addToast,
-        removeToast
+        removeToast,
+        tenants,
+        setTenants,
+        currentTenant,
+        setCurrentTenant,
+        addTenant,
+        inviteTenant,
+        approveTenant,
+        suspendTenant,
+        activateTenant,
+        deleteTenant,
+        updateTenantSubscription,
+        getTenantOrders,
+        getTenantPerformance,
+        getPlatformOverview
       }}
     >
       {children}

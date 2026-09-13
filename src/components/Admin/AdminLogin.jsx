@@ -26,12 +26,20 @@ export const AdminLogin = () => {
 
   const roles = [
     {
+      id: 'superadmin',
+      label: 'Super Admin',
+      icon: '👑',
+      sublabel: 'Platform Owner',
+      userPlaceholder: 'superadmin or admin@supergrocery.pk',
+      passPlaceholder: 'Enter superadmin password (superadmin123)'
+    },
+    {
       id: 'admin',
-      label: 'Admin',
+      label: 'Store Admin',
       icon: '🛡️',
       sublabel: 'Store Manager',
-      userPlaceholder: 'admin@freshmart.com or admin',
-      passPlaceholder: 'Enter admin password'
+      userPlaceholder: 'admin@alfatah.pk or admin',
+      passPlaceholder: 'Enter admin password (admin123)'
     },
     {
       id: 'supplier',
@@ -217,7 +225,7 @@ export const AdminLogin = () => {
               </>
             ) : (
               <>
-                <span>Sign In as {selectedRole === 'admin' ? 'Admin' : selectedRole === 'supplier' ? 'Supplier' : 'Rider'}</span>
+                <span>Sign In as {selectedRole === 'superadmin' ? 'Super Admin' : selectedRole === 'admin' ? 'Store Admin' : selectedRole === 'supplier' ? 'Supplier' : 'Rider'}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -230,28 +238,60 @@ export const AdminLogin = () => {
           <button
             type="button"
             onClick={() => setShowCredentialsHelp(!showCredentialsHelp)}
-            className="w-full flex items-center justify-between text-[11px] font-bold text-emerald-800 hover:text-emerald-950 transition-colors"
+            className="w-full flex items-center justify-between text-[11px] font-bold text-emerald-800 hover:text-emerald-950 transition-colors cursor-pointer"
           >
             <span className="flex items-center gap-1.5">
               <Info className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Registered Staff Accounts</span>
+              <span>Demo Staff Credentials (Click to fill)</span>
             </span>
             {showCredentialsHelp ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
 
           {showCredentialsHelp && (
-            <div className="mt-2.5 pt-2 border-t border-emerald-200/50 space-y-1.5 text-[11px] text-slate-600 animate-in fade-in">
-              <div className="flex justify-between items-center py-0.5">
-                <span className="font-semibold text-slate-800">🛡️ Super Admin:</span>
-                <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-emerald-900 font-mono text-[10px]">admin@freshmart.com / adminpassword123</code>
+            <div className="mt-2.5 pt-2 border-t border-emerald-200/50 space-y-2 text-[11px] text-slate-600 animate-in fade-in">
+              <div
+                onClick={() => {
+                  setSelectedRole('superadmin');
+                  setUsername('superadmin');
+                  setPassword('superadmin123');
+                }}
+                className="flex justify-between items-center p-1.5 rounded-lg hover:bg-emerald-100/60 cursor-pointer transition"
+              >
+                <span className="font-bold text-amber-700">👑 Super Admin:</span>
+                <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-slate-900 font-mono text-[10px]">superadmin / superadmin123</code>
               </div>
-              <div className="flex justify-between items-center py-0.5">
-                <span className="font-semibold text-slate-800">📦 Supplier (Tayyab):</span>
-                <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-emerald-900 font-mono text-[10px]">tayyab / cocacola123</code>
+              <div
+                onClick={() => {
+                  setSelectedRole('admin');
+                  setUsername('admin@alfatah.pk');
+                  setPassword('admin123');
+                }}
+                className="flex justify-between items-center p-1.5 rounded-lg hover:bg-emerald-100/60 cursor-pointer transition"
+              >
+                <span className="font-bold text-emerald-800">🛡️ Store Admin:</span>
+                <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-slate-900 font-mono text-[10px]">admin@alfatah.pk / admin123</code>
               </div>
-              <div className="flex justify-between items-center py-0.5">
-                <span className="font-semibold text-slate-800">🛵 Fleet Rider:</span>
-                <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-emerald-900 font-mono text-[10px]">rider / rider123</code>
+              <div
+                onClick={() => {
+                  setSelectedRole('supplier');
+                  setUsername('tayyab');
+                  setPassword('cocacola123');
+                }}
+                className="flex justify-between items-center p-1.5 rounded-lg hover:bg-emerald-100/60 cursor-pointer transition"
+              >
+                <span className="font-semibold text-slate-800">📦 Supplier:</span>
+                <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-slate-900 font-mono text-[10px]">tayyab / cocacola123</code>
+              </div>
+              <div
+                onClick={() => {
+                  setSelectedRole('rider');
+                  setUsername('rider');
+                  setPassword('rider123');
+                }}
+                className="flex justify-between items-center p-1.5 rounded-lg hover:bg-emerald-100/60 cursor-pointer transition"
+              >
+                <span className="font-semibold text-slate-800">🛵 Rider:</span>
+                <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-slate-900 font-mono text-[10px]">rider / rider123</code>
               </div>
             </div>
           )}

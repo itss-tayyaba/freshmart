@@ -270,6 +270,19 @@ export const apiService = {
     }
   },
 
+  async verifyDeliveryOtp(orderId, payload) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/verify-delivery-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(typeof payload === 'string' ? { otp: payload } : payload)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
   // Coupons / Promotions API
   async getPromotions() {
     try {
@@ -806,6 +819,150 @@ export const apiService = {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({ status, notes })
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // --- Super Grocery Platform: Multi-Tenant Management APIs ---
+  async getTenants(params = {}) {
+    try {
+      const query = new URLSearchParams(params).toString();
+      const res = await fetch(`${API_BASE_URL}/tenants${query ? `?${query}` : ''}`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getTenantById(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tenants/${encodeURIComponent(id)}`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async createTenant(payload) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tenants`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async inviteTenant(payload) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tenants/invite`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async approveTenant(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tenants/${encodeURIComponent(id)}/approve`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async suspendTenant(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tenants/${encodeURIComponent(id)}/suspend`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async activateTenant(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tenants/${encodeURIComponent(id)}/activate`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteTenant(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tenants/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateTenantSubscription(id, subscriptionPayload) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tenants/${encodeURIComponent(id)}/subscription`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(subscriptionPayload)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getTenantOrders(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tenants/${encodeURIComponent(id)}/orders`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getTenantPerformance(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tenants/${encodeURIComponent(id)}/performance`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getPlatformOverview() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tenants/platform/overview`, {
+        headers: getAuthHeaders()
       });
       return await handleResponse(res);
     } catch (e) {

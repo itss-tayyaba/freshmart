@@ -23,7 +23,8 @@ import {
   trackOrder,
   updateOrderStatus,
   assignRiderToOrder,
-  updateRiderLocation
+  updateRiderLocation,
+  verifyDeliveryOtp
 } from '../controllers/orderController.js';
 import {
   getInventory,
@@ -70,6 +71,20 @@ import {
   adminUpdateVendorStatus,
   adminProcessVendorPayout
 } from '../controllers/vendorController.js';
+import {
+  getTenants,
+  getTenantById,
+  createTenant,
+  inviteTenant,
+  approveTenant,
+  suspendTenant,
+  activateTenant,
+  deleteTenant,
+  updateSubscription,
+  getTenantOrders,
+  getTenantPerformance,
+  getPlatformOverview
+} from '../controllers/tenantController.js';
 import { protect, adminOnly, protectVendor } from '../middleware/authMiddleware.js';
 import { authLimiter } from '../middleware/rateLimitMiddleware.js';
 import {
@@ -116,9 +131,10 @@ router.delete('/categories/:id', protect, adminOnly, deleteCategory);
 // Public: Shoppers place orders (validated) and track delivery status
 router.post('/orders', validate(createOrderSchema), createOrder);
 router.get('/orders/track/:orderId', trackOrder);
-// Admin & Fleet: Assign rider, update live GPS location, and update order status
+// Admin & Fleet: Assign rider, update live GPS location, verify delivery OTP, and update order status
 router.put('/orders/:id/assign-rider', assignRiderToOrder);
 router.put('/orders/:id/rider-location', updateRiderLocation);
+router.post('/orders/:id/verify-delivery-otp', verifyDeliveryOtp);
 router.get('/orders', protect, adminOnly, getOrders);
 router.put('/orders/:id/status', protect, adminOnly, validate(updateOrderStatusSchema), updateOrderStatus);
 
@@ -208,5 +224,19 @@ router.delete('/vendor/staff/:id', protect, protectVendor, deleteVendorStaff);
 router.get('/admin/vendors', protect, adminOnly, adminGetVendors);
 router.put('/admin/vendors/:id/status', protect, adminOnly, adminUpdateVendorStatus);
 router.put('/admin/vendors/:id/payouts/:payoutId', protect, adminOnly, adminProcessVendorPayout);
+
+// --- Super Grocery Platform: Multi-Tenant Architecture Routes ---
+router.get('/tenants', getTenants);
+router.post('/tenants', createTenant);
+router.post('/tenants/invite', inviteTenant);
+router.get('/tenants/platform/overview', getPlatformOverview);
+router.get('/tenants/:id', getTenantById);
+router.post('/tenants/:id/approve', approveTenant);
+router.post('/tenants/:id/suspend', suspendTenant);
+router.post('/tenants/:id/activate', activateTenant);
+router.delete('/tenants/:id', deleteTenant);
+router.put('/tenants/:id/subscription', updateSubscription);
+router.get('/tenants/:id/orders', getTenantOrders);
+router.get('/tenants/:id/performance', getTenantPerformance);
 
 export default router;

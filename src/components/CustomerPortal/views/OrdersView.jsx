@@ -109,6 +109,49 @@ export const OrdersView = () => {
                 </div>
               </div>
 
+              {/* Handover OTP PIN Section */}
+              {order.status !== 'Delivered' ? (
+                <div className="flex items-center justify-between bg-amber-50/90 border border-amber-200/90 rounded-2xl px-4 py-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                      🔐
+                    </div>
+                    <div>
+                      <div className="text-xs font-black text-amber-950 flex items-center gap-1.5">
+                        <span>Doorstep Handover OTP</span>
+                        <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-bold uppercase">Required</span>
+                      </div>
+                      <div className="text-[10px] text-amber-800 font-medium">Share this 4-digit PIN with your delivery rider upon arrival</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-black text-base px-3 py-1 bg-white border border-amber-300 rounded-xl text-amber-950 tracking-widest shadow-2xs">
+                      {order.deliveryOtp || '9999'}
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(order.deliveryOtp || '9999');
+                        addToast('OTP Copied 📋', `Share PIN ${order.deliveryOtp || '9999'} with rider on delivery.`);
+                      }}
+                      className="p-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg cursor-pointer transition-colors text-xs"
+                      title="Copy OTP PIN"
+                    >
+                      📋
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-2 text-xs">
+                  <div className="flex items-center gap-2 text-emerald-800 font-bold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Doorstep Delivery Verified & Completed</span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-md">
+                    OTP Verified
+                  </span>
+                </div>
+              )}
+
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   onClick={() => navigateTo('delivery')}

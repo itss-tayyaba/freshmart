@@ -584,6 +584,46 @@ export const DeliveryPage = () => {
               </div>
             </div>
 
+            {/* Doorstep Handover OTP Box */}
+            {currentOrder && (
+              <div className="bg-gradient-to-r from-amber-50 via-amber-100/40 to-orange-50 border-2 border-amber-300/80 rounded-3xl p-5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-2xl shadow-md">
+                    🔐
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-black text-sm text-slate-900">Doorstep Delivery Handover OTP</h4>
+                      <span className="text-[10px] bg-amber-300 text-amber-950 font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        {currentOrder.status === 'Delivered' ? 'Verified' : 'Required'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 font-medium mt-0.5">
+                      {currentOrder.status === 'Delivered'
+                        ? 'Handover OTP has been verified and payment collected.'
+                        : `Provide this 4-digit code to rider ${assignedRider?.name || 'Ali'} upon arrival to verify handover.`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="bg-white border-2 border-amber-400 px-4 py-1.5 rounded-2xl font-mono font-black text-2xl text-amber-950 tracking-widest shadow-inner">
+                    {currentOrder.deliveryOtp || '9999'}
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(currentOrder.deliveryOtp || '9999');
+                      addToast('OTP Copied 📋', `Share PIN ${currentOrder.deliveryOtp || '9999'} with rider on delivery.`);
+                    }}
+                    className="p-2.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-xl transition-all cursor-pointer font-bold"
+                    title="Copy OTP PIN"
+                  >
+                    📋
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Courier Contact Card */}
             {assignedRider ? (
               <div className="bg-slate-50 p-4 sm:p-5 rounded-3xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">

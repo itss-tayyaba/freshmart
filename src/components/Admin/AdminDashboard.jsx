@@ -42,9 +42,11 @@ import { SettingsView } from './views/SettingsView';
 import { AdminModals } from './modals/AdminModals';
 import { AdminLogin } from './AdminLogin';
 import { VendorPortal } from '../VendorPortal/VendorPortal';
+import { SuperAdminDashboard } from '../SuperAdmin/SuperAdminDashboard';
 
 export const AdminDashboard = () => {
-  const { navigateTo, isAdminLoggedIn, adminLogout, adminRole, user, products, customerOrders, customers } = useStore();
+  const { navigateTo, isAdminLoggedIn, adminLogout, adminRole, user, products, customerOrders, customers, currentTenant } = useStore();
+  const [superAdminImpersonateMode, setSuperAdminImpersonateMode] = useState(false);
   
   // Set initial activeTab based on logged-in role
   const [activeTab, setActiveTab] = useState(() => {
@@ -74,6 +76,11 @@ export const AdminDashboard = () => {
   // If not logged in as Admin, show the Admin Login with Username/Password
   if (!isAdminLoggedIn) {
     return <AdminLogin />;
+  }
+
+  // If logged in as Super Admin (Platform Owner), render Super Admin Command Center
+  if (adminRole === 'superadmin' && !superAdminImpersonateMode) {
+    return <SuperAdminDashboard onSwitchToStoreAdmin={() => setSuperAdminImpersonateMode(true)} />;
   }
 
   // If logged in as Supplier or Vendor, render the dedicated Multi-Vendor Portal
@@ -139,8 +146,30 @@ export const AdminDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row font-sans text-slate-800 antialiased">
-      
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-slate-800 antialiased">
+      {/* 👑 Super Admin Impersonation Alert Banner */}
+      {adminRole === 'superadmin' && superAdminImpersonateMode && (
+        <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-500 text-slate-950 px-4 py-2 text-xs font-bold flex flex-wrap items-center justify-between shadow-lg sticky top-0 z-50">
+          <div className="flex items-center gap-2">
+            <span className="text-base">👑</span>
+            <span>Super Admin Impersonation:</span>
+            <span className="bg-slate-950 text-amber-300 px-2.5 py-0.5 rounded-full font-extrabold border border-amber-400/40">
+              🏬 {currentTenant?.name || 'Store'} Admin Mode
+            </span>
+            <span className="hidden md:inline font-normal text-slate-900">
+              — Managing live products, inventory, orders & riders for this supermarket
+            </span>
+          </div>
+          <button
+            onClick={() => setSuperAdminImpersonateMode(false)}
+            className="px-3 py-1 bg-slate-950 hover:bg-slate-900 text-amber-300 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
+          >
+            ← Return to Super Admin Command Center
+          </button>
+        </div>
+      )}
+
+      <div className="flex-1 flex flex-col lg:flex-row">
       {/* 📱 Mobile Top Header Bar (< lg screens) */}
       <div className="lg:hidden bg-[#0f172a] text-slate-200 px-4 py-3.5 flex items-center justify-between border-b border-slate-800 sticky top-0 z-40 shadow-md">
         <div onClick={() => navigateTo('home')} className="flex items-center gap-2.5 cursor-pointer">
@@ -448,6 +477,7 @@ export const AdminDashboard = () => {
           {activeTab === 'Settings' && <SettingsView />}
         </main>
 
+      </div>
       </div>
 
       {/* Global Admin Modals */}

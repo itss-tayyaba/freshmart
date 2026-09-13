@@ -582,6 +582,79 @@ export const CustomerPortal = () => {
                 </button>
               </div>
 
+              {/* Active In-Transit Delivery Quick Banner with Doorstep OTP */}
+              {(() => {
+                const activeOrder = activeDeliveryOrder || customerOrders.find((o) => o.status !== 'Delivered');
+                if (!activeOrder) return null;
+                const assignedRider = activeOrder.assignedRider;
+                return (
+                  <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-[#07382c] rounded-3xl p-5 text-white border border-emerald-500/40 shadow-xl shadow-emerald-950/20 space-y-4 relative overflow-hidden">
+                    <div className="absolute -right-8 -top-8 w-36 h-36 bg-amber-400/15 rounded-full blur-2xl pointer-events-none"></div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-2xl shadow-md">
+                          🛵
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-sm text-white">{activeOrder.id || activeOrder.orderId}</span>
+                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-400 text-slate-950 animate-pulse">
+                              {activeOrder.status || 'Out for Delivery'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-emerald-200 mt-0.5">
+                            {assignedRider ? `Courier ${assignedRider.name} (${assignedRider.vehicle || 'Bike'}) heading to your address` : 'Order confirmed & Dark Store fulfillment in progress'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => navigateTo('delivery')}
+                        className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-bold transition-all border border-white/30 cursor-pointer self-start sm:self-auto flex items-center gap-1.5"
+                      >
+                        <MapPin className="w-3.5 h-3.5 text-amber-300" />
+                        <span>Live GPS Map</span>
+                      </button>
+                    </div>
+
+                    {/* Doorstep Handover OTP Banner */}
+                    <div className="bg-slate-950/70 backdrop-blur-xs border border-amber-400/40 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-base shrink-0">
+                          🔐
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                            <span>Delivery Handover OTP PIN</span>
+                            <span className="text-[9px] bg-amber-400/20 border border-amber-400/40 text-amber-200 px-1.5 py-0.2 rounded font-mono font-bold">4-DIGIT</span>
+                          </div>
+                          <p className="text-[11px] text-slate-300">
+                            Give this secret PIN to the rider upon doorstep parcel arrival to verify delivery.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end sm:self-auto">
+                        <span className="font-mono font-black text-lg px-4 py-1 bg-amber-400 text-slate-950 rounded-xl tracking-widest shadow-inner">
+                          {activeOrder.deliveryOtp || '9999'}
+                        </span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(activeOrder.deliveryOtp || '9999');
+                            addToast('OTP Copied 📋', `Share PIN ${activeOrder.deliveryOtp || '9999'} with rider on delivery.`);
+                          }}
+                          className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-xl cursor-pointer transition-colors"
+                          title="Copy Handover PIN"
+                        >
+                          <Copy className="w-4 h-4 text-amber-300" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* 8 Beautiful Pastel Gradient Category Chips */}
               <div className="grid grid-cols-4 sm:grid-cols-8 gap-2.5 text-center">
                 {[

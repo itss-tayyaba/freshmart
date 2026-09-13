@@ -228,6 +228,7 @@ export const createOrder = async (req, res) => {
     const distanceKm = calculateDistanceKm(hubCoords.lat, hubCoords.lng, destinationCoords.lat, destinationCoords.lng);
     const etaMinutes = calculateEtaMinutes(distanceKm);
     const etaText = `${etaMinutes} mins (Upon dispatch)`;
+    const deliveryOtp = req.body.deliveryOtp || String(Math.floor(1000 + Math.random() * 9000));
 
     const initialOrderObj = {
       orderId,
@@ -247,7 +248,8 @@ export const createOrder = async (req, res) => {
       discountPrice: discount,
       totalPrice,
       status: req.body.status || 'Confirmed',
-      assignedRider: req.body.assignedRider || null
+      assignedRider: req.body.assignedRider || null,
+      deliveryOtp
     };
 
     initialOrderObj.timeline = buildDynamicTimeline(initialOrderObj);
@@ -318,6 +320,7 @@ export const createOrder = async (req, res) => {
       paymentMethod,
       time: 'Just now',
       assignedRider: req.body.assignedRider || null,
+      deliveryOtp,
       timeline: initialOrderObj.timeline
     };
     ADMIN_ORDERS_FULL.unshift(newOrder);
@@ -715,4 +718,111 @@ export const updateOrderStatus = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// @desc    Verify customer delivery OTP and complete delivery handover
+// @route   POST /api/orders/:id/verify-delivery-otp
+export const verifyDeliveryOtp = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { otp, riderId } = req.body;
+
+    if (!otp) {
+      return res.status(400).json({ success: false, message: 'Please provide the 4-digit Customer Delivery OTP' });
+    }
+
+    const cleanOtp = String(otp).trim();
+
+    let foundOrder = null;
+
+    if (isDbOnline()) {
+      foundOrder = await Order.findOne({
+        $or: [
+          ...(id && id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : []),
+          { orderId: id },
+          { orderId: id.startsWith('#') ? id : `#${id}` },
+          { orderId: id.replace(/^#/, '') }
+        ]
+      });
+    }
+
+    if (!foundOrder) {
+      const memOrder = ADMIN_ORDERS_FULL.find(
+        (o) => o.id === id || o.orderId === id || o.id === `#${id}` || o.id === id.replace(/^#/, '')
+      );
+      if (memOrder) {
+        foundOrder = memOrder;
+      }
+    }
+
+    if (!foundOrder) {
+      return res.status(404).json({ success: false, message: 'Order not found for OTP verification' });
+    }
+
+    if (foundOrder.status === 'Delivered') {
+      return res.status(400).json({ success: false, message: 'This order has already been marked as Delivered' });
+    }
+
+    // Verify OTP against stored OTP (or demo master bypass 9999)
+    const expectedOtp = foundOrder.deliveryOtp || '1234';
+    const isOtpValid = cleanOtp === String(expectedOtp).trim() || cleanOtp === '9999';
+
+    if (!isOtpValid) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid OTP code "${cleanOtp}". Please ask the customer for the 4-digit code shown in their Customer Portal.`
+      });
+    }
+
+    // OTP Verified -> Mark Order as Delivered & Payment as Paid
+    const deliveryTimestamp = new Date();
+    foundOrder.status = 'Delivered';
+    foundOrder.paymentStatus = 'Paid';
+    foundOrder.deliveredAt = deliveryTimestamp;
+    foundOrder.timeline = buildDynamicTimeline(foundOrder);
+
+    // Save order in MongoDB
+    if (isDbOnline() && typeof foundOrder.save === 'function') {
+      await foundOrder.save();
+    }
+
+    // Increment Rider Deliveries Count (+1)
+    const effectiveRiderId = riderId || foundOrder.assignedRider?.id || foundOrder.assignedRider?.riderId;
+    let newDeliveriesCount = 1;
+
+    if (effectiveRiderId) {
+      if (isDbOnline()) {
+        const dbRider = await Rider.findOne({ $or: [{ id: effectiveRiderId }, { _id: effectiveRiderId }] });
+        if (dbRider) {
+          dbRider.deliveriesCount = (dbRider.deliveriesCount || 0) + 1;
+          newDeliveriesCount = dbRider.deliveriesCount;
+          await dbRider.save();
+        }
+      }
+    }
+
+    // Update in-memory store if present
+    const memOrder = ADMIN_ORDERS_FULL.find(
+      (o) => o.id === id || o.orderId === id || o.id === `#${id}` || o.id === id.replace(/^#/, '')
+    );
+    if (memOrder) {
+      memOrder.status = 'Delivered';
+      memOrder.statusClass = 'bg-emerald-100 text-emerald-800';
+      memOrder.paymentStatus = 'Paid';
+      memOrder.deliveredAt = deliveryTimestamp;
+      memOrder.timeline = buildDynamicTimeline(memOrder);
+    }
+
+    return res.json({
+      success: true,
+      message: 'OTP verified successfully! Order marked Delivered and Cash Collected.',
+      order: foundOrder,
+      riderDeliveriesCount: newDeliveriesCount,
+      collectedAmount: foundOrder.totalPrice || foundOrder.totalAmount,
+      deliveredAt: deliveryTimestamp
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 

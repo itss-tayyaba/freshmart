@@ -44,7 +44,10 @@ export const FreshMartHeader = () => {
     setIsAuthOpen,
     customerUser,
     logoutCustomer,
-    currency
+    currency,
+    tenants,
+    currentTenant,
+    setCurrentTenant
   } = useStore();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -129,9 +132,38 @@ export const FreshMartHeader = () => {
             </span>
             <div className="flex items-center gap-1">
               <span className="text-xs font-bold text-slate-800 truncate max-w-[120px]">
-                {deliveryLocation.city}
+                {deliveryLocation?.city || 'Lahore, Pakistan'}
               </span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
+            </div>
+          </div>
+        </div>
+
+        {/* 🏬 Multi-Tenant Supermarket Switcher */}
+        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-200/80 bg-emerald-50/40 hover:bg-emerald-50 hover:border-emerald-500 transition shrink-0">
+          <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs shadow-xs">
+            🏬
+          </div>
+          <div className="text-left leading-tight">
+            <span className="text-[10px] font-bold text-emerald-800 block uppercase">
+              Supermarket
+            </span>
+            <div className="flex items-center gap-1">
+              <select
+                value={currentTenant?.id || 'tenant-freshmart'}
+                onChange={(e) => {
+                  const target = (tenants || []).find((t) => t.id === e.target.value);
+                  if (target) setCurrentTenant(target);
+                }}
+                className="text-xs font-bold text-slate-900 bg-transparent focus:outline-none cursor-pointer pr-1"
+              >
+                {(tenants || []).map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3 h-3 text-slate-400 pointer-events-none -ml-1" />
             </div>
           </div>
         </div>
@@ -488,6 +520,28 @@ export const FreshMartHeader = () => {
               Search
             </button>
           </form>
+
+          {/* Mobile Supermarket Switcher */}
+          <div className="p-2.5 bg-white border border-emerald-100 rounded-xl flex items-center justify-between shadow-2xs">
+            <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <span>🏬</span> Supermarket:
+            </span>
+            <select
+              value={currentTenant?.id || 'tenant-freshmart'}
+              onChange={(e) => {
+                const target = (tenants || []).find((t) => t.id === e.target.value);
+                if (target) setCurrentTenant(target);
+                setMobileMenuOpen(false);
+              }}
+              className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none"
+            >
+              {(tenants || []).map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Navigation Links */}
           <div className="grid grid-cols-2 gap-2 text-xs font-semibold">

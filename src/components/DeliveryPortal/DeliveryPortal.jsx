@@ -39,9 +39,10 @@ export const DeliveryPortal = () => {
     deleteRider,
     clearAllRiders,
     toggleRiderStatus,
-    customerOrders,
+    customerOrders = [],
     assignRiderToOrder,
     updateDeliveryOrderStatus,
+    verifyOrderDeliveryOtp,
     activeDeliveryOrder,
     currency,
     addToast,
@@ -51,6 +52,13 @@ export const DeliveryPortal = () => {
   const [activeTab, setActiveTab] = useState('riders'); // 'riders' | 'dispatches' | 'radar' | 'simulator'
   const [searchRider, setSearchRider] = useState('');
   const [filterZone, setFilterZone] = useState('All');
+
+  // OTP Verification Modal State for Rider App Handover
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+  const [targetOtpOrder, setTargetOtpOrder] = useState(null);
+  const [enteredOtp, setEnteredOtp] = useState('');
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpError, setOtpError] = useState('');
 
   // Modal State for Adding New Rider
   const [isAddRiderModalOpen, setIsAddRiderModalOpen] = useState(false);
@@ -517,10 +525,10 @@ export const DeliveryPortal = () => {
                       📍 Arrived at Doorstep
                     </button>
                     <button
-                      onClick={() => updateDeliveryOrderStatus(order.id, 'Delivered')}
-                      className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-colors cursor-pointer shadow-2xs"
+                      onClick={() => handleOpenOtpModal(order)}
+                      className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
                     >
-                      ✅ Mark Delivered
+                      <span>🔐 Verify OTP & Deliver</span>
                     </button>
                   </div>
                 </div>
@@ -573,58 +581,187 @@ export const DeliveryPortal = () => {
                 </span>
               </div>
               <div className="flex justify-between text-xs text-slate-400 pt-1 border-t border-slate-700/60">
-                <span>Today's Deliveries: <strong className="text-white">12</strong></span>
-                <span>Rating: <strong className="text-amber-400">⭐ {simulatedRider.rating}</strong></span>
+                <span>Completed Deliveries: <strong className="text-emerald-400 font-mono font-bold">{simulatedRider.deliveriesCount || 0}</strong></span>
+                <span>Rating: <strong className="text-amber-400">⭐ {simulatedRider.rating || 5.0}</strong></span>
               </div>
             </div>
 
             {/* Active Delivery Parcel Task */}
-            <div className="bg-emerald-900/40 border border-emerald-600/40 rounded-3xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black text-emerald-300 uppercase tracking-wider bg-emerald-500/20 px-2 py-0.5 rounded-md">
-                  Active Dispatch Order
-                </span>
-                <span className="text-xs font-mono font-bold text-white">#FM-84210</span>
-              </div>
+            {activeRiderOrder ? (
+              <div className="bg-emerald-900/40 border border-emerald-600/40 rounded-3xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black text-emerald-300 uppercase tracking-wider bg-emerald-500/20 px-2 py-0.5 rounded-md">
+                    {activeRiderOrder.status === 'Delivered' ? 'Delivered Order' : 'Active Dispatch Task'}
+                  </span>
+                  <span className="text-xs font-mono font-bold text-white">
+                    {activeRiderOrder.id || activeRiderOrder.orderId}
+                  </span>
+                </div>
 
-              <div className="space-y-1 text-xs">
-                <span className="text-slate-400 text-[11px]">Drop-off Destination:</span>
-                <p className="font-bold text-white text-sm">House 12, Street 4, Sector B, Johar Town, Lahore</p>
-                <p className="text-emerald-300 text-xs">Customer: Aimen Yasin (0300-1234567)</p>
-              </div>
+                <div className="space-y-1 text-xs">
+                  <span className="text-slate-400 text-[11px]">Drop-off Destination:</span>
+                  <p className="font-bold text-white text-sm">
+                    {activeRiderOrder.shippingAddress?.address || activeRiderOrder.address || 'Standard Delivery Location'}
+                  </p>
+                  <p className="text-emerald-300 text-xs">
+                    Customer: {activeRiderOrder.customerName || activeRiderOrder.customer || 'Valued Customer'} ({activeRiderOrder.customerPhone || '0300-1234567'})
+                  </p>
+                </div>
 
-              <div className="flex justify-between items-center bg-slate-900/80 p-2.5 rounded-xl text-xs font-mono">
-                <span className="text-slate-400">Cash to Collect:</span>
-                <span className="font-black text-emerald-400 text-sm">PKR 2,450 (COD)</span>
-              </div>
+                <div className="flex justify-between items-center bg-slate-900/80 p-2.5 rounded-xl text-xs font-mono">
+                  <span className="text-slate-400">Payment Collection:</span>
+                  <span className={`font-black text-sm ${activeRiderOrder.status === 'Delivered' ? 'text-emerald-300' : 'text-amber-400'}`}>
+                    PKR {activeRiderOrder.totalPrice || activeRiderOrder.totalAmount || activeRiderOrder.total || 0} ({activeRiderOrder.status === 'Delivered' ? 'PAID' : (activeRiderOrder.paymentMethod || 'COD')})
+                  </span>
+                </div>
 
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <a
-                  href="https://maps.google.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border border-slate-700"
-                >
-                  <Navigation className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>GPS Map</span>
-                </a>
-                <a
-                  href="tel:03001234567"
-                  className="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md"
-                >
-                  <Phone className="w-3.5 h-3.5" />
-                  <span>Call Client</span>
-                </a>
-              </div>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <a
+                    href="https://maps.google.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border border-slate-700"
+                  >
+                    <Navigation className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>GPS Map</span>
+                  </a>
+                  <a
+                    href={`tel:${activeRiderOrder.customerPhone || '03001234567'}`}
+                    className="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    <span>Call Client</span>
+                  </a>
+                </div>
 
+                {activeRiderOrder.status !== 'Delivered' ? (
+                  <button
+                    onClick={() => handleOpenOtpModal(activeRiderOrder)}
+                    className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-600 hover:to-teal-500 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg cursor-pointer transition-all hover:scale-105"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Confirm Parcel Delivered & Collect Cash</span>
+                  </button>
+                ) : (
+                  <div className="bg-emerald-500/20 border border-emerald-500/40 rounded-xl p-2.5 text-center text-xs font-bold text-emerald-300">
+                    ✅ Parcel Delivered & Verified via Customer OTP
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-slate-800/60 border border-slate-700 rounded-3xl p-6 text-center space-y-2">
+                <span className="text-3xl">🛵</span>
+                <p className="text-xs font-bold text-slate-300">No active dispatch orders</p>
+                <p className="text-[11px] text-slate-500">Rider {simulatedRider.name} is on standby waiting for dispatch.</p>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL: CUSTOMER HANDOVER OTP VERIFICATION                             */}
+      {/* ===================================================================== */}
+      {isOtpModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 text-slate-900 border border-slate-100">
+            
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-xl shadow-md">
+                  🔐
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900">Verify Customer Handover OTP</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Order {targetOtpOrder?.id || targetOtpOrder?.orderId || 'Active Order'}
+                  </p>
+                </div>
+              </div>
               <button
-                onClick={() => addToast('Delivery Completed! 🎉', 'Parcel marked delivered and cash collected.')}
-                className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+                onClick={() => setIsOtpModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors"
               >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Confirm Parcel Delivered & Collect Cash</span>
+                <X className="w-4 h-4" />
               </button>
             </div>
+
+            <form onSubmit={handleVerifyOtpSubmit} className="space-y-4">
+              <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-3.5 space-y-1 text-xs">
+                <span className="font-bold text-amber-950 block">Customer Verification Required</span>
+                <p className="text-amber-800 text-[11px]">
+                  Ask customer <strong>{targetOtpOrder?.customerName || targetOtpOrder?.customer || 'Recipient'}</strong> for the 4-digit Handover PIN displayed on their app.
+                </p>
+                {targetOtpOrder?.deliveryOtp && (
+                  <div className="pt-1 flex items-center justify-between text-[10px] text-amber-700">
+                    <span>Customer PIN:</span>
+                    <button
+                      type="button"
+                      onClick={() => setEnteredOtp(targetOtpOrder.deliveryOtp)}
+                      className="font-mono font-bold underline cursor-pointer hover:text-amber-950"
+                    >
+                      Fill: {targetOtpOrder.deliveryOtp}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1.5 text-center">
+                <label className="text-xs font-bold text-slate-700 block">Enter 4-Digit Handover OTP</label>
+                <input
+                  type="text"
+                  maxLength={4}
+                  required
+                  autoFocus
+                  placeholder="• • • •"
+                  value={enteredOtp}
+                  onChange={(e) => {
+                    setEnteredOtp(e.target.value.replace(/[^0-9]/g, ''));
+                    setOtpError('');
+                  }}
+                  className="w-full text-center tracking-[0.5em] font-mono text-2xl font-black p-3 bg-slate-50 border-2 border-slate-300 rounded-2xl focus:border-emerald-500 focus:bg-white focus:outline-none"
+                />
+                <span className="text-[10px] text-slate-400 block font-mono">Master Bypass Code: 9999 (For Demo & Testing)</span>
+              </div>
+
+              {otpError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium text-center">
+                  ⚠️ {otpError}
+                </div>
+              )}
+
+              <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-2xl text-xs flex justify-between items-center font-mono">
+                <span className="text-slate-500">Cash to Collect:</span>
+                <span className="font-black text-emerald-700 text-sm">
+                  PKR {targetOtpOrder?.totalPrice || targetOtpOrder?.totalAmount || targetOtpOrder?.total || 0}
+                </span>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsOtpModalOpen(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isVerifyingOtp}
+                  className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl font-bold text-xs cursor-pointer shadow-md shadow-emerald-950/20 flex items-center gap-1.5 transition-all hover:scale-105 disabled:opacity-60"
+                >
+                  {isVerifyingOtp ? (
+                    <span>Verifying...</span>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Verify & Complete Delivery</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
 
           </div>
         </div>

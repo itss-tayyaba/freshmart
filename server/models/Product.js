@@ -111,6 +111,11 @@ const productSchema = new mongoose.Schema(
     vendorName: {
       type: String,
       default: 'FreshMart Direct Partner'
+    },
+    tenantId: {
+      type: String,
+      index: true,
+      default: 'tenant-freshmart'
     }
   },
   {

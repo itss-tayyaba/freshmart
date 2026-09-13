@@ -13,7 +13,8 @@ const supplierSchema = new mongoose.Schema(
     category: { type: String, default: 'Fresh Milk & Pure Dairy' },
     username: { type: String },
     password: { type: String, default: 'supplier123' },
-    status: { type: String, default: 'Active' }
+    status: { type: String, default: 'Active' },
+    tenantId: { type: String, index: true, default: 'tenant-freshmart' }
   },
   { timestamps: true, bufferCommands: false }
 );
@@ -55,7 +56,8 @@ const riderSchema = new mongoose.Schema(
     },
     currentLat: { type: Number },
     currentLng: { type: Number },
-    activeOrders: [{ type: String }]
+    activeOrders: [{ type: String }],
+    tenantId: { type: String, index: true, default: 'tenant-freshmart' }
   },
   { timestamps: true, bufferCommands: false }
 );

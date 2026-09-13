@@ -30,8 +30,13 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['customer', 'admin', 'rider'],
+      enum: ['customer', 'admin', 'superadmin', 'rider', 'supplier'],
       default: 'customer'
+    },
+    tenantId: {
+      type: String,
+      index: true,
+      default: 'tenant-freshmart'
     },
     totalOrders: {
       type: Number,
