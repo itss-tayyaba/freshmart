@@ -10,7 +10,7 @@ export const UnimaartHero = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         
         {/* ========================================================================= */}
-        {/* 1. MAIN LEFT BANNER (FAST DELIVERY COURIER & FRESH FOOD) */}
+        {/* 1. MAIN LEFT BANNER (FAST DELIVERY & FRESH PRODUCE) */}
         {/* ========================================================================= */}
         <div className="lg:col-span-8 bg-[#f0f7fc] rounded-3xl p-6 sm:p-10 lg:p-12 relative overflow-hidden border border-sky-900/10 shadow-xs flex flex-col justify-between min-h-[380px] sm:min-h-[440px]">
           
@@ -49,12 +49,12 @@ export const UnimaartHero = () => {
             </div>
           </div>
 
-          {/* Right Courier Artwork (Matching Screenshot) */}
-          <div className="absolute right-0 bottom-0 top-0 w-1/2 sm:w-5/12 lg:w-1/2 flex items-end justify-end pointer-events-none z-0">
+          {/* Right Fresh Produce Harvest Basket Artwork (No People / Courier) */}
+          <div className="absolute right-0 bottom-0 top-0 w-1/2 sm:w-5/12 lg:w-1/2 flex items-center justify-end pointer-events-none z-0 pr-3 sm:pr-6">
             <img
-              src="/unimaart_courier_hero.jpg"
-              alt="Unimaart Fast Grocery Delivery Courier"
-              className="max-h-[92%] sm:max-h-[98%] w-auto object-contain object-bottom drop-shadow-xl"
+              src="/unimaart_fresh_basket.jpg"
+              alt="Unimaart Farm Fresh Organic Produce"
+              className="max-h-[85%] sm:max-h-[92%] w-auto object-contain rounded-2xl shadow-md"
             />
           </div>
 
