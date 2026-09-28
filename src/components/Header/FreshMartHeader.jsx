@@ -165,7 +165,7 @@ export const FreshMartHeader = () => {
               >
                 {(tenants || []).map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.name}
+                    {t.displayName || t.name}
                   </option>
                 ))}
               </select>

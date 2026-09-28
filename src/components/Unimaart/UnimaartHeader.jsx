@@ -313,11 +313,20 @@ export const UnimaartHeader = () => {
             >
               {(tenants || []).map((t) => (
                 <option key={t.id} value={t.id} className="text-slate-900 bg-white font-bold">
-                  {t.name}
+                  {t.displayName || t.name}
                 </option>
               ))}
             </select>
           </div>
+
+          {/* Admin Dashboard Quick Access Button */}
+          <button
+            onClick={() => navigateTo('admin')}
+            className="flex items-center gap-1.5 text-xs font-black text-amber-300 hover:text-amber-200 bg-black/25 hover:bg-black/35 px-3 py-1.5 rounded-xl border border-amber-300/40 shadow-xs transition-all cursor-pointer"
+            title="Open Unimaart Store Admin Dashboard"
+          >
+            <span>⚡ Admin</span>
+          </button>
 
           {/* Accounts Button matching screenshot */}
           <button

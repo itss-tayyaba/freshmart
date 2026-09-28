@@ -144,6 +144,21 @@ export const StoreProvider = ({ children }) => {
 
   const [currentTenant, setCurrentTenantState] = useState(() => {
     try {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const storeParam = params.get('store') || params.get('tenant') || params.get('branch');
+        if (storeParam) {
+          const s = storeParam.toLowerCase();
+          const foundByParam = INITIAL_TENANTS.find(
+            (t) =>
+              t.id.toLowerCase() === s ||
+              t.slug.toLowerCase() === s ||
+              (t.displayName && t.displayName.toLowerCase().includes(s)) ||
+              t.name.toLowerCase().includes(s)
+          );
+          if (foundByParam) return foundByParam;
+        }
+      }
       const savedId = localStorage.getItem('freshmart_current_tenant_id');
       if (savedId) {
         const found = INITIAL_TENANTS.find((t) => t.id === savedId || t.slug === savedId);
