@@ -23,6 +23,10 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: true
     },
+    categoryId: {
+      type: String,
+      index: true
+    },
     categoryLabel: {
       type: String,
       default: 'General'

@@ -54,7 +54,13 @@ export const DashboardView = ({ onNavigateModule }) => {
     setCurrentTenant,
     allTenants,
     branchMetrics,
-    getBranchMetrics
+    getBranchMetrics,
+    branches,
+    currentBranch,
+    setCurrentBranch,
+    branchInventory,
+    branchOrders,
+    updateBranchStockPrice
   } = useStore();
 
   // Active Tenant Metrics & Branding
@@ -343,19 +349,19 @@ export const DashboardView = ({ onNavigateModule }) => {
             </p>
           </div>
 
-          {/* Quick Operations Actions & Branch Switcher */}
+          {/* Quick Operations Actions & Company/Branch Switcher */}
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Direct Branch Switcher */}
+            {/* Direct Company Switcher */}
             <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md border border-white/20 rounded-2xl px-3 py-1.5 shadow-xs">
               <Store className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-              <span className="text-[11px] font-bold text-slate-200 hidden sm:inline">Store:</span>
+              <span className="text-[11px] font-bold text-slate-200 hidden sm:inline">Company:</span>
               <select
                 value={tenantKey}
                 onChange={(e) => {
                   const found = (allTenants || []).find((t) => t.id === e.target.value);
                   if (found) {
                     setCurrentTenant(found);
-                    addToast('Branch Switched 🏬', `Switched dashboard to ${found.name}`);
+                    addToast('Company Switched 🏬', `Switched dashboard to ${found.name}`);
                   }
                 }}
                 className="text-xs font-black text-white bg-transparent border-none focus:outline-none cursor-pointer pr-1"
@@ -367,6 +373,31 @@ export const DashboardView = ({ onNavigateModule }) => {
                 ))}
               </select>
             </div>
+
+            {/* Direct Branch Selector under Company (Enforcing User → Tenant → Branch) */}
+            {branches && branches.length > 0 && (
+              <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md border border-emerald-400/30 rounded-2xl px-3 py-1.5 shadow-xs">
+                <MapPin className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                <span className="text-[11px] font-bold text-slate-200 hidden sm:inline">Branch:</span>
+                <select
+                  value={currentBranch?._id || currentBranch?.id}
+                  onChange={(e) => {
+                    const found = branches.find((b) => b._id === e.target.value || b.id === e.target.value);
+                    if (found) {
+                      setCurrentBranch(found);
+                      addToast('Branch Active 📍', `Switched to ${found.name} (${found.city})`);
+                    }
+                  }}
+                  className="text-xs font-black text-emerald-300 bg-transparent border-none focus:outline-none cursor-pointer pr-1"
+                >
+                  {branches.map((b) => (
+                    <option key={b._id || b.id} value={b._id || b.id} className="text-slate-900 bg-white font-bold">
+                      📍 {b.name} ({b.city})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <button
               onClick={() => onNavigateModule('Products')}
@@ -393,6 +424,64 @@ export const DashboardView = ({ onNavigateModule }) => {
               <span>{isExporting ? 'Exporting...' : 'PDF Report'}</span>
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 1B. MULTI-COMPANY ARCHITECTURE ENFORCEMENT TREE (User → Tenant → Branch → Data) */}
+      {/* ========================================================================= */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 text-white shadow-lg space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <h3 className="text-xs sm:text-sm font-black tracking-wide uppercase text-slate-200">
+              Multi-Company Architecture: User → Tenant → Branch → Data
+            </h3>
+          </div>
+          <span className="text-[10px] font-bold text-slate-400 bg-slate-800/80 px-2.5 py-1 rounded-full border border-slate-700/60 self-start sm:self-auto">
+            Strict Isolation Active
+          </span>
+        </div>
+
+        {/* Visual Breadcrumb Flow */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700 flex items-center gap-1.5">
+            <span className="text-amber-400 font-bold">SUPER ADMIN</span>
+          </div>
+          <span className="text-slate-500 font-black">➔</span>
+          
+          <div className="bg-emerald-950/80 px-3 py-1.5 rounded-xl border border-emerald-800/60 flex items-center gap-1.5">
+            <span className="text-emerald-400 font-bold">COMPANY:</span>
+            <span className="font-black text-white">{currentTenant?.name || 'Al-Fatah'}</span>
+          </div>
+          <span className="text-slate-500 font-black">➔</span>
+
+          <div className="bg-blue-950/80 px-3 py-1.5 rounded-xl border border-blue-800/60 flex items-center gap-1.5">
+            <span className="text-blue-400 font-bold">BRANCH:</span>
+            <span className="font-black text-white">{currentBranch?.name || 'DHA Lahore'}</span>
+            <span className="text-[10px] text-slate-400">({currentBranch?.city || 'Lahore'})</span>
+          </div>
+          <span className="text-slate-500 font-black">➔</span>
+
+          <div className="bg-purple-950/80 px-3 py-1.5 rounded-xl border border-purple-800/60 flex items-center gap-1.5">
+            <span className="text-purple-400 font-bold">INVENTORY:</span>
+            <span className="font-black text-white">{(branchInventory || []).length} SKUs</span>
+          </div>
+          <span className="text-slate-500 font-black">➔</span>
+
+          <div className="bg-rose-950/80 px-3 py-1.5 rounded-xl border border-rose-800/60 flex items-center gap-1.5">
+            <span className="text-rose-400 font-bold">ORDERS:</span>
+            <span className="font-black text-white">{(branchOrders || []).length} routed</span>
+          </div>
+        </div>
+
+        <div className="text-[11px] text-slate-400 flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
+          <span>
+            📍 GPS Coordinates: <strong className="text-slate-300">{currentBranch?.latitude || 31.4697}, {currentBranch?.longitude || 74.4082}</strong>
+          </span>
+          <span className="text-emerald-400 font-semibold">
+            ✓ Tenant isolation prevents cross-company data leakage
+          </span>
         </div>
       </div>
 

@@ -17,10 +17,36 @@ import {
   FRESHMART_PRODUCTS_CATALOG,
   BRANCH_METRICS
 } from '../data/branchCatalogData';
+import {
+  COMPANIES,
+  BRANCHES,
+  INVENTORY as SEED_INVENTORY,
+  ORDERS as SEED_BRANCH_ORDERS,
+  resolveTenantId,
+  getBranchesByTenant,
+  getProductsByTenant,
+  getInventoryByBranch,
+  getOrdersByBranch,
+  updateBranchInventory
+} from '../data/companyHierarchyData';
 import { apiService } from '../services/api';
 import { parseRouteFromUrl, getSeoMetadata } from '../utils/routeUtils';
 
-export { parseRouteFromUrl, getSeoMetadata, INITIAL_TENANTS, SUBSCRIPTION_PLANS, BRANCH_METRICS };
+export {
+  parseRouteFromUrl,
+  getSeoMetadata,
+  INITIAL_TENANTS,
+  SUBSCRIPTION_PLANS,
+  BRANCH_METRICS,
+  COMPANIES,
+  BRANCHES,
+  resolveTenantId,
+  getBranchesByTenant,
+  getProductsByTenant,
+  getInventoryByBranch,
+  getOrdersByBranch,
+  updateBranchInventory
+};
 
 const StoreContext = createContext();
 
@@ -126,6 +152,57 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
     return INITIAL_TENANTS.find((t) => t.id === 'tenant-freshmart') || INITIAL_TENANTS[0];
   });
+
+  // --- 🏢 Multi-Company & Branch Architecture State (User → Tenant → Branch → Data) ---
+  const [currentBranch, setCurrentBranchState] = useState(() => {
+    try {
+      const savedBranchId = localStorage.getItem('freshmart_current_branch_id');
+      if (savedBranchId) {
+        const found = BRANCHES.find((b) => b._id === savedBranchId || b.id === savedBranchId);
+        if (found) return found;
+      }
+    } catch (e) {}
+    const canonicalTenantId = resolveTenantId(currentTenant?.id || 'company_004');
+    return BRANCHES.find((b) => b.tenantId === canonicalTenantId) || BRANCHES[0];
+  });
+
+  const setCurrentBranch = (branch) => {
+    setCurrentBranchState(branch);
+    try {
+      if (branch?._id) localStorage.setItem('freshmart_current_branch_id', branch._id);
+    } catch (e) {}
+  };
+
+  // Automatically synchronize active branch when switching company/tenant
+  useEffect(() => {
+    if (!currentTenant) return;
+    const canonical = resolveTenantId(currentTenant.id || currentTenant._id);
+    if (currentBranch && currentBranch.tenantId !== canonical) {
+      const tenantBranches = BRANCHES.filter((b) => b.tenantId === canonical);
+      if (tenantBranches.length > 0) {
+        setCurrentBranch(tenantBranches[0]);
+      }
+    }
+  }, [currentTenant]);
+
+  // Master Branch Inventory & Branch Orders State
+  const [branchInventory, setBranchInventory] = useState(SEED_INVENTORY);
+  const [branchOrders, setBranchOrders] = useState(SEED_BRANCH_ORDERS);
+
+  const updateBranchStockPrice = (tenantId, branchId, productId, update) => {
+    const updated = updateBranchInventory(tenantId, branchId, productId, update);
+    if (updated) {
+      setBranchInventory((prev) =>
+        prev.map((i) =>
+          i.tenantId === updated.tenantId && i.branchId === updated.branchId && i.productId === updated.productId
+            ? { ...i, ...updated }
+            : i
+        )
+      );
+      addToast('Branch Inventory Updated 📦', `Updated product ${productId} at ${branchId}`);
+    }
+    return updated;
+  };
 
   const [allProducts, setAllProducts] = useState(() => {
     try {
@@ -3253,7 +3330,24 @@ export const StoreProvider = ({ children }) => {
         updateTenantSubscription,
         getTenantOrders,
         getTenantPerformance,
-        getPlatformOverview
+        getPlatformOverview,
+        // --- 🏢 Multi-Company & Branch Architecture Values ---
+        companies: COMPANIES,
+        allBranches: BRANCHES,
+        currentBranch,
+        setCurrentBranch,
+        branches: BRANCHES.filter((b) => b.tenantId === resolveTenantId(currentTenant?.id)),
+        branchInventory: branchInventory.filter(
+          (i) => i.tenantId === resolveTenantId(currentTenant?.id) && (!currentBranch?._id || i.branchId === currentBranch?._id)
+        ),
+        branchOrders: branchOrders.filter(
+          (o) => o.tenantId === resolveTenantId(currentTenant?.id) && (!currentBranch?._id || o.branchId === currentBranch?._id)
+        ),
+        updateBranchStockPrice,
+        getBranchesByTenant,
+        getProductsByTenant,
+        getInventoryByBranch,
+        getOrdersByBranch
       }}
     >
       {children}
