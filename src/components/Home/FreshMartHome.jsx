@@ -29,6 +29,9 @@ import {
   FRESHMART_CATEGORIES,
   FRESHMART_PRODUCTS
 } from '../../data/freshMartData';
+import { UnimaartHero } from '../Unimaart/UnimaartHero';
+import { UnimaartCategoryStrip } from '../Unimaart/UnimaartCategoryStrip';
+import { UnimaartTopSave } from '../Unimaart/UnimaartTopSave';
 
 export const FreshMartHome = () => {
   const {
@@ -45,7 +48,8 @@ export const FreshMartHome = () => {
     applyCouponCode,
     products,
     categories,
-    storeSettings
+    storeSettings,
+    currentTenant
   } = useStore();
 
   // Active category filter tab for Bestsellers
@@ -116,242 +120,304 @@ export const FreshMartHome = () => {
         )}
       </div>
 
-      {/* 🚀 2. Hero Section */}
-      <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="relative rounded-3xl bg-gradient-to-r from-[#eef9f2] via-[#f7faf8] to-[#f4ede4] overflow-hidden border border-emerald-950/5 shadow-xl p-6 sm:p-10 lg:p-14 flex flex-col lg:flex-row items-center justify-between gap-8 min-h-[440px]">
-          
-          {/* Left Text Block */}
-          <div className="max-w-xl z-10 text-left space-y-4">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-100 text-emerald-900 text-xs font-extrabold shadow-2xs">
-              <Zap className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" />
-              <span>FRESHNESS GUARANTEED • 10-15 MIN EXPRESS DELIVERY</span>
-            </div>
+      {/* 🚀 STORE-SPECIFIC HERO & CATEGORY EXPERIENCES */}
+      {currentTenant?.id === 'tenant-freshmart' ? (
+        <>
+          {/* ========================================================================= */}
+          {/* UNIMAART MARKET STORE HERO, CATEGORIES & TOP SAVE TODAY (MATCHING SCREENSHOT) */}
+          {/* ========================================================================= */}
+          <UnimaartHero />
+          <UnimaartCategoryStrip />
+          <UnimaartTopSave />
 
-            <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-[1.12]">
-              Fresh Groceries <br />
-              <span className="text-emerald-700">Delivered Fast</span>
-            </h2>
-
-            <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-medium max-w-lg">
-              Shop the best quality farm fresh fruits, crisp vegetables, dairy, pantry staples and daily essentials delivered to your doorstep in minutes.
-            </p>
-
-            <div className="pt-2 flex items-center gap-3 sm:gap-4 flex-wrap">
-              <button
-                onClick={() => navigateTo('shop')}
-                className="px-8 py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white font-black rounded-2xl text-sm flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer transform hover:-translate-y-0.5"
-              >
-                <span>Shop Now</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={() => navigateTo('shop')}
-                className="px-6 py-3.5 bg-white hover:bg-slate-50 text-slate-800 font-bold rounded-2xl text-sm border border-slate-200 shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
-              >
-                <Sparkles className="w-4 h-4 text-emerald-600" />
-                <span>Explore Catalog</span>
-              </button>
-            </div>
-
-            {/* Quick Micro Trust Counters */}
-            <div className="pt-4 flex items-center gap-6 text-xs text-slate-500 font-semibold border-t border-emerald-900/10">
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>100% Farm Sourced</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Zero Contact Delivery</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Hero Image + Dynamic Floating Badge */}
-          <div className="relative z-10 flex items-center justify-center max-w-md w-full">
-            <div className="relative">
-              
-              {/* Floating Badge (Dynamic from Admin / 100% Fresh) */}
-              <div className="absolute -top-4 right-2 sm:-right-4 w-22 h-22 sm:w-26 sm:h-26 rounded-full bg-emerald-600 text-white shadow-2xl flex flex-col items-center justify-center p-2 text-center border-4 border-white animate-bounce-soft z-20">
-                {storeSettings?.heroDiscountPercent > 0 ? (
-                  <>
-                    <span className="text-[10px] font-bold uppercase tracking-wider leading-none">FLAT</span>
-                    <span className="text-xl sm:text-3xl font-black leading-none my-0.5">{storeSettings.heroDiscountPercent}%</span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider leading-none">OFF</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-[10px] font-bold uppercase tracking-wider leading-none">100%</span>
-                    <span className="text-sm sm:text-base font-black leading-tight my-0.5">FRESH</span>
-                    <span className="text-[9px] font-bold uppercase tracking-wider leading-none">ORGANIC</span>
-                  </>
-                )}
-              </div>
-
-              {/* High Res Produce Artwork */}
-              <img
-                src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80"
-                alt="Fresh Produce Basket"
-                className="w-full h-72 sm:h-88 object-cover rounded-3xl shadow-2xl border-4 border-white"
-              />
-
-              {/* Express Delivery Floating Card */}
-              <div className="absolute -bottom-4 -left-4 bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-xl border border-slate-100 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-black">
-                  ⚡
+          {/* 🛡️ 4-Pillar Value Proposition Bar */}
+          <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+            <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-sm border border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+              <div className="flex items-center gap-3.5 pt-2 sm:pt-0">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-[#00a676] flex items-center justify-center shrink-0">
+                  <Truck className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="text-xs font-black text-slate-900 block">30-45 Mins</span>
-                  <span className="text-[10px] text-slate-400 font-semibold">Express Delivery</span>
+                  <h4 className="text-xs sm:text-sm font-black text-slate-800">Fast Delivery</h4>
+                  <p className="text-[11px] text-slate-500">10-15 mins express at doorstep</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3.5 pt-2 sm:pt-0 sm:pl-6">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-[#00a676] flex items-center justify-center shrink-0">
+                  <Award className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-black text-slate-800">Best Quality</h4>
+                  <p className="text-[11px] text-slate-500">100% farm-fresh produce</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3.5 pt-2 sm:pt-0 sm:pl-6">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-[#00a676] flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-black text-slate-800">Safe Payment</h4>
+                  <p className="text-[11px] text-slate-500">100% secure checkout & COD</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3.5 pt-2 sm:pt-0 sm:pl-6">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-[#00a676] flex items-center justify-center shrink-0">
+                  <PhoneCall className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-black text-slate-800">24/7 Support</h4>
+                  <p className="text-[11px] text-slate-500">+9870-256-679 helpline</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </>
+      ) : (
+        <>
+          {/* ========================================================================= */}
+          {/* SUPERMARKET HERO & CATEGORY CAROUSEL (AL-FATAH, CHASE VALUE, CHASE UP) */}
+          {/* ========================================================================= */}
+          {/* 🚀 2. Hero Section */}
+          <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+            <div className="relative rounded-3xl bg-gradient-to-r from-[#eef9f2] via-[#f7faf8] to-[#f4ede4] overflow-hidden border border-emerald-950/5 shadow-xl p-6 sm:p-10 lg:p-14 flex flex-col lg:flex-row items-center justify-between gap-8 min-h-[440px]">
+              
+              {/* Left Text Block */}
+              <div className="max-w-xl z-10 text-left space-y-4">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-100 text-emerald-900 text-xs font-extrabold shadow-2xs">
+                  <Zap className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" />
+                  <span>FRESHNESS GUARANTEED • 10-15 MIN EXPRESS DELIVERY</span>
+                </div>
+
+                <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-[1.12]">
+                  Fresh Groceries <br />
+                  <span className="text-emerald-700">Delivered Fast</span>
+                </h2>
+
+                <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-medium max-w-lg">
+                  Shop the best quality farm fresh fruits, crisp vegetables, dairy, pantry staples and daily essentials delivered to your doorstep in minutes.
+                </p>
+
+                <div className="pt-2 flex items-center gap-3 sm:gap-4 flex-wrap">
+                  <button
+                    onClick={() => navigateTo('shop')}
+                    className="px-8 py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white font-black rounded-2xl text-sm flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer transform hover:-translate-y-0.5"
+                  >
+                    <span>Shop Now</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={() => navigateTo('shop')}
+                    className="px-6 py-3.5 bg-white hover:bg-slate-50 text-slate-800 font-bold rounded-2xl text-sm border border-slate-200 shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-4 h-4 text-emerald-600" />
+                    <span>Explore Catalog</span>
+                  </button>
+                </div>
+
+                {/* Quick Micro Trust Counters */}
+                <div className="pt-4 flex items-center gap-6 text-xs text-slate-500 font-semibold border-t border-emerald-900/10">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>100% Farm Sourced</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Zero Contact Delivery</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Hero Image + Dynamic Floating Badge */}
+              <div className="relative z-10 flex items-center justify-center max-w-md w-full">
+                <div className="relative">
+                  
+                  {/* Floating Badge (Dynamic from Admin / 100% Fresh) */}
+                  <div className="absolute -top-4 right-2 sm:-right-4 w-22 h-22 sm:w-26 sm:h-26 rounded-full bg-emerald-600 text-white shadow-2xl flex flex-col items-center justify-center p-2 text-center border-4 border-white animate-bounce-soft z-20">
+                    {storeSettings?.heroDiscountPercent > 0 ? (
+                      <>
+                        <span className="text-[10px] font-bold uppercase tracking-wider leading-none">FLAT</span>
+                        <span className="text-xl sm:text-3xl font-black leading-none my-0.5">{storeSettings.heroDiscountPercent}%</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider leading-none">OFF</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-[10px] font-bold uppercase tracking-wider leading-none">100%</span>
+                        <span className="text-sm sm:text-base font-black leading-tight my-0.5">FRESH</span>
+                        <span className="text-[9px] font-bold uppercase tracking-wider leading-none">ORGANIC</span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* High Res Produce Artwork */}
+                  <img
+                    src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80"
+                    alt="Fresh Produce Basket"
+                    className="w-full h-72 sm:h-88 object-cover rounded-3xl shadow-2xl border-4 border-white"
+                  />
+
+                  {/* Express Delivery Floating Card */}
+                  <div className="absolute -bottom-4 -left-4 bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-xl border border-slate-100 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-black">
+                      ⚡
+                    </div>
+                    <div>
+                      <span className="text-xs font-black text-slate-900 block">30-45 Mins</span>
+                      <span className="text-[10px] text-slate-400 font-semibold">Express Delivery</span>
+                    </div>
+                  </div>
+
                 </div>
               </div>
 
             </div>
-          </div>
+          </section>
 
-        </div>
-      </section>
-
-      {/* 🛡️ 3. 4-Pillar Value Proposition Bar matching all 4 designs */}
-      <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-sm border border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
-          
-          <div className="flex items-center gap-3.5 pt-2 sm:pt-0">
-            <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-              <Truck className="w-6 h-6" />
-            </div>
-            <div>
-              <h4 className="text-xs sm:text-sm font-black text-slate-800">Fast Delivery</h4>
-              <p className="text-[11px] text-slate-500">30-60 mins delivery at doorstep</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3.5 pt-2 sm:pt-0 sm:pl-6">
-            <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-              <Award className="w-6 h-6" />
-            </div>
-            <div>
-              <h4 className="text-xs sm:text-sm font-black text-slate-800">Best Quality</h4>
-              <p className="text-[11px] text-slate-500">100% fresh & trusted products</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3.5 pt-2 sm:pt-0 sm:pl-6">
-            <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <h4 className="text-xs sm:text-sm font-black text-slate-800">Safe Payment</h4>
-              <p className="text-[11px] text-slate-500">100% secure checkout & COD</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3.5 pt-2 sm:pt-0 sm:pl-6">
-            <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-              <PhoneCall className="w-6 h-6" />
-            </div>
-            <div>
-              <h4 className="text-xs sm:text-sm font-black text-slate-800">24/7 Support</h4>
-              <p className="text-[11px] text-slate-500">We're always here to help you</p>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-      {/* 🗂️ 4. Shop by Categories - Circular Carousel matching GreenMart & DailyNeeds */}
-      <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Shop by Categories</h2>
-            <p className="text-xs text-slate-500">Explore our wide selection of fresh organic groceries</p>
-          </div>
-          <button
-            onClick={() => navigateTo('shop')}
-            className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
-          >
-            <span>View All</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <div className="flex items-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar py-2 px-1">
-          {categories.map((cat) => (
-            <div
-              key={cat.id}
-              onClick={() => {
-                setActiveCategory(cat.id);
-                navigateTo('shop');
-              }}
-              className="flex flex-col items-center text-center cursor-pointer group min-w-[76px] sm:min-w-[92px]"
-            >
-              <div className="w-18 h-18 sm:w-22 sm:h-22 rounded-full bg-white p-1.5 border-2 border-slate-100 group-hover:border-emerald-500 transition-all duration-200 flex items-center justify-center overflow-hidden shadow-xs group-hover:shadow-md transform group-hover:scale-105">
-                <img
-                  src={cat.image}
-                  alt={cat.name}
-                  className="w-full h-full object-cover rounded-full"
-                  loading="lazy"
-                />
+          {/* 🛡️ 3. 4-Pillar Value Proposition Bar matching all 4 designs */}
+          <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+            <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-sm border border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+              
+              <div className="flex items-center gap-3.5 pt-2 sm:pt-0">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                  <Truck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-black text-slate-800">Fast Delivery</h4>
+                  <p className="text-[11px] text-slate-500">30-60 mins delivery at doorstep</p>
+                </div>
               </div>
 
-              <span className="text-[11px] sm:text-xs font-bold text-slate-700 mt-2 group-hover:text-emerald-700 transition-colors leading-tight whitespace-pre-line">
-                {cat.shortName || cat.name}
-              </span>
+              <div className="flex items-center gap-3.5 pt-2 sm:pt-0 sm:pl-6">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                  <Award className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-black text-slate-800">Best Quality</h4>
+                  <p className="text-[11px] text-slate-500">100% fresh & trusted products</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3.5 pt-2 sm:pt-0 sm:pl-6">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-black text-slate-800">Safe Payment</h4>
+                  <p className="text-[11px] text-slate-500">100% secure checkout & COD</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3.5 pt-2 sm:pt-0 sm:pl-6">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                  <PhoneCall className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-black text-slate-800">24/7 Support</h4>
+                  <p className="text-[11px] text-slate-500">We're always here to help you</p>
+                </div>
+              </div>
+
             </div>
-          ))}
-        </div>
-      </section>
+          </section>
 
-      {/* 📸 5. Top Photographic Categories Banner Grid matching FreshBasket design */}
-      <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Top Categories</h2>
-          <button
-            onClick={() => navigateTo('shop')}
-            className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
-          >
-            <span>View All</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {categories.slice(0, 6).map((cat) => (
-            <div
-              key={cat.id}
-              onClick={() => {
-                setActiveCategory(cat.id);
-                navigateTo('shop');
-              }}
-              className="bg-white rounded-3xl p-4 border border-slate-100 shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer group flex flex-col justify-between"
-            >
+          {/* 🗂️ 4. Shop by Categories - Circular Carousel matching GreenMart & DailyNeeds */}
+          <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-4">
+            <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-xs sm:text-sm font-black text-slate-900 group-hover:text-emerald-700 transition-colors line-clamp-1">
-                  {cat.name}
-                </h3>
-                {cat.discountBadge ? (
-                  <span className="text-[11px] font-bold text-emerald-600 block mt-0.5">
-                    {cat.discountBadge}
-                  </span>
-                ) : (
-                  <span className="text-[11px] text-slate-400 font-semibold block mt-0.5">
-                    {cat.itemCount ? `${cat.itemCount} items` : 'Fresh Daily'}
-                  </span>
-                )}
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Shop by Categories</h2>
+                <p className="text-xs text-slate-500">Explore our wide selection of fresh organic groceries</p>
               </div>
-
-              <div className="h-24 sm:h-28 rounded-2xl overflow-hidden mt-3 bg-slate-50">
-                <img
-                  src={cat.image}
-                  alt={cat.name}
-                  className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-300"
-                  loading="lazy"
-                />
-              </div>
+              <button
+                onClick={() => navigateTo('shop')}
+                className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>View All</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
-          ))}
-        </div>
-      </section>
+
+            <div className="flex items-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar py-2 px-1">
+              {categories.map((cat) => (
+                <div
+                  key={cat.id}
+                  onClick={() => {
+                    setActiveCategory(cat.id);
+                    navigateTo('shop');
+                  }}
+                  className="flex flex-col items-center text-center cursor-pointer group min-w-[76px] sm:min-w-[92px]"
+                >
+                  <div className="w-18 h-18 sm:w-22 sm:h-22 rounded-full bg-white p-1.5 border-2 border-slate-100 group-hover:border-emerald-500 transition-all duration-200 flex items-center justify-center overflow-hidden shadow-xs group-hover:shadow-md transform group-hover:scale-105">
+                    <img
+                      src={cat.image}
+                      alt={cat.name}
+                      className="w-full h-full object-cover rounded-full"
+                      loading="lazy"
+                    />
+                  </div>
+
+                  <span className="text-[11px] sm:text-xs font-bold text-slate-700 mt-2 group-hover:text-emerald-700 transition-colors leading-tight whitespace-pre-line">
+                    {cat.shortName || cat.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* 📸 5. Top Photographic Categories Banner Grid matching FreshBasket design */}
+          <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Top Categories</h2>
+              <button
+                onClick={() => navigateTo('shop')}
+                className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>View All</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+              {categories.slice(0, 6).map((cat) => (
+                <div
+                  key={cat.id}
+                  onClick={() => {
+                    setActiveCategory(cat.id);
+                    navigateTo('shop');
+                  }}
+                  className="bg-white rounded-3xl p-4 border border-slate-100 shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer group flex flex-col justify-between"
+                >
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-black text-slate-900 group-hover:text-emerald-700 transition-colors line-clamp-1">
+                      {cat.name}
+                    </h3>
+                    {cat.discountBadge ? (
+                      <span className="text-[11px] font-bold text-emerald-600 block mt-0.5">
+                        {cat.discountBadge}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-slate-400 font-semibold block mt-0.5">
+                        {cat.itemCount ? `${cat.itemCount} items` : 'Fresh Daily'}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="h-24 sm:h-28 rounded-2xl overflow-hidden mt-3 bg-slate-50">
+                    <img
+                      src={cat.image}
+                      alt={cat.name}
+                      className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
 
       {/* ⏰ 6. Featured Produce & Express Delivery Guarantee Banner */}
       <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">

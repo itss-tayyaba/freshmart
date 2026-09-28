@@ -45,7 +45,19 @@ import { VendorPortal } from '../VendorPortal/VendorPortal';
 import { SuperAdminDashboard } from '../SuperAdmin/SuperAdminDashboard';
 
 export const AdminDashboard = () => {
-  const { navigateTo, isAdminLoggedIn, adminLogout, adminRole, user, products, customerOrders, customers, currentTenant } = useStore();
+  const {
+    navigateTo,
+    isAdminLoggedIn,
+    adminLogout,
+    adminRole,
+    user,
+    products,
+    customerOrders,
+    customers,
+    currentTenant,
+    setCurrentTenant,
+    allTenants
+  } = useStore();
   const [superAdminImpersonateMode, setSuperAdminImpersonateMode] = useState(false);
   
   // Set initial activeTab based on logged-in role
@@ -173,11 +185,11 @@ export const AdminDashboard = () => {
       {/* 📱 Mobile Top Header Bar (< lg screens) */}
       <div className="lg:hidden bg-[#0f172a] text-slate-200 px-4 py-3.5 flex items-center justify-between border-b border-slate-800 sticky top-0 z-40 shadow-md">
         <div onClick={() => navigateTo('home')} className="flex items-center gap-2.5 cursor-pointer">
-          <div className={`w-8 h-8 rounded-xl ${currentRoleInfo.iconBg} flex items-center justify-center text-white font-black text-base shadow-xs`}>
-            🛒
+          <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-black text-base shadow-xs">
+            {currentTenant?.logo || '🏬'}
           </div>
           <div>
-            <h2 className="text-sm font-black text-white leading-none">FreshMart</h2>
+            <h2 className="text-sm font-black text-white leading-none">{currentTenant?.name || 'Store Admin'}</h2>
             <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block mt-0.5">
               {currentRoleInfo.badge}
             </span>
@@ -210,11 +222,11 @@ export const AdminDashboard = () => {
               {/* Brand in Mobile Drawer */}
               <div className="flex items-center justify-between pb-4 border-b border-slate-800">
                 <div onClick={() => { navigateTo('home'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2.5 cursor-pointer">
-                  <div className={`w-9 h-9 rounded-xl ${currentRoleInfo.iconBg} flex items-center justify-center text-white font-black text-lg shadow-md`}>
-                    🛒
+                  <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-black text-lg shadow-md">
+                    {currentTenant?.logo || '🏬'}
                   </div>
                   <div>
-                    <h2 className="text-base font-black text-white leading-none">FreshMart</h2>
+                    <h2 className="text-base font-black text-white leading-none">{currentTenant?.name || 'Store Admin'}</h2>
                     <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block mt-1">
                       {currentRoleInfo.badge}
                     </span>
@@ -297,12 +309,12 @@ export const AdminDashboard = () => {
               onClick={() => navigateTo('home')}
               className="flex items-center gap-2.5 cursor-pointer group min-w-0"
             >
-              <div className={`w-9 h-9 rounded-xl ${currentRoleInfo.iconBg} flex items-center justify-center text-white font-black text-lg shadow-md group-hover:scale-105 transition-transform shrink-0`}>
-                🛒
+              <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-black text-lg shadow-md group-hover:scale-105 transition-transform shrink-0">
+                {currentTenant?.logo || '🏬'}
               </div>
               {!isSidebarCollapsed && (
                 <div className="truncate animate-in fade-in duration-200">
-                  <h2 className="text-base font-black text-white leading-none truncate">FreshMart</h2>
+                  <h2 className="text-base font-black text-white leading-none truncate">{currentTenant?.name || 'Store Admin'}</h2>
                   <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block mt-1 truncate">
                     {currentRoleInfo.badge}
                   </span>
@@ -408,7 +420,29 @@ export const AdminDashboard = () => {
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           </div>
 
-          <div className="flex items-center gap-4 ml-auto">
+          <div className="flex items-center gap-3 ml-auto">
+            {/* Supermarket Branch Switcher Dropdown */}
+            {allTenants && allTenants.length > 0 && (
+              <div className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200/70 border border-slate-200 rounded-xl px-2.5 py-1.5 transition-colors">
+                <Store className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                <span className="text-[11px] font-bold text-slate-500 hidden xl:inline">Store:</span>
+                <select
+                  value={currentTenant?.id || 'tenant-alfatah'}
+                  onChange={(e) => {
+                    const found = allTenants.find((t) => t.id === e.target.value);
+                    if (found) setCurrentTenant(found);
+                  }}
+                  className="text-xs font-black text-slate-800 bg-transparent border-none focus:outline-none cursor-pointer"
+                >
+                  {allTenants.map((t) => (
+                    <option key={t.id} value={t.id} className="text-slate-900 bg-white font-bold">
+                      {t.logo || '🏬'} {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Quick Switch to Storefront */}
             <button
               onClick={() => navigateTo('home')}

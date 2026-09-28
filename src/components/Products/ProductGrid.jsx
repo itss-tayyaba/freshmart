@@ -16,13 +16,13 @@ const CATEGORY_TABS = [
 ];
 
 export const ProductGrid = () => {
-  const { activeCategory, setActiveCategory } = useStore();
+  const { activeCategory, setActiveCategory, products, currentTenant } = useStore();
   const [sortBy, setSortBy] = useState('recommended');
   const [onlyOrganic, setOnlyOrganic] = useState(false);
 
   // Filter and sort products
   const filteredProducts = useMemo(() => {
-    let result = [...PRODUCTS];
+    let result = Array.isArray(products) && products.length > 0 ? [...products] : [...PRODUCTS];
 
     if (activeCategory && activeCategory !== 'all') {
       result = result.filter((p) => p.category === activeCategory);
@@ -51,23 +51,30 @@ export const ProductGrid = () => {
     }
 
     return result;
-  }, [activeCategory, sortBy, onlyOrganic]);
+  }, [products, activeCategory, sortBy, onlyOrganic]);
 
   return (
     <section id="products-section" className="py-8 px-4 sm:px-8 max-w-7xl mx-auto">
       {/* Section Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold uppercase tracking-wider text-brand-green bg-emerald-100/80 px-2.5 py-1 rounded-full">
-              Explore Our Store
+              Explore Store
             </span>
+            {currentTenant && (
+              <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-slate-900 text-white flex items-center gap-1.5 shadow-xs border border-slate-700">
+                <span>{currentTenant.logo || '🏬'}</span>
+                <span>{currentTenant.name}</span>
+                <span className="text-emerald-400 text-[10px] hidden sm:inline">&bull; {currentTenant.badge}</span>
+              </span>
+            )}
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight mt-2">
-            Featured Products & Farm Specials
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight mt-2 flex items-center gap-2">
+            <span>{currentTenant?.name ? `${currentTenant.name} Catalog` : 'Featured Products & Specials'}</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Showing {filteredProducts.length} freshest products curated for today.
+            Showing {filteredProducts.length} items from {currentTenant?.name || 'FreshMart'}. {currentTenant?.tagline || ''}
           </p>
         </div>
 

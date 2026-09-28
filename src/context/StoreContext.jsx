@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import {
   FRESHMART_PRODUCTS,
   FRESHMART_CATEGORIES,
@@ -9,10 +9,18 @@ import {
 } from '../data/freshMartData';
 import { ADMIN_PROMOTIONS_DATA } from '../data/adminSuiteData';
 import { INITIAL_TENANTS, SUBSCRIPTION_PLANS } from '../data/tenantData';
+import {
+  ALL_BRANCH_PRODUCTS,
+  ALFATAH_PRODUCTS,
+  CHASEVALUE_PRODUCTS,
+  CHASEUP_PRODUCTS,
+  FRESHMART_PRODUCTS_CATALOG,
+  BRANCH_METRICS
+} from '../data/branchCatalogData';
 import { apiService } from '../services/api';
 import { parseRouteFromUrl, getSeoMetadata } from '../utils/routeUtils';
 
-export { parseRouteFromUrl, getSeoMetadata, INITIAL_TENANTS, SUBSCRIPTION_PLANS };
+export { parseRouteFromUrl, getSeoMetadata, INITIAL_TENANTS, SUBSCRIPTION_PLANS, BRANCH_METRICS };
 
 const StoreContext = createContext();
 
@@ -116,8 +124,59 @@ export const StoreProvider = ({ children }) => {
         if (found) return found;
       }
     } catch (e) {}
-    return INITIAL_TENANTS[0];
+    return INITIAL_TENANTS.find((t) => t.id === 'tenant-freshmart') || INITIAL_TENANTS[0];
   });
+
+  const [allProducts, setAllProducts] = useState(() => {
+    try {
+      const cacheVersion = localStorage.getItem('freshmart_catalog_v_multi');
+      if (cacheVersion === '2.1') {
+        const saved = localStorage.getItem('freshmart_all_products');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
+      localStorage.setItem('freshmart_catalog_v_multi', '2.1');
+    } catch (e) {}
+    const baseIds = new Set(ALL_BRANCH_PRODUCTS.map((p) => String(p.id)));
+    const additionalFreshmart = (FRESHMART_PRODUCTS || [])
+      .filter((p) => !baseIds.has(String(p.id)))
+      .map((p) => ({
+        ...p,
+        tenantId: 'tenant-freshmart',
+        tenantName: 'FreshMart Direct'
+      }));
+    return [...ALL_BRANCH_PRODUCTS, ...additionalFreshmart];
+  });
+
+  // Reactive products list scoped specifically to currentTenant
+  const products = useMemo(() => {
+    if (!currentTenant?.id) return allProducts;
+    const branchItems = allProducts.filter(
+      (p) => p.tenantId === currentTenant.id || (!p.tenantId && currentTenant.id === 'tenant-freshmart')
+    );
+    return branchItems.length > 0 ? branchItems : allProducts;
+  }, [allProducts, currentTenant]);
+
+  // Transparent setProducts wrapper to mutate current branch items within allProducts
+  const setProducts = (updater) => {
+    setAllProducts((prevMaster) => {
+      const targetTenantId = currentTenant?.id || 'tenant-freshmart';
+      const branchItems = prevMaster.filter(
+        (p) => p.tenantId === targetTenantId || (!p.tenantId && targetTenantId === 'tenant-freshmart')
+      );
+      const otherItems = prevMaster.filter(
+        (p) => p.tenantId && p.tenantId !== targetTenantId && !(targetTenantId === 'tenant-freshmart' && !p.tenantId)
+      );
+      const nextBranchItems = typeof updater === 'function' ? updater(branchItems) : updater;
+      const combined = [...nextBranchItems, ...otherItems];
+      try {
+        localStorage.setItem('freshmart_all_products', JSON.stringify(combined));
+      } catch (e) {}
+      return combined;
+    });
+  };
 
   const setCurrentTenant = (tenantOrId) => {
     const target = typeof tenantOrId === 'string'
@@ -127,6 +186,12 @@ export const StoreProvider = ({ children }) => {
     try {
       localStorage.setItem('freshmart_current_tenant_id', target.id);
     } catch (e) {}
+    const branchItems = allProducts.filter(
+      (p) => p.tenantId === target.id || (!p.tenantId && target.id === 'tenant-freshmart')
+    );
+    if (branchItems.length > 0) {
+      setSelectedProduct(branchItems[0]);
+    }
     addToast('Store Switched 🏬', `Now viewing ${target.name}`);
   };
 
@@ -135,29 +200,6 @@ export const StoreProvider = ({ children }) => {
       localStorage.setItem('freshmart_tenants', JSON.stringify(tenants));
     } catch (e) {}
   }, [tenants]);
-
-  // Products state (Single source of truth with localStorage persistence)
-  const [products, setProducts] = useState(() => {
-    try {
-      const cacheVersion = localStorage.getItem('freshmart_catalog_v');
-      if (cacheVersion === '6.0') {
-        const saved = localStorage.getItem('freshmart_products');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            // Guard against corrupted state where all items are identical
-            const uniqueNames = new Set(parsed.map((p) => p.name));
-            if (uniqueNames.size > 1) {
-              return parsed;
-            }
-          }
-        }
-      }
-      localStorage.setItem('freshmart_catalog_v', '7.0');
-      localStorage.removeItem('freshmart_products');
-    } catch (e) {}
-    return FRESHMART_PRODUCTS;
-  });
 
   // Categories state (Single source of truth with localStorage persistence)
   const [categories, setCategories] = useState(() => {
@@ -330,13 +372,201 @@ export const StoreProvider = ({ children }) => {
   // Applied Coupon (null by default unless customer/admin applies code)
   const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-  // Admin Data State (Starts empty - populated as customer orders arrive)
+  const INITIAL_BRANCH_ORDERS = [
+    {
+      id: '#AF-1082',
+      orderId: '#AF-1082',
+      tenantId: 'tenant-alfatah',
+      tenantName: 'Al-Fatah Supermarket',
+      customer: 'Mrs. Huma Faisal',
+      customerName: 'Mrs. Huma Faisal',
+      customerPhone: '0300-8441122',
+      customerEmail: 'huma.faisal@gmail.com',
+      shippingAddress: { city: 'Lahore', address: 'House 42, Block L, Gulberg III, Lahore' },
+      address: 'House 42, Block L, Gulberg III, Lahore',
+      total: 6400,
+      totalAmount: 6400,
+      status: 'Out for Delivery',
+      statusColor: 'bg-amber-100 text-amber-800',
+      payment: 'Credit Card',
+      paymentMethod: 'Credit Card (Al-Fatah VIP POS)',
+      time: '12 mins ago',
+      createdAt: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+      deliveryOtp: '7412',
+      items: [
+        { name: 'Al-Fatah Royal Imperial Basmati Rice XXL Grain (5kg)', price: 2450, quantity: 1 },
+        { name: 'Prime Australian Black Angus Ribeye Steak Cuts (500g)', price: 3950, quantity: 1 }
+      ],
+      orderItems: [
+        { name: 'Al-Fatah Royal Imperial Basmati Rice XXL Grain (5kg)', price: 2450, quantity: 1 },
+        { name: 'Prime Australian Black Angus Ribeye Steak Cuts (500g)', price: 3950, quantity: 1 }
+      ]
+    },
+    {
+      id: '#AF-1081',
+      orderId: '#AF-1081',
+      tenantId: 'tenant-alfatah',
+      tenantName: 'Al-Fatah Supermarket',
+      customer: 'Dr. Tariq Malik',
+      customerName: 'Dr. Tariq Malik',
+      customerPhone: '0321-4567890',
+      customerEmail: 'tariq.malik@hospital.pk',
+      shippingAddress: { city: 'Lahore', address: 'Street 9, Sector C, DHA Phase 5, Lahore' },
+      address: 'Street 9, Sector C, DHA Phase 5, Lahore',
+      total: 4630,
+      totalAmount: 4630,
+      status: 'Delivered',
+      statusColor: 'bg-emerald-100 text-emerald-800',
+      payment: 'Online Visa',
+      paymentMethod: 'Visa / Mastercard',
+      time: '45 mins ago',
+      createdAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+      deliveryOtp: '8921',
+      items: [
+        { name: 'Lindt Swiss Excellence 85% Dark Chocolate Bar (100g)', price: 980, quantity: 1 },
+        { name: 'Borges Extra Virgin Olive Oil Spain Cold Pressed (1L)', price: 3650, quantity: 1 }
+      ],
+      orderItems: [
+        { name: 'Lindt Swiss Excellence 85% Dark Chocolate Bar (100g)', price: 980, quantity: 1 },
+        { name: 'Borges Extra Virgin Olive Oil Spain Cold Pressed (1L)', price: 3650, quantity: 1 }
+      ]
+    },
+    {
+      id: '#CV-4091',
+      orderId: '#CV-4091',
+      tenantId: 'tenant-chasevalue',
+      tenantName: 'Chase Value',
+      customer: 'Muhammad Farhan',
+      customerName: 'Muhammad Farhan',
+      customerPhone: '0333-2198765',
+      customerEmail: 'farhan.wholesale@gmail.com',
+      shippingAddress: { city: 'Karachi', address: 'Plot 18-B, Shaheed-e-Millat Road, Karachi' },
+      address: 'Plot 18-B, Shaheed-e-Millat Road, Karachi',
+      total: 5480,
+      totalAmount: 5480,
+      status: 'Processing',
+      statusColor: 'bg-blue-100 text-blue-800',
+      payment: 'Cash on Delivery',
+      paymentMethod: 'Cash on Delivery (Wholesale Invoice)',
+      time: '18 mins ago',
+      createdAt: new Date(Date.now() - 18 * 60 * 1000).toISOString(),
+      deliveryOtp: '3382',
+      items: [
+        { name: 'Chase Value Mega Saver Whole Wheat Chakki Atta (10kg)', price: 1380, quantity: 1 },
+        { name: 'Chase Value Premium Banaspati Cooking Oil Tin (5L Mega Tin)', price: 2450, quantity: 1 },
+        { name: 'Chase Value Super White Detergent Powder (6kg + Free Bucket)', price: 1650, quantity: 1 }
+      ],
+      orderItems: [
+        { name: 'Chase Value Mega Saver Whole Wheat Chakki Atta (10kg)', price: 1380, quantity: 1 },
+        { name: 'Chase Value Premium Banaspati Cooking Oil Tin (5L Mega Tin)', price: 2450, quantity: 1 },
+        { name: 'Chase Value Super White Detergent Powder (6kg + Free Bucket)', price: 1650, quantity: 1 }
+      ]
+    },
+    {
+      id: '#CV-4088',
+      orderId: '#CV-4088',
+      tenantId: 'tenant-chasevalue',
+      tenantName: 'Chase Value',
+      customer: 'Bilal Ahmed Siddiqui',
+      customerName: 'Bilal Ahmed Siddiqui',
+      customerPhone: '0312-9876543',
+      customerEmail: 'bilal.siddiqui@gmail.com',
+      shippingAddress: { city: 'Karachi', address: 'Block D, North Nazimabad, Karachi' },
+      address: 'Block D, North Nazimabad, Karachi',
+      total: 3160,
+      totalAmount: 3160,
+      status: 'Delivered',
+      statusColor: 'bg-emerald-100 text-emerald-800',
+      payment: 'JazzCash',
+      paymentMethod: 'JazzCash Mobile Wallet',
+      time: '1 hour ago',
+      createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      deliveryOtp: '4190',
+      items: [
+        { name: 'Wholesale Daal Chana Unpolished Economy Pack (2kg)', price: 540, quantity: 2 },
+        { name: 'Direct Factory Refined White Sugar Economy Pack (5kg)', price: 720, quantity: 1 },
+        { name: 'Tapal Danedar Tea Bulk Economy Pouch (900g)', price: 1420, quantity: 1 }
+      ],
+      orderItems: [
+        { name: 'Wholesale Daal Chana Unpolished Economy Pack (2kg)', price: 540, quantity: 2 },
+        { name: 'Direct Factory Refined White Sugar Economy Pack (5kg)', price: 720, quantity: 1 },
+        { name: 'Tapal Danedar Tea Bulk Economy Pouch (900g)', price: 1420, quantity: 1 }
+      ]
+    },
+    {
+      id: '#CU-2190',
+      orderId: '#CU-2190',
+      tenantId: 'tenant-chaseup',
+      tenantName: 'Chase Up',
+      customer: 'Khurram Shehzad',
+      customerName: 'Khurram Shehzad',
+      customerPhone: '0322-5544332',
+      customerEmail: 'khurram.shehzad@yahoo.com',
+      shippingAddress: { city: 'Karachi', address: 'Apartment 402, Block 5, Clifton, Karachi' },
+      address: 'Apartment 402, Block 5, Clifton, Karachi',
+      total: 6190,
+      totalAmount: 6190,
+      status: 'Out for Delivery',
+      statusColor: 'bg-amber-100 text-amber-800',
+      payment: 'Credit Card',
+      paymentMethod: 'HBL POS Swipe',
+      time: '20 mins ago',
+      createdAt: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
+      deliveryOtp: '6721',
+      items: [
+        { name: 'Chase Up Fresh Homogenized Full Cream Milk Carton (12 x 1L)', price: 3120, quantity: 1 },
+        { name: 'Dalda Pure Canola Oil Pouch Bundle (5 x 1L Multi-Saver)', price: 2650, quantity: 1 },
+        { name: 'Shan Special Bombay Biryani Masala Family Pack (100g x 3)', price: 420, quantity: 1 }
+      ],
+      orderItems: [
+        { name: 'Chase Up Fresh Homogenized Full Cream Milk Carton (12 x 1L)', price: 3120, quantity: 1 },
+        { name: 'Dalda Pure Canola Oil Pouch Bundle (5 x 1L Multi-Saver)', price: 2650, quantity: 1 },
+        { name: 'Shan Special Bombay Biryani Masala Family Pack (100g x 3)', price: 420, quantity: 1 }
+      ]
+    },
+    {
+      id: '#FM-9482',
+      orderId: '#FM-9482',
+      tenantId: 'tenant-freshmart',
+      tenantName: 'FreshMart Direct',
+      customer: 'Aimen Yasin',
+      customerName: 'Aimen Yasin',
+      customerPhone: '0320-6551699',
+      customerEmail: 'aimen@gmail.com',
+      shippingAddress: { city: 'Lahore', address: 'Main Boulevard, Gulberg III, Lahore' },
+      address: 'Main Boulevard, Gulberg III, Lahore',
+      total: 990,
+      totalAmount: 990,
+      status: 'Delivered',
+      statusColor: 'bg-emerald-100 text-emerald-800',
+      payment: 'Cash on Delivery',
+      paymentMethod: 'Cash on Delivery',
+      time: '15 mins ago',
+      createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+      deliveryOtp: '9999',
+      items: [
+        { name: 'Farm Fresh Hydroponic Crisp Romaine Lettuce (250g)', price: 220, quantity: 1 },
+        { name: 'Pure Desi Golden-Yolked Farm Eggs (Dozen Pack)', price: 420, quantity: 1 },
+        { name: 'Freshly Squeezed Valencia Orange Cold Juice (500ml Bottle)', price: 350, quantity: 1 }
+      ],
+      orderItems: [
+        { name: 'Farm Fresh Hydroponic Crisp Romaine Lettuce (250g)', price: 220, quantity: 1 },
+        { name: 'Pure Desi Golden-Yolked Farm Eggs (Dozen Pack)', price: 420, quantity: 1 },
+        { name: 'Freshly Squeezed Valencia Orange Cold Juice (500ml Bottle)', price: 350, quantity: 1 }
+      ]
+    }
+  ];
+
+  // Admin Data State (Starts with authentic multi-branch seed orders, augmented as orders arrive)
   const [adminOrders, setAdminOrders] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_customer_orders');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch (e) {}
-    return [];
+    return INITIAL_BRANCH_ORDERS;
   });
   const [adminStats, setAdminStats] = useState(ADMIN_STATS);
 
@@ -2138,13 +2368,15 @@ export const StoreProvider = ({ children }) => {
   // --- Inventory & Stock Management ---
   const updateProductStock = (productId, newStock) => {
     const stockNum = Math.max(0, parseInt(newStock) || 0);
-    setProducts((prev) =>
+    setAllProducts((prev) =>
       prev.map((p) => {
-        if (p.id === productId || p._id === productId) {
+        if (p.id === productId || p._id === productId || p.customId === productId) {
           const updated = {
             ...p,
             stock: stockNum,
-            inStock: stockNum > 0
+            stockCount: stockNum,
+            inStock: stockNum > 0,
+            status: stockNum === 0 ? 'Out of Stock' : stockNum < 15 ? 'Low Stock' : 'Active'
           };
           try {
             apiService.updateProduct(productId, updated);
@@ -2158,13 +2390,17 @@ export const StoreProvider = ({ children }) => {
   };
 
   const toggleProductStockStatus = (productId) => {
-    setProducts((prev) =>
+    setAllProducts((prev) =>
       prev.map((p) => {
-        if (p.id === productId || p._id === productId) {
+        if (p.id === productId || p._id === productId || p.customId === productId) {
+          const nextInStock = !p.inStock;
+          const nextStock = nextInStock ? (p.stock > 0 ? p.stock : 25) : 0;
           const updated = {
             ...p,
-            inStock: !p.inStock,
-            stock: !p.inStock ? (p.stock > 0 ? p.stock : 25) : 0
+            inStock: nextInStock,
+            stock: nextStock,
+            stockCount: nextStock,
+            status: nextInStock ? (nextStock < 15 ? 'Low Stock' : 'Active') : 'Out of Stock'
           };
           try {
             apiService.updateProduct(productId, updated);
@@ -2209,16 +2445,18 @@ export const StoreProvider = ({ children }) => {
       reviewsCount: newProduct.reviewsCount || 12,
       isFlashDeal: Boolean(newProduct.isFlashDeal),
       isBestSeller: Boolean(newProduct.isBestSeller),
+      tenantId: newProduct.tenantId || currentTenant?.id || 'tenant-freshmart',
+      tenantName: newProduct.tenantName || currentTenant?.name || 'FreshMart Direct',
       ...newProduct
     };
 
-    setProducts((prev) => [fullProduct, ...prev]);
+    setAllProducts((prev) => [fullProduct, ...prev]);
     try {
       await apiService.createProduct(fullProduct);
     } catch (e) {
       console.warn('Backend createProduct error:', e);
     }
-    addToast('Product Added 🛒', `"${fullProduct.name}" added to catalog.`);
+    addToast('Product Added 🛒', `"${fullProduct.name}" added to ${fullProduct.tenantName} catalog.`);
   };
 
   const updateProductInStore = async (updatedProduct) => {
@@ -2226,7 +2464,7 @@ export const StoreProvider = ({ children }) => {
     const targetId = String(updatedProduct.id || updatedProduct._id || updatedProduct.customId || '');
     const targetName = updatedProduct.name?.trim();
 
-    setProducts((prev) =>
+    setAllProducts((prev) =>
       prev.map((p) => {
         const pId = String(p.id || p._id || p.customId || '');
         const isMatch = (targetId && pId && pId === targetId) || (targetName && p.name && p.name.trim() === targetName);
@@ -2252,7 +2490,7 @@ export const StoreProvider = ({ children }) => {
     const targetName = productName?.trim();
     if (!targetId && !targetName) return;
 
-    setProducts((prev) =>
+    setAllProducts((prev) =>
       prev.filter((p) => {
         const pId = String(p.id || p._id || p.customId || '');
         if (targetId && pId && pId === targetId) return false;
@@ -3002,6 +3240,10 @@ export const StoreProvider = ({ children }) => {
         setTenants,
         currentTenant,
         setCurrentTenant,
+        allProducts,
+        getTenantProducts: (tenantId) => allProducts.filter((p) => p.tenantId === tenantId),
+        branchMetrics: BRANCH_METRICS[currentTenant?.id] || BRANCH_METRICS['tenant-freshmart'],
+        getBranchMetrics: (tenantId) => BRANCH_METRICS[tenantId] || BRANCH_METRICS['tenant-freshmart'],
         addTenant,
         inviteTenant,
         approveTenant,

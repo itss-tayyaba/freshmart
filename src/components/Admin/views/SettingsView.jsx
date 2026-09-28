@@ -3,21 +3,57 @@ import { Save, Check, Upload, Store, ShieldCheck, Bell, CreditCard, Palette } fr
 import { useStore } from '../../../context/StoreContext';
 
 export const SettingsView = () => {
-  const { addToast } = useStore();
+  const { addToast, currentTenant } = useStore();
   const [activeTab, setActiveTab] = useState('General');
   const [storeStatus, setStoreStatus] = useState(true);
 
-  const [settings, setSettings] = useState({
-    storeName: 'FreshMart',
-    email: 'info@freshmart.com',
-    phone: '0300-1234567',
-    address: '123 Main Street, Lahore, Pakistan',
-    timezone: '(UTC+05:00) Pakistan Time'
-  });
+  const getBranchDefaults = (tenant) => {
+    const id = tenant?.id;
+    if (id === 'tenant-alfatah') {
+      return {
+        storeName: 'Al-Fatah Supermarket',
+        email: 'operations@alfatah.pk',
+        phone: '042-111-253-282',
+        address: 'Gulberg III, Main Boulevard, Lahore, Pakistan',
+        timezone: '(UTC+05:00) Pakistan Time (Karachi/Lahore/Islamabad)'
+      };
+    }
+    if (id === 'tenant-chasevalue') {
+      return {
+        storeName: 'Chase Value',
+        email: 'wholesale@chasevalue.pk',
+        phone: '021-111-242-738',
+        address: 'Shaheed-e-Millat Road, Karachi, Pakistan',
+        timezone: '(UTC+05:00) Pakistan Time (Karachi/Lahore/Islamabad)'
+      };
+    }
+    if (id === 'tenant-chaseup') {
+      return {
+        storeName: 'Chase Up',
+        email: 'support@chaseup.com.pk',
+        phone: '021-111-242-731',
+        address: 'Clifton Block 2, Karachi, Pakistan',
+        timezone: '(UTC+05:00) Pakistan Time (Karachi/Lahore/Islamabad)'
+      };
+    }
+    return {
+      storeName: tenant?.name || 'FreshMart Direct',
+      email: 'info@freshmart.pk',
+      phone: '0300-1234567',
+      address: 'Central Dark Store, Gulberg, Lahore, Pakistan',
+      timezone: '(UTC+05:00) Pakistan Time (Karachi/Lahore/Islamabad)'
+    };
+  };
+
+  const [settings, setSettings] = useState(() => getBranchDefaults(currentTenant));
+
+  React.useEffect(() => {
+    setSettings(getBranchDefaults(currentTenant));
+  }, [currentTenant]);
 
   const handleSave = (e) => {
     e.preventDefault();
-    addToast('Settings Saved ✅', 'Store preferences updated successfully.');
+    addToast('Settings Saved ✅', `${settings.storeName} preferences updated successfully.`);
   };
 
   return (
@@ -130,10 +166,10 @@ export const SettingsView = () => {
                 Store Logo
               </h3>
               <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center bg-slate-50/50 space-y-3">
-                <div className="w-16 h-16 rounded-2xl bg-emerald-600 text-white mx-auto flex items-center justify-center text-2xl shadow-md">
-                  🛒
+                <div className="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 text-white mx-auto flex items-center justify-center text-3xl shadow-md">
+                  {currentTenant?.logo || '🏬'}
                 </div>
-                <h4 className="text-sm font-black text-slate-800">FreshMart</h4>
+                <h4 className="text-sm font-black text-slate-800">{currentTenant?.name || settings.storeName}</h4>
                 <button
                   type="button"
                   onClick={() => addToast('Upload Logo', 'Select image file (PNG/SVG)')}

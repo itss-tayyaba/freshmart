@@ -18,6 +18,7 @@ import {
 
 import { useStore } from '../../context/StoreContext';
 import { FRESHMART_CATEGORIES } from '../../data/freshMartData';
+import { UnimaartHeader } from '../Unimaart/UnimaartHeader';
 
 export const FreshMartHeader = () => {
   const {
@@ -49,6 +50,11 @@ export const FreshMartHeader = () => {
     currentTenant,
     setCurrentTenant
   } = useStore();
+
+  // Render Unimaart header when viewing the Unimaart Market Store branch
+  if (currentTenant?.id === 'tenant-freshmart') {
+    return <UnimaartHeader />;
+  }
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);

@@ -117,21 +117,23 @@ export const INITIAL_TENANTS = [
     id: 'tenant-freshmart',
     tenantId: 'tenant-freshmart',
     name: 'FreshMart Direct',
+    displayName: 'Unimaart (Market Store)',
+    brandName: 'Unimaart',
     slug: 'freshmart',
-    tagline: '10-15 Min Express Dark Store & Farm-Fresh Produce',
-    description: 'Direct-from-farm daily organic harvests, temperature-controlled chilled fleet, and rapid 10-minute micro-fulfillment hubs across urban clusters.',
-    logo: '🥦',
+    tagline: 'Fresh Food, Fair Prices, Fast Delivery',
+    description: 'Fresh veggies full of vitamins for your health. Quality produce and daily market essentials delivered right to you in minutes.',
+    logo: '🛒',
     banner: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=1200&q=80',
-    badge: 'Express 10-Min Delivery',
+    badge: 'Unimaart Market Store • Express 10-Min Delivery',
     ownerName: 'Aimen Yasin',
-    ownerEmail: 'aimen@freshmart.pk',
-    ownerPhone: '+92 320 6551699',
+    ownerEmail: 'support@unimaart.com',
+    ownerPhone: '+9870-256-679',
     status: 'Active',
-    color: '#047857',
+    color: '#00a676',
     theme: {
-      primaryColor: '#047857', // Forest Emerald
-      accentColor: '#10b981',
-      bgGradient: 'from-[#07382c] via-[#0b4d3c] to-[#0f6853]'
+      primaryColor: '#00a676', // Unimaart Teal
+      accentColor: '#f59e0b',
+      bgGradient: 'from-[#004d38] via-[#007353] to-[#00a676]'
     },
     hubs: ['Gulberg SuperHub', 'DHA Phase 6', 'Johar Town Hub', 'Bahria Town Hub'],
     subscription: {

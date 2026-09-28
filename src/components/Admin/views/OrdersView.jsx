@@ -37,7 +37,8 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     riders,
     updateDeliveryOrderStatus,
     assignRiderToOrder,
-    addToast
+    addToast,
+    currentTenant
   } = useStore();
 
   const [activeTab, setActiveTab] = useState('All');
@@ -50,12 +51,13 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   // Selected Customer for Customer Profile & History Modal
   const [selectedCustomerModal, setSelectedCustomerModal] = useState(null);
 
-  // Combine live orders
+  // Combine live orders filtered by active supermarket branch
   const liveOrders = useMemo(() => {
-    if (customerOrders && customerOrders.length > 0) return customerOrders;
-    if (adminOrders && adminOrders.length > 0) return adminOrders;
-    return [];
-  }, [customerOrders, adminOrders]);
+    const raw = (customerOrders && customerOrders.length > 0) ? customerOrders : (adminOrders || []);
+    if (!currentTenant?.id) return raw;
+    const branchSpecific = raw.filter((o) => !o.tenantId || o.tenantId === currentTenant.id);
+    return branchSpecific.length > 0 ? branchSpecific : raw;
+  }, [customerOrders, adminOrders, currentTenant]);
 
   // Statistics KPI counts
   const stats = useMemo(() => {
@@ -190,13 +192,13 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
-            <span>Orders</span>
+            <span>{currentTenant?.name || 'Store'} Orders</span>
             <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full">
               {liveOrders.length} Total
             </span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Track, manage, and fulfill customer orders in real-time.
+            Track, manage, and fulfill customer orders for {currentTenant?.name || 'this supermarket'} in real-time.
           </p>
         </div>
 

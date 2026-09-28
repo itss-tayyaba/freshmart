@@ -39,6 +39,7 @@ import {
   ADMIN_BEST_SELLING_PRODUCTS,
   ADMIN_BRANCH_PERFORMANCE
 } from '../../../data/adminSuiteData';
+import { BRANCH_METRICS } from '../../../data/branchCatalogData';
 
 export const DashboardView = ({ onNavigateModule }) => {
   const {
@@ -48,8 +49,18 @@ export const DashboardView = ({ onNavigateModule }) => {
     customerOrders,
     customers,
     updateProductStock,
-    addToast
+    addToast,
+    currentTenant,
+    setCurrentTenant,
+    allTenants,
+    branchMetrics,
+    getBranchMetrics
   } = useStore();
+
+  // Active Tenant Metrics & Branding
+  const tenantKey = currentTenant?.id || 'tenant-alfatah';
+  const tenantMetrics = branchMetrics || (getBranchMetrics && getBranchMetrics(tenantKey)) || BRANCH_METRICS[tenantKey] || BRANCH_METRICS['tenant-alfatah'];
+  const tenantThemeColor = tenantMetrics.themeColor || '#10b981';
 
   // Selected period: '7days' | 'today' | '30days' | 'year'
   const [period, setPeriod] = useState('7days');
@@ -61,10 +72,10 @@ export const DashboardView = ({ onNavigateModule }) => {
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  // 1. Real-time dynamic store metrics computed from state
+  // 1. Real-time dynamic store metrics computed from state and tenant
   const liveOrderSales = (customerOrders || []).reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-  const totalSales = liveOrderSales > 0 ? liveOrderSales : 482500;
-  const totalOrders = (customerOrders || []).length > 0 ? (customerOrders || []).length : 327;
+  const totalSales = liveOrderSales > 0 ? liveOrderSales : (tenantMetrics?.kpis?.todaySales || 784500);
+  const totalOrders = (customerOrders || []).length > 0 ? (customerOrders || []).length : (tenantMetrics?.kpis?.totalOrders || 162);
   const totalCustomers = (customers || []).length > 0 ? (customers || []).length : 1842;
   const totalProducts = (products || []).length;
 
@@ -82,44 +93,76 @@ export const DashboardView = ({ onNavigateModule }) => {
     (o) => o.status === 'Processing' || o.status === 'Pending' || o.status === 'Packed'
   ).length;
 
-  // 2. Multi-Timeframe Chart Datasets
+  // Dynamic Customer Segment Metric based on Supermarket brand
+  const customerKpi = useMemo(() => {
+    switch (tenantKey) {
+      case 'tenant-alfatah':
+        return { label: 'VIP Privilege Members', count: 2410, sub: '88.5% Luxury Repeat Rate', badge: '+14.2%' };
+      case 'tenant-chasevalue':
+        return { label: 'Wholesale Accounts', count: 1840, sub: '92.1% Bulk Sacks Repeat', badge: '+19.6%' };
+      case 'tenant-chaseup':
+        return { label: 'Family Loyalty Cards', count: 3120, sub: '78.6% Monthly Basket Repeat', badge: '+11.4%' };
+      case 'tenant-freshmart':
+      default:
+        return { label: 'App Daily Shoppers', count: 4250, sub: '83.2% 10-Min Retention', badge: '+15.8%' };
+    }
+  }, [tenantKey]);
+
+  // Executive Header Theme Gradient
+  const bannerGradient = useMemo(() => {
+    switch (tenantKey) {
+      case 'tenant-alfatah':
+        return 'from-stone-950 via-red-950 to-amber-950';
+      case 'tenant-chasevalue':
+        return 'from-slate-950 via-blue-950 to-indigo-950';
+      case 'tenant-chaseup':
+        return 'from-slate-950 via-purple-950 to-violet-950';
+      case 'tenant-freshmart':
+      default:
+        return 'from-slate-950 via-slate-900 to-emerald-950';
+    }
+  }, [tenantKey]);
+
+  // 2. Multi-Timeframe Chart Datasets (tailored per branch sales profile)
   const chartDatasets = useMemo(() => {
+    const mult = tenantKey === 'tenant-alfatah' ? 1.62 : tenantKey === 'tenant-chasevalue' ? 1.12 : tenantKey === 'tenant-chaseup' ? 0.91 : 1.0;
+
     return {
       'today': [
-        { label: '08:00', fullLabel: '8:00 AM', revenue: 24500, orders: 18, aov: 1361, growth: '+12%' },
-        { label: '10:00', fullLabel: '10:00 AM', revenue: 58200, orders: 42, aov: 1385, growth: '+15%' },
-        { label: '12:00', fullLabel: '12:00 PM', revenue: 96400, orders: 68, aov: 1417, growth: '+22%' },
-        { label: '14:00', fullLabel: '2:00 PM', revenue: 74100, orders: 52, aov: 1425, growth: '+8%' },
-        { label: '16:00', fullLabel: '4:00 PM', revenue: 88500, orders: 61, aov: 1450, growth: '+19%' },
-        { label: '18:00', fullLabel: '6:00 PM', revenue: 112400, orders: 79, aov: 1422, growth: '+25%' },
-        { label: '20:00', fullLabel: '8:00 PM', revenue: 145000, orders: 98, aov: 1479, growth: '+28%' },
-        { label: '22:00', fullLabel: '10:00 PM (Now)', revenue: 62300, orders: 44, aov: 1415, growth: '+14%' }
+        { label: '08:00', fullLabel: '8:00 AM', revenue: Math.round(24500 * mult), orders: Math.round(18 * (mult > 1.2 ? 0.9 : 1.2)), aov: Math.round(1361 * mult), growth: '+12%' },
+        { label: '10:00', fullLabel: '10:00 AM', revenue: Math.round(58200 * mult), orders: Math.round(42 * (mult > 1.2 ? 0.9 : 1.2)), aov: Math.round(1385 * mult), growth: '+15%' },
+        { label: '12:00', fullLabel: '12:00 PM', revenue: Math.round(96400 * mult), orders: Math.round(68 * (mult > 1.2 ? 0.9 : 1.2)), aov: Math.round(1417 * mult), growth: '+22%' },
+        { label: '14:00', fullLabel: '2:00 PM', revenue: Math.round(74100 * mult), orders: Math.round(52 * (mult > 1.2 ? 0.9 : 1.2)), aov: Math.round(1425 * mult), growth: '+8%' },
+        { label: '16:00', fullLabel: '4:00 PM', revenue: Math.round(88500 * mult), orders: Math.round(61 * (mult > 1.2 ? 0.9 : 1.2)), aov: Math.round(1450 * mult), growth: '+19%' },
+        { label: '18:00', fullLabel: '6:00 PM', revenue: Math.round(112400 * mult), orders: Math.round(79 * (mult > 1.2 ? 0.9 : 1.2)), aov: Math.round(1422 * mult), growth: '+25%' },
+        { label: '20:00', fullLabel: '8:00 PM', revenue: Math.round(145000 * mult), orders: Math.round(98 * (mult > 1.2 ? 0.9 : 1.2)), aov: Math.round(1479 * mult), growth: '+28%' },
+        { label: '22:00', fullLabel: '10:00 PM (Now)', revenue: Math.round(62300 * mult), orders: Math.round(44 * (mult > 1.2 ? 0.9 : 1.2)), aov: Math.round(1415 * mult), growth: '+14%' }
       ],
       '7days': [
-        { label: 'Mon', fullLabel: 'Monday, 01 Sep', revenue: 412000, orders: 284, aov: 1450, growth: '+10.4%' },
-        { label: 'Tue', fullLabel: 'Tuesday, 02 Sep', revenue: 438500, orders: 298, aov: 1471, growth: '+14.2%' },
-        { label: 'Wed', fullLabel: 'Wednesday, 03 Sep', revenue: 395000, orders: 275, aov: 1436, growth: '+6.8%' },
-        { label: 'Thu', fullLabel: 'Thursday, 04 Sep', revenue: 456200, orders: 312, aov: 1462, growth: '+16.5%' },
-        { label: 'Fri', fullLabel: 'Friday, 05 Sep', revenue: 512000, orders: 348, aov: 1471, growth: '+22.1%' },
-        { label: 'Sat', fullLabel: 'Saturday, 06 Sep', revenue: 548900, orders: 372, aov: 1475, growth: '+26.8%' },
-        { label: 'Sun', fullLabel: 'Sunday (Today)', revenue: 482500, orders: 327, aov: 1475, growth: '+18.4%' }
+        { label: 'Mon', fullLabel: 'Monday, 01 Sep', revenue: Math.round(412000 * mult), orders: Math.round(284 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1450 * mult), growth: '+10.4%' },
+        { label: 'Tue', fullLabel: 'Tuesday, 02 Sep', revenue: Math.round(438500 * mult), orders: Math.round(298 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1471 * mult), growth: '+14.2%' },
+        { label: 'Wed', fullLabel: 'Wednesday, 03 Sep', revenue: Math.round(395000 * mult), orders: Math.round(275 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1436 * mult), growth: '+6.8%' },
+        { label: 'Thu', fullLabel: 'Thursday, 04 Sep', revenue: Math.round(456200 * mult), orders: Math.round(312 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1462 * mult), growth: '+16.5%' },
+        { label: 'Fri', fullLabel: 'Friday, 05 Sep', revenue: Math.round(512000 * mult), orders: Math.round(348 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1471 * mult), growth: '+22.1%' },
+        { label: 'Sat', fullLabel: 'Saturday, 06 Sep', revenue: Math.round(548900 * mult), orders: Math.round(372 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1475 * mult), growth: '+26.8%' },
+        { label: 'Sun', fullLabel: 'Sunday (Today)', revenue: Math.round(tenantMetrics?.kpis?.todaySales || 482500), orders: tenantMetrics?.kpis?.totalOrders || 327, aov: tenantMetrics?.kpis?.averageOrderValue || 1475, growth: tenantMetrics?.kpis?.growthRate || '+18.4%' }
       ],
       '30days': [
-        { label: 'Week 1', fullLabel: '01 - 07 Aug', revenue: 2840000, orders: 1940, aov: 1463, growth: '+11.2%' },
-        { label: 'Week 2', fullLabel: '08 - 14 Aug', revenue: 3120000, orders: 2150, aov: 1451, growth: '+14.8%' },
-        { label: 'Week 3', fullLabel: '15 - 21 Aug', revenue: 3450000, orders: 2380, aov: 1449, growth: '+18.5%' },
-        { label: 'Week 4', fullLabel: '22 - 28 Aug', revenue: 3890000, orders: 2680, aov: 1451, growth: '+22.4%' }
+        { label: 'Week 1', fullLabel: '01 - 07 Aug', revenue: Math.round(2840000 * mult), orders: Math.round(1940 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1463 * mult), growth: '+11.2%' },
+        { label: 'Week 2', fullLabel: '08 - 14 Aug', revenue: Math.round(3120000 * mult), orders: Math.round(2150 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1451 * mult), growth: '+14.8%' },
+        { label: 'Week 3', fullLabel: '15 - 21 Aug', revenue: Math.round(3450000 * mult), orders: Math.round(2380 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1449 * mult), growth: '+18.5%' },
+        { label: 'Week 4', fullLabel: '22 - 28 Aug', revenue: Math.round(3890000 * mult), orders: Math.round(2680 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1451 * mult), growth: '+22.4%' }
       ],
       'year': ADMIN_MONTHLY_SALES_CHART.map((m) => ({
         label: m.month.split(' ')[0],
         fullLabel: `${m.month} 2026`,
-        revenue: m.revenue,
-        orders: m.orders,
-        aov: Math.round(m.revenue / (m.orders || 1)),
+        revenue: Math.round(m.revenue * mult),
+        orders: Math.round(m.orders * (mult > 1.2 ? 0.8 : 1.1)),
+        aov: Math.round((m.revenue * mult) / (m.orders || 1)),
         growth: '+15.8%'
       }))
     };
-  }, []);
+  }, [tenantKey, tenantMetrics]);
 
   const currentData = chartDatasets[period] || chartDatasets['7days'];
   const values = currentData.map((d) => d[activeMetric]);
@@ -176,28 +219,29 @@ export const DashboardView = ({ onNavigateModule }) => {
       setIsExporting(true);
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const todayStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const brandName = tenantMetrics?.name || 'SUPERMARKET';
 
       // Header Banner
-      doc.setFillColor(16, 185, 129);
+      doc.setFillColor(30, 41, 59);
       doc.rect(0, 0, 210, 28, 'F');
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(18);
+      doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text('FRESHMART — EXECUTIVE STORE REPORT', 14, 14);
+      doc.text(`${brandName.toUpperCase()} — EXECUTIVE STORE REPORT`, 14, 14);
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Generated on: ${todayStr} | Confidential Store Summary`, 14, 22);
+      doc.text(`Generated on: ${todayStr} | Confidential Regional Store Summary`, 14, 22);
 
       // Store KPIs
       autoTable(doc, {
         startY: 34,
         head: [['Executive Metric', 'Value', 'Performance Benchmark', 'Status']],
         body: [
-          ['Gross Revenue (PKR)', `Rs. ${totalSales.toLocaleString()}`, '+18.4% vs Previous Cycle', 'Optimal (Growth)'],
-          ['Total Orders Handled', `${totalOrders.toLocaleString()}`, '99.4% On-Time SLA', 'Active'],
-          ['Registered Shoppers', `${totalCustomers.toLocaleString()}`, '83.2% Retention Rate', 'Healthy'],
+          ['Gross Revenue (PKR)', `Rs. ${totalSales.toLocaleString()}`, `${tenantMetrics?.kpis?.growthRate || '+18.4%'} vs Previous Cycle`, 'Optimal (Growth)'],
+          ['Total Orders Handled', `${totalOrders.toLocaleString()}`, `${tenantMetrics?.kpis?.fulfillmentSla || '99.4%'} On-Time SLA`, 'Active'],
+          [customerKpi?.label || 'Registered Shoppers', `${(customerKpi?.count || totalCustomers).toLocaleString()}`, customerKpi?.sub || '83.2% Retention Rate', 'Healthy'],
           ['Active Catalog SKUs', `${totalProducts.toLocaleString()}`, `${lowStockCount} Low Stock Alert`, lowStockCount > 0 ? 'Restock Needed' : 'Normal'],
-          ['Cold-Chain Compliance', '100%', '3.2°C Regulated Temperature', 'Passed Standard']
+          [tenantMetrics?.specialWidget?.metricLabel || 'Branch Compliance', tenantMetrics?.specialWidget?.metricValue || '100%', tenantMetrics?.specialWidget?.status || 'Active', 'Passed Standard']
         ],
         theme: 'striped',
         headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
@@ -205,23 +249,28 @@ export const DashboardView = ({ onNavigateModule }) => {
       });
 
       // Top Selling Products
+      const topSellingList = (tenantMetrics?.topSellingProducts && tenantMetrics.topSellingProducts.length > 0)
+        ? tenantMetrics.topSellingProducts
+        : (ADMIN_BEST_SELLING_PRODUCTS || []);
+
       autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 8,
-        head: [['Rank', 'Top Selling Product', 'Category', 'Units Sold', 'Revenue Generated']],
-        body: (ADMIN_BEST_SELLING_PRODUCTS || []).map((p) => [
-          `#${p.rank}`,
+        head: [['Rank', 'Top Selling Product', 'Category', 'Volume Sold', 'Revenue Generated']],
+        body: topSellingList.map((p, idx) => [
+          `#${p.rank || idx + 1}`,
           p.name,
           p.category,
-          `${p.unitsSold} units`,
-          `Rs. ${p.revenue.toLocaleString()}`
+          `${p.units || p.unitsSold || 50} units`,
+          `Rs. ${(p.revenue || 50000).toLocaleString()}`
         ]),
         theme: 'striped',
-        headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+        headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
         bodyStyles: { fontSize: 8 }
       });
 
-      doc.save(`FreshMart_Executive_Summary_${Date.now()}.pdf`);
-      addToast('Executive Report Exported 📄', 'PDF summary generated and downloaded.');
+      const sanitizedBrand = (tenantMetrics?.name || 'Store').replace(/[^a-zA-Z0-9]/g, '_');
+      doc.save(`${sanitizedBrand}_Executive_Summary_${Date.now()}.pdf`);
+      addToast('Executive Report Exported 📄', `${brandName} PDF summary generated and downloaded.`);
     } catch (e) {
       console.warn('PDF export error:', e);
     } finally {
@@ -270,60 +319,77 @@ export const DashboardView = ({ onNavigateModule }) => {
       {/* ========================================================================= */}
       {/* 1. EXECUTIVE COMMAND HEADER & QUICK ACTIONS */}
       {/* ========================================================================= */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 rounded-3xl p-6 sm:p-7 text-white shadow-xl relative overflow-hidden">
+      <div className={`bg-gradient-to-r ${bannerGradient} rounded-3xl p-6 sm:p-7 text-white shadow-xl relative overflow-hidden transition-all duration-300`}>
         {/* Subtle decorative glow */}
-        <div className="absolute top-0 right-0 -mt-12 -mr-12 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-12 w-48 h-48 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute top-0 right-0 -mt-12 -mr-12 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 -mb-12 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2.5">
+              <span className="text-2xl sm:text-3xl p-1 bg-white/10 rounded-2xl border border-white/20 shadow-xs">
+                {currentTenant?.logo || '🏬'}
+              </span>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2">
-                <span>Executive Command Center</span>
-                <span>📊</span>
+                <span>{currentTenant?.name || tenantMetrics.name}</span>
               </h1>
-              <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[11px] font-black px-3 py-1 rounded-full flex items-center gap-1.5 backdrop-blur-xs">
+              <span className="bg-white/15 text-white border border-white/25 text-[11px] font-black px-3 py-1 rounded-full flex items-center gap-1.5 backdrop-blur-xs">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>5 Hubs Live (99.8% SLA)</span>
+                <span>{tenantMetrics.badge || 'Regional SuperHub'}</span>
               </span>
             </div>
-            <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-2xl">
-              Real-time store performance, multi-hub inventory tracking, live delivery telematics, and revenue analytics for {todayDateStr}.
+            <p className="text-xs sm:text-sm text-slate-200/90 font-medium max-w-2xl">
+              {tenantMetrics.tagline} • Live metrics for {todayDateStr}.
             </p>
           </div>
 
-          {/* Quick Operations Actions */}
+          {/* Quick Operations Actions & Branch Switcher */}
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Direct Branch Switcher */}
+            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md border border-white/20 rounded-2xl px-3 py-1.5 shadow-xs">
+              <Store className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+              <span className="text-[11px] font-bold text-slate-200 hidden sm:inline">Store:</span>
+              <select
+                value={tenantKey}
+                onChange={(e) => {
+                  const found = (allTenants || []).find((t) => t.id === e.target.value);
+                  if (found) {
+                    setCurrentTenant(found);
+                    addToast('Branch Switched 🏬', `Switched dashboard to ${found.name}`);
+                  }
+                }}
+                className="text-xs font-black text-white bg-transparent border-none focus:outline-none cursor-pointer pr-1"
+              >
+                {(allTenants || []).map((t) => (
+                  <option key={t.id} value={t.id} className="text-slate-900 bg-white font-bold">
+                    {t.logo || '🏬'} {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <button
               onClick={() => onNavigateModule('Products')}
-              className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md hover:shadow-emerald-500/20 transition-all cursor-pointer"
+              className="px-3.5 py-2 bg-white text-slate-900 hover:bg-slate-100 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>+ Add Product</span>
+              <span>+ Add SKU</span>
             </button>
 
             <button
               onClick={() => onNavigateModule('Promotions')}
-              className="px-3.5 py-2 bg-slate-800/90 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700/60 flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Flash Deals</span>
-            </button>
-
-            <button
-              onClick={() => onNavigateModule('Delivery')}
-              className="px-3.5 py-2 bg-slate-800/90 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700/60 flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Truck className="w-3.5 h-3.5 text-blue-400" />
-              <span>GPS Fleet</span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>Deals</span>
             </button>
 
             <button
               onClick={handleExportPDF}
               disabled={isExporting}
-              className="px-3.5 py-2 bg-slate-800/90 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700/60 flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5 text-emerald-400" />
+              <Download className="w-3.5 h-3.5 text-emerald-300" />
               <span>{isExporting ? 'Exporting...' : 'PDF Report'}</span>
             </button>
           </div>
@@ -345,19 +411,20 @@ export const DashboardView = ({ onNavigateModule }) => {
           </div>
           <div className="mt-3">
             <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-              {currency.symbol || 'Rs. '}
-              {totalSales.toLocaleString()}
+              {tenantMetrics?.kpis?.todaySalesFormatted || `${currency.symbol || 'Rs. '}${totalSales.toLocaleString()}`}
             </h3>
             <div className="flex items-center gap-2 mt-1.5">
               <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-full flex items-center gap-1">
                 <TrendingUp className="w-3 h-3" />
-                <span>+18.4%</span>
+                <span>{tenantMetrics?.kpis?.growthRate || '+18.4%'}</span>
               </span>
-              <span className="text-[11px] text-slate-400 font-medium">vs last period</span>
+              <span className="text-[11px] text-slate-400 font-medium">vs last cycle</span>
             </div>
             <div className="mt-3 pt-2.5 border-t border-slate-50 flex items-center justify-between text-[11px] text-slate-500 font-medium">
               <span>Avg. Order Value (AOV)</span>
-              <span className="font-bold text-slate-800">Rs. 1,475</span>
+              <span className="font-bold text-slate-800">
+                Rs. {(tenantMetrics?.kpis?.averageOrderValue || 1475).toLocaleString()}
+              </span>
             </div>
           </div>
         </div>
@@ -372,7 +439,7 @@ export const DashboardView = ({ onNavigateModule }) => {
           </div>
           <div className="mt-3">
             <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-              {totalOrders.toLocaleString()}
+              {(tenantMetrics?.kpis?.totalOrders || totalOrders).toLocaleString()}
             </h3>
             <div className="flex items-center gap-2 mt-1.5">
               <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200/60 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -383,38 +450,38 @@ export const DashboardView = ({ onNavigateModule }) => {
             </div>
             <div className="mt-3 pt-2.5 border-t border-slate-50 flex items-center justify-between text-[11px] text-slate-500 font-medium">
               <span>Fulfillment SLA Rate</span>
-              <span className="font-bold text-emerald-600">99.4% On-Time</span>
+              <span className="font-bold text-emerald-600">{tenantMetrics?.kpis?.fulfillmentSla || '99.4% On-Time'}</span>
             </div>
           </div>
         </div>
 
-        {/* Card 3: Active Customers */}
+        {/* Card 3: Brand Scoped Customer Segment */}
         <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-card hover:shadow-lg transition-shadow relative overflow-hidden group">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Registered Shoppers</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{customerKpi.label}</span>
             <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
               <Users className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
             <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-              {totalCustomers.toLocaleString()}
+              {customerKpi.count.toLocaleString()}
             </h3>
             <div className="flex items-center gap-2 mt-1.5">
               <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded-full flex items-center gap-1">
                 <TrendingUp className="w-3 h-3" />
-                <span>+12.6%</span>
+                <span>{customerKpi.badge}</span>
               </span>
-              <span className="text-[11px] text-slate-400 font-medium">new accounts this month</span>
+              <span className="text-[11px] text-slate-400 font-medium">{customerKpi.sub}</span>
             </div>
             <div className="mt-3 pt-2.5 border-t border-slate-50 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-              <span>Repeat Shopper Rate</span>
-              <span className="font-bold text-indigo-700">83.2% Retention</span>
+              <span>Account Classification</span>
+              <span className="font-bold text-indigo-700">{tenantMetrics?.name?.split(' ')[0]} Verified</span>
             </div>
           </div>
         </div>
 
-        {/* Card 4: Catalog & Low Stock */}
+        {/* Card 4: Catalog & Low Stock Scoped */}
         <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-card hover:shadow-lg transition-shadow relative overflow-hidden group">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Catalog Health</span>
@@ -826,14 +893,14 @@ export const DashboardView = ({ onNavigateModule }) => {
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-base font-black text-slate-900 tracking-tight">
-                Pakistan Dark Store Hubs & Live Telematics
+                {tenantMetrics?.name} Regional Hubs & Live Telematics
               </h3>
               <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-md">
                 Active Fleet
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Live automated telemetry across 5 Dark Store SuperHubs and cold-chain dispatches
+              Live automated telemetry across {tenantMetrics?.hubs?.length || 4} verified regional supermarket terminals and dispatch fleet
             </p>
           </div>
 
@@ -846,31 +913,73 @@ export const DashboardView = ({ onNavigateModule }) => {
           </button>
         </div>
 
-        {/* 5 Hubs Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 pt-2">
-          {(ADMIN_BRANCH_PERFORMANCE || []).map((hub) => (
+        {/* Dynamic Branch Hubs Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-2">
+          {(tenantMetrics?.hubs || []).map((hub) => (
             <div
-              key={hub.branch}
+              key={hub.name}
               className="bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-2.5 transition-colors"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-900 truncate max-w-[110px]">{hub.branch}</span>
+                <span className="text-[11px] font-bold text-slate-900 truncate max-w-[130px]" title={hub.name}>
+                  {hub.name}
+                </span>
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               </div>
               <div>
-                <span className="text-lg font-black text-slate-900 block leading-tight">
-                  Rs. {hub.sales.toLocaleString()}
+                <span className="text-xs font-black text-slate-700 block">
+                  📍 {hub.city}
                 </span>
-                <span className="text-[10px] text-slate-500 font-medium">{hub.orders} dispatches today</span>
+                <span className="text-[10px] text-slate-500 font-medium">
+                  {hub.ordersToday} dispatches today • {hub.activeRiders} couriers
+                </span>
               </div>
               <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[10px] font-bold">
-                <span className="text-emerald-700">★ {hub.rating} Score</span>
-                <span className="text-slate-500">{hub.onTimeRate}% SLA</span>
+                <span className="text-emerald-700">★ High SLA</span>
+                <span className="text-slate-600">{hub.sla} On-Time</span>
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* 4B. DEDICATED SUPERMARKET OPERATIONAL TELEMATICS & SPECIAL CAPABILITY */}
+      {/* ========================================================================= */}
+      {tenantMetrics?.specialWidget && (
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-3xl p-6 border border-slate-700/80 shadow-xl relative overflow-hidden">
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+            <div className="space-y-1.5 max-w-2xl">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">
+                  {tenantKey === 'tenant-alfatah' ? '❄️' : tenantKey === 'tenant-chasevalue' ? '🚛' : tenantKey === 'tenant-chaseup' ? '💳' : '⏱️'}
+                </span>
+                <h3 className="text-base font-black text-white tracking-tight">
+                  {tenantMetrics.specialWidget.title}
+                </h3>
+                <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                  Live Telematics
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed font-normal">
+                {tenantMetrics.specialWidget.description}
+              </p>
+            </div>
+
+            <div className="bg-slate-800/90 border border-slate-700/70 rounded-2xl p-4 shrink-0 text-left md:text-right min-w-[220px]">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                {tenantMetrics.specialWidget.metricLabel}
+              </span>
+              <span className="text-base font-black text-emerald-400 block mt-0.5">
+                {tenantMetrics.specialWidget.metricValue}
+              </span>
+              <span className="text-[11px] text-slate-300 block mt-1 font-semibold">
+                {tenantMetrics.specialWidget.status}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* 5. SPLIT ROW: RECENT LIVE ORDERS + TOP PRODUCTS / LOW STOCK ACTION */}
@@ -953,7 +1062,9 @@ export const DashboardView = ({ onNavigateModule }) => {
         <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-slate-100 shadow-card flex flex-col justify-between space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-black text-slate-900 tracking-tight">Stock Action & Best Sellers</h3>
+              <h3 className="text-base font-black text-slate-900 tracking-tight">
+                {tenantMetrics?.name?.split(' ')[0]} Top Sellers & Restock
+              </h3>
               <p className="text-xs text-slate-400 mt-0.5">Instant one-click restock for low inventory</p>
             </div>
             <button
@@ -963,6 +1074,23 @@ export const DashboardView = ({ onNavigateModule }) => {
               Inventory Suite →
             </button>
           </div>
+
+          {/* Top Selling Highlights for this branch */}
+          {tenantMetrics?.topSellingProducts && tenantMetrics.topSellingProducts.length > 0 && (
+            <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-100 space-y-2">
+              <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider block">
+                ⭐ Top Revenue Driver This Week
+              </span>
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-900 truncate max-w-[210px]">
+                  {tenantMetrics.topSellingProducts[0].name}
+                </span>
+                <span className="font-black text-emerald-600 whitespace-nowrap ml-2">
+                  Rs. {tenantMetrics.topSellingProducts[0].revenue.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-3">
             {(lowStockProducts.length > 0 ? lowStockProducts.slice(0, 3) : (products || []).slice(0, 3)).map((prod) => {
@@ -1007,8 +1135,8 @@ export const DashboardView = ({ onNavigateModule }) => {
               <span className="font-black text-emerald-900 text-sm">8.4 Mins</span>
             </div>
             <div className="bg-blue-50/60 p-2 rounded-xl border border-blue-100">
-              <span className="text-[10px] text-blue-800 font-bold block">Cold-Chain Accuracy</span>
-              <span className="font-black text-blue-900 text-sm">100% (3°C)</span>
+              <span className="text-[10px] text-blue-800 font-bold block">SLA Compliance</span>
+              <span className="font-black text-blue-900 text-sm">{tenantMetrics?.kpis?.fulfillmentSla || '99.4%'}</span>
             </div>
           </div>
         </div>
