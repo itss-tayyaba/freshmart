@@ -12,10 +12,10 @@ export const UnimaartHero = () => {
         {/* ========================================================================= */}
         {/* 1. MAIN LEFT BANNER (FAST DELIVERY COURIER & FRESH FOOD) */}
         {/* ========================================================================= */}
-        <div className="lg:col-span-8 bg-[#f3f7f5] rounded-3xl p-6 sm:p-10 lg:p-12 relative overflow-hidden border border-emerald-900/5 shadow-xs flex flex-col justify-between min-h-[380px] sm:min-h-[440px]">
+        <div className="lg:col-span-8 bg-[#f0f7fc] rounded-3xl p-6 sm:p-10 lg:p-12 relative overflow-hidden border border-sky-900/10 shadow-xs flex flex-col justify-between min-h-[380px] sm:min-h-[440px]">
           
           {/* Subtle Background Glow */}
-          <div className="absolute top-0 right-1/4 w-72 h-72 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute top-0 right-1/4 w-72 h-72 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
 
           {/* Left Text Content */}
           <div className="max-w-md sm:max-w-sm lg:max-w-md z-10 space-y-4 my-auto">
@@ -29,7 +29,7 @@ export const UnimaartHero = () => {
             {/* Headline */}
             <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-black text-slate-900 leading-[1.12] tracking-tight uppercase">
               Fresh Food, Fair <br />
-              Prices, <span className="text-[#00a676]">Fast Delivery</span>
+              Prices, <span className="text-[#0284c7]">Fast Delivery</span>
             </h1>
 
             {/* Subtext */}
@@ -74,7 +74,7 @@ export const UnimaartHero = () => {
             className="bg-[#f8f9fa] rounded-3xl p-5 sm:p-6 relative overflow-hidden flex-1 flex items-center justify-between border border-slate-200/60 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer group"
           >
             <div className="z-10 max-w-[170px] space-y-1">
-              <span className="text-[#00a676] font-bold text-xs uppercase tracking-wider block">
+              <span className="text-[#0284c7] font-bold text-xs uppercase tracking-wider block">
                 Healthy Food
               </span>
               <h3 className="text-[#ff4757] font-black text-lg sm:text-xl leading-tight">
@@ -83,7 +83,7 @@ export const UnimaartHero = () => {
               <p className="text-[11px] text-slate-500 font-medium leading-snug pt-1">
                 Start your daily shopping with some Organic food
               </p>
-              <span className="text-xs font-black text-slate-900 group-hover:text-[#00a676] inline-flex items-center gap-1.5 pt-2 transition-colors">
+              <span className="text-xs font-black text-slate-900 group-hover:text-[#0284c7] inline-flex items-center gap-1.5 pt-2 transition-colors">
                 <span>Shop Now</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
               </span>
@@ -110,13 +110,13 @@ export const UnimaartHero = () => {
               <span className="text-[#ff4757] bg-[#ffe8ec] font-black text-[10px] uppercase px-2 py-0.5 rounded-md inline-block">
                 25% OFF
               </span>
-              <h3 className="text-[#00a676] font-black text-lg sm:text-xl leading-tight">
+              <h3 className="text-[#0284c7] font-black text-lg sm:text-xl leading-tight">
                 Nut Collection
               </h3>
               <p className="text-[11px] text-slate-500 font-medium leading-snug pt-1">
                 We deliver organic vegetables & fruits.
               </p>
-              <span className="text-xs font-black text-slate-900 group-hover:text-[#00a676] inline-flex items-center gap-1.5 pt-2 transition-colors">
+              <span className="text-xs font-black text-slate-900 group-hover:text-[#0284c7] inline-flex items-center gap-1.5 pt-2 transition-colors">
                 <span>Shop Now</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
               </span>

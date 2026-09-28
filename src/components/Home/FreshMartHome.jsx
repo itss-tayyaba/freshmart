@@ -134,7 +134,7 @@ export const FreshMartHome = () => {
           <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
             <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-sm border border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
               <div className="flex items-center gap-3.5 pt-2 sm:pt-0">
-                <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-[#00a676] flex items-center justify-center shrink-0">
+                <div className="w-11 h-11 rounded-2xl bg-sky-50 text-[#0284c7] flex items-center justify-center shrink-0">
                   <Truck className="w-6 h-6" />
                 </div>
                 <div>
@@ -144,7 +144,7 @@ export const FreshMartHome = () => {
               </div>
 
               <div className="flex items-center gap-3.5 pt-2 sm:pt-0 sm:pl-6">
-                <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-[#00a676] flex items-center justify-center shrink-0">
+                <div className="w-11 h-11 rounded-2xl bg-sky-50 text-[#0284c7] flex items-center justify-center shrink-0">
                   <Award className="w-6 h-6" />
                 </div>
                 <div>
@@ -154,7 +154,7 @@ export const FreshMartHome = () => {
               </div>
 
               <div className="flex items-center gap-3.5 pt-2 sm:pt-0 sm:pl-6">
-                <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-[#00a676] flex items-center justify-center shrink-0">
+                <div className="w-11 h-11 rounded-2xl bg-sky-50 text-[#0284c7] flex items-center justify-center shrink-0">
                   <ShieldCheck className="w-6 h-6" />
                 </div>
                 <div>
@@ -164,7 +164,7 @@ export const FreshMartHome = () => {
               </div>
 
               <div className="flex items-center gap-3.5 pt-2 sm:pt-0 sm:pl-6">
-                <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-[#00a676] flex items-center justify-center shrink-0">
+                <div className="w-11 h-11 rounded-2xl bg-sky-50 text-[#0284c7] flex items-center justify-center shrink-0">
                   <PhoneCall className="w-6 h-6" />
                 </div>
                 <div>

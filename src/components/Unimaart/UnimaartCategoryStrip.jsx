@@ -18,44 +18,44 @@ export const UnimaartCategoryStrip = ({ activeCategory, onSelectCategory }) => {
       id: 'fruits-veg',
       name: 'Vegetables & Fruit',
       icon: Carrot,
-      activeColor: 'bg-[#00a676] text-white',
+      activeColor: 'bg-[#0284c7] text-white',
       badge: 'Fresh'
     },
     {
       id: 'beverages',
       name: 'Beverages',
       icon: Coffee,
-      activeColor: 'bg-[#00a676] text-white'
+      activeColor: 'bg-[#0284c7] text-white'
     },
     {
       id: 'meat-poultry',
       name: 'Meats & Seafood',
       icon: Beef,
-      activeColor: 'bg-[#00a676] text-white'
+      activeColor: 'bg-[#0284c7] text-white'
     },
     {
       id: 'frozen-foods',
       name: 'Frozen Foods',
       icon: Snowflake,
-      activeColor: 'bg-[#00a676] text-white'
+      activeColor: 'bg-[#0284c7] text-white'
     },
     {
       id: 'bakery',
       name: 'Breakfast',
       icon: Croissant,
-      activeColor: 'bg-[#00a676] text-white'
+      activeColor: 'bg-[#0284c7] text-white'
     },
     {
       id: 'pet-food',
       name: 'Pet Food',
       icon: PawPrint,
-      activeColor: 'bg-[#00a676] text-white'
+      activeColor: 'bg-[#0284c7] text-white'
     },
     {
       id: 'dairy-eggs',
       name: 'Milk & Dairies',
       icon: Milk,
-      activeColor: 'bg-[#00a676] text-white'
+      activeColor: 'bg-[#0284c7] text-white'
     }
   ];
 
@@ -83,7 +83,7 @@ export const UnimaartCategoryStrip = ({ activeCategory, onSelectCategory }) => {
               onClick={() => handleCategoryClick(cat.id)}
               className={`p-4 rounded-2xl flex flex-col items-center justify-center gap-2.5 cursor-pointer transition-all duration-200 transform hover:-translate-y-1 text-center min-h-[110px] select-none ${
                 isActive
-                  ? 'bg-[#00a676] text-white shadow-lg shadow-[#00a676]/25 ring-2 ring-[#00a676]'
+                  ? 'bg-[#0284c7] text-white shadow-lg shadow-[#0284c7]/25 ring-2 ring-[#0284c7]'
                   : 'bg-[#f4f6f8] hover:bg-[#eef3f0] text-slate-700 hover:text-slate-900 border border-slate-200/60'
               }`}
             >

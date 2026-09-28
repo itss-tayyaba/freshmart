@@ -1303,11 +1303,11 @@ export const BRANCH_METRICS = {
     name: 'FreshMart Direct',
     badge: '10-15 Min Express Dark Store & Farm Hub',
     tagline: '100% Farm-Fresh Daily Harvest & Organic Essentials',
-    themeColor: '#047857', // Forest Emerald
-    accentColor: '#10b981',
-    borderClass: 'border-emerald-200',
-    bgBadgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    primaryBtnClass: 'bg-[#047857] hover:bg-[#065f46] text-white',
+    themeColor: '#0284c7', // Royal Sapphire Blue
+    accentColor: '#38bdf8',
+    borderClass: 'border-sky-200',
+    bgBadgeClass: 'bg-sky-50 text-sky-800 border-sky-200',
+    primaryBtnClass: 'bg-[#0284c7] hover:bg-[#0369a1] text-white',
     hubs: [
       { name: 'Gulberg Central Dark Store SuperHub', city: 'Lahore', activeRiders: 9, ordersToday: 142, sla: '99.7%' },
       { name: 'DHA Phase 6 Express Micro-Hub', city: 'Lahore', activeRiders: 6, ordersToday: 98, sla: '99.6%' },

@@ -85,7 +85,7 @@ export const COMPANIES = [
     banner: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=1200&q=80',
     status: 'active',
     tagline: 'Fresh Food, Fair Prices, Fast Delivery',
-    themeColor: '#00a676',
+    themeColor: '#0284c7',
     ownerName: 'Aimen Yasin',
     ownerEmail: 'support@unimaart.com'
   }

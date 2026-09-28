@@ -11,9 +11,20 @@ import {
   Store,
   Sparkles,
   MapPin,
-  ExternalLink
+  ExternalLink,
+  Palette,
+  Check
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+
+export const UNIMAART_PALETTES = [
+  { id: 'sapphire', name: 'Royal Sapphire Blue', primary: '#0284c7', dark: '#0369a1', badge: 'Default' },
+  { id: 'classic-teal', name: 'Classic Fresh Teal', primary: '#00a676', dark: '#008f65', badge: 'Teal' },
+  { id: 'deep-navy', name: 'Deep Royal Navy', primary: '#1e40af', dark: '#1e3a8a', badge: 'Navy' },
+  { id: 'emerald', name: 'Farm-Fresh Emerald', primary: '#059669', dark: '#047857', badge: 'Farm' },
+  { id: 'amethyst', name: 'Royal Amethyst', primary: '#7c3aed', dark: '#6d28d9', badge: 'Luxury' },
+  { id: 'sunset', name: 'Sunset Tangerine', primary: '#ea580c', dark: '#c2410c', badge: 'Warm' },
+];
 
 export const UnimaartHeader = () => {
   const {
@@ -41,12 +52,39 @@ export const UnimaartHeader = () => {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const searchRef = useRef(null);
+  const themeRef = useRef(null);
 
-  // Close search suggestions on click outside
+  // Theme palette state (Default: Royal Sapphire Blue #0284c7)
+  const [selectedPalette, setSelectedPalette] = useState(() => {
+    try {
+      const saved = localStorage.getItem('unimaart_theme_palette');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      // fallback
+    }
+    return UNIMAART_PALETTES[0]; // Royal Sapphire Blue
+  });
+  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+
+  const handleSelectPalette = (palette) => {
+    setSelectedPalette(palette);
+    try {
+      localStorage.setItem('unimaart_theme_palette', JSON.stringify(palette));
+    } catch (e) {
+      // ignore
+    }
+    setIsThemeMenuOpen(false);
+    addToast('Theme Updated 🎨', `Switched Unimaart theme to ${palette.name}`);
+  };
+
+  // Close search suggestions and theme menu on click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
         setIsSearchFocused(false);
+      }
+      if (themeRef.current && !themeRef.current.contains(e.target)) {
+        setIsThemeMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -69,19 +107,19 @@ export const UnimaartHeader = () => {
     : [];
 
   return (
-    <header className="sticky top-0 z-40 bg-[#00a676] text-white shadow-md">
+    <header style={{ backgroundColor: selectedPalette.primary }} className="sticky top-0 z-40 bg-[#0284c7] text-white shadow-md transition-colors duration-200">
       
       {/* ========================================================================= */}
       {/* 1. TOP NAVBAR ROW (LOGO, LINKS, PHONE PILL, SOCIALS) */}
       {/* ========================================================================= */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-4 border-b border-[#009166]">
+      <div style={{ borderColor: selectedPalette.dark }} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-4 border-b border-[#0369a1]">
         
         {/* Left Brand Logo matching screenshot */}
         <div
           onClick={() => navigateTo('home')}
           className="flex items-center gap-2 cursor-pointer select-none group shrink-0"
         >
-          <div className="w-9 h-9 rounded-xl bg-white text-[#00a676] flex items-center justify-center font-black text-xl shadow-xs group-hover:scale-105 transition-transform">
+          <div style={{ color: selectedPalette.primary }} className="w-9 h-9 rounded-xl bg-white text-[#0284c7] flex items-center justify-center font-black text-xl shadow-xs group-hover:scale-105 transition-transform">
             🛒
           </div>
           <span className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-none">
@@ -141,7 +179,7 @@ export const UnimaartHeader = () => {
         <div className="flex items-center gap-3">
           
           {/* Phone Number Pill */}
-          <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#008f65] border border-white/20 text-white text-xs font-bold shadow-2xs">
+          <div style={{ backgroundColor: selectedPalette.dark }} className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0369a1] border border-white/20 text-white text-xs font-bold shadow-2xs">
             <Phone className="w-3.5 h-3.5 text-white" />
             <span>Phone Number +9870-256-679</span>
           </div>
@@ -164,7 +202,8 @@ export const UnimaartHeader = () => {
           {/* Mobile Menu Toggle Button */}
           <button
             onClick={() => setMobileNavOpen(!mobileNavOpen)}
-            className="lg:hidden p-1.5 rounded-lg bg-[#008f65] text-white hover:bg-[#007f59] transition-colors"
+            style={{ backgroundColor: selectedPalette.dark }}
+            className="lg:hidden p-1.5 rounded-lg bg-[#0369a1] text-white hover:opacity-90 transition-colors"
           >
             {mobileNavOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -207,7 +246,7 @@ export const UnimaartHeader = () => {
                     navigateTo('shop');
                     setIsCategoryMenuOpen(false);
                   }}
-                  className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:text-[#00a676] hover:bg-slate-50 transition-colors flex items-center justify-between"
+                  className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:text-[#0284c7] hover:bg-slate-50 transition-colors flex items-center justify-between"
                 >
                   <span>{c.name}</span>
                   <span className="text-[10px] text-slate-400">→</span>
@@ -284,7 +323,7 @@ export const UnimaartHeader = () => {
                       <span className="text-[10px] text-slate-400">{prod.categoryLabel}</span>
                     </div>
                   </div>
-                  <span className="text-xs font-black text-[#00a676]">
+                  <span style={{ color: selectedPalette.primary }} className="text-xs font-black text-[#0284c7]">
                     {currency?.symbol || 'Rs. '}{prod.price}
                   </span>
                 </div>
@@ -297,7 +336,10 @@ export const UnimaartHeader = () => {
         <div className="flex items-center gap-3 ml-auto">
           
           {/* Multi-Tenant Supermarket Switcher (Allows testing/switching branches) */}
-          <div className="flex items-center gap-1.5 bg-[#008f65] border border-white/25 rounded-xl px-2.5 py-1.5 shadow-2xs">
+          <div
+            style={{ backgroundColor: selectedPalette.dark }}
+            className="flex items-center gap-1.5 bg-[#0369a1] border border-white/25 rounded-xl px-2.5 py-1.5 shadow-2xs"
+          >
             <Store className="w-3.5 h-3.5 text-amber-300 shrink-0" />
             <span className="text-[10px] font-bold text-white/80 hidden xl:inline">Branch:</span>
             <select
@@ -327,6 +369,72 @@ export const UnimaartHeader = () => {
           >
             <span>⚡ Admin</span>
           </button>
+
+          {/* Unimaart Theme Palette Switcher */}
+          <div ref={themeRef} className="relative">
+            <button
+              onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
+              className="flex items-center gap-1.5 text-xs font-bold text-white bg-black/20 hover:bg-black/30 px-2.5 py-1.5 rounded-xl border border-white/20 shadow-2xs transition-all cursor-pointer"
+              title="Change Unimaart Color Theme"
+            >
+              <Palette className="w-3.5 h-3.5 text-amber-300" />
+              <span className="hidden xl:inline text-[11px] font-bold">Theme</span>
+              <span
+                className="w-2.5 h-2.5 rounded-full border border-white/60 shadow-xs shrink-0"
+                style={{ backgroundColor: selectedPalette.primary }}
+              />
+            </button>
+
+            {/* Dropdown Menu for Theme Palettes */}
+            {isThemeMenuOpen && (
+              <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 p-3 z-50 text-slate-800 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-1.5">
+                    <Palette className="w-4 h-4 text-sky-600" />
+                    <span className="text-xs font-black text-slate-900 tracking-tight">Unimaart Color Theme</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full">
+                    {selectedPalette.badge || 'Active'}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  {UNIMAART_PALETTES.map((palette) => {
+                    const isSelected = selectedPalette.id === palette.id;
+                    return (
+                      <button
+                        key={palette.id}
+                        onClick={() => handleSelectPalette(palette)}
+                        className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-slate-100 ring-1 ring-slate-300 text-slate-900 font-black'
+                            : 'hover:bg-slate-50 text-slate-700 font-semibold'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className="w-5 h-5 rounded-full shadow-sm shrink-0 border border-black/10 flex items-center justify-center text-[10px] text-white"
+                            style={{ backgroundColor: palette.primary }}
+                          >
+                            {isSelected && '✓'}
+                          </span>
+                          <div>
+                            <span className="text-xs block leading-tight">{palette.name}</span>
+                            <span className="text-[10px] text-slate-400 block">{palette.primary}</span>
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <span className="text-[10px] font-black text-sky-600 bg-sky-50 px-2 py-0.5 rounded-md">
+                            Active
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Accounts Button matching screenshot */}
           <button
@@ -373,7 +481,7 @@ export const UnimaartHeader = () => {
 
       {/* Mobile Drawer Menu */}
       {mobileNavOpen && (
-        <div className="lg:hidden bg-[#008f65] border-t border-white/20 p-4 space-y-3 animate-in slide-in-from-top duration-200">
+        <div style={{ backgroundColor: selectedPalette.dark }} className="lg:hidden bg-[#0369a1] border-t border-white/20 p-4 space-y-3 animate-in slide-in-from-top duration-200">
           {/* Mobile Search */}
           <form onSubmit={handleSearchSubmit} className="flex items-center bg-white rounded-xl p-1 shadow-sm">
             <input

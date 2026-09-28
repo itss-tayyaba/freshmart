@@ -150,7 +150,7 @@ export const UnimaartTopSave = () => {
               onClick={() => setActiveSideCat('all')}
               className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer text-left ${
                 activeSideCat === 'all'
-                  ? 'bg-[#00a676] text-white shadow-2xs'
+                  ? 'bg-[#0284c7] text-white shadow-2xs'
                   : 'text-slate-600 hover:bg-slate-200/60'
               }`}
             >
@@ -167,7 +167,7 @@ export const UnimaartTopSave = () => {
                   onClick={() => setActiveSideCat(isSelected ? 'all' : sc.id)}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-left ${
                     isSelected
-                      ? 'bg-[#00a676] text-white font-bold shadow-2xs'
+                      ? 'bg-[#0284c7] text-white font-bold shadow-2xs'
                       : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
                   }`}
                 >
@@ -193,13 +193,13 @@ export const UnimaartTopSave = () => {
                 </h2>
               </div>
               
-              {/* Cute Green Leaf Doodle Flourish */}
+              {/* Cute Sapphire Leaf Doodle Flourish */}
               <div className="flex items-center gap-1 my-1">
-                <div className="h-0.5 w-6 bg-[#00a676] rounded-full" />
-                <svg className="w-3.5 h-3.5 text-[#00a676]" viewBox="0 0 24 24" fill="currentColor">
+                <div className="h-0.5 w-6 bg-[#0284c7] rounded-full" />
+                <svg className="w-3.5 h-3.5 text-[#0284c7]" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75C7 8 17 8 17 8z" />
                 </svg>
-                <div className="h-0.5 w-6 bg-[#00a676] rounded-full" />
+                <div className="h-0.5 w-6 bg-[#0284c7] rounded-full" />
               </div>
 
               <p className="text-xs text-slate-500 font-medium">
@@ -260,7 +260,7 @@ export const UnimaartTopSave = () => {
                       </span>
                       <h4
                         onClick={() => setQuickViewProduct && setQuickViewProduct(prod)}
-                        className="text-xs font-bold text-slate-800 line-clamp-2 hover:text-[#00a676] cursor-pointer transition-colors leading-snug"
+                        className="text-xs font-bold text-slate-800 line-clamp-2 hover:text-[#0284c7] cursor-pointer transition-colors leading-snug"
                         title={prod.name}
                       >
                         {prod.name}
@@ -287,8 +287,8 @@ export const UnimaartTopSave = () => {
                         }}
                         className={`p-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center ${
                           inCart
-                            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                            : 'bg-[#00a676] hover:bg-[#008f65] text-white hover:shadow-md'
+                            ? 'bg-sky-100 text-sky-800 hover:bg-sky-200'
+                            : 'bg-[#0284c7] hover:bg-[#0369a1] text-white hover:shadow-md'
                         }`}
                         title="Add to Cart"
                       >

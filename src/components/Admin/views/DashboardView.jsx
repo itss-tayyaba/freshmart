@@ -125,7 +125,7 @@ export const DashboardView = ({ onNavigateModule }) => {
         return 'from-slate-950 via-purple-950 to-violet-950';
       case 'tenant-freshmart':
       default:
-        return 'from-slate-950 via-slate-900 to-emerald-950';
+        return 'from-slate-950 via-slate-900 to-sky-950';
     }
   }, [tenantKey]);
 

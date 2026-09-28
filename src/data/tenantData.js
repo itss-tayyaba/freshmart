@@ -129,11 +129,11 @@ export const INITIAL_TENANTS = [
     ownerEmail: 'support@unimaart.com',
     ownerPhone: '+9870-256-679',
     status: 'Active',
-    color: '#00a676',
+    color: '#0284c7',
     theme: {
-      primaryColor: '#00a676', // Unimaart Teal
-      accentColor: '#f59e0b',
-      bgGradient: 'from-[#004d38] via-[#007353] to-[#00a676]'
+      primaryColor: '#0284c7', // Royal Sapphire Blue
+      accentColor: '#38bdf8',
+      bgGradient: 'from-[#033659] via-[#0284c7] to-[#38bdf8]'
     },
     hubs: ['Gulberg SuperHub', 'DHA Phase 6', 'Johar Town Hub', 'Bahria Town Hub'],
     subscription: {
