@@ -98,27 +98,30 @@ export const FreshMartHome = () => {
 
   const spotlightApple = products.find((p) => p.id === (storeSettings?.dealOfDayProductId || 'fresh-apples-1kg')) || products.find(p => p.isFlashDeal) || products[0];
 
+  const isUnimaart = currentTenant?.id === 'tenant-freshmart';
 
   return (
     <div className="space-y-10 pb-16 animate-in fade-in duration-300">
       
-      {/* 🌟 1. Top Green Announcement Bar */}
-      <div className="bg-[#0f6b3a] text-white text-xs font-semibold py-2 px-4 text-center flex items-center justify-center gap-3 shadow-inner">
-        <div className="flex items-center gap-2 flex-wrap justify-center">
-          <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-            Fast Delivery
-          </span>
-          <span>{storeSettings?.topAnnouncement || '⚡ 10-15 Min Express Delivery on all farm-fresh fruits, vegetables, dairy & daily groceries'}</span>
+      {/* 🌟 1. Top Announcement Bar (Hidden on Unimaart so no clashing green bar appears) */}
+      {!isUnimaart && (
+        <div className="bg-[#0f6b3a] text-white text-xs font-semibold py-2 px-4 text-center flex items-center justify-center gap-3 shadow-inner">
+          <div className="flex items-center gap-2 flex-wrap justify-center">
+            <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+              Fast Delivery
+            </span>
+            <span>{storeSettings?.topAnnouncement || '⚡ 10-15 Min Express Delivery on all farm-fresh fruits, vegetables, dairy & daily groceries'}</span>
+          </div>
+          {storeSettings?.topPromoCode && (
+            <button
+              onClick={() => handleCopyCoupon(storeSettings.topPromoCode)}
+              className="px-2.5 py-0.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+            >
+              {copiedCode === storeSettings.topPromoCode ? 'Copied! ✓' : `Code: ${storeSettings.topPromoCode}`}
+            </button>
+          )}
         </div>
-        {storeSettings?.topPromoCode && (
-          <button
-            onClick={() => handleCopyCoupon(storeSettings.topPromoCode)}
-            className="px-2.5 py-0.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
-          >
-            {copiedCode === storeSettings.topPromoCode ? 'Copied! ✓' : `Code: ${storeSettings.topPromoCode}`}
-          </button>
-        )}
-      </div>
+      )}
 
       {/* 🚀 STORE-SPECIFIC HERO & CATEGORY EXPERIENCES */}
       {currentTenant?.id === 'tenant-freshmart' ? (
@@ -467,7 +470,9 @@ export const FreshMartHome = () => {
                 </div>
                 <button
                   onClick={() => addToCart(spotlightApple, 1)}
-                  className="mt-2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+                  className={`mt-2 px-4 py-1.5 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer ${
+                    isUnimaart ? 'bg-[#0284c7] hover:bg-[#0369a1]' : 'bg-emerald-600 hover:bg-emerald-700'
+                  }`}
                 >
                   + Add to Cart
                 </button>
@@ -477,12 +482,16 @@ export const FreshMartHome = () => {
           </div>
 
           {/* Right Banner Card */}
-          <div className="lg:col-span-5 bg-gradient-to-br from-emerald-800 to-emerald-950 rounded-3xl p-6 text-white shadow-md flex items-center justify-between gap-4 relative overflow-hidden">
+          <div className={`lg:col-span-5 rounded-3xl p-6 text-white shadow-md flex items-center justify-between gap-4 relative overflow-hidden ${
+            isUnimaart
+              ? 'bg-gradient-to-br from-[#033659] via-[#0284c7] to-slate-950 border border-sky-400/20'
+              : 'bg-gradient-to-br from-emerald-800 to-emerald-950'
+          }`}>
             <div className="space-y-1.5 z-10">
               <span className="text-2xl sm:text-3xl font-black block">
                 {storeSettings?.firstOrderPromoCode ? 'Special Offer' : 'Express Delivery'}
               </span>
-              <p className="text-xs text-emerald-200">
+              <p className={`text-xs ${isUnimaart ? 'text-sky-200' : 'text-emerald-200'}`}>
                 {storeSettings?.firstOrderPromoCode ? 'Use promo code at checkout' : 'Farm fresh groceries at your door in 10-15 mins'}
               </p>
               <div className="pt-2 flex items-center gap-2">
@@ -512,7 +521,9 @@ export const FreshMartHome = () => {
             <img
               src="https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=300&q=80"
               alt="Fresh Produce"
-              className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover shadow-lg border-2 border-emerald-600 shrink-0"
+              className={`w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover shadow-lg border-2 shrink-0 ${
+                isUnimaart ? 'border-sky-400' : 'border-emerald-600'
+              }`}
             />
           </div>
 
@@ -542,7 +553,7 @@ export const FreshMartHome = () => {
                 onClick={() => setActiveBestsellerTab(tab.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
                   activeBestsellerTab === tab.id
-                    ? 'bg-emerald-600 text-white shadow-2xs'
+                    ? (isUnimaart ? 'bg-[#0284c7] text-white shadow-2xs' : 'bg-emerald-600 text-white shadow-2xs')
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -571,7 +582,9 @@ export const FreshMartHome = () => {
                       -{product.discountPercent}%
                     </span>
                   ) : (
-                    <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-1.5 py-0.5 rounded-md">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                      isUnimaart ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700'
+                    }`}>
                       Fresh
                     </span>
                   )}
@@ -606,7 +619,9 @@ export const FreshMartHome = () => {
                 <div>
                   <h3
                     onClick={() => navigateTo('product-detail', product)}
-                    className="text-xs font-bold text-slate-800 line-clamp-1 hover:text-emerald-700 cursor-pointer transition-colors"
+                    className={`text-xs font-bold text-slate-800 line-clamp-1 cursor-pointer transition-colors ${
+                      isUnimaart ? 'hover:text-[#0284c7]' : 'hover:text-emerald-700'
+                    }`}
                   >
                     {product.name}
                   </h3>
@@ -633,17 +648,23 @@ export const FreshMartHome = () => {
 
                   {/* Quantity Adder or Add to Cart Button */}
                   {cartItem ? (
-                    <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl p-0.5 mt-2.5">
+                    <div className={`flex items-center justify-between rounded-xl p-0.5 mt-2.5 ${
+                      isUnimaart ? 'bg-sky-50 border border-sky-200' : 'bg-emerald-50 border border-emerald-200'
+                    }`}>
                       <button
                         onClick={() => updateCartQuantity(product.id, -1)}
-                        className="w-6 h-6 rounded bg-white text-emerald-800 flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer"
+                        className={`w-6 h-6 rounded bg-white flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer ${
+                          isUnimaart ? 'text-sky-800' : 'text-emerald-800'
+                        }`}
                       >
                         <Minus className="w-3 h-3" />
                       </button>
-                      <span className="text-xs font-bold text-emerald-900">{cartItem.quantity}</span>
+                      <span className={`text-xs font-bold ${isUnimaart ? 'text-sky-900' : 'text-emerald-900'}`}>{cartItem.quantity}</span>
                       <button
                         onClick={() => updateCartQuantity(product.id, 1)}
-                        className="w-6 h-6 rounded bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer"
+                        className={`w-6 h-6 rounded text-white flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer ${
+                          isUnimaart ? 'bg-[#0284c7]' : 'bg-emerald-600'
+                        }`}
                       >
                         <Plus className="w-3 h-3" />
                       </button>
@@ -651,7 +672,9 @@ export const FreshMartHome = () => {
                   ) : (
                     <button
                       onClick={() => addToCart(product, 1)}
-                      className="w-full mt-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
+                      className={`w-full mt-2.5 py-1.5 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1 shadow-2xs ${
+                        isUnimaart ? 'bg-[#0284c7] hover:bg-[#0369a1]' : 'bg-emerald-600 hover:bg-emerald-700'
+                      }`}
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add to Cart</span>
@@ -694,27 +717,39 @@ export const FreshMartHome = () => {
           </div>
 
           {/* Card 2: Refer & Earn */}
-          <div className="bg-gradient-to-r from-[#eef7f3] to-[#e4f2eb] rounded-3xl p-6 sm:p-8 border border-emerald-200/60 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className={`rounded-3xl p-6 sm:p-8 border shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6 ${
+            isUnimaart
+              ? 'bg-gradient-to-r from-[#f0f7ff] to-[#e0f2fe] border-sky-200/60'
+              : 'bg-gradient-to-r from-[#eef7f3] to-[#e4f2eb] border-emerald-200/60'
+          }`}>
             <div className="space-y-2 text-center sm:text-left">
-              <span className="text-xs font-black text-emerald-800 uppercase tracking-wider block">Rewards Program</span>
+              <span className={`text-xs font-black uppercase tracking-wider block ${
+                isUnimaart ? 'text-sky-800' : 'text-emerald-800'
+              }`}>
+                Rewards Program
+              </span>
               <h3 className="text-xl sm:text-2xl font-black text-slate-900">Refer & Earn Rs. 500</h3>
               <p className="text-xs text-slate-600 max-w-xs">
-                Invite friends and family to FreshMart. Both of you receive <strong>Rs. 500 wallet credit</strong>!
+                Invite friends and family to {isUnimaart ? 'Unimaart' : 'FreshMart'}. Both of you receive <strong>Rs. 500 wallet credit</strong>!
               </p>
               <div className="pt-2">
                 <button
                   onClick={() => {
-                    addToast('Referral Link Copied', 'Share your referral code FRESH-FRIEND500 with friends!', 'info');
+                    addToast('Referral Link Copied', `Share your referral code ${isUnimaart ? 'UNIMART-FRIEND500' : 'FRESH-FRIEND500'} with friends!`, 'info');
                     navigateTo('customer-portal');
                   }}
-                  className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-black transition-colors cursor-pointer shadow-sm flex items-center gap-1.5"
+                  className={`px-6 py-2.5 text-white rounded-xl text-xs font-black transition-colors cursor-pointer shadow-sm flex items-center gap-1.5 ${
+                    isUnimaart ? 'bg-[#0284c7] hover:bg-[#0369a1]' : 'bg-emerald-700 hover:bg-emerald-800'
+                  }`}
                 >
                   <Gift className="w-3.5 h-3.5" />
                   <span>Refer Friends</span>
                 </button>
               </div>
             </div>
-            <div className="w-24 h-24 rounded-2xl bg-emerald-200/60 flex items-center justify-center text-4xl shadow-inner shrink-0">
+            <div className={`w-24 h-24 rounded-2xl flex items-center justify-center text-4xl shadow-inner shrink-0 ${
+              isUnimaart ? 'bg-sky-200/60' : 'bg-emerald-200/60'
+            }`}>
               🎁
             </div>
           </div>
@@ -724,29 +759,41 @@ export const FreshMartHome = () => {
 
       {/* 📱 9. Mobile App Download Banner matching GreenMart design */}
       <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="bg-gradient-to-r from-[#0d542d] via-[#116b39] to-[#0b4826] rounded-3xl p-6 sm:p-10 text-white shadow-2xl flex flex-col lg:flex-row items-center justify-between gap-8 relative overflow-hidden">
+        <div className={`rounded-3xl p-6 sm:p-10 text-white shadow-2xl flex flex-col lg:flex-row items-center justify-between gap-8 relative overflow-hidden ${
+          isUnimaart
+            ? 'bg-gradient-to-r from-[#0b192c] via-[#0369a1] to-[#0284c7]'
+            : 'bg-gradient-to-r from-[#0d542d] via-[#116b39] to-[#0b4826]'
+        }`}>
           
           <div className="space-y-3 max-w-lg text-center lg:text-left">
-            <span className="text-xs font-extrabold uppercase tracking-wider bg-white/10 px-3 py-1 rounded-full text-emerald-200">
+            <span className={`text-xs font-extrabold uppercase tracking-wider bg-white/10 px-3 py-1 rounded-full ${
+              isUnimaart ? 'text-sky-200' : 'text-emerald-200'
+            }`}>
               Mobile App Experience
             </span>
             <h3 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
               Download Our App
             </h3>
-            <p className="text-xs sm:text-sm text-emerald-100 font-medium">
+            <p className={`text-xs sm:text-sm font-medium ${
+              isUnimaart ? 'text-sky-100' : 'text-emerald-100'
+            }`}>
               Get exclusive app-only flash discounts, live courier GPS map tracking, and 10-minute grocery delivery right to your door.
             </p>
 
             <div className="pt-3 flex items-center gap-3 justify-center lg:justify-start flex-wrap">
               <button
                 onClick={() => addToast('Google Play', 'Redirecting to Google Play Store...', 'info')}
-                className="px-5 py-2.5 bg-slate-950 hover:bg-black text-white rounded-xl text-xs font-bold flex items-center gap-2 border border-emerald-500/30 transition-colors cursor-pointer shadow-md"
+                className={`px-5 py-2.5 bg-slate-950 hover:bg-black text-white rounded-xl text-xs font-bold flex items-center gap-2 border transition-colors cursor-pointer shadow-md ${
+                  isUnimaart ? 'border-sky-500/30' : 'border-emerald-500/30'
+                }`}
               >
                 <span>Google Play</span>
               </button>
               <button
                 onClick={() => addToast('Apple App Store', 'Redirecting to Apple App Store...', 'info')}
-                className="px-5 py-2.5 bg-slate-950 hover:bg-black text-white rounded-xl text-xs font-bold flex items-center gap-2 border border-emerald-500/30 transition-colors cursor-pointer shadow-md"
+                className={`px-5 py-2.5 bg-slate-950 hover:bg-black text-white rounded-xl text-xs font-bold flex items-center gap-2 border transition-colors cursor-pointer shadow-md ${
+                  isUnimaart ? 'border-sky-500/30' : 'border-emerald-500/30'
+                }`}
               >
                 <span>App Store</span>
               </button>
@@ -755,13 +802,15 @@ export const FreshMartHome = () => {
 
           <div className="flex items-center justify-center">
             <div className="w-56 sm:w-64 bg-slate-900 p-3 rounded-3xl border-4 border-slate-700 shadow-2xl space-y-3">
-              <div className="bg-emerald-700 text-white text-[10px] font-black p-2 rounded-xl text-center">
-                🛒 FreshMart Express App
+              <div className={`text-white text-[10px] font-black p-2 rounded-xl text-center ${
+                isUnimaart ? 'bg-[#0284c7]' : 'bg-emerald-700'
+              }`}>
+                🛒 {isUnimaart ? 'Unimaart Express App' : 'FreshMart Express App'}
               </div>
               <div className="space-y-1.5 p-2 bg-slate-800 rounded-xl text-[11px] text-slate-200">
                 <div className="flex justify-between font-bold">
                   <span>⚡ 10 Min Delivery</span>
-                  <span className="text-emerald-400">Active</span>
+                  <span className={isUnimaart ? 'text-sky-400' : 'text-emerald-400'}>Active</span>
                 </div>
                 <p className="text-[10px] text-slate-400">Real-time GPS road navigation</p>
               </div>

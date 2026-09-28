@@ -3,7 +3,8 @@ import { Mail, Phone, MapPin, ArrowUp, Heart, ShieldCheck, Sparkles, Smartphone 
 import { useStore } from '../../context/StoreContext';
 
 export const Footer = () => {
-  const { setActiveCategory, setIsVendorRegisterOpen, navigateTo } = useStore();
+  const { setActiveCategory, setIsVendorRegisterOpen, navigateTo, currentTenant } = useStore();
+  const isUnimaart = currentTenant?.id === 'tenant-freshmart';
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -16,44 +17,52 @@ export const Footer = () => {
   };
 
   return (
-    <footer id="footer-section" className="bg-[#07382c] text-slate-300 pt-16 pb-8 px-4 sm:px-8 border-t border-emerald-900/60 mt-12">
+    <footer
+      id="footer-section"
+      className={`text-slate-300 pt-16 pb-8 px-4 sm:px-8 border-t mt-12 transition-colors duration-200 ${
+        isUnimaart ? 'bg-[#091522] border-sky-950' : 'bg-[#07382c] border-emerald-900/60'
+      }`}
+    >
       <div className="max-w-7xl mx-auto">
         
         {/* Main Footer Links Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-emerald-900/60">
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b ${
+          isUnimaart ? 'border-sky-950' : 'border-emerald-900/60'
+        }`}>
           
           {/* Col 1: Brand Info */}
           <div className="lg:col-span-2 space-y-4">
             <a href="#" className="flex items-center gap-2.5 group">
-              <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-md">
-                <svg viewBox="0 0 24 24" className="w-6 h-6 stroke-white fill-none stroke-[2.2] stroke-linecap-round stroke-linejoin-round">
-                  <circle cx="9" cy="21" r="1"></circle>
-                  <circle cx="20" cy="21" r="1"></circle>
-                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-                  <path d="M12 2a4 4 0 0 1 4 4" stroke="#a3e635" strokeWidth="2.5"></path>
-                </svg>
+              <div className={`relative flex items-center justify-center w-10 h-10 rounded-xl text-white shadow-md ${
+                isUnimaart
+                  ? 'bg-gradient-to-br from-[#0284c7] to-[#0369a1]'
+                  : 'bg-gradient-to-br from-emerald-400 to-emerald-600'
+              }`}>
+                🛒
               </div>
               <span className="text-2xl font-black tracking-tight text-white">
-                Grocery <span className="text-lime-400">Shop</span>
+                {isUnimaart ? 'Unimaart ' : 'Grocery '}<span className={isUnimaart ? 'text-sky-400' : 'text-lime-400'}>{isUnimaart ? 'Market' : 'Shop'}</span>
               </span>
             </a>
 
             <p className="text-xs text-slate-300/80 leading-relaxed max-w-sm">
-              We connect local organic farmers directly with your kitchen. Everyday low prices on fresh vegetables, wild fruits, prime meats, and healthy pantry staples.
+              {isUnimaart
+                ? 'Fresh food, fair prices, and fast 10-15 minute grocery delivery right to your doorstep. Quality farm produce and daily market essentials.'
+                : 'We connect local organic farmers directly with your kitchen. Everyday low prices on fresh vegetables, wild fruits, prime meats, and healthy pantry staples.'}
             </p>
 
             <div className="space-y-2 text-xs text-slate-300/90 pt-1">
               <div className="flex items-center gap-2.5">
-                <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>124 Market Boulevard, Suite 500, Seattle, WA</span>
+                <MapPin className={`w-4 h-4 shrink-0 ${isUnimaart ? 'text-sky-400' : 'text-emerald-400'}`} />
+                <span>{isUnimaart ? 'Gulberg Express Dark Store SuperHub, Lahore, Pakistan' : '124 Market Boulevard, Suite 500, Seattle, WA'}</span>
               </div>
               <div className="flex items-center gap-2.5">
-                <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>88 01434 65768 / +00 017500399</span>
+                <Phone className={`w-4 h-4 shrink-0 ${isUnimaart ? 'text-sky-400' : 'text-emerald-400'}`} />
+                <span>{isUnimaart ? '+9870-256-679' : '88 01434 65768 / +00 017500399'}</span>
               </div>
               <div className="flex items-center gap-2.5">
-                <Mail className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>info.grocery@gmail.com</span>
+                <Mail className={`w-4 h-4 shrink-0 ${isUnimaart ? 'text-sky-400' : 'text-emerald-400'}`} />
+                <span>{isUnimaart ? 'support@unimaart.com' : 'info.grocery@gmail.com'}</span>
               </div>
             </div>
           </div>
@@ -68,7 +77,9 @@ export const Footer = () => {
                 <li key={cat}>
                   <button
                     onClick={() => handleCategoryClick(cat)}
-                    className="hover:text-lime-400 transition-colors capitalize text-slate-300"
+                    className={`transition-colors capitalize text-slate-300 ${
+                      isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'
+                    }`}
                   >
                     {cat.replace('-', ' & ')}
                   </button>
@@ -83,27 +94,31 @@ export const Footer = () => {
               Customer Care
             </h4>
             <ul className="space-y-2 text-xs">
-              <li><a href="#flash-deals-section" className="hover:text-lime-400 transition-colors">Daily Deals & Coupons</a></li>
+              <li><a href="#flash-deals-section" className={`transition-colors ${isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'}`}>Daily Deals & Coupons</a></li>
               <li>
                 <button
                   type="button"
                   onClick={() => setIsVendorRegisterOpen(true)}
-                  className="hover:text-lime-400 text-emerald-300 font-bold transition-colors text-left flex items-center gap-1 cursor-pointer"
+                  className={`font-bold transition-colors text-left flex items-center gap-1 cursor-pointer ${
+                    isUnimaart ? 'text-sky-300 hover:text-sky-400' : 'text-emerald-300 hover:text-lime-400'
+                  }`}
                 >
-                  <span>🏪 Sell on FreshMart (Vendor)</span>
+                  <span>🏪 Sell on {isUnimaart ? 'Unimaart' : 'FreshMart'}</span>
                 </button>
               </li>
               <li>
                 <button
                   type="button"
                   onClick={() => navigateTo('admin')}
-                  className="hover:text-lime-400 text-slate-300 transition-colors text-left cursor-pointer"
+                  className={`text-slate-300 transition-colors text-left cursor-pointer ${
+                    isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'
+                  }`}
                 >
-                  📦 Vendor / Partner Login
+                  📦 {isUnimaart ? 'Unimaart Store Admin' : 'Vendor / Partner Login'}
                 </button>
               </li>
-              <li><a href="#" className="hover:text-lime-400 transition-colors">Order Tracking</a></li>
-              <li><a href="#" className="hover:text-lime-400 transition-colors">FAQ & Support</a></li>
+              <li><a href="#" className={`transition-colors ${isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'}`}>Order Tracking</a></li>
+              <li><a href="#" className={`transition-colors ${isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'}`}>FAQ & Support</a></li>
             </ul>
           </div>
 
@@ -118,7 +133,11 @@ export const Footer = () => {
 
             <div className="space-y-2 pt-1">
               {/* App Store button */}
-              <div className="bg-slate-900/90 hover:bg-slate-900 p-2 rounded-xl border border-emerald-800 flex items-center gap-3 cursor-pointer transition-colors">
+              <div className={`p-2 rounded-xl border flex items-center gap-3 cursor-pointer transition-colors ${
+                isUnimaart
+                  ? 'bg-slate-900/90 hover:bg-slate-900 border-sky-900/50'
+                  : 'bg-slate-900/90 hover:bg-slate-900 border-emerald-800'
+              }`}>
                 <Smartphone className="w-5 h-5 text-white" />
                 <div className="text-left">
                   <span className="text-[9px] uppercase text-slate-400 block leading-none">Download on the</span>
@@ -127,8 +146,12 @@ export const Footer = () => {
               </div>
 
               {/* Google Play button */}
-              <div className="bg-slate-900/90 hover:bg-slate-900 p-2 rounded-xl border border-emerald-800 flex items-center gap-3 cursor-pointer transition-colors">
-                <Smartphone className="w-5 h-5 text-lime-400" />
+              <div className={`p-2 rounded-xl border flex items-center gap-3 cursor-pointer transition-colors ${
+                isUnimaart
+                  ? 'bg-slate-900/90 hover:bg-slate-900 border-sky-900/50'
+                  : 'bg-slate-900/90 hover:bg-slate-900 border-emerald-800'
+              }`}>
+                <Smartphone className={`w-5 h-5 ${isUnimaart ? 'text-sky-400' : 'text-lime-400'}`} />
                 <div className="text-left">
                   <span className="text-[9px] uppercase text-slate-400 block leading-none">Get it on</span>
                   <span className="text-xs font-bold text-white leading-tight">Google Play Store</span>
@@ -142,13 +165,15 @@ export const Footer = () => {
         {/* Bottom Bar: Copyright & Payment Badges */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <p>
-            © 2026 <strong className="text-white">Grocery Shop</strong>. All rights reserved. Made with fresh farm ingredients.
+            © 2026 <strong className="text-white">{isUnimaart ? 'Unimaart Market Store' : 'Grocery Shop'}</strong>. All rights reserved. Made with fresh farm ingredients.
           </p>
 
           {/* Payment Badges */}
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-slate-400 mr-1">Secured by:</span>
-            <div className="flex items-center gap-1.5 bg-slate-900/60 px-3 py-1.5 rounded-lg border border-emerald-900">
+            <div className={`flex items-center gap-1.5 bg-slate-900/60 px-3 py-1.5 rounded-lg border ${
+              isUnimaart ? 'border-sky-950' : 'border-emerald-900'
+            }`}>
               <span className="font-extrabold text-white text-[11px] tracking-wider">VISA</span>
               <span className="text-slate-500">•</span>
               <span className="font-extrabold text-white text-[11px] tracking-wider">Mastercard</span>
@@ -162,7 +187,11 @@ export const Footer = () => {
           {/* Back to Top */}
           <button
             onClick={scrollToTop}
-            className="w-9 h-9 rounded-full bg-emerald-800 hover:bg-lime-500 hover:text-emerald-950 text-white flex items-center justify-center transition-all shadow-md focus:outline-none"
+            className={`w-9 h-9 rounded-full text-white flex items-center justify-center transition-all shadow-md focus:outline-none ${
+              isUnimaart
+                ? 'bg-[#0284c7] hover:bg-sky-400 hover:text-slate-950'
+                : 'bg-emerald-800 hover:bg-lime-500 hover:text-emerald-950'
+            }`}
             aria-label="Back to Top"
             title="Back to Top"
           >
