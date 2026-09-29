@@ -13,13 +13,12 @@ import {
   X,
   User,
   ShieldCheck,
-  Bike
+  Bike,
+  Truck
 } from 'lucide-react';
 
 import { useStore } from '../../context/StoreContext';
 import { FRESHMART_CATEGORIES } from '../../data/freshMartData';
-import { UnimaartHeader } from '../Unimaart/UnimaartHeader';
-import { CaseValueHeader } from '../CaseValue/CaseValueHeader';
 
 export const FreshMartHeader = () => {
   const {
@@ -49,35 +48,48 @@ export const FreshMartHeader = () => {
     currency,
     tenants,
     currentTenant,
-    setCurrentTenant
+    setCurrentTenant,
+    setActiveCategory,
+    categories
   } = useStore();
 
-  // Render Unimaart header when viewing the Unimaart Market Store branch
-  if (currentTenant?.id === 'tenant-freshmart') {
-    return <UnimaartHeader />;
-  }
-
-  // Render Case Value header when viewing the Case Value / Local Grocery branch
-  if (currentTenant?.id === 'tenant-chasevalue') {
-    return <CaseValueHeader />;
-  }
+  const categoriesList = (categories && categories.length > 0) ? categories : FRESHMART_CATEGORIES;
 
   const isAlFatah = currentTenant?.id === 'tenant-alfatah';
   const isChaseUp = currentTenant?.id === 'tenant-chaseup';
-  const tenantThemeColor = currentTenant?.color || (isAlFatah ? '#991b1b' : isChaseUp ? '#6b21a8' : '#16a34a');
+  const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
+  const isUnimaart = currentTenant?.id === 'tenant-freshmart';
+
+  const tenantThemeColor = currentTenant?.color || (
+    isAlFatah ? '#991b1b' :
+    isChaseUp ? '#6b21a8' :
+    isCaseValue ? '#78350f' :
+    isUnimaart ? '#0284c7' :
+    '#0284c7'
+  );
   const tenantThemeName = currentTenant?.displayName || currentTenant?.name || 'FreshMart';
   const tenantTagline = currentTenant?.tagline || 'Freshness you can trust';
-  const tenantLogo = currentTenant?.logo || '🏬';
+  const tenantLogo = currentTenant?.logo || (
+    isAlFatah ? '👑' :
+    isChaseUp ? '🏪' :
+    isCaseValue ? '🛒' :
+    '🛒'
+  );
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const searchContainerRef = useRef(null);
+  const categoryDropdownRef = useRef(null);
 
   // Close search dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
         setIsSearchFocused(false);
+      }
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target)) {
+        setIsCategoryDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -372,8 +384,9 @@ export const FreshMartHeader = () => {
 
           {/* Customer Account / Sign In */}
           {customerUser ? (
-            <div className="flex items-center gap-1.5 bg-emerald-50/80 border border-emerald-200/60 rounded-2xl p-1 pr-2.5">
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/90 rounded-2xl p-1 pr-2.5">
               <button
+                type="button"
                 onClick={() => navigateTo('customer-portal')}
                 className="flex items-center gap-2 text-left cursor-pointer"
                 title="Customer Portal"
@@ -382,10 +395,14 @@ export const FreshMartHeader = () => {
                   <img
                     src={customerUser.avatar}
                     alt={customerUser.name}
-                    className="w-7 h-7 rounded-full object-cover border border-emerald-500"
+                    className="w-7 h-7 rounded-full object-cover border"
+                    style={{ borderColor: tenantThemeColor }}
                   />
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                  <div
+                    style={{ backgroundColor: tenantThemeColor }}
+                    className="w-7 h-7 rounded-full text-white font-black text-xs flex items-center justify-center shadow-xs"
+                  >
                     {customerUser.name.slice(0, 2).toUpperCase()}
                   </div>
                 )}
@@ -393,10 +410,16 @@ export const FreshMartHeader = () => {
                   <span className="text-[11px] font-black text-slate-900 block leading-tight truncate max-w-[90px]">
                     {customerUser.name.split(' ')[0]}
                   </span>
-                  <span className="text-[9px] text-emerald-700 font-bold block leading-none">Customer</span>
+                  <span
+                    style={{ color: tenantThemeColor }}
+                    className="text-[9px] font-bold block leading-none"
+                  >
+                    Customer
+                  </span>
                 </div>
               </button>
               <button
+                type="button"
                 onClick={logoutCustomer}
                 className="text-[10px] text-slate-400 hover:text-rose-600 font-bold ml-1 cursor-pointer transition-colors"
                 title="Sign Out"
@@ -406,18 +429,21 @@ export const FreshMartHeader = () => {
             </div>
           ) : (
             <button
+              type="button"
               onClick={() => setIsAuthOpen(true)}
-              className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-2xl text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
+              style={{ color: tenantThemeColor, borderColor: `${tenantThemeColor}40` }}
+              className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 border rounded-2xl text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
             >
-              <User className="w-3.5 h-3.5 text-emerald-700" />
+              <User className="w-3.5 h-3.5" style={{ color: tenantThemeColor }} />
               <span>Sign In</span>
             </button>
           )}
 
           {/* Wishlist */}
           <button
+            type="button"
             onClick={() => setIsWishlistOpen(true)}
-            className="flex flex-col items-center text-slate-600 hover:text-emerald-700 transition-colors p-1.5 focus:outline-none relative cursor-pointer"
+            className="flex flex-col items-center text-slate-600 hover:text-slate-900 transition-colors p-1.5 focus:outline-none relative cursor-pointer"
             title="Wishlist"
           >
             <Heart className="w-5 h-5" />
@@ -431,12 +457,16 @@ export const FreshMartHeader = () => {
 
           {/* Cart with Live Count */}
           <button
+            type="button"
             onClick={() => setIsCartOpen(true)}
-            className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition-colors cursor-pointer"
+            className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-900 border border-slate-200/80 transition-colors cursor-pointer"
           >
             <div className="relative">
-              <ShoppingCart className="w-5 h-5 text-emerald-700" />
-              <span className="absolute -top-2 -right-2 bg-emerald-600 text-white text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center">
+              <ShoppingCart className="w-5 h-5" style={{ color: tenantThemeColor }} />
+              <span
+                style={{ backgroundColor: tenantThemeColor }}
+                className="absolute -top-2 -right-2 text-white text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center shadow-xs"
+              >
                 {totalCartCount}
               </span>
             </div>
@@ -452,55 +482,166 @@ export const FreshMartHeader = () => {
 
       </div>
 
-      {/* 2. Secondary Navigation Links Bar */}
-      <nav className="border-t border-slate-100 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+      {/* 2. Secondary Navigation Links Bar (Unified across all landing pages) */}
+      <nav className="border-t border-slate-100 bg-white shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
           
-          <ul className="flex items-center gap-7 text-xs sm:text-sm font-semibold text-slate-700 overflow-x-auto no-scrollbar py-2.5">
-            <li>
+          <div className="flex items-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar py-2">
+            
+            {/* Departments Dropdown */}
+            <div ref={categoryDropdownRef} className="relative shrink-0">
               <button
-                onClick={() => navigateTo('home')}
-                className={`transition-colors pb-1 cursor-pointer ${
-                  currentPage === 'home'
-                    ? 'text-emerald-600 font-bold border-b-2 border-emerald-600'
-                    : 'hover:text-emerald-600'
-                }`}
+                type="button"
+                onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+                style={{ backgroundColor: tenantThemeColor }}
+                className="flex items-center gap-2 px-3.5 py-1.5 text-white rounded-xl text-xs font-bold transition-all shadow-xs hover:opacity-95 cursor-pointer"
               >
-                Home
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span>Departments</span>
+                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
-            </li>
-            <li>
-              <button
-                onClick={() => navigateTo('shop')}
-                className={`transition-colors pb-1 cursor-pointer ${
-                  currentPage === 'shop'
-                    ? 'text-emerald-600 font-bold border-b-2 border-emerald-600'
-                    : 'hover:text-emerald-600'
-                }`}
-              >
-                Shop
-              </button>
-            </li>
-            <li>
-              <button
-                onClick={() => navigateTo('deals')}
-                className={`transition-colors pb-1 cursor-pointer flex items-center gap-1 ${
-                  currentPage === 'deals'
-                    ? 'text-emerald-600 font-bold border-b-2 border-emerald-600'
-                    : 'hover:text-emerald-600'
-                }`}
-              >
-                <span>Deals</span>
-                <span className="bg-rose-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full uppercase">
-                  Hot
-                </span>
-              </button>
-            </li>
-          </ul>
 
-          {/* Switcher: Customer Portal */}
-          <div className="flex items-center gap-2">
+              {isCategoryDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1.5 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
+                    <span>Shop by Department</span>
+                    <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">{categoriesList.length} Categories</span>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto py-1 divide-y divide-slate-50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveCategory('all');
+                        navigateTo('shop');
+                        setIsCategoryDropdownOpen(false);
+                      }}
+                      className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-800 hover:bg-slate-50 flex items-center justify-between transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span>🏬</span> All Departments
+                      </span>
+                      <span className="text-[10px] text-slate-400">Full Catalog</span>
+                    </button>
+                    {categoriesList.map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveCategory(cat.id);
+                          navigateTo('shop');
+                          setIsCategoryDropdownOpen(false);
+                        }}
+                        className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center justify-between transition-colors group"
+                      >
+                        <span className="group-hover:font-bold truncate">{cat.name}</span>
+                        {cat.itemCount && (
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {cat.itemCount} items
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Main Nav Links */}
+            <ul className="flex items-center gap-6 text-xs sm:text-sm font-semibold text-slate-700 shrink-0">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => navigateTo('home')}
+                  style={{
+                    color: currentPage === 'home' ? tenantThemeColor : undefined,
+                    borderBottomColor: currentPage === 'home' ? tenantThemeColor : 'transparent'
+                  }}
+                  className={`transition-colors pb-1 cursor-pointer flex items-center gap-1.5 ${
+                    currentPage === 'home'
+                      ? 'font-bold border-b-2'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>Home</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveCategory('all');
+                    navigateTo('shop');
+                  }}
+                  style={{
+                    color: currentPage === 'shop' ? tenantThemeColor : undefined,
+                    borderBottomColor: currentPage === 'shop' ? tenantThemeColor : 'transparent'
+                  }}
+                  className={`transition-colors pb-1 cursor-pointer flex items-center gap-1.5 ${
+                    currentPage === 'shop'
+                      ? 'font-bold border-b-2'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>Shop All</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => navigateTo('deals')}
+                  style={{
+                    color: currentPage === 'deals' ? tenantThemeColor : undefined,
+                    borderBottomColor: currentPage === 'deals' ? tenantThemeColor : 'transparent'
+                  }}
+                  className={`transition-colors pb-1 cursor-pointer flex items-center gap-1 ${
+                    currentPage === 'deals'
+                      ? 'font-bold border-b-2'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>Deals</span>
+                  <span className="bg-rose-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                    Hot
+                  </span>
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setIsOrderTrackerOpen(true)}
+                  className="transition-colors pb-1 cursor-pointer flex items-center gap-1.5 text-slate-600 hover:text-slate-900"
+                  title="Live Order Tracking with Real GPS Dispatch"
+                >
+                  <Bike className="w-4 h-4 text-amber-500" />
+                  <span>Track Order</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => navigateTo('delivery')}
+                  style={{
+                    color: currentPage === 'delivery' ? tenantThemeColor : undefined,
+                    borderBottomColor: currentPage === 'delivery' ? tenantThemeColor : 'transparent'
+                  }}
+                  className={`transition-colors pb-1 cursor-pointer flex items-center gap-1.5 ${
+                    currentPage === 'delivery'
+                      ? 'font-bold border-b-2'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Truck className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Delivery Info</span>
+                </button>
+              </li>
+            </ul>
+
+          </div>
+
+          {/* Quick Shortcuts: Customer Portal & Admin Portal */}
+          <div className="flex items-center gap-2 py-2 shrink-0">
             <button
+              type="button"
               onClick={() => {
                 if (customerUser) {
                   navigateTo('customer-portal');
@@ -508,18 +649,31 @@ export const FreshMartHeader = () => {
                   setIsAuthOpen(true);
                 }
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              style={
                 currentPage === 'customer-portal'
-                  ? 'bg-emerald-700 text-white shadow-2xs'
-                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800'
+                  ? { backgroundColor: tenantThemeColor, color: '#ffffff' }
+                  : { color: tenantThemeColor }
+              }
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                currentPage === 'customer-portal'
+                  ? 'border-transparent shadow-xs'
+                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200'
               }`}
             >
               <User className="w-3.5 h-3.5" />
               <span>Customer Portal</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => navigateTo('admin')}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white transition-all shadow-xs cursor-pointer"
+              title="Admin & Multi-Store Management Portal"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Admin</span>
+            </button>
           </div>
-
-
 
         </div>
       </nav>
@@ -527,22 +681,27 @@ export const FreshMartHeader = () => {
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="lg:hidden p-4 bg-slate-50 border-t border-slate-200 space-y-3 animate-in slide-in-from-top-2">
+          
           {/* Mobile Search */}
           <form onSubmit={handleSearchSubmit} className="flex gap-2">
             <input
               type="text"
-              placeholder="Search products..."
+              placeholder="Search products in stock..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 text-xs bg-white border border-slate-200 rounded-xl px-3 py-2"
+              className="flex-1 text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 focus:outline-none"
             />
-            <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold">
+            <button
+              type="submit"
+              style={{ backgroundColor: tenantThemeColor }}
+              className="px-4 py-2 text-white rounded-xl text-xs font-bold cursor-pointer"
+            >
               Search
             </button>
           </form>
 
           {/* Mobile Supermarket Switcher */}
-          <div className="p-2.5 bg-white border border-emerald-100 rounded-xl flex items-center justify-between shadow-2xs">
+          <div className="p-2.5 bg-white border border-slate-200 rounded-xl flex items-center justify-between shadow-2xs">
             <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
               <span>🏬</span> Supermarket:
             </span>
@@ -553,55 +712,146 @@ export const FreshMartHeader = () => {
                 if (target) setCurrentTenant(target);
                 setMobileMenuOpen(false);
               }}
-              className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 focus:outline-none"
+              style={{ color: tenantThemeColor }}
+              className="text-xs font-bold bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 focus:outline-none cursor-pointer"
             >
               {(tenants || []).map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name}
+                  {t.displayName || t.name}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Navigation Links */}
+          {/* Mobile Location Selector */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsLocationModalOpen(true);
+              setMobileMenuOpen(false);
+            }}
+            className="w-full p-2.5 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs cursor-pointer hover:bg-slate-50"
+          >
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-emerald-600" />
+              <span className="text-slate-500">Deliver to:</span>
+              <span className="font-bold text-slate-800">{deliveryLocation?.city || 'Lahore, Pakistan'}</span>
+            </div>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+          </button>
+
+          {/* Navigation Links Grid */}
           <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
             <button
+              type="button"
               onClick={() => {
                 navigateTo('home');
                 setMobileMenuOpen(false);
               }}
-              className="p-2 bg-white rounded-xl text-left hover:bg-emerald-50"
+              className="p-2.5 bg-white border border-slate-200/80 rounded-xl text-left hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
             >
-              🏠 Home
+              <span>🏠</span> Home
             </button>
             <button
+              type="button"
               onClick={() => {
+                setActiveCategory('all');
                 navigateTo('shop');
                 setMobileMenuOpen(false);
               }}
-              className="p-2 bg-white rounded-xl text-left hover:bg-emerald-50"
+              className="p-2.5 bg-white border border-slate-200/80 rounded-xl text-left hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
             >
-              🛍️ Shop All
+              <span>🛍️</span> Shop All
             </button>
             <button
+              type="button"
               onClick={() => {
                 navigateTo('deals');
                 setMobileMenuOpen(false);
               }}
-              className="p-2 bg-white rounded-xl text-left hover:bg-emerald-50"
+              className="p-2.5 bg-white border border-slate-200/80 rounded-xl text-left hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
             >
-              ⚡ Flash Deals
+              <span>⚡</span> Deals & Offers
             </button>
             <button
+              type="button"
               onClick={() => {
-                navigateTo('customer-portal');
+                setIsOrderTrackerOpen(true);
                 setMobileMenuOpen(false);
               }}
-              className="p-2 bg-emerald-100 text-emerald-900 font-bold rounded-xl text-left hover:bg-emerald-200"
+              className="p-2.5 bg-white border border-slate-200/80 rounded-xl text-left hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
             >
-              👤 Customer Portal
+              <span>🛵</span> Track Order
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                navigateTo('delivery');
+                setMobileMenuOpen(false);
+              }}
+              className="p-2.5 bg-white border border-slate-200/80 rounded-xl text-left hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+            >
+              <span>🚚</span> Delivery Info
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsOffersOpen(true);
+                setMobileMenuOpen(false);
+              }}
+              className="p-2.5 bg-white border border-slate-200/80 rounded-xl text-left hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+            >
+              <span>🏷️</span> Store Offers
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (customerUser) {
+                  navigateTo('customer-portal');
+                } else {
+                  setIsAuthOpen(true);
+                }
+                setMobileMenuOpen(false);
+              }}
+              className="p-2.5 bg-white border border-slate-200/80 rounded-xl text-left hover:bg-slate-50 flex items-center gap-2 font-bold text-slate-800 cursor-pointer"
+            >
+              <span>👤</span> Customer Portal
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                navigateTo('admin');
+                setMobileMenuOpen(false);
+              }}
+              className="p-2.5 bg-slate-900 text-white rounded-xl text-left hover:bg-slate-800 flex items-center gap-2 font-bold shadow-xs cursor-pointer"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> Admin Portal
             </button>
           </div>
+
+          {/* Mobile Shop by Department */}
+          <div className="pt-2 border-t border-slate-200">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+              Browse Departments
+            </span>
+            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
+              {categoriesList.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveCategory(cat.id);
+                    navigateTo('shop');
+                    setMobileMenuOpen(false);
+                  }}
+                  className="text-[11px] font-medium bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
         </div>
       )}
 
