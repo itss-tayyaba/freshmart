@@ -25,8 +25,80 @@ export const ProductDetailPage = () => {
     isInWishlist,
     toggleWishlist,
     currency,
-    addToast
+    addToast,
+    currentTenant
   } = useStore();
+
+  const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
+  const isAlFatah = currentTenant?.id === 'tenant-alfatah';
+  const isChaseUp = currentTenant?.id === 'tenant-chaseup';
+  const isUnimaart = currentTenant?.id === 'tenant-freshmart';
+
+  const theme = {
+    primaryBg: isUnimaart
+      ? 'bg-[#0284c7] hover:bg-[#0369a1]'
+      : isCaseValue
+      ? 'bg-[#5c3417] hover:bg-[#43230c]'
+      : isAlFatah
+      ? 'bg-[#991b1b] hover:bg-[#7f1d1d]'
+      : isChaseUp
+      ? 'bg-[#6b21a8] hover:bg-[#581c87]'
+      : 'bg-emerald-600 hover:bg-emerald-700',
+    primaryText: isUnimaart
+      ? 'text-[#0284c7]'
+      : isCaseValue
+      ? 'text-[#5c3417]'
+      : isAlFatah
+      ? 'text-[#991b1b]'
+      : isChaseUp
+      ? 'text-[#6b21a8]'
+      : 'text-emerald-700',
+    hoverText: isUnimaart
+      ? 'hover:text-[#0284c7]'
+      : isCaseValue
+      ? 'hover:text-[#8c532b]'
+      : isAlFatah
+      ? 'hover:text-[#991b1b]'
+      : isChaseUp
+      ? 'hover:text-[#6b21a8]'
+      : 'hover:text-emerald-700',
+    softBg: isUnimaart
+      ? 'bg-sky-50 text-sky-800'
+      : isCaseValue
+      ? 'bg-[#f4ebe0] text-[#5c3417]'
+      : isAlFatah
+      ? 'bg-rose-50 text-rose-800'
+      : isChaseUp
+      ? 'bg-purple-50 text-purple-800'
+      : 'bg-emerald-50 text-emerald-800',
+    outlineBtn: isUnimaart
+      ? 'border-[#0284c7] text-[#0284c7] hover:bg-sky-50'
+      : isCaseValue
+      ? 'border-[#5c3417] text-[#5c3417] hover:bg-[#f4ebe0]'
+      : isAlFatah
+      ? 'border-[#991b1b] text-[#991b1b] hover:bg-rose-50'
+      : isChaseUp
+      ? 'border-[#6b21a8] text-[#6b21a8] hover:bg-purple-50'
+      : 'border-emerald-600 text-emerald-700 hover:bg-emerald-50',
+    activeTab: isUnimaart
+      ? 'border-[#0284c7] text-[#0284c7]'
+      : isCaseValue
+      ? 'border-[#5c3417] text-[#5c3417]'
+      : isAlFatah
+      ? 'border-[#991b1b] text-[#991b1b]'
+      : isChaseUp
+      ? 'border-[#6b21a8] text-[#6b21a8]'
+      : 'border-emerald-600 text-emerald-700',
+    selectedGallery: isUnimaart
+      ? 'border-[#0284c7] ring-2 ring-sky-100'
+      : isCaseValue
+      ? 'border-[#5c3417] ring-2 ring-amber-100'
+      : isAlFatah
+      ? 'border-[#991b1b] ring-2 ring-rose-100'
+      : isChaseUp
+      ? 'border-[#6b21a8] ring-2 ring-purple-100'
+      : 'border-emerald-600 ring-2 ring-emerald-100'
+  };
 
   const product = selectedProduct || FRESHMART_PRODUCTS[0];
   const [quantity, setQuantity] = useState(1);
@@ -52,14 +124,14 @@ export const ProductDetailPage = () => {
       <nav className="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-6">
         <button
           onClick={() => navigateTo('home')}
-          className="hover:text-emerald-700 transition-colors"
+          className={`${theme.hoverText} transition-colors cursor-pointer`}
         >
           Home
         </button>
         <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
         <button
           onClick={() => navigateTo('shop')}
-          className="hover:text-emerald-700 transition-colors"
+          className={`${theme.hoverText} transition-colors cursor-pointer`}
         >
           {product.categoryLabel}
         </button>
@@ -94,7 +166,7 @@ export const ProductDetailPage = () => {
                   onClick={() => setSelectedGalleryImg(img)}
                   className={`w-16 h-16 rounded-xl overflow-hidden border-2 transition-all p-0.5 ${
                     selectedGalleryImg === img
-                      ? 'border-emerald-600 ring-2 ring-emerald-100'
+                      ? theme.selectedGallery
                       : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
@@ -111,7 +183,7 @@ export const ProductDetailPage = () => {
           <div>
             {/* Title & Brand */}
             <div className="flex items-center justify-between gap-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2.5 py-1 rounded-md">
+              <span className={`text-xs font-bold uppercase tracking-wider ${theme.softBg} px-2.5 py-1 rounded-md`}>
                 {product.brand}
               </span>
               <button
@@ -128,7 +200,7 @@ export const ProductDetailPage = () => {
               {product.name}
             </h1>
 
-            {/* Ratings & In-Stock Badge matching screenshot */}
+            {/* Ratings & In-Stock Badge */}
             <div className="flex flex-wrap items-center gap-4 mt-2.5">
               <div className="flex items-center gap-1.5 bg-amber-50 px-2.5 py-1 rounded-lg">
                 <div className="flex items-center text-amber-400">
@@ -138,13 +210,13 @@ export const ProductDetailPage = () => {
                 <span className="text-[11px] text-amber-700">({product.reviewsCount} reviews)</span>
               </div>
 
-              <span className="flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg">
+              <span className={`flex items-center gap-1 text-xs font-bold ${theme.softBg} px-2.5 py-1 rounded-lg`}>
                 <Check className="w-3.5 h-3.5" />
                 <span>In Stock ({product.stockCount} Available)</span>
               </span>
             </div>
 
-            {/* Price matching screenshot: Rs. 210, Rs. 250, -15% */}
+            {/* Price */}
             <div className="flex items-baseline gap-3 mt-4 pt-4 border-t border-slate-100">
               <span className="text-3xl font-black text-slate-900">
                 {currency.symbol}{product.price}
@@ -166,14 +238,14 @@ export const ProductDetailPage = () => {
               {product.description}
             </p>
 
-            {/* Quantity Stepper matching screenshot */}
+            {/* Quantity Stepper */}
             <div className="mt-5 space-y-2">
               <label className="text-xs font-bold text-slate-700 block">Quantity</label>
               <div className="flex items-center gap-3">
                 <div className="flex items-center bg-slate-100 rounded-xl p-1">
                   <button
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    className="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shadow-2xs"
+                    className="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer"
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
@@ -182,7 +254,7 @@ export const ProductDetailPage = () => {
                   </span>
                   <button
                     onClick={() => setQuantity((q) => q + 1)}
-                    className="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shadow-2xs"
+                    className="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
@@ -191,11 +263,11 @@ export const ProductDetailPage = () => {
               </div>
             </div>
 
-            {/* Action Buttons matching screenshot: Add to Cart | Buy Now | Add to Wishlist */}
+            {/* Action Buttons: Add to Cart | Buy Now | Add to Wishlist */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
               <button
                 onClick={() => addToCart(product, quantity)}
-                className="py-3 px-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
+                className={`py-3 px-6 ${theme.primaryBg} text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer`}
               >
                 <ShoppingCart className="w-4 h-4" />
                 <span>Add to Cart • {currency.symbol}{product.price * quantity}</span>
@@ -203,7 +275,7 @@ export const ProductDetailPage = () => {
 
               <button
                 onClick={handleBuyNow}
-                className="py-3 px-6 bg-white hover:bg-emerald-50 text-emerald-700 border-2 border-emerald-600 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                className={`py-3 px-6 bg-white ${theme.outlineBtn} border-2 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer`}
               >
                 <Zap className="w-4 h-4" />
                 <span>Buy Now</span>
@@ -212,32 +284,32 @@ export const ProductDetailPage = () => {
 
             <button
               onClick={() => toggleWishlist(product.id)}
-              className="mt-3 text-xs font-semibold text-slate-500 hover:text-rose-600 flex items-center gap-1.5 transition-colors"
+              className="mt-3 text-xs font-semibold text-slate-500 hover:text-rose-600 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : ''}`} />
               <span>{isFav ? 'In Your Wishlist' : 'Add to Wishlist'}</span>
             </button>
           </div>
 
-          {/* 4 Guarantee Badges matching screenshot */}
+          {/* 4 Guarantee Badges */}
           <div className="pt-6 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
             <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-              <ShieldCheck className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
+              <ShieldCheck className={`w-5 h-5 ${theme.primaryText} mx-auto mb-1`} />
               <span className="text-[11px] font-bold text-slate-800 block leading-tight">100% Original</span>
               <span className="text-[9px] text-slate-400">Products</span>
             </div>
             <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-              <Truck className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
+              <Truck className={`w-5 h-5 ${theme.primaryText} mx-auto mb-1`} />
               <span className="text-[11px] font-bold text-slate-800 block leading-tight">Free Delivery</span>
               <span className="text-[9px] text-slate-400">Above Rs. 1000</span>
             </div>
             <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-              <RotateCcw className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
+              <RotateCcw className={`w-5 h-5 ${theme.primaryText} mx-auto mb-1`} />
               <span className="text-[11px] font-bold text-slate-800 block leading-tight">7 Days Return</span>
               <span className="text-[9px] text-slate-400">Policy</span>
             </div>
             <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-              <CreditCard className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
+              <CreditCard className={`w-5 h-5 ${theme.primaryText} mx-auto mb-1`} />
               <span className="text-[11px] font-bold text-slate-800 block leading-tight">Secure Payment</span>
               <span className="text-[9px] text-slate-400">100% Secure</span>
             </div>
@@ -247,15 +319,15 @@ export const ProductDetailPage = () => {
 
       </div>
 
-      {/* Tabs Section matching screenshot: Description | Nutrition Info | Reviews (330) */}
+      {/* Tabs Section: Description | Nutrition Info | Reviews */}
       <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-100 shadow-card mt-8">
         {/* Tab Headers */}
         <div className="flex border-b border-slate-200 gap-6">
           <button
             onClick={() => setActiveTab('description')}
-            className={`pb-3 text-xs sm:text-sm font-bold transition-colors border-b-2 ${
+            className={`pb-3 text-xs sm:text-sm font-bold transition-colors border-b-2 cursor-pointer ${
               activeTab === 'description'
-                ? 'border-emerald-600 text-emerald-700'
+                ? theme.activeTab
                 : 'border-transparent text-slate-400 hover:text-slate-700'
             }`}
           >
@@ -263,9 +335,9 @@ export const ProductDetailPage = () => {
           </button>
           <button
             onClick={() => setActiveTab('nutrition')}
-            className={`pb-3 text-xs sm:text-sm font-bold transition-colors border-b-2 ${
+            className={`pb-3 text-xs sm:text-sm font-bold transition-colors border-b-2 cursor-pointer ${
               activeTab === 'nutrition'
-                ? 'border-emerald-600 text-emerald-700'
+                ? theme.activeTab
                 : 'border-transparent text-slate-400 hover:text-slate-700'
             }`}
           >
@@ -273,9 +345,9 @@ export const ProductDetailPage = () => {
           </button>
           <button
             onClick={() => setActiveTab('reviews')}
-            className={`pb-3 text-xs sm:text-sm font-bold transition-colors border-b-2 ${
+            className={`pb-3 text-xs sm:text-sm font-bold transition-colors border-b-2 cursor-pointer ${
               activeTab === 'reviews'
-                ? 'border-emerald-600 text-emerald-700'
+                ? theme.activeTab
                 : 'border-transparent text-slate-400 hover:text-slate-700'
             }`}
           >

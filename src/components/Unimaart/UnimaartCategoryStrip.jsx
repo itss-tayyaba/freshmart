@@ -84,7 +84,7 @@ export const UnimaartCategoryStrip = ({ activeCategory, onSelectCategory }) => {
               className={`p-4 rounded-2xl flex flex-col items-center justify-center gap-2.5 cursor-pointer transition-all duration-200 transform hover:-translate-y-1 text-center min-h-[110px] select-none ${
                 isActive
                   ? 'bg-[#0284c7] text-white shadow-lg shadow-[#0284c7]/25 ring-2 ring-[#0284c7]'
-                  : 'bg-[#f4f6f8] hover:bg-[#eef3f0] text-slate-700 hover:text-slate-900 border border-slate-200/60'
+                  : 'bg-[#f4f6f8] hover:bg-sky-50 text-slate-700 hover:text-[#0284c7] border border-slate-200/60'
               }`}
             >
               <div

@@ -46,8 +46,78 @@ export const ShopPage = () => {
     updateCartQuantity,
     isInWishlist,
     toggleWishlist,
-    currency
+    currency,
+    currentTenant
   } = useStore();
+
+  const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
+  const isAlFatah = currentTenant?.id === 'tenant-alfatah';
+  const isChaseUp = currentTenant?.id === 'tenant-chaseup';
+  const isUnimaart = currentTenant?.id === 'tenant-freshmart';
+
+  const theme = {
+    primaryBg: isUnimaart
+      ? 'bg-[#0284c7] hover:bg-[#0369a1]'
+      : isCaseValue
+      ? 'bg-[#5c3417] hover:bg-[#43230c]'
+      : isAlFatah
+      ? 'bg-[#991b1b] hover:bg-[#7f1d1d]'
+      : isChaseUp
+      ? 'bg-[#6b21a8] hover:bg-[#581c87]'
+      : 'bg-emerald-600 hover:bg-emerald-700',
+    primaryText: isUnimaart
+      ? 'text-[#0284c7]'
+      : isCaseValue
+      ? 'text-[#5c3417]'
+      : isAlFatah
+      ? 'text-[#991b1b]'
+      : isChaseUp
+      ? 'text-[#6b21a8]'
+      : 'text-emerald-700',
+    hoverText: isUnimaart
+      ? 'hover:text-[#0284c7]'
+      : isCaseValue
+      ? 'hover:text-[#8c532b]'
+      : isAlFatah
+      ? 'hover:text-[#991b1b]'
+      : isChaseUp
+      ? 'hover:text-[#6b21a8]'
+      : 'hover:text-emerald-700',
+    softBg: isUnimaart
+      ? 'bg-sky-50 text-sky-800 border-sky-200'
+      : isCaseValue
+      ? 'bg-[#f4ebe0] text-[#5c3417] border-[#ebdcc7]'
+      : isAlFatah
+      ? 'bg-rose-50 text-rose-800 border-rose-200'
+      : isChaseUp
+      ? 'bg-purple-50 text-purple-800 border-purple-200'
+      : 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    bannerBg: isCaseValue
+      ? 'bg-gradient-to-r from-[#fdfaf4] via-[#f7f0e6] to-[#ebdcc7]/40 border-[#ebdcc7]'
+      : isAlFatah
+      ? 'bg-gradient-to-r from-[#fff1f2] via-[#ffe4e6] to-[#fecdd3]/40 border-rose-100'
+      : isChaseUp
+      ? 'bg-gradient-to-r from-[#faf5ff] via-[#f3e8ff] to-[#e9d5ff]/40 border-purple-100'
+      : 'bg-gradient-to-r from-[#f0f9ff] via-[#e0f2fe] to-[#bae6fd]/30 border-sky-100',
+    qtyBox: isUnimaart
+      ? 'bg-sky-50 border-sky-200 text-sky-900'
+      : isCaseValue
+      ? 'bg-[#f4ebe0] border-[#ebdcc7] text-[#5c3417]'
+      : isAlFatah
+      ? 'bg-rose-50 border-rose-200 text-rose-900'
+      : isChaseUp
+      ? 'bg-purple-50 border-purple-200 text-purple-900'
+      : 'bg-emerald-50 border-emerald-200 text-emerald-900',
+    accentColor: isUnimaart
+      ? '#0284c7'
+      : isCaseValue
+      ? '#78350f'
+      : isAlFatah
+      ? '#991b1b'
+      : isChaseUp
+      ? '#6b21a8'
+      : '#10b981'
+  };
 
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
   const [inStockOnly, setInStockOnly] = useState(false);
@@ -142,12 +212,12 @@ export const ShopPage = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-in fade-in duration-300">
       
       {/* 1. Header Banner & Active Category Title */}
-      <div className="bg-gradient-to-r from-[#eef9f2] via-[#f7faf8] to-[#f4ede4] rounded-3xl p-6 sm:p-8 border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
+      <div className={`rounded-3xl p-6 sm:p-8 border flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs ${theme.bannerBg}`}>
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold mb-1">
-            <span className="hover:text-emerald-700 cursor-pointer" onClick={() => navigateTo('home')}>Home</span>
+            <span className={`${theme.hoverText} cursor-pointer transition-colors`} onClick={() => navigateTo('home')}>Home</span>
             <span>/</span>
-            <span className="text-emerald-700 font-bold">Shop Catalog</span>
+            <span className={`${theme.primaryText} font-bold`}>Shop Catalog</span>
             {activeCategoryObj && (
               <>
                 <span>/</span>
@@ -164,12 +234,12 @@ export const ShopPage = () => {
 
           {searchQuery && searchQuery.trim() && (
             <div className="mt-3 flex items-center gap-2 flex-wrap">
-              <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs">
+              <span className={`text-xs ${theme.softBg} font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs`}>
                 <span>🔍 Search: "{searchQuery}"</span>
-                <span className="text-emerald-700 font-medium">({filteredProducts.length} items present)</span>
+                <span className="opacity-80 font-medium">({filteredProducts.length} items present)</span>
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="hover:text-rose-600 ml-1 p-0.5 rounded-full hover:bg-emerald-200 cursor-pointer"
+                  className="hover:text-rose-600 ml-1 p-0.5 rounded-full hover:bg-black/10 cursor-pointer"
                   title="Clear Search"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -182,7 +252,7 @@ export const ShopPage = () => {
         {/* Mobile Filter Toggle */}
         <button
           onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
-          className="lg:hidden px-4 py-2.5 bg-emerald-600 text-white rounded-2xl text-xs font-bold flex items-center gap-2 self-start shadow-sm"
+          className={`lg:hidden px-4 py-2.5 ${theme.primaryBg} text-white rounded-2xl text-xs font-bold flex items-center gap-2 self-start shadow-sm cursor-pointer`}
         >
           <Filter className="w-4 h-4" />
           <span>Filter Products ({selectedBrands.length + (activeCategory !== 'all' ? 1 : 0)})</span>
@@ -199,16 +269,26 @@ export const ShopPage = () => {
           
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
-              <SlidersHorizontal className="w-4 h-4 text-emerald-600" />
+              <SlidersHorizontal className={`w-4 h-4 ${theme.primaryText}`} />
               <h3 className="font-black text-sm text-slate-900">Filters</h3>
             </div>
-            <button
-              onClick={handleClearAllFilters}
-              className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span>Reset</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleClearAllFilters}
+                className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Reset</span>
+              </button>
+              {mobileFilterOpen && (
+                <button
+                  onClick={() => setMobileFilterOpen(false)}
+                  className="lg:hidden p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Categories Filter */}
@@ -219,8 +299,8 @@ export const ShopPage = () => {
                 onClick={() => setActiveCategory('all')}
                 className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-between ${
                   activeCategory === 'all'
-                    ? 'bg-emerald-600 text-white shadow-2xs'
-                    : 'text-slate-600 hover:bg-slate-50'
+                    ? `${theme.primaryBg} text-white shadow-2xs`
+                    : `text-slate-600 hover:bg-slate-50`
                 }`}
               >
                 <span>All Departments</span>
@@ -238,7 +318,7 @@ export const ShopPage = () => {
                     onClick={() => setActiveCategory(cat.id)}
                     className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-between ${
                       activeCategory === cat.id
-                        ? 'bg-emerald-600 text-white shadow-2xs'
+                        ? `${theme.primaryBg} text-white shadow-2xs`
                         : 'text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -254,7 +334,7 @@ export const ShopPage = () => {
           <div className="space-y-3 pt-3 border-t border-slate-100">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">Price Range</span>
-              <span className="text-xs font-black text-emerald-700">Up to {currency.symbol}{priceRange[1]}</span>
+              <span className={`text-xs font-black ${theme.primaryText}`}>Up to {currency.symbol}{priceRange[1]}</span>
             </div>
             <input
               type="range"
@@ -263,7 +343,8 @@ export const ShopPage = () => {
               step="50"
               value={priceRange[1]}
               onChange={(e) => setPriceRange([0, Number(e.target.value)])}
-              className="w-full accent-emerald-600 cursor-pointer"
+              style={{ accentColor: theme.accentColor }}
+              className="w-full cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-slate-400 font-bold">
               <span>{currency.symbol}0</span>
@@ -278,13 +359,14 @@ export const ShopPage = () => {
               {FRESHMART_BRANDS.map((brand) => (
                 <label
                   key={brand}
-                  className="flex items-center gap-2.5 text-xs font-medium text-slate-700 cursor-pointer hover:text-emerald-700"
+                  className={`flex items-center gap-2.5 text-xs font-medium text-slate-700 cursor-pointer ${theme.hoverText}`}
                 >
                   <input
                     type="checkbox"
                     checked={selectedBrands.includes(brand)}
                     onChange={() => handleBrandToggle(brand)}
-                    className="w-4 h-4 rounded text-emerald-600 border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                    style={{ accentColor: theme.accentColor }}
+                    className="w-4 h-4 rounded border-slate-300 cursor-pointer"
                   />
                   <span>{brand}</span>
                 </label>
@@ -299,7 +381,8 @@ export const ShopPage = () => {
               type="checkbox"
               checked={inStockOnly}
               onChange={(e) => setInStockOnly(e.target.checked)}
-              className="w-4 h-4 rounded text-emerald-600 cursor-pointer"
+              style={{ accentColor: theme.accentColor }}
+              className="w-4 h-4 rounded cursor-pointer"
             />
           </div>
 
@@ -318,7 +401,7 @@ export const ShopPage = () => {
 
               {/* Active Filter Chips */}
               {activeCategory !== 'all' && (
-                <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 text-[11px] font-bold px-2.5 py-1 rounded-full border border-emerald-200">
+                <span className={`inline-flex items-center gap-1 ${theme.softBg} text-[11px] font-bold px-2.5 py-1 rounded-full border`}>
                   <span>{activeCategoryObj?.name}</span>
                   <X className="w-3 h-3 cursor-pointer" onClick={() => setActiveCategory('all')} />
                 </span>
@@ -354,7 +437,7 @@ export const ShopPage = () => {
                 <button
                   onClick={() => setViewMode('grid')}
                   className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                    viewMode === 'grid' ? 'bg-white shadow-2xs text-emerald-700' : 'text-slate-400 hover:text-slate-600'
+                    viewMode === 'grid' ? `bg-white shadow-2xs ${theme.primaryText}` : 'text-slate-400 hover:text-slate-600'
                   }`}
                   title="Grid View"
                 >
@@ -363,7 +446,7 @@ export const ShopPage = () => {
                 <button
                   onClick={() => setViewMode('list')}
                   className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                    viewMode === 'list' ? 'bg-white shadow-2xs text-emerald-700' : 'text-slate-400 hover:text-slate-600'
+                    viewMode === 'list' ? `bg-white shadow-2xs ${theme.primaryText}` : 'text-slate-400 hover:text-slate-600'
                   }`}
                   title="List View"
                 >
@@ -377,7 +460,7 @@ export const ShopPage = () => {
           {/* Product Cards Container */}
           {filteredProducts.length === 0 ? (
             <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 space-y-4 shadow-sm">
-              <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl">
+              <div className={`w-16 h-16 rounded-full ${theme.softBg} flex items-center justify-center mx-auto text-2xl`}>
                 🔍
               </div>
               <h3 className="text-lg font-black text-slate-900">No matching products found</h3>
@@ -386,7 +469,7 @@ export const ShopPage = () => {
               </p>
               <button
                 onClick={handleClearAllFilters}
-                className="px-6 py-2.5 bg-emerald-600 text-white rounded-2xl text-xs font-bold hover:bg-emerald-700 transition-colors cursor-pointer"
+                className={`px-6 py-2.5 ${theme.primaryBg} text-white rounded-2xl text-xs font-bold transition-colors cursor-pointer`}
               >
                 Reset All Filters
               </button>
@@ -410,8 +493,8 @@ export const ShopPage = () => {
                           -{product.discountPercent}%
                         </span>
                       ) : (
-                        <span className="bg-emerald-50 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-md">
-                          Organic
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${theme.softBg}`}>
+                          Fresh
                         </span>
                       )}
 
@@ -446,7 +529,7 @@ export const ShopPage = () => {
                       <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">{product.brand}</span>
                       <h3
                         onClick={() => navigateTo('product-detail', product)}
-                        className="text-xs sm:text-sm font-bold text-slate-900 line-clamp-1 hover:text-emerald-700 cursor-pointer transition-colors"
+                        className={`text-xs sm:text-sm font-bold text-slate-900 line-clamp-1 ${theme.hoverText} cursor-pointer transition-colors`}
                       >
                         {product.name}
                       </h3>
@@ -473,17 +556,17 @@ export const ShopPage = () => {
 
                       {/* Add to Cart Button */}
                       {cartItem ? (
-                        <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl p-1 mt-2.5">
+                        <div className={`flex items-center justify-between ${theme.qtyBox} border rounded-xl p-1 mt-2.5`}>
                           <button
                             onClick={() => updateCartQuantity(product.id, -1)}
-                            className="w-7 h-7 rounded-lg bg-white text-emerald-800 flex items-center justify-center font-bold text-xs shadow-xs cursor-pointer"
+                            className="w-7 h-7 rounded-lg bg-white shadow-2xs flex items-center justify-center font-bold text-xs cursor-pointer"
                           >
                             <Minus className="w-3.5 h-3.5" />
                           </button>
-                          <span className="text-xs font-black text-emerald-900">{cartItem.quantity}</span>
+                          <span className="text-xs font-black">{cartItem.quantity}</span>
                           <button
                             onClick={() => updateCartQuantity(product.id, 1)}
-                            className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-xs cursor-pointer"
+                            className={`w-7 h-7 rounded-lg ${theme.primaryBg} text-white flex items-center justify-center font-bold text-xs shadow-xs cursor-pointer`}
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
@@ -491,7 +574,7 @@ export const ShopPage = () => {
                       ) : (
                         <button
                           onClick={() => addToCart(product, 1)}
-                          className="w-full mt-2.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                          className={`w-full mt-2.5 py-2 ${theme.primaryBg} text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-sm`}
                         >
                           <Plus className="w-3.5 h-3.5" />
                           <span>Add to Cart</span>
@@ -526,7 +609,7 @@ export const ShopPage = () => {
                         <span className="text-[10px] text-slate-400 font-bold uppercase">{product.categoryLabel}</span>
                         <h3
                           onClick={() => navigateTo('product-detail', product)}
-                          className="text-sm font-bold text-slate-900 hover:text-emerald-700 cursor-pointer"
+                          className={`text-sm font-bold text-slate-900 ${theme.hoverText} cursor-pointer`}
                         >
                           {product.name}
                         </h3>
@@ -553,17 +636,17 @@ export const ShopPage = () => {
                       </button>
 
                       {cartItem ? (
-                        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl p-1">
+                        <div className={`flex items-center gap-2 ${theme.qtyBox} border rounded-xl p-1`}>
                           <button
                             onClick={() => updateCartQuantity(prodId, -1)}
-                            className="w-7 h-7 rounded-lg bg-white text-emerald-800 font-bold text-xs cursor-pointer"
+                            className="w-7 h-7 rounded-lg bg-white shadow-2xs font-bold text-xs cursor-pointer"
                           >
                             -
                           </button>
-                          <span className="text-xs font-black text-emerald-900 px-1">{cartItem.quantity}</span>
+                          <span className="text-xs font-black px-1">{cartItem.quantity}</span>
                           <button
                             onClick={() => updateCartQuantity(prodId, 1)}
-                            className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold text-xs cursor-pointer"
+                            className={`w-7 h-7 rounded-lg ${theme.primaryBg} text-white font-bold text-xs cursor-pointer shadow-xs`}
                           >
                             +
                           </button>
@@ -571,7 +654,7 @@ export const ShopPage = () => {
                       ) : (
                         <button
                           onClick={() => addToCart(product, 1)}
-                          className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          className={`px-5 py-2 ${theme.primaryBg} text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer`}
                         >
                           <Plus className="w-3.5 h-3.5" />
                           <span>Add</span>
@@ -582,7 +665,6 @@ export const ShopPage = () => {
                 );
               })}
             </div>
-
           )}
 
         </div>

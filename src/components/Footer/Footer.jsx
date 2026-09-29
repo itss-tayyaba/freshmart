@@ -5,6 +5,69 @@ import { useStore } from '../../context/StoreContext';
 export const Footer = () => {
   const { setActiveCategory, setIsVendorRegisterOpen, navigateTo, currentTenant } = useStore();
   const isUnimaart = currentTenant?.id === 'tenant-freshmart';
+  const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
+  const isAlFatah = currentTenant?.id === 'tenant-alfatah';
+  const isChaseUp = currentTenant?.id === 'tenant-chaseup';
+
+  const footerBg = isUnimaart
+    ? 'bg-[#091522] border-sky-950'
+    : isCaseValue
+    ? 'bg-[#26150c] border-[#422515]'
+    : isAlFatah
+    ? 'bg-[#280808] border-rose-950'
+    : isChaseUp
+    ? 'bg-[#1e0730] border-purple-950'
+    : 'bg-[#07382c] border-emerald-900/60';
+
+  const footerBorder = isUnimaart
+    ? 'border-sky-950'
+    : isCaseValue
+    ? 'border-[#422515]'
+    : isAlFatah
+    ? 'border-rose-950'
+    : isChaseUp
+    ? 'border-purple-950'
+    : 'border-emerald-900/60';
+
+  const footerAccent = isUnimaart
+    ? 'text-sky-400'
+    : isCaseValue
+    ? 'text-amber-400'
+    : isAlFatah
+    ? 'text-amber-400'
+    : isChaseUp
+    ? 'text-orange-400'
+    : 'text-lime-400';
+
+  const footerHover = isUnimaart
+    ? 'hover:text-sky-400'
+    : isCaseValue
+    ? 'hover:text-amber-400'
+    : isAlFatah
+    ? 'hover:text-amber-400'
+    : isChaseUp
+    ? 'hover:text-orange-400'
+    : 'hover:text-lime-400';
+
+  const brandDisplayName = isCaseValue
+    ? 'Local Grocery'
+    : isAlFatah
+    ? 'Al-Fatah'
+    : isChaseUp
+    ? 'Chase Up'
+    : isUnimaart
+    ? 'Unimaart'
+    : 'FreshMart';
+
+  const brandTag = isCaseValue
+    ? 'Case Value'
+    : isAlFatah
+    ? 'Premier Hypermarket'
+    : isChaseUp
+    ? 'Family Superstore'
+    : isUnimaart
+    ? 'Market Store'
+    : 'Direct';
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -19,16 +82,12 @@ export const Footer = () => {
   return (
     <footer
       id="footer-section"
-      className={`text-slate-300 pt-16 pb-8 px-4 sm:px-8 border-t mt-12 transition-colors duration-200 ${
-        isUnimaart ? 'bg-[#091522] border-sky-950' : 'bg-[#07382c] border-emerald-900/60'
-      }`}
+      className={`text-slate-300 pt-16 pb-8 px-4 sm:px-8 border-t mt-12 transition-colors duration-200 ${footerBg}`}
     >
       <div className="max-w-7xl mx-auto">
         
         {/* Main Footer Links Grid */}
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b ${
-          isUnimaart ? 'border-sky-950' : 'border-emerald-900/60'
-        }`}>
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b ${footerBorder}`}>
           
           {/* Col 1: Brand Info */}
           <div className="lg:col-span-2 space-y-4">
@@ -36,33 +95,38 @@ export const Footer = () => {
               <div className={`relative flex items-center justify-center w-10 h-10 rounded-xl text-white shadow-md ${
                 isUnimaart
                   ? 'bg-gradient-to-br from-[#0284c7] to-[#0369a1]'
+                  : isCaseValue
+                  ? 'bg-gradient-to-br from-[#8c532b] to-[#5c3417]'
+                  : isAlFatah
+                  ? 'bg-gradient-to-br from-[#b91c1c] to-[#991b1b]'
+                  : isChaseUp
+                  ? 'bg-gradient-to-br from-[#7e22ce] to-[#6b21a8]'
                   : 'bg-gradient-to-br from-emerald-400 to-emerald-600'
               }`}>
-                🛒
+                {currentTenant?.logo || '🛒'}
               </div>
               <span className="text-2xl font-black tracking-tight text-white">
-                {isUnimaart ? 'Unimaart ' : 'Grocery '}<span className={isUnimaart ? 'text-sky-400' : 'text-lime-400'}>{isUnimaart ? 'Market' : 'Shop'}</span>
+                {brandDisplayName} <span className={footerAccent}>{brandTag}</span>
               </span>
             </a>
 
             <p className="text-xs text-slate-300/80 leading-relaxed max-w-sm">
-              {isUnimaart
-                ? 'Fresh food, fair prices, and fast 10-15 minute grocery delivery right to your doorstep. Quality farm produce and daily market essentials.'
-                : 'We connect local organic farmers directly with your kitchen. Everyday low prices on fresh vegetables, wild fruits, prime meats, and healthy pantry staples.'}
+              {currentTenant?.description ||
+                'Fresh food, fair prices, and fast 10-15 minute grocery delivery right to your doorstep. Quality farm produce and daily market essentials.'}
             </p>
 
             <div className="space-y-2 text-xs text-slate-300/90 pt-1">
               <div className="flex items-center gap-2.5">
-                <MapPin className={`w-4 h-4 shrink-0 ${isUnimaart ? 'text-sky-400' : 'text-emerald-400'}`} />
-                <span>{isUnimaart ? 'Gulberg Express Dark Store SuperHub, Lahore, Pakistan' : '124 Market Boulevard, Suite 500, Seattle, WA'}</span>
+                <MapPin className={`w-4 h-4 shrink-0 ${footerAccent}`} />
+                <span>{currentTenant?.hubs?.[0]?.name || currentTenant?.address || 'Flagship SuperHub, Lahore, Pakistan'}</span>
               </div>
               <div className="flex items-center gap-2.5">
-                <Phone className={`w-4 h-4 shrink-0 ${isUnimaart ? 'text-sky-400' : 'text-emerald-400'}`} />
-                <span>{isUnimaart ? '+9870-256-679' : '88 01434 65768 / +00 017500399'}</span>
+                <Phone className={`w-4 h-4 shrink-0 ${footerAccent}`} />
+                <span>{currentTenant?.ownerPhone || '+9870-256-679'}</span>
               </div>
               <div className="flex items-center gap-2.5">
-                <Mail className={`w-4 h-4 shrink-0 ${isUnimaart ? 'text-sky-400' : 'text-emerald-400'}`} />
-                <span>{isUnimaart ? 'support@unimaart.com' : 'info.grocery@gmail.com'}</span>
+                <Mail className={`w-4 h-4 shrink-0 ${footerAccent}`} />
+                <span>{currentTenant?.ownerEmail || 'support@freshmart.pk'}</span>
               </div>
             </div>
           </div>

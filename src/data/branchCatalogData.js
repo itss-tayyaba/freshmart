@@ -1218,14 +1218,14 @@ export const BRANCH_METRICS = {
   },
   'tenant-chasevalue': {
     tenantId: 'tenant-chasevalue',
-    name: 'Chase Value',
-    badge: 'Direct Factory Wholesale & Bulk Savers',
-    tagline: 'Maximum Wholesale Savings & Family Value Sacks',
-    themeColor: '#1e40af', // Royal Blue
-    accentColor: '#eab308',
-    borderClass: 'border-blue-200',
-    bgBadgeClass: 'bg-blue-50 text-blue-800 border-blue-200',
-    primaryBtnClass: 'bg-[#1e40af] hover:bg-[#1e3a8a] text-white',
+    name: 'Case Value',
+    badge: 'Local Grocery & Value Wholesale',
+    tagline: 'Fresh • Local • Reliable — Maximum Wholesale Savings',
+    themeColor: '#78350f', // Warm Rustic Amber Mocha
+    accentColor: '#d97706',
+    borderClass: 'border-amber-200',
+    bgBadgeClass: 'bg-amber-50 text-amber-900 border-amber-200',
+    primaryBtnClass: 'bg-[#78350f] hover:bg-[#5c2a0c] text-white',
     hubs: [
       { name: 'Shaheed-e-Millat Mega Warehouse', city: 'Karachi', activeRiders: 8, ordersToday: 110, sla: '98.8%' },
       { name: 'North Nazimabad Wholesale Depot', city: 'Karachi', activeRiders: 5, ordersToday: 68, sla: '98.5%' },

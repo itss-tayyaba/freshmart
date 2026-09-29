@@ -43,21 +43,23 @@ export const INITIAL_TENANTS = [
     id: 'tenant-chasevalue',
     tenantId: 'tenant-chasevalue',
     name: 'Chase Value',
+    displayName: 'Case Value (Local Grocery)',
+    brandName: 'Case Value',
     slug: 'chase-value',
-    tagline: 'Maximum Wholesale Value & Direct Factory Groceries',
-    description: 'Pioneering wholesale pricing model on everyday household staples, bulk rice, cooking oils, snacks, beverages, and personal care items.',
+    tagline: 'Fresh • Local • Reliable — Maximum Wholesale Value',
+    description: 'Local produce, fresh meat, dairy and everyday essentials — always fresh, always near you.',
     logo: '🛒',
     banner: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80',
-    badge: 'Wholesale & Department',
-    ownerName: 'Farhan Chase',
+    badge: 'Local Grocery & Value Wholesale',
+    ownerName: 'Farhan Case Value',
     ownerEmail: 'admin@chasevalue.pk',
     ownerPhone: '+92 321 9876543',
     status: 'Active',
-    color: '#1e40af',
+    color: '#78350f',
     theme: {
-      primaryColor: '#1e40af', // Royal Blue
-      accentColor: '#eab308',
-      bgGradient: 'from-blue-900 via-indigo-950 to-slate-950'
+      primaryColor: '#78350f', // Warm Rustic Amber Mocha
+      accentColor: '#d97706',
+      bgGradient: 'from-[#451a03] via-[#78350f] to-[#b45309]'
     },
     hubs: ['Shaheed-e-Millat Karachi', 'North Nazimabad', 'Gulshan-e-Iqbal', 'Multan Cantt'],
     subscription: {

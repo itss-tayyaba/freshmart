@@ -19,6 +19,7 @@ import {
 import { useStore } from '../../context/StoreContext';
 import { FRESHMART_CATEGORIES } from '../../data/freshMartData';
 import { UnimaartHeader } from '../Unimaart/UnimaartHeader';
+import { CaseValueHeader } from '../CaseValue/CaseValueHeader';
 
 export const FreshMartHeader = () => {
   const {
@@ -55,6 +56,18 @@ export const FreshMartHeader = () => {
   if (currentTenant?.id === 'tenant-freshmart') {
     return <UnimaartHeader />;
   }
+
+  // Render Case Value header when viewing the Case Value / Local Grocery branch
+  if (currentTenant?.id === 'tenant-chasevalue') {
+    return <CaseValueHeader />;
+  }
+
+  const isAlFatah = currentTenant?.id === 'tenant-alfatah';
+  const isChaseUp = currentTenant?.id === 'tenant-chaseup';
+  const tenantThemeColor = currentTenant?.color || (isAlFatah ? '#991b1b' : isChaseUp ? '#6b21a8' : '#16a34a');
+  const tenantThemeName = currentTenant?.displayName || currentTenant?.name || 'FreshMart';
+  const tenantTagline = currentTenant?.tagline || 'Freshness you can trust';
+  const tenantLogo = currentTenant?.logo || '🏬';
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -103,23 +116,23 @@ export const FreshMartHeader = () => {
           {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
 
-        {/* Brand Logo matching screenshot */}
+        {/* Brand Logo dynamically reflecting Al-Fatah or Chase Up */}
         <div
           onClick={() => navigateTo('home')}
-          className="flex items-center gap-2 cursor-pointer select-none group"
+          className="flex items-center gap-2.5 cursor-pointer select-none group"
         >
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform">
-            <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z" opacity="0.3" />
-              <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
-            </svg>
+          <div
+            style={{ backgroundColor: tenantThemeColor }}
+            className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform text-lg"
+          >
+            {tenantLogo}
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight leading-none text-slate-900 flex items-center">
-              Fresh<span className="text-emerald-600">Mart</span>
+            <h1 className="text-lg sm:text-xl font-black tracking-tight leading-none text-slate-900 flex items-center">
+              {tenantThemeName}
             </h1>
-            <span className="text-[10px] text-slate-400 font-medium block mt-0.5 tracking-wider">
-              Freshness you can trust
+            <span className="text-[10px] text-slate-400 font-medium block mt-0.5 tracking-wider truncate max-w-[200px]">
+              {tenantTagline}
             </span>
           </div>
         </div>
@@ -146,12 +159,12 @@ export const FreshMartHeader = () => {
         </div>
 
         {/* 🏬 Multi-Tenant Supermarket Switcher */}
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-200/80 bg-emerald-50/40 hover:bg-emerald-50 hover:border-emerald-500 transition shrink-0">
-          <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs shadow-xs">
-            🏬
+        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100 transition shrink-0">
+          <div style={{ backgroundColor: tenantThemeColor }} className="w-7 h-7 rounded-lg text-white flex items-center justify-center text-xs shadow-xs">
+            {tenantLogo}
           </div>
           <div className="text-left leading-tight">
-            <span className="text-[10px] font-bold text-emerald-800 block uppercase">
+            <span className="text-[10px] font-bold text-slate-500 block uppercase">
               Supermarket
             </span>
             <div className="flex items-center gap-1">
@@ -178,14 +191,14 @@ export const FreshMartHeader = () => {
         <div ref={searchContainerRef} className="flex-1 max-w-xl hidden sm:block relative z-50">
           <form
             onSubmit={handleSearchSubmit}
-            className="flex items-center border border-slate-200 rounded-full overflow-hidden bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:bg-white focus-within:border-transparent transition-all shadow-inner"
+            className="flex items-center border border-slate-200 rounded-full overflow-hidden bg-slate-50 focus-within:ring-2 focus-within:bg-white focus-within:border-transparent transition-all shadow-inner"
           >
             <div className="pl-4 text-slate-400">
               <Search className="w-4 h-4" />
             </div>
             <input
               type="text"
-              placeholder="Search products in stock (e.g. Coca-Cola, Milk, Apples)..."
+              placeholder="Search products in stock..."
               value={searchQuery}
               onFocus={() => setIsSearchFocused(true)}
               onChange={(e) => {
@@ -206,7 +219,8 @@ export const FreshMartHeader = () => {
             )}
             <button
               type="submit"
-              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold transition-colors shrink-0 cursor-pointer"
+              style={{ backgroundColor: tenantThemeColor }}
+              className="px-6 py-2.5 text-white text-xs sm:text-sm font-bold transition-opacity hover:opacity-90 shrink-0 cursor-pointer"
             >
               Search
             </button>

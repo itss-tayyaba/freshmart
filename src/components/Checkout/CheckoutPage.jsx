@@ -47,8 +47,53 @@ export const CheckoutPage = () => {
     promotions,
     customerUser,
     addToast,
-    placeCustomerOrder
+    placeCustomerOrder,
+    currentTenant
   } = useStore();
+
+  const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
+  const isAlFatah = currentTenant?.id === 'tenant-alfatah';
+  const isChaseUp = currentTenant?.id === 'tenant-chaseup';
+  const isUnimaart = currentTenant?.id === 'tenant-freshmart';
+
+  const theme = {
+    primaryBg: isUnimaart
+      ? 'bg-[#0284c7] hover:bg-[#0369a1]'
+      : isCaseValue
+      ? 'bg-[#5c3417] hover:bg-[#43230c]'
+      : isAlFatah
+      ? 'bg-[#991b1b] hover:bg-[#7f1d1d]'
+      : isChaseUp
+      ? 'bg-[#6b21a8] hover:bg-[#581c87]'
+      : 'bg-emerald-600 hover:bg-emerald-700',
+    primaryText: isUnimaart
+      ? 'text-[#0284c7]'
+      : isCaseValue
+      ? 'text-[#5c3417]'
+      : isAlFatah
+      ? 'text-[#991b1b]'
+      : isChaseUp
+      ? 'text-[#6b21a8]'
+      : 'text-emerald-700',
+    softBg: isUnimaart
+      ? 'bg-sky-50 text-sky-800 border-sky-200'
+      : isCaseValue
+      ? 'bg-[#f4ebe0] text-[#5c3417] border-[#ebdcc7]'
+      : isAlFatah
+      ? 'bg-rose-50 text-rose-800 border-rose-200'
+      : isChaseUp
+      ? 'bg-purple-50 text-purple-800 border-purple-200'
+      : 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    accentColor: isUnimaart
+      ? '#0284c7'
+      : isCaseValue
+      ? '#78350f'
+      : isAlFatah
+      ? '#991b1b'
+      : isChaseUp
+      ? '#6b21a8'
+      : '#10b981'
+  };
 
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedSlot, setSelectedSlot] = useState('⚡ Instant 10-15 Mins Express Delivery');
@@ -199,9 +244,9 @@ export const CheckoutPage = () => {
                   <div
                     className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all ${
                       isCompleted
-                        ? 'bg-emerald-600 text-white shadow-xs'
+                        ? `${theme.primaryBg} text-white shadow-xs`
                         : isCurrent
-                        ? 'bg-emerald-950 text-white ring-2 ring-emerald-500 ring-offset-1'
+                        ? `bg-slate-900 text-white ring-2 ring-slate-800 ring-offset-1`
                         : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200'
                     }`}
                   >
@@ -209,7 +254,7 @@ export const CheckoutPage = () => {
                   </div>
                   <span
                     className={`text-xs font-bold hidden sm:inline ${
-                      isCurrent ? 'text-slate-900 font-black' : isCompleted ? 'text-emerald-700' : 'text-slate-400'
+                      isCurrent ? 'text-slate-900 font-black' : isCompleted ? theme.primaryText : 'text-slate-400'
                     }`}
                   >
                     {s.label}
@@ -219,7 +264,7 @@ export const CheckoutPage = () => {
                 {idx < 2 && (
                   <div
                     className={`w-4 sm:w-8 h-0.5 rounded-full transition-all ${
-                      currentStep > idx + 1 || isOrderPlaced ? 'bg-emerald-600' : 'bg-slate-200'
+                      currentStep > idx + 1 || isOrderPlaced ? theme.primaryBg.split(' ')[0] : 'bg-slate-200'
                     }`}
                   />
                 )}
@@ -454,7 +499,8 @@ export const CheckoutPage = () => {
                   type="checkbox"
                   checked={isEcoFriendly}
                   onChange={(e) => setIsEcoFriendly(e.target.checked)}
-                  className="w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  style={{ accentColor: theme.accentColor }}
+                  className="w-5 h-5 rounded cursor-pointer"
                 />
               </div>
 
@@ -476,7 +522,7 @@ export const CheckoutPage = () => {
                       onClick={() => setRiderTip(amount)}
                       className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                         riderTip === amount
-                          ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500 ring-offset-1'
+                          ? `${theme.primaryBg} text-white shadow-sm ring-2 ring-offset-1`
                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                       }`}
                     >
@@ -631,16 +677,16 @@ export const CheckoutPage = () => {
 
                 <div className="flex justify-between text-base font-black text-slate-900 pt-3 border-t border-slate-200">
                   <span>Grand Total</span>
-                  <span className="text-emerald-700 font-mono text-lg">{currency.symbol}{grandTotalWithTip.toLocaleString()}</span>
+                  <span className={`${theme.primaryText} font-mono text-lg`}>{currency.symbol}{grandTotalWithTip.toLocaleString()}</span>
                 </div>
               </div>
 
               {/* Big Shimmering CTA Button */}
               <button
                 onClick={handlePlaceOrder}
-                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-xl shadow-emerald-900/25 hover:shadow-2xl transition-all cursor-pointer transform hover:-translate-y-0.5"
+                className={`w-full py-4 ${theme.primaryBg} text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-xl hover:shadow-2xl transition-all cursor-pointer transform hover:-translate-y-0.5`}
               >
-                <ShieldCheck className="w-5 h-5 text-emerald-200" />
+                <ShieldCheck className="w-5 h-5 opacity-80" />
                 <span>Place Order • {currency.symbol}{grandTotalWithTip.toLocaleString()}</span>
               </button>
 
