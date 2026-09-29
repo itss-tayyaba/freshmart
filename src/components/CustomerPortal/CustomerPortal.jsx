@@ -67,6 +67,7 @@ export const CustomerPortal = () => {
     storeSettings = {},
     addToast,
     customerOrders = [],
+    activeDeliveryOrder,
     addToCart
   } = useStore();
 
@@ -221,7 +222,7 @@ export const CustomerPortal = () => {
               className="flex items-center gap-2 px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl font-bold transition-all cursor-pointer shadow-md shadow-emerald-900/20 hover:scale-105"
             >
               <ShoppingCart className="w-4 h-4 text-emerald-100" />
-              <span>{currency.symbol}{cartTotal}</span>
+              <span>{typeof currency === 'object' && currency?.symbol ? currency.symbol : 'PKR '}{cartTotal}</span>
             </button>
 
             {/* Customer Pill with Logout */}

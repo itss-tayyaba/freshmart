@@ -88,7 +88,7 @@ export const AddressesView = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {savedDeliveryAddresses.map((addr) => {
-            const isSelected = deliveryLocation.address === addr.address;
+            const isSelected = deliveryLocation?.address === addr.address;
 
             return (
               <div
