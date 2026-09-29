@@ -148,10 +148,15 @@ export const StoreProvider = ({ children }) => {
       const saved = localStorage.getItem('freshmart_store_admins');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          // Filter out any legacy preseeded mart admins
+          return parsed.filter(
+            (sa) => !['sa-alfatah', 'sa-chasevalue', 'sa-chaseup', 'sa-freshmart', 'sa-localgrocery', 'sa-superstore'].includes(sa.id)
+          );
+        }
       }
     } catch (e) {}
-    return INITIAL_STORE_ADMINS;
+    return INITIAL_STORE_ADMINS; // []
   });
 
   useEffect(() => {
@@ -1341,7 +1346,9 @@ export const StoreProvider = ({ children }) => {
       const saved = localStorage.getItem('freshmart_riders');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter((r) => !['RDR-101', 'RDR-102', 'RDR-103', 'RDR-104'].includes(r.id));
+        }
       }
     } catch (e) {}
     return [];
@@ -1374,42 +1381,22 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [suppliers]);
 
-  // Default Customer List (Registered users: Hafsa & Aimen)
-  const defaultCustomersList = [
-    {
-      id: 'CUST-001',
-      name: 'Hafsa',
-      email: 'hafsa@gmail.com',
-      phone: '0300-1234567',
-      address: 'House 12, Street 4, Johar Town, Lahore',
-      totalOrders: 0,
-      totalSpent: 'Rs. 0',
-      status: 'Active',
-      joinedDate: '2026-09-01'
-    },
-    {
-      id: 'CUST-002',
-      name: 'Aimen',
-      email: 'aimen@gmail.com',
-      phone: '0321-7654321',
-      address: 'Gulberg III, Main Boulevard, Lahore, Pakistan',
-      totalOrders: 0,
-      totalSpent: 'Rs. 0',
-      status: 'Active',
-      joinedDate: '2026-09-03'
-    }
-  ];
+  // Default Customer List (Zero mock seeds: populated strictly via manual addition from Super Admin or customer registration)
+  const defaultCustomersList = [];
 
-  // Customers State (Only registered customer Hafsa)
+  // Customers State (Starts empty for manual addition from Super Admin)
   const [customers, setCustomers] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_customers');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          // Filter out legacy mock seeds if any exist
+          return parsed.filter((c) => c.id !== 'CUST-001' && c.id !== 'CUST-002');
+        }
       }
     } catch (e) {}
-    return defaultCustomersList;
+    return [];
   });
 
   useEffect(() => {
@@ -1451,12 +1438,10 @@ export const StoreProvider = ({ children }) => {
     const syncCustomers = async () => {
       try {
         const res = await apiService.getCustomers();
-        if (res && res.success && Array.isArray(res.customers) && res.customers.length > 0) {
-          setCustomers(res.customers);
-          localStorage.setItem('freshmart_customers', JSON.stringify(res.customers));
-        } else {
-          setCustomers(defaultCustomersList);
-          localStorage.setItem('freshmart_customers', JSON.stringify(defaultCustomersList));
+        if (res && res.success && Array.isArray(res.customers)) {
+          const cleanCusts = res.customers.filter((c) => c.id !== 'CUST-001' && c.id !== 'CUST-002');
+          setCustomers(cleanCusts);
+          localStorage.setItem('freshmart_customers', JSON.stringify(cleanCusts));
         }
       } catch (e) {}
     };

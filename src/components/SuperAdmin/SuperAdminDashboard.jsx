@@ -47,10 +47,17 @@ import {
   Settings,
   ClipboardList,
   ShoppingCart,
-  Edit2
+  Edit2,
+  Download,
+  Send,
+  Zap,
+  Radio,
+  SlidersVertical,
+  CheckSquare
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { SUBSCRIPTION_PLANS } from '../../data/tenantData';
+import { BRANCHES } from '../../data/companyHierarchyData';
 
 export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
   const {
@@ -70,10 +77,20 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
     getPlatformOverview,
     adminOrders,
     riders,
+    setRiders,
+    addRider,
+    deleteRider,
+    toggleRiderStatus,
+    customers,
+    setCustomers,
+    addCustomer,
+    deleteCustomer,
+    updateCustomer,
     adminLogout,
     navigateTo,
     addToast,
     storeAdmins,
+    setStoreAdmins,
     addStoreAdmin,
     updateStoreAdmin,
     deleteStoreAdmin,
@@ -81,26 +98,34 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
   } = useStore();
 
   // Active Navigation in Sidebar
-  const [activeNav, setActiveNav] = useState('dashboard'); // 'dashboard' | 'tenants' | 'branches' | 'plans' | 'admins' | 'orders'
+  const [activeNav, setActiveNav] = useState('dashboard');
 
-  // Modals
+  // Modals visibility
   const [isAddTenantOpen, setIsAddTenantOpen] = useState(false);
   const [isAddAdminOpen, setIsAddAdminOpen] = useState(false);
   const [isManageAdminsOpen, setIsManageAdminsOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
+  const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
+  const [isAddRiderOpen, setIsAddRiderOpen] = useState(false);
+  const [isAddBranchOpen, setIsAddBranchOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState(null);
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [revenueTimeframe, setRevenueTimeframe] = useState('today');
-  const [topTenantsTimeframe, setTopTenantsTimeframe] = useState('today');
-  const [salesTimeframe, setSalesTimeframe] = useState('7days');
+  const [tenantFilter, setTenantFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [branchCityFilter, setBranchCityFilter] = useState('all');
+  const [orderStatusFilter, setOrderStatusFilter] = useState('all');
   const [showPasswordMap, setShowPasswordMap] = useState({});
 
-  // 6 Tenants Dataset matching screenshot
-  // Seeded with Al-Fatah, Chase Value, Chase Up, Fresh Mart, Local Grocery, Super Store
+  // Timeframes for dashboard charts
+  const [revenueTimeframe, setRevenueTimeframe] = useState('today');
+  const [salesTimeframe, setSalesTimeframe] = useState('7days');
+  const [topTenantsTimeframe, setTopTenantsTimeframe] = useState('today');
+
+  // 6 Tenants Dataset matching platform specification
   const defaultStores = [
     {
       id: 'tenant-alfatah',
@@ -162,7 +187,7 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
     {
       id: 'tenant-freshmart',
       name: 'Fresh Mart',
-      fullName: 'Unimart (Fresh Mart)',
+      fullName: 'Fresh Mart Direct',
       tagline: 'Fresh • Healthy • Local',
       status: 'Active',
       branchesCount: 2,
@@ -174,7 +199,7 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
       plan: 'Enterprise',
       sharePct: '14%',
       barHeight: 50,
-      ownerEmail: 'admin@unimart.pk',
+      ownerEmail: 'admin@freshmart.pk',
       ownerName: 'Aimen Yasin',
       hubs: ['Gulberg SuperHub', 'DHA Phase 6', 'Johar Town']
     },
@@ -262,6 +287,41 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
     city: 'Lahore, Pakistan'
   });
 
+  const [newCustomerForm, setNewCustomerForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: 'Lahore'
+  });
+
+  const [newRiderForm, setNewRiderForm] = useState({
+    name: '',
+    phone: '',
+    tenantId: 'tenant-alfatah',
+    zone: 'Gulberg SuperHub',
+    vehicleType: '🏍️ Honda 125',
+    vehicleNumber: '',
+    password: 'riderpassword123',
+    status: 'Available'
+  });
+
+  const [newBranchForm, setNewBranchForm] = useState({
+    tenantId: 'tenant-alfatah',
+    name: '',
+    city: 'Lahore',
+    address: '',
+    hubName: 'Gulberg Hub',
+    phone: '+92 42 35752233'
+  });
+
+  const [broadcastForm, setBroadcastForm] = useState({
+    audience: 'all_admins',
+    title: '',
+    message: '',
+    priority: 'Normal'
+  });
+
   // Action handlers
   const handleOpenDetails = (store) => {
     setSelectedTenant(store);
@@ -297,6 +357,13 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
     } else {
       await activateTenant(store.id);
       addToast('Tenant Activated ✅', `${store.name} is now active.`);
+    }
+  };
+
+  const handleDeleteTenantClick = (store) => {
+    if (window.confirm(`Are you sure you want to delete ${store.fullName}?`)) {
+      deleteTenant(store.id);
+      addToast('Tenant Removed 🗑️', `${store.fullName} deleted from platform.`);
     }
   };
 
@@ -356,6 +423,64 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
     setIsAddAdminOpen(false);
   };
 
+  const handleCreateCustomerSubmit = (e) => {
+    e.preventDefault();
+    if (!newCustomerForm.name || !newCustomerForm.email) {
+      addToast('Missing Details ⚠️', 'Please provide at least a customer name and email.', 'error');
+      return;
+    }
+
+    addCustomer({
+      name: newCustomerForm.name,
+      email: newCustomerForm.email,
+      phone: newCustomerForm.phone || '+92 300 1234567',
+      address: `${newCustomerForm.address || 'Main Road'}, ${newCustomerForm.city}`
+    });
+
+    setNewCustomerForm({
+      name: '',
+      email: '',
+      phone: '',
+      address: '',
+      city: 'Lahore'
+    });
+    setIsAddCustomerOpen(false);
+  };
+
+  const handleCreateRiderSubmit = async (e) => {
+    e.preventDefault();
+    if (!newRiderForm.name || !newRiderForm.phone) {
+      addToast('Missing Details ⚠️', 'Please provide rider name and phone number.', 'error');
+      return;
+    }
+
+    const assignedStore = displayStores.find((s) => s.id === newRiderForm.tenantId);
+
+    await addRider({
+      name: newRiderForm.name,
+      phone: newRiderForm.phone,
+      vehicleType: newRiderForm.vehicleType,
+      vehicleNumber: newRiderForm.vehicleNumber || `LEK-${Math.floor(1000 + Math.random() * 9000)}`,
+      zone: newRiderForm.zone,
+      tenantId: newRiderForm.tenantId,
+      tenantName: assignedStore ? assignedStore.fullName : 'Supermarket Store',
+      password: newRiderForm.password || 'rider123',
+      status: newRiderForm.status || 'Available'
+    });
+
+    setNewRiderForm({
+      name: '',
+      phone: '',
+      tenantId: 'tenant-alfatah',
+      zone: 'Gulberg SuperHub',
+      vehicleType: '🏍️ Honda 125',
+      vehicleNumber: '',
+      password: 'riderpassword123',
+      status: 'Available'
+    });
+    setIsAddRiderOpen(false);
+  };
+
   const togglePasswordVisibility = (adminId) => {
     setShowPasswordMap((prev) => ({ ...prev, [adminId]: !prev[adminId] }));
   };
@@ -371,40 +496,83 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
     addToast('Switched to Store Admin 🏬', `Managing ${store.name}`);
   };
 
+  // Filtered lists for dedicated sub-dashboards
+  const filteredStores = useMemo(() => {
+    return displayStores.filter((store) => {
+      const matchSearch =
+        store.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        store.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        store.ownerEmail.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchStatus =
+        statusFilter === 'all' || store.status.toLowerCase() === statusFilter.toLowerCase();
+      const matchTier =
+        tenantFilter === 'all' || store.plan.toLowerCase() === tenantFilter.toLowerCase();
+      return matchSearch && matchStatus && matchTier;
+    });
+  }, [displayStores, searchQuery, statusFilter, tenantFilter]);
+
+  const filteredAdmins = useMemo(() => {
+    return (storeAdmins || []).filter((admin) => {
+      const matchSearch =
+        admin.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        admin.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (admin.tenantName && admin.tenantName.toLowerCase().includes(searchQuery.toLowerCase()));
+      return matchSearch;
+    });
+  }, [storeAdmins, searchQuery]);
+
+  const filteredCustomers = useMemo(() => {
+    return (customers || []).filter((cust) => {
+      return (
+        cust.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        cust.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (cust.phone && cust.phone.includes(searchQuery))
+      );
+    });
+  }, [customers, searchQuery]);
+
+  const filteredRiders = useMemo(() => {
+    return (riders || []).filter((rider) => {
+      return (
+        rider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (rider.phone && rider.phone.includes(searchQuery)) ||
+        (rider.zone && rider.zone.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    });
+  }, [riders, searchQuery]);
+
+  // Sidebar helper button class
+  const getNavClass = (key) =>
+    `w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer text-xs font-semibold ${
+      activeNav === key
+        ? 'bg-[#1E293B] text-white font-bold shadow-xs border-l-2 border-blue-500'
+        : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+    }`;
+
   return (
     <div className="flex min-h-screen bg-[#f8fafc] text-slate-800 font-sans antialiased">
-      
       {/* ========================================================================= */}
-      {/* 1. LEFT SIDEBAR (Dark Navy #0B132B Matching Exact Screenshot)            */}
+      {/* 1. LEFT SIDEBAR (Super Admin Platform Command Center)                     */}
       {/* ========================================================================= */}
       <aside className="w-64 bg-[#0B132B] text-slate-300 flex flex-col shrink-0 select-none border-r border-slate-900 min-h-screen">
-        
-        {/* Brand Header */}
+        {/* Brand Header: Super Admin */}
         <div className="p-5 flex items-center gap-3 border-b border-slate-800/60">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black shadow-lg">
-            <ShoppingCart className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-white font-black shadow-lg shadow-amber-950/40">
+            <span className="text-xl">👑</span>
           </div>
           <div>
-            <h1 className="text-white font-extrabold text-base leading-tight tracking-tight">Unimart</h1>
-            <p className="text-[10px] text-slate-400 font-medium">Multi-Tenant Grocery Platform</p>
+            <h1 className="text-white font-extrabold text-base leading-tight tracking-tight">Super Admin</h1>
+            <p className="text-[10px] text-slate-400 font-medium">Platform Command Center</p>
           </div>
         </div>
 
         {/* Sidebar Nav Items */}
         <div className="flex-1 py-4 px-3 space-y-6 overflow-y-auto text-xs font-semibold">
-          
           {/* Main Dashboard item */}
           <div>
-            <button
-              onClick={() => setActiveNav('dashboard')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
-                activeNav === 'dashboard'
-                  ? 'bg-[#1E293B] text-white font-bold shadow-xs'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
+            <button onClick={() => setActiveNav('dashboard')} className={getNavClass('dashboard')}>
               <LayoutDashboard className="w-4 h-4 text-blue-400" />
-              <span>Dashboard</span>
+              <span>Dashboard Overview</span>
             </button>
           </div>
 
@@ -414,34 +582,21 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
               Tenant Management
             </div>
             <div className="space-y-1">
-              <button
-                onClick={() => {
-                  setActiveNav('tenants');
-                  const el = document.getElementById('tenants-section');
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition cursor-pointer"
-              >
+              <button onClick={() => setActiveNav('tenants')} className={getNavClass('tenants')}>
                 <Store className="w-4 h-4 text-emerald-400" />
-                <span>Tenants</span>
-                <span className="ml-auto text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">6</span>
+                <span>Tenants (Marts)</span>
+                <span className="ml-auto text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">
+                  {displayStores.length}
+                </span>
               </button>
-              <button
-                onClick={() => {
-                  setActiveNav('branches');
-                  const el = document.getElementById('map-section');
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition cursor-pointer"
-              >
+              <button onClick={() => setActiveNav('branches')} className={getNavClass('branches')}>
                 <Building2 className="w-4 h-4 text-sky-400" />
-                <span>Branches</span>
-                <span className="ml-auto text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">18</span>
+                <span>Branches & Hubs</span>
+                <span className="ml-auto text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">
+                  {BRANCHES.length}
+                </span>
               </button>
-              <button
-                onClick={() => setIsPlanModalOpen(true)}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition cursor-pointer"
-              >
+              <button onClick={() => setActiveNav('plans')} className={getNavClass('plans')}>
                 <Layers className="w-4 h-4 text-purple-400" />
                 <span>Subscription Plans</span>
               </button>
@@ -454,29 +609,26 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
               Users & Access
             </div>
             <div className="space-y-1">
-              <button
-                onClick={() => setIsManageAdminsOpen(true)}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl bg-blue-950/40 text-blue-200 border border-blue-800/40 hover:bg-blue-900/50 transition cursor-pointer font-bold"
-              >
+              <button onClick={() => setActiveNav('admins')} className={getNavClass('admins')}>
                 <ShieldCheck className="w-4 h-4 text-amber-400" />
-                <span>Admins (Mart Admins)</span>
+                <span>Mart Admins</span>
                 <span className="ml-auto text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded-full font-bold">
                   {(storeAdmins || []).length}
                 </span>
               </button>
-              <button
-                onClick={() => addToast('Customers Registry 👥', '48,732 active platform customers verified across all marts.')}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition cursor-pointer"
-              >
+              <button onClick={() => setActiveNav('customers')} className={getNavClass('customers')}>
                 <Users className="w-4 h-4 text-amber-400" />
                 <span>Customers</span>
+                <span className="ml-auto text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">
+                  {(customers || []).length}
+                </span>
               </button>
-              <button
-                onClick={() => addToast('Rider Fleet 🛵', '84 active delivery riders on platform.')}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition cursor-pointer"
-              >
+              <button onClick={() => setActiveNav('riders')} className={getNavClass('riders')}>
                 <Truck className="w-4 h-4 text-rose-400" />
-                <span>Riders</span>
+                <span>Riders Fleet</span>
+                <span className="ml-auto text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">
+                  {(riders || []).length}
+                </span>
               </button>
             </div>
           </div>
@@ -487,29 +639,17 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
               Orders & Deliveries
             </div>
             <div className="space-y-1">
-              <button
-                onClick={() => {
-                  const el = document.getElementById('orders-section');
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition cursor-pointer"
-              >
+              <button onClick={() => setActiveNav('orders')} className={getNavClass('orders')}>
                 <ShoppingBag className="w-4 h-4 text-emerald-400" />
-                <span>All Orders</span>
+                <span>Cross-Store Orders</span>
               </button>
-              <button
-                onClick={() => addToast('Live Radar GPS 📡', 'Dark Store dispatch telemetry active.')}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition cursor-pointer"
-              >
+              <button onClick={() => setActiveNav('tracking')} className={getNavClass('tracking')}>
                 <Navigation className="w-4 h-4 text-indigo-400" />
-                <span>Live Tracking</span>
+                <span>Live GPS Tracking</span>
               </button>
-              <button
-                onClick={() => addToast('SLA Performance 📊', 'Overall fulfillment SLA: 98.8%')}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition cursor-pointer"
-              >
+              <button onClick={() => setActiveNav('performance')} className={getNavClass('performance')}>
                 <Activity className="w-4 h-4 text-cyan-400" />
-                <span>Delivery Performance</span>
+                <span>Delivery SLA</span>
               </button>
             </div>
           </div>
@@ -520,26 +660,17 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
               Finance
             </div>
             <div className="space-y-1">
-              <button
-                onClick={() => addToast('Payments Ledger 💳', 'Total settlements today: PKR 1,245,670')}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition cursor-pointer"
-              >
+              <button onClick={() => setActiveNav('payments')} className={getNavClass('payments')}>
                 <CreditCard className="w-4 h-4 text-teal-400" />
-                <span>Payments</span>
+                <span>Payments & Settlements</span>
               </button>
-              <button
-                onClick={() => addToast('Platform Commission 💰', 'Average commission rate: 3.5% (PKR 62,283 today)')}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition cursor-pointer"
-              >
+              <button onClick={() => setActiveNav('commissions')} className={getNavClass('commissions')}>
                 <Percent className="w-4 h-4 text-orange-400" />
                 <span>Commissions</span>
               </button>
-              <button
-                onClick={() => addToast('Financial Reports 📄', 'Monthly GMV report ready for download.')}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition cursor-pointer"
-              >
+              <button onClick={() => setActiveNav('reports')} className={getNavClass('reports')}>
                 <FileText className="w-4 h-4 text-slate-400" />
-                <span>Reports</span>
+                <span>Reports Center</span>
               </button>
             </div>
           </div>
@@ -550,41 +681,30 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
               System
             </div>
             <div className="space-y-1">
-              <button
-                onClick={() => addToast('System Settings ⚙️', 'Platform multi-tenant configurations active.')}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition cursor-pointer"
-              >
+              <button onClick={() => setActiveNav('settings')} className={getNavClass('settings')}>
                 <Settings className="w-4 h-4 text-slate-400" />
-                <span>Settings</span>
+                <span>Platform Settings</span>
               </button>
-              <button
-                onClick={() => addToast('Platform Notifications 🔔', '5 pending notifications.')}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition cursor-pointer"
-              >
+              <button onClick={() => setActiveNav('notifications')} className={getNavClass('notifications')}>
                 <Bell className="w-4 h-4 text-amber-400" />
-                <span>Notifications</span>
-                <span className="ml-auto text-[10px] bg-rose-600 text-white px-1.5 py-0.2 rounded-full font-bold">5</span>
+                <span>Broadcast Alerts</span>
               </button>
-              <button
-                onClick={() => addToast('Audit Logs 📋', 'System immutable ledger logging all admin activities.')}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition cursor-pointer"
-              >
+              <button onClick={() => setActiveNav('audit')} className={getNavClass('audit')}>
                 <ClipboardList className="w-4 h-4 text-slate-400" />
                 <span>Audit Logs</span>
               </button>
             </div>
           </div>
-
         </div>
 
-        {/* Bottom Sidebar Card: Super Admin Status */}
+        {/* Bottom Sidebar Card */}
         <div className="p-3 m-3 bg-[#111C3A] border border-slate-800 rounded-2xl space-y-2">
           <div className="flex items-center gap-2">
             <span className="text-amber-400 text-sm">👑</span>
-            <span className="text-white text-xs font-bold">Super Admin</span>
+            <span className="text-white text-xs font-bold">Super Admin HQ</span>
           </div>
           <p className="text-[10px] text-slate-400 leading-tight">
-            Full access to all tenants and system settings.
+            Full root control over all marts, branches, users & subscriptions.
           </p>
           <div className="pt-1 flex gap-1.5">
             <button
@@ -603,912 +723,2162 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
             </button>
           </div>
         </div>
-
       </aside>
 
       {/* ========================================================================= */}
-      {/* 2. MAIN EXECUTIVE CONTENT AREA                                            */}
+      {/* 2. MAIN WORKSPACE AREA                                                    */}
       {/* ========================================================================= */}
       <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        
-        {/* Top Header Bar matching screenshot */}
+        {/* Top Header Bar */}
         <header className="bg-white border-b border-slate-200/80 px-6 sm:px-8 py-3.5 flex items-center justify-between gap-4 sticky top-0 z-30 shadow-2xs">
-          
-          {/* Centered Search with Ctrl+K */}
-          <div className="flex-1 max-w-lg relative">
+          {/* Breadcrumb / Title */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+              <span className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Super Admin</span>
+              <span>/</span>
+              <span className="capitalize text-blue-600 font-bold">{activeNav}</span>
+            </div>
+          </div>
+
+          {/* Centered Search */}
+          <div className="flex-1 max-w-md relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search tenants, branches, orders, or users..."
+              placeholder={`Search ${activeNav}...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-16 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 transition"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-12 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 transition"
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 bg-slate-200/70 text-slate-500 text-[10px] font-bold px-1.5 py-0.5 rounded border border-slate-300">
-              Ctrl + K
-            </div>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Right Header Controls */}
-          <div className="flex items-center gap-4">
-            
-            {/* Notification Bell with Badge 5 */}
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => addToast('Super Admin Alerts 🔔', '3 new orders awaiting dispatch, 1 tenant plan renewal pending.')}
+              onClick={() => setActiveNav('notifications')}
               className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+              title="Broadcast Notifications"
             >
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center">
-                5
-              </span>
+              <Bell className="w-4 h-4" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full"></span>
             </button>
 
-            {/* Profile Avatar Badge */}
-            <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
-              <div className="w-8 h-8 rounded-full bg-slate-700 text-white font-bold text-xs flex items-center justify-center shadow-xs">
-                SY
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+              <div className="w-8 h-8 rounded-full bg-amber-500 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                👑
               </div>
               <div className="text-left hidden sm:block">
                 <span className="text-xs font-bold text-slate-900 block leading-none">Super Admin</span>
-                <span className="text-[10px] text-slate-400 font-medium block mt-0.5">Admin</span>
+                <span className="text-[10px] text-emerald-600 font-bold block mt-0.5">Platform Root</span>
               </div>
             </div>
 
-            {/* Date Pill: 27 Sep 2025 ▾ */}
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-200/80 transition">
+            <div className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700">
               <Calendar className="w-3.5 h-3.5 text-slate-500" />
-              <span>27 Sep 2025</span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
+              <span>Today</span>
             </div>
-
           </div>
-
         </header>
 
-        {/* Content Body */}
+        {/* Content Body Based on activeNav */}
         <div className="p-6 sm:p-8 space-y-6">
-          
-          {/* Welcome Banner */}
-          <div>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <span>👋</span> Welcome back, Super Admin!
-            </h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Here's what's happening across all tenants today.
-            </p>
-          </div>
-
-          {/* ========================================================================= */}
-          {/* 3. FIVE TOP METRIC KPI CARDS (MATCHING SCREENSHOT)                        */}
-          {/* ========================================================================= */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            
-            {/* 1. Total Tenants */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-              <div className="flex items-start justify-between">
+          {/* ===================================================================== */}
+          {/* SUB-DASHBOARD: 1. DASHBOARD OVERVIEW                                  */}
+          {/* ===================================================================== */}
+          {activeNav === 'dashboard' && (
+            <div className="space-y-6">
+              {/* Welcome Banner */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <span className="text-xs font-bold text-slate-500 block">Total Tenants</span>
-                  <span className="text-2xl font-black text-slate-900 mt-1 block">6</span>
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <span>👋</span> Welcome back, Super Admin!
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Here's what's happening across all registered marts and dark store fulfillment hubs today.
+                  </p>
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                  <Store className="w-5 h-5" />
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-emerald-700">
-                <span>Active 5 <span className="text-slate-300">|</span> Inactive 1</span>
-                <span className="text-emerald-600">→</span>
-              </div>
-            </div>
-
-            {/* 2. Total Branches */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-xs font-bold text-slate-500 block">Total Branches</span>
-                  <span className="text-2xl font-black text-slate-900 mt-1 block">18</span>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                  <Building2 className="w-5 h-5" />
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-blue-700">
-                <span>Across all tenants</span>
-                <span className="text-blue-600">→</span>
-              </div>
-            </div>
-
-            {/* 3. Total Orders (Today) */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-xs font-bold text-slate-500 block">Total Orders (Today)</span>
-                  <span className="text-2xl font-black text-slate-900 mt-1 block">2,482</span>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-                  <ShoppingBag className="w-5 h-5" />
-                </div>
-              </div>
-              <div className="mt-3 flex items-center gap-1 text-[11px] font-bold text-emerald-600">
-                <span>↑ 12%</span>
-                <span className="text-slate-400 font-normal">than yesterday</span>
-              </div>
-            </div>
-
-            {/* 4. Total Customers */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-xs font-bold text-slate-500 block">Total Customers</span>
-                  <span className="text-2xl font-black text-slate-900 mt-1 block">48,732</span>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
-                  <Users className="w-5 h-5" />
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-orange-700">
-                <span className="flex items-center gap-1">
-                  <span className="font-bold">↑ 8%</span>
-                  <span className="text-slate-400 font-normal">than last week</span>
-                </span>
-                <span className="text-orange-600">→</span>
-              </div>
-            </div>
-
-            {/* 5. Total Revenue (Today) */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-xs font-bold text-slate-500 block">Total Revenue (Today)</span>
-                  <span className="text-2xl font-black text-slate-900 mt-1 block">PKR 1,245,670</span>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
-                  <CreditCard className="w-5 h-5" />
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-emerald-700">
-                <span className="flex items-center gap-1">
-                  <span className="font-bold">↑ 15%</span>
-                  <span className="text-slate-400 font-normal">than yesterday</span>
-                </span>
-                <span className="text-emerald-600">→</span>
-              </div>
-            </div>
-
-          </div>
-
-          {/* ========================================================================= */}
-          {/* 4. ALL TENANTS OVERVIEW (MATCHING SCREENSHOT + MANAGE, PLAN, SUSPEND, DETAILS) */}
-          {/* ========================================================================= */}
-          <div id="tenants-section" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Left 2 Cols: All Tenants Overview */}
-            <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-4">
-              
-              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-black text-slate-900">All Tenants Overview</h3>
-                  <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-full">
-                    6 Supermarkets
-                  </span>
-                </div>
-                <button
-                  onClick={() => setIsManageAdminsOpen(true)}
-                  className="text-xs font-bold text-blue-600 hover:text-blue-800 transition cursor-pointer flex items-center gap-1"
-                >
-                  <span>Manage Mart Admins & Passwords</span>
-                  <span>→</span>
-                </button>
-              </div>
-
-              {/* 6 Store Cards Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5">
-                {displayStores.map((store) => {
-                  const isActive = store.status === 'Active';
-                  return (
-                    <div
-                      key={store.id}
-                      className="bg-slate-50/70 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between hover:border-slate-300 hover:shadow-xs transition"
-                    >
-                      {/* Store Brand & Status */}
-                      <div>
-                        <div className="flex items-start justify-between">
-                          <div
-                            style={{ backgroundColor: `${store.color}15`, color: store.color }}
-                            className="w-10 h-10 rounded-2xl flex items-center justify-center text-lg font-black shrink-0 border border-slate-200/60 shadow-2xs"
-                          >
-                            {store.logo}
-                          </div>
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                              isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
-                            }`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-600' : 'bg-slate-400'}`} />
-                            <span>{store.status}</span>
-                          </span>
-                        </div>
-
-                        <div className="mt-2.5">
-                          <h4 className="text-sm font-black text-slate-900 leading-tight">{store.name}</h4>
-                          <p className="text-[11px] text-slate-500 truncate">{store.tagline}</p>
-                        </div>
-
-                        {/* KPI counts */}
-                        <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-200/60 text-xs">
-                          <div>
-                            <span className="text-[10px] text-slate-400 block font-semibold">Branches</span>
-                            <span className="font-bold text-slate-800">{store.branchesCount}</span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-slate-400 block font-semibold">Orders Today</span>
-                            <span className="font-bold text-slate-800">{store.ordersToday}</span>
-                          </div>
-                        </div>
-
-                        <div className="mt-2 pt-2 border-t border-slate-200/40">
-                          <span className="text-[10px] text-slate-400 block font-semibold">Revenue (Today)</span>
-                          <span className="text-xs font-black text-slate-900">{store.revenueFormatted}</span>
-                        </div>
-                      </div>
-
-                      {/* 4 MANDATORY REQUIRED ACTIONS REQUESTED BY USER: MANAGE, PLAN, SUSPENDED, DETAILS */}
-                      <div className="mt-4 pt-3 border-t border-slate-200 flex flex-wrap gap-1">
-                        
-                        {/* 1. Manage */}
-                        <button
-                          type="button"
-                          onClick={() => handleOpenManage(store)}
-                          className="flex-1 py-1 px-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-[10px] font-bold transition text-center cursor-pointer"
-                          title="Manage Store Settings & Catalog"
-                        >
-                          Manage
-                        </button>
-
-                        {/* 2. Plan */}
-                        <button
-                          type="button"
-                          onClick={() => handleOpenPlan(store)}
-                          className="flex-1 py-1 px-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[10px] font-bold transition text-center cursor-pointer"
-                          title="View / Change Subscription Plan"
-                        >
-                          Plan
-                        </button>
-
-                        {/* 3. Suspend / Activate */}
-                        <button
-                          type="button"
-                          onClick={() => handleToggleSuspend(store)}
-                          className={`flex-1 py-1 px-1.5 rounded-lg text-[10px] font-bold transition text-center cursor-pointer border ${
-                            isActive
-                              ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
-                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
-                          }`}
-                          title={isActive ? 'Suspend this store' : 'Activate this store'}
-                        >
-                          {isActive ? 'Suspend' : 'Activate'}
-                        </button>
-
-                        {/* 4. Details */}
-                        <button
-                          type="button"
-                          onClick={() => handleOpenDetails(store)}
-                          className="flex-1 py-1 px-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition text-center cursor-pointer"
-                          title="Full Store Details & SLA"
-                        >
-                          Details
-                        </button>
-
-                      </div>
-
-                    </div>
-                  );
-                })}
-              </div>
-
-            </div>
-
-            {/* Right 1 Col: Sales Overview Chart (Matching Screenshot) */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-              
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-black text-slate-900">Sales Overview</h3>
-                  <select
-                    value={salesTimeframe}
-                    onChange={(e) => setSalesTimeframe(e.target.value)}
-                    className="text-[11px] font-bold bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700 focus:outline-none cursor-pointer"
+                  <button
+                    onClick={() => setActiveNav('admins')}
+                    className="px-3 py-2 bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
                   >
-                    <option value="7days">Last 7 Days ▾</option>
-                    <option value="30days">Last 30 Days ▾</option>
-                  </select>
+                    <ShieldCheck className="w-4 h-4 text-blue-600" />
+                    <span>Manage Mart Admins</span>
+                  </button>
+                  <button
+                    onClick={() => setIsAddTenantOpen(true)}
+                    className="px-3.5 py-2 bg-[#0e7c66] hover:bg-[#0a5d4c] text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>+ Add Supermarket</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 5 KPI Metric Cards Matching Screenshot */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                {/* 1. Total Tenants */}
+                <div
+                  onClick={() => setActiveNav('tenants')}
+                  className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition cursor-pointer flex flex-col justify-between"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-slate-500 block">Total Tenants</span>
+                      <span className="text-2xl font-black text-slate-900 mt-1 block">{displayStores.length}</span>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                      <Store className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-emerald-700">
+                    <span>
+                      Active {displayStores.filter((s) => s.status === 'Active').length} | Inactive{' '}
+                      {displayStores.filter((s) => s.status !== 'Active').length}
+                    </span>
+                    <span className="text-emerald-600">→</span>
+                  </div>
                 </div>
 
-                {/* Multi-line Sales Chart Visualization */}
-                <div className="h-44 w-full relative pt-2">
-                  <svg className="w-full h-full overflow-visible" viewBox="0 0 300 120" preserveAspectRatio="none">
-                    {/* Grid lines */}
-                    <line x1="0" y1="20" x2="300" y2="20" stroke="#f1f5f9" strokeDasharray="3 3" />
-                    <line x1="0" y1="50" x2="300" y2="50" stroke="#f1f5f9" strokeDasharray="3 3" />
-                    <line x1="0" y1="80" x2="300" y2="80" stroke="#f1f5f9" strokeDasharray="3 3" />
-                    <line x1="0" y1="110" x2="300" y2="110" stroke="#e2e8f0" />
+                {/* 2. Total Branches */}
+                <div
+                  onClick={() => setActiveNav('branches')}
+                  className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition cursor-pointer flex flex-col justify-between"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-slate-500 block">Total Branches</span>
+                      <span className="text-2xl font-black text-slate-900 mt-1 block">{BRANCHES.length}</span>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                      <Building2 className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-blue-700">
+                    <span>Across 5 Pakistan cities</span>
+                    <span className="text-blue-600">→</span>
+                  </div>
+                </div>
 
-                    {/* Al-Fatah Line (Green) */}
-                    <path
-                      d="M 10 70 Q 55 60, 100 45 T 150 55 T 200 35 T 250 25 T 290 20"
-                      fill="none"
-                      stroke="#16a34a"
-                      strokeWidth="2.5"
-                    />
-                    {/* Chase Value Line (Blue) */}
-                    <path
-                      d="M 10 85 Q 55 80, 100 65 T 150 70 T 200 55 T 250 48 T 290 45"
-                      fill="none"
-                      stroke="#2563eb"
-                      strokeWidth="2.5"
-                    />
-                    {/* Chase Up Line (Purple) */}
-                    <path
-                      d="M 10 95 Q 55 90, 100 75 T 150 80 T 200 70 T 250 62 T 290 58"
-                      fill="none"
-                      stroke="#7c3aed"
-                      strokeWidth="2"
-                    />
-                    {/* Fresh Mart Line (Orange) */}
-                    <path
-                      d="M 10 100 Q 55 95, 100 85 T 150 90 T 200 82 T 250 72 T 290 68"
-                      fill="none"
-                      stroke="#ea580c"
-                      strokeWidth="2"
-                    />
-                    {/* Local Grocery Line (Red) */}
-                    <path
-                      d="M 10 105 Q 55 102, 100 95 T 150 98 T 200 92 T 250 85 T 290 80"
-                      fill="none"
-                      stroke="#dc2626"
-                      strokeWidth="1.5"
-                    />
-                  </svg>
+                {/* 3. Total Orders (Today) */}
+                <div
+                  onClick={() => setActiveNav('orders')}
+                  className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition cursor-pointer flex flex-col justify-between"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-slate-500 block">Total Orders (Today)</span>
+                      <span className="text-2xl font-black text-slate-900 mt-1 block">2,482</span>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                      <ShoppingBag className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-1 text-[11px] font-bold text-emerald-600">
+                    <span>↑ 12%</span>
+                    <span className="text-slate-400 font-normal">than yesterday</span>
+                  </div>
+                </div>
 
-                  {/* Day Axis */}
-                  <div className="flex justify-between text-[10px] font-semibold text-slate-400 mt-2">
-                    <span>21 Sep</span>
-                    <span>22 Sep</span>
-                    <span>23 Sep</span>
-                    <span>24 Sep</span>
-                    <span>25 Sep</span>
-                    <span>26 Sep</span>
-                    <span>27 Sep</span>
+                {/* 4. Total Customers */}
+                <div
+                  onClick={() => setActiveNav('customers')}
+                  className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition cursor-pointer flex flex-col justify-between"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-slate-500 block">Total Customers</span>
+                      <span className="text-2xl font-black text-slate-900 mt-1 block">{(customers || []).length}</span>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
+                      <Users className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-orange-700">
+                    <span>
+                      {(customers || []).length === 0 ? 'Add manually' : `${(customers || []).length} registered`}
+                    </span>
+                    <span className="text-orange-600">→</span>
+                  </div>
+                </div>
+
+                {/* 5. Total Revenue (Today) */}
+                <div
+                  onClick={() => setActiveNav('payments')}
+                  className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition cursor-pointer flex flex-col justify-between"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-slate-500 block">Total Revenue (Today)</span>
+                      <span className="text-2xl font-black text-slate-900 mt-1 block">PKR 1,245,670</span>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                      <CreditCard className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-emerald-700">
+                    <span className="flex items-center gap-1">
+                      <span className="font-bold">↑ 15%</span>
+                      <span className="text-slate-400 font-normal">than yesterday</span>
+                    </span>
+                    <span className="text-emerald-600">→</span>
                   </div>
                 </div>
               </div>
 
-              {/* Legend matching screenshot */}
-              <div className="pt-4 border-t border-slate-100 flex flex-wrap gap-2 text-[10px] font-bold">
-                <span className="flex items-center gap-1 text-slate-700">
-                  <span className="w-2 h-2 rounded-full bg-emerald-600" /> Al-Fatah
-                </span>
-                <span className="flex items-center gap-1 text-slate-700">
-                  <span className="w-2 h-2 rounded-full bg-blue-600" /> Chase Value
-                </span>
-                <span className="flex items-center gap-1 text-slate-700">
-                  <span className="w-2 h-2 rounded-full bg-purple-600" /> Chase Up
-                </span>
-                <span className="flex items-center gap-1 text-slate-700">
-                  <span className="w-2 h-2 rounded-full bg-orange-600" /> Fresh Mart
-                </span>
-                <span className="flex items-center gap-1 text-slate-700">
-                  <span className="w-2 h-2 rounded-full bg-rose-600" /> Local Grocery
-                </span>
-                <span className="flex items-center gap-1 text-slate-500">
-                  <span className="w-2 h-2 rounded-full bg-slate-400" /> Super Store
-                </span>
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* ========================================================================= */}
-          {/* 5. MIDDLE ROW: REVENUE COMPARISON BAR CHART, LIVE ORDERS TABLE, BRANCH MAP */}
-          {/* ========================================================================= */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* 1. Tenants Revenue Comparison (Bar Chart) */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-              
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-black text-slate-900">Tenants Revenue Comparison</h3>
-                  <select
-                    value={revenueTimeframe}
-                    onChange={(e) => setRevenueTimeframe(e.target.value)}
-                    className="text-[11px] font-bold bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700 focus:outline-none cursor-pointer"
-                  >
-                    <option value="today">Today ▾</option>
-                    <option value="week">This Week ▾</option>
-                  </select>
-                </div>
-
-                {/* Vertical Bar Chart matching screenshot */}
-                <div className="h-44 flex items-end justify-between gap-2 pt-6 px-2 border-b border-slate-200">
-                  {displayStores.map((store) => (
-                    <div key={store.id} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
-                      <span className="text-[10px] font-extrabold text-slate-700 opacity-90">
-                        {Math.round(store.revenueToday / 1000)}K
-                      </span>
-                      <div
-                        style={{
-                          height: `${store.barHeight}%`,
-                          backgroundColor: store.color
-                        }}
-                        className="w-full max-w-[28px] rounded-t-md transition-all group-hover:opacity-90 shadow-2xs"
-                      />
+              {/* Charts Row: Sales Overview & Tenants Revenue Comparison */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Sales Overview Line Chart */}
+                <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900">Sales Overview</h3>
+                      <p className="text-[11px] text-slate-500">Gross Platform Volume across all registered marts</p>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-[10px] font-bold">
+                      {['daily', '7days', 'monthly'].map((tf) => (
+                        <button
+                          key={tf}
+                          onClick={() => setSalesTimeframe(tf)}
+                          className={`px-2.5 py-1 rounded-md transition ${
+                            salesTimeframe === tf ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                          }`}
+                        >
+                          {tf === 'daily' ? 'Day' : tf === '7days' ? 'Week' : 'Month'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="h-48 w-full relative flex items-end justify-between gap-2 pt-6 px-2 border-b border-slate-100">
+                    {/* SVG Spline Background */}
+                    <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none" preserveAspectRatio="none">
+                      <path
+                        d="M 10 140 Q 60 110, 110 130 T 210 90 T 310 110 T 410 60 T 510 40 T 610 20"
+                        fill="none"
+                        stroke="#2563eb"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+
+                    {/* Chart Bars/Data points */}
+                    {[
+                      { day: 'Mon', pkr: '180k', h: '45%' },
+                      { day: 'Tue', pkr: '210k', h: '55%' },
+                      { day: 'Wed', pkr: '195k', h: '50%' },
+                      { day: 'Thu', pkr: '260k', h: '68%' },
+                      { day: 'Fri', pkr: '310k', h: '82%' },
+                      { day: 'Sat', pkr: '385k', h: '95%' },
+                      { day: 'Sun', pkr: '290k', h: '75%' }
+                    ].map((pt, idx) => (
+                      <div key={idx} className="flex-1 flex flex-col items-center gap-2 z-10 group">
+                        <span className="text-[9px] font-bold text-slate-400 group-hover:text-blue-600 transition">
+                          {pt.pkr}
+                        </span>
+                        <div
+                          style={{ height: pt.h }}
+                          className="w-full max-w-[28px] bg-blue-100 group-hover:bg-blue-600 transition rounded-t-lg"
+                        />
+                        <span className="text-[10px] font-bold text-slate-500 mt-1">{pt.day}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-1 text-slate-600">
+                    <span className="flex items-center gap-1.5 font-bold">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                      Weekly Platform Volume: PKR 1,830,000
+                    </span>
+                    <span className="text-emerald-600 font-bold">↑ +18.4% WoW</span>
+                  </div>
                 </div>
 
-                {/* Store Names on X Axis */}
-                <div className="flex justify-between text-[10px] font-bold text-slate-500 mt-2 px-1">
-                  {displayStores.map((s) => (
-                    <span key={s.id} className="truncate max-w-[42px] text-center">
-                      {s.name}
+                {/* Tenants Revenue Comparison Bar Chart */}
+                <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900">Tenants Revenue Comparison</h3>
+                      <p className="text-[11px] text-slate-500">Live order earnings generated per supermarket today</p>
+                    </div>
+                    <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full">
+                      Real-time
                     </span>
-                  ))}
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    {displayStores.map((store) => (
+                      <div key={store.id} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                            <span>{store.logo}</span>
+                            <span>{store.name}</span>
+                          </span>
+                          <span className="font-mono font-bold text-slate-700">{store.revenueFormatted}</span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${store.barHeight}%`, backgroundColor: store.color }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-            </div>
-
-            {/* 2. Live Orders & Deliveries Table */}
-            <div id="orders-section" className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-              
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-black text-slate-900">Live Orders & Deliveries</h3>
-                  <span className="text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer">
-                    View All Orders →
-                  </span>
+              {/* All Tenants Overview Table */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                      <Store className="w-4 h-4 text-emerald-600" />
+                      <span>All Tenants Overview</span>
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      Super Admin full control over stores, credentials, plans, and active suspensions
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setActiveNav('admins')}
+                      className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>Mart Admins Credentials</span>
+                    </button>
+                    <button
+                      onClick={() => setIsAddTenantOpen(true)}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Store</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="overflow-x-auto text-xs">
-                  <table className="w-full text-left">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase">
-                        <th className="pb-2">Order ID</th>
-                        <th className="pb-2">Tenant</th>
-                        <th className="pb-2">Customer</th>
-                        <th className="pb-2">Status</th>
-                        <th className="pb-2 text-right">ETA</th>
+                      <tr className="border-b border-slate-100 text-slate-400 font-semibold uppercase text-[10px] tracking-wider">
+                        <th className="pb-3 pl-2">Tenant Store</th>
+                        <th className="pb-3">Branches</th>
+                        <th className="pb-3">Orders Today</th>
+                        <th className="pb-3">Revenue (Today)</th>
+                        <th className="pb-3">Plan</th>
+                        <th className="pb-3">Status</th>
+                        <th className="pb-3 pr-2 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50 font-medium text-slate-700">
-                      <tr>
-                        <td className="py-2.5 font-bold font-mono text-[11px] text-slate-900">#ORD-70421</td>
-                        <td className="py-2.5">
-                          <span className="inline-flex items-center gap-1 font-bold text-[11px] text-slate-800">
-                            <span className="text-xs">🏬</span> Al-Fatah
-                          </span>
-                        </td>
-                        <td className="py-2.5 text-slate-600 truncate max-w-[80px]">Ayesha Khan</td>
-                        <td className="py-2.5">
-                          <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
-                            Out for Delivery
-                          </span>
-                        </td>
-                        <td className="py-2.5 text-right font-bold text-slate-900">12 min</td>
-                      </tr>
-
-                      <tr>
-                        <td className="py-2.5 font-bold font-mono text-[11px] text-slate-900">#ORD-70420</td>
-                        <td className="py-2.5">
-                          <span className="inline-flex items-center gap-1 font-bold text-[11px] text-slate-800">
-                            <span className="text-xs">🛒</span> Chase Value
-                          </span>
-                        </td>
-                        <td className="py-2.5 text-slate-600 truncate max-w-[80px]">Hassan Ali</td>
-                        <td className="py-2.5">
-                          <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-bold">
-                            Preparing
-                          </span>
-                        </td>
-                        <td className="py-2.5 text-right font-bold text-slate-900">18 min</td>
-                      </tr>
-
-                      <tr>
-                        <td className="py-2.5 font-bold font-mono text-[11px] text-slate-900">#ORD-70419</td>
-                        <td className="py-2.5">
-                          <span className="inline-flex items-center gap-1 font-bold text-[11px] text-slate-800">
-                            <span className="text-xs">🏪</span> Chase Up
-                          </span>
-                        </td>
-                        <td className="py-2.5 text-slate-600 truncate max-w-[80px]">Sara Malik</td>
-                        <td className="py-2.5">
-                          <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full font-bold">
-                            Picked Up
-                          </span>
-                        </td>
-                        <td className="py-2.5 text-right font-bold text-slate-900">25 min</td>
-                      </tr>
-
-                      <tr>
-                        <td className="py-2.5 font-bold font-mono text-[11px] text-slate-900">#ORD-70418</td>
-                        <td className="py-2.5">
-                          <span className="inline-flex items-center gap-1 font-bold text-[11px] text-slate-800">
-                            <span className="text-xs">🛒</span> Fresh Mart
-                          </span>
-                        </td>
-                        <td className="py-2.5 text-slate-600 truncate max-w-[80px]">Usman Raza</td>
-                        <td className="py-2.5">
-                          <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
-                            Out for Delivery
-                          </span>
-                        </td>
-                        <td className="py-2.5 text-right font-bold text-slate-900">32 min</td>
-                      </tr>
-
-                      <tr>
-                        <td className="py-2.5 font-bold font-mono text-[11px] text-slate-900">#ORD-70417</td>
-                        <td className="py-2.5">
-                          <span className="inline-flex items-center gap-1 font-bold text-[11px] text-slate-800">
-                            <span className="text-xs">🏬</span> Local Grocery
-                          </span>
-                        </td>
-                        <td className="py-2.5 text-slate-600 truncate max-w-[80px]">Fatima Noor</td>
-                        <td className="py-2.5">
-                          <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-bold">
-                            Preparing
-                          </span>
-                        </td>
-                        <td className="py-2.5 text-right font-bold text-slate-900">40 min</td>
-                      </tr>
+                    <tbody className="divide-y divide-slate-100">
+                      {displayStores.map((store) => (
+                        <tr key={store.id} className="hover:bg-slate-50/70 transition">
+                          <td className="py-3 pl-2">
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-xl">{store.logo}</span>
+                              <div>
+                                <span className="font-bold text-slate-900 block">{store.fullName}</span>
+                                <span className="text-[10px] text-slate-400 block font-mono">{store.ownerEmail}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 font-semibold text-slate-700">{store.branchesCount} Hubs</td>
+                          <td className="py-3 font-semibold text-slate-700">{store.ordersToday}</td>
+                          <td className="py-3 font-mono font-bold text-slate-900">{store.revenueFormatted}</td>
+                          <td className="py-3">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                store.plan === 'Enterprise'
+                                  ? 'bg-purple-100 text-purple-700'
+                                  : store.plan === 'Professional'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {store.plan}
+                            </span>
+                          </td>
+                          <td className="py-3">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                store.status === 'Active'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-rose-100 text-rose-800'
+                              }`}
+                            >
+                              {store.status}
+                            </span>
+                          </td>
+                          <td className="py-3 pr-2 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleOpenManage(store)}
+                                className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition"
+                                title="Manage Store Settings"
+                              >
+                                Manage
+                              </button>
+                              <button
+                                onClick={() => handleOpenPlan(store)}
+                                className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-[10px] font-bold transition"
+                                title="Change Plan Tier"
+                              >
+                                Plan
+                              </button>
+                              <button
+                                onClick={() => handleToggleSuspend(store)}
+                                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${
+                                  store.status === 'Active'
+                                    ? 'bg-amber-50 hover:bg-amber-100 text-amber-700'
+                                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                                }`}
+                                title={store.status === 'Active' ? 'Suspend Tenant' : 'Activate Tenant'}
+                              >
+                                {store.status === 'Active' ? 'Suspend' : 'Activate'}
+                              </button>
+                              <button
+                                onClick={() => handleOpenDetails(store)}
+                                className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[10px] font-bold transition"
+                                title="View Tenant Details"
+                              >
+                                Details
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTenantClick(store)}
+                                className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition"
+                                title="Delete Tenant"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
               </div>
-
             </div>
+          )}
 
-            {/* 3. Map - Branch Locations */}
-            <div id="map-section" className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-              
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-black text-slate-900">Map – Branch Locations</h3>
-                  <span className="text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer">
-                    View All Branches →
-                  </span>
+          {/* ===================================================================== */}
+          {/* SUB-DASHBOARD: 2. TENANTS MANAGEMENT                                  */}
+          {/* ===================================================================== */}
+          {activeNav === 'tenants' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <Store className="w-5 h-5 text-emerald-600" />
+                    <span>Supermarket Tenants Directory</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Register, configure, inspect, and manage supermarket partner stores across Pakistan.
+                  </p>
                 </div>
-
-                {/* Map Graphic with Pins */}
-                <div className="h-44 rounded-xl bg-slate-100 border border-slate-200 relative overflow-hidden flex items-center justify-center">
-                  <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px]" />
-                  
-                  {/* Central City Label */}
-                  <div className="z-10 bg-white/90 backdrop-blur-xs px-3 py-1.5 rounded-full border border-slate-200 shadow-xs font-bold text-xs text-slate-800">
-                    📍 Lahore & Faisalabad Hubs
-                  </div>
-
-                  {/* Multi-tenant location markers */}
-                  <div className="absolute top-4 left-8 w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs shadow-md animate-bounce">
-                    🏬
-                  </div>
-                  <div className="absolute top-8 right-12 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs shadow-md">
-                    🛒
-                  </div>
-                  <div className="absolute bottom-6 left-14 w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs shadow-md">
-                    🏪
-                  </div>
-                  <div className="absolute bottom-10 right-8 w-6 h-6 rounded-full bg-orange-600 text-white flex items-center justify-center text-xs shadow-md">
-                    🛒
-                  </div>
-                  <div className="absolute top-16 left-28 w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] shadow-sm">
-                    🏬
-                  </div>
-                </div>
-
-                {/* Branch Legend matching screenshot */}
-                <div className="mt-3 grid grid-cols-2 gap-1 text-[11px] font-bold text-slate-700">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-600" /> Al-Fatah (4 branches)
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-blue-600" /> Chase Value (3 branches)
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-purple-600" /> Chase Up (3 branches)
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-orange-600" /> Fresh Mart (2 branches)
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-rose-600" /> Local Grocery (2 branches)
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-slate-400" /> Super Store (2 branches)
-                  </span>
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* ========================================================================= */}
-          {/* 6. BOTTOM ROW: RECENT ACTIVITY, TOP PERFORMING TENANTS, QUICK ACTIONS     */}
-          {/* ========================================================================= */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* 1. Recent Activity */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-black text-slate-900">Recent Activity</h3>
-                <span className="text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer">
-                  View All
-                </span>
-              </div>
-
-              <div className="space-y-3 text-xs">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                    <span className="text-slate-700">New order placed by <strong>Ayesha Khan</strong> (Al-Fatah)</span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 shrink-0">2 min ago</span>
-                </div>
-
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
-                    <span className="text-slate-700">New branch added for <strong>Chase Up</strong> (Gulberg)</span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 shrink-0">12 min ago</span>
-                </div>
-
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
-                    <span className="text-slate-700">Tenant subscription renewed (<strong>Fresh Mart</strong>)</span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 shrink-0">24 min ago</span>
-                </div>
-
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />
-                    <span className="text-slate-700">New customer registered (<strong>Fatima Ali</strong>)</span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 shrink-0">38 min ago</span>
-                </div>
-
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-600 shrink-0" />
-                    <span className="text-slate-700">Payment received [PKR 45,000] - <strong>Chase Value</strong></span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 shrink-0">1 hour ago</span>
-                </div>
-              </div>
-            </div>
-
-            {/* 2. Top Performing Tenants */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-black text-slate-900">Top Performing Tenants</h3>
-                <select
-                  value={topTenantsTimeframe}
-                  onChange={(e) => setTopTenantsTimeframe(e.target.value)}
-                  className="text-[11px] font-bold bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700 focus:outline-none cursor-pointer"
+                <button
+                  onClick={() => setIsAddTenantOpen(true)}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
                 >
-                  <option value="today">Today ▾</option>
-                  <option value="month">This Month ▾</option>
-                </select>
+                  <Plus className="w-4 h-4" />
+                  <span>+ Add New Supermarket</span>
+                </button>
               </div>
 
-              <div className="space-y-2.5 text-xs">
-                {displayStores.map((store, idx) => (
-                  <div key={store.id} className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 w-28 shrink-0">
-                      <span className="text-[11px] font-bold text-slate-400 w-3">{idx + 1}</span>
-                      <span className="text-sm">{store.logo}</span>
-                      <span className="font-bold text-slate-800 truncate">{store.name}</span>
+              {/* Filters */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-slate-400 font-bold uppercase text-[10px] mr-1">Status:</span>
+                  {['all', 'active', 'inactive'].map((st) => (
+                    <button
+                      key={st}
+                      onClick={() => setStatusFilter(st)}
+                      className={`px-3 py-1 rounded-lg font-bold capitalize transition ${
+                        statusFilter === st ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-slate-400 font-bold uppercase text-[10px] mr-1">Plan Tier:</span>
+                  {['all', 'enterprise', 'professional', 'starter'].map((tier) => (
+                    <button
+                      key={tier}
+                      onClick={() => setTenantFilter(tier)}
+                      className={`px-3 py-1 rounded-lg font-bold capitalize transition ${
+                        tenantFilter === tier ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {tier}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tenants Grid Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {filteredStores.map((store) => (
+                  <div
+                    key={store.id}
+                    className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs flex flex-col justify-between hover:shadow-md transition space-y-4"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-2xl shadow-xs">
+                            {store.logo}
+                          </div>
+                          <div>
+                            <h3 className="font-black text-slate-900 text-base leading-tight">{store.fullName}</h3>
+                            <span className="text-[10px] text-slate-400 font-mono">{store.ownerEmail}</span>
+                          </div>
+                        </div>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            store.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                          }`}
+                        >
+                          {store.status}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-500 mt-3 line-clamp-2">{store.tagline}</p>
+
+                      <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase block">Owner</span>
+                          <span className="font-bold text-slate-700">{store.ownerName}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase block">Plan Tier</span>
+                          <span className="font-bold text-purple-700">{store.plan}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase block">Dark Store Hubs</span>
+                          <span className="font-bold text-slate-700">{store.hubs.length} Hubs</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase block">Revenue (Today)</span>
+                          <span className="font-mono font-bold text-emerald-700">{store.revenueFormatted}</span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                      <div
-                        style={{
-                          width: store.sharePct,
-                          backgroundColor: store.color
-                        }}
-                        className="h-full rounded-full"
-                      />
-                    </div>
-
-                    <div className="w-28 text-right shrink-0">
-                      <span className="font-mono font-bold text-[11px] text-slate-800">{store.revenueFormatted}</span>
-                      <span className="text-[10px] font-bold text-slate-400 ml-1.5">{store.sharePct}</span>
+                    <div className="pt-3 border-t border-slate-100 flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleOpenManage(store)}
+                        className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition text-center"
+                      >
+                        Manage
+                      </button>
+                      <button
+                        onClick={() => handleOpenPlan(store)}
+                        className="py-1.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-xl text-xs font-bold transition"
+                      >
+                        Plan
+                      </button>
+                      <button
+                        onClick={() => handleToggleSuspend(store)}
+                        className={`py-1.5 px-3 rounded-xl text-xs font-bold transition ${
+                          store.status === 'Active'
+                            ? 'bg-amber-50 hover:bg-amber-100 text-amber-700'
+                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                        }`}
+                      >
+                        {store.status === 'Active' ? 'Suspend' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleOpenDetails(store)}
+                        className="py-1.5 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition"
+                      >
+                        Details
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
+          )}
 
-            {/* 3. Quick Actions matching screenshot */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-3">
-              <h3 className="text-sm font-black text-slate-900">Quick Actions</h3>
-
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                
-                {/* 1. Add New Tenant */}
+          {/* ===================================================================== */}
+          {/* SUB-DASHBOARD: 3. BRANCHES & HUBS                                     */}
+          {/* ===================================================================== */}
+          {activeNav === 'branches' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-sky-600" />
+                    <span>Branches & Dark Store Hubs Network</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Physical stores and 15-minute dark store fulfillment centers across Lahore, Karachi, Islamabad, and Faisalabad.
+                  </p>
+                </div>
                 <button
-                  onClick={() => setIsAddTenantOpen(true)}
-                  className="p-3 bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-200 rounded-xl text-left transition cursor-pointer flex flex-col justify-between h-20"
+                  onClick={() => setIsAddBranchOpen(true)}
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
                 >
-                  <Store className="w-4 h-4 text-emerald-700" />
-                  <div>
-                    <span className="font-bold text-slate-900 block leading-tight">Add New Tenant</span>
-                    <span className="text-[10px] text-slate-500 block">Register a new store</span>
-                  </div>
+                  <Plus className="w-4 h-4" />
+                  <span>+ Add Branch Hub</span>
                 </button>
+              </div>
 
-                {/* 2. Add Branch */}
-                <button
-                  onClick={() => addToast('Add Branch 🏬', 'Branch creation wizard opened for dark store hubs.')}
-                  className="p-3 bg-blue-50/70 hover:bg-blue-100/80 border border-blue-200 rounded-xl text-left transition cursor-pointer flex flex-col justify-between h-20"
-                >
-                  <Building2 className="w-4 h-4 text-blue-700" />
-                  <div>
-                    <span className="font-bold text-slate-900 block leading-tight">Add Branch</span>
-                    <span className="text-[10px] text-slate-500 block">Create branch location</span>
-                  </div>
-                </button>
+              {/* Branches Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {BRANCHES.map((branch) => {
+                  const company = displayStores.find(
+                    (s) => s.id === branch.tenantId || s.fullName.toLowerCase().includes(branch.city?.toLowerCase() || '')
+                  );
+                  return (
+                    <div
+                      key={branch._id || branch.id}
+                      className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-3"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <span className="text-[10px] font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full uppercase">
+                            {branch.city} Hub
+                          </span>
+                          <h3 className="font-black text-slate-900 text-base mt-1.5">{branch.name}</h3>
+                          <span className="text-xs text-slate-400 font-medium">{branch.address}</span>
+                        </div>
+                        <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-700">
+                          <MapPin className="w-4 h-4 text-sky-500" />
+                        </div>
+                      </div>
 
-                {/* 3. Manage Subscriptions */}
-                <button
-                  onClick={() => setIsPlanModalOpen(true)}
-                  className="p-3 bg-purple-50/70 hover:bg-purple-100/80 border border-purple-200 rounded-xl text-left transition cursor-pointer flex flex-col justify-between h-20"
-                >
-                  <Layers className="w-4 h-4 text-purple-700" />
-                  <div>
-                    <span className="font-bold text-slate-900 block leading-tight">Manage Subscriptions</span>
-                    <span className="text-[10px] text-slate-500 block">Update tenant plans</span>
-                  </div>
-                </button>
-
-                {/* 4. View All Orders */}
-                <button
-                  onClick={() => {
-                    const el = document.getElementById('orders-section');
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className="p-3 bg-amber-50/70 hover:bg-amber-100/80 border border-amber-200 rounded-xl text-left transition cursor-pointer flex flex-col justify-between h-20"
-                >
-                  <ShoppingBag className="w-4 h-4 text-amber-700" />
-                  <div>
-                    <span className="font-bold text-slate-900 block leading-tight">View All Orders</span>
-                    <span className="text-[10px] text-slate-500 block">Track & manage orders</span>
-                  </div>
-                </button>
-
-                {/* 5. Generate Reports */}
-                <button
-                  onClick={() => addToast('Reports 📄', 'Generated full revenue and commission report.')}
-                  className="p-3 bg-teal-50/70 hover:bg-teal-100/80 border border-teal-200 rounded-xl text-left transition cursor-pointer flex flex-col justify-between h-20"
-                >
-                  <FileText className="w-4 h-4 text-teal-700" />
-                  <div>
-                    <span className="font-bold text-slate-900 block leading-tight">Generate Reports</span>
-                    <span className="text-[10px] text-slate-500 block">Download reports</span>
-                  </div>
-                </button>
-
-                {/* 6. System Settings */}
-                <button
-                  onClick={() => addToast('Settings ⚙️', 'Platform security and tenant isolation settings.')}
-                  className="p-3 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl text-left transition cursor-pointer flex flex-col justify-between h-20"
-                >
-                  <Settings className="w-4 h-4 text-slate-700" />
-                  <div>
-                    <span className="font-bold text-slate-900 block leading-tight">System Settings</span>
-                    <span className="text-[10px] text-slate-500 block">Platform configuration</span>
-                  </div>
-                </button>
-
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                        <span>📞 {branch.phone}</span>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                          {branch.status || 'Active'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
+          )}
 
-          </div>
+          {/* ===================================================================== */}
+          {/* SUB-DASHBOARD: 4. SUBSCRIPTION PLANS                                  */}
+          {/* ===================================================================== */}
+          {activeNav === 'plans' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-purple-600" />
+                    <span>Monetization & Subscription Plans</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Tiered pricing, commission rates, rider limits, and dark store dispatches for supermarket partners.
+                  </p>
+                </div>
+              </div>
 
+              {/* 3 Tier Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {SUBSCRIPTION_PLANS.map((plan) => (
+                  <div
+                    key={plan.name}
+                    className={`bg-white rounded-3xl p-6 border shadow-2xs space-y-5 flex flex-col justify-between ${
+                      plan.name === 'Enterprise'
+                        ? 'border-purple-300 ring-2 ring-purple-500/20'
+                        : 'border-slate-200/90'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-50 px-2.5 py-1 rounded-full">
+                          {plan.badge}
+                        </span>
+                        <span className="text-xs font-mono font-bold text-slate-500">
+                          {plan.commissionRate}% Commission
+                        </span>
+                      </div>
+
+                      <h3 className="text-2xl font-black text-slate-900 mt-3">{plan.name}</h3>
+                      <div className="mt-2 flex items-baseline gap-1">
+                        <span className="text-3xl font-black text-slate-900">PKR {plan.price.toLocaleString()}</span>
+                        <span className="text-xs text-slate-400 font-bold">/ month</span>
+                      </div>
+
+                      <p className="text-xs text-slate-500 mt-2">{plan.description}</p>
+
+                      <div className="mt-4 pt-4 border-t border-slate-100 space-y-2.5">
+                        {plan.features.map((feature, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-xs text-slate-700">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span>{feature}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100">
+                      <div className="text-[11px] font-bold text-slate-500 mb-2">
+                        Subscribed Marts:{' '}
+                        <span className="text-purple-700">
+                          {displayStores.filter((s) => s.plan === plan.name).length} stores
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedTenant(displayStores[0]);
+                          setIsPlanModalOpen(true);
+                        }}
+                        className="w-full py-2 bg-slate-100 hover:bg-purple-600 hover:text-white text-slate-800 rounded-xl text-xs font-bold transition text-center cursor-pointer"
+                      >
+                        Assign Mart to {plan.name}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================== */}
+          {/* SUB-DASHBOARD: 5. MART ADMINS (STORE ADMINS) MANAGEMENT               */}
+          {/* ===================================================================== */}
+          {activeNav === 'admins' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-amber-500" />
+                    <span>Mart Admins Credentials & Password Control</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Every grocery shop has its dedicated Store Admin account and custom credentials assigned by Super Admin.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsAddAdminOpen(true)}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Add Store Admin & Set Password</span>
+                </button>
+              </div>
+
+              {/* Empty state if no admins added yet */}
+              {(storeAdmins || []).length === 0 ? (
+                <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/90 shadow-2xs space-y-4">
+                  <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto text-3xl shadow-xs">
+                    🛡️
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900">No Mart Admins Added Yet</h3>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                      All pre-seeded admin mocks have been removed. Super Admin can now add dedicated Store Admins and set custom login passwords for each grocery shop manually.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsAddAdminOpen(true)}
+                    className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-md shadow-amber-900/20 transition cursor-pointer"
+                  >
+                    + Add First Mart Admin & Set Password
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                  <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700">
+                      {(storeAdmins || []).length} Registered Mart Admins
+                    </span>
+                    <button
+                      onClick={() => setIsAddAdminOpen(true)}
+                      className="text-xs font-bold text-blue-600 hover:text-blue-800 transition flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Another Admin</span>
+                    </button>
+                  </div>
+
+                  <div className="divide-y divide-slate-100">
+                    {filteredAdmins.map((admin) => {
+                      const isPasswordShown = !!showPasswordMap[admin.id];
+                      return (
+                        <div
+                          key={admin.id}
+                          className="p-4 hover:bg-slate-50/70 transition flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                              {admin.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-black text-slate-900 text-sm truncate">{admin.name}</span>
+                                <span className="text-[10px] bg-slate-100 font-bold px-2 py-0.5 rounded-full text-slate-700">
+                                  {admin.tenantName}
+                                </span>
+                                <span
+                                  className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                                    admin.status === 'Active'
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : 'bg-rose-100 text-rose-800'
+                                  }`}
+                                >
+                                  {admin.status}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
+                                {admin.email} {admin.phone && `• ${admin.phone}`}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Password Control Box */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 flex items-center gap-2">
+                              <KeyRound className="w-3.5 h-3.5 text-slate-400" />
+                              <span className="font-mono font-bold text-xs text-slate-800">
+                                {isPasswordShown ? admin.password : '••••••••'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => togglePasswordVisibility(admin.id)}
+                                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                                title={isPasswordShown ? 'Hide Password' : 'Show Password'}
+                              >
+                                {isPasswordShown ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(admin.password);
+                                  addToast('Copied!', 'Password copied to clipboard.');
+                                }}
+                                className="text-slate-400 hover:text-slate-700 cursor-pointer ml-1"
+                                title="Copy Password"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newPass = prompt(`Set new password for ${admin.name} (${admin.tenantName}):`, admin.password);
+                                if (newPass && newPass.trim()) {
+                                  updateStoreAdmin(admin.id, { password: newPass.trim() });
+                                  addToast('Password Changed 🔑', `New password set for ${admin.name}.`);
+                                }
+                              }}
+                              className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer transition"
+                            >
+                              Reset Key
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => toggleStoreAdminStatus(admin.id)}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                admin.status === 'Active'
+                                  ? 'bg-amber-50 hover:bg-amber-100 text-amber-700'
+                                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                              }`}
+                            >
+                              {admin.status === 'Active' ? 'Suspend' : 'Activate'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Delete Mart Admin ${admin.name}?`)) {
+                                  deleteStoreAdmin(admin.id);
+                                }
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg cursor-pointer transition"
+                              title="Delete Admin"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ===================================================================== */}
+          {/* SUB-DASHBOARD: 6. CUSTOMERS REGISTRY                                  */}
+          {/* ===================================================================== */}
+          {activeNav === 'customers' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <Users className="w-5 h-5 text-orange-500" />
+                    <span>Platform Customers Registry</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Registered grocery customers, orders history, delivery addresses, and account status.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsAddCustomerOpen(true)}
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Add Customer Manually</span>
+                </button>
+              </div>
+
+              {(customers || []).length === 0 ? (
+                <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/90 shadow-2xs space-y-4">
+                  <div className="w-16 h-16 rounded-3xl bg-orange-50 text-orange-600 flex items-center justify-center mx-auto text-3xl shadow-xs">
+                    👥
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900">No Customers Added Yet</h3>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                      All default mock customer seeds have been cleared. You can manually register customers here or let them register automatically upon placing their first grocery order.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsAddCustomerOpen(true)}
+                    className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow-md shadow-orange-900/20 transition cursor-pointer"
+                  >
+                    + Add First Customer
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-100 text-slate-400 font-semibold uppercase text-[10px] tracking-wider bg-slate-50">
+                          <th className="py-3 pl-4">Customer</th>
+                          <th className="py-3">Contact</th>
+                          <th className="py-3">Address</th>
+                          <th className="py-3">Orders</th>
+                          <th className="py-3">Spent</th>
+                          <th className="py-3">Status</th>
+                          <th className="py-3 pr-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredCustomers.map((cust) => (
+                          <tr key={cust.id} className="hover:bg-slate-50/70 transition">
+                            <td className="py-3 pl-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-800 font-bold flex items-center justify-center text-xs">
+                                  {cust.name.slice(0, 2).toUpperCase()}
+                                </div>
+                                <div>
+                                  <span className="font-bold text-slate-900 block">{cust.name}</span>
+                                  <span className="text-[10px] text-slate-400 font-mono block">{cust.id}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3">
+                              <span className="block font-medium text-slate-700">{cust.email}</span>
+                              <span className="text-[10px] text-slate-400 block font-mono">{cust.phone}</span>
+                            </td>
+                            <td className="py-3 text-slate-600 max-w-xs truncate">{cust.address || 'Lahore, Pakistan'}</td>
+                            <td className="py-3 font-semibold text-slate-700">{cust.totalOrders || 0}</td>
+                            <td className="py-3 font-mono font-bold text-slate-900">{cust.totalSpent || 'PKR 0'}</td>
+                            <td className="py-3">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                {cust.status || 'Active'}
+                              </span>
+                            </td>
+                            <td className="py-3 pr-4 text-right">
+                              <button
+                                onClick={() => deleteCustomer(cust.id)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition"
+                                title="Delete Customer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ===================================================================== */}
+          {/* SUB-DASHBOARD: 7. RIDERS & FLEET                                      */}
+          {/* ===================================================================== */}
+          {activeNav === 'riders' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <Truck className="w-5 h-5 text-rose-500" />
+                    <span>Delivery Fleet & Dispatchers</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Dark store dispatch riders, vehicle fleet, shift statuses, and delivery credentials.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsAddRiderOpen(true)}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Add Delivery Rider</span>
+                </button>
+              </div>
+
+              {(riders || []).length === 0 ? (
+                <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/90 shadow-2xs space-y-4">
+                  <div className="w-16 h-16 rounded-3xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto text-3xl shadow-xs">
+                    🛵
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900">No Fleet Riders Added Yet</h3>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                      All pre-seeded mock riders have been removed. Super Admin can add riders manually and assign them to supermarkets and dark store fulfillment hubs.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsAddRiderOpen(true)}
+                    className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-900/20 transition cursor-pointer"
+                  >
+                    + Add First Delivery Rider
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredRiders.map((rider) => (
+                    <div
+                      key={rider.id}
+                      className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-3"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-700 font-bold flex items-center justify-center text-lg">
+                            🛵
+                          </div>
+                          <div>
+                            <h3 className="font-black text-slate-900 text-sm">{rider.name}</h3>
+                            <span className="text-[10px] text-slate-400 font-mono block">{rider.phone}</span>
+                          </div>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            rider.status === 'Available' || rider.status === 'On-Duty'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {rider.status}
+                        </span>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Assigned Mart:</span>
+                          <span className="font-bold text-slate-700">{rider.tenantName || 'Al-Fatah'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Dark Store Hub:</span>
+                          <span className="font-bold text-slate-700">{rider.zone || 'Main Hub'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Vehicle:</span>
+                          <span className="font-bold text-slate-700">{rider.vehicleType || '🏍️ Bike'}</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => toggleRiderStatus(rider.id)}
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition"
+                        >
+                          Toggle Status
+                        </button>
+                        <button
+                          onClick={() => deleteRider(rider.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition"
+                          title="Delete Rider"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ===================================================================== */}
+          {/* SUB-DASHBOARD: 8. ALL ORDERS STREAM                                   */}
+          {/* ===================================================================== */}
+          {activeNav === 'orders' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <ShoppingBag className="w-5 h-5 text-emerald-600" />
+                    <span>Cross-Store Orders Dispatch Stream</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Real-time consolidated grocery orders across Al-Fatah, Case Value, Chase Up, and Fresh Mart.
+                  </p>
+                </div>
+              </div>
+
+              {/* Sample Live Cross-Mart Orders */}
+              <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-slate-400 font-semibold uppercase text-[10px] tracking-wider bg-slate-50">
+                        <th className="py-3 pl-4">Order ID</th>
+                        <th className="py-3">Supermarket</th>
+                        <th className="py-3">Customer</th>
+                        <th className="py-3">Hub & City</th>
+                        <th className="py-3">Amount</th>
+                        <th className="py-3">Status</th>
+                        <th className="py-3 pr-4 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {[
+                        { id: '#ORD-9821', store: 'Al-Fatah', logo: '🏬', cust: 'Hafsa Tariq', hub: 'Gulberg Hub, Lahore', amt: 'PKR 4,850', st: 'In Transit', color: 'bg-blue-100 text-blue-800' },
+                        { id: '#ORD-9820', store: 'Chase Value', logo: '🛒', cust: 'Farhan Ali', hub: 'Shaheed-e-Millat, Karachi', amt: 'PKR 2,490', st: 'Delivered', color: 'bg-emerald-100 text-emerald-800' },
+                        { id: '#ORD-9819', store: 'Chase Up', logo: '🏪', cust: 'Zubair Khan', hub: 'Clifton Hub, Karachi', amt: 'PKR 3,120', st: 'Packing', color: 'bg-amber-100 text-amber-800' },
+                        { id: '#ORD-9818', store: 'Fresh Mart', logo: '🛒', cust: 'Aimen Yasin', hub: 'DHA Hub, Lahore', amt: 'PKR 1,850', st: 'Delivered', color: 'bg-emerald-100 text-emerald-800' },
+                        { id: '#ORD-9817', store: 'Local Grocery', logo: '🏬', cust: 'Hamza Sheikh', hub: 'Multan Cantt', amt: 'PKR 1,240', st: 'Pending', color: 'bg-slate-100 text-slate-800' }
+                      ].map((ord) => (
+                        <tr key={ord.id} className="hover:bg-slate-50/70 transition">
+                          <td className="py-3 pl-4 font-mono font-bold text-slate-900">{ord.id}</td>
+                          <td className="py-3 font-semibold text-slate-800">
+                            <span className="mr-1">{ord.logo}</span> {ord.store}
+                          </td>
+                          <td className="py-3 text-slate-700 font-medium">{ord.cust}</td>
+                          <td className="py-3 text-slate-500">{ord.hub}</td>
+                          <td className="py-3 font-mono font-bold text-slate-900">{ord.amt}</td>
+                          <td className="py-3">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${ord.color}`}>{ord.st}</span>
+                          </td>
+                          <td className="py-3 pr-4 text-right">
+                            <button
+                              onClick={() => addToast('Order Details 📦', `Viewing invoice for ${ord.id} from ${ord.store}`)}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition"
+                            >
+                              Invoice
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================== */}
+          {/* SUB-DASHBOARD: 9. LIVE GPS TRACKING                                   */}
+          {/* ===================================================================== */}
+          {activeNav === 'tracking' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <Navigation className="w-5 h-5 text-indigo-600" />
+                  <span>Live GPS Dark Store Radar & Telemetry</span>
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Real-time rider coordinates and active 15-minute dispatch radius monitoring.
+                </p>
+              </div>
+
+              <div className="bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl min-h-[360px] flex flex-col justify-between">
+                <div className="relative z-10 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                      Live Telemetry Active
+                    </span>
+                  </div>
+                  <span className="text-xs text-slate-400 font-mono">18 Dark Store Hubs Online</span>
+                </div>
+
+                <div className="relative z-10 my-auto text-center space-y-2">
+                  <div className="text-5xl">🛰️</div>
+                  <h3 className="text-xl font-black">Super Grocery Dark Store GPS Radar</h3>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto">
+                    Live telemetry tracking riders across Lahore (Gulberg, DHA), Karachi (Clifton, Shaheed-e-Millat), and Islamabad.
+                  </p>
+                </div>
+
+                <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center pt-4 border-t border-slate-800 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Active In-Transit</span>
+                    <span className="text-lg font-black text-emerald-400">14 Dispatches</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Avg Speed</span>
+                    <span className="text-lg font-black text-sky-400">32 km/h</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Avg Delivery Time</span>
+                    <span className="text-lg font-black text-amber-400">18.2 Mins</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">SLA On-Time</span>
+                    <span className="text-lg font-black text-purple-400">99.2%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================== */}
+          {/* SUB-DASHBOARD: 10. DELIVERY SLA PERFORMANCE                           */}
+          {/* ===================================================================== */}
+          {activeNav === 'performance' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-cyan-600" />
+                  <span>Fulfillment SLA & Compliance Metrics</span>
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  15-minute express grocery delivery benchmarks and tenant compliance records.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {[
+                  { title: 'Platform SLA Fulfillment', val: '99.2%', sub: 'Guaranteed 98.5% benchmark', color: 'text-emerald-600' },
+                  { title: 'Average Doorstep ETA', val: '18.4 min', sub: 'Across 18 dark store hubs', color: 'text-blue-600' },
+                  { title: 'Customer Handover Rating', val: '4.92 / 5.0', sub: 'Based on 4,820 order reviews', color: 'text-amber-500' }
+                ].map((m, idx) => (
+                  <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1">
+                    <span className="text-xs font-bold text-slate-500">{m.title}</span>
+                    <span className={`text-3xl font-black block ${m.color}`}>{m.val}</span>
+                    <span className="text-[11px] text-slate-400 font-medium">{m.sub}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Per-Store Performance Breakdown */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-4">
+                <h3 className="text-sm font-black text-slate-900">Supermarket Store SLA Compliance</h3>
+                <div className="divide-y divide-slate-100">
+                  {displayStores.map((store) => (
+                    <div key={store.id} className="py-3 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{store.logo}</span>
+                        <span className="font-bold text-slate-800">{store.fullName}</span>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <span className="font-mono text-slate-600">{store.branchesCount} Hubs</span>
+                        <span className="font-bold text-emerald-600">99.1% SLA</span>
+                        <span className="text-slate-400 font-mono">17.8 min avg</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================== */}
+          {/* SUB-DASHBOARD: 11. PAYMENTS & SETTLEMENTS                             */}
+          {/* ===================================================================== */}
+          {activeNav === 'payments' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-teal-600" />
+                    <span>Tenant Settlements & Payouts Ledger</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Daily reconciliation of gross store earnings, platform commission deductions, and bank payouts.
+                  </p>
+                </div>
+                <button
+                  onClick={() => addToast('Settlements Triggered 💳', 'Initiating ACH / 1Link bank settlement run for all active marts.')}
+                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                >
+                  Initiate Bank Settlement Run
+                </button>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-slate-400 font-semibold uppercase text-[10px] tracking-wider bg-slate-50">
+                      <th className="py-3 pl-4">Supermarket Mart</th>
+                      <th className="py-3">Gross Sales (Today)</th>
+                      <th className="py-3">Platform Cut</th>
+                      <th className="py-3">Net Payout</th>
+                      <th className="py-3">Settlement Status</th>
+                      <th className="py-3 pr-4 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {displayStores.map((store) => (
+                      <tr key={store.id} className="hover:bg-slate-50/70 transition">
+                        <td className="py-3 pl-4 font-bold text-slate-900">
+                          <span className="mr-1.5">{store.logo}</span>
+                          {store.fullName}
+                        </td>
+                        <td className="py-3 font-mono font-bold text-slate-700">{store.revenueFormatted}</td>
+                        <td className="py-3 font-mono text-purple-700 font-bold">
+                          PKR {Math.round(store.revenueToday * 0.035).toLocaleString()}
+                        </td>
+                        <td className="py-3 font-mono text-emerald-700 font-bold">
+                          PKR {Math.round(store.revenueToday * 0.965).toLocaleString()}
+                        </td>
+                        <td className="py-3">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            Reconciled
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4 text-right">
+                          <button
+                            onClick={() => addToast('Payout Executed 💸', `PKR ${Math.round(store.revenueToday * 0.965).toLocaleString()} transferred to ${store.fullName}.`)}
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition"
+                          >
+                            Release
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================== */}
+          {/* SUB-DASHBOARD: 12. COMMISSIONS                                        */}
+          {/* ===================================================================== */}
+          {activeNav === 'commissions' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <Percent className="w-5 h-5 text-orange-500" />
+                  <span>Platform Commission & Take-Rate</span>
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Super Admin commission revenue generated from grocery orders across subscription tiers.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1">
+                  <span className="text-xs font-bold text-slate-500">Starter Tier Take-Rate</span>
+                  <span className="text-3xl font-black text-slate-900 block">5.0%</span>
+                  <span className="text-[11px] text-slate-400">Growth single-hub boutique marts</span>
+                </div>
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1">
+                  <span className="text-xs font-bold text-slate-500">Professional Tier Take-Rate</span>
+                  <span className="text-3xl font-black text-slate-900 block">3.5%</span>
+                  <span className="text-[11px] text-slate-400">Multi-branch expanding supermarket chains</span>
+                </div>
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1">
+                  <span className="text-xs font-bold text-slate-500">Enterprise Tier Take-Rate</span>
+                  <span className="text-3xl font-black text-slate-900 block">2.0%</span>
+                  <span className="text-[11px] text-slate-400">Nationwide retail hypermarkets</span>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-2xs space-y-3">
+                <h3 className="text-sm font-black text-slate-900">Total Commissions Earned (Today)</h3>
+                <div className="text-3xl font-black text-emerald-600 font-mono">PKR 43,598</div>
+                <p className="text-xs text-slate-500">
+                  Calculated automatically on completed deliveries across all 6 registered supermarkets.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================== */}
+          {/* SUB-DASHBOARD: 13. REPORTS CENTER                                     */}
+          {/* ===================================================================== */}
+          {activeNav === 'reports' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-slate-600" />
+                  <span>Platform Reports & Analytics Center</span>
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Generate and download certified audit reports for tenant performance, tax compliance, and fleet operations.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {[
+                  { title: 'Monthly GMV & Revenue Audit Report', desc: 'Consolidated gross transaction volume, delivery fee collections, and tenant subscriptions.', format: 'CSV / PDF' },
+                  { title: 'Mart Admin Compliance & SLA Audit Report', desc: 'Order fulfillment rates, cancellation frequencies, and average preparation durations.', format: 'PDF Summary' },
+                  { title: 'Rider Fleet Utilization & Dispatch Telemetry', desc: 'Distance traveled, fuel consumption benchmarks, and delivery completion times.', format: 'CSV' },
+                  { title: 'Customer Acquisition & Retention Metrics', desc: 'Cohort retention, average basket size, and high-frequency neighborhood heatmaps.', format: 'JSON / CSV' }
+                ].map((rep, idx) => (
+                  <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-start justify-between">
+                        <h3 className="font-bold text-slate-900 text-sm">{rep.title}</h3>
+                        <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
+                          {rep.format}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">{rep.desc}</p>
+                    </div>
+                    <button
+                      onClick={() => addToast('Report Download 📄', `Exporting ${rep.title}...`)}
+                      className="py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download Report</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================== */}
+          {/* SUB-DASHBOARD: 14. PLATFORM SETTINGS                                  */}
+          {/* ===================================================================== */}
+          {activeNav === 'settings' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-slate-600" />
+                  <span>Platform System Settings & Security</span>
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Multi-tenant isolation policies, currency configurations, and platform maintenance toggles.
+                </p>
+              </div>
+
+              <div className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-2xs space-y-6 max-w-2xl">
+                <div className="space-y-4 text-xs">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Platform Brand Title</label>
+                    <input
+                      type="text"
+                      defaultValue="Super Grocery Multi-Tenant Platform"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Primary Currency</label>
+                    <input
+                      type="text"
+                      defaultValue="PKR (Pakistani Rupee - Rs.)"
+                      disabled
+                      className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-slate-600 cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Free Delivery Threshold</label>
+                    <input
+                      type="number"
+                      defaultValue={1000}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-1 block">Orders above this PKR amount qualify for Rs. 0 delivery fee</span>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Dark Store Delivery Radius (KM)</label>
+                    <input
+                      type="number"
+                      defaultValue={12}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 flex justify-end">
+                  <button
+                    onClick={() => addToast('Settings Saved ✅', 'Platform configurations updated successfully.')}
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                  >
+                    Save Platform Settings
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================== */}
+          {/* SUB-DASHBOARD: 15. BROADCAST NOTIFICATIONS                            */}
+          {/* ===================================================================== */}
+          {activeNav === 'notifications' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-amber-500" />
+                  <span>Platform Broadcast Alerts & Announcements</span>
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Send high-priority system announcements to Mart Admins, Delivery Riders, or Customers.
+                </p>
+              </div>
+
+              <div className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-2xs space-y-4 max-w-2xl">
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Target Audience</label>
+                    <select
+                      value={broadcastForm.audience}
+                      onChange={(e) => setBroadcastForm({ ...broadcastForm, audience: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                    >
+                      <option value="all_admins">All Mart Admins (Store Admins)</option>
+                      <option value="all_riders">All Delivery Fleet Riders</option>
+                      <option value="all_customers">All Registered Customers</option>
+                      <option value="all">Entire Platform Ecosystem</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Alert Title</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Scheduled Dark Store Maintenance"
+                      value={broadcastForm.title}
+                      onChange={(e) => setBroadcastForm({ ...broadcastForm, title: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Message Content</label>
+                    <textarea
+                      rows={4}
+                      placeholder="Type broadcast message to all users in this group..."
+                      value={broadcastForm.message}
+                      onChange={(e) => setBroadcastForm({ ...broadcastForm, message: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-800 focus:bg-white focus:outline-none"
+                    ></textarea>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    onClick={() => {
+                      if (!broadcastForm.title || !broadcastForm.message) {
+                        addToast('Missing Info', 'Please enter a title and message for the broadcast.', 'error');
+                        return;
+                      }
+                      addToast('Broadcast Sent 📢', `Announcement broadcasted to ${broadcastForm.audience}.`);
+                      setBroadcastForm({ audience: 'all_admins', title: '', message: '', priority: 'Normal' });
+                    }}
+                    className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Send Platform Broadcast</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================== */}
+          {/* SUB-DASHBOARD: 16. AUDIT LOGS                                         */}
+          {/* ===================================================================== */}
+          {activeNav === 'audit' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5 text-slate-600" />
+                  <span>Immutable Security & Administrative Audit Logs</span>
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Cryptographically timestamped log of Super Admin and Mart Admin operations.
+                </p>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-slate-400 font-semibold uppercase text-[10px] tracking-wider bg-slate-50">
+                      <th className="py-3 pl-4">Timestamp</th>
+                      <th className="py-3">Event</th>
+                      <th className="py-3">Actor</th>
+                      <th className="py-3">Target</th>
+                      <th className="py-3 pr-4 text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                    {[
+                      { time: 'Just now', event: 'SUPER_ADMIN_AUTH', actor: 'superadmin', target: 'Command Center', st: 'SUCCESS' },
+                      { time: '12 mins ago', event: 'STORE_ADMIN_PASSWORD_RESET', actor: 'superadmin', target: 'Al-Fatah Store Admin', st: 'SUCCESS' },
+                      { time: '45 mins ago', event: 'TENANT_SUBSCRIPTION_UPDATE', actor: 'superadmin', target: 'Chase Value (Pro)', st: 'SUCCESS' },
+                      { time: '2 hours ago', event: 'DARK_STORE_DISPATCH', actor: 'dispatch_engine', target: 'Gulberg Hub DHA', st: 'SUCCESS' },
+                      { time: 'Yesterday', event: 'PLATFORM_BOOTSTRAP', actor: 'system_root', target: 'Multi-Tenant Registry', st: 'SUCCESS' }
+                    ].map((log, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/70 transition">
+                        <td className="py-3 pl-4 text-slate-500">{log.time}</td>
+                        <td className="py-3 font-bold text-slate-900">{log.event}</td>
+                        <td className="py-3 text-blue-600">{log.actor}</td>
+                        <td className="py-3 text-slate-700">{log.target}</td>
+                        <td className="py-3 pr-4 text-right">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            {log.st}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
-
       </main>
 
       {/* ========================================================================= */}
-      {/* 7. MODALS: DETAILS, PLAN, MANAGE, STORE ADMINS (PASSWORDS)                */}
+      {/* 3. MODALS (Add Store Admin, Add Tenant, Add Customer, Add Rider, etc.)    */}
       {/* ========================================================================= */}
 
-      {/* --- A. TENANT DETAILS MODAL --- */}
-      {isDetailsModalOpen && selectedTenant && (
+      {/* --- A. ADD STORE ADMIN & SET PASSWORD MODAL --- */}
+      {isAddAdminOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-3">
-                <div
-                  style={{ backgroundColor: `${selectedTenant.color}15`, color: selectedTenant.color }}
-                  className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl font-black"
-                >
-                  {selectedTenant.logo}
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-900 leading-tight">{selectedTenant.fullName}</h3>
-                  <span className="text-xs text-slate-400">{selectedTenant.tagline}</span>
-                </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900 leading-tight">
+                  Add Mart Admin & Set Password
+                </h3>
+                <span className="text-xs text-slate-500">Every mart has its own dedicated admin account</span>
               </div>
               <button
-                onClick={() => setIsDetailsModalOpen(false)}
+                onClick={() => setIsAddAdminOpen(false)}
                 className="p-2 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-slate-400 text-[10px] font-bold block uppercase">Owner / Contact</span>
-                <span className="font-bold text-slate-800 text-sm mt-0.5 block">{selectedTenant.ownerName}</span>
-                <span className="text-slate-500 font-mono text-[11px] block">{selectedTenant.ownerEmail}</span>
+            <form onSubmit={handleCreateAdminSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Select Supermarket Mart</label>
+                <select
+                  value={newAdminForm.tenantId}
+                  onChange={(e) => setNewAdminForm({ ...newAdminForm, tenantId: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                >
+                  {displayStores.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.logo} {store.fullName}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-slate-400 text-[10px] font-bold block uppercase">Subscription Tier</span>
-                <span className="font-black text-blue-600 text-sm mt-0.5 block">{selectedTenant.plan}</span>
-                <span className="text-slate-500 text-[11px] block">Billed Monthly</span>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Admin Full Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Sheikh Tariq Al-Fatah"
+                  value={newAdminForm.name}
+                  onChange={(e) => setNewAdminForm({ ...newAdminForm, name: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
               </div>
 
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-slate-400 text-[10px] font-bold block uppercase">Today's Revenue</span>
-                <span className="font-black text-slate-900 text-sm mt-0.5 block">{selectedTenant.revenueFormatted}</span>
-                <span className="text-emerald-600 font-bold text-[11px] block">{selectedTenant.ordersToday} orders fulfilled</span>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Login Email / Username</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. admin@alfatah.pk"
+                  value={newAdminForm.email}
+                  onChange={(e) => setNewAdminForm({ ...newAdminForm, email: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
               </div>
 
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-slate-400 text-[10px] font-bold block uppercase">SLA & Status</span>
-                <span className="font-black text-emerald-600 text-sm mt-0.5 block">99.2% Fulfillment</span>
-                <span className="text-slate-500 text-[11px] block">{selectedTenant.status} Operational</span>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Set Password</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Enter login password for this Store Admin"
+                  value={newAdminForm.password}
+                  onChange={(e) => setNewAdminForm({ ...newAdminForm, password: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-mono font-bold focus:bg-white focus:outline-none"
+                />
               </div>
-            </div>
 
-            {/* Dark Store Hubs */}
-            <div>
-              <span className="text-slate-400 text-[10px] font-bold block uppercase mb-1.5">Fulfillment Hubs & Branches</span>
-              <div className="flex flex-wrap gap-1.5">
-                {(selectedTenant.hubs || []).map((hub) => (
-                  <span key={hub} className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold">
-                    📍 {hub}
-                  </span>
-                ))}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Phone Number (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="+92 300 8441122"
+                  value={newAdminForm.phone}
+                  onChange={(e) => setNewAdminForm({ ...newAdminForm, phone: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
               </div>
-            </div>
 
-            <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
-              <button
-                onClick={() => handleImpersonateStore(selectedTenant)}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
-              >
-                Open {selectedTenant.name} Admin Console
-              </button>
-              <button
-                onClick={() => setIsDetailsModalOpen(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddAdminOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition shadow-xs"
+                >
+                  Create & Assign Password
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* --- B. SUBSCRIPTION PLAN MODAL --- */}
-      {isPlanModalOpen && (
+      {/* --- B. ADD CUSTOMER MODAL --- */}
+      {isAddCustomerOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900 leading-tight">Add Customer Manually</h3>
+                <span className="text-xs text-slate-500">Super Admin direct customer registration</span>
+              </div>
+              <button onClick={() => setIsAddCustomerOpen(false)} className="p-2 text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCustomerSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Customer Full Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Hafsa Tariq"
+                  value={newCustomerForm.name}
+                  onChange={(e) => setNewCustomerForm({ ...newCustomerForm, name: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. hafsa@example.com"
+                  value={newCustomerForm.email}
+                  onChange={(e) => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Phone Number</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 0300-1234567"
+                  value={newCustomerForm.phone}
+                  onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Street Address</label>
+                <input
+                  type="text"
+                  placeholder="House #12, Street 4, Gulberg III"
+                  value={newCustomerForm.address}
+                  onChange={(e) => setNewCustomerForm({ ...newCustomerForm, address: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">City</label>
+                <select
+                  value={newCustomerForm.city}
+                  onChange={(e) => setNewCustomerForm({ ...newCustomerForm, city: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                >
+                  <option value="Lahore">Lahore</option>
+                  <option value="Karachi">Karachi</option>
+                  <option value="Islamabad">Islamabad</option>
+                  <option value="Rawalpindi">Rawalpindi</option>
+                  <option value="Faisalabad">Faisalabad</option>
+                  <option value="Multan">Multan</option>
+                </select>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddCustomerOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold transition shadow-xs"
+                >
+                  Add Customer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- C. ADD RIDER MODAL --- */}
+      {isAddRiderOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900 leading-tight">Add Delivery Rider</h3>
+                <span className="text-xs text-slate-500">Super Admin direct fleet onboarding</span>
+              </div>
+              <button onClick={() => setIsAddRiderOpen(false)} className="p-2 text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateRiderSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Rider Full Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Asad Qureshi"
+                  value={newRiderForm.name}
+                  onChange={(e) => setNewRiderForm({ ...newRiderForm, name: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Contact Phone (Login Username)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="0300-8765432"
+                  value={newRiderForm.phone}
+                  onChange={(e) => setNewRiderForm({ ...newRiderForm, phone: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Assigned Supermarket Mart</label>
+                <select
+                  value={newRiderForm.tenantId}
+                  onChange={(e) => setNewRiderForm({ ...newRiderForm, tenantId: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                >
+                  {displayStores.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.logo} {store.fullName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Dark Store Hub Zone</label>
+                <input
+                  type="text"
+                  placeholder="Gulberg SuperHub"
+                  value={newRiderForm.zone}
+                  onChange={(e) => setNewRiderForm({ ...newRiderForm, zone: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Vehicle Type</label>
+                <select
+                  value={newRiderForm.vehicleType}
+                  onChange={(e) => setNewRiderForm({ ...newRiderForm, vehicleType: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                >
+                  <option value="🏍️ Honda 125">🏍️ Honda 125 (Motorbike)</option>
+                  <option value="🛵 Electric Scooter">🛵 Electric Scooter</option>
+                  <option value="🚙 Express Van">🚙 Express Van</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Rider App Login Password</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="rider123"
+                  value={newRiderForm.password}
+                  onChange={(e) => setNewRiderForm({ ...newRiderForm, password: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-mono font-bold focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddRiderOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition shadow-xs"
+                >
+                  Create & Set Password
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- D. ADD BRANCH MODAL --- */}
+      {isAddBranchOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900 leading-tight">Add New Branch Hub</h3>
+                <span className="text-xs text-slate-500">Add physical store or dark store fulfillment node</span>
+              </div>
+              <button onClick={() => setIsAddBranchOpen(false)} className="p-2 text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                addToast('Branch Hub Registered 🏢', `${newBranchForm.name} in ${newBranchForm.city} added to network.`);
+                setIsAddBranchOpen(false);
+              }}
+              className="space-y-3 text-xs"
+            >
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Parent Supermarket</label>
+                <select
+                  value={newBranchForm.tenantId}
+                  onChange={(e) => setNewBranchForm({ ...newBranchForm, tenantId: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                >
+                  {displayStores.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.logo} {store.fullName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Branch Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. DHA Phase 6 Express"
+                  value={newBranchForm.name}
+                  onChange={(e) => setNewBranchForm({ ...newBranchForm, name: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">City</label>
+                <select
+                  value={newBranchForm.city}
+                  onChange={(e) => setNewBranchForm({ ...newBranchForm, city: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                >
+                  <option value="Lahore">Lahore</option>
+                  <option value="Karachi">Karachi</option>
+                  <option value="Islamabad">Islamabad</option>
+                  <option value="Faisalabad">Faisalabad</option>
+                  <option value="Multan">Multan</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Address & GPS Location</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Main Boulevard, Sector C, DHA"
+                  value={newBranchForm.address}
+                  onChange={(e) => setNewBranchForm({ ...newBranchForm, address: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddBranchOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold transition shadow-xs"
+                >
+                  Save Branch
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- E. ADD TENANT MODAL --- */}
+      {isAddTenantOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900 leading-tight">Register New Supermarket Store</h3>
+                <span className="text-xs text-slate-500">Create a new tenant on the Super Grocery Platform</span>
+              </div>
+              <button onClick={() => setIsAddTenantOpen(false)} className="p-2 text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const storeName = formData.get('name');
+                const ownerEmail = formData.get('email');
+                const plan = formData.get('plan') || 'Professional';
+
+                await addTenant({
+                  name: storeName,
+                  slug: storeName.toLowerCase().replace(/\s+/g, '-'),
+                  tagline: 'Quality Fresh Groceries & Household Essentials',
+                  ownerName: formData.get('ownerName') || 'Store Partner',
+                  ownerEmail: ownerEmail,
+                  color: '#0e7c66',
+                  logo: '🏬',
+                  subscription: {
+                    plan: plan,
+                    billingCycle: 'Monthly',
+                    price: plan === 'Enterprise' ? 75000 : plan === 'Professional' ? 35000 : 15000,
+                    status: 'Active',
+                    features: ['Store Admin Console', 'Unlimited Products', 'Fleet Dispatch']
+                  },
+                  hubs: ['Main City Hub', 'DHA Hub']
+                });
+
+                addToast('Supermarket Registered 🎉', `${storeName} added with ${plan} subscription.`);
+                setIsAddTenantOpen(false);
+              }}
+              className="space-y-3 text-xs"
+            >
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Supermarket Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  placeholder="e.g. Imtiaz Super Market"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Owner / Manager Full Name</label>
+                <input
+                  type="text"
+                  name="ownerName"
+                  required
+                  placeholder="e.g. Imtiaz Abbasi"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Official Owner Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  placeholder="e.g. partnerships@imtiaz.pk"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Subscription Plan Tier</label>
+                <select
+                  name="plan"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                >
+                  <option value="Enterprise">Enterprise (PKR 75,000/mo - 2% Commission)</option>
+                  <option value="Professional">Professional (PKR 35,000/mo - 3.5% Commission)</option>
+                  <option value="Starter">Starter (PKR 15,000/mo - 5% Commission)</option>
+                </select>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddTenantOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-xs"
+                >
+                  Register Store
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- F. UPDATE SUBSCRIPTION PLAN MODAL --- */}
+      {isPlanModalOpen && selectedTenant && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -1516,85 +2886,64 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
                 <h3 className="text-base font-black text-slate-900 leading-tight">
                   Update Subscription Plan
                 </h3>
-                <span className="text-xs text-slate-500">
-                  {selectedTenant ? selectedTenant.fullName : 'Select Supermarket'}
-                </span>
+                <span className="text-xs text-slate-500">{selectedTenant.fullName}</span>
               </div>
-              <button
-                onClick={() => setIsPlanModalOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
-              >
+              <button onClick={() => setIsPlanModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSavePlan} className="space-y-4 text-xs">
+            <form onSubmit={handleSavePlan} className="space-y-3 text-xs">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Subscription Tier</label>
+                <label className="font-bold text-slate-700 block mb-1">Select Tier</label>
                 <select
                   value={editPlanForm.plan}
                   onChange={(e) => {
-                    const p = e.target.value;
-                    const price = p === 'Enterprise' ? 75000 : p === 'Professional' ? 35000 : 15000;
-                    setEditPlanForm({ ...editPlanForm, plan: p, price });
+                    const nextPlan = e.target.value;
+                    const nextPrice = nextPlan === 'Enterprise' ? 75000 : nextPlan === 'Professional' ? 35000 : 15000;
+                    setEditPlanForm({ ...editPlanForm, plan: nextPlan, price: nextPrice });
                   }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold text-slate-800"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
                 >
-                  <option value="Enterprise">Enterprise (PKR 75,000/mo) - Unlimited Scale</option>
-                  <option value="Professional">Professional (PKR 35,000/mo) - Multi-Branch</option>
-                  <option value="Starter">Starter (PKR 15,000/mo) - Boutique Store</option>
+                  <option value="Enterprise">Enterprise (PKR 75,000/mo - 2% Commission)</option>
+                  <option value="Professional">Professional (PKR 35,000/mo - 3.5% Commission)</option>
+                  <option value="Starter">Starter (PKR 15,000/mo - 5% Commission)</option>
                 </select>
               </div>
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Billing Cycle</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditPlanForm({ ...editPlanForm, billingCycle: 'monthly' })}
-                    className={`p-2 rounded-xl border text-center font-bold transition cursor-pointer ${
-                      editPlanForm.billingCycle === 'monthly'
-                        ? 'bg-blue-50 border-blue-500 text-blue-700'
-                        : 'bg-slate-50 border-slate-200 text-slate-600'
-                    }`}
-                  >
-                    Monthly
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditPlanForm({ ...editPlanForm, billingCycle: 'annual' })}
-                    className={`p-2 rounded-xl border text-center font-bold transition cursor-pointer ${
-                      editPlanForm.billingCycle === 'annual'
-                        ? 'bg-blue-50 border-blue-500 text-blue-700'
-                        : 'bg-slate-50 border-slate-200 text-slate-600'
-                    }`}
-                  >
-                    Annual (10% Off)
-                  </button>
-                </div>
+                <select
+                  value={editPlanForm.billingCycle}
+                  onChange={(e) => setEditPlanForm({ ...editPlanForm, billingCycle: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                >
+                  <option value="monthly">Monthly</option>
+                  <option value="annual">Annual (Save 15%)</option>
+                </select>
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Monthly Billing Fee (PKR)</label>
+                <label className="font-bold text-slate-700 block mb-1">Monthly Fee (PKR)</label>
                 <input
                   type="number"
                   value={editPlanForm.price}
                   onChange={(e) => setEditPlanForm({ ...editPlanForm, price: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono font-bold text-slate-800"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-mono font-bold focus:bg-white focus:outline-none"
                 />
               </div>
 
-              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsPlanModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md transition cursor-pointer"
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold transition shadow-xs"
                 >
                   Save Subscription
                 </button>
@@ -1604,21 +2953,16 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
         </div>
       )}
 
-      {/* --- C. MANAGE STORE PROFILE MODAL --- */}
+      {/* --- G. MANAGE STORE SETTINGS MODAL --- */}
       {isManageModalOpen && selectedTenant && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-base font-black text-slate-900 leading-tight">
-                  Manage Store: {selectedTenant.name}
-                </h3>
-                <span className="text-xs text-slate-400">Configure supermarket profile & ownership</span>
+                <h3 className="text-base font-black text-slate-900 leading-tight">Manage Supermarket Profile</h3>
+                <span className="text-xs text-slate-500">{selectedTenant.fullName}</span>
               </div>
-              <button
-                onClick={() => setIsManageModalOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
-              >
+              <button onClick={() => setIsManageModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1631,313 +2975,53 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
                   required
                   value={editStoreForm.name}
                   onChange={(e) => setEditStoreForm({ ...editStoreForm, name: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold text-slate-800"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Brand Tagline</label>
+                <label className="font-bold text-slate-700 block mb-1">Tagline</label>
                 <input
                   type="text"
                   value={editStoreForm.tagline}
                   onChange={(e) => setEditStoreForm({ ...editStoreForm, tagline: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium text-slate-800"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Owner Name</label>
-                  <input
-                    type="text"
-                    value={editStoreForm.ownerName}
-                    onChange={(e) => setEditStoreForm({ ...editStoreForm, ownerName: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium text-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Owner Email</label>
-                  <input
-                    type="email"
-                    value={editStoreForm.ownerEmail}
-                    onChange={(e) => setEditStoreForm({ ...editStoreForm, ownerEmail: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium text-slate-800"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2 flex justify-between items-center border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => handleImpersonateStore(selectedTenant)}
-                  className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Switch to Store Console</span>
-                </button>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsManageModalOpen(false)}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition cursor-pointer"
-                  >
-                    Save Changes
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* --- D. MART ADMINS & PASSWORDS MANAGEMENT MODAL --- */}
-      {isManageAdminsOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
-            
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-amber-500" />
-                  <span>Mart Admins Credentials & Password Control</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Every supermarket has its dedicated Store Admin account and password assigned by the Super Admin.
-                </p>
-              </div>
-              <button
-                onClick={() => setIsManageAdminsOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Top Action Bar */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-600">
-                {(storeAdmins || []).length} Registered Store Admins
-              </span>
-              <button
-                onClick={() => setIsAddAdminOpen(true)}
-                className="px-3.5 py-1.5 bg-[#0e7c66] hover:bg-[#0a5d4c] text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Add Store Admin & Set Password</span>
-              </button>
-            </div>
-
-            {/* Table of Mart Admins */}
-            <div className="flex-1 overflow-y-auto border border-slate-200/90 rounded-2xl divide-y divide-slate-100 text-xs">
-              {(storeAdmins || []).map((admin) => {
-                const isPasswordShown = !!showPasswordMap[admin.id];
-                return (
-                  <div key={admin.id} className="p-3.5 hover:bg-slate-50/70 transition flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
-                        {admin.name.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-black text-slate-900 text-sm truncate">{admin.name}</span>
-                          <span className="text-[10px] bg-slate-100 font-bold px-2 py-0.5 rounded-full text-slate-700">
-                            {admin.tenantName}
-                          </span>
-                          <span
-                            className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                              admin.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                            }`}
-                          >
-                            {admin.status}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
-                          {admin.email}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Password Control Box */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 flex items-center gap-2">
-                        <KeyRound className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="font-mono font-bold text-xs text-slate-800">
-                          {isPasswordShown ? admin.password : '••••••••'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => togglePasswordVisibility(admin.id)}
-                          className="text-slate-400 hover:text-slate-700 cursor-pointer"
-                          title={isPasswordShown ? 'Hide Password' : 'Show Password'}
-                        >
-                          {isPasswordShown ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                        </button>
-                      </div>
-
-                      {/* Quick Edit Password Prompt */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newPass = prompt(`Enter new password for ${admin.name} (${admin.tenantName}):`, admin.password);
-                          if (newPass && newPass.trim()) {
-                            updateStoreAdmin(admin.id, { password: newPass.trim() });
-                            addToast('Password Changed 🔑', `New password set for ${admin.name}.`);
-                          }
-                        }}
-                        className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-[11px] font-bold cursor-pointer"
-                        title="Change Admin Password"
-                      >
-                        Reset Key
-                      </button>
-
-                      {/* Toggle Status */}
-                      <button
-                        type="button"
-                        onClick={() => toggleStoreAdminStatus(admin.id)}
-                        className={`px-2 py-1 rounded-lg text-[11px] font-bold cursor-pointer border ${
-                          admin.status === 'Active'
-                            ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
-                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
-                        }`}
-                      >
-                        {admin.status === 'Active' ? 'Suspend' : 'Activate'}
-                      </button>
-
-                      {/* Switch to this Mart Console */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const targetMart = displayStores.find((s) => s.id === admin.tenantId);
-                          if (targetMart) handleImpersonateStore(targetMart);
-                        }}
-                        className="p-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg cursor-pointer"
-                        title="Login As This Store Admin"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="pt-2 flex justify-end border-t border-slate-100">
-              <button
-                onClick={() => setIsManageAdminsOpen(false)}
-                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- E. ADD STORE ADMIN & SET PASSWORD MODAL --- */}
-      {isAddAdminOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-black text-slate-900 leading-tight">
-                  Add Mart Admin & Set Password
-                </h3>
-                <span className="text-xs text-slate-500">Assign a dedicated Store Admin to a Supermarket</span>
-              </div>
-              <button
-                onClick={() => setIsAddAdminOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateAdminSubmit} className="space-y-3 text-xs">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Assign to Supermarket (Mart)</label>
-                <select
-                  value={newAdminForm.tenantId}
-                  onChange={(e) => setNewAdminForm({ ...newAdminForm, tenantId: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold text-slate-800"
-                >
-                  {displayStores.map((store) => (
-                    <option key={store.id} value={store.id}>
-                      {store.logo} {store.fullName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Store Admin Full Name</label>
+                <label className="font-bold text-slate-700 block mb-1">Owner Name</label>
                 <input
                   type="text"
-                  required
-                  placeholder="e.g. Tariq Mahmood"
-                  value={newAdminForm.name}
-                  onChange={(e) => setNewAdminForm({ ...newAdminForm, name: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold text-slate-800"
+                  value={editStoreForm.ownerName}
+                  onChange={(e) => setEditStoreForm({ ...editStoreForm, ownerName: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Store Admin Email / Username</label>
+                <label className="font-bold text-slate-700 block mb-1">Contact Email</label>
                 <input
                   type="email"
-                  required
-                  placeholder="e.g. admin@alfatah.pk"
-                  value={newAdminForm.email}
-                  onChange={(e) => setNewAdminForm({ ...newAdminForm, email: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
+                  value={editStoreForm.ownerEmail}
+                  onChange={(e) => setEditStoreForm({ ...editStoreForm, ownerEmail: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
                 />
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Assign Login Password</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    placeholder="Enter custom access password"
-                    value={newAdminForm.password}
-                    onChange={(e) => setNewAdminForm({ ...newAdminForm, password: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 pr-20 font-mono font-bold text-slate-800"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const rand = `mart${Math.floor(1000 + Math.random() * 9000)}`;
-                      setNewAdminForm({ ...newAdminForm, password: rand });
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] bg-slate-200 hover:bg-slate-300 font-bold px-2 py-1 rounded-md text-slate-700 cursor-pointer"
-                  >
-                    Random
-                  </button>
-                </div>
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  The Store Admin will use this password to sign into their Mart Console.
-                </span>
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsAddAdminOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
+                  onClick={() => setIsManageModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#0e7c66] hover:bg-[#0a5d4c] text-white rounded-xl font-bold shadow-md transition cursor-pointer"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition shadow-xs"
                 >
-                  Create & Set Password
+                  Save Changes
                 </button>
               </div>
             </form>
@@ -1945,137 +3029,72 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
         </div>
       )}
 
-      {/* --- F. ADD NEW TENANT STORE MODAL --- */}
-      {isAddTenantOpen && (
+      {/* --- H. DETAILS MODAL --- */}
+      {isDetailsModalOpen && selectedTenant && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-black text-slate-900 leading-tight">
-                  Register New Supermarket Store
-                </h3>
-                <span className="text-xs text-slate-500">Create a new tenant on the Unimart platform</span>
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">{selectedTenant.logo}</span>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 leading-tight">{selectedTenant.fullName}</h3>
+                  <span className="text-xs text-slate-500">{selectedTenant.tagline}</span>
+                </div>
               </div>
-              <button
-                onClick={() => setIsAddTenantOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
-              >
+              <button onClick={() => setIsDetailsModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                const storeName = formData.get('name');
-                const ownerEmail = formData.get('email');
-                const plan = formData.get('plan') || 'Professional';
-                
-                await addTenant({
-                  name: storeName,
-                  slug: storeName.toLowerCase().replace(/\s+/g, '-'),
-                  tagline: 'Quality Fresh Groceries & Household Essentials',
-                  ownerName: formData.get('ownerName') || 'Store Partner',
-                  ownerEmail: ownerEmail,
-                  city: formData.get('city') || 'Lahore, Pakistan',
-                  plan: plan,
-                  color: '#0e7c66'
-                });
+            <div className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Owner</span>
+                  <span className="font-bold text-slate-800">{selectedTenant.ownerName}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Email</span>
+                  <span className="font-mono text-slate-700">{selectedTenant.ownerEmail}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Subscription Tier</span>
+                  <span className="font-bold text-purple-700">{selectedTenant.plan}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Status</span>
+                  <span className="font-bold text-emerald-700">{selectedTenant.status}</span>
+                </div>
+              </div>
 
-                // Auto-create initial store admin with default password
-                addStoreAdmin({
-                  tenantId: `tenant-${Date.now()}`,
-                  tenantName: storeName,
-                  name: formData.get('ownerName') || `${storeName} Admin`,
-                  email: ownerEmail,
-                  password: 'admin123',
-                  phone: formData.get('phone') || ''
-                });
-
-                addToast('Supermarket Registered! 🏬', `${storeName} created with initial admin credentials (admin123).`);
-                setIsAddTenantOpen(false);
-              }}
-              className="space-y-3 text-xs"
-            >
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Supermarket Brand Name</label>
-                <input
-                  name="name"
-                  type="text"
-                  required
-                  placeholder="e.g. Metro Cash & Carry"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold text-slate-800"
-                />
+                <span className="font-bold text-slate-800 block mb-1.5">Dark Store Fulfillment Hubs:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedTenant.hubs.map((hub, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2.5 py-1 bg-slate-100 text-slate-700 font-medium rounded-lg text-[11px]"
+                    >
+                      📍 {hub}
+                    </span>
+                  ))}
+                </div>
               </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Owner / Manager Name</label>
-                  <input
-                    name="ownerName"
-                    type="text"
-                    required
-                    placeholder="e.g. Asim Raza"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium text-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Admin Email</label>
-                  <input
-                    name="email"
-                    type="email"
-                    required
-                    placeholder="admin@metro.pk"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Fulfillment City</label>
-                  <input
-                    name="city"
-                    type="text"
-                    defaultValue="Lahore, Pakistan"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium text-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Subscription Plan</label>
-                  <select
-                    name="plan"
-                    defaultValue="Professional"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold text-slate-800"
-                  >
-                    <option value="Enterprise">Enterprise (PKR 75,000/mo)</option>
-                    <option value="Professional">Professional (PKR 35,000/mo)</option>
-                    <option value="Starter">Starter (PKR 15,000/mo)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsAddTenantOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md transition cursor-pointer"
-                >
-                  Register Store
-                </button>
-              </div>
-            </form>
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                onClick={() => {
+                  setIsDetailsModalOpen(false);
+                  handleImpersonateStore(selectedTenant);
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+              >
+                Enter Store Admin Console →
+              </button>
+            </div>
           </div>
         </div>
       )}
-
     </div>
   );
 };
