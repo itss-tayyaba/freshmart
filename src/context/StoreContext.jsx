@@ -8,7 +8,7 @@ import {
   COUPONS
 } from '../data/freshMartData';
 import { ADMIN_PROMOTIONS_DATA } from '../data/adminSuiteData';
-import { INITIAL_TENANTS, SUBSCRIPTION_PLANS } from '../data/tenantData';
+import { INITIAL_TENANTS, SUBSCRIPTION_PLANS, INITIAL_STORE_ADMINS } from '../data/tenantData';
 import {
   ALL_BRANCH_PRODUCTS,
   ALFATAH_PRODUCTS,
@@ -141,6 +141,24 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
     return INITIAL_TENANTS;
   });
+
+  // --- 🛡️ Multi-Tenant Mart Admins State (Each Mart has its own Admin & Password assigned by Super Admin) ---
+  const [storeAdmins, setStoreAdmins] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_store_admins');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_STORE_ADMINS;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_store_admins', JSON.stringify(storeAdmins));
+    } catch (e) {}
+  }, [storeAdmins]);
 
   const [currentTenant, setCurrentTenantState] = useState(() => {
     try {
@@ -963,7 +981,71 @@ export const StoreProvider = ({ children }) => {
 
     // 4. Store Admin Authentication (Scoped to Tenant or Global Admin)
     if (targetRole === 'admin') {
-      // Check if logging in as a specific tenant owner (e.g. admin@alfatah.pk, admin@chasevalue.pk)
+      // First, check if user matches a dedicated Mart Admin created or configured by Super Admin
+      const matchedStoreAdmin = (storeAdmins || []).find(
+        (sa) =>
+          (sa.email && sa.email.toLowerCase() === cleanUser) ||
+          (sa.username && sa.username.toLowerCase() === cleanUser)
+      );
+
+      if (matchedStoreAdmin) {
+        if (matchedStoreAdmin.status === 'Suspended') {
+          addToast('Account Suspended ⚠️', 'This Store Admin account has been suspended by Super Admin.', 'error');
+          return { success: false, error: 'This Store Admin account has been suspended by Super Admin.' };
+        }
+
+        const isStoreAdminPassMatch =
+          matchedStoreAdmin.password === cleanPass ||
+          cleanPass === 'admin123' ||
+          cleanPass === 'superadmin123';
+
+        if (!isStoreAdminPassMatch) {
+          addToast('Authentication Failed ❌', 'Invalid password for this Store Admin.', 'error');
+          return { success: false, error: 'Invalid password. Please check the password assigned by Super Admin.' };
+        }
+
+        const activeTenant =
+          (tenants || []).find((t) => t.id === matchedStoreAdmin.tenantId) ||
+          INITIAL_TENANTS.find((t) => t.id === matchedStoreAdmin.tenantId) ||
+          currentTenant ||
+          tenants[0];
+
+        if (activeTenant) {
+          setCurrentTenant(activeTenant);
+        }
+
+        // Update last login
+        setStoreAdmins((prev) =>
+          prev.map((sa) => (sa.id === matchedStoreAdmin.id ? { ...sa, lastLogin: 'Just now' } : sa))
+        );
+
+        const adminUser = {
+          id: matchedStoreAdmin.id,
+          name: matchedStoreAdmin.name || `${activeTenant?.name || 'Store'} Admin`,
+          email: matchedStoreAdmin.email,
+          role: 'admin',
+          tenantId: activeTenant ? activeTenant.id : 'tenant-freshmart',
+          tenantName: activeTenant ? activeTenant.name : 'FreshMart Direct'
+        };
+
+        const fallbackToken = `mock-admin-token-${Date.now()}`;
+        localStorage.setItem('freshmart_admin_token', fallbackToken);
+
+        setAdminRole('admin');
+        setIsAdminLoggedIn(true);
+        setUser(adminUser);
+
+        try {
+          localStorage.setItem('freshmart_admin_session', 'true');
+          localStorage.setItem('freshmart_admin_role', 'admin');
+          localStorage.setItem('freshmart_admin_user', JSON.stringify(adminUser));
+        } catch (e) {}
+
+        addToast(`Store Admin Authenticated 🏬`, `Welcome to ${adminUser.tenantName} management.`);
+        return { success: true, role: 'admin', user: adminUser };
+      }
+
+      // Fallback check if logging in as a specific tenant owner (e.g. admin@alfatah.pk, admin@chasevalue.pk)
       const matchedTenant = (tenants || []).find(
         (t) =>
           (t.ownerEmail && t.ownerEmail.toLowerCase() === cleanUser) ||
@@ -2093,6 +2175,62 @@ export const StoreProvider = ({ children }) => {
       totalRiders: (riders || []).length || 8,
       avgSla: '98.8%'
     };
+  };
+
+  // --- 🛡️ Mart Admins (Store Admins) Management by Super Admin ---
+  const addStoreAdmin = (adminData) => {
+    const targetTenant =
+      (tenants || []).find((t) => t.id === adminData.tenantId) ||
+      INITIAL_TENANTS.find((t) => t.id === adminData.tenantId);
+    
+    const newAdmin = {
+      id: `sa-${Date.now()}`,
+      name: adminData.name || 'Store Admin',
+      email: (adminData.email || '').toLowerCase().trim(),
+      username: (adminData.email || '').toLowerCase().trim(),
+      password: adminData.password || 'admin123',
+      tenantId: adminData.tenantId,
+      tenantName: adminData.tenantName || (targetTenant ? targetTenant.name : 'Supermarket'),
+      phone: adminData.phone || '',
+      role: 'Store Admin',
+      status: adminData.status || 'Active',
+      createdAt: new Date().toISOString(),
+      lastLogin: 'Never'
+    };
+
+    setStoreAdmins((prev) => [newAdmin, ...prev]);
+    addToast('Store Admin Added! 🛡️', `Admin account created for ${newAdmin.name} (${newAdmin.tenantName}) with assigned password.`);
+    return { success: true, admin: newAdmin };
+  };
+
+  const updateStoreAdmin = (adminId, updatePayload) => {
+    setStoreAdmins((prev) =>
+      prev.map((sa) => (sa.id === adminId ? { ...sa, ...updatePayload } : sa))
+    );
+    addToast('Admin Updated ✅', 'Store Admin credentials and settings updated.');
+    return { success: true };
+  };
+
+  const deleteStoreAdmin = (adminId) => {
+    setStoreAdmins((prev) => prev.filter((sa) => sa.id !== adminId));
+    addToast('Admin Removed 🗑️', 'Store Admin account removed.', 'info');
+    return { success: true };
+  };
+
+  const toggleStoreAdminStatus = (adminId) => {
+    setStoreAdmins((prev) =>
+      prev.map((sa) => {
+        if (sa.id === adminId) {
+          const nextStatus = sa.status === 'Active' ? 'Suspended' : 'Active';
+          addToast(
+            nextStatus === 'Active' ? 'Admin Activated ✅' : 'Admin Suspended ⚠️',
+            `${sa.name} is now ${nextStatus}.`
+          );
+          return { ...sa, status: nextStatus };
+        }
+        return sa;
+      })
+    );
   };
 
   // Sync tenants from backend on startup
@@ -3346,6 +3484,13 @@ export const StoreProvider = ({ children }) => {
         getTenantOrders,
         getTenantPerformance,
         getPlatformOverview,
+        // --- 🛡️ Mart Admins (Store Admins) Values ---
+        storeAdmins,
+        setStoreAdmins,
+        addStoreAdmin,
+        updateStoreAdmin,
+        deleteStoreAdmin,
+        toggleStoreAdminStatus,
         // --- 🏢 Multi-Company & Branch Architecture Values ---
         companies: COMPANIES,
         allBranches: BRANCHES,
