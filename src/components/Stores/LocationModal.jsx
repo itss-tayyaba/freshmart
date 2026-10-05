@@ -55,11 +55,17 @@ export const LocationModal = () => {
       return;
     }
 
+    const matchedCity = PAKISTAN_CITIES.find((c) => c.city === customCity) || currentCityObj;
+    const defaultCoords = matchedCity?.neighborhoods[0]?.coords || { lat: 31.4125, lng: 73.0995 };
+
     const locObj = {
       city: customCity,
       address: customAddress.trim(),
       label: customLabel,
-      phone: customPhone
+      phone: customPhone,
+      lat: defaultCoords.lat,
+      lng: defaultCoords.lng,
+      coords: defaultCoords
     };
 
     setDeliveryLocation(locObj);
@@ -83,6 +89,8 @@ export const LocationModal = () => {
       city: cityObj.city,
       address: defaultN.defaultAddress,
       neighborhood: defaultN.name,
+      lat: defaultN.coords.lat,
+      lng: defaultN.coords.lng,
       coords: defaultN.coords,
       hubName: cityObj.hubName,
       label: 'Home'
@@ -99,6 +107,8 @@ export const LocationModal = () => {
       city: cityObj.city,
       address: neighborhood.defaultAddress,
       neighborhood: neighborhood.name,
+      lat: neighborhood.coords.lat,
+      lng: neighborhood.coords.lng,
       coords: neighborhood.coords,
       hubName: cityObj.hubName,
       label: 'Home'
@@ -112,11 +122,16 @@ export const LocationModal = () => {
   };
 
   const handleSelectSavedAddress = (addr) => {
+    const matchedCity = PAKISTAN_CITIES.find((c) => c.city === addr.city) || currentCityObj;
+    const defaultCoords = addr.coords || matchedCity?.neighborhoods[0]?.coords || { lat: 31.4125, lng: 73.0995 };
     const locObj = {
       city: addr.city,
       address: addr.address,
       label: addr.label,
-      phone: addr.phone
+      phone: addr.phone,
+      lat: addr.lat || defaultCoords.lat,
+      lng: addr.lng || defaultCoords.lng,
+      coords: defaultCoords
     };
     setDeliveryLocation(locObj);
     try {

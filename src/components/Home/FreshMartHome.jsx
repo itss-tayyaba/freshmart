@@ -37,6 +37,8 @@ import { CaseValueCategoryStrip } from '../CaseValue/CaseValueCategoryStrip';
 import { CaseValueTopDeals } from '../CaseValue/CaseValueTopDeals';
 import { AlFatahHero } from '../AlFatah/AlFatahHero';
 import { ChaseUpHero } from '../ChaseUp/ChaseUpHero';
+import { CustomerLocationBanner } from './CustomerLocationBanner';
+import { NearbyStoresSection } from './NearbyStoresSection';
 
 export const FreshMartHome = () => {
   const {
@@ -54,8 +56,34 @@ export const FreshMartHome = () => {
     products,
     categories,
     storeSettings,
-    currentTenant
+    currentTenant,
+    currentBranch,
+    deliveryLocation,
+    getNearbyStores,
+    selectStoreAndBranch
   } = useStore();
+
+  // Dynamic nearby stores calculated from current customer coordinates
+  const nearbyStoresList = useMemo(() => {
+    if (typeof getNearbyStores === 'function') {
+      return getNearbyStores(deliveryLocation?.coords || deliveryLocation);
+    }
+    return [];
+  }, [getNearbyStores, deliveryLocation]);
+
+  const activeStoreData = useMemo(() => {
+    return nearbyStoresList.find((s) => s.id === currentTenant?.id) || nearbyStoresList[0];
+  }, [nearbyStoresList, currentTenant]);
+
+  const handleSelectStore = (storeTenant, branch) => {
+    if (selectStoreAndBranch) {
+      selectStoreAndBranch(storeTenant, branch);
+    }
+    const sfEl = document.getElementById('store-active-storefront');
+    if (sfEl) {
+      sfEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   // Active category filter tab for Bestsellers
   const [activeBestsellerTab, setActiveBestsellerTab] = useState('all');
@@ -204,6 +232,60 @@ export const FreshMartHome = () => {
           )}
         </div>
       )}
+
+      {/* 📍 CUSTOMER LOCATION ENTRY & NEARBY STORES WORKFLOW (MATCHING ARCHITECTURE FLOWCHART) */}
+      <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-6 pt-1">
+        {/* Step 1: Customer Enters Location (City + Address OR Use Current Location GPS) */}
+        <CustomerLocationBanner />
+
+        {/* Step 2: Nearby / Deliverable Stores (Al-Fatah, Chase Up, Chase Value, Unimaart) */}
+        <NearbyStoresSection
+          nearbyStores={nearbyStoresList}
+          onSelectStore={handleSelectStore}
+        />
+      </section>
+
+      {/* 🏬 ACTIVE STOREFRONT STATUS BANNER */}
+      <div id="store-active-storefront" className="scroll-mt-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div
+          style={{ borderColor: currentTenant?.color || '#0284c7' }}
+          className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border-2 flex flex-col md:flex-row items-center justify-between gap-4"
+        >
+          <div className="flex items-center gap-3.5">
+            <div
+              style={{ backgroundColor: currentTenant?.color || '#0284c7' }}
+              className="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-sm shrink-0"
+            >
+              {currentTenant?.logo || '🏬'}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-black text-slate-900">
+                  Currently Shopping at {currentTenant?.displayName || currentTenant?.name}
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  📍 {activeStoreData?.distanceFormatted || '1.2 km'} away
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                  ⚡ {activeStoreData?.estimatedTime || '15-25 mins'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Fulfilling from: <strong className="text-slate-800">{currentBranch?.name || activeStoreData?.nearestBranch?.name || 'Central Hub'}</strong> • Delivering to: <span className="text-slate-700 font-semibold">{deliveryLocation?.address}</span>
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              window.scrollTo({ top: 120, behavior: 'smooth' });
+            }}
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300/80 transition cursor-pointer shrink-0 flex items-center gap-1.5"
+          >
+            <span>↑ Choose Another Store</span>
+          </button>
+        </div>
+      </div>
 
       {/* 🚀 STORE-SPECIFIC HERO & CATEGORY EXPERIENCES */}
       {isUnimaart && (

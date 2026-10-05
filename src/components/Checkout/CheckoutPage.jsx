@@ -48,13 +48,23 @@ export const CheckoutPage = () => {
     customerUser,
     addToast,
     placeCustomerOrder,
-    currentTenant
+    currentTenant,
+    currentBranch,
+    getNearbyStores
   } = useStore();
 
   const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
   const isAlFatah = currentTenant?.id === 'tenant-alfatah';
   const isChaseUp = currentTenant?.id === 'tenant-chaseup';
   const isUnimaart = currentTenant?.id === 'tenant-freshmart';
+
+  const nearbyInfo = React.useMemo(() => {
+    if (typeof getNearbyStores === 'function') {
+      const list = getNearbyStores(deliveryLocation?.coords || deliveryLocation);
+      return list.find((s) => s.id === currentTenant?.id) || list[0];
+    }
+    return null;
+  }, [getNearbyStores, deliveryLocation, currentTenant]);
 
   const theme = {
     primaryBg: isUnimaart
@@ -183,6 +193,11 @@ export const CheckoutPage = () => {
       recipientName: addressData.recipientName,
       customerPhone: addressData.phone,
       phone: addressData.phone,
+      tenantId: currentTenant?.id || 'tenant-freshmart',
+      tenantName: currentTenant?.displayName || currentTenant?.name || 'FreshMart',
+      branchId: currentBranch?._id || currentBranch?.id || nearbyInfo?.nearestBranch?._id || 'branch_fsd_001',
+      branchName: currentBranch?.name || nearbyInfo?.nearestBranch?.name || 'Central Hub',
+      distanceKm: nearbyInfo?.distanceKm || 1.2,
       status: 'Pending',
       createdAt: new Date().toISOString()
     };
@@ -415,6 +430,32 @@ export const CheckoutPage = () => {
                 <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200/60">
                   <MapPin className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Doorstep Delivery</span>
+                </div>
+              </div>
+
+              {/* Fulfilling Store & Branch Routing Banner */}
+              <div className="bg-emerald-50/90 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-3">
+                  <div
+                    style={{ backgroundColor: currentTenant?.color || '#0284c7' }}
+                    className="w-10 h-10 rounded-xl text-white flex items-center justify-center font-black text-lg shadow-sm shrink-0"
+                  >
+                    {currentTenant?.logo || '🏬'}
+                  </div>
+                  <div>
+                    <h4 className="font-black text-slate-900 leading-tight">
+                      Fulfilling Store: {currentTenant?.displayName || currentTenant?.name} — {currentBranch?.name || nearbyInfo?.nearestBranch?.name || 'Central Hub'}
+                    </h4>
+                    <p className="text-slate-600 text-[11px] mt-0.5">
+                      Branch Distance: <strong className="text-emerald-800">{nearbyInfo?.distanceFormatted || '1.2 km'} away</strong> • Estimated Delivery: <strong className="text-slate-800">{nearbyInfo?.estimatedTime || '20-30 mins'}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="px-2.5 py-1 bg-white border border-emerald-300 rounded-lg text-emerald-800 font-extrabold text-[10px] shadow-2xs">
+                    🟢 In Delivery Zone
+                  </span>
                 </div>
               </div>
 

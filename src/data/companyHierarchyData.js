@@ -132,6 +132,18 @@ export const BRANCHES = [
     phone: '+92 51 2604455',
     status: 'active'
   },
+  {
+    _id: 'branch_af_fsd',
+    id: 'branch_af_fsd',
+    tenantId: 'company_001',
+    name: 'D-Ground Flagship Hub',
+    city: 'Faisalabad',
+    latitude: 31.4147,
+    longitude: 73.0872,
+    address: 'D-Ground Commercial Center, Peoples Colony 1, Faisalabad',
+    phone: '+92 41 8541122',
+    status: 'active'
+  },
 
   // --- Chase Up Branches (company_002) ---
   {
@@ -162,10 +174,10 @@ export const BRANCHES = [
     _id: 'branch_006',
     id: 'branch_006',
     tenantId: 'company_002',
-    name: 'Faisalabad Clock Tower',
+    name: 'Faisalabad Clock Tower Hub',
     city: 'Faisalabad',
     latitude: 31.4187,
-    longitude: 73.0791,
+    longitude: 73.0855,
     address: 'Kotwali Road, Katchery Bazar, Faisalabad',
     phone: '+92 41 2623344',
     status: 'active'
@@ -208,6 +220,18 @@ export const BRANCHES = [
     phone: '+92 61 4512233',
     status: 'active'
   },
+  {
+    _id: 'branch_cv_fsd',
+    id: 'branch_cv_fsd',
+    tenantId: 'company_003',
+    name: 'Wholesale Express Hub',
+    city: 'Faisalabad',
+    latitude: 31.4215,
+    longitude: 73.0815,
+    address: 'Jaranwala Road, Near Peoples Colony, Faisalabad',
+    phone: '+92 41 8729900',
+    status: 'active'
+  },
 
   // --- Unimaart / Market Store Branches (company_004) ---
   {
@@ -244,6 +268,18 @@ export const BRANCHES = [
     longitude: 74.2728,
     address: 'G-1 Market, M.A. Johar Town, Lahore',
     phone: '+9870-256-681',
+    status: 'active'
+  },
+  {
+    _id: 'branch_um_fsd',
+    id: 'branch_um_fsd',
+    tenantId: 'company_004',
+    name: 'Peoples Colony Dark Store',
+    city: 'Faisalabad',
+    latitude: 31.4125,
+    longitude: 73.0915,
+    address: 'D-Ground Commercial Center, Peoples Colony 1, Faisalabad',
+    phone: '+9870-256-679',
     status: 'active'
   }
 ];

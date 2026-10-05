@@ -31,6 +31,7 @@ import {
 } from '../data/companyHierarchyData';
 import { apiService } from '../services/api';
 import { parseRouteFromUrl, getSeoMetadata } from '../utils/routeUtils';
+import { calculateDistanceKm, findNearestCity, PAKISTAN_CITIES } from '../data/pakistanLocations';
 
 export const FAISALABAD_BRANCH = {
   _id: 'branch_fsd_001',
@@ -241,11 +242,126 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   };
 
-  // Keep branch strictly set to corresponding tenant Faisalabad centralized hub
+  // Keep branch dynamically set to corresponding tenant branch nearest to customer delivery location
   useEffect(() => {
-    const tenantBranch = BRANCHES.find((b) => b.tenantId === resolveTenantId(currentTenant?.id)) || FAISALABAD_BRANCH;
-    setCurrentBranch(tenantBranch);
-  }, [currentTenant]);
+    const canonical = resolveTenantId(currentTenant?.id);
+    const tenantBranches = BRANCHES.filter((b) => b.tenantId === canonical);
+    if (tenantBranches.length > 0) {
+      const uLat = Number(deliveryLocation?.lat || deliveryLocation?.coords?.lat || 31.4125);
+      const uLng = Number(deliveryLocation?.lng || deliveryLocation?.coords?.lng || 73.0995);
+      let closest = tenantBranches[0];
+      let minD = Infinity;
+      for (const b of tenantBranches) {
+        const bLat = Number(b.latitude || 31.4125);
+        const bLng = Number(b.longitude || 73.0995);
+        const d = calculateDistanceKm(uLat, uLng, bLat, bLng);
+        if (d < minD) {
+          minD = d;
+          closest = b;
+        }
+      }
+      setCurrentBranch(closest);
+    } else {
+      setCurrentBranch(FAISALABAD_BRANCH);
+    }
+  }, [currentTenant, deliveryLocation]);
+
+  // Dynamic calculation of all nearby supermarkets and dark store branches for the customer
+  const getNearbyStores = (coords) => {
+    const userLat = Number(coords?.lat || coords?.latitude || deliveryLocation?.lat || deliveryLocation?.coords?.lat || 31.4125);
+    const userLng = Number(coords?.lng || coords?.longitude || deliveryLocation?.lng || deliveryLocation?.coords?.lng || 73.0995);
+
+    const storeList = INITIAL_TENANTS.map((tenant) => {
+      const tenantCanonicalId = resolveTenantId(tenant.id);
+      const tenantBranches = BRANCHES.filter(
+        (b) => b.tenantId === tenantCanonicalId || (tenant.slug && b.slug === tenant.slug)
+      );
+
+      let nearestBranch = tenantBranches[0] || FAISALABAD_BRANCH;
+      let minDistance = Infinity;
+
+      for (const branch of tenantBranches) {
+        const bLat = Number(branch.latitude || branch.coordinates?.lat || 31.4125);
+        const bLng = Number(branch.longitude || branch.coordinates?.lng || 73.0995);
+        const dist = calculateDistanceKm(userLat, userLng, bLat, bLng);
+        if (dist < minDistance) {
+          minDistance = dist;
+          nearestBranch = branch;
+        }
+      }
+
+      if (minDistance === Infinity) {
+        minDistance = 1.2;
+      }
+
+      let estimatedTime = '15-25 mins';
+      if (minDistance > 10) estimatedTime = '45-60 mins';
+      else if (minDistance > 5) estimatedTime = '35-45 mins';
+      else if (minDistance > 2) estimatedTime = '25-35 mins';
+      else if (minDistance > 1) estimatedTime = '20-30 mins';
+      else estimatedTime = '10-20 mins';
+
+      const isDeliverable = minDistance <= 35;
+      const freeDeliveryThreshold = 1000;
+      const deliveryFee = 100;
+
+      return {
+        tenant,
+        id: tenant.id,
+        name: tenant.name,
+        displayName: tenant.displayName || tenant.name,
+        badge: tenant.badge || 'Verified Supermarket',
+        tagline: tenant.tagline,
+        logo: tenant.logo || '🛒',
+        banner: tenant.banner,
+        theme: tenant.theme,
+        color: tenant.color,
+        nearestBranch,
+        distanceKm: Number(minDistance.toFixed(1)),
+        distanceFormatted: `${minDistance.toFixed(1)} km`,
+        estimatedTime,
+        isDeliverable,
+        deliveryFeeText: `Free over Rs. ${freeDeliveryThreshold.toLocaleString()}`,
+        deliveryFee,
+        rating: 4.8 + (tenant.id === 'tenant-alfatah' ? 0.1 : 0),
+        reviewsCount: tenant.id === 'tenant-alfatah' ? '2.4k+' : tenant.id === 'tenant-chaseup' ? '1.8k+' : '1.2k+',
+        status: isDeliverable ? 'Open & Deliverable' : 'Regional Dispatch',
+        minOrder: 300
+      };
+    });
+
+    return storeList.sort((a, b) => a.distanceKm - b.distanceKm);
+  };
+
+  // Switch store and auto-select its closest branch
+  const selectStoreAndBranch = (storeTenant, branch) => {
+    if (!storeTenant) return;
+    setCurrentTenant(storeTenant);
+    if (branch) {
+      setCurrentBranch(branch);
+    } else {
+      const canonical = resolveTenantId(storeTenant.id);
+      const bList = BRANCHES.filter((b) => b.tenantId === canonical);
+      if (bList.length > 0) {
+        const uLat = Number(deliveryLocation?.lat || 31.4125);
+        const uLng = Number(deliveryLocation?.lng || 73.0995);
+        let best = bList[0];
+        let bestDist = Infinity;
+        for (const b of bList) {
+          const d = calculateDistanceKm(uLat, uLng, b.latitude, b.longitude);
+          if (d < bestDist) {
+            bestDist = d;
+            best = b;
+          }
+        }
+        setCurrentBranch(best);
+      }
+    }
+    try {
+      localStorage.setItem('freshmart_current_tenant_id', storeTenant.id);
+    } catch (e) {}
+    addToast('Store Activated 🛒', `Now shopping at ${storeTenant.name}`);
+  };
 
   // Master Branch Inventory & Branch Orders State
   const [branchInventory, setBranchInventory] = useState(SEED_INVENTORY);
@@ -3690,7 +3806,9 @@ export const StoreProvider = ({ children }) => {
         getBranchesByTenant,
         getProductsByTenant,
         getInventoryByBranch,
-        getOrdersByBranch
+        getOrdersByBranch,
+        getNearbyStores,
+        selectStoreAndBranch
       }}
     >
       {children}
