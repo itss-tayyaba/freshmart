@@ -958,11 +958,25 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
                     </div>
                   </div>
 
-                  <div className="h-48 w-full relative flex items-end justify-between gap-2 pt-6 px-2 border-b border-slate-100">
+                  <div className="h-48 w-full relative flex items-end justify-between gap-2 pt-6 px-2 border-b border-slate-100 overflow-hidden">
                     {/* SVG Spline Background */}
-                    <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none" preserveAspectRatio="none">
+                    <svg
+                      viewBox="0 0 700 150"
+                      preserveAspectRatio="none"
+                      className="absolute inset-0 w-full h-full pointer-events-none"
+                    >
+                      <defs>
+                        <linearGradient id="salesOverviewGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#2563eb" stopOpacity="0.2" />
+                          <stop offset="100%" stopColor="#2563eb" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
                       <path
-                        d="M 10 140 Q 60 110, 110 130 T 210 90 T 310 110 T 410 60 T 510 40 T 610 20"
+                        d="M 50 100 C 90 98, 110 89, 150 89 C 190 89, 210 95, 250 95 C 290 95, 310 75, 350 75 C 390 75, 410 60, 450 60 C 490 60, 510 45, 550 45 C 590 45, 610 67, 650 67 L 650 150 L 50 150 Z"
+                        fill="url(#salesOverviewGrad)"
+                      />
+                      <path
+                        d="M 50 100 C 90 98, 110 89, 150 89 C 190 89, 210 95, 250 95 C 290 95, 310 75, 350 75 C 390 75, 410 60, 450 60 C 490 60, 510 45, 550 45 C 590 45, 610 67, 650 67"
                         fill="none"
                         stroke="#2563eb"
                         strokeWidth="3"
