@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   Building2,
   Users,
@@ -19,6 +19,7 @@ import {
   Store,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   ShieldCheck,
   Layers,
   Truck,
@@ -111,6 +112,7 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
   const [isAddRiderOpen, setIsAddRiderOpen] = useState(false);
   const [isAddBranchOpen, setIsAddBranchOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState(null);
+  const mainWorkspaceRef = useRef(null);
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -550,24 +552,24 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
     }`;
 
   return (
-    <div className="flex min-h-screen bg-[#f8fafc] text-slate-800 font-sans antialiased">
+    <div className="flex h-full w-full bg-[#f8fafc] text-slate-800 font-sans antialiased overflow-hidden">
       {/* ========================================================================= */}
       {/* 1. LEFT SIDEBAR (Super Admin Platform Command Center)                     */}
       {/* ========================================================================= */}
-      <aside className="w-64 bg-[#0B132B] text-slate-300 flex flex-col shrink-0 select-none border-r border-slate-900 min-h-screen">
+      <aside className="w-64 bg-[#0B132B] text-slate-300 flex flex-col shrink-0 select-none border-r border-slate-900 h-full overflow-hidden">
         {/* Brand Header: Super Admin */}
-        <div className="p-5 flex items-center gap-3 border-b border-slate-800/60">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-white font-black shadow-lg shadow-amber-950/40">
+        <div className="p-4 sm:p-5 flex items-center gap-3 border-b border-slate-800/60 shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-white font-black shadow-lg shadow-amber-950/40 shrink-0">
             <span className="text-xl">👑</span>
           </div>
-          <div>
-            <h1 className="text-white font-extrabold text-base leading-tight tracking-tight">Super Admin</h1>
-            <p className="text-[10px] text-slate-400 font-medium">Platform Command Center</p>
+          <div className="min-w-0">
+            <h1 className="text-white font-extrabold text-base leading-tight tracking-tight truncate">Super Admin</h1>
+            <p className="text-[10px] text-slate-400 font-medium truncate">Platform Command Center</p>
           </div>
         </div>
 
-        {/* Sidebar Nav Items */}
-        <div className="flex-1 py-4 px-3 space-y-6 overflow-y-auto text-xs font-semibold">
+        {/* Sidebar Nav Items (Independently scrollable) */}
+        <div className="flex-1 py-4 px-3 space-y-5 overflow-y-auto sidebar-scrollbar text-xs font-semibold min-h-0">
           {/* Main Dashboard item */}
           <div>
             <button onClick={() => setActiveNav('dashboard')} className={getNavClass('dashboard')}>
@@ -697,8 +699,8 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
           </div>
         </div>
 
-        {/* Bottom Sidebar Card */}
-        <div className="p-3 m-3 bg-[#111C3A] border border-slate-800 rounded-2xl space-y-2">
+        {/* Bottom Sidebar Card (Pinned Bottom) */}
+        <div className="p-3 m-3 mt-auto shrink-0 bg-[#111C3A] border border-slate-800 rounded-2xl space-y-2">
           <div className="flex items-center gap-2">
             <span className="text-amber-400 text-sm">👑</span>
             <span className="text-white text-xs font-bold">Super Admin HQ</span>
@@ -706,31 +708,33 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
           <p className="text-[10px] text-slate-400 leading-tight">
             Full root control over all marts, branches, users & subscriptions.
           </p>
-          <div className="pt-1 flex gap-1.5">
+          <div className="pt-1 flex flex-col gap-1.5">
             <button
               onClick={() => handleImpersonateStore(displayStores[0])}
-              className="flex-1 py-1.5 bg-blue-600/80 hover:bg-blue-600 text-white rounded-lg text-[10px] font-bold transition text-center cursor-pointer"
+              className="w-full py-1.5 bg-blue-600/80 hover:bg-blue-600 text-white rounded-lg text-[10px] font-bold transition text-center cursor-pointer flex items-center justify-center gap-1.5"
               title="Inspect Store Admin View"
             >
-              Store View
+              <Store className="w-3.5 h-3.5" />
+              <span>Inspect Store View</span>
             </button>
             <button
               onClick={adminLogout}
-              className="px-2 py-1.5 bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-rose-200 rounded-lg text-[10px] font-bold transition cursor-pointer"
+              className="w-full py-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 hover:text-white rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1.5"
               title="Sign Out"
             >
               <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out</span>
             </button>
           </div>
         </div>
       </aside>
 
       {/* ========================================================================= */}
-      {/* 2. MAIN WORKSPACE AREA                                                    */}
+      {/* 2. MAIN WORKSPACE AREA (Independently scrollable workspace)                */}
       {/* ========================================================================= */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <main ref={mainWorkspaceRef} className="flex-1 flex flex-col h-full min-w-0 overflow-y-auto">
         {/* Top Header Bar */}
-        <header className="bg-white border-b border-slate-200/80 px-6 sm:px-8 py-3.5 flex items-center justify-between gap-4 sticky top-0 z-30 shadow-2xs">
+        <header className="bg-white border-b border-slate-200/80 px-6 sm:px-8 py-3.5 flex items-center justify-between gap-4 sticky top-0 z-30 shadow-2xs shrink-0">
           {/* Breadcrumb / Title */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
@@ -785,6 +789,26 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
               <Calendar className="w-3.5 h-3.5 text-slate-500" />
               <span>Today</span>
             </div>
+
+            {/* Quick Impersonate Store View Button */}
+            <button
+              onClick={() => handleImpersonateStore(displayStores[0])}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition cursor-pointer"
+              title="Inspect Store Admin View"
+            >
+              <Store className="w-3.5 h-3.5 text-blue-600" />
+              <span>Store View</span>
+            </button>
+
+            {/* Prominent Super Admin Logout Button */}
+            <button
+              onClick={adminLogout}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 hover:border-rose-300 rounded-xl text-xs font-bold transition cursor-pointer shadow-2xs"
+              title="Sign Out of Super Admin Console"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Logout</span>
+            </button>
           </div>
         </header>
 
@@ -2400,6 +2424,16 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
             </div>
           )}
         </div>
+
+        {/* Floating Scroll to Top Button */}
+        <button
+          onClick={() => mainWorkspaceRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-6 right-6 z-40 px-3.5 py-2.5 bg-slate-900/90 hover:bg-black text-white rounded-full shadow-2xl transition-all cursor-pointer border border-slate-700/80 backdrop-blur-xs flex items-center gap-1.5 text-xs font-bold hover:scale-105 active:scale-95"
+          title="Scroll to Top of Dashboard"
+        >
+          <ChevronUp className="w-4 h-4 text-amber-400" />
+          <span className="hidden sm:inline">Top</span>
+        </button>
       </main>
 
       {/* ========================================================================= */}
