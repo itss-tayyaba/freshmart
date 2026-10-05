@@ -489,9 +489,9 @@ export const FreshMartHome = () => {
           ) : (
             <div className="lg:col-span-7 bg-[#fff8ed] border border-amber-200 rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
               <div className="space-y-1">
-                <span className="text-xs font-black text-amber-800 uppercase tracking-wider block">⭐ Store Catalog Ready</span>
+                <span className="text-xs font-black text-amber-800 uppercase tracking-wider block">⭐ Fresh Arrivals</span>
                 <h4 className="font-black text-sm text-slate-900 leading-snug">New Stock Arriving Daily</h4>
-                <p className="text-xs text-slate-600">Store Admin can bulk import products, prices, and pictures anytime via the Store Admin CSV upload.</p>
+                <p className="text-xs text-slate-600">Fresh batches of farm-fresh fruits, vegetables, and daily staples arriving every morning.</p>
               </div>
               <button
                 onClick={() => navigateTo('shop')}
@@ -690,20 +690,12 @@ export const FreshMartHome = () => {
           })}
           </div>
         ) : (
-          <div className="bg-slate-50 border border-dashed border-slate-200 rounded-3xl p-10 text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl">
-              📦
-            </div>
-            <div className="max-w-md mx-auto">
-              <h3 className="font-bold text-slate-800 text-sm">Store Catalog Ready for Products</h3>
-              <p className="text-xs text-slate-500 mt-1">This market's catalog currently has 0 items. Log in to the Store Admin console to upload items, prices, and pictures via CSV bulk import.</p>
-            </div>
-            <button
-              onClick={() => navigateTo('admin')}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition cursor-pointer"
-            >
-              Upload CSV in Admin Console ➔
-            </button>
+          <div className="bg-slate-50/80 border border-slate-100 rounded-3xl p-10 text-center space-y-2">
+            <span className="text-3xl block">🛒</span>
+            <h3 className="font-bold text-slate-800 text-sm">Fresh Items Coming Soon</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              Our shelves are being stocked with freshly harvested groceries and top deals for this store.
+            </p>
           </div>
         )}
       </section>

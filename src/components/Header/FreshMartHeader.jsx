@@ -182,14 +182,14 @@ export const FreshMartHeader = () => {
             <span className="text-[10px] font-bold text-slate-500 block uppercase">
               Supermarket
             </span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center">
               <select
                 value={currentTenant?.id || 'tenant-freshmart'}
                 onChange={(e) => {
                   const target = (tenants || []).find((t) => t.id === e.target.value);
                   if (target) setCurrentTenant(target);
                 }}
-                className="text-xs font-bold text-slate-900 bg-transparent focus:outline-none cursor-pointer pr-1"
+                className="text-xs font-bold text-slate-900 bg-transparent focus:outline-none cursor-pointer"
               >
                 {(tenants || []).map((t) => (
                   <option key={t.id} value={t.id}>
@@ -197,7 +197,6 @@ export const FreshMartHeader = () => {
                   </option>
                 ))}
               </select>
-              <ChevronDown className="w-3 h-3 text-slate-400 pointer-events-none -ml-1" />
             </div>
           </div>
         </div>
