@@ -374,30 +374,11 @@ export const DashboardView = ({ onNavigateModule }) => {
               </select>
             </div>
 
-            {/* Direct Branch Selector under Company (Enforcing User → Tenant → Branch) */}
-            {branches && branches.length > 0 && (
-              <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md border border-emerald-400/30 rounded-2xl px-3 py-1.5 shadow-xs">
-                <MapPin className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-                <span className="text-[11px] font-bold text-slate-200 hidden sm:inline">Branch:</span>
-                <select
-                  value={currentBranch?._id || currentBranch?.id}
-                  onChange={(e) => {
-                    const found = branches.find((b) => b._id === e.target.value || b.id === e.target.value);
-                    if (found) {
-                      setCurrentBranch(found);
-                      addToast('Branch Active 📍', `Switched to ${found.name} (${found.city})`);
-                    }
-                  }}
-                  className="text-xs font-black text-emerald-300 bg-transparent border-none focus:outline-none cursor-pointer pr-1"
-                >
-                  {branches.map((b) => (
-                    <option key={b._id || b.id} value={b._id || b.id} className="text-slate-900 bg-white font-bold">
-                      📍 {b.name} ({b.city})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            {/* Single Centralized Branch (Faisalabad Flagship Hub) */}
+            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md border border-emerald-400/30 rounded-2xl px-3 py-1.5 shadow-xs text-xs font-black text-emerald-300">
+              <MapPin className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+              <span>📍 Faisalabad Flagship Hub (D-Ground)</span>
+            </div>
 
             <button
               onClick={() => onNavigateModule('Products')}
@@ -458,8 +439,8 @@ export const DashboardView = ({ onNavigateModule }) => {
 
           <div className="bg-blue-950/80 px-3 py-1.5 rounded-xl border border-blue-800/60 flex items-center gap-1.5">
             <span className="text-blue-400 font-bold">BRANCH:</span>
-            <span className="font-black text-white">{currentBranch?.name || 'FreshMart Faisalabad Flagship Hub'}</span>
-            <span className="text-[10px] text-slate-400">({currentBranch?.city || 'Faisalabad'})</span>
+            <span className="font-black text-white">{currentBranch?.city === 'Faisalabad' ? currentBranch?.name : 'FreshMart Faisalabad Flagship Hub'}</span>
+            <span className="text-[10px] text-slate-400">(Faisalabad)</span>
           </div>
           <span className="text-slate-500 font-black">➔</span>
 
@@ -477,7 +458,7 @@ export const DashboardView = ({ onNavigateModule }) => {
 
         <div className="text-[11px] text-slate-400 flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
           <span>
-            📍 GPS Coordinates: <strong className="text-slate-300">{currentBranch?.latitude || 31.4125}, {currentBranch?.longitude || 73.0995}</strong>
+            📍 GPS Coordinates: <strong className="text-slate-300">{currentBranch?.city === 'Faisalabad' && currentBranch?.latitude ? `${currentBranch.latitude}, ${currentBranch.longitude}` : '31.4125, 73.0995'}</strong>
           </span>
           <span className="text-emerald-400 font-semibold">
             ✓ Centralized Faisalabad Flagship Hub & Tenant Isolation Active

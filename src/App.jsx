@@ -32,7 +32,7 @@ function FreshMartAppContent() {
   // If in Admin / Vendor Dashboard view, render the dedicated full-screen admin/vendor experience
   if (currentPage === 'admin' || currentPage === 'vendor' || currentPage === 'vendor-portal' || currentPage === 'delivery-portal') {
     return (
-      <div className="min-h-screen bg-slate-100 font-sans">
+      <div className="h-screen w-full overflow-hidden bg-slate-100 font-sans">
         <AdminDashboard />
         <ToastContainer />
       </div>

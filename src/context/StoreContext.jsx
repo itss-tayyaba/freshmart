@@ -227,24 +227,24 @@ export const StoreProvider = ({ children }) => {
       const savedBranchId = localStorage.getItem('freshmart_current_branch_id');
       if (savedBranchId) {
         const found = BRANCHES.find((b) => b._id === savedBranchId || b.id === savedBranchId);
-        if (found) return found;
+        if (found && found.city === 'Faisalabad') return found;
       }
     } catch (e) {}
     return FAISALABAD_BRANCH;
   });
 
   const setCurrentBranch = (branch) => {
-    setCurrentBranchState(branch || FAISALABAD_BRANCH);
+    const targetBranch = branch || FAISALABAD_BRANCH;
+    setCurrentBranchState(targetBranch);
     try {
-      if (branch?._id) localStorage.setItem('freshmart_current_branch_id', branch._id);
+      if (targetBranch?._id) localStorage.setItem('freshmart_current_branch_id', targetBranch._id);
     } catch (e) {}
   };
 
-  // Keep branch set to Faisalabad centralized hub
+  // Keep branch strictly set to corresponding tenant Faisalabad centralized hub
   useEffect(() => {
-    if (!currentBranch) {
-      setCurrentBranch(FAISALABAD_BRANCH);
-    }
+    const tenantBranch = BRANCHES.find((b) => b.tenantId === resolveTenantId(currentTenant?.id)) || FAISALABAD_BRANCH;
+    setCurrentBranch(tenantBranch);
   }, [currentTenant]);
 
   // Master Branch Inventory & Branch Orders State

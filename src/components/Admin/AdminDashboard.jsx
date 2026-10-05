@@ -158,10 +158,10 @@ export const AdminDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-slate-800 antialiased">
+    <div className="h-screen w-full bg-[#f8fafc] flex flex-col font-sans text-slate-800 antialiased overflow-hidden">
       {/* 👑 Super Admin Impersonation Alert Banner */}
       {adminRole === 'superadmin' && superAdminImpersonateMode && (
-        <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-500 text-slate-950 px-4 py-2 text-xs font-bold flex flex-wrap items-center justify-between shadow-lg sticky top-0 z-50">
+        <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-500 text-slate-950 px-4 py-2 text-xs font-bold flex flex-wrap items-center justify-between shadow-lg shrink-0 z-50">
           <div className="flex items-center gap-2">
             <span className="text-base">👑</span>
             <span>Super Admin Impersonation:</span>
@@ -181,7 +181,7 @@ export const AdminDashboard = () => {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col lg:flex-row">
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden w-full">
       {/* 📱 Mobile Top Header Bar (< lg screens) */}
       <div className="lg:hidden bg-[#0f172a] text-slate-200 px-4 py-3.5 flex items-center justify-between border-b border-slate-800 sticky top-0 z-40 shadow-md">
         <div onClick={() => navigateTo('home')} className="flex items-center gap-2.5 cursor-pointer">
@@ -294,11 +294,11 @@ export const AdminDashboard = () => {
         </div>
       )}
 
-      {/* 💻 1. Desktop Left Dark Sticky Sidebar */}
+      {/* 💻 1. Desktop Left Dark Sidebar (Fixed 100% full height, never scrolls with content) */}
       <aside
         className={`hidden lg:flex flex-col ${
           isSidebarCollapsed ? 'w-20' : 'w-64'
-        } bg-[#0b132b] text-slate-300 h-screen sticky top-0 border-r border-slate-800/80 transition-all duration-300 shrink-0 z-40 overflow-hidden shadow-xl select-none`}
+        } bg-[#0b132b] text-slate-300 h-full shrink-0 border-r border-slate-800/80 transition-all duration-300 z-40 overflow-hidden shadow-xl select-none`}
       >
         {/* Brand & Collapse Toggle (Pinned Top) */}
         <div className="p-4 border-b border-slate-800/80 shrink-0 bg-[#0f172a]/80">
@@ -403,11 +403,11 @@ export const AdminDashboard = () => {
         </div>
       </aside>
 
-      {/* 2. Main Workspace */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      {/* 2. Main Workspace (Dedicated scrollable container) */}
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-y-auto">
         
         {/* Top Header Bar */}
-        <header className="bg-white border-b border-slate-200 px-6 py-3.5 flex items-center justify-between gap-4 sticky top-0 z-30 shadow-xs">
+        <header className="bg-white border-b border-slate-200 px-6 py-3.5 flex items-center justify-between gap-4 sticky top-0 z-30 shadow-xs shrink-0">
           
           {/* Header Search Bar */}
           <div className="relative max-w-md w-full hidden sm:block">
