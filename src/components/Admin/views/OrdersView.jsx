@@ -51,12 +51,11 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   // Selected Customer for Customer Profile & History Modal
   const [selectedCustomerModal, setSelectedCustomerModal] = useState(null);
 
-  // Combine live orders filtered by active supermarket branch
+  // Combine live orders filtered strictly by active supermarket branch
   const liveOrders = useMemo(() => {
     const raw = (customerOrders && customerOrders.length > 0) ? customerOrders : (adminOrders || []);
     if (!currentTenant?.id) return raw;
-    const branchSpecific = raw.filter((o) => !o.tenantId || o.tenantId === currentTenant.id);
-    return branchSpecific.length > 0 ? branchSpecific : raw;
+    return raw.filter((o) => !o.tenantId || o.tenantId === currentTenant.id);
   }, [customerOrders, adminOrders, currentTenant]);
 
   // Statistics KPI counts

@@ -2262,9 +2262,7 @@ export const RECIPES_DATA = [
 ];
 
 export const STORE_LOCATIONS = [
-  { id: 'store-1', name: 'FreshMart Fulfillment Hub #1 - Johar Town, Lahore', deliveryTime: 'Express Delivery' },
-  { id: 'store-2', name: 'FreshMart Fulfillment Hub #2 - Gulberg III, Lahore', deliveryTime: 'Express Delivery' },
-  { id: 'store-3', name: 'FreshMart Fulfillment Hub #3 - DHA Phase 5, Lahore', deliveryTime: 'Express Delivery' }
+  { id: 'store-fsd-1', name: 'FreshMart Flagship Hub - D-Ground, Peoples Colony 1, Faisalabad', city: 'Faisalabad', deliveryTime: 'Express Delivery (10-15 Mins)' }
 ];
 
 

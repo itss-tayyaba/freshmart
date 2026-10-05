@@ -591,9 +591,9 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
               </button>
               <button onClick={() => setActiveNav('branches')} className={getNavClass('branches')}>
                 <Building2 className="w-4 h-4 text-sky-400" />
-                <span>Branches & Hubs</span>
+                <span>Central Hub (Faisalabad)</span>
                 <span className="ml-auto text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">
-                  {BRANCHES.length}
+                  1
                 </span>
               </button>
               <button onClick={() => setActiveNav('plans')} className={getNavClass('plans')}>
@@ -848,23 +848,23 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
                   </div>
                 </div>
 
-                {/* 2. Total Branches */}
+                {/* 2. Centralized Branch (Faisalabad) */}
                 <div
                   onClick={() => setActiveNav('branches')}
                   className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition cursor-pointer flex flex-col justify-between"
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <span className="text-xs font-bold text-slate-500 block">Total Branches</span>
-                      <span className="text-2xl font-black text-slate-900 mt-1 block">{BRANCHES.length}</span>
+                      <span className="text-xs font-bold text-slate-500 block">Centralized Branch</span>
+                      <span className="text-2xl font-black text-slate-900 mt-1 block">1 (Faisalabad)</span>
                     </div>
                     <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
                       <Building2 className="w-5 h-5" />
                     </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-blue-700">
-                    <span>Across 5 Pakistan cities</span>
-                    <span className="text-blue-600">→</span>
+                    <span>Central Flagship Hub</span>
+                    <span className="text-blue-600">Active ✓</span>
                   </div>
                 </div>
 
@@ -1321,54 +1321,84 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
                 <div>
                   <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
                     <Building2 className="w-5 h-5 text-sky-600" />
-                    <span>Branches & Dark Store Hubs Network</span>
+                    <span>Central Flagship Branch Network (Faisalabad)</span>
                   </h2>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Physical stores and 15-minute dark store fulfillment centers across Lahore, Karachi, Islamabad, and Faisalabad.
+                    All supermarket stores and delivery fleets are centralized in our single flagship fulfillment center in Faisalabad.
                   </p>
                 </div>
-                <button
-                  onClick={() => setIsAddBranchOpen(true)}
-                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>+ Add Branch Hub</span>
-                </button>
+                <div className="px-3.5 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Central Operations Active</span>
+                </div>
               </div>
 
-              {/* Branches Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {BRANCHES.map((branch) => {
-                  const company = displayStores.find(
-                    (s) => s.id === branch.tenantId || s.fullName.toLowerCase().includes(branch.city?.toLowerCase() || '')
-                  );
-                  return (
-                    <div
-                      key={branch._id || branch.id}
-                      className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-3"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <span className="text-[10px] font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full uppercase">
-                            {branch.city} Hub
-                          </span>
-                          <h3 className="font-black text-slate-900 text-base mt-1.5">{branch.name}</h3>
-                          <span className="text-xs text-slate-400 font-medium">{branch.address}</span>
-                        </div>
-                        <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-700">
-                          <MapPin className="w-4 h-4 text-sky-500" />
-                        </div>
-                      </div>
-
-                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
-                        <span>📞 {branch.phone}</span>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
-                          {branch.status || 'Active'}
+              {/* Central Faisalabad Flagship Branch Card */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-2xs space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100">
+                  <div className="flex items-start gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center text-3xl shadow-xs shrink-0">
+                      🏬
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black text-sky-700 bg-sky-100 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                          Central Flagship Branch #1
+                        </span>
+                        <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                          100% Operational
                         </span>
                       </div>
+                      <h3 className="text-xl font-black text-slate-900 mt-1.5">FreshMart Faisalabad Flagship Hub</h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        D-Ground Commercial Center, Peoples Colony 1, Faisalabad, Punjab, Pakistan
+                      </p>
                     </div>
-                  );
-                })}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-center min-w-[90px]">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Hub Code</span>
+                      <span className="text-sm font-black font-mono text-slate-900">FSD-01</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-center min-w-[90px]">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Radius</span>
+                      <span className="text-sm font-black text-slate-900">25 km</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Details Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">GPS Coordinates</span>
+                    <div className="font-mono font-bold text-slate-900">31.4125° N, 73.0995° E</div>
+                    <div className="text-[11px] text-slate-500">D-Ground Center</div>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Branch Manager</span>
+                    <div className="font-bold text-slate-900">Muhammad Usman</div>
+                    <div className="text-[11px] text-slate-500">📞 +92 41 8712345</div>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Operating Hours</span>
+                    <div className="font-bold text-slate-900">08:00 AM - 12:00 AM</div>
+                    <div className="text-[11px] text-slate-500">7 Days a Week</div>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Fulfillment SLA</span>
+                    <div className="font-bold text-emerald-600">10-15 Min Express</div>
+                    <div className="text-[11px] text-slate-500">Unified Delivery Fleet</div>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-sky-50/70 border border-sky-100 text-xs text-sky-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">ℹ️</span>
+                    <span>All supermarket stores (Al-Fatah, Chase Value, Chase Up, FreshMart & custom marts) operate exclusively out of this central Faisalabad facility.</span>
+                  </div>
+                  <span className="font-mono font-bold text-sky-700 shrink-0">Centralized Architecture</span>
+                </div>
               </div>
             </div>
           )}

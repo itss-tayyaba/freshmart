@@ -101,7 +101,7 @@ export const FreshMartHome = () => {
     return p.category === activeBestsellerTab;
   });
 
-  const spotlightApple = products.find((p) => p.id === (storeSettings?.dealOfDayProductId || 'fresh-apples-1kg')) || products.find(p => p.isFlashDeal) || products[0];
+  const spotlightApple = products.find((p) => p.id === (storeSettings?.dealOfDayProductId || 'fresh-apples-1kg')) || products.find(p => p.isFlashDeal) || (products.length > 0 ? products[0] : null);
 
   const isUnimaart = currentTenant?.id === 'tenant-freshmart';
   const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
@@ -434,57 +434,73 @@ export const FreshMartHome = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           
           {/* Left Spotlight Product Card */}
-          <div className="lg:col-span-7 bg-[#fff8ed] border border-amber-200 rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
-            
-            {/* Timer / Spotlight Block */}
-            <div className="space-y-2 shrink-0 text-center sm:text-left">
-              <span className="text-xs font-black text-amber-800 uppercase tracking-wider block">
-                {spotlightApple.discountPercent > 0 ? 'Deal of the Day' : '⭐ Farm Fresh Harvest'}
-              </span>
-              <div className="flex items-center gap-1.5">
-                <div className="bg-amber-500 text-white font-mono font-black text-base px-2.5 py-1 rounded-xl shadow-xs">
-                  {format2Digits(dealTime.hours)}
+          {spotlightApple ? (
+            <div className="lg:col-span-7 bg-[#fff8ed] border border-amber-200 rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
+              
+              {/* Timer / Spotlight Block */}
+              <div className="space-y-2 shrink-0 text-center sm:text-left">
+                <span className="text-xs font-black text-amber-800 uppercase tracking-wider block">
+                  {spotlightApple.discountPercent > 0 ? 'Deal of the Day' : '⭐ Farm Fresh Harvest'}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <div className="bg-amber-500 text-white font-mono font-black text-base px-2.5 py-1 rounded-xl shadow-xs">
+                    {format2Digits(dealTime.hours)}
+                  </div>
+                  <span className="font-bold text-amber-700">:</span>
+                  <div className="bg-amber-500 text-white font-mono font-black text-base px-2.5 py-1 rounded-xl shadow-xs">
+                    {format2Digits(dealTime.minutes)}
+                  </div>
+                  <span className="font-bold text-amber-700">:</span>
+                  <div className="bg-amber-500 text-white font-mono font-black text-base px-2.5 py-1 rounded-xl shadow-xs">
+                    {format2Digits(dealTime.seconds)}
+                  </div>
                 </div>
-                <span className="font-bold text-amber-700">:</span>
-                <div className="bg-amber-500 text-white font-mono font-black text-base px-2.5 py-1 rounded-xl shadow-xs">
-                  {format2Digits(dealTime.minutes)}
-                </div>
-                <span className="font-bold text-amber-700">:</span>
-                <div className="bg-amber-500 text-white font-mono font-black text-base px-2.5 py-1 rounded-xl shadow-xs">
-                  {format2Digits(dealTime.seconds)}
+                <span className="text-[10px] text-amber-700 font-semibold block">Hours • Mins • Secs</span>
+              </div>
+
+              {/* Spotlight Product Info */}
+              <div className="flex items-center gap-4 flex-1">
+                <img
+                  src={spotlightApple.image}
+                  alt={spotlightApple.name}
+                  className="w-24 h-24 rounded-2xl object-cover bg-white shadow-xs border border-amber-200 shrink-0"
+                />
+                <div className="space-y-1">
+                  <h4 className="font-black text-sm text-slate-900 leading-snug">{spotlightApple.name}</h4>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-base font-black text-slate-900">{currency.symbol}{spotlightApple.price}</span>
+                    {spotlightApple.discountPercent > 0 && spotlightApple.originalPrice > spotlightApple.price && (
+                      <span className="text-xs text-slate-400 line-through">{currency.symbol}{spotlightApple.originalPrice}</span>
+                    )}
+                    {spotlightApple.discountPercent > 0 && (
+                      <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">{spotlightApple.discountPercent}% OFF</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => addToCart(spotlightApple, 1)}
+                    className={`mt-2 px-4 py-1.5 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer ${tenantTheme.primaryBtn}`}
+                  >
+                    + Add to Cart
+                  </button>
                 </div>
               </div>
-              <span className="text-[10px] text-amber-700 font-semibold block">Hours • Mins • Secs</span>
-            </div>
 
-            {/* Spotlight Product Info */}
-            <div className="flex items-center gap-4 flex-1">
-              <img
-                src={spotlightApple.image}
-                alt={spotlightApple.name}
-                className="w-24 h-24 rounded-2xl object-cover bg-white shadow-xs border border-amber-200 shrink-0"
-              />
+            </div>
+          ) : (
+            <div className="lg:col-span-7 bg-[#fff8ed] border border-amber-200 rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
               <div className="space-y-1">
-                <h4 className="font-black text-sm text-slate-900 leading-snug">{spotlightApple.name}</h4>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-base font-black text-slate-900">{currency.symbol}{spotlightApple.price}</span>
-                  {spotlightApple.discountPercent > 0 && spotlightApple.originalPrice > spotlightApple.price && (
-                    <span className="text-xs text-slate-400 line-through">{currency.symbol}{spotlightApple.originalPrice}</span>
-                  )}
-                  {spotlightApple.discountPercent > 0 && (
-                    <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">{spotlightApple.discountPercent}% OFF</span>
-                  )}
-                </div>
-                <button
-                  onClick={() => addToCart(spotlightApple, 1)}
-                  className={`mt-2 px-4 py-1.5 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer ${tenantTheme.primaryBtn}`}
-                >
-                  + Add to Cart
-                </button>
+                <span className="text-xs font-black text-amber-800 uppercase tracking-wider block">⭐ Store Catalog Ready</span>
+                <h4 className="font-black text-sm text-slate-900 leading-snug">New Stock Arriving Daily</h4>
+                <p className="text-xs text-slate-600">Store Admin can bulk import products, prices, and pictures anytime via the Store Admin CSV upload.</p>
               </div>
+              <button
+                onClick={() => navigateTo('shop')}
+                className={`px-4 py-2 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer ${tenantTheme.primaryBtn}`}
+              >
+                Browse Shop ➔
+              </button>
             </div>
-
-          </div>
+          )}
 
           {/* Right Banner Card */}
           <div className={`lg:col-span-5 rounded-3xl p-6 text-white shadow-md flex items-center justify-between gap-4 relative overflow-hidden ${tenantTheme.bannerGradient}`}>
@@ -563,7 +579,8 @@ export const FreshMartHome = () => {
         </div>
 
         {/* Product Cards 6-Column Grid matching screenshots */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        {bestsellersList.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           {bestsellersList.map((product) => {
             const prodId = product.id || product._id;
             const isFav = isInWishlist(prodId);
@@ -671,7 +688,24 @@ export const FreshMartHome = () => {
               </div>
             );
           })}
-        </div>
+          </div>
+        ) : (
+          <div className="bg-slate-50 border border-dashed border-slate-200 rounded-3xl p-10 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl">
+              📦
+            </div>
+            <div className="max-w-md mx-auto">
+              <h3 className="font-bold text-slate-800 text-sm">Store Catalog Ready for Products</h3>
+              <p className="text-xs text-slate-500 mt-1">This market's catalog currently has 0 items. Log in to the Store Admin console to upload items, prices, and pictures via CSV bulk import.</p>
+            </div>
+            <button
+              onClick={() => navigateTo('admin')}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition cursor-pointer"
+            >
+              Upload CSV in Admin Console ➔
+            </button>
+          </div>
+        )}
       </section>
 
       {/* 🎁 8. Subscribe & Save + Refer & Earn Duo Banners matching QuickGrocery design */}

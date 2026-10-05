@@ -76,15 +76,27 @@ export const AdminLogin = () => {
 
   const currentRoleConfig = roles.find((r) => r.id === selectedRole) || roles[0];
 
-  // Helper list of all marts available
-  const availableMarts = [
-    { id: 'tenant-alfatah', name: 'Al-Fatah Supermarket', logo: '🏬', color: '#991b1b', defaultEmail: 'admin@alfatah.pk' },
-    { id: 'tenant-chasevalue', name: 'Chase Value', logo: '🛒', color: '#78350f', defaultEmail: 'admin@chasevalue.pk' },
-    { id: 'tenant-chaseup', name: 'Chase Up', logo: '🏪', color: '#6b21a8', defaultEmail: 'admin@chaseup.pk' },
-    { id: 'tenant-freshmart', name: 'Unimart (Market Store)', logo: '🛒', color: '#0284c7', defaultEmail: 'admin@unimart.pk' },
-    { id: 'tenant-localgrocery', name: 'Local Grocery', logo: '🏬', color: '#78350f', defaultEmail: 'admin@localgrocery.pk' },
-    { id: 'tenant-superstore', name: 'Super Store', logo: '🏪', color: '#9333ea', defaultEmail: 'admin@superstore.pk' }
-  ];
+  // Dynamic list of all registered marts from platform tenants
+  const availableMarts = React.useMemo(() => {
+    if (tenants && tenants.length > 0) {
+      return tenants.map((t) => ({
+        id: t.id,
+        name: t.name,
+        shortName: (t.displayName || t.brandName || t.name).split(' ')[0],
+        logo: t.logo || '🏬',
+        color: t.color || '#0e7c66',
+        defaultEmail: t.ownerEmail || `admin@${t.slug || t.id.replace('tenant-', '')}.pk`
+      }));
+    }
+    return [
+      { id: 'tenant-alfatah', name: 'Al-Fatah Supermarket', shortName: 'Al-Fatah', logo: '🏬', color: '#991b1b', defaultEmail: 'admin@alfatah.pk' },
+      { id: 'tenant-chasevalue', name: 'Chase Value', shortName: 'Chase', logo: '🛒', color: '#78350f', defaultEmail: 'admin@chasevalue.pk' },
+      { id: 'tenant-chaseup', name: 'Chase Up', shortName: 'Chase', logo: '🏪', color: '#6b21a8', defaultEmail: 'admin@chaseup.pk' },
+      { id: 'tenant-freshmart', name: 'Unimart (Market Store)', shortName: 'Unimart', logo: '🛒', color: '#0284c7', defaultEmail: 'admin@unimart.pk' },
+      { id: 'tenant-localgrocery', name: 'Local Grocery', shortName: 'Local', logo: '🏬', color: '#78350f', defaultEmail: 'admin@localgrocery.pk' },
+      { id: 'tenant-superstore', name: 'Super Store', shortName: 'Super', logo: '🏪', color: '#9333ea', defaultEmail: 'admin@superstore.pk' }
+    ];
+  }, [tenants]);
 
   const handleRoleSelect = (roleItem) => {
     setSelectedRole(roleItem.id);

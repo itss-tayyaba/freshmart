@@ -32,6 +32,25 @@ import {
 import { apiService } from '../services/api';
 import { parseRouteFromUrl, getSeoMetadata } from '../utils/routeUtils';
 
+export const FAISALABAD_BRANCH = {
+  _id: 'branch_fsd_001',
+  id: 'branch_fsd_001',
+  code: 'FSD-01',
+  name: 'FreshMart Faisalabad Flagship Hub',
+  shortName: 'Faisalabad Hub',
+  tenantId: 'tenant-freshmart',
+  companyId: 'company_004',
+  city: 'Faisalabad',
+  district: 'Peoples Colony No. 1',
+  address: 'D-Ground Commercial Center, Peoples Colony 1, Faisalabad, Punjab, Pakistan',
+  coordinates: { lat: 31.4125, lng: 73.0995 },
+  phone: '+92 41 8712345',
+  manager: 'Muhammad Usman',
+  status: 'Active',
+  isFlagship: true,
+  isCentralHub: true
+};
+
 export {
   parseRouteFromUrl,
   getSeoMetadata,
@@ -191,7 +210,7 @@ export const StoreProvider = ({ children }) => {
     return INITIAL_TENANTS.find((t) => t.id === 'tenant-freshmart') || INITIAL_TENANTS[0];
   });
 
-  // --- 🏢 Multi-Company & Branch Architecture State (User → Tenant → Branch → Data) ---
+  // --- 🏢 Multi-Company & Branch Architecture State (Centralized in Faisalabad) ---
   const [currentBranch, setCurrentBranchState] = useState(() => {
     try {
       const savedBranchId = localStorage.getItem('freshmart_current_branch_id');
@@ -200,26 +219,20 @@ export const StoreProvider = ({ children }) => {
         if (found) return found;
       }
     } catch (e) {}
-    const canonicalTenantId = resolveTenantId(currentTenant?.id || 'company_004');
-    return BRANCHES.find((b) => b.tenantId === canonicalTenantId) || BRANCHES[0];
+    return FAISALABAD_BRANCH;
   });
 
   const setCurrentBranch = (branch) => {
-    setCurrentBranchState(branch);
+    setCurrentBranchState(branch || FAISALABAD_BRANCH);
     try {
       if (branch?._id) localStorage.setItem('freshmart_current_branch_id', branch._id);
     } catch (e) {}
   };
 
-  // Automatically synchronize active branch when switching company/tenant
+  // Keep branch set to Faisalabad centralized hub
   useEffect(() => {
-    if (!currentTenant) return;
-    const canonical = resolveTenantId(currentTenant.id || currentTenant._id);
-    if (currentBranch && currentBranch.tenantId !== canonical) {
-      const tenantBranches = BRANCHES.filter((b) => b.tenantId === canonical);
-      if (tenantBranches.length > 0) {
-        setCurrentBranch(tenantBranches[0]);
-      }
+    if (!currentBranch) {
+      setCurrentBranch(FAISALABAD_BRANCH);
     }
   }, [currentTenant]);
 
@@ -242,36 +255,38 @@ export const StoreProvider = ({ children }) => {
     return updated;
   };
 
+  // Products Catalog - Starts completely empty so each Mart Admin can bulk import via CSV
   const [allProducts, setAllProducts] = useState(() => {
     try {
-      const cacheVersion = localStorage.getItem('freshmart_catalog_v_multi');
-      if (cacheVersion === '2.1') {
+      const cacheVersion = localStorage.getItem('freshmart_catalog_v_empty');
+      if (cacheVersion === '3.2') {
         const saved = localStorage.getItem('freshmart_all_products');
-        if (saved) {
+        if (saved !== null) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          if (Array.isArray(parsed)) return parsed;
         }
       }
-      localStorage.setItem('freshmart_catalog_v_multi', '2.1');
-    } catch (e) {}
-    const baseIds = new Set(ALL_BRANCH_PRODUCTS.map((p) => String(p.id)));
-    const additionalFreshmart = (FRESHMART_PRODUCTS || [])
-      .filter((p) => !baseIds.has(String(p.id)))
-      .map((p) => ({
-        ...p,
-        tenantId: 'tenant-freshmart',
-        tenantName: 'FreshMart Direct'
-      }));
-    return [...ALL_BRANCH_PRODUCTS, ...additionalFreshmart];
+      localStorage.setItem('freshmart_catalog_v_empty', '3.2');
+      localStorage.setItem('freshmart_all_products', JSON.stringify([]));
+      return [];
+    } catch (e) {
+      return [];
+    }
   });
 
-  // Reactive products list scoped specifically to currentTenant
+  // Automatically persist any updates to products catalog to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_all_products', JSON.stringify(allProducts));
+    } catch (e) {}
+  }, [allProducts]);
+
+  // Reactive products list strictly scoped to currentTenant (No fallback to all other marts)
   const products = useMemo(() => {
     if (!currentTenant?.id) return allProducts;
-    const branchItems = allProducts.filter(
+    return allProducts.filter(
       (p) => p.tenantId === currentTenant.id || (!p.tenantId && currentTenant.id === 'tenant-freshmart')
     );
-    return branchItems.length > 0 ? branchItems : allProducts;
   }, [allProducts, currentTenant]);
 
   // Transparent setProducts wrapper to mutate current branch items within allProducts
@@ -291,6 +306,111 @@ export const StoreProvider = ({ children }) => {
       } catch (e) {}
       return combined;
     });
+  };
+
+  // Bulk upload products (CSV / Batch import) for the active store admin
+  const bulkUploadProducts = (newItems, replaceMode = false) => {
+    if (!Array.isArray(newItems) || newItems.length === 0) {
+      addToast('Upload Error ⚠️', 'No valid products found in import data.', 'error');
+      return { success: false, error: 'No items provided' };
+    }
+
+    const targetTenantId = currentTenant?.id || 'tenant-freshmart';
+    const targetTenantName = currentTenant?.name || 'Store';
+
+    const formattedItems = newItems.map((item, index) => {
+      const id = item.id || `prod-${targetTenantId.replace('tenant-', '')}-${Date.now()}-${index}`;
+      const name = (item.name || `Product ${index + 1}`).trim();
+      const price = Math.max(0, Number(item.price) || 0);
+      const discountPercent = Math.max(0, Math.min(100, Number(item.discountPercent || 0)));
+      const originalPrice = Number(item.originalPrice) && Number(item.originalPrice) >= price
+        ? Number(item.originalPrice)
+        : discountPercent > 0
+        ? Math.round(price / (1 - discountPercent / 100))
+        : price;
+      const stock = Math.max(0, Number(item.stock !== undefined ? item.stock : 50));
+      const category = (item.category || 'grocery-staples').toLowerCase().trim();
+      const categoryLabel = item.categoryLabel || item.category || 'Grocery Staples';
+      const unit = item.unit || '1 unit';
+      const image = item.image || item.pic || item.picture || item.img || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80';
+      const brand = item.brand || targetTenantName;
+      const description = item.description || `${name} - Premium quality grocery delivered fresh.`;
+
+      return {
+        id,
+        _id: id,
+        name,
+        price,
+        originalPrice,
+        discountPercent,
+        category,
+        categoryLabel,
+        unit,
+        stock,
+        stockCount: stock,
+        image,
+        brand,
+        description,
+        rating: Number(item.rating) || 4.8,
+        reviewsCount: Number(item.reviewsCount) || 12,
+        status: stock === 0 ? 'Out of Stock' : stock < 15 ? 'Low Stock' : 'Active',
+        inStock: stock > 0,
+        isFlashDeal: Boolean(item.isFlashDeal || discountPercent >= 15),
+        isBestSeller: Boolean(item.isBestSeller !== undefined ? item.isBestSeller : true),
+        tenantId: targetTenantId,
+        tenantName: targetTenantName,
+        createdAt: new Date().toISOString()
+      };
+    });
+
+    setAllProducts((prev) => {
+      let combined;
+      if (replaceMode) {
+        const otherItems = prev.filter(
+          (p) => p.tenantId !== targetTenantId && !(targetTenantId === 'tenant-freshmart' && !p.tenantId)
+        );
+        combined = [...formattedItems, ...otherItems];
+      } else {
+        const otherItems = prev.filter(
+          (p) => p.tenantId !== targetTenantId && !(targetTenantId === 'tenant-freshmart' && !p.tenantId)
+        );
+        const existingBranch = prev.filter(
+          (p) => p.tenantId === targetTenantId || (!p.tenantId && targetTenantId === 'tenant-freshmart')
+        );
+        combined = [...existingBranch, ...formattedItems, ...otherItems];
+      }
+      try {
+        localStorage.setItem('freshmart_all_products', JSON.stringify(combined));
+      } catch (e) {}
+      return combined;
+    });
+
+    addToast('CSV Import Successful! 📦', `Imported ${formattedItems.length} products for ${targetTenantName}`);
+    return { success: true, count: formattedItems.length };
+  };
+
+  // Clear all products for current store
+  const clearStoreProducts = (scope = 'current') => {
+    const targetTenantId = currentTenant?.id || 'tenant-freshmart';
+    const targetTenantName = currentTenant?.name || 'Store';
+
+    setAllProducts((prev) => {
+      let nextAll;
+      if (scope === 'all') {
+        nextAll = [];
+      } else {
+        nextAll = prev.filter(
+          (p) => p.tenantId !== targetTenantId && !(targetTenantId === 'tenant-freshmart' && !p.tenantId)
+        );
+      }
+      try {
+        localStorage.setItem('freshmart_all_products', JSON.stringify(nextAll));
+      } catch (e) {}
+      return nextAll;
+    });
+
+    addToast('Catalog Cleared 🗑️', `All products removed for ${targetTenantName}. Ready for CSV upload.`);
+    return { success: true };
   };
 
   const setCurrentTenant = (tenantOrId) => {
@@ -356,9 +476,12 @@ export const StoreProvider = ({ children }) => {
       }
     } catch (e) {}
     return {
-      city: 'Lahore, Pakistan',
-      address: '',
-      label: ''
+      city: 'Faisalabad, Pakistan',
+      area: 'D-Ground, Peoples Colony 1',
+      address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+      label: 'Peoples Colony 1',
+      lat: 31.4125,
+      lng: 73.0995
     };
   });
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
@@ -2312,8 +2435,8 @@ export const StoreProvider = ({ children }) => {
       name: email.split('@')[0].replace('.', ' ').replace(/^\w/, (c) => c.toUpperCase()),
       email: email,
       phone: '+92 300 1234567',
-      city: 'Lahore, Pakistan',
-      address: '123, Block A, Gulberg 3, Lahore',
+      city: 'Faisalabad, Pakistan',
+      address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
       walletBalance: 0,
       loyaltyPoints: 0
     };
@@ -2435,8 +2558,8 @@ export const StoreProvider = ({ children }) => {
       typeof orderData.shippingAddress === 'object' && orderData.shippingAddress !== null
         ? orderData.shippingAddress
         : {
-            address: orderData.address || deliveryLocation?.address || '123, Block A, Gulberg 3, Lahore',
-            city: orderData.city || deliveryLocation?.city || 'Lahore, Pakistan',
+            address: orderData.address || deliveryLocation?.address || 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+            city: orderData.city || deliveryLocation?.city || 'Faisalabad, Pakistan',
             deliverySlot: orderData.deliverySlot || '⚡ 25-35 Mins Express Delivery'
           };
 
@@ -3464,6 +3587,9 @@ export const StoreProvider = ({ children }) => {
         currentTenant,
         setCurrentTenant,
         allProducts,
+        bulkUploadProducts,
+        clearStoreProducts,
+        faisalabadBranch: FAISALABAD_BRANCH,
         getTenantProducts: (tenantId) => allProducts.filter((p) => p.tenantId === tenantId),
         branchMetrics: BRANCH_METRICS[currentTenant?.id] || BRANCH_METRICS['tenant-freshmart'],
         getBranchMetrics: (tenantId) => BRANCH_METRICS[tenantId] || BRANCH_METRICS['tenant-freshmart'],

@@ -6,10 +6,36 @@
 
 export const PAKISTAN_CITIES = [
   {
+    id: 'faisalabad',
+    city: 'Faisalabad, Pakistan',
+    province: 'Punjab',
+    hubName: 'FreshMart Flagship Hub #1 (D-Ground, Faisalabad)',
+    hubAddress: 'D-Ground Commercial Center, Peoples Colony 1, Faisalabad',
+    hubCoords: { lat: 31.4125, lng: 73.0995 },
+    neighborhoods: [
+      {
+        id: 'fsd-dground',
+        name: 'D Ground',
+        area: 'D Ground Market / Batala Colony',
+        coords: { lat: 31.4110, lng: 73.0980 },
+        defaultAddress: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+        postalCode: '38000'
+      },
+      {
+        id: 'fsd-peoples',
+        name: 'Peoples Colony',
+        area: 'Peoples Colony No. 1 & 2 / Chenab Club',
+        coords: { lat: 31.4050, lng: 73.1090 },
+        defaultAddress: 'Street 4, Peoples Colony No. 2, Faisalabad',
+        postalCode: '38040'
+      }
+    ]
+  },
+  {
     id: 'lahore',
     city: 'Lahore, Pakistan',
     province: 'Punjab',
-    hubName: 'FreshMart SuperHub #1 (Gulberg III)',
+    hubName: 'FreshMart SuperHub #2 (Gulberg III)',
     hubAddress: 'Plot 42-B, Main Boulevard, Gulberg III, Lahore',
     hubCoords: { lat: 31.5150, lng: 74.3450 },
     neighborhoods: [
@@ -43,7 +69,7 @@ export const PAKISTAN_CITIES = [
     id: 'karachi',
     city: 'Karachi, Pakistan',
     province: 'Sindh',
-    hubName: 'FreshMart Express Hub #2 (Clifton)',
+    hubName: 'FreshMart Express Hub #3 (Clifton)',
     hubAddress: 'Block 4, Marine Promenade, Clifton, Karachi',
     hubCoords: { lat: 24.8190, lng: 67.0320 },
     neighborhoods: [
@@ -77,7 +103,7 @@ export const PAKISTAN_CITIES = [
     id: 'islamabad',
     city: 'Islamabad, Pakistan',
     province: 'Federal Capital',
-    hubName: 'FreshMart Capital Hub #3 (Blue Area)',
+    hubName: 'FreshMart Capital Hub #4 (Blue Area)',
     hubAddress: 'Jinnah Avenue, Blue Area Sector F-6/G-6, Islamabad',
     hubCoords: { lat: 33.7120, lng: 73.0680 },
     neighborhoods: [
@@ -111,7 +137,7 @@ export const PAKISTAN_CITIES = [
     id: 'rawalpindi',
     city: 'Rawalpindi, Pakistan',
     province: 'Punjab',
-    hubName: 'FreshMart Pindi Hub #4 (Saddar Cantt)',
+    hubName: 'FreshMart Pindi Hub #5 (Saddar Cantt)',
     hubAddress: 'Bank Road, Saddar Cantt, Rawalpindi',
     hubCoords: { lat: 33.5990, lng: 73.0510 },
     neighborhoods: [
@@ -130,32 +156,6 @@ export const PAKISTAN_CITIES = [
         coords: { lat: 33.5280, lng: 73.1120 },
         defaultAddress: 'Villa 110, Sector B, Bahria Town Phase 4, Rawalpindi',
         postalCode: '46220'
-      }
-    ]
-  },
-  {
-    id: 'faisalabad',
-    city: 'Faisalabad, Pakistan',
-    province: 'Punjab',
-    hubName: 'FreshMart Lyallpur Hub #5 (D-Ground)',
-    hubAddress: 'D-Ground Commercial Center, Peoples Colony 1, Faisalabad',
-    hubCoords: { lat: 31.4125, lng: 73.0995 },
-    neighborhoods: [
-      {
-        id: 'fsd-dground',
-        name: 'D Ground',
-        area: 'D Ground Market / Batala Colony',
-        coords: { lat: 31.4110, lng: 73.0980 },
-        defaultAddress: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
-        postalCode: '38000'
-      },
-      {
-        id: 'fsd-peoples',
-        name: 'Peoples Colony',
-        area: 'Peoples Colony No. 1 & 2 / Chenab Club',
-        coords: { lat: 31.4050, lng: 73.1090 },
-        defaultAddress: 'Street 4, Peoples Colony No. 2, Faisalabad',
-        postalCode: '38040'
       }
     ]
   }
