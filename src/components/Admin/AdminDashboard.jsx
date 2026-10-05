@@ -217,62 +217,60 @@ export const AdminDashboard = () => {
             className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs"
             onClick={() => setIsMobileMenuOpen(false)}
           />
-          <div className="relative z-10 w-72 max-w-[85vw] bg-[#0f172a] text-slate-300 p-5 flex flex-col justify-between h-full shadow-2xl border-r border-slate-800 overflow-y-auto animate-in slide-in-from-left duration-200">
-            <div>
-              {/* Brand in Mobile Drawer */}
-              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-                <div onClick={() => { navigateTo('home'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2.5 cursor-pointer">
-                  <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-black text-lg shadow-md">
-                    {currentTenant?.logo || '🏬'}
-                  </div>
-                  <div>
-                    <h2 className="text-base font-black text-white leading-none">{currentTenant?.name || 'Store Admin'}</h2>
-                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block mt-1">
-                      {currentRoleInfo.badge}
-                    </span>
-                  </div>
+          <div className="relative z-10 w-72 max-w-[85vw] bg-[#0b132b] text-slate-300 flex flex-col h-full shadow-2xl border-r border-slate-800 overflow-hidden animate-in slide-in-from-left duration-200">
+            {/* Brand in Mobile Drawer (Pinned Top) */}
+            <div className="p-4 border-b border-slate-800 shrink-0 bg-[#0f172a] flex items-center justify-between">
+              <div onClick={() => { navigateTo('home'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2.5 cursor-pointer">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black text-lg shadow-md">
+                  {currentTenant?.logo || '🏬'}
                 </div>
-                <button
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div>
+                  <h2 className="text-base font-black text-white leading-none">{currentTenant?.displayName || currentTenant?.name || 'Store Admin'}</h2>
+                  <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block mt-1">
+                    {currentRoleInfo.badge}
+                  </span>
+                </div>
               </div>
-
-              {/* Mobile Nav Links */}
-              <nav className="mt-4 space-y-1">
-                {adminNavItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.label;
-
-                  return (
-                    <button
-                      key={item.label}
-                      onClick={() => handleSelectNav(item.label)}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all text-left cursor-pointer ${
-                        isActive
-                          ? 'bg-emerald-600 text-white font-bold shadow-sm'
-                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Icon className="w-4 h-4 shrink-0" />
-                        <span>{item.customName || item.label}</span>
-                      </div>
-                      {item.badge && (
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${item.badgeColor || 'bg-slate-800 text-slate-300'}`}>
-                          {item.badge}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            {/* Mobile Footer Links */}
-            <div className="pt-5 border-t border-slate-800 space-y-2 mt-4">
+            {/* Mobile Nav Links (Independent Scroll) */}
+            <nav className="flex-1 overflow-y-auto min-h-0 py-3 px-3 space-y-1 sidebar-scrollbar">
+              {adminNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.label;
+
+                return (
+                  <button
+                    key={item.label}
+                    onClick={() => handleSelectNav(item.label)}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all text-left cursor-pointer ${
+                      isActive
+                        ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/40 ring-1 ring-emerald-500/30'
+                        : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span>{item.customName || item.label}</span>
+                    </div>
+                    {item.badge && (
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${item.badgeColor || 'bg-slate-800 text-slate-300'}`}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* Mobile Footer Links (Pinned Bottom) */}
+            <div className="p-4 border-t border-slate-800 shrink-0 bg-[#0f172a] space-y-2 mt-auto">
               <button
                 onClick={() => { navigateTo('home'); setIsMobileMenuOpen(false); }}
                 className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold text-emerald-400 bg-emerald-950/40 hover:bg-emerald-950/70 border border-emerald-800/40 transition-colors cursor-pointer"
@@ -298,25 +296,28 @@ export const AdminDashboard = () => {
 
       {/* 💻 1. Desktop Left Dark Sticky Sidebar */}
       <aside
-        className={`hidden lg:flex flex-col justify-between ${
-          isSidebarCollapsed ? 'w-20 p-3.5' : 'w-64 p-5'
-        } bg-[#0f172a] text-slate-300 h-screen sticky top-0 border-r border-slate-800 transition-all duration-300 shrink-0 z-40 overflow-y-auto`}
+        className={`hidden lg:flex flex-col ${
+          isSidebarCollapsed ? 'w-20' : 'w-64'
+        } bg-[#0b132b] text-slate-300 h-screen sticky top-0 border-r border-slate-800/80 transition-all duration-300 shrink-0 z-40 overflow-hidden shadow-xl select-none`}
       >
-        <div>
-          {/* Brand & Collapse Toggle */}
-          <div className="flex items-center justify-between pb-5 border-b border-slate-800">
+        {/* Brand & Collapse Toggle (Pinned Top) */}
+        <div className="p-4 border-b border-slate-800/80 shrink-0 bg-[#0f172a]/80">
+          <div className="flex items-center justify-between gap-2">
             <div
               onClick={() => navigateTo('home')}
               className="flex items-center gap-2.5 cursor-pointer group min-w-0"
+              title="Return to Customer Storefront"
             >
-              <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-black text-lg shadow-md group-hover:scale-105 transition-transform shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black text-lg shadow-sm group-hover:scale-105 transition-transform shrink-0">
                 {currentTenant?.logo || '🏬'}
               </div>
               {!isSidebarCollapsed && (
-                <div className="truncate animate-in fade-in duration-200">
-                  <h2 className="text-base font-black text-white leading-none truncate">{currentTenant?.name || 'Store Admin'}</h2>
-                  <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block mt-1 truncate">
-                    {currentRoleInfo.badge}
+                <div className="min-w-0 flex-1 truncate">
+                  <h2 className="text-sm font-black text-white leading-tight truncate">
+                    {currentTenant?.displayName || currentTenant?.name || 'Store Admin'}
+                  </h2>
+                  <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block truncate mt-0.5">
+                    {currentRoleInfo.title}
                   </span>
                 </div>
               )}
@@ -325,79 +326,79 @@ export const AdminDashboard = () => {
             {/* Desktop Collapse / Expand Button */}
             <button
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="p-1 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer ml-auto"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors shrink-0 cursor-pointer"
               title={isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
             >
               {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
             </button>
           </div>
-
-          {/* Nav Items */}
-          <nav className="mt-5 space-y-1">
-            {adminNavItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.label;
-
-              return (
-                <button
-                  key={item.label}
-                  onClick={() => setActiveTab(item.label)}
-                  title={isSidebarCollapsed ? item.customName || item.label : undefined}
-                  className={`w-full flex items-center ${
-                    isSidebarCollapsed ? 'justify-center px-2 py-2.5' : 'justify-between px-3.5 py-2.5'
-                  } rounded-xl text-xs font-semibold transition-all text-left cursor-pointer group relative ${
-                    isActive
-                      ? 'bg-emerald-600 text-white font-bold shadow-sm'
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-emerald-400 transition-colors'}`} />
-                    {!isSidebarCollapsed && (
-                      <span className="truncate">{item.customName || item.label}</span>
-                    )}
-                  </div>
-
-                  {!isSidebarCollapsed && item.badge && (
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${item.badgeColor || 'bg-slate-800 text-slate-300'}`}>
-                      {item.badge}
-                    </span>
-                  )}
-
-                  {isSidebarCollapsed && item.badge && (
-                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-[#0f172a]" />
-                  )}
-                </button>
-              );
-            })}
-          </nav>
         </div>
 
-        {/* Desktop Footer Actions: Storefront & Sign Out */}
-        <div className="pt-5 border-t border-slate-800 space-y-2 mt-6">
+        {/* Nav Items Area (Independent smooth scrolling container) */}
+        <nav className="flex-1 overflow-y-auto min-h-0 py-3 px-2.5 space-y-1 sidebar-scrollbar">
+          {adminNavItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.label;
+
+            return (
+              <button
+                key={item.label}
+                onClick={() => setActiveTab(item.label)}
+                title={isSidebarCollapsed ? item.customName || item.label : undefined}
+                className={`w-full flex items-center ${
+                  isSidebarCollapsed ? 'justify-center px-2 py-2.5' : 'justify-between px-3 py-2'
+                } rounded-xl text-xs font-semibold transition-all text-left cursor-pointer group relative ${
+                  isActive
+                    ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/40 ring-1 ring-emerald-500/30'
+                    : 'text-slate-400 hover:bg-slate-800/70 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Icon className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-emerald-400'}`} />
+                  {!isSidebarCollapsed && (
+                    <span className="truncate">{item.customName || item.label}</span>
+                  )}
+                </div>
+
+                {!isSidebarCollapsed && item.badge && (
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${item.badgeColor || 'bg-slate-800 text-slate-300'}`}>
+                    {item.badge}
+                  </span>
+                )}
+
+                {isSidebarCollapsed && item.badge && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-[#0b132b]" />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Desktop Footer Actions: Storefront & Sign Out (Pinned Bottom) */}
+        <div className="p-3 border-t border-slate-800/80 shrink-0 bg-[#0f172a]/90 space-y-1.5 mt-auto">
           <button
             onClick={() => navigateTo('home')}
             title="Back to Customer Storefront"
             className={`w-full flex items-center ${
-              isSidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3.5 py-2.5'
-            } rounded-xl text-xs font-bold text-emerald-400 bg-emerald-950/40 hover:bg-emerald-950/70 border border-emerald-800/40 transition-colors cursor-pointer`}
+              isSidebarCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'
+            } rounded-xl text-xs font-bold text-emerald-400 bg-emerald-950/40 hover:bg-emerald-950/80 border border-emerald-800/40 transition-colors cursor-pointer`}
           >
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-2 min-w-0">
               <Store className="w-4 h-4 shrink-0" />
-              {!isSidebarCollapsed && <span>Customer Store</span>}
+              {!isSidebarCollapsed && <span className="truncate">Customer Store</span>}
             </span>
-            {!isSidebarCollapsed && <ExternalLink className="w-3.5 h-3.5 shrink-0" />}
+            {!isSidebarCollapsed && <ExternalLink className="w-3.5 h-3.5 shrink-0 text-emerald-400/80" />}
           </button>
           
           <button
             onClick={adminLogout}
             title={`Sign Out (${currentRoleInfo.title})`}
             className={`w-full flex items-center ${
-              isSidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3.5 py-2'
+              isSidebarCollapsed ? 'justify-center p-2' : 'gap-2.5 px-3 py-2'
             } rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-950/40 transition-colors cursor-pointer`}
           >
             <LogOut className="w-4 h-4 shrink-0" />
-            {!isSidebarCollapsed && <span>Sign Out</span>}
+            {!isSidebarCollapsed && <span className="truncate">Sign Out</span>}
           </button>
         </div>
       </aside>

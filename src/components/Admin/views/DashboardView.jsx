@@ -458,8 +458,8 @@ export const DashboardView = ({ onNavigateModule }) => {
 
           <div className="bg-blue-950/80 px-3 py-1.5 rounded-xl border border-blue-800/60 flex items-center gap-1.5">
             <span className="text-blue-400 font-bold">BRANCH:</span>
-            <span className="font-black text-white">{currentBranch?.name || 'DHA Lahore'}</span>
-            <span className="text-[10px] text-slate-400">({currentBranch?.city || 'Lahore'})</span>
+            <span className="font-black text-white">{currentBranch?.name || 'FreshMart Faisalabad Flagship Hub'}</span>
+            <span className="text-[10px] text-slate-400">({currentBranch?.city || 'Faisalabad'})</span>
           </div>
           <span className="text-slate-500 font-black">➔</span>
 
@@ -477,10 +477,10 @@ export const DashboardView = ({ onNavigateModule }) => {
 
         <div className="text-[11px] text-slate-400 flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
           <span>
-            📍 GPS Coordinates: <strong className="text-slate-300">{currentBranch?.latitude || 31.4697}, {currentBranch?.longitude || 74.4082}</strong>
+            📍 GPS Coordinates: <strong className="text-slate-300">{currentBranch?.latitude || 31.4125}, {currentBranch?.longitude || 73.0995}</strong>
           </span>
           <span className="text-emerald-400 font-semibold">
-            ✓ Tenant isolation prevents cross-company data leakage
+            ✓ Centralized Faisalabad Flagship Hub & Tenant Isolation Active
           </span>
         </div>
       </div>
