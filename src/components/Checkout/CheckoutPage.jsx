@@ -105,7 +105,6 @@ export const CheckoutPage = () => {
   const [placedOrderDetails, setPlacedOrderDetails] = useState(null);
   const [copiedOrderId, setCopiedOrderId] = useState(false);
 
-  // Direct Address State
   const [addressData, setAddressData] = useState({
     recipientName: customerUser?.name || 'Hafsa',
     phone: customerUser?.phone || '0300-1234567',
@@ -113,6 +112,16 @@ export const CheckoutPage = () => {
     city: deliveryLocation.city || 'Lahore, Pakistan',
     notes: 'Please ring bell and leave package at doorstep.'
   });
+
+  useEffect(() => {
+    if (deliveryLocation?.address) {
+      setAddressData((prev) => ({
+        ...prev,
+        address: deliveryLocation.address,
+        city: deliveryLocation.city || prev.city
+      }));
+    }
+  }, [deliveryLocation]);
 
   const grandTotalWithTip = cartTotal + riderTip;
 

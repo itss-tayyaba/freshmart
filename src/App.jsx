@@ -53,7 +53,7 @@ function FreshMartAppContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8fafc] font-sans antialiased text-slate-800">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc] font-sans antialiased text-slate-800 w-full max-w-full overflow-x-hidden">
       {/* Top Header & Navigation Bar */}
       <FreshMartHeader />
 

@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { connectDB } from '../server/config/db.js';
+import { connectDB, isDbOnline } from '../server/config/db.js';
 import { corsOptions } from '../server/config/corsOptions.js';
 import apiRoutes from '../server/routes/apiRoutes.js';
 import { notFound, errorHandler } from '../server/middleware/errorMiddleware.js';
@@ -26,10 +26,12 @@ app.use(async (req, res, next) => {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
+  const online = isDbOnline();
   res.json({
     status: 'Healthy',
     platform: 'Vercel Serverless Function',
-    database: 'MongoDB Atlas',
+    database: online ? 'Connected (MongoDB Atlas)' : 'Active (In-Memory Store)',
+    dbConnected: online,
     timestamp: new Date().toISOString()
   });
 });

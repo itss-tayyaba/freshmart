@@ -16,6 +16,20 @@ export const isDbOnline = () => {
   return dbLive && mongoose.connection && mongoose.connection.readyState === 1;
 };
 
+const DEFAULT_ATLAS_URI = 'mongodb+srv://hamzatabi654_db_user:fG8Ie2r7NgwE2DNN@cluster0.xhltzke.mongodb.net/freshmart?retryWrites=true&w=majority';
+
+// Register connection state listeners
+mongoose.connection.on('connected', () => {
+  dbLive = true;
+});
+mongoose.connection.on('error', (err) => {
+  console.warn('⚠️ MongoDB runtime error:', err.message);
+  dbLive = false;
+});
+mongoose.connection.on('disconnected', () => {
+  dbLive = false;
+});
+
 export const connectDB = async () => {
   if (mongoose.connection && mongoose.connection.readyState === 1) {
     dbLive = true;
@@ -26,7 +40,7 @@ export const connectDB = async () => {
     return await isConnecting;
   }
 
-  const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI;
+  const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI || DEFAULT_ATLAS_URI;
 
   if (!mongoURI || mongoURI === 'none') {
     dbLive = false;
@@ -37,7 +51,8 @@ export const connectDB = async () => {
   isConnecting = (async () => {
     try {
       const conn = await mongoose.connect(mongoURI, {
-        serverSelectionTimeoutMS: 8000
+        serverSelectionTimeoutMS: 8000,
+        maxPoolSize: 10
       });
       dbLive = true;
       console.log(`✅ MongoDB Atlas Connected Successfully: ${conn.connection.host}`);

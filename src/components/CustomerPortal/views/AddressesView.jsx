@@ -26,12 +26,18 @@ export const AddressesView = () => {
     e.preventDefault();
     if (!addressForm.address.trim()) return;
 
-    addSavedAddress({
+    const newLocation = {
       label: addressForm.label,
-      address: addressForm.address,
+      address: addressForm.address.trim(),
       city: addressForm.city,
       phone: addressForm.phone
-    });
+    };
+
+    addSavedAddress(newLocation);
+    setDeliveryLocation(newLocation);
+    try {
+      localStorage.setItem('freshmart_delivery_location', JSON.stringify(newLocation));
+    } catch (err) {}
 
     setIsModalOpen(false);
     setAddressForm({

@@ -1940,6 +1940,14 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [savedDeliveryAddresses]);
 
+  useEffect(() => {
+    try {
+      if (deliveryLocation) {
+        localStorage.setItem('freshmart_delivery_location', JSON.stringify(deliveryLocation));
+      }
+    } catch (e) {}
+  }, [deliveryLocation]);
+
   // --- 🏢 Super Admin & Multi-Tenant Management Engine ---
   const addTenant = async (tenantData) => {
     const slug = (tenantData.slug || tenantData.name || `store-${Date.now()}`)

@@ -118,12 +118,12 @@ export const FreshMartHeader = () => {
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-xs">
       
       {/* 1. Main Top Bar matching screenshot */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-2 sm:gap-4 w-full">
         
         {/* Mobile Hamburger Button */}
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="lg:hidden p-2 text-slate-600 hover:text-slate-900 rounded-lg"
+          className="lg:hidden p-2 text-slate-600 hover:text-slate-900 rounded-lg shrink-0"
         >
           {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
@@ -131,7 +131,7 @@ export const FreshMartHeader = () => {
         {/* Brand Logo dynamically reflecting Al-Fatah or Chase Up */}
         <div
           onClick={() => navigateTo('home')}
-          className="flex items-center gap-2.5 cursor-pointer select-none group"
+          className="flex items-center gap-2 sm:gap-2.5 cursor-pointer select-none group shrink-0"
         >
           <div
             style={{ backgroundColor: tenantThemeColor }}
@@ -143,36 +143,39 @@ export const FreshMartHeader = () => {
             <h1 className="text-lg sm:text-xl font-black tracking-tight leading-none text-slate-900 flex items-center">
               {tenantThemeName}
             </h1>
-            <span className="text-[10px] text-slate-400 font-medium block mt-0.5 tracking-wider truncate max-w-[200px]">
+            <span className="text-[10px] text-slate-400 font-medium block mt-0.5 tracking-wider truncate max-w-[150px] sm:max-w-[200px]">
               {tenantTagline}
             </span>
           </div>
         </div>
 
-        {/* Location Picker matching screenshot */}
+        {/* Location Picker displaying active address */}
         <div
           onClick={() => setIsLocationModalOpen(true)}
-          className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/30 cursor-pointer transition-colors shrink-0"
+          className="hidden md:flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/30 cursor-pointer transition-colors shrink-0 max-w-[180px] lg:max-w-[230px]"
+          title={deliveryLocation?.address ? `${deliveryLocation.address}, ${deliveryLocation.city}` : (deliveryLocation?.city || 'Lahore, Pakistan')}
         >
-          <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+          <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
             <MapPin className="w-4 h-4" />
           </div>
-          <div className="text-left leading-tight">
+          <div className="text-left leading-tight min-w-0">
             <span className="text-[10px] font-semibold text-slate-400 block uppercase">
               Deliver to
             </span>
-            <div className="flex items-center gap-1">
-              <span className="text-xs font-bold text-slate-800 truncate max-w-[120px]">
-                {deliveryLocation?.city || 'Lahore, Pakistan'}
+            <div className="flex items-center gap-1 min-w-0">
+              <span className="text-xs font-bold text-slate-800 truncate">
+                {deliveryLocation?.address
+                  ? (deliveryLocation.label ? `${deliveryLocation.label}: ${deliveryLocation.address}` : deliveryLocation.address)
+                  : (deliveryLocation?.city || 'Lahore, Pakistan')}
               </span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
+              <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
             </div>
           </div>
         </div>
 
         {/* 🏬 Multi-Tenant Supermarket Switcher */}
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100 transition shrink-0">
-          <div style={{ backgroundColor: tenantThemeColor }} className="w-7 h-7 rounded-lg text-white flex items-center justify-center text-xs shadow-xs">
+        <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100 transition shrink-0">
+          <div style={{ backgroundColor: tenantThemeColor }} className="w-7 h-7 rounded-lg text-white flex items-center justify-center text-xs shadow-xs shrink-0">
             {tenantLogo}
           </div>
           <div className="text-left leading-tight">
@@ -200,12 +203,12 @@ export const FreshMartHeader = () => {
         </div>
 
         {/* Search Bar with Live Instant Suggestions Popup */}
-        <div ref={searchContainerRef} className="flex-1 max-w-xl hidden sm:block relative z-50">
+        <div ref={searchContainerRef} className="flex-1 min-w-0 max-w-xl hidden sm:block relative z-50 mx-1 sm:mx-2">
           <form
             onSubmit={handleSearchSubmit}
             className="flex items-center border border-slate-200 rounded-full overflow-hidden bg-slate-50 focus-within:ring-2 focus-within:bg-white focus-within:border-transparent transition-all shadow-inner"
           >
-            <div className="pl-4 text-slate-400">
+            <div className="pl-3.5 text-slate-400 shrink-0">
               <Search className="w-4 h-4" />
             </div>
             <input
@@ -217,13 +220,13 @@ export const FreshMartHeader = () => {
                 setSearchQuery(e.target.value);
                 setIsSearchFocused(true);
               }}
-              className="flex-1 px-3 py-2.5 text-xs sm:text-sm text-slate-800 placeholder-slate-400 bg-transparent focus:outline-none"
+              className="flex-1 min-w-0 px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 bg-transparent focus:outline-none"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full mr-1 cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full mr-1 cursor-pointer shrink-0"
                 title="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
@@ -232,7 +235,7 @@ export const FreshMartHeader = () => {
             <button
               type="submit"
               style={{ backgroundColor: tenantThemeColor }}
-              className="px-6 py-2.5 text-white text-xs sm:text-sm font-bold transition-opacity hover:opacity-90 shrink-0 cursor-pointer"
+              className="px-4 sm:px-6 py-2 sm:py-2.5 text-white text-xs sm:text-sm font-bold transition-opacity hover:opacity-90 shrink-0 cursor-pointer"
             >
               Search
             </button>
@@ -370,7 +373,7 @@ export const FreshMartHeader = () => {
         </div>
 
         {/* Right Header Navigation Icons matching screenshot */}
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           
           {/* Offers */}
           <button
@@ -483,10 +486,10 @@ export const FreshMartHeader = () => {
       </div>
 
       {/* 2. Secondary Navigation Links Bar (Unified across all landing pages) */}
-      <nav className="border-t border-slate-100 bg-white shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+      <nav className="border-t border-slate-100 bg-white shadow-2xs overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3 w-full">
           
-          <div className="flex items-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar py-2">
+          <div className="flex-1 min-w-0 flex items-center gap-3 sm:gap-6 overflow-x-auto no-scrollbar py-2">
             
             {/* Departments Dropdown */}
             <div ref={categoryDropdownRef} className="relative shrink-0">
@@ -732,10 +735,14 @@ export const FreshMartHeader = () => {
             }}
             className="w-full p-2.5 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs cursor-pointer hover:bg-slate-50"
           >
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-emerald-600" />
-              <span className="text-slate-500">Deliver to:</span>
-              <span className="font-bold text-slate-800">{deliveryLocation?.city || 'Lahore, Pakistan'}</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="text-slate-500 shrink-0">Deliver to:</span>
+              <span className="font-bold text-slate-800 truncate">
+                {deliveryLocation?.address
+                  ? (deliveryLocation.label ? `${deliveryLocation.label}: ${deliveryLocation.address}` : `${deliveryLocation.address}, ${deliveryLocation.city}`)
+                  : (deliveryLocation?.city || 'Lahore, Pakistan')}
+              </span>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
           </button>
