@@ -222,6 +222,27 @@ export const StoreProvider = ({ children }) => {
     return INITIAL_TENANTS.find((t) => t.id === 'tenant-freshmart') || INITIAL_TENANTS[0];
   });
 
+  // Delivery Location (Initialized upfront with verified coordinates)
+  const [deliveryLocation, setDeliveryLocation] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_delivery_location');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch (e) {}
+    return {
+      city: 'Faisalabad, Pakistan',
+      area: 'D-Ground, Peoples Colony 1',
+      address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+      label: 'Peoples Colony 1',
+      lat: 31.4125,
+      lng: 73.0995,
+      coords: { lat: 31.4125, lng: 73.0995 }
+    };
+  });
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+
   // --- 🏢 Multi-Company & Branch Architecture State (Centralized in Faisalabad) ---
   const [currentBranch, setCurrentBranchState] = useState(() => {
     try {
@@ -592,26 +613,6 @@ export const StoreProvider = ({ children }) => {
 
   // Selected product for single product details page
   const [selectedProduct, setSelectedProduct] = useState(() => initialRoute.product || FRESHMART_PRODUCTS[0]);
-
-  // Delivery Location (Starts empty until user adds their address)
-  const [deliveryLocation, setDeliveryLocation] = useState(() => {
-    try {
-      const saved = localStorage.getItem('freshmart_delivery_location');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === 'object') return parsed;
-      }
-    } catch (e) {}
-    return {
-      city: 'Faisalabad, Pakistan',
-      area: 'D-Ground, Peoples Colony 1',
-      address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
-      label: 'Peoples Colony 1',
-      lat: 31.4125,
-      lng: 73.0995
-    };
-  });
-  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
 
   // Time & Service Alerts
   const [customerNotifications, setCustomerNotifications] = useState([
