@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MapPin,
   Clock,
@@ -106,11 +106,11 @@ export const CheckoutPage = () => {
   const [copiedOrderId, setCopiedOrderId] = useState(false);
 
   const [addressData, setAddressData] = useState({
-    recipientName: customerUser?.name || 'Hafsa',
-    phone: customerUser?.phone || '0300-1234567',
-    address: deliveryLocation.address || 'House 12, Street 4, Sector B, Johar Town, Lahore',
-    city: deliveryLocation.city || 'Lahore, Pakistan',
-    notes: 'Please ring bell and leave package at doorstep.'
+    recipientName: customerUser?.name || '',
+    phone: customerUser?.phone || '',
+    address: deliveryLocation.address || 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+    city: deliveryLocation.city || 'Faisalabad, Pakistan',
+    notes: ''
   });
 
   useEffect(() => {
@@ -429,7 +429,7 @@ export const CheckoutPage = () => {
                     value={addressData.recipientName}
                     onChange={(e) => setAddressData({ ...addressData, recipientName: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all"
-                    placeholder="e.g. Hafsa"
+                    placeholder="e.g. Your Name"
                   />
                 </div>
 

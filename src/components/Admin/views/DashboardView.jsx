@@ -82,7 +82,7 @@ export const DashboardView = ({ onNavigateModule }) => {
   const liveOrderSales = (customerOrders || []).reduce((sum, o) => sum + (Number(o.total) || 0), 0);
   const totalSales = liveOrderSales > 0 ? liveOrderSales : (tenantMetrics?.kpis?.todaySales || 784500);
   const totalOrders = (customerOrders || []).length > 0 ? (customerOrders || []).length : (tenantMetrics?.kpis?.totalOrders || 162);
-  const totalCustomers = (customers || []).length > 0 ? (customers || []).length : 1842;
+  const totalCustomers = (customers || []).length;
   const totalProducts = (products || []).length;
 
   const lowStockProducts = (products || []).filter((p) => {
@@ -1102,46 +1102,45 @@ export const DashboardView = ({ onNavigateModule }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {(customerOrders && customerOrders.length > 0
-                  ? customerOrders.slice(0, 5)
-                  : [
-                      { id: 'ORD-9421', customer: { name: 'Hafsa' }, total: 2450, paymentMethod: 'JazzCash', status: 'Processing' },
-                      { id: 'ORD-9420', customer: { name: 'Aimen' }, total: 1850, paymentMethod: 'EasyPaisa', status: 'Delivered' },
-                      { id: 'ORD-9419', customer: { name: 'Usman Ali' }, total: 3200, paymentMethod: 'Cash on Delivery', status: 'Pending' },
-                      { id: 'ORD-9418', customer: { name: 'Fatima Noor' }, total: 4100, paymentMethod: 'Credit Card', status: 'Delivered' },
-                      { id: 'ORD-9417', customer: { name: 'Zainab' }, total: 1250, paymentMethod: 'Cash on Delivery', status: 'Packed' }
-                    ]
-                ).map((ord) => {
-                  const statusColor =
-                    ord.status === 'Delivered'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : ord.status === 'Processing' || ord.status === 'Packed'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-amber-100 text-amber-800';
+                {customerOrders && customerOrders.length > 0 ? (
+                  customerOrders.slice(0, 5).map((ord) => {
+                    const statusColor =
+                      ord.status === 'Delivered'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : ord.status === 'Processing' || ord.status === 'Packed'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-amber-100 text-amber-800';
 
-                  return (
-                    <tr key={ord.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 font-mono font-bold text-slate-900">{ord.id}</td>
-                      <td className="py-3 font-semibold text-slate-800">
-                        {ord.customer?.name || ord.shippingAddress?.fullName || 'Customer'}
-                      </td>
-                      <td className="py-3 font-black text-slate-900">
-                        {currency.symbol || 'Rs. '}
-                        {Number(ord.total || 0).toLocaleString()}
-                      </td>
-                      <td className="py-3 text-slate-500 font-medium">
-                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[10px] font-bold">
-                          {ord.paymentMethod || 'Cash on Delivery'}
-                        </span>
-                      </td>
-                      <td className="py-3 text-right">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${statusColor}`}>
-                          {ord.status || 'Pending'}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
+                    return (
+                      <tr key={ord.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 font-mono font-bold text-slate-900">{ord.id}</td>
+                        <td className="py-3 font-semibold text-slate-800">
+                          {ord.customer?.name || ord.shippingAddress?.fullName || 'Customer'}
+                        </td>
+                        <td className="py-3 font-black text-slate-900">
+                          {currency.symbol || 'Rs. '}
+                          {Number(ord.total || 0).toLocaleString()}
+                        </td>
+                        <td className="py-3 text-slate-500 font-medium">
+                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[10px] font-bold">
+                            {ord.paymentMethod || 'Cash on Delivery'}
+                          </span>
+                        </td>
+                        <td className="py-3 text-right">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${statusColor}`}>
+                            {ord.status || 'Pending'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan="5" className="py-8 text-center text-slate-400 text-xs">
+                      No customer orders yet. Incoming checkout orders will automatically appear here.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

@@ -20,6 +20,11 @@ export class ErrorBoundary extends React.Component {
     try {
       // Clear corrupt cache keys while preserving user's essential state
       localStorage.removeItem('freshmart_cart');
+      localStorage.removeItem('freshmart_cart_v2');
+      localStorage.removeItem('freshmart_customers');
+      localStorage.removeItem('freshmart_customers_v2');
+      localStorage.removeItem('freshmart_customers_v3');
+      localStorage.removeItem('freshmart_customer_user');
       localStorage.removeItem('freshmart_delivery_location');
       localStorage.removeItem('freshmart_customer_orders');
     } catch (e) {}

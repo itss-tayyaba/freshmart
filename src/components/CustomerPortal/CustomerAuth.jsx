@@ -22,17 +22,17 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   // Login form
-  const [loginEmail, setLoginEmail] = useState('aimenyasin320@gmail.com');
-  const [loginPassword, setLoginPassword] = useState('password123');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
 
   // Register form
   const [regForm, setRegForm] = useState({
-    name: 'Aimen Yasin',
-    email: 'aimenyasin320@gmail.com',
-    phone: '03206551699',
-    city: 'Lahore, Pakistan',
-    address: '123, Block A, Gulberg 3, Lahore',
-    password: 'password123'
+    name: '',
+    email: '',
+    phone: '',
+    city: 'Faisalabad, Pakistan',
+    address: '',
+    password: ''
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -121,7 +121,7 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
               <input
                 type="text"
                 required
-                placeholder="e.g. aimenyasin320@gmail.com or 03206551699"
+                placeholder="e.g. yourname@example.com or 03001234567"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs transition-all"
@@ -170,7 +170,7 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
               <input
                 type="text"
                 required
-                placeholder="e.g. Aimen Yasin"
+                placeholder="e.g. Your Full Name"
                 value={regForm.name}
                 onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs transition-all"
@@ -184,7 +184,7 @@ export const CustomerAuth = ({ initialMode = 'login', onAuthSuccess }) => {
               <input
                 type="email"
                 required
-                placeholder="aimenyasin320@gmail.com"
+                placeholder="e.g. yourname@example.com"
                 value={regForm.email}
                 onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs transition-all"

@@ -3,7 +3,7 @@ import { Plus, Search, Mail, Phone, ShoppingBag, Eye, Trash2, UserPlus, Users } 
 import { useStore } from '../../../context/StoreContext';
 
 export const CustomersView = ({ onOpenAddCustomerModal }) => {
-  const { customers, deleteCustomer, addToast } = useStore();
+  const { customers, deleteCustomer, clearCustomers, addToast } = useStore();
   const [search, setSearch] = useState('');
 
   const filtered = (customers || []).filter(
@@ -23,9 +23,24 @@ export const CustomersView = ({ onOpenAddCustomerModal }) => {
           <p className="text-xs text-slate-500 mt-0.5">Automated customer directory, order activity, and accounts</p>
         </div>
 
-        <div className="flex items-center gap-2 bg-emerald-50 text-emerald-800 border border-emerald-200/60 rounded-xl px-3.5 py-2 text-xs font-bold shadow-2xs">
-          <Users className="w-3.5 h-3.5 text-emerald-700" />
-          <span>{customers?.length || 0} Registered Customers</span>
+        <div className="flex items-center gap-2">
+          {customers && customers.length > 0 && (
+            <button
+              onClick={() => {
+                if (window.confirm('Are you sure you want to remove all customers from the directory?')) {
+                  clearCustomers();
+                }
+              }}
+              className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Clear All Customers</span>
+            </button>
+          )}
+          <div className="flex items-center gap-2 bg-emerald-50 text-emerald-800 border border-emerald-200/60 rounded-xl px-3.5 py-2 text-xs font-bold shadow-2xs">
+            <Users className="w-3.5 h-3.5 text-emerald-700" />
+            <span>{customers?.length || 0} Registered Customers</span>
+          </div>
         </div>
       </div>
 

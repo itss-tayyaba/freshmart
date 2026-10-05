@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Save, Check, Upload, Store, ShieldCheck, Bell, CreditCard, Palette } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 

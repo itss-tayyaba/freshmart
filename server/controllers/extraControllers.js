@@ -79,11 +79,14 @@ export const getCustomers = async (req, res) => {
   try {
     if (isDbOnline()) {
       const customers = await User.find({ role: 'customer' }).select('-password').sort({ createdAt: -1 });
-      const formatted = (customers || []).map((c) => ({
+      const realCusts = (customers || []).filter(
+        (c) => c.email !== 'hafsa@gmail.com' && c.email !== 'aimen@gmail.com' && c.name !== 'Hafsa' && c.name !== 'Aimen'
+      );
+      const formatted = realCusts.map((c) => ({
         id: c._id.toString(),
         name: c.name,
         email: c.email,
-        phone: c.phone || '+92 300 1234567',
+        phone: c.phone || '',
         totalOrders: 0,
         totalSpent: 'Rs. 0',
         status: 'Active',
@@ -91,9 +94,9 @@ export const getCustomers = async (req, res) => {
       }));
       return res.json({ success: true, count: formatted.length, customers: formatted });
     }
-    res.json({ success: true, count: ADMIN_CUSTOMERS_DATA.length, customers: ADMIN_CUSTOMERS_DATA });
+    res.json({ success: true, count: 0, customers: [] });
   } catch (error) {
-    res.json({ success: true, count: ADMIN_CUSTOMERS_DATA.length, customers: ADMIN_CUSTOMERS_DATA });
+    res.json({ success: true, count: 0, customers: [] });
   }
 };
 

@@ -23,22 +23,22 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
 
   // Card form state
   const [cardForm, setCardForm] = useState({
-    number: '4000 1234 5678 9010',
-    name: customerUser?.name || 'Hafsa',
-    expires: '08/28',
-    cvv: '842'
+    number: '',
+    name: customerUser?.name || '',
+    expires: '',
+    cvv: ''
   });
 
   // Wallet form state
   const [walletForm, setWalletForm] = useState({
-    senderPhone: customerUser?.phone || '03001234567',
-    transactionId: '984210482'
+    senderPhone: customerUser?.phone || '',
+    transactionId: ''
   });
 
   // Bank transfer form state
   const [bankForm, setBankForm] = useState({
-    senderBankName: 'Meezan Bank – Hafsa',
-    transactionRef: 'REF-482910'
+    senderBankName: '',
+    transactionRef: ''
   });
 
   const handleCopy = (text, fieldName) => {
@@ -240,7 +240,7 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
                   value={cardForm.name}
                   onChange={(e) => setCardForm({ ...cardForm, name: e.target.value })}
                   className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                  placeholder="e.g. Hafsa"
+                  placeholder="e.g. Cardholder Name"
                 />
               </div>
 

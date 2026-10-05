@@ -16,9 +16,10 @@ export const ProductCard = ({ product }) => {
   const [selectedUnit, setSelectedUnit] = useState(product.unit);
   const isFavorited = isInWishlist(product.id);
 
-  // Check if this product (with this selected unit) is already in cart
+  const prodId = String(product.id || product._id || '');
+  // Check if this product is in cart
   const cartItem = cart.find(
-    (item) => item.product.id === product.id && item.selectedUnit === selectedUnit
+    (item) => String(item.product?.id || item.product?._id || '') === prodId
   );
 
   return (
@@ -140,7 +141,7 @@ export const ProductCard = ({ product }) => {
           {cartItem ? (
             <div className="flex items-center bg-emerald-50 border border-emerald-200 rounded-xl p-0.5">
               <button
-                onClick={() => updateCartQuantity(product.id, selectedUnit, -1)}
+                onClick={() => updateCartQuantity(prodId, -1)}
                 className="w-6 h-6 rounded-lg bg-white text-emerald-800 hover:bg-emerald-100 flex items-center justify-center font-bold text-xs shadow-2xs"
                 aria-label="Decrease quantity"
               >
@@ -150,7 +151,7 @@ export const ProductCard = ({ product }) => {
                 {cartItem.quantity}
               </span>
               <button
-                onClick={() => updateCartQuantity(product.id, selectedUnit, 1)}
+                onClick={() => updateCartQuantity(prodId, 1)}
                 className="w-6 h-6 rounded-lg bg-brand-green text-white hover:bg-emerald-800 flex items-center justify-center font-bold text-xs shadow-2xs"
                 aria-label="Increase quantity"
               >

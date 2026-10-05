@@ -113,6 +113,17 @@ export const StoreProvider = ({ children }) => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
+          // If legacy mock customer, purge it
+          if (
+            parsed.email === 'aimenyasin320@gmail.com' ||
+            parsed.email === 'hafsa@gmail.com' ||
+            parsed.name === 'Aimen' ||
+            parsed.name === 'Aimen Yasin' ||
+            parsed.name === 'Hafsa'
+          ) {
+            localStorage.removeItem('freshmart_customer_user');
+            return null;
+          }
           if (parsed.walletBalance === 320) parsed.walletBalance = 0;
           if (parsed.loyaltyPoints === 150 || parsed.loyaltyPoints === 100) parsed.loyaltyPoints = 0;
           return parsed;
@@ -520,7 +531,7 @@ export const StoreProvider = ({ children }) => {
     }
   ]);
 
-  // Cart state
+  // Cart state (Starts strictly empty: zero automatic items)
   const [cart, setCart] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_cart');
@@ -532,10 +543,14 @@ export const StoreProvider = ({ children }) => {
               if (!item) return null;
               const prod = item.product || item;
               if (!prod || typeof prod !== 'object') return null;
+              // Filter out default seeds
+              if (prod.id === 'p1' && prod.name === 'Fresh Organic Bananas') return null;
+              if (prod.id === 'p2' && prod.name === 'Whole Farm Fresh Milk') return null;
               return {
                 product: prod,
                 quantity: Math.max(1, Number(item.quantity || 1)),
-                unit: item.unit || prod.unit || '1 unit'
+                unit: item.unit || prod.unit || '1 unit',
+                selectedUnit: item.selectedUnit || item.unit || prod.unit || '1 unit'
               };
             })
             .filter(Boolean);
@@ -545,10 +560,8 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {
       console.error(e);
     }
-    return [
-      { product: FRESHMART_PRODUCTS[1], quantity: 1, unit: "1 Kg" },
-      { product: FRESHMART_PRODUCTS[0], quantity: 1, unit: "1L" }
-    ];
+    // Strictly empty by default: never automatically add items
+    return [];
   });
 
 
@@ -1510,20 +1523,29 @@ export const StoreProvider = ({ children }) => {
   // Customers State (Starts empty for manual addition from Super Admin)
   const [customers, setCustomers] = useState(() => {
     try {
-      const saved = localStorage.getItem('freshmart_customers');
+      const saved = localStorage.getItem('freshmart_customers_v3');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          // Filter out legacy mock seeds if any exist
-          return parsed.filter((c) => c.id !== 'CUST-001' && c.id !== 'CUST-002');
+          return parsed.filter(
+            (c) =>
+              c.id !== 'CUST-001' &&
+              c.id !== 'CUST-002' &&
+              c.name !== 'Hafsa' &&
+              c.name !== 'Aimen' &&
+              c.email !== 'hafsa@gmail.com' &&
+              c.email !== 'aimen@gmail.com'
+          );
         }
       }
+      localStorage.removeItem('freshmart_customers');
     } catch (e) {}
     return [];
   });
 
   useEffect(() => {
     try {
+      localStorage.setItem('freshmart_customers_v3', JSON.stringify(customers));
       localStorage.setItem('freshmart_customers', JSON.stringify(customers));
     } catch (e) {}
   }, [customers]);
@@ -1562,8 +1584,17 @@ export const StoreProvider = ({ children }) => {
       try {
         const res = await apiService.getCustomers();
         if (res && res.success && Array.isArray(res.customers)) {
-          const cleanCusts = res.customers.filter((c) => c.id !== 'CUST-001' && c.id !== 'CUST-002');
+          const cleanCusts = res.customers.filter(
+            (c) =>
+              c.id !== 'CUST-001' &&
+              c.id !== 'CUST-002' &&
+              c.name !== 'Hafsa' &&
+              c.name !== 'Aimen' &&
+              c.email !== 'hafsa@gmail.com' &&
+              c.email !== 'aimen@gmail.com'
+          );
           setCustomers(cleanCusts);
+          localStorage.setItem('freshmart_customers_v3', JSON.stringify(cleanCusts));
           localStorage.setItem('freshmart_customers', JSON.stringify(cleanCusts));
         }
       } catch (e) {}
@@ -1643,6 +1674,16 @@ export const StoreProvider = ({ children }) => {
   const deleteCustomer = (id) => {
     setCustomers((prev) => prev.filter((c) => c.id !== id));
     addToast('Customer Removed', 'Customer deleted from directory.', 'info');
+  };
+
+  const clearCustomers = () => {
+    setCustomers([]);
+    try {
+      localStorage.removeItem('freshmart_customers');
+      localStorage.removeItem('freshmart_customers_v2');
+      localStorage.removeItem('freshmart_customers_v3');
+    } catch (e) {}
+    addToast('All Customers Cleared 🗑️', 'Customer directory is now empty.');
   };
 
   const updateCustomer = (id, updatedFields) => {
@@ -2932,23 +2973,45 @@ export const StoreProvider = ({ children }) => {
   };
 
   const addToCart = (product, quantity = 1, unit = null) => {
+    if (!product) return;
     const chosenUnit = unit || product.unit || '1 unit';
     const prodId = getProductId(product);
+    const numQty = Math.max(1, Number(quantity || 1));
 
     setCart((prev) => {
       const idx = prev.findIndex((item) => getProductId(item.product) === prodId);
       if (idx > -1) {
         const updated = [...prev];
-        updated[idx] = { ...updated[idx], quantity: updated[idx].quantity + quantity };
+        updated[idx] = { 
+          ...updated[idx], 
+          quantity: updated[idx].quantity + numQty,
+          unit: chosenUnit,
+          selectedUnit: chosenUnit
+        };
         return updated;
       }
-      return [...prev, { product: { ...product, id: prodId }, quantity, unit: chosenUnit }];
+      return [
+        ...prev, 
+        { 
+          product: { ...product, id: prodId }, 
+          quantity: numQty, 
+          unit: chosenUnit, 
+          selectedUnit: chosenUnit 
+        }
+      ];
     });
-    addToast('Added to Basket 🛒', `${product.name} (${quantity}x) added.`);
+    addToast('Added to Basket 🛒', `${product.name} (${numQty}x) added.`);
   };
 
-  const updateCartQuantity = (productOrId, delta) => {
+  const updateCartQuantity = (productOrId, deltaOrUnit, possibleDelta) => {
     const targetId = getProductId(productOrId);
+    let delta = deltaOrUnit;
+    if (typeof possibleDelta === 'number') {
+      delta = possibleDelta;
+    } else if (typeof deltaOrUnit !== 'number') {
+      delta = Number(deltaOrUnit) || 1;
+    }
+
     setCart((prev) => {
       return prev
         .map((item) => {
@@ -3486,6 +3549,7 @@ export const StoreProvider = ({ children }) => {
         setCustomers,
         addCustomer,
         deleteCustomer,
+        clearCustomers,
         updateCustomer,
         products,
 
