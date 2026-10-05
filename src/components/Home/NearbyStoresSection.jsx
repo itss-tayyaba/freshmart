@@ -48,8 +48,11 @@ export const NearbyStoresSection = ({ nearbyStores = [], onSelectStore }) => {
 
       {/* Grid of Nearby Grocery Stores (Matching User Flowchart) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-        {nearbyStores.map((store) => {
+        {nearbyStores.map((store, idx) => {
           const isSelected = currentTenant?.id === store.id || (currentTenant?.slug && currentTenant.slug === store.tenant.slug);
+          const isNearest = idx === 0;
+          const bLat = Number(store.nearestBranch?.latitude || store.nearestBranch?.coordinates?.lat || 31.4125);
+          const bLng = Number(store.nearestBranch?.longitude || store.nearestBranch?.coordinates?.lng || 73.0995);
           
           return (
             <div
@@ -64,16 +67,25 @@ export const NearbyStoresSection = ({ nearbyStores = [], onSelectStore }) => {
                 borderColor: isSelected ? (store.color || '#10b981') : undefined
               }}
             >
-              {/* Selected Floating Top-Right Ribbon */}
-              {isSelected && (
-                <div
-                  style={{ backgroundColor: store.color || '#10b981' }}
-                  className="absolute -top-3 right-4 px-3 py-0.5 rounded-full text-white text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1"
-                >
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>Active Store</span>
-                </div>
-              )}
+              {/* Floating Top Ribbons */}
+              <div className="absolute -top-3 left-4 right-4 flex items-center justify-between pointer-events-none">
+                {isNearest ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-slate-950 bg-amber-400 border border-amber-300 text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 fill-slate-950" />
+                    <span>Nearest Store ({store.distanceFormatted})</span>
+                  </span>
+                ) : <span />}
+
+                {isSelected && (
+                  <span
+                    style={{ backgroundColor: store.color || '#10b981' }}
+                    className="px-3 py-0.5 rounded-full text-white text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1"
+                  >
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>Active Store</span>
+                  </span>
+                )}
+              </div>
 
               {/* Card Header: Store Logo, Name, Badge */}
               <div className="space-y-3">
@@ -129,12 +141,17 @@ export const NearbyStoresSection = ({ nearbyStores = [], onSelectStore }) => {
                     </span>
                   </div>
 
-                  {/* Fulfilling Branch */}
-                  <div className="pt-1.5 border-t border-slate-200/60 text-[10px] text-slate-600 flex items-start gap-1.5">
-                    <Building2 className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
-                    <span className="line-clamp-1">
-                      Fulfilling from: <strong className="text-slate-800">{store.nearestBranch?.name || 'Central Hub'}</strong>
-                    </span>
+                  {/* Fulfilling Branch & Exact GPS Coordinates */}
+                  <div className="pt-1.5 border-t border-slate-200/60 text-[10px] text-slate-600 space-y-0.5">
+                    <div className="flex items-start gap-1.5">
+                      <Building2 className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
+                      <span className="line-clamp-1">
+                        Branch: <strong className="text-slate-800">{store.nearestBranch?.name || 'Central Hub'}</strong>
+                      </span>
+                    </div>
+                    <div className="text-[9px] text-slate-400 font-mono pl-4.5">
+                      GPS: {bLat.toFixed(4)}° N, {bLng.toFixed(4)}° E
+                    </div>
                   </div>
                 </div>
 

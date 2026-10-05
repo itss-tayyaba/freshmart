@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   MapPin,
@@ -13,183 +13,191 @@ import {
   Plus,
   Home,
   Briefcase,
-  Bookmark
+  Bookmark,
+  Store,
+  Layers,
+  ArrowRight,
+  Sparkles
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { PAKISTAN_CITIES, findNearestCity, calculateDistanceKm } from '../../data/pakistanLocations';
-import { STORE_LOCATIONS } from '../../data/freshMartData';
+import { LeafletLocationPicker } from '../Common/LeafletLocationPicker';
+import { detectUserLocation, reverseGeocodeAddress } from '../../utils/geolocationHelper';
 
 export const LocationModal = () => {
   const {
     isLocationModalOpen,
     setIsLocationModalOpen,
+    isLocationConfirmed,
     deliveryLocation,
-    setDeliveryLocation,
+    confirmDeliveryLocation,
+    getNearbyStores,
     savedDeliveryAddresses = [],
     addSavedAddress,
     customerUser,
     addToast
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState('custom'); // 'custom' | 'cities' | 'saved'
+  // Active view tab: 'map' (interactive Leaflet map) | 'cities' | 'saved'
+  const [activeTab, setActiveTab] = useState('map');
   const [citySearch, setCitySearch] = useState('');
-  const [selectedCityId, setSelectedCityId] = useState(
-    PAKISTAN_CITIES.find((c) => c.city === deliveryLocation?.city)?.id || 'lahore'
-  );
+  const [locateStatus, setLocateStatus] = useState('');
   const [isLocating, setIsLocating] = useState(false);
 
+  // Editable coordinates state (synced with Leaflet map)
+  const [currentCoords, setCurrentCoords] = useState(() => ({
+    lat: Number(deliveryLocation?.lat || deliveryLocation?.coords?.lat || 31.4125),
+    lng: Number(deliveryLocation?.lng || deliveryLocation?.coords?.lng || 73.0995)
+  }));
+
+  // Selected City ID
+  const [selectedCityId, setSelectedCityId] = useState(() => {
+    const matched = PAKISTAN_CITIES.find(
+      (c) => c.city.toLowerCase().includes((deliveryLocation?.city || '').toLowerCase().split(',')[0])
+    );
+    return matched ? matched.id : 'faisalabad';
+  });
+
   // Custom address input form state
-  const [customAddress, setCustomAddress] = useState(deliveryLocation?.address || '');
-  const [customCity, setCustomCity] = useState(deliveryLocation?.city || 'Lahore, Pakistan');
-  const [customLabel, setCustomLabel] = useState(deliveryLocation?.label || 'Home');
-  const [customPhone, setCustomPhone] = useState(customerUser?.phone || '+92 300 1234567');
+  const [addressInput, setAddressInput] = useState(
+    deliveryLocation?.address || 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad'
+  );
+  const [addressLabel, setAddressLabel] = useState(deliveryLocation?.label || 'Home');
+  const [contactPhone, setContactPhone] = useState(customerUser?.phone || '+92 300 1234567');
+
+  // Sync internal state when deliveryLocation changes or modal opens
+  useEffect(() => {
+    if (deliveryLocation) {
+      const lat = Number(deliveryLocation?.lat || deliveryLocation?.coords?.lat || 31.4125);
+      const lng = Number(deliveryLocation?.lng || deliveryLocation?.coords?.lng || 73.0995);
+      setCurrentCoords({ lat, lng });
+      if (deliveryLocation.address) setAddressInput(deliveryLocation.address);
+      if (deliveryLocation.label) setAddressLabel(deliveryLocation.label);
+
+      const matched = PAKISTAN_CITIES.find(
+        (c) => c.city.toLowerCase().includes((deliveryLocation?.city || '').toLowerCase().split(',')[0])
+      );
+      if (matched) setSelectedCityId(matched.id);
+    }
+  }, [deliveryLocation, isLocationModalOpen]);
 
   if (!isLocationModalOpen) return null;
 
   const currentCityObj = PAKISTAN_CITIES.find((c) => c.id === selectedCityId) || PAKISTAN_CITIES[0];
 
-  const handleSaveCustomAddress = (e) => {
-    e.preventDefault();
-    if (!customAddress.trim()) {
-      addToast('Address Required', 'Please enter your street or house address.', 'warning');
-      return;
+  // Dynamic nearby stores computed live from current coordinates
+  const liveNearbyStores = useMemo(() => {
+    if (typeof getNearbyStores === 'function') {
+      return getNearbyStores(currentCoords);
+    }
+    return [];
+  }, [getNearbyStores, currentCoords]);
+
+  const nearestStore = liveNearbyStores[0] || null;
+
+  // Handle coordinate change from Leaflet map (drag or map click)
+  const handleMapCoordsChange = async (newCoords) => {
+    setCurrentCoords(newCoords);
+
+    // Identify nearest city for these coordinates
+    const { city: nearestCity } = findNearestCity(newCoords.lat, newCoords.lng);
+    if (nearestCity && nearestCity.id !== selectedCityId) {
+      setSelectedCityId(nearestCity.id);
     }
 
-    const matchedCity = PAKISTAN_CITIES.find((c) => c.city === customCity) || currentCityObj;
-    const defaultCoords = matchedCity?.neighborhoods[0]?.coords || { lat: 31.4125, lng: 73.0995 };
+    // Reverse geocode to update address text
+    setLocateStatus('Resolving street address...');
+    const geo = await reverseGeocodeAddress(newCoords.lat, newCoords.lng);
+    setLocateStatus('');
+    if (geo?.formatted) {
+      setAddressInput(geo.formatted);
+    } else {
+      setAddressInput(
+        `Custom Pin Location (${newCoords.lat.toFixed(4)}, ${newCoords.lng.toFixed(4)}), ${nearestCity?.city || 'Pakistan'}`
+      );
+    }
+  };
+
+  // Auto-Detect Location (GPS with Wi-Fi + IP fallback)
+  const handleAutoDetect = async () => {
+    setIsLocating(true);
+    setLocateStatus('Finding your location...');
+
+    try {
+      const result = await detectUserLocation({
+        onProgress: (status) => setLocateStatus(status)
+      });
+
+      if (result) {
+        setCurrentCoords({ lat: result.lat, lng: result.lng });
+        if (result.matchedCityId) {
+          setSelectedCityId(result.matchedCityId);
+        }
+        if (result.address) {
+          setAddressInput(result.address);
+        }
+        addToast(
+          'Location Found 🎯',
+          `Position locked in ${result.city} (${result.source === 'browser_gps' ? 'Exact GPS' : 'Network/Wi-Fi'})`
+        );
+      }
+    } catch (err) {
+      addToast('Location Notice', 'Could not detect automatically. You can pick your city and drag the map pin.', 'info');
+    } finally {
+      setIsLocating(false);
+      setLocateStatus('');
+    }
+  };
+
+  // City selection from dropdown
+  const handleSelectCity = (cityObj) => {
+    setSelectedCityId(cityObj.id);
+    const defaultNeighborhood = cityObj.neighborhoods[0];
+    const coords = defaultNeighborhood.coords;
+
+    setCurrentCoords({ lat: coords.lat, lng: coords.lng });
+    setAddressInput(defaultNeighborhood.defaultAddress);
+    addToast('City Changed 📍', `Switched map to ${cityObj.city}`);
+  };
+
+  // Select neighborhood
+  const handleSelectNeighborhood = (cityObj, n) => {
+    setSelectedCityId(cityObj.id);
+    setCurrentCoords({ lat: n.coords.lat, lng: n.coords.lng });
+    setAddressInput(n.defaultAddress);
+    setActiveTab('map');
+    addToast('Neighborhood Set 📍', `Map focused on ${n.name}, ${cityObj.city}`);
+  };
+
+  // Final confirmation: Locks location and auto-selects closest store
+  const handleConfirmLocation = (e) => {
+    if (e) e.preventDefault();
 
     const locObj = {
-      city: customCity,
-      address: customAddress.trim(),
-      label: customLabel,
-      phone: customPhone,
-      lat: defaultCoords.lat,
-      lng: defaultCoords.lng,
-      coords: defaultCoords
+      city: currentCityObj.city,
+      address: addressInput.trim() || currentCityObj.hubAddress,
+      neighborhood: currentCityObj.neighborhoods[0]?.name || 'Central',
+      area: currentCityObj.neighborhoods[0]?.area || 'Hub Zone',
+      label: addressLabel,
+      phone: contactPhone,
+      lat: currentCoords.lat,
+      lng: currentCoords.lng,
+      coords: currentCoords,
+      hubName: currentCityObj.hubName
     };
 
-    setDeliveryLocation(locObj);
-    try {
-      localStorage.setItem('freshmart_delivery_location', JSON.stringify(locObj));
-    } catch (err) {}
+    if (confirmDeliveryLocation) {
+      confirmDeliveryLocation(locObj);
+    } else {
+      setIsLocationModalOpen(false);
+    }
 
-    // Also add to saved addresses list if not already present
     if (addSavedAddress) {
       addSavedAddress(locObj);
     }
-
-    setIsLocationModalOpen(false);
-    addToast('Delivery Address Set 📍', `Delivering to: ${customAddress.trim()}, ${customCity}`);
   };
 
-  const handleSelectCity = (cityObj) => {
-    setSelectedCityId(cityObj.id);
-    const defaultN = cityObj.neighborhoods[0];
-    const locObj = {
-      city: cityObj.city,
-      address: defaultN.defaultAddress,
-      neighborhood: defaultN.name,
-      lat: defaultN.coords.lat,
-      lng: defaultN.coords.lng,
-      coords: defaultN.coords,
-      hubName: cityObj.hubName,
-      label: 'Home'
-    };
-    setDeliveryLocation(locObj);
-    try {
-      localStorage.setItem('freshmart_delivery_location', JSON.stringify(locObj));
-    } catch (err) {}
-    addToast('City Selected 📍', `Switched delivery hub to ${cityObj.city}`);
-  };
-
-  const handleSelectNeighborhood = (cityObj, neighborhood) => {
-    const locObj = {
-      city: cityObj.city,
-      address: neighborhood.defaultAddress,
-      neighborhood: neighborhood.name,
-      lat: neighborhood.coords.lat,
-      lng: neighborhood.coords.lng,
-      coords: neighborhood.coords,
-      hubName: cityObj.hubName,
-      label: 'Home'
-    };
-    setDeliveryLocation(locObj);
-    try {
-      localStorage.setItem('freshmart_delivery_location', JSON.stringify(locObj));
-    } catch (err) {}
-    setIsLocationModalOpen(false);
-    addToast('Delivery Pin Set 📍', `Delivering to ${neighborhood.name}, ${cityObj.city}`);
-  };
-
-  const handleSelectSavedAddress = (addr) => {
-    const matchedCity = PAKISTAN_CITIES.find((c) => c.city === addr.city) || currentCityObj;
-    const defaultCoords = addr.coords || matchedCity?.neighborhoods[0]?.coords || { lat: 31.4125, lng: 73.0995 };
-    const locObj = {
-      city: addr.city,
-      address: addr.address,
-      label: addr.label,
-      phone: addr.phone,
-      lat: addr.lat || defaultCoords.lat,
-      lng: addr.lng || defaultCoords.lng,
-      coords: defaultCoords
-    };
-    setDeliveryLocation(locObj);
-    try {
-      localStorage.setItem('freshmart_delivery_location', JSON.stringify(locObj));
-    } catch (err) {}
-    setIsLocationModalOpen(false);
-    addToast('Active Address Changed 📍', `Switched delivery to ${addr.label}: ${addr.address}`);
-  };
-
-  const handleAutoDetectGPS = () => {
-    setIsLocating(true);
-    if (!navigator.geolocation) {
-      addToast('GPS Not Supported', 'Geolocation is not supported by your browser.', 'error');
-      setIsLocating(false);
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const { city, distanceKm } = findNearestCity(latitude, longitude);
-
-        // Find closest neighborhood in that city
-        let closestNeighborhood = city.neighborhoods[0];
-        let minNeighborhoodDist = Infinity;
-        city.neighborhoods.forEach((n) => {
-          const d = calculateDistanceKm(latitude, longitude, n.coords.lat, n.coords.lng);
-          if (d < minNeighborhoodDist) {
-            minNeighborhoodDist = d;
-            closestNeighborhood = n;
-          }
-        });
-
-        setSelectedCityId(city.id);
-        const locObj = {
-          city: city.city,
-          address: `${closestNeighborhood.defaultAddress} (Exact GPS ${latitude.toFixed(4)}, ${longitude.toFixed(4)})`,
-          neighborhood: closestNeighborhood.name,
-          coords: { lat: latitude, lng: longitude },
-          hubName: city.hubName,
-          label: 'Current GPS Location'
-        };
-        setDeliveryLocation(locObj);
-        try {
-          localStorage.setItem('freshmart_delivery_location', JSON.stringify(locObj));
-        } catch (err) {}
-        setIsLocating(false);
-        setIsLocationModalOpen(false);
-        addToast('Exact GPS Location Locked 🎯', `Connected to ${city.hubName} (${distanceKm} km away)`);
-      },
-      (err) => {
-        setIsLocating(false);
-        addToast('GPS Permission Needed', 'Please allow location permission in your browser or select your city below.', 'info');
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
-
+  // Filter cities for search
   const filteredCities = PAKISTAN_CITIES.filter(
     (c) =>
       c.city.toLowerCase().includes(citySearch.toLowerCase()) ||
@@ -200,182 +208,207 @@ export const LocationModal = () => {
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+      {/* Dark Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
-        onClick={() => setIsLocationModalOpen(false)}
+        className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity"
+        onClick={() => {
+          // Allow closing if already confirmed; or if user clicks backdrop
+          setIsLocationModalOpen(false);
+        }}
       />
 
-      {/* Modal Card */}
-      <div className="relative bg-white rounded-3xl max-w-xl w-full shadow-2xl overflow-hidden z-10 border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+      {/* Modal Dialog Card */}
+      <div className="relative bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden z-10 border border-slate-100 flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="p-5 sm:p-6 bg-gradient-to-r from-emerald-800 to-teal-900 text-white flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center shadow-inner">
-              <Navigation className="w-5 h-5 text-emerald-300" />
+        <div className="p-5 sm:p-6 bg-gradient-to-r from-emerald-800 via-teal-900 to-slate-950 text-white shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center shadow-inner border border-white/15">
+                <Navigation className="w-6 h-6 text-emerald-300" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base sm:text-lg font-black tracking-tight">
+                    Select Your City & Location
+                  </h2>
+                  <span className="text-[10px] bg-emerald-500/30 text-emerald-200 font-extrabold px-2 py-0.5 rounded-full border border-emerald-400/30 uppercase tracking-wider">
+                    Leaflet GPS
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-200/90 mt-0.5">
+                  Calculates real-time distance & finds your nearest supermarket
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-black tracking-tight">Set Delivery Address & Hub</h2>
-              <p className="text-xs text-emerald-200">10-15 Min Express Grocery Dispatch across Pakistan</p>
+
+            <button
+              type="button"
+              onClick={() => setIsLocationModalOpen(false)}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Quick 1-Click Detect Bar */}
+          <div className="mt-4 flex flex-col sm:flex-row items-center gap-2.5">
+            <button
+              type="button"
+              onClick={handleAutoDetect}
+              disabled={isLocating}
+              className="w-full sm:w-auto flex-1 py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer hover:scale-[1.01]"
+            >
+              <Compass className={`w-4 h-4 text-slate-950 ${isLocating ? 'animate-spin' : ''}`} />
+              <span>{isLocating ? (locateStatus || 'Locating You...') : '🎯 Use Current Location (GPS / Network)'}</span>
+            </button>
+
+            {/* City Dropdown in Header */}
+            <div className="w-full sm:w-56">
+              <select
+                value={selectedCityId}
+                onChange={(e) => {
+                  const city = PAKISTAN_CITIES.find((c) => c.id === e.target.value);
+                  if (city) handleSelectCity(city);
+                }}
+                className="w-full text-xs font-bold bg-white/15 hover:bg-white/20 border border-white/20 text-white rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer"
+              >
+                {PAKISTAN_CITIES.map((c) => (
+                  <option key={c.id} value={c.id} className="text-slate-900 bg-white">
+                    📍 {c.city.split(',')[0]}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-          <button
-            onClick={() => setIsLocationModalOpen(false)}
-            className="p-1.5 rounded-full hover:bg-white/10 text-white/90 focus:outline-none cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex border-b border-slate-100 bg-slate-50/80 p-1 gap-1">
+        {/* View Tabs */}
+        <div className="flex border-b border-slate-100 bg-slate-50/90 p-1.5 gap-1 shrink-0">
           <button
             type="button"
-            onClick={() => setActiveTab('custom')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
-              activeTab === 'custom'
+            onClick={() => setActiveTab('map')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 ${
+              activeTab === 'map'
                 ? 'bg-white text-emerald-800 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            ✏️ Enter Address
+            <Layers className="w-3.5 h-3.5" />
+            <span>Interactive Leaflet Map</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('cities')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 ${
               activeTab === 'cities'
                 ? 'bg-white text-emerald-800 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            🏢 Cities & GPS
+            <Building className="w-3.5 h-3.5" />
+            <span>Cities & Hubs</span>
           </button>
           {savedDeliveryAddresses.length > 0 && (
             <button
               type="button"
               onClick={() => setActiveTab('saved')}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 ${
                 activeTab === 'saved'
                   ? 'bg-white text-emerald-800 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              ⭐ Saved ({savedDeliveryAddresses.length})
+              <Bookmark className="w-3.5 h-3.5" />
+              <span>Saved ({savedDeliveryAddresses.length})</span>
             </button>
           )}
         </div>
 
-        {/* Content Body */}
-        <div className="p-5 sm:p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+        {/* Modal Scrollable Body */}
+        <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
           
-          {/* TAB 1: CUSTOM ADDRESS FORM */}
-          {activeTab === 'custom' && (
-            <form onSubmit={handleSaveCustomAddress} className="space-y-4">
-              <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                  Street Address / House / Flat Number <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. House 45, Street 12, Phase 5, DHA or Askari 11"
-                  value={customAddress}
-                  onChange={(e) => setCustomAddress(e.target.value)}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-900"
-                />
-              </div>
+          {/* TAB 1: INTERACTIVE LEAFLET MAP & PIN */}
+          {activeTab === 'map' && (
+            <div className="space-y-4">
+              {/* Leaflet Map Component */}
+              <LeafletLocationPicker
+                coords={currentCoords}
+                onCoordsChange={handleMapCoordsChange}
+                nearbyStores={liveNearbyStores}
+                isLocating={isLocating}
+                onLocateCurrent={handleAutoDetect}
+                activeCityName={currentCityObj.city}
+              />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Editable Street Address and Details */}
+              <div className="space-y-3 pt-1">
                 <div>
-                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                    City / Fulfillment Hub
+                  <label className="text-[11px] font-black text-slate-700 block mb-1">
+                    Street Address / House / Flat <span className="text-rose-500">*</span>
                   </label>
-                  <select
-                    value={customCity}
-                    onChange={(e) => setCustomCity(e.target.value)}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-900 cursor-pointer"
-                  >
-                    {PAKISTAN_CITIES.map((c) => (
-                      <option key={c.id} value={c.city}>
-                        {c.city} ({c.hubName.split('(')[0].trim()})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={addressInput}
+                      onChange={(e) => setAddressInput(e.target.value)}
+                      placeholder="e.g. House 88, Main D-Ground, Peoples Colony 1"
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-900"
+                    />
+                    <MapPin className="w-4 h-4 text-emerald-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                    Address Label
-                  </label>
-                  <div className="flex gap-2">
-                    {['Home', 'Office', 'Other'].map((lbl) => (
-                      <button
-                        type="button"
-                        key={lbl}
-                        onClick={() => setCustomLabel(lbl)}
-                        className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
-                          customLabel === lbl
-                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        {lbl}
-                      </button>
-                    ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                      Address Label
+                    </label>
+                    <div className="flex gap-2">
+                      {['Home', 'Office', 'Other'].map((lbl) => (
+                        <button
+                          type="button"
+                          key={lbl}
+                          onClick={() => setAddressLabel(lbl)}
+                          className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                            addressLabel === lbl
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {lbl}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                      Rider Phone Contact
+                    </label>
+                    <input
+                      type="text"
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                      placeholder="+92 300 1234567"
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                    />
                   </div>
                 </div>
               </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                  Contact Phone for Delivery Rider
-                </label>
-                <input
-                  type="text"
-                  placeholder="+92 300 1234567"
-                  value={customPhone}
-                  onChange={(e) => setCustomPhone(e.target.value)}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-900"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer hover:scale-[1.01]"
-              >
-                <Check className="w-4 h-4" />
-                <span>Save & Set Delivery Address</span>
-              </button>
-            </form>
+            </div>
           )}
 
-          {/* TAB 2: CITIES & GPS AUTO-DETECT */}
+          {/* TAB 2: CITIES & HUBS DIRECT PICKER */}
           {activeTab === 'cities' && (
-            <div className="space-y-4">
-              {/* GPS Auto Detect Banner */}
-              <button
-                type="button"
-                onClick={handleAutoDetectGPS}
-                disabled={isLocating}
-                className="w-full py-2.5 px-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-2xl text-xs flex items-center justify-between shadow-md transition-all cursor-pointer hover:scale-[1.01]"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Compass className={`w-4 h-4 ${isLocating ? 'animate-spin' : ''}`} />
-                  <span>{isLocating ? 'Locking GPS Satellites...' : 'Auto-Detect Exact Current GPS Location'}</span>
-                </div>
-                <span className="text-[10px] bg-white/20 font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  1-Click
-                </span>
-              </button>
-
-              {/* Quick Search */}
+            <div className="space-y-3">
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Search city or neighborhood (e.g. Gulberg, Clifton, F-7)..."
+                  placeholder="Search Pakistani city or neighborhood..."
                   value={citySearch}
                   onChange={(e) => setCitySearch(e.target.value)}
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
@@ -383,26 +416,25 @@ export const LocationModal = () => {
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               </div>
 
-              {/* Available Cities */}
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                 {filteredCities.map((item) => {
-                  const isSelected = deliveryLocation?.city === item.city;
-                  const isExpanded = selectedCityId === item.id;
+                  const isSelected = selectedCityId === item.id;
 
                   return (
                     <div
                       key={item.id}
-                      className={`rounded-2xl border transition-all ${
+                      className={`p-3 rounded-2xl border transition-all ${
                         isSelected
                           ? 'border-emerald-600 bg-emerald-50/70 shadow-2xs ring-1 ring-emerald-500'
-                          : isExpanded
-                          ? 'border-emerald-300 bg-emerald-50/30'
                           : 'border-slate-200 hover:bg-slate-50'
                       }`}
                     >
                       <div
-                        onClick={() => handleSelectCity(item)}
-                        className="p-3 flex items-center justify-between cursor-pointer"
+                        onClick={() => {
+                          handleSelectCity(item);
+                          setActiveTab('map');
+                        }}
+                        className="flex items-center justify-between cursor-pointer"
                       >
                         <div className="flex items-center gap-2.5">
                           <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
@@ -411,41 +443,30 @@ export const LocationModal = () => {
                             <Building className="w-4 h-4" />
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-xs font-black text-slate-900">{item.city}</h4>
-                              <span className="text-[9px] text-emerald-700 bg-emerald-100 font-bold px-2 py-0.2 rounded-full">
-                                {item.hubName.split('(')[0].trim()}
-                              </span>
-                            </div>
-                            <span className="text-[10px] text-slate-500 font-medium">
-                              {item.neighborhoods.map((n) => n.name).join(' • ')}
+                            <h4 className="text-xs font-black text-slate-900">{item.city}</h4>
+                            <span className="text-[10px] text-slate-500">
+                              {item.hubName.split('(')[0].trim()}
                             </span>
                           </div>
                         </div>
 
-                        {isSelected && (
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">
-                            <Check className="w-3 h-3 text-emerald-700" />
-                            Active
-                          </span>
-                        )}
+                        <span className="text-[11px] font-bold text-emerald-700 bg-white border border-emerald-200 px-2.5 py-1 rounded-xl">
+                          Select City ➔
+                        </span>
                       </div>
 
-                      {isExpanded && (
-                        <div className="p-2.5 pt-0 border-t border-emerald-100/80 mt-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          {item.neighborhoods.map((n) => (
-                            <button
-                              type="button"
-                              key={n.id}
-                              onClick={() => handleSelectNeighborhood(item, n)}
-                              className="p-2 bg-white hover:bg-emerald-600 hover:text-white rounded-xl border border-emerald-200 text-left text-[11px] transition-all cursor-pointer group shadow-2xs"
-                            >
-                              <span className="font-bold text-slate-900 group-hover:text-white block">{n.name}</span>
-                              <span className="text-[9px] text-slate-400 group-hover:text-emerald-100 truncate block">{n.area}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      <div className="mt-2.5 pt-2 border-t border-slate-200/60 grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                        {item.neighborhoods.map((n) => (
+                          <button
+                            type="button"
+                            key={n.id}
+                            onClick={() => handleSelectNeighborhood(item, n)}
+                            className="p-1.5 bg-white hover:bg-emerald-600 hover:text-white rounded-lg border border-slate-200 text-left text-[10px] font-bold text-slate-700 transition cursor-pointer"
+                          >
+                            {n.name}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
@@ -455,22 +476,26 @@ export const LocationModal = () => {
 
           {/* TAB 3: SAVED ADDRESSES */}
           {activeTab === 'saved' && (
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {savedDeliveryAddresses.map((addr) => {
                 const isSelected = deliveryLocation?.address === addr.address;
 
                 return (
                   <div
                     key={addr.id}
-                    onClick={() => handleSelectSavedAddress(addr)}
+                    onClick={() => {
+                      if (addr.coords) setCurrentCoords(addr.coords);
+                      if (addr.address) setAddressInput(addr.address);
+                      setActiveTab('map');
+                    }}
                     className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                       isSelected
                         ? 'border-emerald-600 bg-emerald-50/70 ring-1 ring-emerald-500'
                         : 'border-slate-200 hover:bg-slate-50'
                     }`}
                   >
-                    <div className="space-y-0.5 min-w-0 pr-3">
-                      <div className="flex items-center gap-2">
+                    <div>
+                      <div className="flex items-center gap-1.5">
                         <span className="text-xs font-black text-slate-900">{addr.label}</span>
                         {isSelected && (
                           <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.2 rounded-full">
@@ -478,15 +503,15 @@ export const LocationModal = () => {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-700 truncate">{addr.address}</p>
+                      <p className="text-xs text-slate-700">{addr.address}</p>
                       <span className="text-[10px] text-slate-400">{addr.city}</span>
                     </div>
 
                     <button
                       type="button"
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shrink-0 cursor-pointer"
+                      className="px-3 py-1 bg-emerald-600 text-white rounded-xl text-xs font-bold"
                     >
-                      {isSelected ? 'Selected ✓' : 'Deliver Here'}
+                      Use
                     </button>
                   </div>
                 );
@@ -494,30 +519,71 @@ export const LocationModal = () => {
             </div>
           )}
 
-          {/* Current Selected Destination Summary */}
-          {deliveryLocation && (
-            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between text-xs gap-3">
-              <div className="space-y-0.5 min-w-0">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                  Active Drop-off: {deliveryLocation.label ? `(${deliveryLocation.label})` : ''}
-                </span>
-                <span className="font-bold text-slate-900 truncate block">
-                  {deliveryLocation.address || deliveryLocation.city}
-                </span>
-                {deliveryLocation.address && (
-                  <span className="text-[10px] text-emerald-700 font-semibold block">{deliveryLocation.city}</span>
-                )}
+          {/* Nearest Store Proximity Highlight */}
+          {nearestStore && (
+            <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 rounded-2xl border border-emerald-200 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div
+                  style={{ backgroundColor: nearestStore.color || '#0284c7' }}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg shrink-0 shadow-xs"
+                >
+                  {nearestStore.logo || '🛒'}
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-200/70 text-emerald-900 px-1.5 py-0.2 rounded">
+                      Nearest Store
+                    </span>
+                    <strong className="text-xs font-black text-slate-900">
+                      {nearestStore.displayName || nearestStore.name}
+                    </strong>
+                  </div>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    Only <strong className="text-emerald-700 font-extrabold">{nearestStore.distanceFormatted || `${nearestStore.distanceKm} km`}</strong> away • Branch: {nearestStore.nearestBranch?.name || 'Local Store'}
+                  </p>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsLocationModalOpen(false)}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer transition-all shrink-0"
-              >
-                Confirm Pin
-              </button>
+
+              <div className="text-right shrink-0">
+                <span className="text-xs font-black text-slate-900 block">
+                  ⚡ {nearestStore.estimatedTime || '15-25 mins'}
+                </span>
+                <span className="text-[10px] text-emerald-700 font-bold">Fastest Dispatch</span>
+              </div>
             </div>
           )}
 
+        </div>
+
+        {/* Footer Actions */}
+        <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <div className="text-xs text-slate-500 text-center sm:text-left">
+            <span>Delivering to: </span>
+            <strong className="text-slate-900 font-bold truncate inline-block max-w-[280px] align-bottom">
+              {addressInput}
+            </strong>
+          </div>
+
+          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            {isLocationConfirmed && (
+              <button
+                type="button"
+                onClick={() => setIsLocationModalOpen(false)}
+                className="flex-1 sm:flex-none px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-xl transition cursor-pointer"
+              >
+                Cancel
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleConfirmLocation}
+              className="flex-1 sm:flex-none px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-black rounded-xl shadow-lg hover:shadow-xl transition-all cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.02]"
+            >
+              <span>Confirm Location & View Stores</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
       </div>

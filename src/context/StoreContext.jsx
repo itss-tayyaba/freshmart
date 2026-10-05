@@ -241,7 +241,23 @@ export const StoreProvider = ({ children }) => {
       coords: { lat: 31.4125, lng: 73.0995 }
     };
   });
-  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  // Location confirmation status (tracks whether user has confirmed their city & location)
+  const [isLocationConfirmed, setIsLocationConfirmed] = useState(() => {
+    try {
+      return localStorage.getItem('freshmart_location_confirmed') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+
+  // Location modal opens upfront when user visits without confirmed location
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(() => {
+    try {
+      return localStorage.getItem('freshmart_location_confirmed') !== 'true';
+    } catch (e) {
+      return true;
+    }
+  });
 
   // --- 🏢 Multi-Company & Branch Architecture State (Centralized in Faisalabad) ---
   const [currentBranch, setCurrentBranchState] = useState(() => {
@@ -382,6 +398,41 @@ export const StoreProvider = ({ children }) => {
       localStorage.setItem('freshmart_current_tenant_id', storeTenant.id);
     } catch (e) {}
     addToast('Store Activated 🛒', `Now shopping at ${storeTenant.name}`);
+  };
+
+  // Confirm customer delivery location, lock coordinates, and auto-route to closest store
+  const confirmDeliveryLocation = (newLoc) => {
+    if (!newLoc) return;
+    const resolved = {
+      ...deliveryLocation,
+      ...newLoc,
+      coords: newLoc.coords || {
+        lat: Number(newLoc.lat || 31.4125),
+        lng: Number(newLoc.lng || 73.0995)
+      }
+    };
+    setDeliveryLocation(resolved);
+    setIsLocationConfirmed(true);
+    setIsLocationModalOpen(false);
+
+    try {
+      localStorage.setItem('freshmart_delivery_location', JSON.stringify(resolved));
+      localStorage.setItem('freshmart_location_confirmed', 'true');
+    } catch (e) {}
+
+    // Find and auto-route to closest store based on Haversine distance
+    const nearby = getNearbyStores(resolved.coords);
+    if (nearby && nearby.length > 0) {
+      const closestStore = nearby[0];
+      if (closestStore?.tenant && closestStore?.nearestBranch) {
+        selectStoreAndBranch(closestStore.tenant, closestStore.nearestBranch);
+      }
+    }
+
+    addToast(
+      'Location Confirmed 📍',
+      `Delivering to: ${resolved.address || resolved.city}. Nearest store active!`
+    );
   };
 
   // Master Branch Inventory & Branch Orders State
@@ -3687,6 +3738,9 @@ export const StoreProvider = ({ children }) => {
         setSelectedProduct,
         deliveryLocation,
         setDeliveryLocation,
+        isLocationConfirmed,
+        setIsLocationConfirmed,
+        confirmDeliveryLocation,
         isLocationModalOpen,
         setIsLocationModalOpen,
         cart,

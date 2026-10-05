@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { PAKISTAN_CITIES, findNearestCity, calculateDistanceKm } from '../../data/pakistanLocations';
+import { detectUserLocation } from '../../utils/geolocationHelper';
 
 export const CustomerLocationBanner = ({ onLocationConfirmed }) => {
   const {
@@ -25,6 +26,7 @@ export const CustomerLocationBanner = ({ onLocationConfirmed }) => {
     currentTenant,
     currentBranch,
     setIsLocationModalOpen,
+    confirmDeliveryLocation,
     addToast
   } = useStore();
 
@@ -43,64 +45,46 @@ export const CustomerLocationBanner = ({ onLocationConfirmed }) => {
 
   const currentCityObj = PAKISTAN_CITIES.find((c) => c.id === selectedCityId) || PAKISTAN_CITIES[0];
 
-  // Quick GPS detection
-  const handleDetectGPS = () => {
+  // Quick GPS + IP multi-layer detection
+  const handleDetectGPS = async () => {
     setIsLocatingGPS(true);
-    if (!navigator.geolocation) {
-      addToast('GPS Not Supported', 'Geolocation is not supported by your browser.', 'error');
-      setIsLocatingGPS(false);
-      return;
-    }
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const { city, distanceKm } = findNearestCity(latitude, longitude);
-
-        // Find closest neighborhood in that city
-        let closestNeighborhood = city.neighborhoods[0];
-        let minNeighborhoodDist = Infinity;
-        city.neighborhoods.forEach((n) => {
-          const d = calculateDistanceKm(latitude, longitude, n.coords.lat, n.coords.lng);
-          if (d < minNeighborhoodDist) {
-            minNeighborhoodDist = d;
-            closestNeighborhood = n;
-          }
-        });
-
-        setSelectedCityId(city.id);
-        const resolvedAddress = `${closestNeighborhood.defaultAddress} (GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
-        setAddressInput(resolvedAddress);
+    try {
+      const result = await detectUserLocation();
+      if (result) {
+        setSelectedCityId(result.matchedCityId || 'faisalabad');
+        setAddressInput(result.address);
 
         const newLoc = {
-          city: city.city,
-          address: resolvedAddress,
-          neighborhood: closestNeighborhood.name,
-          area: closestNeighborhood.area,
-          lat: latitude,
-          lng: longitude,
-          coords: { lat: latitude, lng: longitude },
-          hubName: city.hubName,
-          label: 'Current GPS Location'
+          city: result.city,
+          address: result.address,
+          neighborhood: result.neighborhood,
+          area: result.area,
+          lat: result.lat,
+          lng: result.lng,
+          coords: result.coords,
+          hubName: result.hubName,
+          label: result.label
         };
 
-        setDeliveryLocation(newLoc);
-        try {
-          localStorage.setItem('freshmart_delivery_location', JSON.stringify(newLoc));
-          localStorage.setItem('freshmart_location_confirmed', 'true');
-        } catch (e) {}
+        if (confirmDeliveryLocation) {
+          confirmDeliveryLocation(newLoc);
+        } else {
+          setDeliveryLocation(newLoc);
+        }
 
-        setIsLocatingGPS(false);
         setIsEditingAddress(false);
-        addToast('Exact GPS Locked 🎯', `Connected to nearest hub in ${city.city} (${distanceKm} km away)`);
+        addToast(
+          'Location Locked 🎯',
+          `Position: ${result.city} (${result.source === 'browser_gps' ? 'Exact GPS' : 'Wi-Fi/Network'})`
+        );
         if (onLocationConfirmed) onLocationConfirmed(newLoc);
-      },
-      (err) => {
-        setIsLocatingGPS(false);
-        addToast('GPS Permission Needed', 'Please allow location permission in your browser or select your city manually.', 'info');
-      },
-      { enableHighAccuracy: true, timeout: 9000 }
-    );
+      }
+    } catch (err) {
+      addToast('Location Notice', 'Could not locate automatically. Please pick city or use Leaflet map.', 'info');
+    } finally {
+      setIsLocatingGPS(false);
+    }
   };
 
   const handleSelectCity = (cityObj) => {
@@ -237,25 +221,37 @@ export const CustomerLocationBanner = ({ onLocationConfirmed }) => {
               })}
             </div>
 
-            {/* GPS Auto-Detect Button */}
-            <button
-              onClick={handleDetectGPS}
-              disabled={isLocatingGPS}
-              className="px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 rounded-xl text-xs font-black transition-all shadow-md shadow-teal-500/20 flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50 shrink-0"
-              title="Detect exact coordinates via device GPS"
-            >
-              {isLocatingGPS ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-                  <span>Locating Coordinates...</span>
-                </>
-              ) : (
-                <>
-                  <Navigation className="w-3.5 h-3.5" />
-                  <span>Use Current Location (GPS)</span>
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Leaflet Map Dialog Trigger */}
+              <button
+                type="button"
+                onClick={() => setIsLocationModalOpen(true)}
+                className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all border border-white/20 flex items-center gap-1.5 cursor-pointer shadow-sm"
+                title="Open interactive Leaflet map to pinpoint location"
+              >
+                <span>🗺️ Open Leaflet Map</span>
+              </button>
+
+              {/* GPS Auto-Detect Button */}
+              <button
+                onClick={handleDetectGPS}
+                disabled={isLocatingGPS}
+                className="px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 rounded-xl text-xs font-black transition-all shadow-md shadow-teal-500/20 flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50 shrink-0"
+                title="Detect exact coordinates via device GPS / Network"
+              >
+                {isLocatingGPS ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                    <span>Locating Coordinates...</span>
+                  </>
+                ) : (
+                  <>
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>Use Current Location (GPS)</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Middle Row: Street Address / Neighborhood Selector */}

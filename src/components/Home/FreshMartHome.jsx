@@ -59,6 +59,8 @@ export const FreshMartHome = () => {
     currentTenant,
     currentBranch,
     deliveryLocation,
+    isLocationConfirmed,
+    setIsLocationModalOpen,
     getNearbyStores,
     selectStoreAndBranch
   } = useStore();
@@ -235,6 +237,31 @@ export const FreshMartHome = () => {
 
       {/* 📍 CUSTOMER LOCATION ENTRY & NEARBY STORES WORKFLOW (MATCHING ARCHITECTURE FLOWCHART) */}
       <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-6 pt-1">
+        {/* Upfront notice banner if location not yet confirmed */}
+        {!isLocationConfirmed && (
+          <div className="bg-gradient-to-r from-emerald-800 via-teal-900 to-slate-900 text-white rounded-3xl p-4 sm:p-5 shadow-lg border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-xl shrink-0">
+                📍
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-black">
+                  Select Your City & Delivery Location on Leaflet Map
+                </h3>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  Calculates real-time distance to Al-Fatah, Chase Up, Chase Value, and Unimaart using your latitude & longitude.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsLocationModalOpen(true)}
+              className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-black text-xs transition shadow-md cursor-pointer shrink-0"
+            >
+              🗺️ Open Leaflet Map & Set City
+            </button>
+          </div>
+        )}
+
         {/* Step 1: Customer Enters Location (City + Address OR Use Current Location GPS) */}
         <CustomerLocationBanner />
 
