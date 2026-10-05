@@ -12,7 +12,8 @@ import {
   Building2,
   Tag,
   Zap,
-  ChevronRight
+  ChevronRight,
+  Check
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 
