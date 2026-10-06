@@ -69,9 +69,9 @@ export const PickupStaffPortal = () => {
     });
   };
 
-  const updateStage = (order, stage, status, extra = {}) => {
+  const updateStage = async (order, stage, status, extra = {}) => {
     const currentPicked = pickedState[order.id] || order.pickedItems || [];
-    updateOrderFulfillment(order.id, {
+    const updated = await updateOrderFulfillment(order.id, {
       ...extra,
       fulfillmentStage: stage,
       status,
@@ -79,6 +79,7 @@ export const PickupStaffPortal = () => {
       fulfillmentUpdatedAt: new Date().toISOString(),
       fulfillmentUpdatedBy: user?.name
     });
+    if (!updated) return;
     if (stage === 4) {
       if (assignNearestRiderToOrder) assignNearestRiderToOrder(order.id);
     }
@@ -295,14 +296,14 @@ export const PickupStaffPortal = () => {
                     {stage < 2 || order.status === 'Deliver to Staff' || order.status === 'Delivered to Staff' ? (
                       <button
                         onClick={() =>
-                          updateStage(order, 2, 'Processing', {
+                          updateStage(order, 2, 'Packing', {
                             pickupAcceptedAt: new Date().toISOString()
                           })
                         }
                         className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer"
                       >
                         <CheckCircle2 size={16} />
-                        <span>Accept Parcel & Start Picking</span>
+                        <span>Accept Parcel & Start Packing</span>
                       </button>
                     ) : stage === 2 ? (
                       <button

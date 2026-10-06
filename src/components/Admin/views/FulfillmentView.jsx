@@ -508,7 +508,7 @@ export const FulfillmentView = () => {
 
                   const stageNames = {
                     1: '1. Order Placed',
-                    2: '2. Packing Queue',
+                    2: '2. Packing',
                     3: '3. Shelf Picking',
                     4: '4. Ready Dispatch',
                     5: '5. Courier Dispatch',

@@ -1680,6 +1680,22 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [customerOrders]);
 
+  // Keep the admin and pickup staff dashboards current when they are open in separate tabs.
+  useEffect(() => {
+    const syncOrderStorage = (event) => {
+      if (!['freshmart_customer_orders', 'freshmart_admin_orders'].includes(event.key)) return;
+      try {
+        const orders = event.newValue ? JSON.parse(event.newValue) : [];
+        if (!Array.isArray(orders)) return;
+        if (event.key === 'freshmart_customer_orders') setCustomerOrders(orders);
+        if (event.key === 'freshmart_admin_orders') setAdminOrders(orders);
+      } catch (e) {}
+    };
+
+    window.addEventListener('storage', syncOrderStorage);
+    return () => window.removeEventListener('storage', syncOrderStorage);
+  }, []);
+
   useEffect(() => {
     try {
       if (activeDeliveryOrder) {
@@ -3917,7 +3933,7 @@ export const StoreProvider = ({ children }) => {
 
     const stageStatusMap = {
       1: 'Pending',
-      2: 'Processing',
+      2: 'Packing',
       3: 'Picking',
       4: 'Ready for Dispatch',
       5: 'Dispatched',
@@ -3931,7 +3947,7 @@ export const StoreProvider = ({ children }) => {
     if (newStatus === 'Delivered') statusColor = 'bg-emerald-100 text-emerald-800';
     else if (newStatus === 'Out for Delivery') statusColor = 'bg-amber-100 text-amber-800';
     else if (newStatus === 'Ready for Dispatch' || newStatus === 'Packed') statusColor = 'bg-blue-100 text-blue-800';
-    else if (newStatus === 'Processing') statusColor = 'bg-indigo-100 text-indigo-800';
+    else if (newStatus === 'Processing' || newStatus === 'Packing') statusColor = 'bg-indigo-100 text-indigo-800';
     else if (newStatus === 'Cancelled') statusColor = 'bg-rose-100 text-rose-800';
 
     setAdminOrders((prev) =>
@@ -3963,6 +3979,7 @@ export const StoreProvider = ({ children }) => {
         await apiService.updateOrderStatus(orderId, newStatus);
       } catch (e) {}
     }
+    return true;
   };
 
   const assignPickupStaffToOrder = (orderId, staffId) => {
