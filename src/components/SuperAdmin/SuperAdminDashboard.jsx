@@ -95,7 +95,12 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
     addStoreAdmin,
     updateStoreAdmin,
     deleteStoreAdmin,
-    toggleStoreAdminStatus
+    toggleStoreAdminStatus,
+    allBranches,
+    addBranch,
+    updateBranch,
+    deleteBranch,
+    toggleBranchStatus
   } = useStore();
 
   // Active Navigation in Sidebar
@@ -119,6 +124,9 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
   const [tenantFilter, setTenantFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [branchCityFilter, setBranchCityFilter] = useState('all');
+  const [branchSearch, setBranchSearch] = useState('');
+  const [branchTenantFilter, setBranchTenantFilter] = useState('all');
+  const [branchStatusFilter, setBranchStatusFilter] = useState('all');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
   const [showPasswordMap, setShowPasswordMap] = useState({});
 
@@ -311,10 +319,14 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
   const [newBranchForm, setNewBranchForm] = useState({
     tenantId: 'tenant-alfatah',
     name: '',
-    city: 'Lahore',
+    code: '',
+    city: 'Faisalabad',
     address: '',
-    hubName: 'Gulberg Hub',
-    phone: '+92 42 35752233'
+    manager: '',
+    phone: '+92 41 8712345',
+    operatingHours: '08:00 AM - 11:00 PM',
+    deliveryRadius: 15,
+    status: 'active'
   });
 
   const [broadcastForm, setBroadcastForm] = useState({
@@ -593,9 +605,9 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
               </button>
               <button onClick={() => setActiveNav('branches')} className={getNavClass('branches')}>
                 <Building2 className="w-4 h-4 text-sky-400" />
-                <span>Central Hub (Faisalabad)</span>
-                <span className="ml-auto text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">
-                  1
+                <span>Store Branches</span>
+                <span className="ml-auto text-[10px] bg-sky-600 text-white px-1.5 py-0.5 rounded-full font-bold">
+                  {(allBranches || []).length}
                 </span>
               </button>
               <button onClick={() => setActiveNav('plans')} className={getNavClass('plans')}>
@@ -1351,95 +1363,296 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
           )}
 
           {/* ===================================================================== */}
-          {/* SUB-DASHBOARD: 3. BRANCHES & HUBS                                     */}
+          {/* SUB-DASHBOARD: 3. STORE BRANCHES & DARK STORES NETWORK               */}
           {/* ===================================================================== */}
-          {activeNav === 'branches' && (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-sky-600" />
-                    <span>Central Flagship Branch Network (Faisalabad)</span>
-                  </h2>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    All supermarket stores and delivery fleets are centralized in our single flagship fulfillment center in Faisalabad.
-                  </p>
-                </div>
-                <div className="px-3.5 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Central Operations Active</span>
-                </div>
-              </div>
+          {activeNav === 'branches' && (() => {
+            const branchList = Array.isArray(allBranches) ? allBranches : [];
+            const activeBranchesCount = branchList.filter((b) => b.status === 'active' || b.status === 'Active').length;
+            const uniqueCities = Array.from(new Set(branchList.map((b) => b.city).filter(Boolean)));
+            const uniqueTenants = Array.from(new Set(branchList.map((b) => b.tenantId).filter(Boolean)));
 
-              {/* Central Faisalabad Flagship Branch Card */}
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-2xs space-y-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100">
-                  <div className="flex items-start gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center text-3xl shadow-xs shrink-0">
-                      🏬
+            const filteredBranches = branchList.filter((b) => {
+              if (branchTenantFilter !== 'all') {
+                const canonicalTarget = branchTenantFilter.toLowerCase();
+                const bTenant = (b.tenantId || '').toLowerCase();
+                const bComp = (b.companyId || '').toLowerCase();
+                if (!bTenant.includes(canonicalTarget) && !bComp.includes(canonicalTarget)) return false;
+              }
+              if (branchCityFilter !== 'all' && (b.city || '').toLowerCase() !== branchCityFilter.toLowerCase()) {
+                return false;
+              }
+              if (branchStatusFilter !== 'all') {
+                const isActive = b.status === 'active' || b.status === 'Active';
+                if (branchStatusFilter === 'active' && !isActive) return false;
+                if (branchStatusFilter === 'inactive' && isActive) return false;
+              }
+              if (branchSearch.trim()) {
+                const q = branchSearch.toLowerCase();
+                const matchesName = (b.name || '').toLowerCase().includes(q);
+                const matchesCode = (b.code || '').toLowerCase().includes(q);
+                const matchesCity = (b.city || '').toLowerCase().includes(q);
+                const matchesAddress = (b.address || '').toLowerCase().includes(q);
+                const matchesManager = (b.manager || '').toLowerCase().includes(q);
+                return matchesName || matchesCode || matchesCity || matchesAddress || matchesManager;
+              }
+              return true;
+            });
+
+            return (
+              <div className="space-y-6">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-sky-700 bg-sky-100 px-2.5 py-0.5 rounded-full">
+                        Multi-Tenant Infrastructure
+                      </span>
+                      <span className="text-xs text-slate-400 font-bold">• Store Branches Directory</span>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black text-sky-700 bg-sky-100 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                          Central Flagship Branch #1
-                        </span>
-                        <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                          100% Operational
-                        </span>
-                      </div>
-                      <h3 className="text-xl font-black text-slate-900 mt-1.5">FreshMart Faisalabad Flagship Hub</h3>
-                      <p className="text-xs text-slate-500 mt-1">
-                        D-Ground Commercial Center, Peoples Colony 1, Faisalabad, Punjab, Pakistan
-                      </p>
-                    </div>
+                    <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2 mt-1">
+                      <Building2 className="w-5 h-5 text-sky-600" />
+                      <span>Store Branches & Dark Stores Network</span>
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Configure retail supermarket branches, dark stores, and fulfillment hubs across all marts and chains.
+                    </p>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-center min-w-[90px]">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Hub Code</span>
-                      <span className="text-sm font-black font-mono text-slate-900">FSD-01</span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-center min-w-[90px]">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Radius</span>
-                      <span className="text-sm font-black text-slate-900">25 km</span>
-                    </div>
+                    <button
+                      onClick={() => setIsAddBranchOpen(true)}
+                      className="px-4 py-2.5 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-black shadow-md flex items-center gap-2 transition cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>+ Add Store Branch</span>
+                    </button>
                   </div>
                 </div>
 
-                {/* Details Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">GPS Coordinates</span>
-                    <div className="font-mono font-bold text-slate-900">31.4125° N, 73.0995° E</div>
-                    <div className="text-[11px] text-slate-500">D-Ground Center</div>
+                {/* KPI Metrics Summary */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Branches</span>
+                    <span className="text-xl font-black font-mono text-slate-900 mt-1 block">{branchList.length}</span>
+                    <span className="text-[10px] text-slate-500">Across all retail chains</span>
                   </div>
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Branch Manager</span>
-                    <div className="font-bold text-slate-900">Muhammad Usman</div>
-                    <div className="text-[11px] text-slate-500">📞 +92 41 8712345</div>
+                  <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-emerald-700 block">Active Operational</span>
+                    <span className="text-xl font-black font-mono text-emerald-950 mt-1 block">{activeBranchesCount}</span>
+                    <span className="text-[10px] text-emerald-700">Online for express orders</span>
                   </div>
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Operating Hours</span>
-                    <div className="font-bold text-slate-900">08:00 AM - 12:00 AM</div>
-                    <div className="text-[11px] text-slate-500">7 Days a Week</div>
+                  <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Connected Marts</span>
+                    <span className="text-xl font-black font-mono text-sky-700 mt-1 block">{uniqueTenants.length || displayStores.length}</span>
+                    <span className="text-[10px] text-slate-500">Supermarket partners</span>
                   </div>
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Fulfillment SLA</span>
-                    <div className="font-bold text-emerald-600">10-15 Min Express</div>
-                    <div className="text-[11px] text-slate-500">Unified Delivery Fleet</div>
+                  <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Cities Covered</span>
+                    <span className="text-xl font-black font-mono text-purple-700 mt-1 block">{uniqueCities.length || 5}</span>
+                    <span className="text-[10px] text-slate-500">Major metropolitan zones</span>
                   </div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-sky-50/70 border border-sky-100 text-xs text-sky-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">ℹ️</span>
-                    <span>All supermarket stores (Al-Fatah, Chase Value, Chase Up, FreshMart & custom marts) operate exclusively out of this central Faisalabad facility.</span>
+                {/* Toolbar: Search & Filters */}
+                <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-2xs space-y-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div className="relative flex-1 max-w-md">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={branchSearch}
+                        onChange={(e) => setBranchSearch(e.target.value)}
+                        placeholder="Search branch by name, hub code, city, address, manager..."
+                        className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200/90 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Filter by Mart / Store */}
+                      <select
+                        value={branchTenantFilter}
+                        onChange={(e) => setBranchTenantFilter(e.target.value)}
+                        className="px-3 py-2 bg-slate-50 border border-slate-200/90 rounded-xl text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                      >
+                        <option value="all">🏪 All Supermarkets</option>
+                        {displayStores.map((store) => (
+                          <option key={store.id} value={store.id}>
+                            {store.logo} {store.name}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Filter by City */}
+                      <select
+                        value={branchCityFilter}
+                        onChange={(e) => setBranchCityFilter(e.target.value)}
+                        className="px-3 py-2 bg-slate-50 border border-slate-200/90 rounded-xl text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                      >
+                        <option value="all">📍 All Cities</option>
+                        <option value="Faisalabad">Faisalabad</option>
+                        <option value="Lahore">Lahore</option>
+                        <option value="Karachi">Karachi</option>
+                        <option value="Islamabad">Islamabad</option>
+                        <option value="Multan">Multan</option>
+                        <option value="Rawalpindi">Rawalpindi</option>
+                      </select>
+
+                      {/* Filter by Status */}
+                      <select
+                        value={branchStatusFilter}
+                        onChange={(e) => setBranchStatusFilter(e.target.value)}
+                        className="px-3 py-2 bg-slate-50 border border-slate-200/90 rounded-xl text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                      >
+                        <option value="all">All Statuses</option>
+                        <option value="active">Active Only</option>
+                        <option value="inactive">Inactive</option>
+                      </select>
+                    </div>
                   </div>
-                  <span className="font-mono font-bold text-sky-700 shrink-0">Centralized Architecture</span>
+
+                  {/* Branches Grid */}
+                  {filteredBranches.length === 0 ? (
+                    <div className="p-12 text-center space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-xl">
+                        🏬
+                      </div>
+                      <h4 className="text-sm font-bold text-slate-800">No store branches matched your filters</h4>
+                      <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                        Try resetting search or add a new branch to expand this supermarket's coverage.
+                      </p>
+                      <button
+                        onClick={() => setIsAddBranchOpen(true)}
+                        className="px-4 py-2 bg-sky-600 text-white rounded-xl text-xs font-bold hover:bg-sky-700 transition"
+                      >
+                        + Add Store Branch
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                      {filteredBranches.map((branch) => {
+                        const targetStore = displayStores.find(
+                          (s) =>
+                            s.id === branch.tenantId ||
+                            s.legacyId === branch.tenantId ||
+                            (branch.tenantId && branch.tenantId.toLowerCase().includes(s.name.toLowerCase().replace(/\s+/g, '')))
+                        ) || {
+                          name: 'Fresh Mart',
+                          logo: '🛒',
+                          color: '#ea580c'
+                        };
+
+                        const isActive = branch.status === 'active' || branch.status === 'Active';
+
+                        return (
+                          <div
+                            key={branch._id || branch.id}
+                            className={`p-5 rounded-2xl border transition-all flex flex-col justify-between space-y-4 ${
+                              isActive
+                                ? 'bg-white border-slate-200/90 hover:border-slate-300 shadow-2xs'
+                                : 'bg-slate-50/60 border-slate-200 text-slate-500'
+                            }`}
+                          >
+                            <div className="space-y-3">
+                              {/* Top Mart Badge & Status Toggle */}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-base">{targetStore.logo}</span>
+                                  <span className="text-xs font-black text-slate-800">
+                                    {targetStore.name}
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => toggleBranchStatus(branch._id || branch.id)}
+                                  className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full transition cursor-pointer ${
+                                    isActive
+                                      ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                      : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                                  }`}
+                                  title="Click to toggle branch operational status"
+                                >
+                                  {isActive ? '● Active' : '○ Inactive'}
+                                </button>
+                              </div>
+
+                              {/* Branch Name & Code */}
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-black text-slate-900 text-base leading-snug">
+                                    {branch.name}
+                                  </h3>
+                                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                                    {branch.code || 'HUB'}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1 flex items-start gap-1">
+                                  <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+                                  <span className="line-clamp-2">{branch.address || 'Commercial Center'} • <b>{branch.city}</b></span>
+                                </p>
+                              </div>
+
+                              {/* Details Grid */}
+                              <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                                  <span className="text-[10px] text-slate-400 font-bold block uppercase">Manager</span>
+                                  <span className="font-bold text-slate-800 text-[11px] truncate block">
+                                    {branch.manager || 'Store Manager'}
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 font-mono">
+                                    {branch.phone || '+92 41 8712345'}
+                                  </span>
+                                </div>
+
+                                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                                  <span className="text-[10px] text-slate-400 font-bold block uppercase">Delivery Radius</span>
+                                  <span className="font-black text-slate-800 text-[11px] block">
+                                    {branch.deliveryRadius || 15} km
+                                  </span>
+                                  <span className="text-[10px] text-slate-500">
+                                    {branch.operatingHours || '08:00 AM - 11:00 PM'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Branch Footer: Actions */}
+                            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                              <span className="text-[10px] font-bold text-slate-400">
+                                GPS: {branch.latitude || '31.41'}°N, {branch.longitude || '73.09'}°E
+                              </span>
+
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm(`Are you sure you want to delete "${branch.name}"?`)) {
+                                      deleteBranch(branch._id || branch.id);
+                                    }
+                                  }}
+                                  className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition cursor-pointer"
+                                  title="Delete Branch"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Informational Footer Note */}
+                  <div className="p-4 rounded-2xl bg-sky-50/70 border border-sky-100 text-xs text-sky-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🏢</span>
+                      <span>Customer store automatically assigns customer checkout to the nearest operational branch via GPS distance algorithms.</span>
+                    </div>
+                    <span className="font-mono font-bold text-sky-700 shrink-0">Dynamic Dark Store Routing</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ===================================================================== */}
           {/* SUB-DASHBOARD: 4. SUBSCRIPTION PLANS                                  */}
@@ -2766,17 +2979,40 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                addToast('Branch Hub Registered 🏢', `${newBranchForm.name} in ${newBranchForm.city} added to network.`);
+                addBranch({
+                  tenantId: newBranchForm.tenantId,
+                  name: newBranchForm.name,
+                  code: newBranchForm.code || `BR-${Math.floor(100 + Math.random() * 900)}`,
+                  city: newBranchForm.city,
+                  address: newBranchForm.address,
+                  manager: newBranchForm.manager || 'Store Manager',
+                  phone: newBranchForm.phone || '+92 41 8712345',
+                  operatingHours: newBranchForm.operatingHours || '08:00 AM - 11:00 PM',
+                  deliveryRadius: Number(newBranchForm.deliveryRadius || 15),
+                  status: 'active'
+                });
                 setIsAddBranchOpen(false);
+                setNewBranchForm({
+                  tenantId: 'tenant-alfatah',
+                  name: '',
+                  code: '',
+                  city: 'Faisalabad',
+                  address: '',
+                  manager: '',
+                  phone: '+92 41 8712345',
+                  operatingHours: '08:00 AM - 11:00 PM',
+                  deliveryRadius: 15,
+                  status: 'active'
+                });
               }}
               className="space-y-3 text-xs"
             >
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Parent Supermarket</label>
+                <label className="font-bold text-slate-700 block mb-1">Parent Supermarket Store</label>
                 <select
                   value={newBranchForm.tenantId}
                   onChange={(e) => setNewBranchForm({ ...newBranchForm, tenantId: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none cursor-pointer"
                 >
                   {displayStores.map((store) => (
                     <option key={store.id} value={store.id}>
@@ -2786,16 +3022,28 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
                 </select>
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Branch Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. DHA Phase 6 Express"
-                  value={newBranchForm.name}
-                  onChange={(e) => setNewBranchForm({ ...newBranchForm, name: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Branch Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. DHA Phase 6 Express"
+                    value={newBranchForm.name}
+                    onChange={(e) => setNewBranchForm({ ...newBranchForm, name: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Branch Code</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. LHR-02 / FSD-03"
+                    value={newBranchForm.code}
+                    onChange={(e) => setNewBranchForm({ ...newBranchForm, code: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none font-mono"
+                  />
+                </div>
               </div>
 
               <div>
@@ -2803,41 +3051,90 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
                 <select
                   value={newBranchForm.city}
                   onChange={(e) => setNewBranchForm({ ...newBranchForm, city: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none cursor-pointer"
                 >
+                  <option value="Faisalabad">Faisalabad</option>
                   <option value="Lahore">Lahore</option>
                   <option value="Karachi">Karachi</option>
                   <option value="Islamabad">Islamabad</option>
-                  <option value="Faisalabad">Faisalabad</option>
                   <option value="Multan">Multan</option>
+                  <option value="Rawalpindi">Rawalpindi</option>
                 </select>
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Address & GPS Location</label>
+                <label className="font-bold text-slate-700 block mb-1">Full Physical Address</label>
                 <input
                   type="text"
                   required
-                  placeholder="Main Boulevard, Sector C, DHA"
+                  placeholder="e.g. Main Boulevard, Sector C, DHA"
                   value={newBranchForm.address}
                   onChange={(e) => setNewBranchForm({ ...newBranchForm, address: e.target.value })}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Branch Manager</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Tariq Mehmood"
+                    value={newBranchForm.manager}
+                    onChange={(e) => setNewBranchForm({ ...newBranchForm, manager: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Contact Phone</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. +92 42 35741122"
+                    value={newBranchForm.phone}
+                    onChange={(e) => setNewBranchForm({ ...newBranchForm, phone: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Delivery Radius (km)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={newBranchForm.deliveryRadius}
+                    onChange={(e) => setNewBranchForm({ ...newBranchForm, deliveryRadius: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Operating Hours</label>
+                  <input
+                    type="text"
+                    placeholder="08:00 AM - 11:00 PM"
+                    value={newBranchForm.operatingHours}
+                    onChange={(e) => setNewBranchForm({ ...newBranchForm, operatingHours: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsAddBranchOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold transition shadow-xs"
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
-                  Save Branch
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>Register Store Branch</span>
                 </button>
               </div>
             </form>

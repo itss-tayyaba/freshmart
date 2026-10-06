@@ -25,9 +25,11 @@ import {
   TrendingUp,
   DollarSign,
   Check,
-  Ban
+  Ban,
+  Boxes
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
+import { OrderFulfillmentModal } from '../modals/OrderFulfillmentModal';
 
 // Helper: Extract human-readable order items count/summary safely (never returns an object/array)
 const formatOrderItemsSummary = (ord) => {
@@ -82,6 +84,9 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
 
   // Selected Order for Right Side Drawer
   const [selectedOrder, setSelectedOrder] = useState(null);
+
+  // Selected Order for 7-Stage Fulfillment Pipeline Modal
+  const [fulfillmentModalOrder, setFulfillmentModalOrder] = useState(null);
 
   // Selected Customer for Customer Profile & History Modal
   const [selectedCustomerModal, setSelectedCustomerModal] = useState(null);
@@ -607,18 +612,31 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                           </span>
                         </td>
 
-                        {/* Action View Button */}
+                        {/* Action View Button & 7-Stage Pipeline Button */}
                         <td className="py-4 text-right pr-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedOrder(ord);
-                            }}
-                            className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 text-[11px] font-bold transition-colors inline-flex items-center gap-1 cursor-pointer shadow-2xs"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>View</span>
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFulfillmentModalOrder(ord);
+                              }}
+                              className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-800 text-[11px] font-bold transition-all border border-emerald-200/80 inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                              title="Open 7-Stage Fulfillment & Dispatch Console"
+                            >
+                              <Boxes className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">7-Stage Dispatch</span>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedOrder(ord);
+                              }}
+                              className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 text-[11px] font-bold transition-colors inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>View</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -851,6 +869,17 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                   ))}
                 </select>
               </div>
+            </div>
+
+            {/* 7-Stage Interactive Fulfillment Console Launcher */}
+            <div className="pt-2">
+              <button
+                onClick={() => setFulfillmentModalOrder(selectedOrder)}
+                className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-700 to-slate-900 hover:from-emerald-700 hover:to-slate-800 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer border border-emerald-500/30"
+              >
+                <Boxes className="w-4 h-4 text-emerald-300" />
+                <span>🚀 Launch 7-Stage Dispatch Console</span>
+              </button>
             </div>
 
             {/* Quick Status Update Buttons */}
@@ -1086,6 +1115,15 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
 
           </div>
         </div>
+      )}
+
+      {/* 7-Stage Order Fulfillment Pipeline Modal */}
+      {fulfillmentModalOrder && (
+        <OrderFulfillmentModal
+          order={fulfillmentModalOrder}
+          isOpen={Boolean(fulfillmentModalOrder)}
+          onClose={() => setFulfillmentModalOrder(null)}
+        />
       )}
 
     </div>

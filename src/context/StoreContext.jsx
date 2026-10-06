@@ -246,12 +246,77 @@ export const StoreProvider = ({ children }) => {
   const [isLocationConfirmed, setIsLocationConfirmed] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(true);
 
-  // --- 🏢 Multi-Company & Branch Architecture State (Centralized in Faisalabad) ---
+  // --- 🏢 Multi-Company & Branch Architecture State ---
+  const [allBranches, setAllBranches] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_branches');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return BRANCHES;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_branches', JSON.stringify(allBranches));
+    } catch (e) {}
+  }, [allBranches]);
+
+  const addBranch = (branchData) => {
+    const newId = `branch_${Date.now()}`;
+    const newBranch = {
+      _id: newId,
+      id: newId,
+      code: branchData.code || `BR-${Math.floor(100 + Math.random() * 900)}`,
+      name: branchData.name || 'New Branch',
+      tenantId: branchData.tenantId || 'tenant-freshmart',
+      companyId: branchData.companyId || (branchData.tenantId === 'tenant-alfatah' ? 'company_001' : branchData.tenantId === 'tenant-chaseup' ? 'company_002' : branchData.tenantId === 'tenant-chasevalue' ? 'company_003' : 'company_004'),
+      city: branchData.city || 'Faisalabad',
+      address: branchData.address || '',
+      latitude: Number(branchData.latitude || 31.4125),
+      longitude: Number(branchData.longitude || 73.0995),
+      phone: branchData.phone || '+92 41 8712345',
+      manager: branchData.manager || 'Store Manager',
+      status: branchData.status || 'active',
+      operatingHours: branchData.operatingHours || '08:00 AM - 11:00 PM',
+      deliveryRadius: Number(branchData.deliveryRadius || 15)
+    };
+    setAllBranches((prev) => [newBranch, ...prev]);
+    addToast('Branch Created 🏬', `${newBranch.name} (${newBranch.city}) registered successfully.`);
+    return newBranch;
+  };
+
+  const updateBranch = (branchId, updatedData) => {
+    setAllBranches((prev) =>
+      prev.map((b) => (b._id === branchId || b.id === branchId ? { ...b, ...updatedData } : b))
+    );
+    addToast('Branch Updated', 'Branch settings updated.');
+  };
+
+  const deleteBranch = (branchId) => {
+    setAllBranches((prev) => prev.filter((b) => b._id !== branchId && b.id !== branchId));
+    addToast('Branch Removed', 'Branch was successfully removed from directory.', 'info');
+  };
+
+  const toggleBranchStatus = (branchId) => {
+    setAllBranches((prev) =>
+      prev.map((b) => {
+        if (b._id === branchId || b.id === branchId) {
+          const newStatus = b.status === 'active' || b.status === 'Active' ? 'inactive' : 'active';
+          return { ...b, status: newStatus };
+        }
+        return b;
+      })
+    );
+  };
+
   const [currentBranch, setCurrentBranchState] = useState(() => {
     try {
       const savedBranchId = localStorage.getItem('freshmart_current_branch_id');
       if (savedBranchId) {
-        const found = BRANCHES.find((b) => b._id === savedBranchId || b.id === savedBranchId);
+        const found = allBranches.find((b) => b._id === savedBranchId || b.id === savedBranchId);
         if (found && found.city === 'Faisalabad') return found;
       }
     } catch (e) {}
@@ -269,7 +334,7 @@ export const StoreProvider = ({ children }) => {
   // Keep branch dynamically set to corresponding tenant branch nearest to customer delivery location
   useEffect(() => {
     const canonical = resolveTenantId(currentTenant?.id);
-    const tenantBranches = BRANCHES.filter((b) => b.tenantId === canonical);
+    const tenantBranches = allBranches.filter((b) => b.tenantId === canonical);
     if (tenantBranches.length > 0) {
       const uLat = Number(deliveryLocation?.lat || deliveryLocation?.coords?.lat || 31.4125);
       const uLng = Number(deliveryLocation?.lng || deliveryLocation?.coords?.lng || 73.0995);
@@ -288,7 +353,7 @@ export const StoreProvider = ({ children }) => {
     } else {
       setCurrentBranch(FAISALABAD_BRANCH);
     }
-  }, [currentTenant, deliveryLocation]);
+  }, [currentTenant, deliveryLocation, allBranches]);
 
   // Dynamic calculation of all nearby supermarkets and dark store branches for the customer
   const getNearbyStores = (coords) => {
@@ -297,7 +362,7 @@ export const StoreProvider = ({ children }) => {
 
     const storeList = INITIAL_TENANTS.map((tenant) => {
       const tenantCanonicalId = resolveTenantId(tenant.id);
-      const tenantBranches = BRANCHES.filter(
+      const tenantBranches = allBranches.filter(
         (b) => b.tenantId === tenantCanonicalId || (tenant.slug && b.slug === tenant.slug)
       );
 
@@ -966,6 +1031,11 @@ export const StoreProvider = ({ children }) => {
   // Admin Data State (Starts with authentic multi-branch seed orders, augmented as orders arrive)
   const [adminOrders, setAdminOrders] = useState(() => {
     try {
+      const savedAdmin = localStorage.getItem('freshmart_admin_orders');
+      if (savedAdmin) {
+        const parsed = JSON.parse(savedAdmin);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
       const saved = localStorage.getItem('freshmart_customer_orders');
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -975,6 +1045,12 @@ export const StoreProvider = ({ children }) => {
     return INITIAL_BRANCH_ORDERS;
   });
   const [adminStats, setAdminStats] = useState(ADMIN_STATS);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_admin_orders', JSON.stringify(adminOrders));
+    } catch (e) {}
+  }, [adminOrders]);
 
   // Admin Promotions & Coupons State
   const [promotions, setPromotions] = useState(() => {
@@ -3654,6 +3730,58 @@ export const StoreProvider = ({ children }) => {
     addToast('Order Status Updated', `Order ${orderId} is now ${newStatus}.`);
   };
 
+  // --- 🚀 7-Stage Order Fulfillment & Dispatch Pipeline Handler ---
+  const updateOrderFulfillment = async (orderId, updates) => {
+    const stageStatusMap = {
+      1: 'Pending',
+      2: 'Processing',
+      3: 'Processing',
+      4: 'Packed',
+      5: 'Ready for Dispatch',
+      6: 'Out for Delivery',
+      7: 'Delivered'
+    };
+
+    const newStatus = updates.status || (updates.fulfillmentStage ? stageStatusMap[updates.fulfillmentStage] : undefined);
+
+    let statusColor;
+    if (newStatus === 'Delivered') statusColor = 'bg-emerald-100 text-emerald-800';
+    else if (newStatus === 'Out for Delivery') statusColor = 'bg-amber-100 text-amber-800';
+    else if (newStatus === 'Ready for Dispatch' || newStatus === 'Packed') statusColor = 'bg-blue-100 text-blue-800';
+    else if (newStatus === 'Processing') statusColor = 'bg-indigo-100 text-indigo-800';
+    else if (newStatus === 'Cancelled') statusColor = 'bg-rose-100 text-rose-800';
+
+    setAdminOrders((prev) =>
+      prev.map((order) => {
+        if (order.id === orderId || order.orderId === orderId || order._id === orderId) {
+          const merged = { ...order, ...updates };
+          if (newStatus) merged.status = newStatus;
+          if (statusColor) merged.statusColor = statusColor;
+          return merged;
+        }
+        return order;
+      })
+    );
+
+    setCustomerOrders((prev) =>
+      prev.map((order) => {
+        if (order.id === orderId || order.orderId === orderId || order._id === orderId) {
+          const merged = { ...order, ...updates };
+          if (newStatus) merged.status = newStatus;
+          if (statusColor) merged.statusColor = statusColor;
+          return merged;
+        }
+        return order;
+      })
+    );
+
+    if (newStatus) {
+      try {
+        await apiService.updateOrderStatus(orderId, newStatus);
+      } catch (e) {}
+    }
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -3834,10 +3962,16 @@ export const StoreProvider = ({ children }) => {
         toggleStoreAdminStatus,
         // --- 🏢 Multi-Company & Branch Architecture Values ---
         companies: COMPANIES,
-        allBranches: BRANCHES,
+        allBranches,
+        setAllBranches,
+        addBranch,
+        updateBranch,
+        deleteBranch,
+        toggleBranchStatus,
+        updateOrderFulfillment,
         currentBranch,
         setCurrentBranch,
-        branches: BRANCHES.filter((b) => b.tenantId === resolveTenantId(currentTenant?.id)),
+        branches: allBranches.filter((b) => b.tenantId === resolveTenantId(currentTenant?.id)),
         branchInventory: branchInventory.filter(
           (i) => i.tenantId === resolveTenantId(currentTenant?.id) && (!currentBranch?._id || i.branchId === currentBranch?._id)
         ),

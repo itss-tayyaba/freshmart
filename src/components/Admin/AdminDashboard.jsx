@@ -38,6 +38,7 @@ import { PromotionsView } from './views/PromotionsView';
 import { DeliveryView } from './views/DeliveryView';
 import { ReportsView } from './views/ReportsView';
 import { SettingsView } from './views/SettingsView';
+import { FulfillmentView } from './views/FulfillmentView';
 
 import { AdminModals } from './modals/AdminModals';
 import { AdminLogin } from './AdminLogin';
@@ -140,6 +141,7 @@ export const AdminDashboard = () => {
       { label: 'Products', icon: Package, badge: totalProductsCount > 0 ? totalProductsCount : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { label: 'Categories', icon: Layers },
       { label: 'Orders', icon: ShoppingBag, badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-amber-500/20 text-amber-300' },
+      { label: 'Fulfillment', icon: Boxes, badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { label: 'Customers', icon: Users },
       { label: 'Inventory', icon: Boxes, badge: lowStockCount > 0 ? lowStockCount : null, badgeColor: 'bg-rose-500/20 text-rose-300' },
       { label: 'Suppliers', icon: Building2 },
@@ -497,6 +499,7 @@ export const AdminDashboard = () => {
           {activeTab === 'Orders' && (
             <OrdersView onNavigateToCustomers={() => setActiveTab('Customers')} />
           )}
+          {activeTab === 'Fulfillment' && <FulfillmentView />}
           {activeTab === 'Customers' && (
             <CustomersView onOpenAddCustomerModal={() => setIsAddCustomerOpen(true)} />
           )}
