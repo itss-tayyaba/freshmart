@@ -321,7 +321,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredOrders.map((order) => {
               const orderId = order.id || order.orderId;
               const cleanId = String(orderId).replace(/^#/, '');
@@ -359,7 +359,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                   key={orderId}
                   className="bg-white rounded-2xl sm:rounded-3xl border border-[#e8dfd3] shadow-xs hover:shadow-md transition-all overflow-hidden border-t-4 border-t-[#c8922c]"
                 >
-                  <div className="p-4 sm:p-5 grid grid-cols-1 lg:grid-cols-[minmax(220px,0.9fr)_minmax(260px,1.2fr)_minmax(250px,1fr)] items-center gap-x-6 gap-y-3">
+                  <div className="p-5 sm:p-6 space-y-4">
                     {/* TOP ROW: Order Code, Customer Info & Timer (Exact match to Image 1) */}
                     <div className="flex items-start justify-between gap-4">
                       {/* Left: Code, Dine-in/Delivery, Phone */}
@@ -393,7 +393,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                     </div>
 
                     {/* ITEMS ROW-WISE LIST (Exact match to Image 1) */}
-                    <div className="space-y-2 pt-1 lg:border-l lg:border-[#f2ebe0] lg:pl-5">
+                    <div className="space-y-2 pt-1 border-t border-[#f2ebe0]">
                       {items.map((item, idx) => {
                         const isPicked = currentPicked.includes(idx);
                         const qty = item.quantity || item.qty || 1;
@@ -437,7 +437,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                     </div>
 
                     {/* EXPANDABLE DETAILS TOGGLE */}
-                    <div className="lg:border-l lg:border-[#f2ebe0] lg:pl-5">
+                    <div>
                       <button
                         type="button"
                         onClick={() => toggleExpanded(orderId)}
@@ -489,7 +489,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                     </div>
 
                     {/* BOTTOM ROW: Price on Left, Action Button on Right (Exact match to Image 1) */}
-                    <div className="lg:col-span-3 pt-3 border-t border-dashed border-[#e6dcce] flex items-center justify-between gap-4">
+                    <div className="pt-3 border-t border-dashed border-[#e6dcce] flex items-center justify-between gap-4">
                       {/* Price */}
                       <div className="font-mono font-black text-slate-900 text-lg sm:text-xl">
                         {order.currency === 'USD' || String(order.id).startsWith('EB-') ? (
