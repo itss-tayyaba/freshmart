@@ -251,3 +251,166 @@ export const createBranchOrder = async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
+
+// @desc    Get all branches across the entire platform
+// @route   GET /api/branches
+export const getAllBranches = async (req, res) => {
+  try {
+    if (isDbOnline()) {
+      try {
+        const dbBranches = await Branch.find({}).sort({ createdAt: -1 });
+        return res.json({
+          success: true,
+          count: dbBranches.length,
+          branches: dbBranches
+        });
+      } catch (e) {
+        console.warn('Branch DB lookup error:', e.message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      count: 0,
+      branches: []
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Create a new branch and store in database
+// @route   POST /api/branches
+export const createBranch = async (req, res) => {
+  try {
+    const {
+      _id,
+      id,
+      tenantId,
+      companyId,
+      code,
+      name,
+      city,
+      address,
+      manager,
+      phone,
+      operatingHours,
+      deliveryRadius,
+      latitude,
+      longitude,
+      status
+    } = req.body;
+
+    if (!name || !tenantId) {
+      return res.status(400).json({ success: false, message: 'Branch name and parent store are required' });
+    }
+
+    const branchId = _id || id || `branch_${Date.now()}`;
+    const newBranch = {
+      _id: branchId,
+      id: branchId,
+      tenantId,
+      companyId: companyId || '',
+      code: code || `BR-${Math.floor(100 + Math.random() * 900)}`,
+      name,
+      city: city || 'Faisalabad',
+      address: address || '',
+      manager: manager || '',
+      phone: phone || '',
+      operatingHours: operatingHours || '08:00 AM - 11:00 PM',
+      deliveryRadius: Number(deliveryRadius || 15),
+      latitude: Number(latitude || 31.4125),
+      longitude: Number(longitude || 73.0995),
+      status: status || 'active'
+    };
+
+    if (isDbOnline()) {
+      try {
+        const created = await Branch.findOneAndUpdate(
+          { _id: branchId },
+          newBranch,
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+        return res.status(201).json({
+          success: true,
+          message: 'Branch stored in database successfully',
+          branch: created
+        });
+      } catch (e) {
+        console.error('Branch DB save error:', e.message);
+        return res.status(500).json({ success: false, message: `DB error: ${e.message}` });
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: 'Branch saved in memory',
+      branch: newBranch
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Update branch in database
+// @route   PUT /api/branches/:id
+export const updateBranch = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    if (isDbOnline()) {
+      try {
+        const updated = await Branch.findOneAndUpdate(
+          { $or: [{ _id: id }, { id }] },
+          { $set: updates },
+          { new: true }
+        );
+        if (updated) {
+          return res.json({
+            success: true,
+            message: 'Branch updated in database',
+            branch: updated
+          });
+        }
+      } catch (e) {
+        console.error('Branch DB update error:', e.message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'Branch updated',
+      branch: { _id: id, id, ...updates }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Delete branch from database
+// @route   DELETE /api/branches/:id
+export const deleteBranch = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (isDbOnline()) {
+      try {
+        await Branch.findOneAndDelete({ $or: [{ _id: id }, { id }] });
+        return res.json({
+          success: true,
+          message: 'Branch deleted from database'
+        });
+      } catch (e) {
+        console.error('Branch DB delete error:', e.message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'Branch removed'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};

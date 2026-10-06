@@ -1443,12 +1443,12 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
                   </div>
                   <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
                     <span className="text-[10px] uppercase font-bold text-slate-400 block">Connected Marts</span>
-                    <span className="text-xl font-black font-mono text-sky-700 mt-1 block">{uniqueTenants.length || displayStores.length}</span>
+                    <span className="text-xl font-black font-mono text-sky-700 mt-1 block">{uniqueTenants.length}</span>
                     <span className="text-[10px] text-slate-500">Supermarket partners</span>
                   </div>
                   <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
                     <span className="text-[10px] uppercase font-bold text-slate-400 block">Cities Covered</span>
-                    <span className="text-xl font-black font-mono text-purple-700 mt-1 block">{uniqueCities.length || 5}</span>
+                    <span className="text-xl font-black font-mono text-purple-700 mt-1 block">{uniqueCities.length}</span>
                     <span className="text-[10px] text-slate-500">Major metropolitan zones</span>
                   </div>
                 </div>
@@ -1513,18 +1513,19 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
                   {/* Branches Grid */}
                   {filteredBranches.length === 0 ? (
                     <div className="p-12 text-center space-y-3">
-                      <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-xl">
+                      <div className="w-14 h-14 rounded-2xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center mx-auto text-2xl shadow-xs">
                         🏬
                       </div>
-                      <h4 className="text-sm font-bold text-slate-800">No store branches matched your filters</h4>
+                      <h4 className="text-sm font-bold text-slate-800">No Store Branches Added Yet</h4>
                       <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                        Try resetting search or add a new branch to expand this supermarket's coverage.
+                        Your branch network is currently empty. Add your stores and dark stores using the button below — each will be persisted directly to the database.
                       </p>
                       <button
                         onClick={() => setIsAddBranchOpen(true)}
-                        className="px-4 py-2 bg-sky-600 text-white rounded-xl text-xs font-bold hover:bg-sky-700 transition"
+                        className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer inline-flex items-center gap-1.5"
                       >
-                        + Add Store Branch
+                        <Plus className="w-4 h-4" />
+                        <span>Add First Store Branch</span>
                       </button>
                     </div>
                   ) : (

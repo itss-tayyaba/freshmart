@@ -968,5 +968,55 @@ export const apiService = {
     } catch (e) {
       return { success: false, error: e.message };
     }
+  },
+
+  // Store Branches API (Database-Backed Multi-Store & Dark Store Network)
+  async getBranches() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/branches`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async createBranch(branchData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/branches`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(branchData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateBranch(id, branchData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/branches/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(branchData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteBranch(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/branches/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
   }
 };

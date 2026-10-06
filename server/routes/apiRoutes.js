@@ -242,6 +242,10 @@ router.get('/tenants/:id/performance', getTenantPerformance);
 // --- 🏬 Multi-Company & Branch Architecture Routes (User → Tenant → Branch → Data) ---
 import {
   getCompanies,
+  getAllBranches,
+  createBranch,
+  updateBranch,
+  deleteBranch,
   getCompanyBranches,
   getBranchInventory,
   updateBranchInventory,
@@ -251,6 +255,10 @@ import {
 import { enforceTenantBranchScope } from '../middleware/tenantBranchMiddleware.js';
 
 router.get('/companies', getCompanies);
+router.get('/branches', getAllBranches);
+router.post('/branches', createBranch);
+router.put('/branches/:id', updateBranch);
+router.delete('/branches/:id', deleteBranch);
 router.get('/companies/:tenantId/branches', getCompanyBranches);
 router.get('/branches/:branchId/inventory', getBranchInventory);
 router.put('/branches/:branchId/inventory/:productId', updateBranchInventory);

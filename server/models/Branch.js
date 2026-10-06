@@ -15,6 +15,14 @@ const branchSchema = new mongoose.Schema(
       required: true,
       index: true
     },
+    companyId: {
+      type: String,
+      default: ''
+    },
+    code: {
+      type: String,
+      default: ''
+    },
     name: {
       type: String,
       required: true,
@@ -27,13 +35,17 @@ const branchSchema = new mongoose.Schema(
     },
     latitude: {
       type: Number,
-      required: true
+      default: 31.4125
     },
     longitude: {
       type: Number,
-      required: true
+      default: 73.0995
     },
     address: {
+      type: String,
+      default: ''
+    },
+    manager: {
       type: String,
       default: ''
     },
@@ -41,9 +53,17 @@ const branchSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    operatingHours: {
+      type: String,
+      default: '08:00 AM - 11:00 PM'
+    },
+    deliveryRadius: {
+      type: Number,
+      default: 15
+    },
     status: {
       type: String,
-      enum: ['active', 'inactive'],
+      enum: ['active', 'inactive', 'Active', 'Inactive'],
       default: 'active'
     }
   },

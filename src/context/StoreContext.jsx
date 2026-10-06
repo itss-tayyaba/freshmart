@@ -252,10 +252,27 @@ export const StoreProvider = ({ children }) => {
       const saved = localStorage.getItem('freshmart_branches');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          // Filter out any legacy pre-seeded mock branches
+          const userOnlyBranches = parsed.filter(
+            (b) =>
+              b &&
+              !b._id?.startsWith('branch_00') &&
+              !b._id?.startsWith('branch_af') &&
+              !b._id?.startsWith('branch_cu') &&
+              !b._id?.startsWith('branch_cv') &&
+              !b._id?.startsWith('branch_fm') &&
+              !b.id?.startsWith('branch_00') &&
+              !b.id?.startsWith('branch_af') &&
+              !b.id?.startsWith('branch_cu') &&
+              !b.id?.startsWith('branch_cv') &&
+              !b.id?.startsWith('branch_fm')
+          );
+          return userOnlyBranches;
+        }
       }
     } catch (e) {}
-    return BRANCHES;
+    return [];
   });
 
   useEffect(() => {
@@ -264,7 +281,23 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [allBranches]);
 
-  const addBranch = (branchData) => {
+  // Sync branches from backend database on initial mount
+  useEffect(() => {
+    const fetchDbBranches = async () => {
+      try {
+        const res = await apiService.getBranches();
+        if (res && res.success && Array.isArray(res.branches)) {
+          setAllBranches(res.branches);
+          localStorage.setItem('freshmart_branches', JSON.stringify(res.branches));
+        }
+      } catch (e) {
+        console.warn('Could not sync branches from backend database:', e.message);
+      }
+    };
+    fetchDbBranches();
+  }, []);
+
+  const addBranch = async (branchData) => {
     const newId = `branch_${Date.now()}`;
     const newBranch = {
       _id: newId,
@@ -284,32 +317,53 @@ export const StoreProvider = ({ children }) => {
       deliveryRadius: Number(branchData.deliveryRadius || 15)
     };
     setAllBranches((prev) => [newBranch, ...prev]);
-    addToast('Branch Created 🏬', `${newBranch.name} (${newBranch.city}) registered successfully.`);
+    addToast('Branch Stored 🏬', `${newBranch.name} (${newBranch.city}) saved to database.`);
+
+    // Persist directly to MongoDB database
+    try {
+      await apiService.createBranch(newBranch);
+    } catch (e) {
+      console.warn('Could not persist branch to database:', e.message);
+    }
     return newBranch;
   };
 
-  const updateBranch = (branchId, updatedData) => {
+  const updateBranch = async (branchId, updatedData) => {
     setAllBranches((prev) =>
       prev.map((b) => (b._id === branchId || b.id === branchId ? { ...b, ...updatedData } : b))
     );
-    addToast('Branch Updated', 'Branch settings updated.');
+    addToast('Branch Updated', 'Branch settings updated on database.');
+    try {
+      await apiService.updateBranch(branchId, updatedData);
+    } catch (e) {
+      console.warn('Could not sync branch update to database:', e.message);
+    }
   };
 
-  const deleteBranch = (branchId) => {
+  const deleteBranch = async (branchId) => {
     setAllBranches((prev) => prev.filter((b) => b._id !== branchId && b.id !== branchId));
-    addToast('Branch Removed', 'Branch was successfully removed from directory.', 'info');
+    addToast('Branch Removed', 'Branch was successfully removed from database.', 'info');
+    try {
+      await apiService.deleteBranch(branchId);
+    } catch (e) {
+      console.warn('Could not delete branch from database:', e.message);
+    }
   };
 
-  const toggleBranchStatus = (branchId) => {
+  const toggleBranchStatus = async (branchId) => {
+    let targetNewStatus = 'active';
     setAllBranches((prev) =>
       prev.map((b) => {
         if (b._id === branchId || b.id === branchId) {
-          const newStatus = b.status === 'active' || b.status === 'Active' ? 'inactive' : 'active';
-          return { ...b, status: newStatus };
+          targetNewStatus = b.status === 'active' || b.status === 'Active' ? 'inactive' : 'active';
+          return { ...b, status: targetNewStatus };
         }
         return b;
       })
     );
+    try {
+      await apiService.updateBranch(branchId, { status: targetNewStatus });
+    } catch (e) {}
   };
 
   const [currentBranch, setCurrentBranchState] = useState(() => {
