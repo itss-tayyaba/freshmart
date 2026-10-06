@@ -1183,6 +1183,25 @@ export const StoreProvider = ({ children }) => {
     };
   });
 
+  // Orders are shared through the API so staff updates appear in the admin
+  // dashboard even when they are using different browsers or devices.
+  useEffect(() => {
+    if (!isAdminLoggedIn || !['admin', 'superadmin', 'pickup_staff', 'rider'].includes(adminRole)) return undefined;
+    let active = true;
+    const refreshOrders = async () => {
+      const response = await apiService.getOrders();
+      if (!active || !response?.success || !Array.isArray(response.orders)) return;
+      setAdminOrders((current) => mergeApiOrders(response.orders, current, adminRole, user));
+      setCustomerOrders((current) => mergeApiOrders(response.orders, current, adminRole, user));
+    };
+    refreshOrders();
+    const intervalId = window.setInterval(refreshOrders, 5000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [isAdminLoggedIn, adminRole, user?.id, user?.staffId, user?.riderId, user?.tenantId]);
+
   const adminLogin = async (username, password, role = 'admin') => {
     const targetRole = (role || 'admin').toLowerCase();
     const cleanUser = (username || '').trim().toLowerCase();
@@ -2583,6 +2602,12 @@ export const StoreProvider = ({ children }) => {
       normalizedStatus === 'Pending' ? 1 : undefined;
 
     const updatedAt = new Date().toISOString();
+    const statusMetadata = {
+      fulfillmentUpdatedAt: updatedAt,
+      ...(stage ? { fulfillmentStage: stage } : {}),
+      ...(normalizedStatus === 'Dispatched' ? { isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: updatedAt } : {}),
+      ...(normalizedStatus === 'Ready' ? { pickupStep: 'ready', isDispatched: false } : {})
+    };
     setCustomerOrders((prev) =>
       prev.map((o) =>
         o.id === orderId || o.orderId === orderId
@@ -2623,7 +2648,7 @@ export const StoreProvider = ({ children }) => {
     addToast('Status Updated 📦', `Order ${orderId}: ${normalizedStatus}`);
 
     try {
-      await apiService.updateOrderStatus(orderId, normalizedStatus);
+      await apiService.updateOrderStatus(orderId, normalizedStatus === 'Ready' ? 'Dispatched' : normalizedStatus, statusMetadata);
     } catch (e) {
       console.warn('Could not sync order status to backend:', e.message);
     }
@@ -4213,8 +4238,11 @@ export const StoreProvider = ({ children }) => {
 
     if (newStatus) {
       try {
-        await apiService.updateOrderStatus(orderId, newStatus);
-      } catch (e) {}
+        const response = await apiService.updateOrderStatus(orderId, newStatus, updates);
+        if (!response?.success) addToast('Status sync failed', response?.message || 'The update could not be shared with the admin dashboard.', 'error');
+      } catch (e) {
+        addToast('Status sync failed', 'The update could not be shared with the admin dashboard. Check the server connection.', 'error');
+      }
     }
     return true;
   };
@@ -4254,11 +4282,16 @@ export const StoreProvider = ({ children }) => {
       pickupStaffId: staff.id,
       pickupStaffName: staff.name,
       pickupStaffUsername: staff.username,
+      fulfillmentStage: 2,
+      pickupStep: 'received',
       pickupAssignedAt: new Date().toISOString(),
       deliveredToStaffAt: new Date().toISOString()
     };
     setCustomerOrders((previous) => previous.map((item) => item.id === orderId || item.orderId === orderId || item._id === orderId ? { ...item, ...assignment } : item));
     setAdminOrders((previous) => previous.map((item) => item.id === orderId || item.orderId === orderId || item._id === orderId ? { ...item, ...assignment } : item));
+    apiService.updateOrderStatus(orderId, 'Received by Pickup Staff', assignment).then((response) => {
+      if (!response?.success) addToast('Assignment sync failed', response?.message || 'The assigned staff member may not see this order until server storage is available.', 'error');
+    });
     addToast('Parcel assigned', `Order ${orderId} is now in ${staff.name}'s pickup queue.`);
     return true;
   };

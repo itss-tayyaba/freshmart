@@ -94,7 +94,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
 
   // Tab counts
   const counts = useMemo(() => {
-    const isPending = (o) => ['Pending', 'pending', 'Pending_Kitchen', 'pending_kitchen', 'Order Placed'].includes(o.status) || (!o.status);
+    const isPending = (o) => ['Pending', 'pending', 'Pending_Kitchen', 'pending_kitchen', 'Order Placed', 'Received by Pickup Staff'].includes(o.status) || (!o.status);
     const isPreparing = (o) => ['Preparing', 'preparing', 'Processing', 'Picking', 'Packed'].includes(o.status);
     const isReady = (o) => ['Ready', 'ready', 'Ready for Dispatch', 'ready(dispatched)'].includes(o.status);
     const isDispatched = (o) => ['Dispatched', 'dispatched', 'Out for Delivery', 'Delivered'].includes(o.status) || o.isDispatched;
@@ -113,7 +113,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     return allOrders.filter((ord) => {
       const statusLower = (ord.status || 'pending').toLowerCase();
 
-      if (activeTab === 'Pending' && !['pending', 'pending_kitchen', 'order placed'].includes(statusLower)) {
+      if (activeTab === 'Pending' && !['pending', 'pending_kitchen', 'order placed', 'received by pickup staff'].includes(statusLower)) {
         return false;
       }
       if (activeTab === 'Preparing' && !['preparing', 'processing', 'picking', 'packed'].includes(statusLower)) {
@@ -168,7 +168,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
   const handleStartPreparing = async (order) => {
     await updateOrderFulfillment(order.id, {
       fulfillmentStage: 3,
-      status: 'Preparing',
+      status: 'Picking',
       pickupStep: 'picking',
       pickingStartedAt: new Date().toISOString()
     });
@@ -187,7 +187,9 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       fulfillmentStage: 3,
       status: 'Packed',
       pickupStep: 'packed',
+      pickedItems: Array.from({ length: itemsCount }, (_, i) => i),
       parcelCode,
+      sealedAt: new Date().toISOString(),
       packedAt: new Date().toISOString()
     });
     addToast('Parcel Packed 📦', `Items verified and sealed in parcel ${parcelCode}`);
@@ -196,9 +198,10 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
   const handleMarkReadyForDispatch = async (order) => {
     await updateOrderFulfillment(order.id, {
       fulfillmentStage: 4,
-      status: 'Ready',
-      pickupStep: 'ready',
+      status: 'Ready for Dispatch',
+      pickupStep: 'verified',
       isDispatched: false,
+      parcelVerifiedAt: new Date().toISOString(),
       readyForDispatchAt: new Date().toISOString()
     });
     addToast('Order Ready for Dispatch ✅', `Order #${order.id} is Ready! Admin can now assign a rider.`);
@@ -248,7 +251,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       </header>
 
       {/* 2. MAIN WORKSPACE */}
-      <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-5 flex-1 w-full">
+      <main className="max-w-7xl mx-auto p-4 sm:p-6 space-y-5 flex-1 w-full">
         {/* TOP CONTROLS & FILTER BAR */}
         <div className="bg-white rounded-2xl border border-[#e8dfd3] p-4 sm:p-5 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -339,7 +342,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               const statusRaw = (order.status || 'Pending').toLowerCase();
               const isReady = ['ready', 'ready for dispatch', 'ready(dispatched)'].includes(statusRaw);
               const isPreparing = ['preparing', 'processing', 'picking', 'packed'].includes(statusRaw);
-              const isPending = ['pending', 'pending_kitchen', 'order placed'].includes(statusRaw) || !order.status;
+              const isPending = ['pending', 'pending_kitchen', 'order placed', 'received by pickup staff'].includes(statusRaw) || !order.status;
               const isDispatched = ['dispatched', 'out for delivery', 'delivered'].includes(statusRaw) || order.isDispatched;
 
               // Top badge status text
@@ -352,11 +355,11 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                 : 'PENDING_KITCHEN';
 
               return (
-                <article
+              <article
                   key={orderId}
                   className="bg-white rounded-2xl sm:rounded-3xl border border-[#e8dfd3] shadow-xs hover:shadow-md transition-all overflow-hidden border-t-4 border-t-[#c8922c]"
                 >
-                  <div className="p-5 sm:p-6 space-y-4">
+                  <div className="p-4 sm:p-5 grid grid-cols-1 lg:grid-cols-[minmax(220px,0.9fr)_minmax(260px,1.2fr)_minmax(250px,1fr)] items-center gap-x-6 gap-y-3">
                     {/* TOP ROW: Order Code, Customer Info & Timer (Exact match to Image 1) */}
                     <div className="flex items-start justify-between gap-4">
                       {/* Left: Code, Dine-in/Delivery, Phone */}
@@ -390,7 +393,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                     </div>
 
                     {/* ITEMS ROW-WISE LIST (Exact match to Image 1) */}
-                    <div className="space-y-2 pt-1 border-t border-[#f2ebe0]">
+                    <div className="space-y-2 pt-1 lg:border-l lg:border-[#f2ebe0] lg:pl-5">
                       {items.map((item, idx) => {
                         const isPicked = currentPicked.includes(idx);
                         const qty = item.quantity || item.qty || 1;
@@ -434,7 +437,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                     </div>
 
                     {/* EXPANDABLE DETAILS TOGGLE */}
-                    <div>
+                    <div className="lg:border-l lg:border-[#f2ebe0] lg:pl-5">
                       <button
                         type="button"
                         onClick={() => toggleExpanded(orderId)}
@@ -486,7 +489,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                     </div>
 
                     {/* BOTTOM ROW: Price on Left, Action Button on Right (Exact match to Image 1) */}
-                    <div className="pt-3 border-t border-dashed border-[#e6dcce] flex items-center justify-between gap-4">
+                    <div className="lg:col-span-3 pt-3 border-t border-dashed border-[#e6dcce] flex items-center justify-between gap-4">
                       {/* Price */}
                       <div className="font-mono font-black text-slate-900 text-lg sm:text-xl">
                         {order.currency === 'USD' || String(order.id).startsWith('EB-') ? (

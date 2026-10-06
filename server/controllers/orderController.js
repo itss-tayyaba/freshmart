@@ -700,7 +700,7 @@ export const updateOrderStatus = async (req, res) => {
         if (nextStage < currentStage || nextStage > currentStage + 1) return false;
         if (status === 'Packed' && Array.isArray(order.orderItems) && order.orderItems.length && (updates.pickedItems || []).length < order.orderItems.length) return false;
         if (status === 'Parcel Verified' && order.pickupStep !== 'packed') return false;
-        if (status === 'Ready for Dispatch' && order.pickupStep !== 'verified') return false;
+        if (status === 'Ready for Dispatch' && !(order.pickupStep === 'verified' || (order.pickupStep === 'packed' && updates.pickupStep === 'verified'))) return false;
       } else if (role === 'rider') {
         const assignedId = order.assignedRider?.id || order.assignedRider?.riderId;
         if (String(assignedId) !== String(riderId)) return false;
