@@ -41,11 +41,11 @@ const ElapsedTimer = ({ createdAt, fallbackSeconds = 34 }) => {
   const secs = String(elapsed % 60).padStart(2, '0');
 
   return (
-    <div className="bg-[#fef9ee] border border-[#f3ddab] px-3.5 py-1 text-center rounded-xl min-w-[76px] shadow-2xs">
-      <span className="font-mono font-black text-amber-800 text-sm sm:text-base tracking-wider block leading-none">
+    <div className="bg-[#ecfdf5] border border-[#a7f3d0] px-3.5 py-1 text-center rounded-xl min-w-[76px] shadow-2xs">
+      <span className="font-mono font-black text-emerald-800 text-sm sm:text-base tracking-wider block leading-none">
         {mins}:{secs}
       </span>
-      <span className="text-[9px] font-black uppercase tracking-widest text-[#b88628] block mt-0.5">
+      <span className="text-[9px] font-black uppercase tracking-widest text-[#059669] block mt-0.5">
         ELAPSED
       </span>
     </div>
@@ -208,16 +208,16 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#faf7f2] text-slate-800 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col font-sans">
       {/* 1. TOP HEADER */}
       <header className="bg-slate-950 text-white px-5 py-4 sm:px-8 flex items-center justify-between border-b border-slate-800 shadow-md sticky top-0 z-40">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#c8922c]/20 border border-[#c8922c]/40 flex items-center justify-center text-[#e8b558] shadow-inner font-bold">
+          <div className="w-10 h-10 rounded-2xl bg-[#059669]/20 border border-[#059669]/40 flex items-center justify-center text-[#6ee7b7] shadow-inner font-bold">
             <Boxes className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] uppercase tracking-widest text-amber-300 font-extrabold bg-amber-950/60 px-2.5 py-0.5 rounded-full border border-amber-500/30">
+              <span className="text-[10px] uppercase tracking-widest text-emerald-300 font-extrabold bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
                 Pickup Staff Dashboard
               </span>
               <span className="text-xs text-slate-400 font-mono">
@@ -253,12 +253,12 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       {/* 2. MAIN WORKSPACE */}
       <main className="max-w-7xl mx-auto p-4 sm:p-6 space-y-5 flex-1 w-full">
         {/* TOP CONTROLS & FILTER BAR */}
-        <div className="bg-white rounded-2xl border border-[#e8dfd3] p-4 sm:p-5 shadow-xs space-y-4">
+        <div className="bg-white rounded-2xl border border-[#d1d5db] p-4 sm:p-5 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-black text-slate-900 flex items-center gap-2">
                 <span>Live Order Queue</span>
-                <span className="bg-[#fef9ee] text-[#b88628] border border-[#f3ddab] text-[11px] font-black px-2.5 py-0.5 rounded-full">
+                <span className="bg-[#ecfdf5] text-[#059669] border border-[#a7f3d0] text-[11px] font-black px-2.5 py-0.5 rounded-full">
                   {allOrders.length} Orders
                 </span>
               </h2>
@@ -274,7 +274,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                 placeholder="Search by #order ID, customer, phone..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full text-xs bg-[#faf7f2] border border-[#e0d6c5] rounded-xl pl-9 pr-3 py-2 text-slate-800 placeholder-slate-400 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full text-xs bg-[#f8fafc] border border-[#cbd5e1] rounded-xl pl-9 pr-3 py-2 text-slate-800 placeholder-slate-400 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             </div>
@@ -294,8 +294,8 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`text-xs font-bold px-3 py-1.5 rounded-xl whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
                   activeTab === tab.id
-                    ? 'bg-[#b88628] text-white shadow-xs'
-                    : 'bg-[#faf7f2] text-slate-600 hover:bg-[#ede5d8] border border-[#e8dfd3]'
+                    ? 'bg-[#059669] text-white shadow-xs'
+                    : 'bg-[#f8fafc] text-slate-600 hover:bg-[#d1fae5] border border-[#d1d5db]'
                 }`}
               >
                 <span>{tab.label}</span>
@@ -309,8 +309,8 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
 
         {/* 3. ROW-WISE ORDERS LIST (Exact Image 1 Card Structure) */}
         {filteredOrders.length === 0 ? (
-          <div className="bg-white rounded-3xl border border-[#e8dfd3] p-12 text-center text-slate-500 space-y-3 shadow-xs">
-            <div className="w-14 h-14 rounded-2xl bg-[#faf7f2] border border-[#e8dfd3] text-amber-700 flex items-center justify-center mx-auto text-2xl">
+          <div className="bg-white rounded-3xl border border-[#d1d5db] p-12 text-center text-slate-500 space-y-3 shadow-xs">
+            <div className="w-14 h-14 rounded-2xl bg-[#f8fafc] border border-[#d1d5db] text-emerald-700 flex items-center justify-center mx-auto text-2xl">
               ☕
             </div>
             <h3 className="font-bold text-slate-800 text-sm">No Orders in this Queue</h3>
@@ -357,7 +357,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               return (
               <article
                   key={orderId}
-                  className="bg-white rounded-2xl sm:rounded-3xl border border-[#e8dfd3] shadow-xs hover:shadow-md transition-all overflow-hidden border-t-4 border-t-[#c8922c]"
+                  className="bg-white rounded-2xl sm:rounded-3xl border border-[#d1d5db] shadow-xs hover:shadow-md transition-all overflow-hidden border-t-4 border-t-[#059669]"
                 >
                   <div className="p-5 sm:p-6 space-y-4">
                     {/* TOP ROW: Order Code, Customer Info & Timer (Exact match to Image 1) */}
@@ -372,7 +372,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                           <span>-</span>
                           <span className="text-slate-800">{customerName}</span>
                           {order.table && (
-                            <span className="bg-[#faf7f2] text-amber-800 px-2 py-0.5 rounded border border-[#e8dfd3] text-[10px]">
+                            <span className="bg-[#f8fafc] text-emerald-800 px-2 py-0.5 rounded border border-[#d1d5db] text-[10px]">
                               {order.table}
                             </span>
                           )}
@@ -384,7 +384,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
 
                       {/* Right: Status Pill & Elapsed Timer Box */}
                       <div className="flex flex-col items-end gap-1.5 shrink-0">
-                        <span className="text-[10px] uppercase tracking-wider font-black text-amber-900 bg-[#fef9ee] border border-[#f3ddab] px-3 py-0.5 rounded-full">
+                        <span className="text-[10px] uppercase tracking-wider font-black text-emerald-900 bg-[#ecfdf5] border border-[#a7f3d0] px-3 py-0.5 rounded-full">
                           {statusBadgeText}
                         </span>
 
@@ -393,7 +393,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                     </div>
 
                     {/* ITEMS ROW-WISE LIST (Exact match to Image 1) */}
-                    <div className="space-y-2 pt-1 border-t border-[#f2ebe0]">
+                    <div className="space-y-2 pt-1 border-t border-[#e2e8f0]">
                       {items.map((item, idx) => {
                         const isPicked = currentPicked.includes(idx);
                         const qty = item.quantity || item.qty || 1;
@@ -403,11 +403,11 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                           <div
                             key={idx}
                             onClick={() => toggleItemPick(orderId, idx)}
-                            className="flex items-center justify-between py-1.5 px-1 rounded-lg hover:bg-[#faf7f2] transition cursor-pointer select-none group"
+                            className="flex items-center justify-between py-1.5 px-1 rounded-lg hover:bg-[#f8fafc] transition cursor-pointer select-none group"
                           >
                             {/* Quantity and Name */}
                             <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-900">
-                              <span className="text-amber-700 font-black min-w-[24px]">
+                              <span className="text-emerald-700 font-black min-w-[24px]">
                                 {qty}*
                               </span>
                               <span className={`transition ${isPicked ? 'line-through text-slate-400' : 'text-slate-900'}`}>
@@ -424,8 +424,8 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                               }}
                               className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors cursor-pointer ${
                                 isPicked
-                                  ? 'bg-[#b88628] border-[#b88628] text-white shadow-2xs'
-                                  : 'border-slate-300 bg-white hover:border-[#b88628]'
+                                  ? 'bg-[#059669] border-[#059669] text-white shadow-2xs'
+                                  : 'border-slate-300 bg-white hover:border-[#059669]'
                               }`}
                               aria-label={`Toggle pick for ${name}`}
                             >
@@ -457,7 +457,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                       </button>
 
                       {isExpanded && (
-                        <div className="mt-3 p-3.5 rounded-xl bg-[#faf7f2] border border-[#e8dfd3] space-y-2 text-xs animate-in fade-in duration-150">
+                        <div className="mt-3 p-3.5 rounded-xl bg-[#f8fafc] border border-[#d1d5db] space-y-2 text-xs animate-in fade-in duration-150">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-600">
                             <div>
                               <span className="font-bold text-slate-400 block text-[10px] uppercase">Destination</span>
@@ -474,7 +474,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                             {order.parcelCode && (
                               <div>
                                 <span className="font-bold text-slate-400 block text-[10px] uppercase">Parcel ID</span>
-                                <span className="font-mono font-bold text-amber-800">{order.parcelCode}</span>
+                                <span className="font-mono font-bold text-emerald-800">{order.parcelCode}</span>
                               </div>
                             )}
                             {order.notes && (
@@ -489,7 +489,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                     </div>
 
                     {/* BOTTOM ROW: Price on Left, Action Button on Right (Exact match to Image 1) */}
-                    <div className="pt-3 border-t border-dashed border-[#e6dcce] flex items-center justify-between gap-4">
+                    <div className="pt-3 border-t border-dashed border-[#cbd5e1] flex items-center justify-between gap-4">
                       {/* Price */}
                       <div className="font-mono font-black text-slate-900 text-lg sm:text-xl">
                         {order.currency === 'USD' || String(order.id).startsWith('EB-') ? (
@@ -505,7 +505,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                           <button
                             type="button"
                             onClick={() => handleStartPreparing(order)}
-                            className="bg-[#b88628] hover:bg-[#a17420] active:scale-95 text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition cursor-pointer"
+                            className="bg-[#059669] hover:bg-[#047857] active:scale-95 text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition cursor-pointer"
                           >
                             <Flame size={16} />
                             <span>START PREPARING</span>
@@ -516,7 +516,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                           <button
                             type="button"
                             onClick={() => handlePackItems(order, items.length)}
-                            className="bg-[#b88628] hover:bg-[#a17420] active:scale-95 text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition cursor-pointer"
+                            className="bg-[#059669] hover:bg-[#047857] active:scale-95 text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition cursor-pointer"
                           >
                             <PackageCheck size={16} />
                             <span>{isAllPicked ? 'PACK ITEMS' : `PACK ITEMS (${currentPicked.length}/${items.length})`}</span>
