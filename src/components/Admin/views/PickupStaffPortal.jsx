@@ -293,7 +293,7 @@ export const PickupStaffPortal = () => {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {stage < 2 || order.status === 'Deliver to Staff' || order.status === 'Delivered to Staff' ? (
+                    {stage < 2 ? (
                       <button
                         onClick={() =>
                           updateStage(order, 2, 'Packing', {
@@ -338,7 +338,9 @@ export const PickupStaffPortal = () => {
                         <PackageCheck size={16}/><span>Hand to {order.assignedRider.name} · Mark Dispatched</span>
                       </button>
                     ) : stage === 4 ? (
-                      <button onClick={() => assignNearestRiderToOrder?.(order.id)} className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs">Find Nearby Rider</button>
+                      <span className="text-indigo-700 bg-indigo-50 border border-indigo-100 px-3 py-2 rounded-xl text-xs font-bold">
+                        Ready for dispatch · Waiting for rider assignment
+                      </span>
                     ) : (
                       <span className="text-emerald-700 font-bold text-xs flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
                         <ScanLine size={16} />
