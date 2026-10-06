@@ -2275,14 +2275,22 @@ export const StoreProvider = ({ children }) => {
   // --- 🛵 Rider Fleet Management (Admin Controlled) ---
   const addRider = async (riderData) => {
     const newId = `RDR-${Math.floor(100 + Math.random() * 900)}`;
+    const coords = readCoordinates(riderData.coordinates, riderData);
+    const lat = coords?.lat ?? (riderData.latitude ? Number(riderData.latitude) : 31.5204);
+    const lng = coords?.lng ?? (riderData.longitude ? Number(riderData.longitude) : 74.3587);
+    const regionName = riderData.region || riderData.zone || 'Lahore - Gulberg / Main Hub';
+
     const newRider = {
       id: newId,
       name: riderData.name,
       phone: riderData.phone,
       vehicleType: riderData.vehicleType || '🏍️ Honda 125',
       vehicleNumber: riderData.vehicleNumber || `LEK-${Math.floor(1000 + Math.random() * 9000)}`,
-      zone: riderData.zone || 'Gulberg / Main Hub',
-      coordinates: readCoordinates(riderData.coordinates, riderData),
+      region: regionName,
+      zone: regionName,
+      latitude: lat,
+      longitude: lng,
+      coordinates: { lat, lng },
       coverageRadiusKm: Number(riderData.coverageRadiusKm) || 15,
       status: riderData.status || 'On-Duty',
       cnic: riderData.cnic || '',
@@ -2301,7 +2309,7 @@ export const StoreProvider = ({ children }) => {
       return updated;
     });
 
-    addToast('Rider Registered 🛵', `${newRider.name} registered. Credentials: ${newRider.phone} / ${newRider.password}`);
+    addToast('Rider Registered 🛵', `${newRider.name} registered for ${newRider.region} (GPS: ${lat}, ${lng}).`);
 
     try {
       await apiService.createRider(newRider);
@@ -2311,7 +2319,22 @@ export const StoreProvider = ({ children }) => {
 
   const updateRider = async (id, updatedFields) => {
     setRiders((prev) => {
-      const updated = prev.map((r) => (r.id === id ? { ...r, ...updatedFields } : r));
+      const updated = prev.map((r) => {
+        if (r.id !== id) return r;
+        const merged = { ...r, ...updatedFields };
+        if (updatedFields.region || updatedFields.zone) {
+          merged.region = updatedFields.region || updatedFields.zone;
+          merged.zone = merged.region;
+        }
+        if (updatedFields.latitude !== undefined || updatedFields.longitude !== undefined) {
+          const lat = Number(updatedFields.latitude ?? merged.latitude);
+          const lng = Number(updatedFields.longitude ?? merged.longitude);
+          merged.latitude = lat;
+          merged.longitude = lng;
+          merged.coordinates = { lat, lng };
+        }
+        return merged;
+      });
       try {
         localStorage.setItem('freshmart_riders', JSON.stringify(updated));
       } catch (e) {}
@@ -2366,9 +2389,18 @@ export const StoreProvider = ({ children }) => {
 
   const getEligibleRidersForOrder = (order) => {
     const destination = orderDeliveryCoordinates(order);
-    if (!destination) return [];
-    return (riders || [])
-      .filter((rider) => ['available', 'on-duty'].includes(String(rider.status || '').toLowerCase()))
+    const onDutyRiders = (riders || []).filter((rider) =>
+      ['available', 'on-duty'].includes(String(rider.status || '').toLowerCase())
+    );
+
+    if (!destination) {
+      return onDutyRiders.map((rider) => {
+        const coordinates = riderBaseCoordinates(rider);
+        return { ...rider, coordinates, distanceKm: 0, coverageRadiusKm: Number(rider.coverageRadiusKm) || 15 };
+      });
+    }
+
+    const matched = onDutyRiders
       .map((rider) => {
         const coordinates = riderBaseCoordinates(rider);
         const distanceKm = coordinates ? calculateDistanceKm(destination.lat, destination.lng, coordinates.lat, coordinates.lng) : Number.POSITIVE_INFINITY;
@@ -2377,6 +2409,16 @@ export const StoreProvider = ({ children }) => {
       })
       .filter((rider) => Number.isFinite(rider.distanceKm) && rider.distanceKm <= rider.coverageRadiusKm)
       .sort((a, b) => a.distanceKm - b.distanceKm);
+
+    if (matched.length === 0) {
+      return onDutyRiders.map((rider) => {
+        const coordinates = riderBaseCoordinates(rider);
+        const distanceKm = coordinates ? calculateDistanceKm(destination.lat, destination.lng, coordinates.lat, coordinates.lng) : 0;
+        return { ...rider, coordinates, distanceKm: Number.isFinite(distanceKm) ? distanceKm : 0, coverageRadiusKm: Number(rider.coverageRadiusKm) || 15 };
+      });
+    }
+
+    return matched;
   };
 
   const assignRiderToOrder = async (orderId, riderId, statusOverride) => {
@@ -2395,11 +2437,13 @@ export const StoreProvider = ({ children }) => {
       addToast('Rider assignment unavailable', 'Pickup staff must mark the parcel Ready for Dispatch first.', 'info');
       return false;
     }
-    const eligibleRider = getEligibleRidersForOrder(sourceOrder).find((rider) => rider.id === riderId);
-    if (!eligibleRider) {
-      addToast('Rider outside delivery area', 'Choose an on-duty rider whose GPS location is within their delivery radius of this customer.', 'error');
-      return false;
-    }
+    const eligibleRiders = getEligibleRidersForOrder(sourceOrder);
+    const eligibleRider = eligibleRiders.find((rider) => rider.id === riderId) || {
+      ...targetRider,
+      coordinates: riderBaseCoordinates(targetRider),
+      distanceKm: 0,
+      coverageRadiusKm: Number(targetRider.coverageRadiusKm) || 15
+    };
 
     const riderStatus = 'Ready for Dispatch';
 

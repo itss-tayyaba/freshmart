@@ -169,6 +169,11 @@ export const createRiderSchema = z
     vehicleType: z.string().optional(),
     vehicleNumber: z.string().optional(),
     zone: z.string().optional(),
+    region: z.string().optional(),
+    latitude: z.union([z.number(), z.string()]).optional(),
+    longitude: z.union([z.number(), z.string()]).optional(),
+    coverageRadiusKm: z.union([z.number(), z.string()]).optional(),
+    coordinates: z.object({ lat: z.number().optional(), lng: z.number().optional() }).optional(),
     username: z.string().optional(),
     password: z.string().optional(),
     cnic: z.string().optional()

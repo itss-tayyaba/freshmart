@@ -33,13 +33,39 @@ import {
 import { useStore } from '../../../context/StoreContext';
 import { PAKISTAN_CITIES } from '../../../data/pakistanLocations';
 
-const RIDER_ZONE_COORDINATES = {
-  'Gulberg / Main Hub': { latitude: '31.5204', longitude: '74.3587' },
-  'DHA Phase 5 & 6': { latitude: '31.4826', longitude: '74.4074' },
-  'Johar Town / Model Town': { latitude: '31.4697', longitude: '74.2728' },
-  'Clifton & DHA (Karachi)': { latitude: '24.8270', longitude: '67.0251' },
-  'F-6 / F-7 / Blue Area (Islamabad)': { latitude: '33.7215', longitude: '73.0565' }
-};
+export const PAKISTAN_REGIONS = [
+  // Lahore
+  { name: 'Lahore - Gulberg / Main Hub', city: 'Lahore', latitude: 31.5204, longitude: 74.3587 },
+  { name: 'Lahore - DHA Phase 5 & 6', city: 'Lahore', latitude: 31.4826, longitude: 74.4074 },
+  { name: 'Lahore - Johar Town & Model Town', city: 'Lahore', latitude: 31.4697, longitude: 74.2728 },
+  { name: 'Lahore - Bahria Town & Canal Road', city: 'Lahore', latitude: 31.3673, longitude: 74.1787 },
+  { name: 'Lahore - Cantt & Mall Road', city: 'Lahore', latitude: 31.5546, longitude: 74.3572 },
+  { name: 'Lahore - Faisal Town & Garden Town', city: 'Lahore', latitude: 31.4872, longitude: 74.3129 },
+  // Karachi
+  { name: 'Karachi - Clifton Block 2-5', city: 'Karachi', latitude: 24.8270, longitude: 67.0251 },
+  { name: 'Karachi - DHA Phase 6 & 8', city: 'Karachi', latitude: 24.8010, longitude: 67.0680 },
+  { name: 'Karachi - Gulshan-e-Iqbal', city: 'Karachi', latitude: 24.9180, longitude: 67.0971 },
+  { name: 'Karachi - North Nazimabad', city: 'Karachi', latitude: 24.9312, longitude: 67.0372 },
+  { name: 'Karachi - PECHS & Tariq Road', city: 'Karachi', latitude: 24.8716, longitude: 67.0599 },
+  // Islamabad & Rawalpindi
+  { name: 'Islamabad - F-6 / F-7 / Blue Area', city: 'Islamabad', latitude: 33.7215, longitude: 73.0565 },
+  { name: 'Islamabad - G-10 / G-11 / F-10', city: 'Islamabad', latitude: 33.6844, longitude: 73.0479 },
+  { name: 'Islamabad - DHA & Bahria Enclave', city: 'Islamabad', latitude: 33.5353, longitude: 73.1895 },
+  { name: 'Rawalpindi - Saddar / Cantt', city: 'Rawalpindi', latitude: 33.5973, longitude: 73.0479 },
+  { name: 'Rawalpindi - Bahria Town Phase 1-8', city: 'Rawalpindi', latitude: 33.5138, longitude: 73.0977 },
+  // Faisalabad
+  { name: 'Faisalabad - D Ground Commercial', city: 'Faisalabad', latitude: 31.4110, longitude: 73.0980 },
+  { name: 'Faisalabad - Peoples Colony No 1 & 2', city: 'Faisalabad', latitude: 31.4050, longitude: 73.1090 },
+  { name: 'Faisalabad - Madina Town & Kohinoor', city: 'Faisalabad', latitude: 31.4326, longitude: 73.1118 },
+  // Multan
+  { name: 'Multan - Bosan Road & Gulgasht', city: 'Multan', latitude: 30.2244, longitude: 71.4889 },
+  { name: 'Multan - Cantt & Abdali Road', city: 'Multan', latitude: 30.1984, longitude: 71.4687 },
+  // Peshawar
+  { name: 'Peshawar - University Town & Hayatabad', city: 'Peshawar', latitude: 34.0151, longitude: 71.5249 },
+  // Other
+  { name: 'Gujranwala - Model Town & DC Colony', city: 'Gujranwala', latitude: 32.1877, longitude: 74.1945 },
+  { name: 'Sialkot - Cantt & Paris Road', city: 'Sialkot', latitude: 32.4945, longitude: 74.5229 }
+];
 
 export const DeliveryView = () => {
   const {
@@ -76,12 +102,16 @@ export const DeliveryView = () => {
 
   // Modal State for Adding New Rider by Admin
   const [isAddRiderModalOpen, setIsAddRiderModalOpen] = useState(false);
+  const [isCustomRegion, setIsCustomRegion] = useState(false);
+  const [customRegionName, setCustomRegionName] = useState('');
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [newRiderForm, setNewRiderForm] = useState({
     name: '',
     phone: '',
     vehicleType: '🏍️ Honda 125',
     vehicleNumber: '',
-    zone: 'Gulberg / Main Hub',
+    region: 'Lahore - Gulberg / Main Hub',
+    zone: 'Lahore - Gulberg / Main Hub',
     latitude: '31.5204',
     longitude: '74.3587',
     coverageRadiusKm: '15',
@@ -96,12 +126,15 @@ export const DeliveryView = () => {
 
   // Filter riders based on search and zone
   const filteredRiders = (riders || []).filter((r) => {
+    const query = searchRider.toLowerCase();
+    const riderRegion = String(r.region || r.zone || '').toLowerCase();
     const matchesSearch =
-      r.name.toLowerCase().includes(searchRider.toLowerCase()) ||
+      r.name.toLowerCase().includes(query) ||
       r.phone.includes(searchRider) ||
-      (r.username && r.username.toLowerCase().includes(searchRider.toLowerCase())) ||
-      (r.vehicleNumber && r.vehicleNumber.toLowerCase().includes(searchRider.toLowerCase()));
-    const matchesZone = filterZone === 'All' || r.zone.includes(filterZone);
+      (r.username && r.username.toLowerCase().includes(query)) ||
+      (r.vehicleNumber && r.vehicleNumber.toLowerCase().includes(query)) ||
+      riderRegion.includes(query);
+    const matchesZone = filterZone === 'All' || riderRegion.includes(filterZone.toLowerCase());
     return matchesSearch && matchesZone;
   });
 
@@ -123,6 +156,65 @@ export const DeliveryView = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleRegionChange = (e) => {
+    const val = e.target.value;
+    if (val === 'custom') {
+      setIsCustomRegion(true);
+      setNewRiderForm((prev) => ({
+        ...prev,
+        region: customRegionName || 'Custom Region',
+        zone: customRegionName || 'Custom Region'
+      }));
+    } else {
+      setIsCustomRegion(false);
+      const found = PAKISTAN_REGIONS.find((r) => r.name === val);
+      if (found) {
+        setNewRiderForm((prev) => ({
+          ...prev,
+          region: found.name,
+          zone: found.name,
+          latitude: String(found.latitude),
+          longitude: String(found.longitude)
+        }));
+      }
+    }
+  };
+
+  const handleCustomRegionNameChange = (val) => {
+    setCustomRegionName(val);
+    setNewRiderForm((prev) => ({
+      ...prev,
+      region: val,
+      zone: val
+    }));
+  };
+
+  const handleDetectCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      addToast('GPS Not Supported', 'Geolocation is not supported by your browser.', 'error');
+      return;
+    }
+    setIsDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude.toFixed(4);
+        const lng = pos.coords.longitude.toFixed(4);
+        setNewRiderForm((prev) => ({
+          ...prev,
+          latitude: String(lat),
+          longitude: String(lng)
+        }));
+        setIsDetectingLocation(false);
+        addToast('GPS Located 📍', `Coordinates updated to ${lat}° N, ${lng}° E`, 'success');
+      },
+      (err) => {
+        setIsDetectingLocation(false);
+        addToast('Location Error', err.message || 'Unable to retrieve GPS coordinates.', 'error');
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
+
   const handleAddRiderSubmit = (e) => {
     e.preventDefault();
     if (!newRiderForm.name.trim() || !newRiderForm.phone.trim()) {
@@ -130,19 +222,33 @@ export const DeliveryView = () => {
       return;
     }
 
+    const lat = Number(newRiderForm.latitude);
+    const lng = Number(newRiderForm.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      addToast('Invalid Coordinates', 'Please enter valid numerical latitude and longitude.', 'error');
+      return;
+    }
+
+    const finalRegion = isCustomRegion
+      ? (customRegionName.trim() || 'Custom Region')
+      : (newRiderForm.region || newRiderForm.zone || 'Lahore - Gulberg / Main Hub');
+
     const generatedUsername = newRiderForm.username.trim() || newRiderForm.name.toLowerCase().replace(/\s+/g, '_');
     const generatedPassword = newRiderForm.password.trim() || 'rider123';
 
     addRider({
-      name: newRiderForm.name,
-      phone: newRiderForm.phone,
+      name: newRiderForm.name.trim(),
+      phone: newRiderForm.phone.trim(),
       vehicleType: newRiderForm.vehicleType,
-      vehicleNumber: newRiderForm.vehicleNumber || `LEK-${Math.floor(1000 + Math.random() * 9000)}`,
-      zone: newRiderForm.zone,
-      coordinates: { lat: Number(newRiderForm.latitude), lng: Number(newRiderForm.longitude) },
-      coverageRadiusKm: Number(newRiderForm.coverageRadiusKm),
+      vehicleNumber: newRiderForm.vehicleNumber.trim() || `LEK-${Math.floor(1000 + Math.random() * 9000)}`,
+      region: finalRegion,
+      zone: finalRegion,
+      latitude: lat,
+      longitude: lng,
+      coordinates: { lat, lng },
+      coverageRadiusKm: Number(newRiderForm.coverageRadiusKm || 15),
       status: newRiderForm.status,
-      cnic: newRiderForm.cnic,
+      cnic: newRiderForm.cnic.trim(),
       username: generatedUsername,
       password: generatedPassword,
       deliveriesCount: 0,
@@ -150,12 +256,15 @@ export const DeliveryView = () => {
     });
 
     setIsAddRiderModalOpen(false);
+    setIsCustomRegion(false);
+    setCustomRegionName('');
     setNewRiderForm({
       name: '',
       phone: '',
       vehicleType: '🏍️ Honda 125',
       vehicleNumber: '',
-      zone: 'Gulberg / Main Hub',
+      region: 'Lahore - Gulberg / Main Hub',
+      zone: 'Lahore - Gulberg / Main Hub',
       latitude: '31.5204',
       longitude: '74.3587',
       coverageRadiusKm: '15',
@@ -225,17 +334,27 @@ export const DeliveryView = () => {
     <div className="space-y-6 animate-in fade-in duration-300 font-sans">
       
       {/* ===================================================================== */}
-      {isAdmin && (
-        <div className="flex justify-end">
+      {/* 1. TOP HEADER: Clean Header with + Add Rider Option (No Banner)       */}
+      {/* ===================================================================== */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <span>🛵</span>
+            <span>Rider Fleet & Logistics</span>
+          </h2>
+          <p className="text-xs text-slate-500">Manage delivery couriers, assign regional coverage zones, and track GPS telemetry.</p>
+        </div>
+
+        {isAdmin && (
           <button
             onClick={() => setIsAddRiderModalOpen(true)}
-            className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm transition-colors cursor-pointer"
+            className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm transition-all cursor-pointer hover:shadow-md hover:scale-[1.02]"
           >
             <UserPlus className="w-4 h-4" />
             <span>+ Add Rider</span>
           </button>
-        </div>
-      )}
+        )}
+      </div>
       {/* ===================================================================== */}
       {/* 2. KEY FLEET KPI STATS (4 Vibrant Gradient Cards)                      */}
       {/* ===================================================================== */}
@@ -590,31 +709,46 @@ export const DeliveryView = () => {
           
           {/* Search & Zone Filter Bar */}
           <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-100 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <div className="relative w-full sm:w-96">
+            <div className="relative w-full sm:w-80">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search by rider name, phone, plate number, username..."
+                placeholder="Search by rider name, phone, plate number, username, region..."
                 value={searchRider}
                 onChange={(e) => setSearchRider(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-3.5 py-2.5 font-medium text-xs focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
               />
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-              <span className="text-slate-400 font-bold shrink-0">Hub Zone:</span>
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+              <span className="text-slate-400 font-bold shrink-0">Region:</span>
               <select
                 value={filterZone}
                 onChange={(e) => setFilterZone(e.target.value)}
                 className="bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2 font-bold text-xs focus:outline-none cursor-pointer"
               >
-                <option value="All">All Hub Zones (5 Cities)</option>
-                <option value="Gulberg">Gulberg Hub (Lahore)</option>
-                <option value="DHA">DHA Zone (Lahore / Karachi)</option>
-                <option value="Johar">Johar Town Area</option>
-                <option value="F-7">F-7 Hub (Islamabad)</option>
-                <option value="Model Town">Model Town Zone</option>
+                <option value="All">All Regions / Hubs</option>
+                <option value="Lahore">Lahore</option>
+                <option value="Karachi">Karachi</option>
+                <option value="Islamabad">Islamabad</option>
+                <option value="Rawalpindi">Rawalpindi</option>
+                <option value="Faisalabad">Faisalabad</option>
+                <option value="Multan">Multan</option>
+                <option value="Peshawar">Peshawar</option>
+                <option value="Gulberg">Gulberg</option>
+                <option value="DHA">DHA</option>
+                <option value="Johar">Johar Town</option>
               </select>
+
+              {isAdmin && (
+                <button
+                  onClick={() => setIsAddRiderModalOpen(true)}
+                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer shrink-0"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>+ Add Rider</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -627,15 +761,15 @@ export const DeliveryView = () => {
               <div className="space-y-1">
                 <h3 className="text-base font-black text-slate-900">No Delivery Riders Registered</h3>
                 <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  Click '+ Register New Rider' above to add your couriers, create their login credentials, and assign their delivery zones.
+                  Click '+ Add Rider' to register couriers, assign their operational regions, and set their GPS coverage.
                 </p>
               </div>
               <button
                 onClick={() => setIsAddRiderModalOpen(true)}
-                className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-2xl text-xs font-black inline-flex items-center gap-2 cursor-pointer shadow-md hover:scale-105 transition-all"
+                className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-xs font-black inline-flex items-center gap-2 cursor-pointer shadow-md hover:scale-105 transition-all"
               >
                 <UserPlus className="w-4 h-4" />
-                <span>+ Register First Delivery Rider</span>
+                <span>+ Add First Delivery Rider</span>
               </button>
             </div>
           ) : filteredRiders.length === 0 ? (
@@ -686,13 +820,33 @@ export const DeliveryView = () => {
                         <span className="text-slate-400 font-semibold">Vehicle:</span>
                         <span className="text-slate-800 font-bold">{rider.vehicleType} ({rider.vehicleNumber})</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400 font-semibold">Assigned Hub:</span>
-                        <span className="text-emerald-700 font-bold">{rider.zone}</span>
+                      <div className="flex justify-between items-start">
+                        <span className="text-slate-400 font-semibold shrink-0">Assigned Region:</span>
+                        <span className="text-emerald-700 font-bold text-right flex items-center gap-1 justify-end">
+                          <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span>{rider.region || rider.zone || 'Gulberg Hub'}</span>
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center bg-white/70 p-2 rounded-xl border border-slate-200/50">
+                        <span className="text-slate-400 font-semibold text-[11px]">GPS Coordinates:</span>
+                        <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                          <span className="text-slate-800 font-bold">
+                            {rider.latitude ?? rider.coordinates?.lat ?? '31.5204'}° N, {rider.longitude ?? rider.coordinates?.lng ?? '74.3587'}° E
+                          </span>
+                          <a
+                            href={`https://www.google.com/maps?q=${rider.latitude ?? rider.coordinates?.lat ?? '31.5204'},${rider.longitude ?? rider.coordinates?.lng ?? '74.3587'}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-emerald-600 hover:text-emerald-800 p-0.5 rounded cursor-pointer"
+                            title="Open in Google Maps"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400 font-semibold">GPS Coverage:</span>
-                        <span className="font-mono text-slate-700">{rider.coordinates?.lat ?? rider.latitude ?? '—'}, {rider.coordinates?.lng ?? rider.longitude ?? '—'} · {rider.coverageRadiusKm || 15} km</span>
+                        <span className="text-slate-400 font-semibold">Coverage Radius:</span>
+                        <span className="font-bold text-slate-700">{rider.coverageRadiusKm || 15} km radius</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-400 font-semibold">Completed Parcels:</span>
@@ -1089,51 +1243,161 @@ export const DeliveryView = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Assigned Hub Zone</label>
-                  <select
-                    value={newRiderForm.zone}
-                    onChange={(e) => setNewRiderForm({ ...newRiderForm, zone: e.target.value, ...(RIDER_ZONE_COORDINATES[e.target.value] || {}) })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+              {/* Region and Delivery Coordinates (Auto-populates Lat/Lng) */}
+              <div className="space-y-3 rounded-2xl bg-slate-50 border border-slate-200 p-3.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="font-bold text-slate-800 block text-xs">Region / Delivery Zone *</label>
+                    <p className="text-[10px] text-slate-500">Pick an operational hub or specify custom area. GPS coordinates are automatically saved.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDetectCurrentLocation}
+                    disabled={isDetectingLocation}
+                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0 shadow-2xs"
+                    title="Detect current device GPS coordinates"
                   >
-                    <option value="Gulberg / Main Hub">Gulberg / Main Hub (Lahore)</option>
-                    <option value="DHA Phase 5 & 6">DHA Phase 5 & 6 (Lahore)</option>
-                    <option value="Johar Town / Model Town">Johar Town / Model Town</option>
-                    <option value="Clifton & DHA (Karachi)">Clifton & DHA (Karachi)</option>
-                    <option value="F-6 / F-7 / Blue Area (Islamabad)">F-6 / F-7 / Blue Area (Islamabad)</option>
+                    <Navigation className={`w-3 h-3 ${isDetectingLocation ? 'animate-spin' : ''}`} />
+                    <span>{isDetectingLocation ? 'Locating...' : 'Detect Live GPS'}</span>
+                  </button>
+                </div>
+
+                <div>
+                  <select
+                    value={isCustomRegion ? 'custom' : (newRiderForm.region || newRiderForm.zone)}
+                    onChange={handleRegionChange}
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-bold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+                  >
+                    <optgroup label="Lahore Hubs">
+                      <option value="Lahore - Gulberg / Main Hub">Lahore - Gulberg / Main Hub (31.5204, 74.3587)</option>
+                      <option value="Lahore - DHA Phase 5 & 6">Lahore - DHA Phase 5 & 6 (31.4826, 74.4074)</option>
+                      <option value="Lahore - Johar Town & Model Town">Lahore - Johar Town & Model Town (31.4697, 74.2728)</option>
+                      <option value="Lahore - Bahria Town & Canal Road">Lahore - Bahria Town & Canal Road (31.3673, 74.1787)</option>
+                      <option value="Lahore - Cantt & Mall Road">Lahore - Cantt & Mall Road (31.5546, 74.3572)</option>
+                      <option value="Lahore - Faisal Town & Garden Town">Lahore - Faisal Town & Garden Town (31.4872, 74.3129)</option>
+                    </optgroup>
+                    <optgroup label="Karachi Hubs">
+                      <option value="Karachi - Clifton Block 2-5">Karachi - Clifton Block 2-5 (24.8270, 67.0251)</option>
+                      <option value="Karachi - DHA Phase 6 & 8">Karachi - DHA Phase 6 & 8 (24.8010, 67.0680)</option>
+                      <option value="Karachi - Gulshan-e-Iqbal">Karachi - Gulshan-e-Iqbal (24.9180, 67.0971)</option>
+                      <option value="Karachi - North Nazimabad">Karachi - North Nazimabad (24.9312, 67.0372)</option>
+                      <option value="Karachi - PECHS & Tariq Road">Karachi - PECHS & Tariq Road (24.8716, 67.0599)</option>
+                    </optgroup>
+                    <optgroup label="Islamabad & Rawalpindi">
+                      <option value="Islamabad - F-6 / F-7 / Blue Area">Islamabad - F-6 / F-7 / Blue Area (33.7215, 73.0565)</option>
+                      <option value="Islamabad - G-10 / G-11 / F-10">Islamabad - G-10 / G-11 / F-10 (33.6844, 73.0479)</option>
+                      <option value="Islamabad - DHA & Bahria Enclave">Islamabad - DHA & Bahria Enclave (33.5353, 73.1895)</option>
+                      <option value="Rawalpindi - Saddar / Cantt">Rawalpindi - Saddar / Cantt (33.5973, 73.0479)</option>
+                      <option value="Rawalpindi - Bahria Town Phase 1-8">Rawalpindi - Bahria Town Phase 1-8 (33.5138, 73.0977)</option>
+                    </optgroup>
+                    <optgroup label="Faisalabad Hubs">
+                      <option value="Faisalabad - D Ground Commercial">Faisalabad - D Ground Commercial (31.4110, 73.0980)</option>
+                      <option value="Faisalabad - Peoples Colony No 1 & 2">Faisalabad - Peoples Colony No 1 & 2 (31.4050, 73.1090)</option>
+                      <option value="Faisalabad - Madina Town & Kohinoor">Faisalabad - Madina Town & Kohinoor (31.4326, 73.1118)</option>
+                    </optgroup>
+                    <optgroup label="Multan & Peshawar">
+                      <option value="Multan - Bosan Road & Gulgasht">Multan - Bosan Road & Gulgasht (30.2244, 71.4889)</option>
+                      <option value="Multan - Cantt & Abdali Road">Multan - Cantt & Abdali Road (30.1984, 71.4687)</option>
+                      <option value="Peshawar - University Town & Hayatabad">Peshawar - University Town & Hayatabad (34.0151, 71.5249)</option>
+                    </optgroup>
+                    <optgroup label="Other Metros">
+                      <option value="Gujranwala - Model Town & DC Colony">Gujranwala - Model Town & DC Colony (32.1877, 74.1945)</option>
+                      <option value="Sialkot - Cantt & Paris Road">Sialkot - Cantt & Paris Road (32.4945, 74.5229)</option>
+                    </optgroup>
+                    <optgroup label="Custom Area">
+                      <option value="custom">📍 + Custom Region (Enter custom area & GPS)</option>
+                    </optgroup>
                   </select>
                 </div>
 
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">CNIC / National ID</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 35201-1234567-1"
-                    value={newRiderForm.cnic}
-                    onChange={(e) => setNewRiderForm({ ...newRiderForm, cnic: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
+                {isCustomRegion && (
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-[11px]">Custom Region / Area Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Wapda Town, Lahore or Clifton Block 9, Karachi"
+                      value={customRegionName}
+                      onChange={(e) => handleCustomRegionNameChange(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-semibold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                )}
+
+                {/* GPS Coordinates Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-[11px]">Latitude (° N) *</label>
+                    <input
+                      type="number"
+                      required
+                      min="-90"
+                      max="90"
+                      step="any"
+                      placeholder="31.5204"
+                      value={newRiderForm.latitude}
+                      onChange={(e) => setNewRiderForm({ ...newRiderForm, latitude: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2 font-mono font-bold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-[11px]">Longitude (° E) *</label>
+                    <input
+                      type="number"
+                      required
+                      min="-180"
+                      max="180"
+                      step="any"
+                      placeholder="74.3587"
+                      value={newRiderForm.longitude}
+                      onChange={(e) => setNewRiderForm({ ...newRiderForm, longitude: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2 font-mono font-bold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-[11px]">Coverage Radius (km) *</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max="100"
+                      placeholder="15"
+                      value={newRiderForm.coverageRadiusKm}
+                      onChange={(e) => setNewRiderForm({ ...newRiderForm, coverageRadiusKm: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2 font-mono font-bold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Live GPS Verification Badge */}
+                <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-xl p-2.5 flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-1.5 text-emerald-950 font-semibold truncate">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="truncate">
+                      GPS Saved: <strong>{newRiderForm.latitude || '0'}° N, {newRiderForm.longitude || '0'}° E</strong> ({newRiderForm.coverageRadiusKm || 15} km)
+                    </span>
+                  </div>
+                  <a
+                    href={`https://www.google.com/maps?q=${newRiderForm.latitude || '31.5204'},${newRiderForm.longitude || '74.3587'}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald-700 hover:text-emerald-900 font-bold underline flex items-center gap-1 shrink-0 ml-2"
+                  >
+                    <span>View Map</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-2xl bg-slate-50 border border-slate-200 p-3">
-                <div className="sm:col-span-3">
-                  <label className="font-bold text-slate-700 block">Delivery Coverage GPS (WGS84)</label>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Orders are matched to on-duty riders within this radius of the customer’s saved coordinates.</p>
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Latitude *</label>
-                  <input type="number" required min="-90" max="90" step="any" value={newRiderForm.latitude} onChange={(e) => setNewRiderForm({ ...newRiderForm, latitude: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Longitude *</label>
-                  <input type="number" required min="-180" max="180" step="any" value={newRiderForm.longitude} onChange={(e) => setNewRiderForm({ ...newRiderForm, longitude: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Radius (km) *</label>
-                  <input type="number" required min="1" max="100" value={newRiderForm.coverageRadiusKm} onChange={(e) => setNewRiderForm({ ...newRiderForm, coverageRadiusKm: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
-                </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">CNIC / National ID</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 35201-1234567-1"
+                  value={newRiderForm.cnic}
+                  onChange={(e) => setNewRiderForm({ ...newRiderForm, cnic: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
               </div>
 
               {/* Rider Portal Login Credentials (Set by Admin) */}

@@ -226,20 +226,27 @@ export const getRiders = async (req, res) => {
   try {
     if (isDbOnline()) {
       const riders = await Rider.find({}).sort({ createdAt: -1 });
-      const mapped = (riders || []).map((r) => ({
-        id: r.id || r._id.toString(),
-        name: r.name,
-        phone: r.phone,
-        vehicleType: r.vehicleType,
-        vehicleNumber: r.vehicleNumber,
-        zone: r.zone,
-        coordinates: r.coordinates,
-        coverageRadiusKm: r.coverageRadiusKm,
-        status: r.status,
-        username: r.username,
-        deliveriesCount: r.deliveriesCount || 0,
-        rating: r.rating || 5.0
-      }));
+      const mapped = (riders || []).map((r) => {
+        const lat = r.latitude ?? r.coordinates?.lat;
+        const lng = r.longitude ?? r.coordinates?.lng;
+        return {
+          id: r.id || r._id.toString(),
+          name: r.name,
+          phone: r.phone,
+          vehicleType: r.vehicleType,
+          vehicleNumber: r.vehicleNumber,
+          zone: r.zone || r.region,
+          region: r.region || r.zone,
+          latitude: lat,
+          longitude: lng,
+          coordinates: r.coordinates || ((lat && lng) ? { lat, lng } : undefined),
+          coverageRadiusKm: r.coverageRadiusKm || 15,
+          status: r.status,
+          username: r.username,
+          deliveriesCount: r.deliveriesCount || 0,
+          rating: r.rating || 5.0
+        };
+      });
       return res.json({ success: true, riders: mapped });
     }
     res.json({ success: true, riders: memoryRiders });
@@ -250,22 +257,30 @@ export const getRiders = async (req, res) => {
 
 export const addRider = async (req, res) => {
   try {
-    const { id, name, phone, vehicleType, vehicleNumber, zone, status, username, password, cnic, coordinates, coverageRadiusKm } = req.body;
+    const { id, name, phone, vehicleType, vehicleNumber, zone, region, latitude, longitude, status, username, password, cnic, coordinates, coverageRadiusKm } = req.body;
     const riderId = id || 'RDR-' + Math.floor(100 + Math.random() * 900);
+    const resolvedRegion = region || zone || 'Lahore Hub';
+    const lat = latitude !== undefined && latitude !== null && latitude !== '' ? Number(latitude) : (coordinates?.lat !== undefined ? Number(coordinates.lat) : undefined);
+    const lng = longitude !== undefined && longitude !== null && longitude !== '' ? Number(longitude) : (coordinates?.lng !== undefined ? Number(coordinates.lng) : undefined);
+    const resolvedCoordinates = (Number.isFinite(lat) && Number.isFinite(lng))
+      ? { lat, lng }
+      : (coordinates && Number.isFinite(Number(coordinates.lat)) && Number.isFinite(Number(coordinates.lng)) ? { lat: Number(coordinates.lat), lng: Number(coordinates.lng) } : undefined);
+
     const newRider = {
       id: riderId,
       name,
       phone,
       vehicleType: vehicleType || '🏍️ Honda 125',
       vehicleNumber: vehicleNumber || 'LEK-0000',
-      zone: zone || 'Lahore Hub',
+      zone: resolvedRegion,
+      region: resolvedRegion,
+      latitude: lat,
+      longitude: lng,
       status: status || 'On-Duty',
       username: username || name.toLowerCase().replace(/\s+/g, '_'),
       password: password || 'rider123',
       cnic: cnic || '',
-      coordinates: coordinates && Number.isFinite(Number(coordinates.lat)) && Number.isFinite(Number(coordinates.lng))
-        ? { lat: Number(coordinates.lat), lng: Number(coordinates.lng) }
-        : undefined,
+      coordinates: resolvedCoordinates,
       coverageRadiusKm: Number(coverageRadiusKm) || 15,
       deliveriesCount: 0,
       rating: 5.0
@@ -282,6 +297,9 @@ export const addRider = async (req, res) => {
           vehicleType: createdRider.vehicleType,
           vehicleNumber: createdRider.vehicleNumber,
           zone: createdRider.zone,
+          region: createdRider.region,
+          latitude: createdRider.latitude,
+          longitude: createdRider.longitude,
           coordinates: createdRider.coordinates,
           coverageRadiusKm: createdRider.coverageRadiusKm,
           status: createdRider.status,
