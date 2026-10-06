@@ -23,16 +23,18 @@ import { useStore } from '../../../context/StoreContext';
 import { OrderFulfillmentModal } from '../modals/OrderFulfillmentModal';
 
 export const FulfillmentView = () => {
-  const { adminOrders, customerOrders, currentTenant, riders } = useStore();
+  const { adminOrders, customerOrders, currentTenant, riders, pickupStaff = [], addPickupStaff, updateOrderFulfillment } = useStore();
 
   const [search, setSearch] = useState('');
   const [selectedStageFilter, setSelectedStageFilter] = useState('All');
   const [activeModalOrder, setActiveModalOrder] = useState(null);
+  const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', phone: '' });
+  const tenantStaff = pickupStaff.filter((staff) => staff.tenantId === currentTenant?.id);
 
   // Combine and sort live orders strictly for current mart / all
   const allOrders = useMemo(() => {
     const raw = (customerOrders && customerOrders.length > 0) ? customerOrders : (adminOrders || []);
-    const tenantFiltered = !currentTenant?.id ? raw : raw.filter((o) => !o.tenantId || o.tenantId === currentTenant.id);
+    const tenantFiltered = !currentTenant?.id ? raw : raw.filter((o) => o.tenantId === currentTenant.id || (!o.tenantId && currentTenant.id === 'tenant-freshmart'));
 
     return tenantFiltered.map((ord) => {
       // Derive stage if not explicitly set
@@ -55,7 +57,7 @@ export const FulfillmentView = () => {
         ? ord.orderItems
         : [];
 
-      const totalItemsCount = itemsList.reduce((acc, it) => acc + (it.quantity || 1), 0) || 1;
+      const totalItemsCount = itemsList.reduce((acc, it) => acc + (it.quantity || it.qty || 1), 0);
 
       return {
         ...ord,
@@ -116,6 +118,17 @@ export const FulfillmentView = () => {
 
   return (
     <div className="space-y-6">
+      <section className="bg-white rounded-3xl border border-slate-200 p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-black text-slate-900">Pickup Staff Accounts</h2><p className="text-xs text-slate-500 mt-1">Create staff sign-ins and assign orders to their packing queue.</p></div><span className="text-xs font-bold text-emerald-700">{tenantStaff.length} active</span></div>
+        <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2" onSubmit={(event) => { event.preventDefault(); if (!staffForm.name.trim() || !staffForm.username.trim() || !staffForm.password.trim()) return; addPickupStaff(staffForm); setStaffForm({ name: '', username: '', password: '', phone: '' }); }}>
+          <input required value={staffForm.name} onChange={(e) => setStaffForm({ ...staffForm, name: e.target.value })} placeholder="Staff name" className="px-3 py-2 border rounded-xl text-sm" />
+          <input required value={staffForm.username} onChange={(e) => setStaffForm({ ...staffForm, username: e.target.value })} placeholder="Username" className="px-3 py-2 border rounded-xl text-sm" />
+          <input required value={staffForm.password} onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })} placeholder="Password" className="px-3 py-2 border rounded-xl text-sm" />
+          <input value={staffForm.phone} onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })} placeholder="Phone (optional)" className="px-3 py-2 border rounded-xl text-sm" />
+          <button className="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold">Add Pickup Staff</button>
+        </form>
+        {tenantStaff.length > 0 && <div className="flex flex-wrap gap-2">{tenantStaff.map((staff) => <span key={staff.id} className="rounded-xl bg-slate-50 border px-3 py-2 text-xs"><b>{staff.name}</b> · sign in: <code>{staff.username}</code></span>)}</div>}
+      </section>
       {/* HEADER SECTION */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -339,7 +352,9 @@ export const FulfillmentView = () => {
                       </td>
 
                       {/* Action Button */}
-                      <td className="py-4 text-right pr-2" onClick={(e) => e.stopPropagation()}>
+                      <td className="py-4 text-right pr-2 space-y-2" onClick={(e) => e.stopPropagation()}>
+                        {ord.fulfillmentStage < 5 && <select value={ord.pickupStaffId || ''} onChange={(event) => { const staff = tenantStaff.find((item) => item.id === event.target.value); if (staff) updateOrderFulfillment(ord.id, { pickupStaffId: staff.id, pickupStaffName: staff.name, fulfillmentStage: Math.max(2, ord.fulfillmentStage), status: ord.fulfillmentStage < 2 ? 'Processing' : ord.status, pickupAssignedAt: new Date().toISOString() }); }} className="max-w-36 block ml-auto px-2 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold bg-white"><option value="">Transfer to staff</option>{tenantStaff.map((staff) => <option key={staff.id} value={staff.id}>{staff.name}</option>)}</select>}
+                        {ord.pickupStaffName && <span className="block text-[10px] text-slate-500">Staff: {ord.pickupStaffName}</span>}
                         <button
                           onClick={() => setActiveModalOrder(ord)}
                           className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-800 text-[11px] font-bold transition-all border border-emerald-200/80 shadow-2xs inline-flex items-center gap-1.5 cursor-pointer"

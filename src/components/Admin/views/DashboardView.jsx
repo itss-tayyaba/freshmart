@@ -1,10 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import {
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
-  Clock,
-  Package,
   ArrowRight,
   ChevronDown,
   ShoppingBag,
@@ -13,10 +8,6 @@ import {
   Sparkles,
   DollarSign,
   Activity,
-  CheckCircle2,
-  Truck,
-  FileText,
-  Layers,
   Plus,
   RefreshCw,
   Store,
@@ -24,33 +15,23 @@ import {
   CreditCard,
   ArrowUpRight,
   Download,
-  BarChart2,
-  PieChart,
-  ShieldCheck,
-  Percent,
-  Award
+  BarChart2
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useStore } from '../../../context/StoreContext';
-import {
-  ADMIN_DAILY_SALES_CHART,
-  ADMIN_MONTHLY_SALES_CHART,
-  ADMIN_BEST_SELLING_PRODUCTS,
-  ADMIN_BRANCH_PERFORMANCE
-} from '../../../data/adminSuiteData';
 import { BRANCH_METRICS } from '../../../data/branchCatalogData';
 
 export const DashboardView = ({ onNavigateModule }) => {
   const {
     currency,
-    navigateTo,
     products,
     customerOrders,
     customers,
     updateProductStock,
     addToast,
     currentTenant,
+    currentBranch,
     setCurrentTenant,
     allTenants,
     branchMetrics,
@@ -60,7 +41,6 @@ export const DashboardView = ({ onNavigateModule }) => {
   // Active Tenant Metrics & Branding
   const tenantKey = currentTenant?.id || 'tenant-alfatah';
   const tenantMetrics = branchMetrics || (getBranchMetrics && getBranchMetrics(tenantKey)) || BRANCH_METRICS[tenantKey] || BRANCH_METRICS['tenant-alfatah'];
-  const tenantThemeColor = tenantMetrics.themeColor || '#10b981';
 
   // Selected period: '7days' | 'today' | '30days' | 'year'
   const [period, setPeriod] = useState('7days');
@@ -72,41 +52,39 @@ export const DashboardView = ({ onNavigateModule }) => {
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  // 1. Real-time dynamic store metrics computed from state and tenant
-  const liveOrderSales = (customerOrders || []).reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-  const totalSales = liveOrderSales > 0 ? liveOrderSales : (tenantMetrics?.kpis?.todaySales || 784500);
-  const totalOrders = (customerOrders || []).length > 0 ? (customerOrders || []).length : (tenantMetrics?.kpis?.totalOrders || 162);
-  const totalCustomers = (customers || []).length;
+  // Use only live records for operational figures; absent data stays at zero.
+  const tenantOrders = useMemo(
+    () => (customerOrders || []).filter((order) => order.tenantId === tenantKey || (!order.tenantId && tenantKey === 'tenant-freshmart')),
+    [customerOrders, tenantKey]
+  );
+  const tenantCustomers = useMemo(
+    () => (customers || []).filter((customer) => customer.tenantId === tenantKey || (!customer.tenantId && tenantKey === 'tenant-freshmart')),
+    [customers, tenantKey]
+  );
+  const totalCustomers = tenantCustomers.length;
   const totalProducts = (products || []).length;
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const tomorrowStart = new Date(todayStart);
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+  const todayOrders = tenantOrders.filter((order) => {
+    const date = new Date(order.createdAt || order.date || order.timestamp || '');
+    return !Number.isNaN(date.getTime()) && date >= todayStart && date < tomorrowStart;
+  });
+  const salesToday = todayOrders.reduce(
+    (sum, order) => sum + (Number(order.total ?? order.totalAmount ?? order.totalPrice) || 0),
+    0
+  );
 
   const lowStockProducts = (products || []).filter((p) => {
-    const stock = Number(p.stock !== undefined ? p.stock : (p.stockCount || 0));
-    return stock < 15;
+    const rawStock = p.stock ?? p.stockCount;
+    return rawStock !== undefined && rawStock !== null && Number.isFinite(Number(rawStock)) && Number(rawStock) < 15;
   });
   const lowStockCount = lowStockProducts.length;
 
-  const expiringCount = (products || []).filter(
-    (p) => p.isFlashDeal || (p.discountPercent && Number(p.discountPercent) > 15)
+  const pendingOrdersCount = tenantOrders.filter(
+    (order) => !['delivered', 'cancelled', 'complete', 'completed'].includes(String(order.status || '').toLowerCase())
   ).length;
-
-  const pendingOrdersCount = (customerOrders || []).filter(
-    (o) => o.status === 'Processing' || o.status === 'Pending' || o.status === 'Packed'
-  ).length;
-
-  // Dynamic Customer Segment Metric based on Supermarket brand
-  const customerKpi = useMemo(() => {
-    switch (tenantKey) {
-      case 'tenant-alfatah':
-        return { label: 'VIP Privilege Members', count: 2410, sub: '88.5% Luxury Repeat Rate', badge: '+14.2%' };
-      case 'tenant-chasevalue':
-        return { label: 'Wholesale Accounts', count: 1840, sub: '92.1% Bulk Sacks Repeat', badge: '+19.6%' };
-      case 'tenant-chaseup':
-        return { label: 'Family Loyalty Cards', count: 3120, sub: '78.6% Monthly Basket Repeat', badge: '+11.4%' };
-      case 'tenant-freshmart':
-      default:
-        return { label: 'App Daily Shoppers', count: 4250, sub: '83.2% 10-Min Retention', badge: '+15.8%' };
-    }
-  }, [tenantKey]);
 
   // Executive Header Theme Gradient
   const bannerGradient = useMemo(() => {
@@ -123,46 +101,59 @@ export const DashboardView = ({ onNavigateModule }) => {
     }
   }, [tenantKey]);
 
-  // 2. Multi-Timeframe Chart Datasets (tailored per branch sales profile)
+  // Aggregate orders into chart buckets for the selected time period.
   const chartDatasets = useMemo(() => {
-    const mult = tenantKey === 'tenant-alfatah' ? 1.62 : tenantKey === 'tenant-chasevalue' ? 1.12 : tenantKey === 'tenant-chaseup' ? 0.91 : 1.0;
+    const now = new Date();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    let buckets;
 
-    return {
-      'today': [
-        { label: '08:00', fullLabel: '8:00 AM', revenue: Math.round(24500 * mult), orders: Math.round(18 * (mult > 1.2 ? 0.9 : 1.2)), aov: Math.round(1361 * mult), growth: '+12%' },
-        { label: '10:00', fullLabel: '10:00 AM', revenue: Math.round(58200 * mult), orders: Math.round(42 * (mult > 1.2 ? 0.9 : 1.2)), aov: Math.round(1385 * mult), growth: '+15%' },
-        { label: '12:00', fullLabel: '12:00 PM', revenue: Math.round(96400 * mult), orders: Math.round(68 * (mult > 1.2 ? 0.9 : 1.2)), aov: Math.round(1417 * mult), growth: '+22%' },
-        { label: '14:00', fullLabel: '2:00 PM', revenue: Math.round(74100 * mult), orders: Math.round(52 * (mult > 1.2 ? 0.9 : 1.2)), aov: Math.round(1425 * mult), growth: '+8%' },
-        { label: '16:00', fullLabel: '4:00 PM', revenue: Math.round(88500 * mult), orders: Math.round(61 * (mult > 1.2 ? 0.9 : 1.2)), aov: Math.round(1450 * mult), growth: '+19%' },
-        { label: '18:00', fullLabel: '6:00 PM', revenue: Math.round(112400 * mult), orders: Math.round(79 * (mult > 1.2 ? 0.9 : 1.2)), aov: Math.round(1422 * mult), growth: '+25%' },
-        { label: '20:00', fullLabel: '8:00 PM', revenue: Math.round(145000 * mult), orders: Math.round(98 * (mult > 1.2 ? 0.9 : 1.2)), aov: Math.round(1479 * mult), growth: '+28%' },
-        { label: '22:00', fullLabel: '10:00 PM (Now)', revenue: Math.round(62300 * mult), orders: Math.round(44 * (mult > 1.2 ? 0.9 : 1.2)), aov: Math.round(1415 * mult), growth: '+14%' }
-      ],
-      '7days': [
-        { label: 'Mon', fullLabel: 'Monday, 01 Sep', revenue: Math.round(412000 * mult), orders: Math.round(284 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1450 * mult), growth: '+10.4%' },
-        { label: 'Tue', fullLabel: 'Tuesday, 02 Sep', revenue: Math.round(438500 * mult), orders: Math.round(298 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1471 * mult), growth: '+14.2%' },
-        { label: 'Wed', fullLabel: 'Wednesday, 03 Sep', revenue: Math.round(395000 * mult), orders: Math.round(275 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1436 * mult), growth: '+6.8%' },
-        { label: 'Thu', fullLabel: 'Thursday, 04 Sep', revenue: Math.round(456200 * mult), orders: Math.round(312 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1462 * mult), growth: '+16.5%' },
-        { label: 'Fri', fullLabel: 'Friday, 05 Sep', revenue: Math.round(512000 * mult), orders: Math.round(348 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1471 * mult), growth: '+22.1%' },
-        { label: 'Sat', fullLabel: 'Saturday, 06 Sep', revenue: Math.round(548900 * mult), orders: Math.round(372 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1475 * mult), growth: '+26.8%' },
-        { label: 'Sun', fullLabel: 'Sunday (Today)', revenue: Math.round(tenantMetrics?.kpis?.todaySales || 482500), orders: tenantMetrics?.kpis?.totalOrders || 327, aov: tenantMetrics?.kpis?.averageOrderValue || 1475, growth: tenantMetrics?.kpis?.growthRate || '+18.4%' }
-      ],
-      '30days': [
-        { label: 'Week 1', fullLabel: '01 - 07 Aug', revenue: Math.round(2840000 * mult), orders: Math.round(1940 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1463 * mult), growth: '+11.2%' },
-        { label: 'Week 2', fullLabel: '08 - 14 Aug', revenue: Math.round(3120000 * mult), orders: Math.round(2150 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1451 * mult), growth: '+14.8%' },
-        { label: 'Week 3', fullLabel: '15 - 21 Aug', revenue: Math.round(3450000 * mult), orders: Math.round(2380 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1449 * mult), growth: '+18.5%' },
-        { label: 'Week 4', fullLabel: '22 - 28 Aug', revenue: Math.round(3890000 * mult), orders: Math.round(2680 * (mult > 1.2 ? 0.8 : 1.1)), aov: Math.round(1451 * mult), growth: '+22.4%' }
-      ],
-      'year': ADMIN_MONTHLY_SALES_CHART.map((m) => ({
-        label: m.month.split(' ')[0],
-        fullLabel: `${m.month} 2026`,
-        revenue: Math.round(m.revenue * mult),
-        orders: Math.round(m.orders * (mult > 1.2 ? 0.8 : 1.1)),
-        aov: Math.round((m.revenue * mult) / (m.orders || 1)),
-        growth: '+15.8%'
-      }))
-    };
-  }, [tenantKey, tenantMetrics]);
+    if (period === 'today') {
+      buckets = Array.from({ length: 8 }, (_, index) => ({
+        label: `${String(index * 3).padStart(2, '0')}:00`,
+        fullLabel: `${String(index * 3).padStart(2, '0')}:00–${String(index * 3 + 3).padStart(2, '0')}:59`,
+        start: new Date(today.getTime() + index * 3 * 60 * 60 * 1000),
+        end: new Date(today.getTime() + (index + 1) * 3 * 60 * 60 * 1000)
+      }));
+    } else if (period === '7days') {
+      buckets = Array.from({ length: 7 }, (_, index) => {
+        const start = new Date(today);
+        start.setDate(today.getDate() - 6 + index);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 1);
+        return { label: start.toLocaleDateString(undefined, { weekday: 'short' }), fullLabel: start.toLocaleDateString(), start, end };
+      });
+    } else if (period === '30days') {
+      buckets = Array.from({ length: 4 }, (_, index) => {
+        const start = new Date(today);
+        start.setDate(today.getDate() - 29 + index * 7);
+        const end = new Date(start);
+        end.setDate(start.getDate() + (index === 3 ? 9 : 7));
+        return { label: `Week ${index + 1}`, fullLabel: `${start.toLocaleDateString()} – ${new Date(end.getTime() - 1).toLocaleDateString()}`, start, end };
+      });
+    } else {
+      const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      buckets = Array.from({ length: 12 }, (_, index) => {
+        const start = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 11 + index, 1);
+        const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+        return { label: start.toLocaleDateString(undefined, { month: 'short' }), fullLabel: start.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }), start, end };
+      });
+    }
+
+    return buckets.map((bucket) => {
+      const bucketOrders = tenantOrders.filter((order) => {
+        const orderDate = new Date(order.createdAt || order.date || order.timestamp || '');
+        return !Number.isNaN(orderDate.getTime()) && orderDate >= bucket.start && orderDate < bucket.end;
+      });
+      const revenue = bucketOrders.reduce((sum, order) => sum + (Number(order.total ?? order.totalAmount ?? order.totalPrice) || 0), 0);
+      return {
+        ...bucket,
+        revenue,
+        orders: bucketOrders.length,
+        aov: bucketOrders.length ? Math.round(revenue / bucketOrders.length) : 0
+      };
+    });
+  }, [period, tenantOrders]);
 
   const currentData = chartDatasets[period] || chartDatasets['7days'];
   const values = currentData.map((d) => d[activeMetric]);
@@ -237,32 +228,26 @@ export const DashboardView = ({ onNavigateModule }) => {
         startY: 34,
         head: [['Executive Metric', 'Value', 'Performance Benchmark', 'Status']],
         body: [
-          ['Gross Revenue (PKR)', `Rs. ${totalSales.toLocaleString()}`, `${tenantMetrics?.kpis?.growthRate || '+18.4%'} vs Previous Cycle`, 'Optimal (Growth)'],
-          ['Total Orders Handled', `${totalOrders.toLocaleString()}`, `${tenantMetrics?.kpis?.fulfillmentSla || '99.4%'} On-Time SLA`, 'Active'],
-          [customerKpi?.label || 'Registered Shoppers', `${(customerKpi?.count || totalCustomers).toLocaleString()}`, customerKpi?.sub || '83.2% Retention Rate', 'Healthy'],
-          ['Active Catalog SKUs', `${totalProducts.toLocaleString()}`, `${lowStockCount} Low Stock Alert`, lowStockCount > 0 ? 'Restock Needed' : 'Normal'],
-          [tenantMetrics?.specialWidget?.metricLabel || 'Branch Compliance', tenantMetrics?.specialWidget?.metricValue || '100%', tenantMetrics?.specialWidget?.status || 'Active', 'Passed Standard']
+          ["Today's Sales", `Rs. ${salesToday.toLocaleString()}`, `${todayOrders.length} orders today`, 'From saved orders'],
+          ["Today's Orders", `${todayOrders.length}`, `${pendingOrdersCount} active orders`, 'From saved orders'],
+          ['Customers', `${totalCustomers}`, 'Registered customer records', 'Current store'],
+          ['Products', `${totalProducts}`, `${lowStockCount} low stock`, 'Current catalog']
         ],
         theme: 'striped',
         headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
         bodyStyles: { fontSize: 8.5 }
       });
 
-      // Top Selling Products
-      const topSellingList = (tenantMetrics?.topSellingProducts && tenantMetrics.topSellingProducts.length > 0)
-        ? tenantMetrics.topSellingProducts
-        : (ADMIN_BEST_SELLING_PRODUCTS || []);
-
       autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 8,
         head: [['Rank', 'Top Selling Product', 'Category', 'Volume Sold', 'Revenue Generated']],
-        body: topSellingList.map((p, idx) => [
-          `#${p.rank || idx + 1}`,
+        body: bestSellingProducts.length ? bestSellingProducts.map((p, idx) => [
+          `#${idx + 1}`,
           p.name,
           p.category,
-          `${p.units || p.unitsSold || 50} units`,
-          `Rs. ${(p.revenue || 50000).toLocaleString()}`
-        ]),
+          `${p.units} units`,
+          `Rs. ${p.revenue.toLocaleString()}`
+        ]) : [['—', 'No product sales recorded', '—', '0 units', 'Rs. 0']],
         theme: 'striped',
         headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
         bodyStyles: { fontSize: 8 }
@@ -305,6 +290,35 @@ export const DashboardView = ({ onNavigateModule }) => {
       color: categoryColors[idx % categoryColors.length].bg,
       hex: categoryColors[idx % categoryColors.length].hex
     }));
+
+  const bestSellingProducts = useMemo(() => {
+    const sold = new Map();
+    tenantOrders.forEach((order) => {
+      const items = Array.isArray(order.rawItems) ? order.rawItems : Array.isArray(order.items) ? order.items : Array.isArray(order.orderItems) ? order.orderItems : [];
+      items.forEach((item) => {
+        const name = item.name || item.productName || item.title;
+        if (!name) return;
+        const key = item.productId || item.id || name;
+        const quantity = Number(item.quantity ?? item.qty ?? 1) || 1;
+        const product = sold.get(key) || { name, category: item.category || item.categoryLabel || '—', units: 0, revenue: 0 };
+        product.units += quantity;
+        product.revenue += quantity * (Number(item.price ?? item.unitPrice ?? item.salePrice) || 0);
+        sold.set(key, product);
+      });
+    });
+    return [...sold.values()].sort((a, b) => b.units - a.units).slice(0, 5);
+  }, [tenantOrders]);
+
+  const paymentBreakdown = useMemo(() => {
+    const counts = new Map();
+    tenantOrders.forEach((order) => {
+      const method = order.paymentMethod || order.payment || 'Not specified';
+      counts.set(method, (counts.get(method) || 0) + 1);
+    });
+    return [...counts.entries()]
+      .map(([method, count]) => ({ method, count, percent: tenantOrders.length ? Math.round((count / tenantOrders.length) * 100) : 0 }))
+      .sort((a, b) => b.count - a.count);
+  }, [tenantOrders]);
 
   const todayDateStr = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -368,10 +382,10 @@ export const DashboardView = ({ onNavigateModule }) => {
               </select>
             </div>
 
-            {/* Single Centralized Branch (Faisalabad Flagship Hub) */}
+            {/* Current branch */}
             <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md border border-emerald-400/30 rounded-2xl px-3 py-1.5 shadow-xs text-xs font-black text-emerald-300">
               <MapPin className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-              <span>📍 Faisalabad Flagship Hub (D-Ground)</span>
+              <span>{currentBranch?.name || currentBranch?.city || 'No active branch selected'}</span>
             </div>
 
             <button
@@ -402,132 +416,25 @@ export const DashboardView = ({ onNavigateModule }) => {
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 2. TOP 4 DYNAMIC METRIC CARDS WITH SPARKLINES */}
-      {/* ========================================================================= */}
+      {/* Live totals from this store's actual records */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        
-        {/* Card 1: Gross Sales */}
-        <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-card hover:shadow-lg transition-shadow relative overflow-hidden group">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Gross Sales</span>
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-              <DollarSign className="w-4 h-4" />
+        {[
+          { label: "Today's Sales", value: `${currency.symbol || 'Rs. '}${salesToday.toLocaleString()}`, detail: `${todayOrders.length} orders today`, icon: DollarSign, iconClass: 'bg-emerald-50 text-emerald-600' },
+          { label: "Today's Orders", value: todayOrders.length.toLocaleString(), detail: `${pendingOrdersCount} active orders`, icon: ShoppingBag, iconClass: 'bg-blue-50 text-blue-600' },
+          { label: 'Customers', value: totalCustomers.toLocaleString(), detail: 'Registered customers', icon: Users, iconClass: 'bg-indigo-50 text-indigo-600' },
+          { label: 'Products', value: totalProducts.toLocaleString(), detail: `${lowStockCount} low stock`, icon: Boxes, iconClass: 'bg-purple-50 text-purple-600' }
+        ].map(({ label, value, detail, icon: Icon, iconClass }) => (
+          <div key={label} className="bg-white rounded-3xl p-5 border border-slate-100 shadow-card">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${iconClass}`}>
+                <Icon className="w-4 h-4" />
+              </div>
             </div>
+            <h3 className="text-2xl font-black text-slate-900 tracking-tight mt-3">{value}</h3>
+            <p className="text-[11px] text-slate-500 mt-1.5">{detail}</p>
           </div>
-          <div className="mt-3">
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-              {tenantMetrics?.kpis?.todaySalesFormatted || `${currency.symbol || 'Rs. '}${totalSales.toLocaleString()}`}
-            </h3>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-full flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" />
-                <span>{tenantMetrics?.kpis?.growthRate || '+18.4%'}</span>
-              </span>
-              <span className="text-[11px] text-slate-400 font-medium">vs last cycle</span>
-            </div>
-            <div className="mt-3 pt-2.5 border-t border-slate-50 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-              <span>Avg. Order Value (AOV)</span>
-              <span className="font-bold text-slate-800">
-                Rs. {(tenantMetrics?.kpis?.averageOrderValue || 1475).toLocaleString()}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 2: Total Orders */}
-        <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-card hover:shadow-lg transition-shadow relative overflow-hidden group">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Orders</span>
-            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-              <ShoppingBag className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-              {(tenantMetrics?.kpis?.totalOrders || totalOrders).toLocaleString()}
-            </h3>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200/60 px-2 py-0.5 rounded-full flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" />
-                <span>+8.4%</span>
-              </span>
-              <span className="text-[11px] text-slate-400 font-medium">{pendingOrdersCount} active in dispatch</span>
-            </div>
-            <div className="mt-3 pt-2.5 border-t border-slate-50 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-              <span>Fulfillment SLA Rate</span>
-              <span className="font-bold text-emerald-600">{tenantMetrics?.kpis?.fulfillmentSla || '99.4% On-Time'}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3: Brand Scoped Customer Segment */}
-        <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-card hover:shadow-lg transition-shadow relative overflow-hidden group">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{customerKpi.label}</span>
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-              {customerKpi.count.toLocaleString()}
-            </h3>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded-full flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" />
-                <span>{customerKpi.badge}</span>
-              </span>
-              <span className="text-[11px] text-slate-400 font-medium">{customerKpi.sub}</span>
-            </div>
-            <div className="mt-3 pt-2.5 border-t border-slate-50 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-              <span>Account Classification</span>
-              <span className="font-bold text-indigo-700">{tenantMetrics?.name?.split(' ')[0]} Verified</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 4: Catalog & Low Stock Scoped */}
-        <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-card hover:shadow-lg transition-shadow relative overflow-hidden group">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Catalog Health</span>
-            <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-              <Boxes className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-              {totalProducts.toLocaleString()} <span className="text-sm font-bold text-slate-400">SKUs</span>
-            </h3>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span
-                className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                  lowStockCount > 0
-                    ? 'text-rose-700 bg-rose-50 border border-rose-200/60'
-                    : 'text-emerald-700 bg-emerald-50 border border-emerald-200/60'
-                }`}
-              >
-                {lowStockCount > 0 ? (
-                  <>
-                    <AlertTriangle className="w-3 h-3 text-rose-600" />
-                    <span>{lowStockCount} Low Stock</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    <span>Inventory 100% Good</span>
-                  </>
-                )}
-              </span>
-              <span className="text-[11px] text-slate-400 font-medium">{expiringCount} live deals</span>
-            </div>
-            <div className="mt-3 pt-2.5 border-t border-slate-50 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-              <span>Active Categories</span>
-              <span className="font-bold text-slate-800">{topCategories.length || 6} Sectors</span>
-            </div>
-          </div>
-        </div>
-
+        ))}
       </div>
 
       {/* ========================================================================= */}
@@ -542,13 +449,13 @@ export const DashboardView = ({ onNavigateModule }) => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-black text-slate-900 tracking-tight">Sales & Revenue Intelligence</h3>
+                <h3 className="text-base font-black text-slate-900 tracking-tight">Order & Sales History</h3>
                 <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-md">
-                  Live Analytics
+                  Saved Orders
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Hover over data points to inspect detailed revenue, orders, and growth metrics.
+                Hover over a period to inspect its recorded sales and order totals.
               </p>
             </div>
 
@@ -593,7 +500,7 @@ export const DashboardView = ({ onNavigateModule }) => {
                   <option value="today">Today (Hourly)</option>
                   <option value="7days">Last 7 Days</option>
                   <option value="30days">Last 30 Days</option>
-                  <option value="year">This Year (12 Mo)</option>
+                  <option value="year">Last 12 Months</option>
                 </select>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -643,9 +550,8 @@ export const DashboardView = ({ onNavigateModule }) => {
               </div>
 
               <div className="flex items-center gap-3 text-xs">
-                <span className="text-emerald-700 bg-emerald-100/70 font-bold px-2.5 py-1 rounded-lg flex items-center gap-1">
-                  <TrendingUp className="w-3.5 h-3.5" />
-                  <span>{activePoint.growth || '+15.2%'} Performance</span>
+                <span className="text-emerald-700 bg-emerald-100/70 font-bold px-2.5 py-1 rounded-lg">
+                  {activePoint.orders} saved orders
                 </span>
                 <span className="text-slate-400 font-mono hidden sm:inline text-[11px]">
                   {activePoint.orders} Orders • Rs. {activePoint.aov} AOV
@@ -747,7 +653,7 @@ export const DashboardView = ({ onNavigateModule }) => {
               <div className="w-full h-full flex items-end justify-between gap-2 sm:gap-4 px-2 pt-6">
                 {currentData.map((d, idx) => {
                   const val = d[activeMetric];
-                  const heightPercent = Math.max(12, Math.round((val / maxValue) * 100));
+                  const heightPercent = maxValue > 0 ? Math.round((val / maxValue) * 100) : 0;
                   const isSelected = hoveredIndex === idx || (hoveredIndex === null && idx === currentData.length - 1);
 
                   return (
@@ -794,30 +700,28 @@ export const DashboardView = ({ onNavigateModule }) => {
           {/* Summary Stat Footer */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50/60 rounded-2xl p-3 border border-slate-100 text-center text-xs">
             <div>
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">Period Total</span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase block">Period {activeMetric === 'revenue' ? 'Sales' : activeMetric === 'orders' ? 'Orders' : 'Average Order Value'}</span>
               <span className="font-black text-slate-900 text-sm">
-                Rs. {values.reduce((s, v) => s + (activeMetric === 'revenue' ? v : 0), 0) > 0
-                  ? values.reduce((s, v) => s + v, 0).toLocaleString()
-                  : (totalSales * (period === 'year' ? 12 : period === '30days' ? 4 : 1)).toLocaleString()}
+                {activeMetric === 'orders' ? '' : 'Rs. '}{values.reduce((sum, value) => sum + value, 0).toLocaleString()}
               </span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">Daily Average</span>
-              <span className="font-black text-slate-900 text-sm">Rs. {avgValue.toLocaleString()}</span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase block">Average {activeMetric === 'revenue' ? 'Sales' : activeMetric === 'orders' ? 'Orders' : 'Order Value'}</span>
+              <span className="font-black text-slate-900 text-sm">{activeMetric === 'orders' ? '' : 'Rs. '}{avgValue.toLocaleString()}</span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">Peak Volume</span>
-              <span className="font-black text-emerald-600 text-sm">Rs. {maxValue.toLocaleString()}</span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase block">Peak {activeMetric === 'revenue' ? 'Sales' : activeMetric === 'orders' ? 'Orders' : 'Order Value'}</span>
+              <span className="font-black text-emerald-600 text-sm">{activeMetric === 'orders' ? '' : 'Rs. '}{maxValue.toLocaleString()}</span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">Projection</span>
-              <span className="font-black text-blue-600 text-sm">Target Met (108%)</span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase block">Buckets with orders</span>
+              <span className="font-black text-blue-600 text-sm">{currentData.filter((bucket) => bucket.orders > 0).length} / {currentData.length}</span>
             </div>
           </div>
 
         </div>
 
-        {/* Top Categories & Revenue Contribution (4 Columns) */}
+        {/* Category distribution from current catalog */}
         <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-slate-100 shadow-card flex flex-col justify-between space-y-5">
           
           <div>
@@ -825,7 +729,7 @@ export const DashboardView = ({ onNavigateModule }) => {
               <h3 className="text-base font-black text-slate-900 tracking-tight">Category Breakdown</h3>
               <span className="text-xs font-bold text-emerald-600">{totalProducts} SKUs</span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">Share of live catalog inventory and sales distribution</p>
+            <p className="text-xs text-slate-400 mt-0.5">Distribution of products currently listed in this store catalog</p>
           </div>
 
           {/* Interactive Visual Progress Rings */}
@@ -858,24 +762,16 @@ export const DashboardView = ({ onNavigateModule }) => {
             <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider block">
               Payment Gateway Share
             </span>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="bg-white p-2.5 rounded-xl border border-slate-100 flex items-center justify-between">
-                <span className="text-slate-600 font-medium">Cash on Delivery</span>
-                <span className="font-bold text-slate-900">42%</span>
+            {paymentBreakdown.length ? (
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {paymentBreakdown.map(({ method, count, percent }) => (
+                  <div key={method} className="bg-white p-2.5 rounded-xl border border-slate-100 flex items-center justify-between gap-2">
+                    <span className="text-slate-600 font-medium truncate">{method}</span>
+                    <span className="font-bold text-slate-900">{percent}% ({count})</span>
+                  </div>
+                ))}
               </div>
-              <div className="bg-white p-2.5 rounded-xl border border-slate-100 flex items-center justify-between">
-                <span className="text-slate-600 font-medium">JazzCash Mobile</span>
-                <span className="font-bold text-slate-900">28%</span>
-              </div>
-              <div className="bg-white p-2.5 rounded-xl border border-slate-100 flex items-center justify-between">
-                <span className="text-slate-600 font-medium">EasyPaisa Wallet</span>
-                <span className="font-bold text-slate-900">18%</span>
-              </div>
-              <div className="bg-white p-2.5 rounded-xl border border-slate-100 flex items-center justify-between">
-                <span className="text-slate-600 font-medium">Debit / Credit</span>
-                <span className="font-bold text-slate-900">12%</span>
-              </div>
-            </div>
+            ) : <p className="text-xs text-slate-500">No saved orders yet.</p>}
           </div>
 
           {/* Quick Navigate to Catalog */}
@@ -890,102 +786,6 @@ export const DashboardView = ({ onNavigateModule }) => {
         </div>
 
       </div>
-
-      {/* ========================================================================= */}
-      {/* 4. LIVE DARK STORE HUBS & TELEMATICS MONITOR */}
-      {/* ========================================================================= */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-card space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-black text-slate-900 tracking-tight">
-                {tenantMetrics?.name} Regional Hubs & Live Telematics
-              </h3>
-              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-md">
-                Active Fleet
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Live automated telemetry across {tenantMetrics?.hubs?.length || 4} verified regional supermarket terminals and dispatch fleet
-            </p>
-          </div>
-
-          <button
-            onClick={() => onNavigateModule('Delivery')}
-            className="text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3.5 py-1.5 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
-          >
-            <MapPin className="w-3.5 h-3.5" />
-            <span>Open Interactive GPS Radar</span>
-          </button>
-        </div>
-
-        {/* Dynamic Branch Hubs Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-2">
-          {(tenantMetrics?.hubs || []).map((hub) => (
-            <div
-              key={hub.name}
-              className="bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-2.5 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-900 truncate max-w-[130px]" title={hub.name}>
-                  {hub.name}
-                </span>
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              </div>
-              <div>
-                <span className="text-xs font-black text-slate-700 block">
-                  📍 {hub.city}
-                </span>
-                <span className="text-[10px] text-slate-500 font-medium">
-                  {hub.ordersToday} dispatches today • {hub.activeRiders} couriers
-                </span>
-              </div>
-              <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[10px] font-bold">
-                <span className="text-emerald-700">★ High SLA</span>
-                <span className="text-slate-600">{hub.sla} On-Time</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 4B. DEDICATED SUPERMARKET OPERATIONAL TELEMATICS & SPECIAL CAPABILITY */}
-      {/* ========================================================================= */}
-      {tenantMetrics?.specialWidget && (
-        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-3xl p-6 border border-slate-700/80 shadow-xl relative overflow-hidden">
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
-            <div className="space-y-1.5 max-w-2xl">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">
-                  {tenantKey === 'tenant-alfatah' ? '❄️' : tenantKey === 'tenant-chasevalue' ? '🚛' : tenantKey === 'tenant-chaseup' ? '💳' : '⏱️'}
-                </span>
-                <h3 className="text-base font-black text-white tracking-tight">
-                  {tenantMetrics.specialWidget.title}
-                </h3>
-                <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                  Live Telematics
-                </span>
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed font-normal">
-                {tenantMetrics.specialWidget.description}
-              </p>
-            </div>
-
-            <div className="bg-slate-800/90 border border-slate-700/70 rounded-2xl p-4 shrink-0 text-left md:text-right min-w-[220px]">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                {tenantMetrics.specialWidget.metricLabel}
-              </span>
-              <span className="text-base font-black text-emerald-400 block mt-0.5">
-                {tenantMetrics.specialWidget.metricValue}
-              </span>
-              <span className="text-[11px] text-slate-300 block mt-1 font-semibold">
-                {tenantMetrics.specialWidget.status}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ========================================================================= */}
       {/* 5. SPLIT ROW: RECENT LIVE ORDERS + TOP PRODUCTS / LOW STOCK ACTION */}
@@ -1019,8 +819,8 @@ export const DashboardView = ({ onNavigateModule }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {customerOrders && customerOrders.length > 0 ? (
-                  customerOrders.slice(0, 5).map((ord) => {
+                {tenantOrders.length > 0 ? (
+                  tenantOrders.slice(0, 5).map((ord) => {
                     const statusColor =
                       ord.status === 'Delivered'
                         ? 'bg-emerald-100 text-emerald-800'
@@ -1068,7 +868,7 @@ export const DashboardView = ({ onNavigateModule }) => {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-base font-black text-slate-900 tracking-tight">
-                {tenantMetrics?.name?.split(' ')[0]} Top Sellers & Restock
+                {tenantMetrics?.name?.split(' ')[0] || 'Store'} Inventory
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">Instant one-click restock for low inventory</p>
             </div>
@@ -1081,26 +881,25 @@ export const DashboardView = ({ onNavigateModule }) => {
           </div>
 
           {/* Top Selling Highlights for this branch */}
-          {tenantMetrics?.topSellingProducts && tenantMetrics.topSellingProducts.length > 0 && (
+          {bestSellingProducts.length > 0 && (
             <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-100 space-y-2">
               <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider block">
-                ⭐ Top Revenue Driver This Week
+                Top seller in saved orders
               </span>
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-slate-900 truncate max-w-[210px]">
-                  {tenantMetrics.topSellingProducts[0].name}
+                  {bestSellingProducts[0].name} · {bestSellingProducts[0].units} sold
                 </span>
                 <span className="font-black text-emerald-600 whitespace-nowrap ml-2">
-                  Rs. {tenantMetrics.topSellingProducts[0].revenue.toLocaleString()}
+                  Rs. {bestSellingProducts[0].revenue.toLocaleString()}
                 </span>
               </div>
             </div>
           )}
 
           <div className="space-y-3">
-            {(lowStockProducts.length > 0 ? lowStockProducts.slice(0, 3) : (products || []).slice(0, 3)).map((prod) => {
-              const curStock = prod.stock ?? (prod.stockCount || 10);
-              const isLow = curStock < 15;
+            {lowStockProducts.length > 0 ? lowStockProducts.slice(0, 3).map((prod) => {
+              const curStock = Number(prod.stock ?? prod.stockCount);
 
               return (
                 <div
@@ -1115,8 +914,8 @@ export const DashboardView = ({ onNavigateModule }) => {
                     />
                     <div className="min-w-0">
                       <span className="font-bold text-slate-900 text-xs truncate block">{prod.name}</span>
-                      <span className={`text-[10px] font-bold ${isLow ? 'text-rose-600' : 'text-slate-400'}`}>
-                        {curStock} units remaining {isLow && '⚠️'}
+                      <span className="text-[10px] font-bold text-rose-600">
+                        {curStock} units remaining
                       </span>
                     </div>
                   </div>
@@ -1130,18 +929,18 @@ export const DashboardView = ({ onNavigateModule }) => {
                   </button>
                 </div>
               );
-            })}
+            }) : <p className="text-xs text-slate-500">No low stock products with inventory data.</p>}
           </div>
 
           {/* Operational SLA Metrics Footer */}
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-center text-xs">
             <div className="bg-emerald-50/60 p-2 rounded-xl border border-emerald-100">
-              <span className="text-[10px] text-emerald-800 font-bold block">Avg Packing Speed</span>
-              <span className="font-black text-emerald-900 text-sm">8.4 Mins</span>
+              <span className="text-[10px] text-emerald-800 font-bold block">Active Orders</span>
+              <span className="font-black text-emerald-900 text-sm">{pendingOrdersCount}</span>
             </div>
             <div className="bg-blue-50/60 p-2 rounded-xl border border-blue-100">
-              <span className="text-[10px] text-blue-800 font-bold block">SLA Compliance</span>
-              <span className="font-black text-blue-900 text-sm">{tenantMetrics?.kpis?.fulfillmentSla || '99.4%'}</span>
+              <span className="text-[10px] text-blue-800 font-bold block">Products Listed</span>
+              <span className="font-black text-blue-900 text-sm">{totalProducts}</span>
             </div>
           </div>
         </div>
@@ -1151,4 +950,3 @@ export const DashboardView = ({ onNavigateModule }) => {
     </div>
   );
 };
-

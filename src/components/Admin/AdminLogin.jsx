@@ -74,6 +74,17 @@ export const AdminLogin = () => {
       passPlaceholder: 'cocacola123',
       defaultUser: 'tayyab',
       defaultPass: 'cocacola123'
+    },
+    {
+      id: 'pickup_staff',
+      label: 'Pickup Staff',
+      icon: '📦',
+      sublabel: 'Packing Desk',
+      badge: 'Order Packing',
+      userPlaceholder: 'staff username',
+      passPlaceholder: 'staff password',
+      defaultUser: '',
+      defaultPass: ''
     }
   ];
 

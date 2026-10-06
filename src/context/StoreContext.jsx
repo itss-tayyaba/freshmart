@@ -98,7 +98,7 @@ export const StoreProvider = ({ children }) => {
   // Current active page view
   const [currentPage, setCurrentPage] = useState(initialRoute.page);
 
-  // Admin Role State ('admin' | 'superadmin' | 'supplier' | 'rider')
+  // Admin Role State ('admin' | 'superadmin' | 'supplier' | 'rider' | 'pickup_staff')
   const [adminRole, setAdminRole] = useState(() => {
     try {
       return localStorage.getItem('freshmart_admin_role') || 'admin';
@@ -1582,6 +1582,29 @@ export const StoreProvider = ({ children }) => {
       return { success: true, role: 'supplier', user: supplierUser };
     }
 
+    if (targetRole === 'pickup_staff') {
+      const staff = (pickupStaff || []).find((person) =>
+        person.username?.toLowerCase() === cleanUser &&
+        person.password === cleanPass &&
+        person.status === 'Active'
+      );
+      if (!staff) return { success: false, error: 'Pickup staff account not found or password is incorrect.' };
+
+      const staffUser = { id: staff.id, name: staff.name, role: 'pickup_staff', tenantId: staff.tenantId };
+      setCurrentTenant((tenants || []).find((tenant) => tenant.id === staff.tenantId) || currentTenant);
+      setAdminRole('pickup_staff');
+      setIsAdminLoggedIn(true);
+      setUser(staffUser);
+      try {
+        localStorage.setItem('freshmart_admin_session', 'true');
+        localStorage.setItem('freshmart_admin_role', 'pickup_staff');
+        localStorage.setItem('freshmart_admin_user', JSON.stringify(staffUser));
+        localStorage.setItem('freshmart_admin_token', `mock-pickup-${Date.now()}`);
+      } catch (e) {}
+      addToast('Pickup staff signed in', `Welcome, ${staff.name}.`);
+      return { success: true, role: 'pickup_staff', user: staffUser };
+    }
+
     if (targetRole === 'rider') {
       const foundRider = (riders || []).find(
         (r) =>
@@ -1780,6 +1803,38 @@ export const StoreProvider = ({ children }) => {
       localStorage.setItem('freshmart_riders', JSON.stringify(riders));
     } catch (e) {}
   }, [riders]);
+
+  const [pickupStaff, setPickupStaff] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_pickup_staff');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) { return []; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem('freshmart_pickup_staff', JSON.stringify(pickupStaff)); } catch (e) {}
+  }, [pickupStaff]);
+
+  const addPickupStaff = (staffData) => {
+    const username = String(staffData.username || '').trim().toLowerCase();
+    if ((pickupStaff || []).some((person) => person.tenantId === (currentTenant?.id || 'tenant-freshmart') && person.username?.toLowerCase() === username)) {
+      addToast('Username already exists', 'Choose a different username for this store.', 'error');
+      return null;
+    }
+    const staff = {
+      id: `PCK-${Date.now().toString(36).toUpperCase()}`,
+      name: staffData.name.trim(),
+      username,
+      password: staffData.password,
+      phone: staffData.phone || '',
+      tenantId: currentTenant?.id || 'tenant-freshmart',
+      status: 'Active',
+      createdAt: new Date().toISOString()
+    };
+    setPickupStaff((previous) => [staff, ...previous]);
+    addToast('Pickup staff added', `${staff.name} can sign in with ${staff.username}.`);
+    return staff;
+  };
 
   // Default Suppliers List (Zero mock seeds: populated strictly via live Admin additions or Vendor onboarding applications)
   const defaultSuppliersList = [];
@@ -2068,20 +2123,24 @@ export const StoreProvider = ({ children }) => {
     });
   };
 
-  const assignRiderToOrder = async (orderId, riderId) => {
+  const assignRiderToOrder = async (orderId, riderId, statusOverride) => {
     const targetRider = riders.find((r) => r.id === riderId);
     if (!targetRider) return;
+    const sourceOrder = customerOrders.find((order) => order.id === orderId);
+    const riderStatus = statusOverride || (sourceOrder?.fulfillmentStage >= 5 || sourceOrder?.status === 'Ready for Dispatch'
+      ? 'Ready for Dispatch'
+      : 'Rider Assigned');
 
     const assignedInfo = {
       id: targetRider.id,
       name: targetRider.name,
       phone: targetRider.phone,
       vehicle: targetRider.vehicleNumber || targetRider.vehicleType,
-      zone: targetRider.zone || 'Lahore Hub',
+      zone: targetRider.zone || null,
       rating: targetRider.rating || 5.0,
-      coordinates: targetRider.coordinates || { lat: 31.5150, lng: 74.3450 },
+      coordinates: targetRider.coordinates || null,
       assignedAt: new Date().toISOString(),
-      eta: '12-18 mins'
+      eta: null
     };
 
     setCustomerOrders((prev) =>
@@ -2090,7 +2149,7 @@ export const StoreProvider = ({ children }) => {
           ? {
               ...o,
               assignedRider: assignedInfo,
-              status: 'Out for Delivery',
+              status: riderStatus,
               statusClass: 'bg-purple-100 text-purple-800'
             }
           : o
@@ -2102,7 +2161,7 @@ export const StoreProvider = ({ children }) => {
           ? {
               ...o,
               assignedRider: assignedInfo,
-              status: 'Out for Delivery',
+              status: riderStatus,
               statusClass: 'bg-purple-100 text-purple-800'
             }
           : o
@@ -2112,7 +2171,7 @@ export const StoreProvider = ({ children }) => {
       setActiveDeliveryOrder((prev) => ({
         ...prev,
         assignedRider: assignedInfo,
-        status: 'Out for Delivery',
+        status: riderStatus,
         statusClass: 'bg-purple-100 text-purple-800'
       }));
     }
@@ -2124,11 +2183,31 @@ export const StoreProvider = ({ children }) => {
       await apiService.assignRiderToOrder(orderId, {
         riderId: targetRider.id,
         rider: assignedInfo,
-        status: 'Out for Delivery'
+        status: riderStatus
       });
     } catch (e) {
       console.warn('Could not sync rider assignment to backend:', e.message);
     }
+  };
+
+  const assignNearestRiderToOrder = (orderId) => {
+    const order = customerOrders.find((item) => item.id === orderId);
+    if (!order) return;
+    const city = String(order.city || order.shippingAddress?.city || order.deliveryLocation?.city || '').toLowerCase();
+    const destination = order.coordinates || order.customerCoordinates || order.deliveryLocation?.coordinates || order.shippingAddress?.coordinates || (order.latitude && order.longitude ? { lat: order.latitude, lng: order.longitude } : null);
+    const available = riders.filter((rider) => ['available', 'on-duty'].includes(String(rider.status || '').toLowerCase()));
+    const ranked = available.map((rider) => {
+      const zoneMatch = city && String(rider.zone || '').toLowerCase().includes(city);
+      const riderCoordinates = rider.coordinates || (rider.latitude && rider.longitude ? { lat: rider.latitude, lng: rider.longitude } : null);
+      const distance = destination && riderCoordinates
+        ? calculateDistanceKm(destination.lat || destination.latitude, destination.lng || destination.longitude, riderCoordinates.lat || riderCoordinates.latitude, riderCoordinates.lng || riderCoordinates.longitude)
+        : Number.POSITIVE_INFINITY;
+      return { rider, zoneMatch, distance };
+    }).filter((candidate) => candidate.zoneMatch || Number.isFinite(candidate.distance))
+      .sort((a, b) => a.distance - b.distance || Number(b.zoneMatch) - Number(a.zoneMatch));
+    const nearest = ranked[0]?.rider;
+    if (nearest) return assignRiderToOrder(orderId, nearest.id, 'Ready for Dispatch');
+    addToast('Waiting for Rider', 'Parcel is Ready for Dispatch; no available rider is on duty.', 'info');
   };
 
   const updateRiderLiveLocation = async (orderId, coords) => {
@@ -2285,11 +2364,16 @@ export const StoreProvider = ({ children }) => {
   };
 
   const updateDeliveryOrderStatus = async (orderId, newStatus) => {
+    const stage = newStatus === 'Delivered' ? 7 : ['Out for Delivery', 'Picked Up from Dark Store', 'Picked Up'].includes(newStatus) ? 6 : undefined;
+    const updatedAt = new Date().toISOString();
     setCustomerOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, ...(stage ? { fulfillmentStage: stage } : {}), fulfillmentUpdatedAt: updatedAt } : o))
+    );
+    setAdminOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, ...(stage ? { fulfillmentStage: stage } : {}), fulfillmentUpdatedAt: updatedAt } : o))
     );
     if (activeDeliveryOrder && activeDeliveryOrder.id === orderId) {
-      setActiveDeliveryOrder((prev) => ({ ...prev, status: newStatus }));
+      setActiveDeliveryOrder((prev) => ({ ...prev, status: newStatus, ...(stage ? { fulfillmentStage: stage } : {}), fulfillmentUpdatedAt: updatedAt }));
     }
     addToast('Delivery Status Updated 🚚', `Order ${orderId}: ${newStatus}`);
 
@@ -3865,12 +3949,15 @@ export const StoreProvider = ({ children }) => {
         verifyOrderDeliveryOtp,
         riders,
         setRiders,
+        pickupStaff,
+        addPickupStaff,
         addRider,
         updateRider,
         deleteRider,
         clearAllRiders,
         toggleRiderStatus,
         assignRiderToOrder,
+        assignNearestRiderToOrder,
         updateDeliveryOrderStatus,
         updateRiderLiveLocation,
         trackOrderRemote,

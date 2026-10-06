@@ -36,6 +36,7 @@ import { PromotionsView } from './views/PromotionsView';
 import { ReportsView } from './views/ReportsView';
 import { SettingsView } from './views/SettingsView';
 import { FulfillmentView } from './views/FulfillmentView';
+import { PickupStaffPortal } from './views/PickupStaffPortal';
 import { DeliveryView } from './views/DeliveryView';
 
 import { AdminModals } from './modals/AdminModals';
@@ -91,6 +92,8 @@ export const AdminDashboard = () => {
   if (adminRole === 'supplier' || adminRole === 'vendor') {
     return <VendorPortal />;
   }
+
+  if (adminRole === 'pickup_staff') return <PickupStaffPortal />;
 
   const roleMeta = {
     admin: { title: 'Store Admin', badge: '🛡️ Store Admin', tag: 'Full Control', iconBg: 'bg-emerald-600' },
