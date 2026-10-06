@@ -1498,7 +1498,7 @@ export const StoreProvider = ({ children }) => {
       );
       if (!staff) return { success: false, error: 'Pickup staff account not found or password is incorrect.' };
 
-      const staffUser = { id: staff.id, name: staff.name, role: 'pickup_staff', tenantId: staff.tenantId };
+      const staffUser = { id: staff.id, name: staff.name, username: staff.username, role: 'pickup_staff', tenantId: staff.tenantId };
       setCurrentTenant((tenants || []).find((tenant) => tenant.id === staff.tenantId) || currentTenant);
       setAdminRole('pickup_staff');
       setIsAdminLoggedIn(true);
@@ -1724,6 +1724,10 @@ export const StoreProvider = ({ children }) => {
   }, [pickupStaff]);
 
   const addPickupStaff = async (staffData) => {
+    if (!['admin', 'superadmin'].includes(adminRole)) {
+      addToast('Access denied', 'Only store administrators can create pickup staff accounts.', 'error');
+      return null;
+    }
     const username = String(staffData?.username || '').trim().toLowerCase();
     const password = String(staffData?.password || '').trim();
     const name = String(staffData?.name || '').trim();
@@ -1777,6 +1781,7 @@ export const StoreProvider = ({ children }) => {
   };
 
   const deletePickupStaff = (staffId) => {
+    if (!['admin', 'superadmin'].includes(adminRole)) return false;
     const updated = (pickupStaff || []).filter((person) => person.id !== staffId);
     setPickupStaff(updated);
     try {
@@ -2106,9 +2111,15 @@ export const StoreProvider = ({ children }) => {
     const targetRider = riders.find((r) => r.id === riderId);
     if (!targetRider) return;
     const sourceOrder = customerOrders.find((order) => order.id === orderId);
-    const riderStatus = statusOverride || (sourceOrder?.fulfillmentStage >= 5 || sourceOrder?.status === 'Ready for Dispatch'
-      ? 'Ready for Dispatch'
-      : 'Rider Assigned');
+    const assignmentFromStaffReady = adminRole === 'pickup_staff' && statusOverride === 'Ready for Dispatch';
+    const readyToAssign = sourceOrder?.fulfillmentStage >= 4 || ['Ready for Dispatch', 'Packed'].includes(sourceOrder?.status) || assignmentFromStaffReady;
+    if (!readyToAssign || !['admin', 'superadmin', 'pickup_staff'].includes(adminRole)) {
+      addToast('Rider assignment unavailable', 'Assign a rider after pickup staff marks the parcel Ready for Dispatch.', 'error');
+      return false;
+    }
+    const riderStatus = statusOverride || (sourceOrder?.fulfillmentStage >= 5 || sourceOrder?.status === 'Dispatched'
+      ? 'Dispatched'
+      : 'Ready for Dispatch');
 
     const assignedInfo = {
       id: targetRider.id,
@@ -2254,6 +2265,12 @@ export const StoreProvider = ({ children }) => {
   };
 
   const verifyOrderDeliveryOtp = async (orderId, otp, riderId) => {
+    const orderForRider = customerOrders.find((order) => order.id === orderId || order.orderId === orderId || order._id === orderId);
+    const assignedRiderId = orderForRider?.assignedRider?.id || orderForRider?.assignedRider?.riderId;
+    if (adminRole !== 'rider' || !assignedRiderId || assignedRiderId !== (user?.riderId || user?.id) || !['Out for Delivery', 'Arrived at Customer'].includes(orderForRider?.status)) {
+      addToast('Access denied', 'Only the rider assigned to this order can confirm delivery.', 'error');
+      return { success: false, message: 'Only the assigned rider can confirm delivery.' };
+    }
     try {
       const res = await apiService.verifyDeliveryOtp(orderId, { otp, riderId });
       if (res && res.success) {
@@ -2263,6 +2280,7 @@ export const StoreProvider = ({ children }) => {
               ? {
                   ...o,
                   status: 'Delivered',
+                  fulfillmentStage: 7,
                   statusClass: 'bg-emerald-100 text-emerald-800',
                   isDelivered: true,
                   deliveredAt: new Date().toISOString(),
@@ -2280,6 +2298,7 @@ export const StoreProvider = ({ children }) => {
               ? {
                   ...o,
                   status: 'Delivered',
+                  fulfillmentStage: 7,
                   statusClass: 'bg-emerald-100 text-emerald-800',
                   isDelivered: true,
                   deliveredAt: new Date().toISOString(),
@@ -2295,6 +2314,7 @@ export const StoreProvider = ({ children }) => {
           setActiveDeliveryOrder((prev) => ({
             ...prev,
             status: 'Delivered',
+            fulfillmentStage: 7,
             statusClass: 'bg-emerald-100 text-emerald-800',
             isDelivered: true,
             deliveredAt: new Date().toISOString(),
@@ -2343,6 +2363,13 @@ export const StoreProvider = ({ children }) => {
   };
 
   const updateDeliveryOrderStatus = async (orderId, newStatus) => {
+    const assignedOrder = customerOrders.find((order) => order.id === orderId || order.orderId === orderId || order._id === orderId);
+    const riderId = assignedOrder?.assignedRider?.id || assignedOrder?.assignedRider?.riderId;
+    const isAssignedRider = adminRole === 'rider' && riderId && riderId === (user?.riderId || user?.id) && ['Dispatched', 'Out for Delivery', 'Arrived at Customer'].includes(assignedOrder?.status);
+    if (!isAssignedRider && !(adminRole === 'admin' && newStatus === 'Cancelled')) {
+      addToast('Status update denied', 'Only the assigned rider can update delivery progress.', 'error');
+      return false;
+    }
     const stage = newStatus === 'Delivered' ? 7 : ['Out for Delivery', 'Picked Up from Dark Store', 'Picked Up'].includes(newStatus) ? 6 : undefined;
     const updatedAt = new Date().toISOString();
     setCustomerOrders((prev) =>
@@ -3850,6 +3877,10 @@ export const StoreProvider = ({ children }) => {
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
+    if (!['admin', 'superadmin'].includes(adminRole) || newStatus !== 'Cancelled') {
+      addToast('Status update denied', 'Packing and dispatch status must be updated by pickup staff.', 'error');
+      return false;
+    }
     setAdminOrders((prev) =>
       prev.map((order) => {
         if (order.id === orderId) {
@@ -3869,12 +3900,27 @@ export const StoreProvider = ({ children }) => {
 
   // --- 🚀 7-Stage Order Fulfillment & Dispatch Pipeline Handler ---
   const updateOrderFulfillment = async (orderId, updates) => {
+    const order = [...(customerOrders || []), ...(adminOrders || [])].find(
+      (item) => item.id === orderId || item.orderId === orderId || item._id === orderId
+    );
+    if (adminRole !== 'pickup_staff' || !order || order.pickupStaffId !== user?.id) {
+      addToast('Status update denied', 'Only the pickup staff assigned to this parcel can update its packing and dispatch status.', 'error');
+      return false;
+    }
+
+    const currentStage = Number(order.fulfillmentStage || 1);
+    const nextStage = updates.fulfillmentStage === undefined ? currentStage : Number(updates.fulfillmentStage);
+    if (nextStage < currentStage || nextStage > currentStage + 1) {
+      addToast('Invalid status change', 'Pickup staff must complete parcel stages in order.', 'error');
+      return false;
+    }
+
     const stageStatusMap = {
       1: 'Pending',
       2: 'Processing',
-      3: 'Processing',
-      4: 'Packed',
-      5: 'Ready for Dispatch',
+      3: 'Picking',
+      4: 'Ready for Dispatch',
+      5: 'Dispatched',
       6: 'Out for Delivery',
       7: 'Delivered'
     };
@@ -3917,6 +3963,31 @@ export const StoreProvider = ({ children }) => {
         await apiService.updateOrderStatus(orderId, newStatus);
       } catch (e) {}
     }
+  };
+
+  const assignPickupStaffToOrder = (orderId, staffId) => {
+    if (!['admin', 'superadmin'].includes(adminRole)) {
+      addToast('Assignment denied', 'Only a store admin can assign pickup staff.', 'error');
+      return false;
+    }
+    const staff = (pickupStaff || []).find((person) => person.id === staffId && person.tenantId === currentTenant?.id && person.status === 'Active');
+    if (!staff) {
+      addToast('Pickup staff unavailable', 'Select an active pickup staff account for this store.', 'error');
+      return false;
+    }
+    const current = [...(customerOrders || []), ...(adminOrders || [])].find((item) => item.id === orderId || item.orderId === orderId || item._id === orderId);
+    if (!current || (current.tenantId && current.tenantId !== currentTenant?.id)) return false;
+    const assignment = {
+      pickupStaffId: staff.id,
+      pickupStaffName: staff.name,
+      pickupStaffUsername: staff.username,
+      pickupAssignedAt: new Date().toISOString(),
+      deliveredToStaffAt: new Date().toISOString()
+    };
+    setCustomerOrders((previous) => previous.map((item) => item.id === orderId || item.orderId === orderId || item._id === orderId ? { ...item, ...assignment } : item));
+    setAdminOrders((previous) => previous.map((item) => item.id === orderId || item.orderId === orderId || item._id === orderId ? { ...item, ...assignment } : item));
+    addToast('Parcel assigned', `Order ${orderId} is now in ${staff.name}'s pickup queue.`);
+    return true;
   };
 
   return (
@@ -4112,6 +4183,7 @@ export const StoreProvider = ({ children }) => {
         deleteBranch,
         toggleBranchStatus,
         updateOrderFulfillment,
+        assignPickupStaffToOrder,
         currentBranch,
         setCurrentBranch,
         branches: allBranches.filter((b) => b.tenantId === resolveTenantId(currentTenant?.id)),

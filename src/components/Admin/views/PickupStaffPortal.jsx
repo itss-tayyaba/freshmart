@@ -44,12 +44,8 @@ export const PickupStaffPortal = () => {
 
     return uniqueList.filter((ord) => {
       const activeTId = user?.tenantId || currentTenant?.id;
-      const tenantMatch = !ord.tenantId || !activeTId || ord.tenantId === activeTId || activeTId === 'tenant-freshmart';
-      const staffMatch =
-        ord.pickupStaffId === user?.id ||
-        (ord.pickupStaffName && ord.pickupStaffName.toLowerCase() === (user?.name || '').toLowerCase()) ||
-        (ord.pickupStaffUsername && ord.pickupStaffUsername.toLowerCase() === (user?.username || '').toLowerCase()) ||
-        (['Deliver to Staff', 'Delivered to Staff'].includes(ord.status) && !ord.pickupStaffId);
+      const tenantMatch = ord.tenantId === activeTId || (!ord.tenantId && activeTId === 'tenant-freshmart');
+      const staffMatch = ord.pickupStaffId === user?.id;
       return tenantMatch && staffMatch;
     }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }, [customerOrders, adminOrders, user, currentTenant]);
@@ -83,7 +79,7 @@ export const PickupStaffPortal = () => {
       fulfillmentUpdatedAt: new Date().toISOString(),
       fulfillmentUpdatedBy: user?.name
     });
-    if (stage === 5) {
+    if (stage === 4) {
       if (assignNearestRiderToOrder) assignNearestRiderToOrder(order.id);
     }
     addToast('Order Status Updated 📦', `Order ${order.id}: ${status}`);
@@ -316,28 +312,36 @@ export const PickupStaffPortal = () => {
                         <Play size={16} />
                         <span>Start Line-Wise Picking</span>
                       </button>
-                    ) : stage === 3 || stage === 4 || !isDispatched ? (
+                    ) : stage === 3 && isAllPicked ? (
                       <button
                         onClick={() =>
-                          updateStage(order, 5, 'Dispatched', {
+                          updateStage(order, 4, 'Ready for Dispatch', {
                             parcelCode:
                               order.parcelCode ||
                               `PRCL-${String(order.id).replace(/\W/g, '').slice(-8).toUpperCase()}`,
                             sealedAt: new Date().toISOString(),
-                            isDispatched: true,
-                            dispatchStatus: 'Dispatched',
-                            dispatchedAt: new Date().toISOString()
+                            isDispatched: false,
+                            dispatchStatus: 'Ready for Dispatch',
+                            readyForDispatchAt: new Date().toISOString()
                           })
                         }
                         className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs flex items-center gap-2 shadow-md shadow-emerald-600/20 transition cursor-pointer"
                       >
                         <PackageCheck size={16} />
-                        <span>Packed · Mark Dispatched 🚀</span>
+                        <span>Pack & Mark Ready for Dispatch</span>
                       </button>
+                    ) : stage === 3 ? (
+                      <span className="text-amber-700 text-xs font-bold">Pick every item before sealing this parcel.</span>
+                    ) : stage === 4 && order.assignedRider ? (
+                      <button onClick={() => updateStage(order, 5, 'Dispatched', { isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: new Date().toISOString() })} className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center gap-2">
+                        <PackageCheck size={16}/><span>Hand to {order.assignedRider.name} · Mark Dispatched</span>
+                      </button>
+                    ) : stage === 4 ? (
+                      <button onClick={() => assignNearestRiderToOrder?.(order.id)} className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs">Find Nearby Rider</button>
                     ) : (
                       <span className="text-emerald-700 font-bold text-xs flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
                         <ScanLine size={16} />
-                        <span>✅ Dispatched · Ready for courier handover</span>
+                        <span>Dispatched · handed to courier</span>
                       </span>
                     )}
                   </div>

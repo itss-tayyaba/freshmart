@@ -29,7 +29,6 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
-import { OrderFulfillmentModal } from '../modals/OrderFulfillmentModal';
 import { DeliverToStaffModal } from '../modals/DeliverToStaffModal';
 
 export const FulfillmentView = () => {
@@ -41,14 +40,13 @@ export const FulfillmentView = () => {
     pickupStaff = [],
     addPickupStaff,
     deletePickupStaff,
-    updateOrderFulfillment,
+    assignPickupStaffToOrder,
     addToast
   } = useStore();
 
   const [search, setSearch] = useState('');
   const [selectedStageFilter, setSelectedStageFilter] = useState('All');
   const [dispatchFilter, setDispatchFilter] = useState('All'); // 'All' | 'NotDispatched' | 'Dispatched'
-  const [activeModalOrder, setActiveModalOrder] = useState(null);
   const [deliverToStaffModalOrder, setDeliverToStaffModalOrder] = useState(null);
   const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -178,30 +176,6 @@ export const FulfillmentView = () => {
       setStaffForm({ name: '', username: '', password: '', phone: '' });
       setIsAddStaffModalOpen(false);
     }
-  };
-
-  const handleMarkDispatched = (orderId) => {
-    const parcelId = `PRCL-${String(orderId).replace(/\W/g, '').slice(-8).toUpperCase()}`;
-    updateOrderFulfillment(orderId, {
-      fulfillmentStage: 5,
-      isDispatched: true,
-      dispatchStatus: 'Dispatched',
-      status: 'Dispatched',
-      parcelCode: parcelId,
-      dispatchedAt: new Date().toISOString()
-    });
-    if (addToast) addToast('Parcel Dispatched! 🚀', `Order ${orderId} marked as Dispatched.`);
-  };
-
-  const handleMarkNotDispatched = (orderId) => {
-    updateOrderFulfillment(orderId, {
-      fulfillmentStage: 4,
-      isDispatched: false,
-      dispatchStatus: 'Not Dispatched',
-      status: 'Packed',
-      dispatchedAt: null
-    });
-    if (addToast) addToast('Status Updated', `Order ${orderId} reverted to Not Dispatched.`);
   };
 
   return (
@@ -547,8 +521,7 @@ export const FulfillmentView = () => {
                   return (
                     <tr
                       key={ord.id}
-                      onClick={() => setActiveModalOrder(ord)}
-                      className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                      className="hover:bg-slate-50/80 transition-colors group"
                     >
                       {/* 1. Order ID */}
                       <td className="py-4 pl-2 font-mono font-bold text-slate-900">
@@ -586,14 +559,7 @@ export const FulfillmentView = () => {
                               onChange={(event) => {
                                 const staff = tenantStaff.find((item) => item.id === event.target.value);
                                 if (staff) {
-                                  updateOrderFulfillment(ord.id, {
-                                    pickupStaffId: staff.id,
-                                    pickupStaffName: staff.name,
-                                    fulfillmentStage: Math.max(2, ord.fulfillmentStage),
-                                    status: ord.fulfillmentStage < 2 ? 'Processing' : ord.status,
-                                    pickupAssignedAt: new Date().toISOString()
-                                  });
-                                  if (addToast) addToast('Staff Assigned', `Order assigned to ${staff.name}.`);
+                                  assignPickupStaffToOrder(ord.id, staff.id);
                                 }
                               }}
                               className="w-36 px-2.5 py-1.5 rounded-xl border border-slate-200 text-[11px] font-bold bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
@@ -658,26 +624,7 @@ export const FulfillmentView = () => {
                       {/* 7. Action Button & Dispatch Toggle */}
                       <td className="py-4 text-right pr-2 space-y-1.5" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* One-Click Dispatch Toggle */}
-                          {!isDispatched ? (
-                            <button
-                              onClick={() => handleMarkDispatched(ord.id)}
-                              className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-bold shadow-xs flex items-center gap-1.5 cursor-pointer transition"
-                              title="Update status: Mark as Dispatched"
-                            >
-                              <Truck className="w-3.5 h-3.5" />
-                              <span>Mark Dispatched 🚀</span>
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleMarkNotDispatched(ord.id)}
-                              className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold border border-slate-200 flex items-center gap-1 cursor-pointer transition"
-                              title="Revert to Not Dispatched"
-                            >
-                              <RotateCcw className="w-3 h-3 text-slate-500" />
-                              <span>Revert</span>
-                            </button>
-                          )}
+                          <span className="text-[10px] font-semibold text-slate-500 px-2">Status updated by pickup staff</span>
 
                           {/* Deliver to Staff Modal Button */}
                           <button
@@ -689,15 +636,6 @@ export const FulfillmentView = () => {
                             <span>Deliver to Staff</span>
                           </button>
 
-                          {/* 7-Stage Console Modal Launcher */}
-                          <button
-                            onClick={() => setActiveModalOrder(ord)}
-                            className="px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-900 hover:text-white text-slate-700 text-[11px] font-bold transition-all border border-slate-200 shadow-2xs inline-flex items-center gap-1 cursor-pointer"
-                            title="Open 7-Stage Console"
-                          >
-                            <Boxes className="w-3 h-3" />
-                            <span>Console</span>
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -836,14 +774,6 @@ export const FulfillmentView = () => {
 
       {/* ========================================================= */}
       {/* 6. ORDER FULFILLMENT MODAL (7-STAGE CONSOLE)               */}
-      {/* ========================================================= */}
-      {activeModalOrder && (
-        <OrderFulfillmentModal
-          order={activeModalOrder}
-          isOpen={Boolean(activeModalOrder)}
-          onClose={() => setActiveModalOrder(null)}
-        />
-      )}
 
       {/* 7. DELIVER TO STAFF MODAL */}
       {deliverToStaffModalOrder && (

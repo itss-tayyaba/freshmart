@@ -47,7 +47,8 @@ export const DeliveryView = () => {
     verifyOrderDeliveryOtp,
     currency = 'PKR',
     addToast,
-    adminRole
+    adminRole,
+    user
   } = useStore();
 
   const isAdmin = adminRole === 'admin' || adminRole === 'superadmin';
@@ -95,7 +96,13 @@ export const DeliveryView = () => {
   // KPI Metrics
   const activeRidersCount = (riders || []).filter((r) => r.status === 'On-Duty' || r.status === 'Busy').length;
   const totalDeliveries = (riders || []).reduce((sum, r) => sum + (r.deliveriesCount || 0), 0);
-  const pendingDispatches = (customerOrders || []).filter((o) => o.status !== 'Delivered');
+  const pendingDispatches = (customerOrders || []).filter((o) => {
+    if (adminRole === 'rider') {
+      const assignedRiderId = o.assignedRider?.id || o.assignedRider?.riderId;
+      return assignedRiderId === (user?.riderId || user?.id) && ['Dispatched', 'Out for Delivery', 'Arrived at Customer'].includes(o.status);
+    }
+    return (Number(o.fulfillmentStage) >= 4 || ['Ready for Dispatch', 'Dispatched', 'Out for Delivery'].includes(o.status)) && o.status !== 'Delivered';
+  });
 
   const handleCopyText = (text, label) => {
     navigator.clipboard.writeText(text);
@@ -353,12 +360,14 @@ export const DeliveryView = () => {
       {/* 3. SUB-NAVIGATION TABS (Modern Sleek Pill Navigation Bar)              */}
       {/* ===================================================================== */}
       <div className="bg-slate-900/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-800 shadow-md inline-flex flex-wrap items-center gap-1.5 text-xs font-bold">
-        {[
+        {(adminRole === 'rider' ? [
+          { id: 'queue', label: 'My Deliveries', icon: Package, count: pendingDispatches.length }
+        ] : [
           { id: 'queue', label: 'Order Dispatch Queue', icon: Package, count: pendingDispatches.length },
           { id: 'fleet', label: 'Riders Fleet Manager', icon: Bike, count: riders.length },
           { id: 'rider-app', label: 'Rider App Simulator', icon: Smartphone },
           { id: 'coverage', label: 'Hubs & Service Cities', icon: Building }
-        ].map((t) => {
+        ]).map((t) => {
           const Icon = t.icon;
           const isActive = activeSubTab === t.id;
           return (
@@ -410,12 +419,12 @@ export const DeliveryView = () => {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-black text-slate-700 bg-slate-100 px-3.5 py-1.5 rounded-xl">
-                Total: <strong className="text-emerald-700 font-mono">{customerOrders.length}</strong> Orders
+                Total: <strong className="text-emerald-700 font-mono">{pendingDispatches.length}</strong> Ready / Active Parcels
               </span>
             </div>
           </div>
 
-          {customerOrders.length === 0 ? (
+          {pendingDispatches.length === 0 ? (
             <div className="bg-gradient-to-b from-white to-slate-50 rounded-3xl p-12 text-center border-2 border-dashed border-slate-200 shadow-xs space-y-3">
               <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-3xl shadow-xs">
                 📦
@@ -429,7 +438,7 @@ export const DeliveryView = () => {
             </div>
           ) : (
             <div className="space-y-5">
-              {customerOrders.map((order) => {
+              {pendingDispatches.map((order) => {
                 const isUnassigned = !order.assignedRider;
 
                 return (
@@ -561,7 +570,7 @@ export const DeliveryView = () => {
                           )}
                         </div>
 
-                        <div className="space-y-1.5">
+                        {isAdmin && (<div className="space-y-1.5">
                           <label className="text-[11px] text-slate-300 font-semibold block">Select Available Courier:</label>
                           <select
                             value={order.assignedRider?.id || ''}
@@ -569,13 +578,13 @@ export const DeliveryView = () => {
                             className="w-full bg-slate-800 hover:bg-slate-750 text-white border-2 border-emerald-500/60 rounded-xl px-3.5 py-2.5 font-bold text-xs focus:ring-2 focus:ring-emerald-400 focus:outline-none cursor-pointer transition-all shadow-inner"
                           >
                             <option value="">-- Choose Rider to Dispatch --</option>
-                            {riders.map((r) => (
+                            {riders.filter((r) => ['on-duty', 'available'].includes(String(r.status || '').toLowerCase())).map((r) => (
                               <option key={r.id} value={r.id}>
                                 {r.name} ({r.vehicleType || 'Bike'} • {r.zone || 'Central'} • {r.status})
                               </option>
                             ))}
                           </select>
-                        </div>
+                        </div>)}
 
                         {order.assignedRider && (
                           <div className="pt-2 border-t border-slate-700 flex items-center justify-between text-[11px] text-emerald-300">
@@ -599,18 +608,8 @@ export const DeliveryView = () => {
                         <span>{order.rawItems ? `${order.rawItems.length} Products in Package` : 'Standard Grocery Package'}</span>
                       </div>
 
+{adminRole === 'rider' && (
                       <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          onClick={() => updateDeliveryOrderStatus(order.id, 'Packed (Chilled Box)')}
-                          className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
-                            order.status === 'Packed (Chilled Box)'
-                              ? 'bg-teal-600 text-white shadow-md'
-                              : 'bg-slate-100 hover:bg-teal-50 hover:text-teal-900 text-slate-700'
-                          }`}
-                        >
-                          <span>🏬 Packed</span>
-                        </button>
-
                         <button
                           onClick={() => updateDeliveryOrderStatus(order.id, 'Out for Delivery')}
                           className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -645,6 +644,7 @@ export const DeliveryView = () => {
                           <span>{order.status === 'Delivered' ? '✅ Delivered' : '🔐 Verify OTP & Deliver'}</span>
                         </button>
                       </div>
+                      )}
                     </div>
 
                   </div>

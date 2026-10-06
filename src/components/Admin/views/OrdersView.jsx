@@ -29,7 +29,6 @@ import {
   Boxes
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
-import { OrderFulfillmentModal } from '../modals/OrderFulfillmentModal';
 import { DeliverToStaffModal } from '../modals/DeliverToStaffModal';
 
 // Helper: Extract human-readable order items count/summary safely (never returns an object/array)
@@ -85,7 +84,6 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   const [selectedOrder, setSelectedOrder] = useState(null);
 
   // Selected Order for 7-Stage Fulfillment Pipeline Modal
-  const [fulfillmentModalOrder, setFulfillmentModalOrder] = useState(null);
 
   // Selected Order for Deliver to Staff Modal
   const [deliverToStaffOrder, setDeliverToStaffOrder] = useState(null);
@@ -608,17 +606,6 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setFulfillmentModalOrder(ord);
-                              }}
-                              className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-800 text-[11px] font-bold transition-all border border-emerald-200/80 inline-flex items-center gap-1 cursor-pointer shadow-2xs"
-                              title="Open 7-Stage Fulfillment & Dispatch Console"
-                            >
-                              <Boxes className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">7-Stage Dispatch</span>
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
                                 setSelectedOrder(ord);
                               }}
                               className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 text-[11px] font-bold transition-colors inline-flex items-center gap-1 cursor-pointer shadow-2xs"
@@ -851,76 +838,11 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               </button>
             </div>
 
-            {/* 7-Stage Interactive Fulfillment Console Launcher */}
-            <div className="pt-1">
-              <button
-                onClick={() => setFulfillmentModalOrder(selectedOrder)}
-                className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-700 to-slate-900 hover:from-emerald-700 hover:to-slate-800 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer border border-emerald-500/30"
-              >
-                <Boxes className="w-4 h-4 text-emerald-300" />
-                <span>🚀 Launch 7-Stage Dispatch Console</span>
-              </button>
-            </div>
-
-            {/* Quick Status Update Buttons */}
             <div className="pt-3 border-t border-slate-100 space-y-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Update Fulfillment Status
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setDeliverToStaffOrder(selectedOrder)}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer col-span-2 ${
-                    selectedOrder.status === 'Deliver to Staff' || selectedOrder.status === 'Delivered to Staff'
-                      ? 'bg-indigo-600 text-white shadow-2xs'
-                      : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
-                  }`}
-                >
-                  📦 Deliver to Staff (Pick & Pack)
-                </button>
-                <button
-                  onClick={() => handleStatusChange(selectedOrder.id, 'Preparing')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    selectedOrder.status === 'Preparing'
-                      ? 'bg-blue-600 text-white shadow-2xs'
-                      : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                  }`}
-                >
-                  👨‍🍳 Preparing
-                </button>
-                <button
-                  onClick={() => handleStatusChange(selectedOrder.id, 'Out for Delivery')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    selectedOrder.status === 'Out for Delivery' || selectedOrder.status === 'Dispatched to Rider'
-                      ? 'bg-purple-600 text-white shadow-2xs'
-                      : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
-                  }`}
-                >
-                  🛵 Out for Delivery
-                </button>
-                <button
-                  onClick={() => handleStatusChange(selectedOrder.id, 'Delivered')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    selectedOrder.status === 'Delivered'
-                      ? 'bg-emerald-600 text-white shadow-2xs'
-                      : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                  }`}
-                >
-                  ✅ Delivered
-                </button>
-                <button
-                  onClick={() => handleStatusChange(selectedOrder.id, 'Cancelled')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    selectedOrder.status === 'Cancelled'
-                      ? 'bg-rose-600 text-white shadow-2xs'
-                      : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
-                  }`}
-                >
-                  ❌ Cancel Order
-                </button>
-              </div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Fulfillment status</span>
+              <p className="text-xs text-slate-600">{selectedOrder.status || 'Pending'} · Pickup staff update preparation and dispatch from their assigned workspace.</p>
+              {selectedOrder.status !== 'Cancelled' && selectedOrder.status !== 'Delivered' && <button onClick={() => handleStatusChange(selectedOrder.id, 'Cancelled')} className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Cancel Order</button>}
             </div>
-
           </aside>
         )}
 
@@ -1107,14 +1029,6 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
         </div>
       )}
 
-      {/* 7-Stage Order Fulfillment Pipeline Modal */}
-      {fulfillmentModalOrder && (
-        <OrderFulfillmentModal
-          order={fulfillmentModalOrder}
-          isOpen={Boolean(fulfillmentModalOrder)}
-          onClose={() => setFulfillmentModalOrder(null)}
-        />
-      )}
 
       {/* Deliver Parcel to Staff Modal */}
       {deliverToStaffOrder && (
