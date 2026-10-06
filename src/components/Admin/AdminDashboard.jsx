@@ -9,7 +9,6 @@ import {
   Tag,
   BarChart3,
   Settings,
-  Building2,
   LogOut,
   Bell,
   Search,
@@ -21,7 +20,8 @@ import {
   ChevronRight,
   Shield,
   Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  Truck
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 
@@ -32,11 +32,11 @@ import { CategoriesView } from './views/CategoriesView';
 import { OrdersView } from './views/OrdersView';
 import { CustomersView } from './views/CustomersView';
 import { InventoryView } from './views/InventoryView';
-import { SuppliersView } from './views/SuppliersView';
 import { PromotionsView } from './views/PromotionsView';
 import { ReportsView } from './views/ReportsView';
 import { SettingsView } from './views/SettingsView';
 import { FulfillmentView } from './views/FulfillmentView';
+import { DeliveryView } from './views/DeliveryView';
 
 import { AdminModals } from './modals/AdminModals';
 import { AdminLogin } from './AdminLogin';
@@ -74,7 +74,7 @@ export const AdminDashboard = () => {
   const [isCreatePromoOpen, setIsCreatePromoOpen] = useState(false);
 
   useEffect(() => {
-    setActiveTab('Dashboard');
+    setActiveTab(adminRole === 'rider' ? 'Rider' : 'Dashboard');
   }, [adminRole]);
 
   // If not logged in as Admin, show the Admin Login with Username/Password
@@ -97,7 +97,9 @@ export const AdminDashboard = () => {
     supplier: { title: 'Supplier Partner', badge: '📦 Supplier Portal', tag: 'Supply & Invoices', iconBg: 'bg-indigo-600' }
   };
 
-  const currentRoleInfo = roleMeta[adminRole] || roleMeta.admin;
+  const currentRoleInfo = adminRole === 'rider'
+    ? { title: 'Rider', badge: 'Rider', tag: 'Delivery Operations', iconBg: 'bg-rose-600' }
+    : roleMeta[adminRole] || roleMeta.admin;
 
   const pendingOrdersCount = (customerOrders || []).filter(
     (o) => o.status === 'Processing' || o.status === 'Pending' || o.status === 'Packed'
@@ -110,9 +112,14 @@ export const AdminDashboard = () => {
   const totalProductsCount = (products || []).length;
 
   const getNavItems = () => {
+    if (adminRole === 'rider') {
+      return [
+        { label: 'Rider', icon: Truck, customName: 'Rider Dispatch & Deliveries', badge: pendingOrdersCount || null, badgeColor: 'bg-amber-500/20 text-amber-300' },
+        { label: 'Settings', icon: Settings, customName: 'Account Settings' }
+      ];
+    }
     if (adminRole === 'supplier') {
       return [
-        { label: 'Suppliers', icon: Building2, customName: 'Supplier Hub & Invoices' },
         { label: 'Inventory', icon: Boxes, customName: 'Stock & Restock', badge: lowStockCount > 0 ? lowStockCount : null, badgeColor: 'bg-rose-500/20 text-rose-300' },
         { label: 'Products', icon: Package, customName: 'Supplied Products', badge: totalProductsCount > 0 ? totalProductsCount : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
         { label: 'Orders', icon: ShoppingBag, customName: 'Wholesale Orders', badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-amber-500/20 text-amber-300' },
@@ -124,10 +131,10 @@ export const AdminDashboard = () => {
       { label: 'Products', icon: Package, badge: totalProductsCount > 0 ? totalProductsCount : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { label: 'Categories', icon: Layers },
       { label: 'Orders', icon: ShoppingBag, badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-amber-500/20 text-amber-300' },
-      { label: 'Fulfillment', icon: Boxes, badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
+      { label: 'Pickup Staff', icon: Boxes, badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
+      { label: 'Rider', icon: Truck, badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-amber-500/20 text-amber-300' },
       { label: 'Customers', icon: Users },
       { label: 'Inventory', icon: Boxes, badge: lowStockCount > 0 ? lowStockCount : null, badgeColor: 'bg-rose-500/20 text-rose-300' },
-      { label: 'Suppliers', icon: Building2 },
       { label: 'Promotions', icon: Tag },
       { label: 'Reports', icon: BarChart3 },
       { label: 'Settings', icon: Settings }
@@ -481,14 +488,12 @@ export const AdminDashboard = () => {
           {activeTab === 'Orders' && (
             <OrdersView onNavigateToCustomers={() => setActiveTab('Customers')} />
           )}
-          {activeTab === 'Fulfillment' && <FulfillmentView />}
+          {activeTab === 'Pickup Staff' && <FulfillmentView />}
+          {activeTab === 'Rider' && <DeliveryView />}
           {activeTab === 'Customers' && (
             <CustomersView onOpenAddCustomerModal={() => setIsAddCustomerOpen(true)} />
           )}
           {activeTab === 'Inventory' && <InventoryView />}
-          {activeTab === 'Suppliers' && (
-            <SuppliersView onOpenAddSupplierModal={() => setIsAddSupplierOpen(true)} />
-          )}
           {activeTab === 'Promotions' && (
             <PromotionsView onOpenCreatePromotionModal={() => setIsCreatePromoOpen(true)} />
           )}
