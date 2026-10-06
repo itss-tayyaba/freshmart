@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   ShieldCheck,
   Lock,
@@ -35,18 +35,10 @@ export const AdminLogin = () => {
   const [showCredentialsHelp, setShowCredentialsHelp] = useState(false);
   const [autoFillFeedback, setAutoFillFeedback] = useState('');
   const [showScrollTop, setShowScrollTop] = useState(false);
-
-  // Monitor window scroll to show floating "Back to Top" button
-  useEffect(() => {
-    const handleScroll = () => {
-      setShowScrollTop(window.scrollY > 180);
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  const loginScrollRef = useRef(null);
 
   const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    loginScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const roles = [
@@ -206,7 +198,11 @@ export const AdminLogin = () => {
   const currentMart = availableMarts.find((m) => m.id === selectedMartId) || availableMarts[0];
 
   return (
-    <div className="min-h-screen w-full bg-[#f8fafc] bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] flex flex-col justify-between items-center py-6 sm:py-10 px-4 sm:px-6 font-sans antialiased text-slate-800">
+    <div
+      ref={loginScrollRef}
+      onScroll={(event) => setShowScrollTop(event.currentTarget.scrollTop > 180)}
+      className="h-[100dvh] min-h-screen w-full overflow-y-auto overscroll-y-contain bg-[#f8fafc] bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] flex flex-col justify-between items-center py-6 sm:py-10 px-4 sm:px-6 font-sans antialiased text-slate-800"
+    >
       
       {/* Centered Content Wrapper: my-auto cleanly centers when viewport is large; collapses when content overflows so top is never cut off */}
       <div className="w-full max-w-lg mx-auto my-auto flex flex-col items-center">
