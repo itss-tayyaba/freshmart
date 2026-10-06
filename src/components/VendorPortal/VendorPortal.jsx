@@ -543,7 +543,13 @@ export const VendorPortal = () => {
                         <tr key={ord.id} className="hover:bg-slate-50">
                           <td className="py-3 font-mono font-bold text-slate-800">{ord.id}</td>
                           <td className="py-3 font-medium text-slate-700">{ord.customerName}</td>
-                          <td className="py-3 text-slate-500">{ord.items}</td>
+                          <td className="py-3 text-slate-500">
+                            {typeof ord.items === 'string'
+                              ? ord.items
+                              : Array.isArray(ord.items)
+                              ? `${ord.items.length} items`
+                              : 'Items'}
+                          </td>
                           <td className="py-3 font-black text-emerald-600">Rs. {ord.net}</td>
                           <td className="py-3">
                             <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded-full text-[10px]">
@@ -695,7 +701,13 @@ export const VendorPortal = () => {
                       <span className="font-bold text-slate-700">{ord.customerName}</span>
                       <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">{ord.status}</span>
                     </div>
-                    <p className="text-slate-500">{ord.items}</p>
+                    <p className="text-slate-500">
+                      {typeof ord.items === 'string'
+                        ? ord.items
+                        : Array.isArray(ord.items)
+                        ? `${ord.items.length} items`
+                        : 'Items'}
+                    </p>
                     <p className="text-[11px] text-slate-400">Order Placed: {ord.date}</p>
                   </div>
 

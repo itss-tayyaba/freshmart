@@ -29,6 +29,41 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 
+// Helper: Extract human-readable order items count/summary safely (never returns an object/array)
+const formatOrderItemsSummary = (ord) => {
+  if (!ord) return 'Items';
+  if (typeof ord.items === 'string' && ord.items.trim()) return ord.items;
+  if (Array.isArray(ord.items) && ord.items.length > 0) {
+    return `${ord.items.length} item${ord.items.length > 1 ? 's' : ''}`;
+  }
+  if (Array.isArray(ord.rawItems) && ord.rawItems.length > 0) {
+    return `${ord.rawItems.length} item${ord.rawItems.length > 1 ? 's' : ''}`;
+  }
+  if (Array.isArray(ord.orderItems) && ord.orderItems.length > 0) {
+    return `${ord.orderItems.length} item${ord.orderItems.length > 1 ? 's' : ''}`;
+  }
+  return '1 item';
+};
+
+// Helper: Extract list of items for detailed receipt/drawer inspection
+const getOrderItemsList = (ord) => {
+  if (!ord) return [];
+  if (Array.isArray(ord.rawItems) && ord.rawItems.length > 0) return ord.rawItems;
+  if (Array.isArray(ord.items) && ord.items.length > 0) return ord.items;
+  if (Array.isArray(ord.orderItems) && ord.orderItems.length > 0) return ord.orderItems;
+  return [];
+};
+
+// Helper: Safely get customer display name (handles string, object, or fallback)
+const getCustomerDisplayName = (customerVal, fallback = 'Customer') => {
+  if (!customerVal) return fallback;
+  if (typeof customerVal === 'string') return customerVal;
+  if (typeof customerVal === 'object') {
+    return customerVal.name || customerVal.fullName || customerVal.customerName || fallback;
+  }
+  return fallback;
+};
+
 export const OrdersView = ({ onNavigateToCustomers }) => {
   const {
     customerOrders,
@@ -90,12 +125,13 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       // Search filter
       if (search.trim()) {
         const q = search.toLowerCase().trim();
-        const matchesId = o.id && o.id.toLowerCase().includes(q);
-        const matchesCustomer = o.customer && o.customer.toLowerCase().includes(q);
-        const matchesEmail = o.customerEmail && o.customerEmail.toLowerCase().includes(q);
-        const matchesPhone = o.customerPhone && o.customerPhone.toLowerCase().includes(q);
-        const matchesAddress = (o.address || '').toLowerCase().includes(q);
-        const matchesCity = (o.city || '').toLowerCase().includes(q);
+        const matchesId = o.id && String(o.id).toLowerCase().includes(q);
+        const custNameStr = getCustomerDisplayName(o.customer || o.customerName, '');
+        const matchesCustomer = custNameStr && custNameStr.toLowerCase().includes(q);
+        const matchesEmail = typeof o.customerEmail === 'string' && o.customerEmail.toLowerCase().includes(q);
+        const matchesPhone = typeof o.customerPhone === 'string' && o.customerPhone.toLowerCase().includes(q);
+        const matchesAddress = (typeof o.address === 'string' ? o.address : (o.shippingAddress?.address || '')).toLowerCase().includes(q);
+        const matchesCity = (typeof o.city === 'string' ? o.city : (o.shippingAddress?.city || '')).toLowerCase().includes(q);
         if (!matchesId && !matchesCustomer && !matchesEmail && !matchesPhone && !matchesAddress && !matchesCity)
           return false;
       }
@@ -131,19 +167,25 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
 
   // Helper: Open customer profile modal from order customer details
   const openCustomerDetailsModal = (customerName, customerEmail, customerPhone, customerAddress) => {
+    const cleanName = getCustomerDisplayName(customerName, 'Customer');
+    const cleanEmail = typeof customerEmail === 'string' ? customerEmail : '';
+    const cleanPhone = typeof customerPhone === 'string' ? customerPhone : '';
+    const cleanAddr = typeof customerAddress === 'string' ? customerAddress : (customerAddress?.address || 'Lahore');
+
     // Look up in customers directory or build profile
     const existing = (customers || []).find(
       (c) =>
-        (customerEmail && c.email && c.email.toLowerCase() === customerEmail.toLowerCase()) ||
-        (customerPhone && c.phone && c.phone === customerPhone) ||
-        (c.name && c.name.toLowerCase() === (customerName || '').toLowerCase())
+        (cleanEmail && c.email && c.email.toLowerCase() === cleanEmail.toLowerCase()) ||
+        (cleanPhone && c.phone && c.phone === cleanPhone) ||
+        (c.name && cleanName && c.name.toLowerCase() === cleanName.toLowerCase())
     );
 
     // Find all past orders placed by this customer
     const customerOrderHistory = liveOrders.filter((o) => {
-      const matchName = o.customer && customerName && o.customer.toLowerCase() === customerName.toLowerCase();
-      const matchEmail = o.customerEmail && customerEmail && o.customerEmail.toLowerCase() === customerEmail.toLowerCase();
-      const matchPhone = o.customerPhone && customerPhone && o.customerPhone === customerPhone;
+      const oCustName = getCustomerDisplayName(o.customer || o.customerName, '');
+      const matchName = oCustName && cleanName && oCustName.toLowerCase() === cleanName.toLowerCase();
+      const matchEmail = cleanEmail && o.customerEmail && o.customerEmail.toLowerCase() === cleanEmail.toLowerCase();
+      const matchPhone = cleanPhone && o.customerPhone && o.customerPhone === cleanPhone;
       return matchName || matchEmail || matchPhone;
     });
 
@@ -153,10 +195,10 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     );
 
     const customerObj = {
-      name: customerName || existing?.name || 'Customer',
-      email: customerEmail || existing?.email || 'customer@freshmart.pk',
-      phone: customerPhone || existing?.phone || '+92 300 1234567',
-      address: customerAddress || existing?.address || 'House 12, Johar Town, Lahore',
+      name: cleanName || existing?.name || 'Customer',
+      email: cleanEmail || existing?.email || 'customer@freshmart.pk',
+      phone: cleanPhone || existing?.phone || '+92 300 1234567',
+      address: cleanAddr || existing?.address || 'House 12, Johar Town, Lahore',
       totalOrders: customerOrderHistory.length || existing?.totalOrders || 1,
       totalSpent: totalSpentCalculated > 0 ? `Rs. ${totalSpentCalculated.toLocaleString()}` : existing?.totalSpent || 'Rs. 0',
       history: customerOrderHistory,
@@ -440,11 +482,12 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                 <tbody className="divide-y divide-slate-50">
                   {filteredOrders.map((ord) => {
                     const isSelected = selectedOrder?.id === ord.id;
-                    const itemsText =
-                      ord.items ||
-                      (Array.isArray(ord.rawItems)
-                        ? `${ord.rawItems.length} item${ord.rawItems.length > 1 ? 's' : ''}`
-                        : 'Items');
+                    const itemsText = formatOrderItemsSummary(ord);
+                    const customerName = getCustomerDisplayName(ord.customer || ord.customerName);
+                    const customerEmail = typeof ord.customerEmail === 'string' ? ord.customerEmail : (ord.customer?.email || '');
+                    const customerPhone = typeof ord.customerPhone === 'string' ? ord.customerPhone : (ord.customer?.phone || '');
+                    const addressText = typeof ord.address === 'string' ? ord.address : (ord.shippingAddress?.address || 'Street address');
+                    const cityText = typeof ord.city === 'string' ? ord.city : (ord.shippingAddress?.city || 'Lahore');
 
                     return (
                       <tr
@@ -470,25 +513,25 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                             onClick={(e) => {
                               e.stopPropagation();
                               openCustomerDetailsModal(
-                                ord.customer,
-                                ord.customerEmail,
-                                ord.customerPhone,
-                                ord.address
+                                customerName,
+                                customerEmail,
+                                customerPhone,
+                                addressText
                               );
                             }}
                             className="flex items-center gap-2.5 group/cust cursor-pointer"
                             title="Click to view Customer Profile & Order History"
                           >
                             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-800 font-black text-[11px] flex items-center justify-center shrink-0 border border-emerald-200/50 group-hover/cust:scale-110 transition-transform">
-                              {(ord.customer || 'C').slice(0, 2).toUpperCase()}
+                              {(customerName || 'C').slice(0, 2).toUpperCase()}
                             </div>
                             <div>
                               <span className="font-bold text-slate-900 block group-hover/cust:text-emerald-700 group-hover/cust:underline transition-colors flex items-center gap-1">
-                                <span>{ord.customer || 'Customer'}</span>
+                                <span>{customerName}</span>
                                 <User className="w-3 h-3 text-slate-400 group-hover/cust:text-emerald-600 opacity-0 group-hover/cust:opacity-100 transition-opacity" />
                               </span>
                               <span className="text-[10px] text-slate-400 font-normal block font-mono">
-                                {ord.customerPhone || ord.customerEmail || ''}
+                                {customerPhone || customerEmail || ''}
                               </span>
                             </div>
                           </div>
@@ -500,10 +543,10 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                             <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
                             <div className="min-w-0">
                               <p className="font-bold text-slate-800 text-[11px] truncate leading-tight">
-                                {ord.address || 'Street address'}
+                                {addressText}
                               </p>
                               <span className="inline-block mt-0.5 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
-                                {ord.city || 'Lahore'} {ord.neighborhood ? `• ${ord.neighborhood}` : ''}
+                                {cityText} {ord.neighborhood ? `• ${ord.neighborhood}` : ''}
                               </span>
                             </div>
                           </div>
@@ -657,21 +700,21 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-bold text-slate-900">
-                    {selectedOrder.customer || 'Customer'}
+                    {getCustomerDisplayName(selectedOrder.customer || selectedOrder.customerName)}
                   </h4>
                   <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-                    {selectedOrder.customerPhone || '+92 300 1234567'}
+                    {typeof selectedOrder.customerPhone === 'string' ? selectedOrder.customerPhone : (selectedOrder.customer?.phone || '+92 300 1234567')}
                   </p>
                   {selectedOrder.customerEmail && (
                     <p className="text-[10px] text-slate-400 font-mono">
-                      {selectedOrder.customerEmail}
+                      {typeof selectedOrder.customerEmail === 'string' ? selectedOrder.customerEmail : (selectedOrder.customer?.email || '')}
                     </p>
                   )}
                 </div>
 
                 <div className="flex items-center gap-1.5">
                   <a
-                    href={`tel:${selectedOrder.customerPhone || '03001234567'}`}
+                    href={`tel:${typeof selectedOrder.customerPhone === 'string' ? selectedOrder.customerPhone : '03001234567'}`}
                     className="w-7 h-7 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-500 flex items-center justify-center transition-colors shadow-2xs"
                     title="Call customer"
                   >
@@ -679,7 +722,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                   </a>
                   <button
                     onClick={() =>
-                      addToast('Message Copied 💬', `Customer phone ${selectedOrder.customerPhone || '03001234567'} ready to WhatsApp.`)
+                      addToast('Message Copied 💬', `Customer phone ${typeof selectedOrder.customerPhone === 'string' ? selectedOrder.customerPhone : '03001234567'} ready to WhatsApp.`)
                     }
                     className="w-7 h-7 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-500 flex items-center justify-center transition-colors shadow-2xs"
                     title="Send message"
@@ -696,7 +739,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                   Delivery Address
                 </span>
                 <p className="text-slate-700 text-[11px] font-medium leading-snug">
-                  {selectedOrder.address || '123 Main Street, Sector B, Johar Town, Lahore'}
+                  {typeof selectedOrder.address === 'string' ? selectedOrder.address : (selectedOrder.shippingAddress?.address || '123 Main Street, Sector B, Johar Town, Lahore')}
                 </p>
               </div>
             </div>
@@ -705,33 +748,51 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
             <div className="space-y-2.5">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
                 <Package className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Order Items ({Array.isArray(selectedOrder.rawItems) ? selectedOrder.rawItems.length : 1})</span>
+                <span>Order Items ({getOrderItemsList(selectedOrder).length || 1})</span>
               </span>
 
               <div className="max-h-48 overflow-y-auto space-y-2 pr-1 divide-y divide-slate-100">
-                {Array.isArray(selectedOrder.rawItems) && selectedOrder.rawItems.length > 0 ? (
-                  selectedOrder.rawItems.map((item, idx) => (
-                    <div key={idx} className="pt-2 first:pt-0 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <img
-                          src={item.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=200&q=80'}
-                          alt={item.name}
-                          className="w-9 h-9 rounded-lg object-cover bg-slate-100 shrink-0 border border-slate-100"
-                        />
-                        <div className="min-w-0">
-                          <h5 className="font-bold text-slate-900 truncate text-xs">{item.name}</h5>
-                          <span className="text-[10px] text-slate-400">Qty: {item.quantity || 1} {item.unit ? `• ${item.unit}` : ''}</span>
+                {getOrderItemsList(selectedOrder).length > 0 ? (
+                  getOrderItemsList(selectedOrder).map((item, idx) => {
+                    const itemName = typeof item === 'object' ? item.name || 'Order Item' : String(item);
+                    const itemQty = typeof item === 'object' ? item.quantity || 1 : 1;
+                    const itemPrice = typeof item === 'object' ? Number(item.price || 0) : 0;
+                    const itemUnit = typeof item === 'object' && item.unit ? `• ${item.unit}` : '';
+                    const itemImg = typeof item === 'object' && item.image
+                      ? item.image
+                      : 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=200&q=80';
+
+                    return (
+                      <div key={idx} className="pt-2 first:pt-0 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <img
+                            src={itemImg}
+                            alt={itemName}
+                            className="w-9 h-9 rounded-lg object-cover bg-slate-100 shrink-0 border border-slate-100"
+                          />
+                          <div className="min-w-0">
+                            <h5 className="font-bold text-slate-900 truncate text-xs">{itemName}</h5>
+                            <span className="text-[10px] text-slate-400">
+                              Qty: {itemQty} {itemUnit}
+                            </span>
+                          </div>
                         </div>
+                        <span className="font-bold text-slate-900 font-mono shrink-0">
+                          Rs. {(itemPrice * itemQty).toLocaleString()}
+                        </span>
                       </div>
-                      <span className="font-bold text-slate-900 font-mono shrink-0">
-                        Rs. {(Number(item.price || 0) * Number(item.quantity || 1)).toLocaleString()}
-                      </span>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="p-3 bg-slate-50 rounded-xl text-xs flex justify-between font-medium text-slate-700">
-                    <span>{selectedOrder.items || 'Standard Order Items'}</span>
-                    <span className="font-bold font-mono">Rs. {Number(selectedOrder.total || 0).toLocaleString()}</span>
+                    <span>
+                      {typeof selectedOrder.items === 'string' && selectedOrder.items.trim()
+                        ? selectedOrder.items
+                        : 'Standard Order Items'}
+                    </span>
+                    <span className="font-bold font-mono">
+                      Rs. {Number(selectedOrder.total || selectedOrder.totalAmount || 0).toLocaleString()}
+                    </span>
                   </div>
                 )}
               </div>
@@ -974,7 +1035,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                               </span>
                             </div>
                             <span className="text-[10px] text-slate-400 block font-medium">
-                              {order.dateFormatted || order.time || 'Recent'} • {order.items || 'Items'}
+                              {order.dateFormatted || order.time || 'Recent'} • {formatOrderItemsSummary(order)}
                             </span>
                           </div>
                         </div>
