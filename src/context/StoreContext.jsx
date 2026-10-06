@@ -2195,7 +2195,7 @@ export const StoreProvider = ({ children }) => {
     if (!order) return;
     const city = String(order.city || order.shippingAddress?.city || order.deliveryLocation?.city || '').toLowerCase();
     const destination = order.coordinates || order.customerCoordinates || order.deliveryLocation?.coordinates || order.shippingAddress?.coordinates || (order.latitude && order.longitude ? { lat: order.latitude, lng: order.longitude } : null);
-    const available = riders.filter((rider) => ['available', 'on-duty'].includes(String(rider.status || '').toLowerCase()));
+    const available = (riders || []).filter((rider) => ['available', 'on-duty'].includes(String(rider.status || '').toLowerCase()));
     const ranked = available.map((rider) => {
       const zoneMatch = city && String(rider.zone || '').toLowerCase().includes(city);
       const riderCoordinates = rider.coordinates || (rider.latitude && rider.longitude ? { lat: rider.latitude, lng: rider.longitude } : null);

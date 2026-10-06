@@ -155,12 +155,12 @@ export const DashboardView = ({ onNavigateModule }) => {
     });
   }, [period, tenantOrders]);
 
-  const currentData = chartDatasets[period] || chartDatasets['7days'];
-  const values = currentData.map((d) => d[activeMetric]);
-  const maxValue = Math.max(...values) || 1;
-  const minValue = Math.min(...values) || 0;
-  const avgValue = Math.round(values.reduce((s, v) => s + v, 0) / (values.length || 1));
-  const activePoint = hoveredIndex !== null ? currentData[hoveredIndex] : currentData[currentData.length - 1];
+  const currentData = Array.isArray(chartDatasets) ? chartDatasets : (chartDatasets?.[period] || chartDatasets?.['7days'] || []);
+  const values = (currentData || []).map((d) => Number(d?.[activeMetric]) || 0);
+  const maxValue = values.length ? Math.max(...values, 1) : 1;
+  const minValue = values.length ? Math.min(...values, 0) : 0;
+  const avgValue = values.length ? Math.round(values.reduce((s, v) => s + v, 0) / values.length) : 0;
+  const activePoint = hoveredIndex !== null && currentData[hoveredIndex] ? currentData[hoveredIndex] : (currentData.length > 0 ? currentData[currentData.length - 1] : null);
 
   // SVG Coordinates calculation for dynamic line chart
   const svgWidth = 540;
@@ -168,10 +168,10 @@ export const DashboardView = ({ onNavigateModule }) => {
   const paddingX = 30;
   const paddingY = 24;
 
-  const points = currentData.map((d, i) => {
+  const points = (currentData || []).map((d, i) => {
     const x = paddingX + (i / (currentData.length - 1 || 1)) * (svgWidth - paddingX * 2);
     const range = maxValue - minValue || 1;
-    const y = svgHeight - paddingY - ((d[activeMetric] - minValue * 0.8) / (maxValue - minValue * 0.8 || 1)) * (svgHeight - paddingY * 2);
+    const y = svgHeight - paddingY - (((Number(d?.[activeMetric]) || 0) - minValue * 0.8) / (maxValue - minValue * 0.8 || 1)) * (svgHeight - paddingY * 2);
     return { x, y, data: d };
   });
 
@@ -651,10 +651,10 @@ export const DashboardView = ({ onNavigateModule }) => {
             ) : (
               /* Bar Chart View */
               <div className="w-full h-full flex items-end justify-between gap-2 sm:gap-4 px-2 pt-6">
-                {currentData.map((d, idx) => {
+                {(currentData || []).map((d, idx) => {
                   const val = d[activeMetric];
                   const heightPercent = maxValue > 0 ? Math.round((val / maxValue) * 100) : 0;
-                  const isSelected = hoveredIndex === idx || (hoveredIndex === null && idx === currentData.length - 1);
+                  const isSelected = hoveredIndex === idx || (hoveredIndex === null && idx === (currentData || []).length - 1);
 
                   return (
                     <div
@@ -683,7 +683,7 @@ export const DashboardView = ({ onNavigateModule }) => {
 
           {/* X-Axis Labels */}
           <div className="flex justify-between items-center text-[11px] font-bold text-slate-400 px-3 border-t border-slate-100 pt-3">
-            {currentData.map((d, idx) => (
+            {(currentData || []).map((d, idx) => (
               <span
                 key={idx}
                 className={`transition-colors cursor-pointer ${

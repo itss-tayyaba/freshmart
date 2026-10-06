@@ -29,7 +29,7 @@ export const FulfillmentView = () => {
   const [selectedStageFilter, setSelectedStageFilter] = useState('All');
   const [activeModalOrder, setActiveModalOrder] = useState(null);
   const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', phone: '' });
-  const tenantStaff = pickupStaff.filter((staff) => staff.tenantId === currentTenant?.id);
+  const tenantStaff = (pickupStaff || []).filter((staff) => staff?.tenantId === currentTenant?.id);
 
   // Combine and sort live orders strictly for current mart / all
   const allOrders = useMemo(() => {
