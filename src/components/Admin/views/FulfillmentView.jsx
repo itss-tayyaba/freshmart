@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { DeliverToStaffModal } from '../modals/DeliverToStaffModal';
+import { PickupStaffPortal } from './PickupStaffPortal';
 
 export const FulfillmentView = () => {
   const {
@@ -44,6 +45,7 @@ export const FulfillmentView = () => {
     addToast
   } = useStore();
 
+  const [fulfillmentMode, setFulfillmentMode] = useState('desk'); // 'desk' | 'fleet'
   const [search, setSearch] = useState('');
   const [selectedStageFilter, setSelectedStageFilter] = useState('All');
   const [dispatchFilter, setDispatchFilter] = useState('All'); // 'All' | 'NotDispatched' | 'Dispatched'
@@ -181,12 +183,47 @@ export const FulfillmentView = () => {
 
   return (
     <div className="space-y-6">
-      
-      {/* ========================================================= */}
-      {/* 1. PICKUP STAFF MANAGEMENT SECTION                         */}
-      {/* Prominent "+ Add Pickup Staff" button and roster          */}
-      {/* ========================================================= */}
-      <section className="bg-white rounded-3xl border border-slate-200/90 p-5 lg:p-6 shadow-2xs space-y-5">
+      {/* Top View Mode Switcher Banner */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-black text-slate-700">Pickup Staff Mode:</span>
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+            <button
+              onClick={() => setFulfillmentMode('desk')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${
+                fulfillmentMode === 'desk'
+                  ? 'bg-[#b88628] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <span>📦 Packing Desk (Row-Wise Live Queue)</span>
+            </button>
+            <button
+              onClick={() => setFulfillmentMode('fleet')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${
+                fulfillmentMode === 'fleet'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <span>👥 Staff Accounts & Full Pipeline</span>
+            </button>
+          </div>
+        </div>
+        <span className="text-xs text-slate-400 hidden lg:inline">
+          Hub: <b>{currentTenant?.name || 'FreshMart Hub'}</b>
+        </span>
+      </div>
+
+      {fulfillmentMode === 'desk' ? (
+        <PickupStaffPortal onBackToAdmin={() => setFulfillmentMode('fleet')} />
+      ) : (
+        <>
+          {/* ========================================================= */}
+          {/* 1. PICKUP STAFF MANAGEMENT SECTION                         */}
+          {/* Prominent "+ Add Pickup Staff" button and roster          */}
+          {/* ========================================================= */}
+          <section className="bg-white rounded-3xl border border-slate-200/90 p-5 lg:p-6 shadow-2xs space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -775,6 +812,8 @@ export const FulfillmentView = () => {
             </form>
           </div>
         </div>
+      )}
+      </>
       )}
 
       {/* ========================================================= */}

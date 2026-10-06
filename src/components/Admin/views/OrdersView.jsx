@@ -56,6 +56,19 @@ const getOrderItemsList = (ord) => {
   return [];
 };
 
+// Helper: Format detailed comma-separated items line matching Image 2
+const formatDetailedItemsLine = (ord) => {
+  if (!ord) return '—';
+  const list = getOrderItemsList(ord);
+  if (Array.isArray(list) && list.length > 0) {
+    return list
+      .map((it) => `${it.quantity || it.qty || 1}× ${it.name || it.productName || it.title || 'Item'}`)
+      .join(', ');
+  }
+  if (typeof ord.items === 'string') return ord.items;
+  return '1× Item';
+};
+
 // Helper: Safely get customer display name (handles string, object, or fallback)
 const getCustomerDisplayName = (customerVal, fallback = 'Customer') => {
   if (!customerVal) return fallback;
@@ -66,11 +79,65 @@ const getCustomerDisplayName = (customerVal, fallback = 'Customer') => {
   return fallback;
 };
 
+// Helper: Render status pill badge matching Image 2
+const renderStatusBadge = (status) => {
+  const s = String(status || 'Pending').toLowerCase();
+  if (s === 'ready' || s === 'ready for dispatch' || s === 'ready(dispatched)') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#e0f2fe] text-[#0369a1] border border-[#bae6fd]">
+        <span className="w-2 h-2 rounded-full bg-[#0284c7]" />
+        <span>Ready</span>
+      </span>
+    );
+  }
+  if (s === 'pending' || s === 'pending_kitchen') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+        <span className="w-2 h-2 rounded-full bg-amber-500" />
+        <span>Pending</span>
+      </span>
+    );
+  }
+  if (s === 'preparing' || s === 'processing' || s === 'packed' || s === 'picking') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+        <span className="w-2 h-2 rounded-full bg-blue-500" />
+        <span>Preparing</span>
+      </span>
+    );
+  }
+  if (s === 'dispatched' || s === 'out for delivery') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+        <span className="w-2 h-2 rounded-full bg-purple-500" />
+        <span>Dispatched</span>
+      </span>
+    );
+  }
+  if (s === 'delivered') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+        <span>Delivered</span>
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+      <span className="w-2 h-2 rounded-full bg-slate-400" />
+      <span>{status || 'Pending'}</span>
+    </span>
+  );
+};
+
 export const OrdersView = ({ onNavigateToCustomers }) => {
   const {
     customerOrders,
     adminOrders,
     customers,
+    riders = [],
+    assignRiderToOrder,
+    verifyOrderDeposit,
     updateDeliveryOrderStatus,
     addToast,
     currentTenant
@@ -79,6 +146,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   const [activeTab, setActiveTab] = useState('All');
   const [search, setSearch] = useState('');
   const [selectedDateRange, setSelectedDateRange] = useState('All Time');
+  const [selectedRiderMap, setSelectedRiderMap] = useState({});
 
   // Selected Order for Right Side Drawer
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -159,7 +227,17 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     if (selectedOrder && selectedOrder.id === orderId) {
       setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
     }
-    addToast('Status Updated 📦', `Order ${orderId} marked as ${newStatus}.`);
+  };
+
+  const handleAssignRider = async (orderId) => {
+    const riderId = selectedRiderMap[orderId];
+    if (!riderId) {
+      addToast('Select a Rider 🛵', 'Please select a rider from the dropdown first.', 'error');
+      return;
+    }
+    if (assignRiderToOrder) {
+      await assignRiderToOrder(orderId, riderId, 'Dispatched');
+    }
   };
 
   // Helper: Open customer profile modal from order customer details
@@ -489,108 +567,157 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase tracking-wider text-[10px]">
-                    <th className="pb-3.5 pl-1">ORDER ID</th>
-                    <th className="pb-3.5">CUSTOMER</th>
-                    <th className="pb-3.5">DELIVERY ADDRESS & CITY</th>
-                    <th className="pb-3.5">TOTAL</th>
-                    <th className="pb-3.5">STATUS</th>
-                    <th className="pb-3.5 text-right pr-2">ACTION</th>
+                    <th className="pb-3.5 pl-2">Customer</th>
+                    <th className="pb-3.5">Type</th>
+                    <th className="pb-3.5">Table</th>
+                    <th className="pb-3.5">Items</th>
+                    <th className="pb-3.5">Total & Payment</th>
+                    <th className="pb-3.5">Status</th>
+                    <th className="pb-3.5">Assign Rider</th>
+                    <th className="pb-3.5">Order Status</th>
+                    <th className="pb-3.5 text-right pr-2">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-100">
                   {filteredOrders.map((ord) => {
                     const isSelected = selectedOrder?.id === ord.id;
-                    const itemsText = formatOrderItemsSummary(ord);
                     const customerName = getCustomerDisplayName(ord.customer || ord.customerName);
-                    const customerEmail = typeof ord.customerEmail === 'string' ? ord.customerEmail : (ord.customer?.email || '');
-                    const customerPhone = typeof ord.customerPhone === 'string' ? ord.customerPhone : (ord.customer?.phone || '');
-                    const addressText = typeof ord.address === 'string' ? ord.address : (ord.shippingAddress?.address || 'Street address');
-                    const cityText = typeof ord.city === 'string' ? ord.city : (ord.shippingAddress?.city || 'Lahore');
+                    const customerPhone = typeof ord.customerPhone === 'string' ? ord.customerPhone : (ord.customer?.phone || ord.phone || '+92 300 0000000');
+                    const orderType = ord.orderType || (ord.table ? 'Dine-In' : 'Delivery');
+                    const tableRef = ord.table || '—';
+                    const itemsLine = formatDetailedItemsLine(ord);
+                    const paymentBadgeLabel = `${ord.paymentMethod || 'JAZZCASH'} · ${ord.paymentStatus || 'PENDING'}`.toUpperCase();
 
                     return (
                       <tr
                         key={ord.id}
                         onClick={() => setSelectedOrder(ord)}
                         className={`transition-colors cursor-pointer group ${
-                          isSelected ? 'bg-emerald-50/80 font-medium' : 'hover:bg-slate-50/70'
+                          isSelected ? 'bg-amber-50/50 font-medium' : 'hover:bg-[#faf7f2]/80'
                         }`}
                       >
-                        {/* Order ID */}
-                        <td className="py-4 pl-1 font-mono font-black text-emerald-700">
+                        {/* 1. Customer Column */}
+                        <td className="py-4 pl-2 min-w-[140px]">
                           <div>
-                            <span>{ord.id}</span>
-                            <span className="block text-[10px] text-slate-400 font-normal font-sans">
-                              {ord.time || 'Today'}
+                            <span className="font-bold text-slate-900 block group-hover:text-amber-800 transition-colors">
+                              {customerName}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono block">
+                              {customerPhone}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono font-bold block mt-0.5">
+                              #{String(ord.id).replace(/^#/, '')}
                             </span>
                           </div>
                         </td>
 
-                        {/* Customer */}
-                        <td className="py-4">
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openCustomerDetailsModal(
-                                customerName,
-                                customerEmail,
-                                customerPhone,
-                                addressText
-                              );
-                            }}
-                            className="flex items-center gap-2.5 group/cust cursor-pointer"
-                            title="Click to view Customer Profile & Order History"
-                          >
-                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-800 font-black text-[11px] flex items-center justify-center shrink-0 border border-emerald-200/50 group-hover/cust:scale-110 transition-transform">
-                              {(customerName || 'C').slice(0, 2).toUpperCase()}
-                            </div>
-                            <div>
-                              <span className="font-bold text-slate-900 block group-hover/cust:text-emerald-700 group-hover/cust:underline transition-colors flex items-center gap-1">
-                                <span>{customerName}</span>
-                                <User className="w-3 h-3 text-slate-400 group-hover/cust:text-emerald-600 opacity-0 group-hover/cust:opacity-100 transition-opacity" />
-                              </span>
-                              <span className="text-[10px] text-slate-400 font-normal block font-mono">
-                                {customerPhone || customerEmail || ''}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Delivery Address & City (Prominent for Admin Location Review) */}
-                        <td className="py-4 max-w-[220px]">
-                          <div className="flex items-start gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
-                            <div className="min-w-0">
-                              <p className="font-bold text-slate-800 text-[11px] truncate leading-tight">
-                                {addressText}
-                              </p>
-                              <span className="inline-block mt-0.5 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
-                                {cityText} {ord.neighborhood ? `• ${ord.neighborhood}` : ''}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Total Amount */}
-                        <td className="py-4 font-black text-slate-900 font-mono">
-                          <div>
-                            <span>Rs. {Number(ord.total || ord.totalAmount || 0).toLocaleString()}</span>
-                            <span className="block text-[10px] text-slate-400 font-sans font-normal">{itemsText}</span>
-                          </div>
-                        </td>
-
-                        {/* Status Badge */}
-                        <td className="py-4">
-                          <span
-                            className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${getStatusBadgeClass(
-                              ord.status
-                            )}`}
-                          >
-                            {ord.status || 'Pending'}
+                        {/* 2. Type Column (Delivery / Dine-in) */}
+                        <td className="py-4 text-slate-700 font-medium whitespace-nowrap">
+                          <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-bold">
+                            {orderType}
                           </span>
                         </td>
 
-                        {/* Action View Button & 7-Stage Pipeline Button */}
-                        <td className="py-4 text-right pr-2">
+                        {/* 3. Table Column (— or Table #) */}
+                        <td className="py-4 text-slate-400 font-bold whitespace-nowrap">
+                          {tableRef}
+                        </td>
+
+                        {/* 4. Items Column (1× Truffle Angus Burger, 1× Cold Brew Coffee) */}
+                        <td className="py-4 max-w-[240px]">
+                          <p className="text-slate-800 text-xs font-semibold leading-relaxed line-clamp-2">
+                            {itemsLine}
+                          </p>
+                        </td>
+
+                        {/* 5. Total & Payment Column (Rs 1,620.00, JAZZCASH · PENDING, 🔍 Verify Deposit) */}
+                        <td className="py-4 font-mono min-w-[150px]">
+                          <div>
+                            <span className="font-black text-slate-900 text-xs block">
+                              Rs {Number(ord.total || ord.totalAmount || 0).toLocaleString()}
+                            </span>
+                            <div className="mt-1">
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider inline-block ${
+                                  ord.paymentStatus === 'Verified' || ord.isPaymentVerified
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                    : 'bg-[#fef3c7] text-[#92400e] border border-[#fde68a]'
+                                }`}
+                              >
+                                {paymentBadgeLabel}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (verifyOrderDeposit) verifyOrderDeposit(ord.id);
+                              }}
+                              className="mt-1 px-2.5 py-0.5 rounded-lg bg-[#38bdf8] hover:bg-[#0ea5e9] active:scale-95 text-white text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                              title="Verify Deposit Slip / Screenshot"
+                            >
+                              <span>🔍</span>
+                              <span>{ord.paymentStatus === 'Verified' ? 'Deposit Verified' : 'Verify Deposit'}</span>
+                            </button>
+                          </div>
+                        </td>
+
+                        {/* 6. Status Badge Column (Exact match to Image 2 ● Ready) */}
+                        <td className="py-4 whitespace-nowrap">
+                          {renderStatusBadge(ord.status)}
+                        </td>
+
+                        {/* 7. Assign Rider Column (Choose rider... dropdown + Assign button) */}
+                        <td className="py-4" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex flex-col items-start gap-1.5 min-w-[130px]">
+                            <select
+                              value={ord.assignedRider?.id || selectedRiderMap[ord.id] || ''}
+                              onChange={(e) =>
+                                setSelectedRiderMap((prev) => ({ ...prev, [ord.id]: e.target.value }))
+                              }
+                              className="bg-[#f5efe6] hover:bg-[#ede5d8] border border-[#ded5c5] rounded-xl px-2.5 py-1 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer w-full max-w-[160px]"
+                            >
+                              <option value="">Choose rider...</option>
+                              {(riders || []).map((r) => (
+                                <option key={r.id} value={r.id}>
+                                  {r.name} ({r.vehicleType || '🏍️ Bike'})
+                                </option>
+                              ))}
+                            </select>
+
+                            <button
+                              type="button"
+                              onClick={() => handleAssignRider(ord.id)}
+                              className="px-3.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 transition cursor-pointer shadow-2xs"
+                            >
+                              Assign
+                            </button>
+                            {ord.assignedRider && (
+                              <span className="text-[10px] text-purple-700 font-bold block">
+                                ✓ {ord.assignedRider.name}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* 8. Order Status Dropdown Column (ready dropdown matching Image 2) */}
+                        <td className="py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <select
+                            value={(ord.status || 'pending').toLowerCase()}
+                            onChange={(e) => handleStatusChange(ord.id, e.target.value)}
+                            className="bg-[#f5efe6] hover:bg-[#ede5d8] border border-[#ded5c5] rounded-xl px-3 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                          >
+                            <option value="pending">pending</option>
+                            <option value="preparing">preparing</option>
+                            <option value="ready">ready</option>
+                            <option value="dispatched">dispatched</option>
+                            <option value="delivered">delivered</option>
+                            <option value="cancelled">cancelled</option>
+                          </select>
+                        </td>
+
+                        {/* 9. Action View Column */}
+                        <td className="py-4 text-right pr-2 whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={(e) => {
@@ -601,7 +728,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                               title="Deliver Parcel to Pickup Staff for Line-Wise Packing"
                             >
                               <Boxes className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Deliver to Staff</span>
+                              <span className="hidden sm:inline">Staff</span>
                             </button>
                             <button
                               onClick={(e) => {

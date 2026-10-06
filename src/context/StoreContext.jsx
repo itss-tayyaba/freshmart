@@ -78,6 +78,48 @@ export const useStore = () => {
   return context;
 };
 
+const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
+  const id = remoteOrder.orderId || remoteOrder.id || remoteOrder._id || localOrder.id;
+  const items = remoteOrder.orderItems || remoteOrder.rawItems || (Array.isArray(remoteOrder.items) ? remoteOrder.items : localOrder.rawItems || localOrder.items || []);
+  const address = remoteOrder.shippingAddress?.address || remoteOrder.address || localOrder.address || '';
+  const city = remoteOrder.shippingAddress?.city || remoteOrder.city || localOrder.city || '';
+  const total = Number(remoteOrder.totalPrice ?? remoteOrder.totalAmount ?? remoteOrder.total ?? localOrder.totalAmount ?? localOrder.total ?? 0);
+  return {
+    ...localOrder,
+    ...remoteOrder,
+    id: String(id || ''),
+    orderId: String(remoteOrder.orderId || id || ''),
+    customer: remoteOrder.customerName || remoteOrder.customer || localOrder.customer || 'Customer',
+    customerName: remoteOrder.customerName || remoteOrder.customer || localOrder.customerName || 'Customer',
+    rawItems: items,
+    orderItems: items,
+    items,
+    address,
+    city,
+    total,
+    totalAmount: total,
+    status: remoteOrder.status || localOrder.status || 'Confirmed'
+  };
+};
+
+const mergeApiOrders = (remoteOrders, localOrders, role, user) => {
+  const localById = new Map((localOrders || []).map((order) => [String(order.id || order.orderId || order._id), order]));
+  const remoteIds = new Set();
+  const mergedRemote = (remoteOrders || []).map((order) => {
+    const id = String(order.orderId || order.id || order._id);
+    remoteIds.add(id);
+    return normalizeApiOrder(order, localById.get(id));
+  });
+  const remainingLocal = (localOrders || []).filter((order) => {
+    const id = String(order.id || order.orderId || order._id);
+    if (!id || remoteIds.has(id)) return false;
+    if (role === 'pickup_staff') return String(order.pickupStaffId) === String(user?.staffId || user?.id);
+    if (role === 'rider') return String(order.assignedRider?.id || order.assignedRider?.riderId) === String(user?.riderId || user?.id);
+    return true;
+  });
+  return [...mergedRemote, ...remainingLocal];
+};
+
 export const StoreProvider = ({ children }) => {
   // Toast notifications state & helpers (available across the whole provider)
   const [toasts, setToasts] = useState([]);
@@ -134,37 +176,80 @@ export const StoreProvider = ({ children }) => {
     return null;
   });
 
-  // One-time purge of legacy mock orders, customers, and riders so admin/customer starts with 0 records
-  try {
-    const cleanMockKey = 'freshmart_v4_cleared_mock_data';
-    if (!localStorage.getItem(cleanMockKey)) {
-      localStorage.removeItem('freshmart_admin_orders');
-      localStorage.removeItem('freshmart_customer_orders');
-      localStorage.removeItem('freshmart_customers');
-      localStorage.removeItem('freshmart_customers_v3');
-      localStorage.removeItem('freshmart_riders');
-      localStorage.removeItem('freshmart_active_delivery');
-      localStorage.setItem(cleanMockKey, 'true');
+  const DEFAULT_INITIAL_ORDERS = [
+    {
+      id: 'EB-TNPHYE',
+      orderId: 'EB-TNPHYE',
+      customer: 'Tayyaba Batool',
+      customerName: 'Tayyaba Batool',
+      customerPhone: '+923206551696',
+      phone: '+923206551696',
+      orderType: 'Dine-In',
+      table: 'Table 4',
+      status: 'Pending',
+      fulfillmentStage: 1,
+      pickupStep: 'assigned',
+      total: 810,
+      totalAmount: 810,
+      paymentMethod: 'Cash',
+      paymentStatus: 'Pending',
+      items: [{ id: 'p1', name: 'Cappuccino', quantity: 1, price: 810 }],
+      rawItems: [{ id: 'p1', name: 'Cappuccino', quantity: 1, price: 810 }],
+      address: 'Main Cafe Hub, Sector C, Lahore',
+      city: 'Lahore',
+      time: 'Just now',
+      createdAt: new Date(Date.now() - 34000).toISOString()
+    },
+    {
+      id: 'ORD-5431',
+      orderId: 'ORD-5431',
+      customer: 'Hamza Khan',
+      customerName: 'Hamza Khan',
+      customerPhone: '+923001234543',
+      phone: '+923001234543',
+      orderType: 'Delivery',
+      table: '—',
+      status: 'Ready',
+      fulfillmentStage: 4,
+      pickupStep: 'ready',
+      isDispatched: false,
+      total: 1620,
+      totalAmount: 1620,
+      paymentMethod: 'JazzCash',
+      paymentStatus: 'Pending',
+      items: [
+        { id: 'p2', name: 'Truffle Angus Burger', quantity: 1, price: 1100 },
+        { id: 'p3', name: 'Cold Brew Coffee', quantity: 1, price: 520 }
+      ],
+      rawItems: [
+        { id: 'p2', name: 'Truffle Angus Burger', quantity: 1, price: 1100 },
+        { id: 'p3', name: 'Cold Brew Coffee', quantity: 1, price: 520 }
+      ],
+      address: 'House 42, Block Y, Phase 3, DHA, Lahore',
+      city: 'Lahore',
+      time: '12 mins ago',
+      createdAt: new Date(Date.now() - 12 * 60000).toISOString()
     }
-  } catch (e) {}
+  ];
 
-  // Customer Placed Orders History (Starts empty until customer places orders)
+  // Customer Placed Orders History (Starts with default orders if empty)
   const [customerOrders, setCustomerOrders] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_customer_orders');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed.filter(
+          const filtered = parsed.filter(
             (o) =>
               !['#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#CU-2190', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
                 o.id || o.orderId
               )
           );
+          if (filtered.length > 0) return filtered;
         }
       }
     } catch (e) {}
-    return [];
+    return DEFAULT_INITIAL_ORDERS;
   });
 
   // Active in-transit delivery order (null if no active order)
@@ -930,28 +1015,30 @@ export const StoreProvider = ({ children }) => {
       if (savedAdmin) {
         const parsed = JSON.parse(savedAdmin);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.filter(
+          const filtered = parsed.filter(
             (o) =>
               !['#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#CU-2190', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
                 o.id || o.orderId
               )
           );
+          if (filtered.length > 0) return filtered;
         }
       }
       const saved = localStorage.getItem('freshmart_customer_orders');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.filter(
+          const filtered = parsed.filter(
             (o) =>
               !['#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#CU-2190', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
                 o.id || o.orderId
               )
           );
+          if (filtered.length > 0) return filtered;
         }
       }
     } catch (e) {}
-    return [];
+    return DEFAULT_INITIAL_ORDERS;
   });
   const [adminStats, setAdminStats] = useState(ADMIN_STATS);
 
@@ -1116,6 +1203,8 @@ export const StoreProvider = ({ children }) => {
         loginPayloadUser = 'admin@freshmart.com';
       } else if (cleanUser === 'superadmin') {
         loginPayloadUser = 'superadmin';
+      } else if (targetRole === 'pickup_staff' && !cleanUser.includes('@')) {
+        loginPayloadUser = `${cleanUser}@pickup.freshmart.pk`;
       }
       authRes = await apiService.login(loginPayloadUser, cleanPass);
       if (
@@ -1178,6 +1267,30 @@ export const StoreProvider = ({ children }) => {
         } catch (e) {}
         addToast(`Store Admin Authenticated 🏬`, `Welcome to ${adminUser.tenantName} management.`);
         return { success: true, role: 'admin', user: adminUser };
+      }
+
+      if (targetRole === 'pickup_staff' && returnedRole === 'pickup_staff') {
+        const staffUser = {
+          id: authRes.staffId || authRes.id || authRes._id,
+          staffId: authRes.staffId || authRes.id || authRes._id,
+          name: authRes.name || 'Pickup Staff',
+          username: cleanUser.split('@')[0],
+          email: authRes.email || `${cleanUser.split('@')[0]}@pickup.freshmart.pk`,
+          role: 'pickup_staff',
+          tenantId: authRes.tenantId || currentTenant?.id || 'tenant-freshmart',
+          tenantName: currentTenant?.name || 'FreshMart Direct'
+        };
+        localStorage.setItem('freshmart_admin_token', authRes.token);
+        setAdminRole('pickup_staff');
+        setIsAdminLoggedIn(true);
+        setUser(staffUser);
+        try {
+          localStorage.setItem('freshmart_admin_session', 'true');
+          localStorage.setItem('freshmart_admin_role', 'pickup_staff');
+          localStorage.setItem('freshmart_admin_user', JSON.stringify(staffUser));
+        } catch (e) {}
+        addToast('Pickup Staff Authenticated', `Welcome ${staffUser.name} to the packing desk.`);
+        return { success: true, role: 'pickup_staff', user: staffUser };
       }
 
       // Case C: Supplier / Vendor
@@ -1707,19 +1820,64 @@ export const StoreProvider = ({ children }) => {
   }, [activeDeliveryOrder]);
 
   // Riders State (Created & Managed exclusively by Store Admin)
-  const defaultRidersList = [];
+  const defaultRidersList = [
+    {
+      id: 'RDR-101',
+      name: 'Ali Raza',
+      phone: '+92 300 8472911',
+      vehicleType: '🏍️ Honda 125',
+      vehicleNumber: 'LEK-4821',
+      zone: 'Gulberg / Main Hub',
+      status: 'On-Duty',
+      deliveriesCount: 42,
+      rating: 4.9
+    },
+    {
+      id: 'RDR-102',
+      name: 'Usman Tariq',
+      phone: '+92 321 4492019',
+      vehicleType: '🛵 Suzuki 110',
+      vehicleNumber: 'LEK-9104',
+      zone: 'DHA Phase 5',
+      status: 'On-Duty',
+      deliveriesCount: 38,
+      rating: 4.8
+    },
+    {
+      id: 'RDR-103',
+      name: 'Bilal Ahmed',
+      phone: '+92 333 7192840',
+      vehicleType: '🏍️ Yamaha 125',
+      vehicleNumber: 'LEK-3382',
+      zone: 'Johar Town',
+      status: 'On-Duty',
+      deliveriesCount: 51,
+      rating: 5.0
+    },
+    {
+      id: 'RDR-104',
+      name: 'Hamza Malik',
+      phone: '+92 312 9048122',
+      vehicleType: '🏍️ Honda CD 70',
+      vehicleNumber: 'LEK-7719',
+      zone: 'Bahria Town',
+      status: 'On-Duty',
+      deliveriesCount: 29,
+      rating: 4.9
+    }
+  ];
 
   const [riders, setRiders] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_riders');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.filter((r) => !['RDR-101', 'RDR-102', 'RDR-103', 'RDR-104'].includes(r.id));
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
         }
       }
     } catch (e) {}
-    return [];
+    return defaultRidersList;
   });
 
   useEffect(() => {
@@ -1762,7 +1920,7 @@ export const StoreProvider = ({ children }) => {
     const tId = currentTenant?.id || 'tenant-freshmart';
     const tName = currentTenant?.name || 'FreshMart';
 
-    const staff = {
+    let staff = {
       id: `PCK-${Date.now().toString(36).toUpperCase()}`,
       name,
       username,
@@ -1774,25 +1932,31 @@ export const StoreProvider = ({ children }) => {
       createdAt: new Date().toISOString()
     };
 
+    let sharedAccountCreated = false;
+    try {
+      const response = await apiService.createPickupStaff({ name, username, password, phone, tenantId: tId, staffId: staff.id });
+      if (response?.success && response.staff) {
+        staff = { ...staff, ...response.staff, password };
+        sharedAccountCreated = true;
+      } else if (response?.httpStatus && response.httpStatus < 500) {
+        addToast('Pickup Staff Not Created', response.message || 'The server rejected this staff account.', 'error');
+        return null;
+      }
+    } catch (e) {}
+
     const updated = [staff, ...(pickupStaff || [])];
     setPickupStaff(updated);
     try {
       localStorage.setItem('freshmart_pickup_staff', JSON.stringify(updated));
     } catch (e) {}
 
-    // Synchronize to backend User collection if API is available
-    try {
-      await apiService.register({
-        name,
-        email: `${username}@freshmart.pk`,
-        password,
-        phone: phone || '0300-1234567',
-        role: 'pickup_staff',
-        tenantId: tId
-      });
-    } catch (e) {}
-
-    addToast('Pickup Staff Account Created 🎉', `${staff.name} can sign in with username: ${staff.username}`);
+    addToast(
+      sharedAccountCreated ? 'Pickup Staff Account Created' : 'Pickup Staff Account Created Locally',
+      sharedAccountCreated
+        ? `${staff.name} can sign in from another device with username: ${staff.username}`
+        : `${staff.name} is saved in this browser only because shared account storage is unavailable.`,
+      sharedAccountCreated ? 'success' : 'info'
+    );
     return staff;
   };
 
@@ -2125,17 +2289,24 @@ export const StoreProvider = ({ children }) => {
 
   const assignRiderToOrder = async (orderId, riderId, statusOverride) => {
     const targetRider = riders.find((r) => r.id === riderId);
-    if (!targetRider) return;
-    const sourceOrder = customerOrders.find((order) => order.id === orderId);
-    const assignmentFromStaffReady = adminRole === 'pickup_staff' && statusOverride === 'Ready for Dispatch';
-    const readyToAssign = sourceOrder?.fulfillmentStage >= 4 || ['Ready for Dispatch', 'Packed'].includes(sourceOrder?.status) || assignmentFromStaffReady;
-    if (!readyToAssign || !['admin', 'superadmin', 'pickup_staff'].includes(adminRole)) {
-      addToast('Rider assignment unavailable', 'Assign a rider after pickup staff marks the parcel Ready for Dispatch.', 'error');
+    if (!targetRider) {
+      addToast('Select a Rider', 'Please select a valid courier from the list.', 'error');
       return false;
     }
-    const riderStatus = statusOverride || (sourceOrder?.fulfillmentStage >= 5 || sourceOrder?.status === 'Dispatched'
-      ? 'Dispatched'
-      : 'Ready for Dispatch');
+    const all = [...(customerOrders || []), ...(adminOrders || [])];
+    const sourceOrder = all.find((order) => order.id === orderId || order.orderId === orderId);
+    const assignmentFromStaffReady = adminRole === 'pickup_staff' && statusOverride === 'Ready for Dispatch';
+    const isReady =
+      sourceOrder?.fulfillmentStage >= 4 ||
+      ['Ready', 'ready', 'Ready for Dispatch', 'ready(dispatched)', 'Packed', 'Dispatched', 'Preparing'].includes(sourceOrder?.status) ||
+      assignmentFromStaffReady ||
+      ['admin', 'superadmin'].includes(adminRole);
+
+    if (!isReady) {
+      addToast('Rider assignment unavailable', 'Assign a rider once parcel is Ready or Prepared.', 'info');
+    }
+
+    const riderStatus = statusOverride || 'Dispatched';
 
     const assignedInfo = {
       id: targetRider.id,
@@ -2146,16 +2317,18 @@ export const StoreProvider = ({ children }) => {
       rating: targetRider.rating || 5.0,
       coordinates: targetRider.coordinates || null,
       assignedAt: new Date().toISOString(),
-      eta: null
+      eta: '15-20 mins'
     };
 
     setCustomerOrders((prev) =>
       prev.map((o) =>
-        o.id === orderId
+        o.id === orderId || o.orderId === orderId
           ? {
               ...o,
               assignedRider: assignedInfo,
               status: riderStatus,
+              isDispatched: true,
+              fulfillmentStage: Math.max(Number(o.fulfillmentStage || 0), 5),
               statusClass: 'bg-purple-100 text-purple-800'
             }
           : o
@@ -2163,26 +2336,30 @@ export const StoreProvider = ({ children }) => {
     );
     setAdminOrders((prev) =>
       prev.map((o) =>
-        o.id === orderId
+        o.id === orderId || o.orderId === orderId
           ? {
               ...o,
               assignedRider: assignedInfo,
               status: riderStatus,
+              isDispatched: true,
+              fulfillmentStage: Math.max(Number(o.fulfillmentStage || 0), 5),
               statusClass: 'bg-purple-100 text-purple-800'
             }
           : o
       )
     );
-    if (activeDeliveryOrder && activeDeliveryOrder.id === orderId) {
+    if (activeDeliveryOrder && (activeDeliveryOrder.id === orderId || activeDeliveryOrder.orderId === orderId)) {
       setActiveDeliveryOrder((prev) => ({
         ...prev,
         assignedRider: assignedInfo,
         status: riderStatus,
+        isDispatched: true,
+        fulfillmentStage: 5,
         statusClass: 'bg-purple-100 text-purple-800'
       }));
     }
 
-    addToast('Rider Assigned 🛵', `${targetRider.name} assigned to Order ${orderId}. Status updated to Out for Delivery.`);
+    addToast('Rider Assigned 🛵', `${targetRider.name} assigned to Order ${orderId}. Status: ${riderStatus}.`);
 
     // Persist to backend database
     try {
@@ -2379,40 +2556,78 @@ export const StoreProvider = ({ children }) => {
   };
 
   const updateDeliveryOrderStatus = async (orderId, newStatus) => {
-    const assignedOrder = customerOrders.find((order) => order.id === orderId || order.orderId === orderId || order._id === orderId);
+    const all = [...(customerOrders || []), ...(adminOrders || [])];
+    const assignedOrder = all.find((order) => order.id === orderId || order.orderId === orderId || order._id === orderId);
     const riderId = assignedOrder?.assignedRider?.id || assignedOrder?.assignedRider?.riderId;
-    const isAssignedRider = adminRole === 'rider' && riderId && riderId === (user?.riderId || user?.id) && ['Ready for Dispatch', 'Dispatched', 'Out for Delivery', 'Arrived at Customer'].includes(assignedOrder?.status);
-    if (!isAssignedRider && !(adminRole === 'admin' && newStatus === 'Cancelled')) {
-      addToast('Status update denied', 'Only the assigned rider can update delivery progress.', 'error');
+    const isAssignedRider = adminRole === 'rider' && riderId && riderId === (user?.riderId || user?.id);
+    const isAdmin = ['admin', 'superadmin', 'pickup_staff'].includes(adminRole);
+    if (!isAssignedRider && !isAdmin) {
+      addToast('Status update denied', 'Only store admin or assigned rider can update delivery progress.', 'error');
       return false;
     }
-    const allowedRiderTransitions = {
-      'Ready for Dispatch': 'Dispatched',
-      Dispatched: 'Out for Delivery',
-      'Out for Delivery': 'Arrived at Customer'
-    };
-    if (adminRole === 'rider' && allowedRiderTransitions[assignedOrder?.status] !== newStatus) {
-      addToast('Invalid delivery step', 'Complete parcel pickup, delivery, and doorstep steps in order.', 'error');
-      return false;
-    }
-    const stage = newStatus === 'Delivered' ? 7 : newStatus === 'Dispatched' ? 5 : ['Out for Delivery', 'Picked Up from Dark Store', 'Picked Up', 'Arrived at Customer'].includes(newStatus) ? 6 : undefined;
+
+    const normalizedStatus =
+      String(newStatus).toLowerCase() === 'ready' ? 'Ready' :
+      String(newStatus).toLowerCase() === 'pending' ? 'Pending' :
+      String(newStatus).toLowerCase() === 'preparing' ? 'Preparing' :
+      String(newStatus).toLowerCase() === 'dispatched' ? 'Dispatched' :
+      String(newStatus).toLowerCase() === 'delivered' ? 'Delivered' :
+      String(newStatus).toLowerCase() === 'cancelled' ? 'Cancelled' : newStatus;
+
+    const stage =
+      normalizedStatus === 'Delivered' ? 7 :
+      normalizedStatus === 'Out for Delivery' ? 6 :
+      normalizedStatus === 'Dispatched' ? 5 :
+      ['Ready', 'Ready for Dispatch'].includes(normalizedStatus) ? 4 :
+      normalizedStatus === 'Preparing' ? 3 :
+      normalizedStatus === 'Pending' ? 1 : undefined;
+
     const updatedAt = new Date().toISOString();
     setCustomerOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, ...(stage ? { fulfillmentStage: stage } : {}), ...(newStatus === 'Dispatched' ? { pickupStep: 'handed_to_rider', isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: updatedAt } : {}), fulfillmentUpdatedAt: updatedAt } : o))
+      prev.map((o) =>
+        o.id === orderId || o.orderId === orderId
+          ? {
+              ...o,
+              status: normalizedStatus,
+              ...(stage ? { fulfillmentStage: stage } : {}),
+              ...(normalizedStatus === 'Dispatched' ? { isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: updatedAt } : {}),
+              ...(normalizedStatus === 'Ready' ? { pickupStep: 'ready', isDispatched: false } : {}),
+              fulfillmentUpdatedAt: updatedAt
+            }
+          : o
+      )
     );
     setAdminOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, ...(stage ? { fulfillmentStage: stage } : {}), ...(newStatus === 'Dispatched' ? { pickupStep: 'handed_to_rider', isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: updatedAt } : {}), fulfillmentUpdatedAt: updatedAt } : o))
+      prev.map((o) =>
+        o.id === orderId || o.orderId === orderId
+          ? {
+              ...o,
+              status: normalizedStatus,
+              ...(stage ? { fulfillmentStage: stage } : {}),
+              ...(normalizedStatus === 'Dispatched' ? { isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: updatedAt } : {}),
+              ...(normalizedStatus === 'Ready' ? { pickupStep: 'ready', isDispatched: false } : {}),
+              fulfillmentUpdatedAt: updatedAt
+            }
+          : o
+      )
     );
-    if (activeDeliveryOrder && activeDeliveryOrder.id === orderId) {
-      setActiveDeliveryOrder((prev) => ({ ...prev, status: newStatus, ...(stage ? { fulfillmentStage: stage } : {}), ...(newStatus === 'Dispatched' ? { pickupStep: 'handed_to_rider', isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: updatedAt } : {}), fulfillmentUpdatedAt: updatedAt }));
+    if (activeDeliveryOrder && (activeDeliveryOrder.id === orderId || activeDeliveryOrder.orderId === orderId)) {
+      setActiveDeliveryOrder((prev) => ({
+        ...prev,
+        status: normalizedStatus,
+        ...(stage ? { fulfillmentStage: stage } : {}),
+        ...(normalizedStatus === 'Dispatched' ? { isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: updatedAt } : {}),
+        fulfillmentUpdatedAt: updatedAt
+      }));
     }
-    addToast('Delivery Status Updated 🚚', `Order ${orderId}: ${newStatus}`);
+    addToast('Status Updated 📦', `Order ${orderId}: ${normalizedStatus}`);
 
     try {
-      await apiService.updateOrderStatus(orderId, newStatus);
+      await apiService.updateOrderStatus(orderId, normalizedStatus);
     } catch (e) {
       console.warn('Could not sync order status to backend:', e.message);
     }
+    return true;
   };
 
   // --- 🏪 Multi-Vendor Applications & Approvals ---
@@ -3902,61 +4117,66 @@ export const StoreProvider = ({ children }) => {
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
-    if (!['admin', 'superadmin'].includes(adminRole) || newStatus !== 'Cancelled') {
-      addToast('Status update denied', 'Packing and dispatch status must be updated by pickup staff.', 'error');
-      return false;
-    }
+    const normalizedStatus =
+      String(newStatus).toLowerCase() === 'ready' ? 'Ready' :
+      String(newStatus).toLowerCase() === 'pending' ? 'Pending' :
+      String(newStatus).toLowerCase() === 'preparing' ? 'Preparing' :
+      String(newStatus).toLowerCase() === 'dispatched' ? 'Dispatched' :
+      String(newStatus).toLowerCase() === 'delivered' ? 'Delivered' :
+      String(newStatus).toLowerCase() === 'cancelled' ? 'Cancelled' : newStatus;
+
     setAdminOrders((prev) =>
       prev.map((order) => {
-        if (order.id === orderId) {
-          let statusColor = 'bg-slate-100 text-slate-800';
-          if (newStatus === 'Delivered') statusColor = 'bg-emerald-100 text-emerald-800';
-          if (newStatus === 'Processing') statusColor = 'bg-blue-100 text-blue-800';
-          if (newStatus === 'Out for Delivery') statusColor = 'bg-amber-100 text-amber-800';
-          if (newStatus === 'Cancelled') statusColor = 'bg-rose-100 text-rose-800';
-          return { ...order, status: newStatus, statusColor };
+        if (order.id === orderId || order.orderId === orderId) {
+          return { ...order, status: normalizedStatus };
         }
         return order;
       })
     );
-    apiService.updateOrderStatus(orderId, newStatus);
-    addToast('Order Status Updated', `Order ${orderId} is now ${newStatus}.`);
+    setCustomerOrders((prev) =>
+      prev.map((order) => {
+        if (order.id === orderId || order.orderId === orderId) {
+          return { ...order, status: normalizedStatus };
+        }
+        return order;
+      })
+    );
+    try {
+      await apiService.updateOrderStatus(orderId, normalizedStatus);
+    } catch (e) {}
+    addToast('Order Status Updated 📦', `Order ${orderId} is now ${normalizedStatus}.`);
+    return true;
   };
 
-  // --- 🚀 7-Stage Order Fulfillment & Dispatch Pipeline Handler ---
+  // --- 🚀 Order Fulfillment & Dispatch Pipeline Handler ---
   const updateOrderFulfillment = async (orderId, updates) => {
-    const order = [...(customerOrders || []), ...(adminOrders || [])].find(
-      (item) => item.id === orderId || item.orderId === orderId || item._id === orderId
-    );
-    if (adminRole !== 'pickup_staff' || !order || order.pickupStaffId !== user?.id) {
-      addToast('Status update denied', 'Only the pickup staff assigned to this parcel can update its packing and dispatch status.', 'error');
-      return false;
-    }
-
-    const currentStage = Number(order.fulfillmentStage || 1);
-    const nextStage = updates.fulfillmentStage === undefined ? currentStage : Number(updates.fulfillmentStage);
-    if (nextStage < currentStage || nextStage > currentStage + 1) {
-      addToast('Invalid status change', 'Pickup staff must complete parcel stages in order.', 'error');
+    const isStaff = adminRole === 'pickup_staff';
+    const isAdmin = ['admin', 'superadmin'].includes(adminRole);
+    if (!isStaff && !isAdmin) {
+      addToast('Status update denied', 'Only pickup staff or store admin can update packing and dispatch status.', 'error');
       return false;
     }
 
     const stageStatusMap = {
       1: 'Pending',
-      2: 'Received by Pickup Staff',
-      3: 'Picking',
-      4: 'Ready for Dispatch',
+      2: 'Preparing',
+      3: 'Preparing',
+      4: 'Ready',
       5: 'Dispatched',
       6: 'Out for Delivery',
       7: 'Delivered'
     };
 
-    const newStatus = updates.status || (updates.fulfillmentStage ? stageStatusMap[updates.fulfillmentStage] : undefined);
+    let newStatus = updates.status;
+    if (!newStatus && updates.fulfillmentStage !== undefined) {
+      newStatus = stageStatusMap[updates.fulfillmentStage] || 'Preparing';
+    }
 
     let statusColor;
     if (newStatus === 'Delivered') statusColor = 'bg-emerald-100 text-emerald-800';
     else if (newStatus === 'Out for Delivery') statusColor = 'bg-amber-100 text-amber-800';
-    else if (newStatus === 'Ready for Dispatch' || newStatus === 'Packed') statusColor = 'bg-blue-100 text-blue-800';
-    else if (newStatus === 'Processing' || newStatus === 'Packing') statusColor = 'bg-indigo-100 text-indigo-800';
+    else if (newStatus === 'Ready' || newStatus === 'Ready for Dispatch' || newStatus === 'Packed') statusColor = 'bg-blue-100 text-blue-800';
+    else if (newStatus === 'Preparing' || newStatus === 'Processing' || newStatus === 'Packing') statusColor = 'bg-indigo-100 text-indigo-800';
     else if (newStatus === 'Cancelled') statusColor = 'bg-rose-100 text-rose-800';
 
     setAdminOrders((prev) =>
@@ -3965,6 +4185,10 @@ export const StoreProvider = ({ children }) => {
           const merged = { ...order, ...updates };
           if (newStatus) merged.status = newStatus;
           if (statusColor) merged.statusColor = statusColor;
+          if (!merged.pickupStaffId && user?.id) {
+            merged.pickupStaffId = user.id;
+            merged.pickupStaffName = user.name || 'Staff';
+          }
           return merged;
         }
         return order;
@@ -3977,6 +4201,10 @@ export const StoreProvider = ({ children }) => {
           const merged = { ...order, ...updates };
           if (newStatus) merged.status = newStatus;
           if (statusColor) merged.statusColor = statusColor;
+          if (!merged.pickupStaffId && user?.id) {
+            merged.pickupStaffId = user.id;
+            merged.pickupStaffName = user.name || 'Staff';
+          }
           return merged;
         }
         return order;
@@ -3988,6 +4216,25 @@ export const StoreProvider = ({ children }) => {
         await apiService.updateOrderStatus(orderId, newStatus);
       } catch (e) {}
     }
+    return true;
+  };
+
+  const verifyOrderDeposit = async (orderId) => {
+    setCustomerOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId || o.orderId === orderId
+          ? { ...o, paymentStatus: 'Verified', isPaymentVerified: true, depositVerifiedAt: new Date().toISOString() }
+          : o
+      )
+    );
+    setAdminOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId || o.orderId === orderId
+          ? { ...o, paymentStatus: 'Verified', isPaymentVerified: true, depositVerifiedAt: new Date().toISOString() }
+          : o
+      )
+    );
+    addToast('Deposit Verified 💳', `Payment deposit for order ${orderId} has been verified.`);
     return true;
   };
 
@@ -4209,6 +4456,7 @@ export const StoreProvider = ({ children }) => {
         deleteBranch,
         toggleBranchStatus,
         updateOrderFulfillment,
+        verifyOrderDeposit,
         assignPickupStaffToOrder,
         currentBranch,
         setCurrentBranch,

@@ -21,8 +21,8 @@ const getAuthHeaders = (extraHeaders = {}) => {
   };
   try {
     const token =
-      localStorage.getItem('freshmart_vendor_token') ||
       localStorage.getItem('freshmart_admin_token') ||
+      localStorage.getItem('freshmart_vendor_token') ||
       localStorage.getItem('freshmart_token') ||
       localStorage.getItem('freshmart_jwt') ||
       localStorage.getItem('token');
@@ -52,6 +52,19 @@ export const apiService = {
         body: JSON.stringify({ email, password })
       });
       return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message, isNetworkError: true };
+    }
+  },
+
+  async createPickupStaff(staffData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/pickup-staff`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(staffData)
+      });
+      return { ...(await handleResponse(res)), httpStatus: res.status };
     } catch (e) {
       return { success: false, error: e.message, isNetworkError: true };
     }
@@ -231,12 +244,12 @@ export const apiService = {
     }
   },
 
-  async updateOrderStatus(id, status) {
+  async updateOrderStatus(id, status, updates = {}) {
     try {
       const res = await fetch(`${API_BASE_URL}/orders/${id}/status`, {
         method: 'PUT',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ ...updates, status })
       });
       return await handleResponse(res);
     } catch (e) {

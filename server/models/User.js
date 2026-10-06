@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema(
       enum: ['customer', 'admin', 'superadmin', 'rider', 'supplier', 'pickup_staff', 'staff'],
       default: 'customer'
     },
+    staffId: {
+      type: String,
+      index: true
+    },
     tenantId: {
       type: String,
       index: true,

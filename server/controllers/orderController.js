@@ -339,13 +339,29 @@ export const createOrder = async (req, res) => {
 // @route   GET /api/orders
 export const getOrders = async (req, res) => {
   try {
-    if (isDbOnline()) {
-      const orders = await Order.find({}).sort({ createdAt: -1 });
-      if (orders && orders.length > 0) {
-        return res.json({ success: true, count: orders.length, orders });
-      }
+    const role = req.user?.role;
+    const isAdmin = role === 'admin' || role === 'superadmin';
+    const staffId = req.user?.staffId || req.user?.id;
+    const riderId = req.user?.riderId || req.user?.id;
+    if (!isAdmin && role !== 'pickup_staff' && role !== 'rider') {
+      return res.status(403).json({ success: false, message: 'Access denied: staff or admin account required.' });
     }
-    res.json({ success: true, count: 0, orders: [] });
+
+    const filter = {};
+    if (role === 'pickup_staff') filter.pickupStaffId = staffId;
+    if (role === 'rider') filter['assignedRider.id'] = riderId;
+    if (role === 'admin' && req.user?.tenantId) filter.tenantId = req.user.tenantId;
+
+    if (isDbOnline()) {
+      const orders = await Order.find(filter).sort({ createdAt: -1 });
+      return res.json({ success: true, count: orders.length, orders });
+    }
+
+    let orders = [...ADMIN_ORDERS_FULL];
+    if (role === 'pickup_staff') orders = orders.filter((order) => String(order.pickupStaffId) === String(staffId));
+    if (role === 'rider') orders = orders.filter((order) => String(order.assignedRider?.id || order.assignedRider?.riderId) === String(riderId));
+    if (role === 'admin' && req.user?.tenantId) orders = orders.filter((order) => !order.tenantId || order.tenantId === req.user.tenantId);
+    return res.json({ success: true, count: orders.length, orders });
   } catch (error) {
     res.json({ success: true, count: 0, orders: [] });
   }
@@ -663,6 +679,50 @@ export const updateRiderLocation = async (req, res) => {
 export const updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
+    const updates = req.body || {};
+    const role = req.user?.role;
+    const staffId = req.user?.staffId || req.user?.id;
+    const riderId = req.user?.riderId || req.user?.id;
+    const pickupStatuses = new Set(['Received by Pickup Staff', 'Picking', 'Packed', 'Parcel Verified', 'Ready for Dispatch']);
+    const metadataFields = [
+      'pickupStaffId', 'pickupStaffName', 'pickupStaffUsername', 'pickupAssignedAt', 'deliveredToStaffAt',
+      'pickupStep', 'pickupAcceptedAt', 'pickingStartedAt', 'pickedItems', 'parcelCode', 'packedAt',
+      'sealedAt', 'parcelVerifiedAt', 'readyForDispatchAt', 'dispatchedAt', 'fulfillmentStage',
+      'fulfillmentUpdatedAt', 'fulfillmentUpdatedBy', 'isDispatched', 'dispatchStatus', 'assignedRider'
+    ];
+    const applyUpdate = (order) => {
+      const isAdmin = role === 'admin' || role === 'superadmin';
+      if (role === 'pickup_staff') {
+        if (String(order.pickupStaffId) !== String(staffId) || (req.user?.tenantId && order.tenantId && req.user.tenantId !== order.tenantId)) return false;
+        if (!pickupStatuses.has(status)) return false;
+        const currentStage = Number(order.fulfillmentStage || 1);
+        const nextStage = updates.fulfillmentStage === undefined ? currentStage : Number(updates.fulfillmentStage);
+        if (nextStage < currentStage || nextStage > currentStage + 1) return false;
+        if (status === 'Packed' && Array.isArray(order.orderItems) && order.orderItems.length && (updates.pickedItems || []).length < order.orderItems.length) return false;
+        if (status === 'Parcel Verified' && order.pickupStep !== 'packed') return false;
+        if (status === 'Ready for Dispatch' && order.pickupStep !== 'verified') return false;
+      } else if (role === 'rider') {
+        const assignedId = order.assignedRider?.id || order.assignedRider?.riderId;
+        if (String(assignedId) !== String(riderId)) return false;
+        const nextByStatus = {
+          'Ready for Dispatch': 'Dispatched',
+          Dispatched: 'Out for Delivery',
+          'Out for Delivery': 'Arrived at Customer'
+        };
+        if (nextByStatus[order.status] !== status) return false;
+      } else if (!isAdmin) {
+        return false;
+      }
+
+      order.status = status;
+      for (const field of metadataFields) {
+        if (Object.prototype.hasOwnProperty.call(updates, field)) order[field] = updates[field];
+      }
+      if (!updates.fulfillmentUpdatedAt && ['pickup_staff', 'rider'].includes(role)) order.fulfillmentUpdatedAt = new Date();
+      order.timeline = buildDynamicTimeline(order);
+      return true;
+    };
+
     if (isDbOnline()) {
       const order = await Order.findOne({
         $or: [
@@ -675,8 +735,9 @@ export const updateOrderStatus = async (req, res) => {
       });
       if (order) {
         const previousStatus = order.status;
-        order.status = status;
-        order.timeline = buildDynamicTimeline(order);
+        if (!applyUpdate(order)) {
+          return res.status(403).json({ success: false, message: 'You cannot update this order or skip its fulfillment steps.' });
+        }
         const updated = await order.save();
 
         // If order was cancelled, restore inventory
@@ -706,14 +767,16 @@ export const updateOrderStatus = async (req, res) => {
       }
     }
 
-    const memOrder = ADMIN_ORDERS_FULL.find((o) => o.id === req.params.id || o.orderId === req.params.id);
+    const cleanId = String(req.params.id).replace(/^#/, '');
+    const memOrder = ADMIN_ORDERS_FULL.find((o) => o.id === req.params.id || o.orderId === req.params.id || String(o.id || '').replace(/^#/, '') === cleanId || String(o.orderId || '').replace(/^#/, '') === cleanId);
     if (memOrder) {
-      memOrder.status = status;
-      memOrder.timeline = buildDynamicTimeline(memOrder);
+      if (!applyUpdate(memOrder)) {
+        return res.status(403).json({ success: false, message: 'You cannot update this order or skip its fulfillment steps.' });
+      }
       return res.json({ success: true, message: `Status updated to ${status}`, order: memOrder });
     }
 
-    res.json({ success: true, message: `Status updated to ${status}` });
+    return res.status(404).json({ success: false, message: 'Order not found' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -824,5 +887,3 @@ export const verifyDeliveryOtp = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
-
-

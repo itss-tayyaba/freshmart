@@ -2,7 +2,8 @@ import express from 'express';
 import {
   registerUser,
   loginUser,
-  getUserProfile
+  getUserProfile,
+  createPickupStaff
 } from '../controllers/authController.js';
 import {
   getProducts,
@@ -108,6 +109,7 @@ const router = express.Router();
 // --- Auth Routes (Rate Limited & Validated) ---
 router.post('/auth/register', authLimiter, validate(registerSchema), registerUser);
 router.post('/auth/login', authLimiter, validate(loginSchema), loginUser);
+router.post('/auth/pickup-staff', protect, adminOnly, createPickupStaff);
 router.get('/auth/profile', protect, getUserProfile);
 
 // --- Products Routes ---
@@ -135,8 +137,8 @@ router.get('/orders/track/:orderId', trackOrder);
 router.put('/orders/:id/assign-rider', assignRiderToOrder);
 router.put('/orders/:id/rider-location', updateRiderLocation);
 router.post('/orders/:id/verify-delivery-otp', verifyDeliveryOtp);
-router.get('/orders', protect, adminOnly, getOrders);
-router.put('/orders/:id/status', protect, adminOnly, validate(updateOrderStatusSchema), updateOrderStatus);
+router.get('/orders', protect, getOrders);
+router.put('/orders/:id/status', protect, validate(updateOrderStatusSchema), updateOrderStatus);
 
 // --- Inventory Routes ---
 // Admin Locked & Validated: Viewing warehouse stocks and restocking items

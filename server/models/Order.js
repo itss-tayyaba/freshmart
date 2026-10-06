@@ -138,9 +138,29 @@ const orderSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Pending', 'Confirmed', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'],
+      enum: ['Pending', 'Confirmed', 'Preparing', 'Received by Pickup Staff', 'Picking', 'Packed', 'Parcel Verified', 'Ready for Dispatch', 'Dispatched', 'Out for Delivery', 'Arrived at Customer', 'Delivered to Staff', 'Deliver to Staff', 'Delivered', 'Cancelled'],
       default: 'Confirmed'
     },
+    pickupStaffId: { type: String, index: true },
+    pickupStaffName: { type: String },
+    pickupStaffUsername: { type: String },
+    pickupAssignedAt: { type: Date },
+    deliveredToStaffAt: { type: Date },
+    pickupStep: { type: String },
+    pickupAcceptedAt: { type: Date },
+    pickingStartedAt: { type: Date },
+    pickedItems: [{ type: Number }],
+    parcelCode: { type: String },
+    packedAt: { type: Date },
+    sealedAt: { type: Date },
+    parcelVerifiedAt: { type: Date },
+    readyForDispatchAt: { type: Date },
+    dispatchedAt: { type: Date },
+    fulfillmentStage: { type: Number, default: 1, index: true },
+    fulfillmentUpdatedAt: { type: Date },
+    fulfillmentUpdatedBy: { type: String },
+    isDispatched: { type: Boolean, default: false },
+    dispatchStatus: { type: String },
     assignedRider: {
       type: assignedRiderSchema,
       default: null
@@ -161,4 +181,3 @@ const orderSchema = new mongoose.Schema(
 );
 
 export const Order = mongoose.model('Order', orderSchema);
-

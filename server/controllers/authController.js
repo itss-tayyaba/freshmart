@@ -3,9 +3,9 @@ import { User } from '../models/User.js';
 import { Supplier, Rider } from '../models/ExtraModels.js';
 import { isDbOnline } from '../config/db.js';
 
-const generateToken = (id, role = 'customer', email = '', name = '', vendorId = undefined) => {
+const generateToken = (id, role = 'customer', email = '', name = '', vendorId = undefined, extraClaims = {}) => {
   return jwt.sign(
-    { id, role, email, name, ...(vendorId ? { vendorId } : {}) },
+    { id, role, email, name, ...(vendorId ? { vendorId } : {}), ...extraClaims },
     process.env.JWT_SECRET || 'freshmart_secret_key_2026',
     { expiresIn: '30d' }
   );
@@ -73,6 +73,9 @@ export const loginUser = async (req, res) => {
     }
 
     const cleanInput = email.toLowerCase().trim();
+    const pickupUsername = cleanInput.endsWith('@pickup.freshmart.pk')
+      ? cleanInput.slice(0, -'@pickup.freshmart.pk'.length)
+      : cleanInput;
 
     if (isDbOnline()) {
       // 1. Check User model (Customers & Admins)
@@ -97,7 +100,12 @@ export const loginUser = async (req, res) => {
             role: user.role,
             address: user.address,
             phone: user.phone,
-            token: generateToken(user._id, user.role, user.email, user.name)
+            staffId: user.staffId,
+            tenantId: user.tenantId,
+            token: generateToken(user.staffId || user._id, user.role, user.email, user.name, undefined, {
+              ...(user.staffId ? { staffId: user.staffId } : {}),
+              ...(user.tenantId ? { tenantId: user.tenantId } : {})
+            })
           });
         }
       }
@@ -199,7 +207,7 @@ export const loginUser = async (req, res) => {
         role: 'admin',
         tenantId: t.id,
         tenantName: t.name,
-        token: generateToken(`admin-${t.id}`, 'admin', cleanInput, `${t.name} Admin`)
+        token: generateToken(`admin-${t.id}`, 'admin', cleanInput, `${t.name} Admin`, undefined, { tenantId: t.id })
       });
     }
 
@@ -238,7 +246,7 @@ export const loginUser = async (req, res) => {
 
     // Default pickup staff fallback credentials (e.g. staff / staff123)
     if (
-      (cleanInput === 'staff' || cleanInput === 'pickup' || cleanInput === 'rizwan_pack' || cleanInput.includes('staff')) &&
+      (pickupUsername === 'staff' || pickupUsername === 'pickup' || pickupUsername === 'rizwan_pack' || pickupUsername.includes('staff')) &&
       (password === 'staff123' || password === 'admin123' || password === 'pickup123')
     ) {
       return res.json({
@@ -248,13 +256,45 @@ export const loginUser = async (req, res) => {
         name: 'Pickup Staff',
         username: cleanInput,
         role: 'pickup_staff',
-        token: generateToken('staff-root', 'pickup_staff', `${cleanInput}@freshmart.pk`, 'Pickup Staff')
+        token: generateToken('PCK-101', 'pickup_staff', `${pickupUsername}@pickup.freshmart.pk`, 'Pickup Staff', undefined, { staffId: 'PCK-101', tenantId: 'tenant-freshmart' })
       });
     }
 
     return res.status(401).json({ success: false, message: 'Invalid email or password' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Create a pickup staff account that can authenticate from any device
+// @route   POST /api/auth/pickup-staff
+export const createPickupStaff = async (req, res) => {
+  try {
+    if (!isDbOnline()) {
+      return res.status(503).json({ success: false, message: 'Database is unavailable; this account cannot be shared across devices.' });
+    }
+
+    const name = String(req.body.name || '').trim();
+    const username = String(req.body.username || '').trim().toLowerCase();
+    const password = String(req.body.password || '').trim();
+    const phone = String(req.body.phone || '').trim();
+    const tenantId = String(req.body.tenantId || req.user?.tenantId || 'tenant-freshmart');
+    const staffId = String(req.body.staffId || `PCK-${Date.now().toString(36).toUpperCase()}`);
+    if (!name || !username || password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Name, username, and a password of at least 6 characters are required.' });
+    }
+
+    const email = `${username}@pickup.freshmart.pk`;
+    if (await User.findOne({ $or: [{ email }, { staffId }] })) {
+      return res.status(409).json({ success: false, message: 'Pickup staff username already exists.' });
+    }
+    const staff = await User.create({ name, email, password, phone, role: 'pickup_staff', staffId, tenantId });
+    return res.status(201).json({
+      success: true,
+      staff: { id: staff.staffId, staffId: staff.staffId, name: staff.name, username, email, phone, tenantId, role: staff.role, status: 'Active' }
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 

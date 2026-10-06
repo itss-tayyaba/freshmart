@@ -55,6 +55,9 @@ export const protect = async (req, res, next) => {
           name: decoded.name || 'Store User',
           email: decoded.email || 'user@freshmart.com',
           role: decoded.role || (decoded.id === 'admin-root' ? 'admin' : 'customer'),
+          staffId: decoded.staffId,
+          riderId: decoded.riderId,
+          tenantId: decoded.tenantId,
           vendorId: decoded.vendorId || (decoded.role === 'vendor' || decoded.role === 'supplier' ? (decoded.id || 'VND-101') : undefined)
         };
         return next();
@@ -109,4 +112,3 @@ export const protectVendor = (req, res, next) => {
   req.user.vendorId = userVendorId;
   return next();
 };
-
