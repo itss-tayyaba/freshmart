@@ -281,7 +281,7 @@ export const DeliveryView = () => {
       {/* ===================================================================== */}
       {/* 2. KEY FLEET KPI STATS (4 Vibrant Gradient Cards)                      */}
       {/* ===================================================================== */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         
         {/* Card 1: Pending Orders */}
         <div className="bg-gradient-to-br from-amber-500/10 via-amber-50/40 to-white rounded-3xl p-5 border border-amber-200/90 shadow-xs hover:shadow-md transition-all space-y-3 group hover:border-amber-400">
@@ -349,27 +349,6 @@ export const DeliveryView = () => {
           </div>
         </div>
 
-        {/* Card 4: Avg Speed SLA */}
-        <div className="bg-gradient-to-br from-purple-500/10 via-purple-50/40 to-white rounded-3xl p-5 border border-purple-200/90 shadow-xs hover:shadow-md transition-all space-y-3 group hover:border-purple-400">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-purple-800">
-              Avg Delivery Speed
-            </span>
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-purple-500/20 group-hover:scale-110 transition-transform">
-              ⚡
-            </div>
-          </div>
-          <div>
-            <div className="text-3xl font-black text-slate-900 font-mono">
-              18.5 <span className="text-sm font-bold text-slate-400">Mins</span>
-            </div>
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">Dark Store Express Dispatch</p>
-          </div>
-          <div className="pt-2 border-t border-purple-200/60 flex items-center gap-1 text-[10px] font-bold text-purple-700">
-            <Zap className="w-3 h-3 text-purple-600" />
-            <span>Guaranteed Express SLA</span>
-          </div>
-        </div>
 
       </div>
 
