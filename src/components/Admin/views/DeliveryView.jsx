@@ -140,6 +140,7 @@ export const DeliveryView = () => {
   const [isCustomRegion, setIsCustomRegion] = useState(false);
   const [customRegionName, setCustomRegionName] = useState('');
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [showAdvancedRiderOptions, setShowAdvancedRiderOptions] = useState(false);
   const [newRiderForm, setNewRiderForm] = useState({
     name: '',
     phone: '',
@@ -292,33 +293,39 @@ export const DeliveryView = () => {
       return;
     }
 
-    const lat = Number(newRiderForm.latitude);
-    const lng = Number(newRiderForm.longitude);
+    const foundRegion = PAKISTAN_REGIONS.find((r) => r.name === newRiderForm.region);
+    let lat = Number(newRiderForm.latitude);
+    let lng = Number(newRiderForm.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      addToast('Invalid Coordinates', 'Please enter valid numerical latitude and longitude.', 'error');
-      return;
+      lat = foundRegion ? foundRegion.latitude : 31.5204;
+      lng = foundRegion ? foundRegion.longitude : 74.3587;
     }
 
     const finalRegion = isCustomRegion
       ? (customRegionName.trim() || 'Custom Region')
       : (newRiderForm.region || newRiderForm.zone || 'Lahore - Gulberg / Main Hub');
 
-    const generatedUsername = newRiderForm.username.trim() || newRiderForm.name.toLowerCase().replace(/\s+/g, '_');
+    const generatedUsername =
+      newRiderForm.username.trim() ||
+      newRiderForm.phone.trim().replace(/[^0-9]/g, '') ||
+      newRiderForm.name.toLowerCase().replace(/\s+/g, '_');
     const generatedPassword = newRiderForm.password.trim() || 'rider123';
+    const generatedPlate =
+      newRiderForm.vehicleNumber.trim() || `LEK-${Math.floor(1000 + Math.random() * 9000)}`;
 
     addRider({
       name: newRiderForm.name.trim(),
       phone: newRiderForm.phone.trim(),
-      vehicleType: newRiderForm.vehicleType,
-      vehicleNumber: newRiderForm.vehicleNumber.trim() || `LEK-${Math.floor(1000 + Math.random() * 9000)}`,
+      vehicleType: newRiderForm.vehicleType || '🏍️ Honda 125',
+      vehicleNumber: generatedPlate,
       region: finalRegion,
       zone: finalRegion,
       latitude: lat,
       longitude: lng,
       coordinates: { lat, lng },
       coverageRadiusKm: Number(newRiderForm.coverageRadiusKm || 15),
-      status: newRiderForm.status,
-      cnic: newRiderForm.cnic.trim(),
+      status: newRiderForm.status || 'On-Duty',
+      cnic: newRiderForm.cnic ? newRiderForm.cnic.trim() : '',
       username: generatedUsername,
       password: generatedPassword,
       deliveriesCount: 0,
@@ -328,6 +335,7 @@ export const DeliveryView = () => {
     setIsAddRiderModalOpen(false);
     setIsCustomRegion(false);
     setCustomRegionName('');
+    setShowAdvancedRiderOptions(false);
     setNewRiderForm({
       name: '',
       phone: '',
@@ -1301,65 +1309,151 @@ export const DeliveryView = () => {
       )}
 
       {/* ===================================================================== */}
-      {/* MODAL: ADMIN ADD NEW RIDER                                            */}
+      {/* MODAL: ADMIN ADD NEW RIDER (STREAMLINED & PROFESSIONAL)              */}
       {/* ===================================================================== */}
       {isAddRiderModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 text-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl flex flex-col max-h-[90vh] border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200 text-xs">
             
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-emerald-900/20">
+            {/* Modal Header (Fixed at top) */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center text-xl shadow-md shadow-emerald-900/15">
                   🛵
                 </div>
                 <div>
-                  <h3 className="font-black text-base text-slate-900">Register New Delivery Rider</h3>
-                  <p className="text-[11px] text-slate-500">Add courier personnel into the FreshMart delivery fleet</p>
+                  <h3 className="font-black text-base text-slate-900 tracking-tight">Register Delivery Rider</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">Add courier to dispatch fleet</p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setIsAddRiderModalOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors"
+                className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center cursor-pointer transition-colors"
+                aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleAddRiderSubmit} className="space-y-3.5">
+            {/* Modal Form */}
+            <form onSubmit={handleAddRiderSubmit} className="flex flex-col flex-1 min-h-0">
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Scrollable Form Body */}
+              <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                
+                {/* 1. Full Name */}
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Rider Full Name *</label>
+                  <label className="font-bold text-slate-700 block mb-1 text-xs">
+                    Rider Full Name <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Usman Farooq"
                     value={newRiderForm.name}
                     onChange={(e) => setNewRiderForm({ ...newRiderForm, name: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all"
                   />
                 </div>
 
+                {/* 2. Phone Number */}
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Phone Number (Mobile) *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. 0300-1234567"
-                    value={newRiderForm.phone}
-                    onChange={(e) => setNewRiderForm({ ...newRiderForm, phone: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-semibold font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
+                  <label className="font-bold text-slate-700 block mb-1 text-xs">
+                    Phone Number (Mobile) <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-xs">🇵🇰</span>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="0300-1234567"
+                      value={newRiderForm.phone}
+                      onChange={(e) => setNewRiderForm({ ...newRiderForm, phone: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-2.5 font-mono font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 3. Delivery Region / Zone */}
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Vehicle Type</label>
+                  <label className="font-bold text-slate-700 block mb-1 text-xs">
+                    Delivery Region / Zone <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={isCustomRegion ? 'custom' : (newRiderForm.region || newRiderForm.zone)}
+                    onChange={handleRegionChange}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none cursor-pointer transition-all"
+                  >
+                    <optgroup label="Lahore Hubs">
+                      <option value="Lahore - Gulberg / Main Hub">Lahore - Gulberg / Main Hub</option>
+                      <option value="Lahore - DHA Phase 5 & 6">Lahore - DHA Phase 5 & 6</option>
+                      <option value="Lahore - Johar Town & Model Town">Lahore - Johar Town & Model Town</option>
+                      <option value="Lahore - Bahria Town & Canal Road">Lahore - Bahria Town & Canal Road</option>
+                      <option value="Lahore - Cantt & Mall Road">Lahore - Cantt & Mall Road</option>
+                      <option value="Lahore - Faisal Town & Garden Town">Lahore - Faisal Town & Garden Town</option>
+                    </optgroup>
+                    <optgroup label="Karachi Hubs">
+                      <option value="Karachi - Clifton Block 2-5">Karachi - Clifton Block 2-5</option>
+                      <option value="Karachi - DHA Phase 6 & 8">Karachi - DHA Phase 6 & 8</option>
+                      <option value="Karachi - Gulshan-e-Iqbal">Karachi - Gulshan-e-Iqbal</option>
+                      <option value="Karachi - North Nazimabad">Karachi - North Nazimabad</option>
+                      <option value="Karachi - PECHS & Tariq Road">Karachi - PECHS & Tariq Road</option>
+                    </optgroup>
+                    <optgroup label="Islamabad & Rawalpindi">
+                      <option value="Islamabad - F-6 / F-7 / Blue Area">Islamabad - F-6 / F-7 / Blue Area</option>
+                      <option value="Islamabad - G-10 / G-11 / F-10">Islamabad - G-10 / G-11 / F-10</option>
+                      <option value="Islamabad - DHA & Bahria Enclave">Islamabad - DHA & Bahria Enclave</option>
+                      <option value="Rawalpindi - Saddar / Cantt">Rawalpindi - Saddar / Cantt</option>
+                      <option value="Rawalpindi - Bahria Town Phase 1-8">Rawalpindi - Bahria Town Phase 1-8</option>
+                    </optgroup>
+                    <optgroup label="Other Metros">
+                      <option value="Faisalabad - D Ground Commercial">Faisalabad - D Ground Commercial</option>
+                      <option value="Faisalabad - Peoples Colony No 1 & 2">Faisalabad - Peoples Colony No 1 & 2</option>
+                      <option value="Multan - Bosan Road & Gulgasht">Multan - Bosan Road & Gulgasht</option>
+                      <option value="Peshawar - University Town & Hayatabad">Peshawar - University Town & Hayatabad</option>
+                      <option value="Gujranwala - Model Town & DC Colony">Gujranwala - Model Town & DC Colony</option>
+                      <option value="Sialkot - Cantt & Paris Road">Sialkot - Cantt & Paris Road</option>
+                    </optgroup>
+                    <optgroup label="Custom Area">
+                      <option value="custom">📍 + Custom Region (Specify manually)</option>
+                    </optgroup>
+                  </select>
+
+                  {/* Auto GPS Assigned Badge */}
+                  {!isCustomRegion && (
+                    <div className="mt-1.5 flex items-center justify-between text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200/80 rounded-lg px-2.5 py-1.5 font-medium">
+                      <span className="flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Auto GPS: <strong>{newRiderForm.latitude || '31.5204'}° N, {newRiderForm.longitude || '74.3587'}° E</strong></span>
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-600 uppercase">15 km radius</span>
+                    </div>
+                  )}
+
+                  {isCustomRegion && (
+                    <div className="mt-2 space-y-2">
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Wapda Town, Lahore"
+                        value={customRegionName}
+                        onChange={(e) => handleCustomRegionNameChange(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 font-semibold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* 4. Vehicle Type */}
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1 text-xs">
+                    Vehicle Type
+                  </label>
                   <select
                     value={newRiderForm.vehicleType}
                     onChange={(e) => setNewRiderForm({ ...newRiderForm, vehicleType: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer transition-all"
                   >
                     <option value="🏍️ Honda 125">🏍️ Honda 125 Motorbike</option>
                     <option value="🏍️ Yamaha YBR">🏍️ Yamaha YBR</option>
@@ -1369,216 +1463,111 @@ export const DeliveryView = () => {
                   </select>
                 </div>
 
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Vehicle Plate Number</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. LEK-9842"
-                    value={newRiderForm.vehicleNumber}
-                    onChange={(e) => setNewRiderForm({ ...newRiderForm, vehicleNumber: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Region and Delivery Coordinates (Auto-populates Lat/Lng) */}
-              <div className="space-y-3 rounded-2xl bg-slate-50 border border-slate-200 p-3.5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="font-bold text-slate-800 block text-xs">Region / Delivery Zone *</label>
-                    <p className="text-[10px] text-slate-500">Pick an operational hub or specify custom area. GPS coordinates are automatically saved.</p>
-                  </div>
+                {/* Collapsible: Optional Advanced Settings */}
+                <div className="pt-1">
                   <button
                     type="button"
-                    onClick={handleDetectCurrentLocation}
-                    disabled={isDetectingLocation}
-                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0 shadow-2xs"
-                    title="Detect current device GPS coordinates"
+                    onClick={() => setShowAdvancedRiderOptions(!showAdvancedRiderOptions)}
+                    className="w-full py-1.5 text-[11px] font-bold text-slate-500 hover:text-emerald-700 flex items-center justify-between border-t border-slate-100 cursor-pointer transition-colors"
                   >
-                    <Navigation className={`w-3 h-3 ${isDetectingLocation ? 'animate-spin' : ''}`} />
-                    <span>{isDetectingLocation ? 'Locating...' : 'Detect Live GPS'}</span>
-                  </button>
-                </div>
-
-                <div>
-                  <select
-                    value={isCustomRegion ? 'custom' : (newRiderForm.region || newRiderForm.zone)}
-                    onChange={handleRegionChange}
-                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-bold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
-                  >
-                    <optgroup label="Lahore Hubs">
-                      <option value="Lahore - Gulberg / Main Hub">Lahore - Gulberg / Main Hub (31.5204, 74.3587)</option>
-                      <option value="Lahore - DHA Phase 5 & 6">Lahore - DHA Phase 5 & 6 (31.4826, 74.4074)</option>
-                      <option value="Lahore - Johar Town & Model Town">Lahore - Johar Town & Model Town (31.4697, 74.2728)</option>
-                      <option value="Lahore - Bahria Town & Canal Road">Lahore - Bahria Town & Canal Road (31.3673, 74.1787)</option>
-                      <option value="Lahore - Cantt & Mall Road">Lahore - Cantt & Mall Road (31.5546, 74.3572)</option>
-                      <option value="Lahore - Faisal Town & Garden Town">Lahore - Faisal Town & Garden Town (31.4872, 74.3129)</option>
-                    </optgroup>
-                    <optgroup label="Karachi Hubs">
-                      <option value="Karachi - Clifton Block 2-5">Karachi - Clifton Block 2-5 (24.8270, 67.0251)</option>
-                      <option value="Karachi - DHA Phase 6 & 8">Karachi - DHA Phase 6 & 8 (24.8010, 67.0680)</option>
-                      <option value="Karachi - Gulshan-e-Iqbal">Karachi - Gulshan-e-Iqbal (24.9180, 67.0971)</option>
-                      <option value="Karachi - North Nazimabad">Karachi - North Nazimabad (24.9312, 67.0372)</option>
-                      <option value="Karachi - PECHS & Tariq Road">Karachi - PECHS & Tariq Road (24.8716, 67.0599)</option>
-                    </optgroup>
-                    <optgroup label="Islamabad & Rawalpindi">
-                      <option value="Islamabad - F-6 / F-7 / Blue Area">Islamabad - F-6 / F-7 / Blue Area (33.7215, 73.0565)</option>
-                      <option value="Islamabad - G-10 / G-11 / F-10">Islamabad - G-10 / G-11 / F-10 (33.6844, 73.0479)</option>
-                      <option value="Islamabad - DHA & Bahria Enclave">Islamabad - DHA & Bahria Enclave (33.5353, 73.1895)</option>
-                      <option value="Rawalpindi - Saddar / Cantt">Rawalpindi - Saddar / Cantt (33.5973, 73.0479)</option>
-                      <option value="Rawalpindi - Bahria Town Phase 1-8">Rawalpindi - Bahria Town Phase 1-8 (33.5138, 73.0977)</option>
-                    </optgroup>
-                    <optgroup label="Faisalabad Hubs">
-                      <option value="Faisalabad - D Ground Commercial">Faisalabad - D Ground Commercial (31.4110, 73.0980)</option>
-                      <option value="Faisalabad - Peoples Colony No 1 & 2">Faisalabad - Peoples Colony No 1 & 2 (31.4050, 73.1090)</option>
-                      <option value="Faisalabad - Madina Town & Kohinoor">Faisalabad - Madina Town & Kohinoor (31.4326, 73.1118)</option>
-                    </optgroup>
-                    <optgroup label="Multan & Peshawar">
-                      <option value="Multan - Bosan Road & Gulgasht">Multan - Bosan Road & Gulgasht (30.2244, 71.4889)</option>
-                      <option value="Multan - Cantt & Abdali Road">Multan - Cantt & Abdali Road (30.1984, 71.4687)</option>
-                      <option value="Peshawar - University Town & Hayatabad">Peshawar - University Town & Hayatabad (34.0151, 71.5249)</option>
-                    </optgroup>
-                    <optgroup label="Other Metros">
-                      <option value="Gujranwala - Model Town & DC Colony">Gujranwala - Model Town & DC Colony (32.1877, 74.1945)</option>
-                      <option value="Sialkot - Cantt & Paris Road">Sialkot - Cantt & Paris Road (32.4945, 74.5229)</option>
-                    </optgroup>
-                    <optgroup label="Custom Area">
-                      <option value="custom">📍 + Custom Region (Enter custom area & GPS)</option>
-                    </optgroup>
-                  </select>
-                </div>
-
-                {isCustomRegion && (
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1 text-[11px]">Custom Region / Area Name *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Wapda Town, Lahore or Clifton Block 9, Karachi"
-                      value={customRegionName}
-                      onChange={(e) => handleCustomRegionNameChange(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-semibold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    />
-                  </div>
-                )}
-
-                {/* GPS Coordinates Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1 text-[11px]">Latitude (° N) *</label>
-                    <input
-                      type="number"
-                      required
-                      min="-90"
-                      max="90"
-                      step="any"
-                      placeholder="31.5204"
-                      value={newRiderForm.latitude}
-                      onChange={(e) => setNewRiderForm({ ...newRiderForm, latitude: e.target.value })}
-                      className="w-full bg-white border border-slate-200 rounded-xl p-2 font-mono font-bold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1 text-[11px]">Longitude (° E) *</label>
-                    <input
-                      type="number"
-                      required
-                      min="-180"
-                      max="180"
-                      step="any"
-                      placeholder="74.3587"
-                      value={newRiderForm.longitude}
-                      onChange={(e) => setNewRiderForm({ ...newRiderForm, longitude: e.target.value })}
-                      className="w-full bg-white border border-slate-200 rounded-xl p-2 font-mono font-bold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1 text-[11px]">Coverage Radius (km) *</label>
-                    <input
-                      type="number"
-                      required
-                      min="1"
-                      max="100"
-                      placeholder="15"
-                      value={newRiderForm.coverageRadiusKm}
-                      onChange={(e) => setNewRiderForm({ ...newRiderForm, coverageRadiusKm: e.target.value })}
-                      className="w-full bg-white border border-slate-200 rounded-xl p-2 font-mono font-bold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Live GPS Verification Badge */}
-                <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-xl p-2.5 flex items-center justify-between text-[11px]">
-                  <div className="flex items-center gap-1.5 text-emerald-950 font-semibold truncate">
-                    <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span className="truncate">
-                      GPS Saved: <strong>{newRiderForm.latitude || '0'}° N, {newRiderForm.longitude || '0'}° E</strong> ({newRiderForm.coverageRadiusKm || 15} km)
+                    <span className="flex items-center gap-1.5">
+                      <span>⚙️</span>
+                      <span>Optional Details (Plate, CNIC, GPS Coordinates)</span>
                     </span>
-                  </div>
-                  <a
-                    href={`https://www.google.com/maps?q=${newRiderForm.latitude || '31.5204'},${newRiderForm.longitude || '74.3587'}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-emerald-700 hover:text-emerald-900 font-bold underline flex items-center gap-1 shrink-0 ml-2"
-                  >
-                    <span>View Map</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
+                    {showAdvancedRiderOptions ? (
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+
+                  {showAdvancedRiderOptions && (
+                    <div className="mt-2.5 space-y-3 bg-slate-50/80 p-3 rounded-2xl border border-slate-200/80 animate-in fade-in duration-150">
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="font-bold text-slate-600 block mb-1 text-[10px]">Vehicle Plate</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. LEK-9842"
+                            value={newRiderForm.vehicleNumber}
+                            onChange={(e) => setNewRiderForm({ ...newRiderForm, vehicleNumber: e.target.value })}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2 font-mono font-semibold text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-600 block mb-1 text-[10px]">CNIC / National ID</label>
+                          <input
+                            type="text"
+                            placeholder="35201-1234567-1"
+                            value={newRiderForm.cnic}
+                            onChange={(e) => setNewRiderForm({ ...newRiderForm, cnic: e.target.value })}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2 font-mono font-semibold text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="font-bold text-slate-600 block mb-1 text-[10px]">Latitude (° N)</label>
+                          <input
+                            type="number"
+                            step="any"
+                            placeholder="31.5204"
+                            value={newRiderForm.latitude}
+                            onChange={(e) => setNewRiderForm({ ...newRiderForm, latitude: e.target.value })}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2 font-mono font-semibold text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-600 block mb-1 text-[10px]">Longitude (° E)</label>
+                          <input
+                            type="number"
+                            step="any"
+                            placeholder="74.3587"
+                            value={newRiderForm.longitude}
+                            onChange={(e) => setNewRiderForm({ ...newRiderForm, longitude: e.target.value })}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2 font-mono font-semibold text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <button
+                          type="button"
+                          onClick={handleDetectCurrentLocation}
+                          disabled={isDetectingLocation}
+                          className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Navigation className={`w-3 h-3 ${isDetectingLocation ? 'animate-spin' : ''}`} />
+                          <span>{isDetectingLocation ? 'Locating...' : 'Detect Device GPS'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">CNIC / National ID</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 35201-1234567-1"
-                  value={newRiderForm.cnic}
-                  onChange={(e) => setNewRiderForm({ ...newRiderForm, cnic: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              {/* Rider Portal Login Credentials (Set by Admin) */}
-              <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl space-y-2.5">
-                <span className="text-[11px] font-black text-emerald-800 uppercase tracking-wider block flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Rider Portal Login Credentials (Set by Admin)</span>
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1 text-[11px]">Rider Username / Login ID</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. usman_rider or 03001234567"
-                      value={newRiderForm.username}
-                      onChange={(e) => setNewRiderForm({ ...newRiderForm, username: e.target.value })}
-                      className="w-full bg-white border border-slate-200 rounded-xl p-2 font-mono font-semibold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1 text-[11px]">Rider Password</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. rider123"
-                      value={newRiderForm.password}
-                      onChange={(e) => setNewRiderForm({ ...newRiderForm, password: e.target.value })}
-                      className="w-full bg-white border border-slate-200 rounded-xl p-2 font-mono font-semibold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    />
-                  </div>
+                {/* Clean Login Notice */}
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-[11px] text-slate-500 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    Login credentials auto-created: Username is phone number, default password is <strong className="text-slate-700 font-mono">rider123</strong>.
+                  </span>
                 </div>
+
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+              {/* Modal Footer (Sticky & Always Visible at Bottom) */}
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsAddRiderModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs cursor-pointer transition-colors"
+                  className="px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl font-bold text-xs cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl font-black text-xs shadow-md shadow-emerald-900/20 transition-all cursor-pointer hover:scale-105"
+                  className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl font-black text-xs shadow-md shadow-emerald-900/20 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                 >
                   Register Rider 🛵
                 </button>
