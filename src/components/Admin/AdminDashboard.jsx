@@ -6,7 +6,6 @@ import {
   ShoppingBag,
   Users,
   Boxes,
-  Truck,
   Tag,
   BarChart3,
   Settings,
@@ -35,7 +34,6 @@ import { CustomersView } from './views/CustomersView';
 import { InventoryView } from './views/InventoryView';
 import { SuppliersView } from './views/SuppliersView';
 import { PromotionsView } from './views/PromotionsView';
-import { DeliveryView } from './views/DeliveryView';
 import { ReportsView } from './views/ReportsView';
 import { SettingsView } from './views/SettingsView';
 import { FulfillmentView } from './views/FulfillmentView';
@@ -61,11 +59,8 @@ export const AdminDashboard = () => {
   } = useStore();
   const [superAdminImpersonateMode, setSuperAdminImpersonateMode] = useState(false);
   
-  // Set initial activeTab based on logged-in role
-  const [activeTab, setActiveTab] = useState(() => {
-    if (adminRole === 'rider') return 'Delivery';
-    return 'Dashboard';
-  });
+  // Set initial activeTab
+  const [activeTab, setActiveTab] = useState('Dashboard');
 
   const [headerSearch, setHeaderSearch] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -79,11 +74,7 @@ export const AdminDashboard = () => {
   const [isCreatePromoOpen, setIsCreatePromoOpen] = useState(false);
 
   useEffect(() => {
-    if (adminRole === 'rider') {
-      setActiveTab('Delivery');
-    } else {
-      setActiveTab('Dashboard');
-    }
+    setActiveTab('Dashboard');
   }, [adminRole]);
 
   // If not logged in as Admin, show the Admin Login with Username/Password
@@ -103,8 +94,7 @@ export const AdminDashboard = () => {
 
   const roleMeta = {
     admin: { title: 'Store Admin', badge: '🛡️ Store Admin', tag: 'Full Control', iconBg: 'bg-emerald-600' },
-    supplier: { title: 'Supplier Partner', badge: '📦 Supplier Portal', tag: 'Supply & Invoices', iconBg: 'bg-indigo-600' },
-    rider: { title: 'Delivery Fleet', badge: '🛵 Delivery Dispatch', tag: 'Rider Operations', iconBg: 'bg-rose-600' }
+    supplier: { title: 'Supplier Partner', badge: '📦 Supplier Portal', tag: 'Supply & Invoices', iconBg: 'bg-indigo-600' }
   };
 
   const currentRoleInfo = roleMeta[adminRole] || roleMeta.admin;
@@ -129,13 +119,6 @@ export const AdminDashboard = () => {
         { label: 'Settings', icon: Settings, customName: 'Account Settings' }
       ];
     }
-    if (adminRole === 'rider') {
-      return [
-        { label: 'Delivery', icon: Truck, customName: 'Delivery Dispatch & GPS' },
-        { label: 'Orders', icon: ShoppingBag, customName: 'Assigned Parcels', badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-amber-500/20 text-amber-300' },
-        { label: 'Settings', icon: Settings, customName: 'Rider Settings' }
-      ];
-    }
     return [
       { label: 'Dashboard', icon: LayoutDashboard },
       { label: 'Products', icon: Package, badge: totalProductsCount > 0 ? totalProductsCount : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
@@ -146,7 +129,6 @@ export const AdminDashboard = () => {
       { label: 'Inventory', icon: Boxes, badge: lowStockCount > 0 ? lowStockCount : null, badgeColor: 'bg-rose-500/20 text-rose-300' },
       { label: 'Suppliers', icon: Building2 },
       { label: 'Promotions', icon: Tag },
-      { label: 'Delivery', icon: Truck },
       { label: 'Reports', icon: BarChart3 },
       { label: 'Settings', icon: Settings }
     ];
@@ -171,7 +153,7 @@ export const AdminDashboard = () => {
               🏬 {currentTenant?.name || 'Store'} Admin Mode
             </span>
             <span className="hidden md:inline font-normal text-slate-900">
-              — Managing live products, inventory, orders & riders for this supermarket
+              — Managing live products, inventory, orders & fulfillment for this supermarket
             </span>
           </div>
           <button
@@ -510,7 +492,6 @@ export const AdminDashboard = () => {
           {activeTab === 'Promotions' && (
             <PromotionsView onOpenCreatePromotionModal={() => setIsCreatePromoOpen(true)} />
           )}
-          {activeTab === 'Delivery' && <DeliveryView />}
           {activeTab === 'Reports' && <ReportsView />}
           {activeTab === 'Settings' && <SettingsView />}
         </main>

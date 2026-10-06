@@ -109,7 +109,7 @@ export const FulfillmentView = () => {
     { id: '2', label: '2. Packing Queue', count: kpis.queue },
     { id: '3', label: '3. Shelf Picking', count: kpis.packing },
     { id: '4', label: '4. Ready Dispatch', count: allOrders.filter((o) => o.fulfillmentStage === 4).length },
-    { id: '5', label: '5. Rider Matching', count: allOrders.filter((o) => o.fulfillmentStage === 5).length },
+    { id: '5', label: '5. Courier Dispatch', count: allOrders.filter((o) => o.fulfillmentStage === 5).length },
     { id: '6', label: '6. In Transit', count: kpis.inTransit },
     { id: '7', label: '7. Delivered', count: kpis.delivered }
   ];
@@ -244,7 +244,7 @@ export const FulfillmentView = () => {
                   <th className="pb-3">Packing SLA</th>
                   <th className="pb-3">Items</th>
                   <th className="pb-3">Current Pipeline Stage</th>
-                  <th className="pb-3">Staging / Rider</th>
+                  <th className="pb-3">Staging / Dispatch</th>
                   <th className="pb-3 text-right pr-2">Action</th>
                 </tr>
               </thead>
@@ -265,7 +265,7 @@ export const FulfillmentView = () => {
                     2: '2. Packing Queue',
                     3: '3. Shelf Picking',
                     4: '4. Ready Dispatch',
-                    5: '5. Rider Matching',
+                    5: '5. Courier Dispatch',
                     6: '6. Out for Delivery',
                     7: '7. Delivered (OTP)'
                   };
@@ -328,10 +328,10 @@ export const FulfillmentView = () => {
                         </span>
                       </td>
 
-                      {/* Staging / Rider */}
+                      {/* Staging / Dispatch */}
                       <td className="py-4">
                         <span className="text-[11px] font-bold text-slate-800 block">
-                          {ord.assignedRider?.name ? `🛵 ${ord.assignedRider.name}` : (ord.stagingBay || 'Staging Bay #2')}
+                          {ord.assignedRider?.name ? `🚚 ${ord.assignedRider.name}` : (ord.stagingBay || 'Staging Bay #2')}
                         </span>
                         <span className="text-[10px] text-slate-400 font-mono">
                           {ord.parcelCode || (ord.fulfillmentStage >= 4 ? 'PRCL-SEALED' : 'Awaiting seal')}

@@ -74,17 +74,6 @@ export const AdminLogin = () => {
       passPlaceholder: 'cocacola123',
       defaultUser: 'tayyab',
       defaultPass: 'cocacola123'
-    },
-    {
-      id: 'rider',
-      label: 'Rider Fleet',
-      icon: '🛵',
-      sublabel: 'Fulfillment',
-      badge: 'Delivery Dispatch',
-      userPlaceholder: 'rider',
-      passPlaceholder: 'rider123',
-      defaultUser: 'rider',
-      defaultPass: 'rider123'
     }
   ];
 
@@ -337,19 +326,6 @@ export const AdminLogin = () => {
             </div>
           )}
 
-          {/* 🛵 RIDER INFO BANNER */}
-          {selectedRole === 'rider' && (
-            <div className="p-3 bg-rose-50/90 border border-rose-200/80 rounded-2xl flex items-center gap-2.5 text-xs text-rose-950 animate-in fade-in duration-200">
-              <div className="w-8 h-8 rounded-xl bg-rose-200/70 text-rose-900 flex items-center justify-center font-bold shrink-0 text-base">
-                🛵
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="font-bold text-slate-900">Rider Delivery Dispatch</div>
-                <div className="text-[11px] text-rose-900/80 leading-snug">Live delivery fulfillment, customer parcel tracking, and order dispatch operations.</div>
-              </div>
-            </div>
-          )}
-
           {/* Auto-fill notification chip */}
           {autoFillFeedback && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 animate-in fade-in duration-150">
@@ -562,8 +538,8 @@ export const AdminLogin = () => {
                   ))}
                 </div>
 
-                {/* Supplier & Rider Partner Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-200">
+                {/* Supplier Partner Card */}
+                <div className="pt-1 border-t border-slate-200">
                   <div
                     onClick={() => autoFillCredentials('supplier', 'tayyab', 'cocacola123', null, 'Supplier Partner')}
                     className={`p-2 rounded-xl border cursor-pointer transition ${
@@ -577,21 +553,6 @@ export const AdminLogin = () => {
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800">Verified</span>
                     </div>
                     <div className="font-mono text-[10px] text-slate-600 mt-0.5">tayyab / cocacola123</div>
-                  </div>
-
-                  <div
-                    onClick={() => autoFillCredentials('rider', 'rider', 'rider123', null, 'Delivery Rider')}
-                    className={`p-2 rounded-xl border cursor-pointer transition ${
-                      selectedRole === 'rider'
-                        ? 'bg-rose-50 border-rose-500 shadow-2xs'
-                        : 'bg-white border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-800">🛵 Rider Fleet</span>
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800">Active</span>
-                    </div>
-                    <div className="font-mono text-[10px] text-slate-600 mt-0.5">rider / rider123</div>
                   </div>
                 </div>
 

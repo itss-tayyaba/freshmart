@@ -71,9 +71,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     customerOrders,
     adminOrders,
     customers,
-    riders,
     updateDeliveryOrderStatus,
-    assignRiderToOrder,
     addToast,
     currentTenant
   } = useStore();
@@ -151,23 +149,6 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
     }
     addToast('Status Updated 📦', `Order ${orderId} marked as ${newStatus}.`);
-  };
-
-  const handleAssignRider = (orderId, riderId) => {
-    if (!riderId) return;
-    assignRiderToOrder(orderId, riderId);
-    const assignedRiderObj = riders.find((r) => r.id === riderId);
-    if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder((prev) =>
-        prev
-          ? {
-              ...prev,
-              assignedRider: assignedRiderObj,
-              status: 'Out for Delivery'
-            }
-          : null
-      );
-    }
   };
 
   // Helper: Open customer profile modal from order customer details
@@ -304,7 +285,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
             </div>
           </div>
           <div className="text-xl font-black text-amber-900">{stats.pending}</div>
-          <span className="text-[10px] text-amber-600 font-medium mt-0.5 block">Awaiting Rider</span>
+          <span className="text-[10px] text-amber-600 font-medium mt-0.5 block">Awaiting Processing</span>
         </div>
 
         {/* Preparing */}
@@ -342,7 +323,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
             </div>
           </div>
           <div className="text-xl font-black text-slate-900">{stats.outForDelivery}</div>
-          <span className="text-[10px] text-purple-600 font-medium mt-0.5 block">With Rider</span>
+          <span className="text-[10px] text-purple-600 font-medium mt-0.5 block">Out for Delivery</span>
         </div>
 
         {/* Delivered */}
@@ -433,7 +414,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
             {[
               { label: 'All', count: stats.total },
-              { label: 'Pending', count: stats.pending, sub: 'Awaiting Rider' },
+              { label: 'Pending', count: stats.pending, sub: 'Awaiting Processing' },
               { label: 'Preparing', count: stats.preparing },
               { label: 'Out for Delivery', count: stats.outForDelivery },
               { label: 'Delivered', count: stats.delivered },
@@ -479,7 +460,6 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                     <th className="pb-3.5">CUSTOMER</th>
                     <th className="pb-3.5">DELIVERY ADDRESS & CITY</th>
                     <th className="pb-3.5">TOTAL</th>
-                    <th className="pb-3.5">ASSIGN RIDER</th>
                     <th className="pb-3.5">STATUS</th>
                     <th className="pb-3.5 text-right pr-2">ACTION</th>
                   </tr>
@@ -563,42 +543,6 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                             <span>Rs. {Number(ord.total || ord.totalAmount || 0).toLocaleString()}</span>
                             <span className="block text-[10px] text-slate-400 font-sans font-normal">{itemsText}</span>
                           </div>
-                        </td>
-
-                        {/* Direct Rider Assignment Dropdown in Row */}
-                        <td className="py-4" onClick={(e) => e.stopPropagation()}>
-                          {ord.status === 'Delivered' ? (
-                            <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>Delivered</span>
-                            </span>
-                          ) : ord.status === 'Cancelled' ? (
-                            <span className="text-[11px] font-bold text-rose-500">Cancelled</span>
-                          ) : (
-                            <div className="min-w-[160px]">
-                              <select
-                                value={ord.assignedRider?.id || ''}
-                                onChange={(e) => handleAssignRider(ord.id, e.target.value)}
-                                className={`w-full text-[11px] font-bold rounded-xl px-2.5 py-1.5 border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                                  ord.assignedRider
-                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                                    : 'bg-amber-50 border-amber-300 text-amber-900'
-                                }`}
-                              >
-                                <option value="">-- 🛵 Assign Rider --</option>
-                                {(riders || []).map((r) => (
-                                  <option key={r.id} value={r.id}>
-                                    {r.name} ({r.zone || 'Hub'})
-                                  </option>
-                                ))}
-                              </select>
-                              {riders.length === 0 && (
-                                <span className="text-[9px] text-rose-500 font-bold block mt-0.5">
-                                  No riders added yet
-                                </span>
-                              )}
-                            </div>
-                          )}
                         </td>
 
                         {/* Status Badge */}
@@ -848,27 +792,6 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               <span className="text-[10px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-full">
                 PAID
               </span>
-            </div>
-
-            {/* Assigned Rider */}
-            <div className="space-y-1.5 text-xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Assigned Delivery Courier
-              </span>
-              <div className="flex items-center gap-2">
-                <select
-                  value={selectedOrder.assignedRider?.id || ''}
-                  onChange={(e) => handleAssignRider(selectedOrder.id, e.target.value)}
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                >
-                  <option value="">-- Assign Rider to Order --</option>
-                  {(riders || []).map((r) => (
-                    <option key={r.id} value={r.id}>
-                      🛵 {r.name} ({r.zone || 'Lahore Hub'})
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
 
             {/* 7-Stage Interactive Fulfillment Console Launcher */}
