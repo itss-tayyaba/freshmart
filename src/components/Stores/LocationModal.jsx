@@ -25,8 +25,12 @@ import { LeafletLocationPicker } from '../Common/LeafletLocationPicker';
 import { detectUserLocation, reverseGeocodeAddress } from '../../utils/geolocationHelper';
 
 export const LocationModal = () => {
+  const { isLocationModalOpen } = useStore();
+  return isLocationModalOpen ? <LocationModalContent /> : null;
+};
+
+const LocationModalContent = () => {
   const {
-    isLocationModalOpen,
     setIsLocationModalOpen,
     isLocationConfirmed,
     deliveryLocation,
@@ -79,9 +83,7 @@ export const LocationModal = () => {
       );
       if (matched) setSelectedCityId(matched.id);
     }
-  }, [deliveryLocation, isLocationModalOpen]);
-
-  if (!isLocationModalOpen) return null;
+  }, [deliveryLocation]);
 
   const currentCityObj = PAKISTAN_CITIES.find((c) => c.id === selectedCityId) || PAKISTAN_CITIES[0];
 

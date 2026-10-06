@@ -241,23 +241,10 @@ export const StoreProvider = ({ children }) => {
       coords: { lat: 31.4125, lng: 73.0995 }
     };
   });
-  // Location confirmation status (tracks whether user has confirmed their city & location)
-  const [isLocationConfirmed, setIsLocationConfirmed] = useState(() => {
-    try {
-      return localStorage.getItem('freshmart_location_confirmed') === 'true';
-    } catch (e) {
-      return false;
-    }
-  });
-
-  // Location modal opens upfront when user visits without confirmed location
-  const [isLocationModalOpen, setIsLocationModalOpen] = useState(() => {
-    try {
-      return localStorage.getItem('freshmart_location_confirmed') !== 'true';
-    } catch (e) {
-      return true;
-    }
-  });
+  // Ask customers to confirm the saved (or newly selected) location on every
+  // fresh page load so nearby stores are always chosen for this visit.
+  const [isLocationConfirmed, setIsLocationConfirmed] = useState(false);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(true);
 
   // --- 🏢 Multi-Company & Branch Architecture State (Centralized in Faisalabad) ---
   const [currentBranch, setCurrentBranchState] = useState(() => {
