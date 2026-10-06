@@ -54,13 +54,7 @@ export const DashboardView = ({ onNavigateModule }) => {
     setCurrentTenant,
     allTenants,
     branchMetrics,
-    getBranchMetrics,
-    branches,
-    currentBranch,
-    setCurrentBranch,
-    branchInventory,
-    branchOrders,
-    updateBranchStockPrice
+    getBranchMetrics
   } = useStore();
 
   // Active Tenant Metrics & Branding
@@ -405,64 +399,6 @@ export const DashboardView = ({ onNavigateModule }) => {
               <span>{isExporting ? 'Exporting...' : 'PDF Report'}</span>
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 1B. MULTI-COMPANY ARCHITECTURE ENFORCEMENT TREE (User → Tenant → Branch → Data) */}
-      {/* ========================================================================= */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 text-white shadow-lg space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            <h3 className="text-xs sm:text-sm font-black tracking-wide uppercase text-slate-200">
-              Multi-Company Architecture: User → Tenant → Branch → Data
-            </h3>
-          </div>
-          <span className="text-[10px] font-bold text-slate-400 bg-slate-800/80 px-2.5 py-1 rounded-full border border-slate-700/60 self-start sm:self-auto">
-            Strict Isolation Active
-          </span>
-        </div>
-
-        {/* Visual Breadcrumb Flow */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <div className="bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700 flex items-center gap-1.5">
-            <span className="text-amber-400 font-bold">SUPER ADMIN</span>
-          </div>
-          <span className="text-slate-500 font-black">➔</span>
-          
-          <div className="bg-emerald-950/80 px-3 py-1.5 rounded-xl border border-emerald-800/60 flex items-center gap-1.5">
-            <span className="text-emerald-400 font-bold">COMPANY:</span>
-            <span className="font-black text-white">{currentTenant?.name || 'Al-Fatah'}</span>
-          </div>
-          <span className="text-slate-500 font-black">➔</span>
-
-          <div className="bg-blue-950/80 px-3 py-1.5 rounded-xl border border-blue-800/60 flex items-center gap-1.5">
-            <span className="text-blue-400 font-bold">BRANCH:</span>
-            <span className="font-black text-white">{currentBranch?.city === 'Faisalabad' ? currentBranch?.name : 'FreshMart Faisalabad Flagship Hub'}</span>
-            <span className="text-[10px] text-slate-400">(Faisalabad)</span>
-          </div>
-          <span className="text-slate-500 font-black">➔</span>
-
-          <div className="bg-purple-950/80 px-3 py-1.5 rounded-xl border border-purple-800/60 flex items-center gap-1.5">
-            <span className="text-purple-400 font-bold">INVENTORY:</span>
-            <span className="font-black text-white">{(branchInventory || []).length} SKUs</span>
-          </div>
-          <span className="text-slate-500 font-black">➔</span>
-
-          <div className="bg-rose-950/80 px-3 py-1.5 rounded-xl border border-rose-800/60 flex items-center gap-1.5">
-            <span className="text-rose-400 font-bold">ORDERS:</span>
-            <span className="font-black text-white">{(branchOrders || []).length} routed</span>
-          </div>
-        </div>
-
-        <div className="text-[11px] text-slate-400 flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
-          <span>
-            📍 GPS Coordinates: <strong className="text-slate-300">{currentBranch?.city === 'Faisalabad' && currentBranch?.latitude ? `${currentBranch.latitude}, ${currentBranch.longitude}` : '31.4125, 73.0995'}</strong>
-          </span>
-          <span className="text-emerald-400 font-semibold">
-            ✓ Centralized Faisalabad Flagship Hub & Tenant Isolation Active
-          </span>
         </div>
       </div>
 
