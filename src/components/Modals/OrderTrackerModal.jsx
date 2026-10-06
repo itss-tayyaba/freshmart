@@ -16,7 +16,10 @@ export const OrderTrackerModal = () => {
     const isAssigned = !!rawOrder.assignedRider;
     const status = (rawOrder.status || 'Pending').toLowerCase();
     const isDelivered = status === 'delivered' || status === 'completed';
-    const isOutForDelivery = status.includes('out') || status.includes('transit') || isAssigned;
+    const fulfillmentStage = Number(rawOrder.fulfillmentStage || 0);
+    const isDispatched = fulfillmentStage >= 5 || status.includes('dispatched');
+    const isOutForDelivery = fulfillmentStage >= 6 || status.includes('out for delivery') || status.includes('picked up') || status.includes('transit');
+    const isPackingComplete = fulfillmentStage >= 4 || isDispatched || isOutForDelivery || isDelivered;
 
     const shipping = rawOrder.shippingAddress || {};
     const addr = typeof shipping === 'string' ? shipping : (shipping.address || rawOrder.address || 'Delivery Address');
@@ -41,17 +44,17 @@ export const OrderTrackerModal = () => {
           },
           {
             title: '2. Dark Store Packing',
-            time: isOutForDelivery || isDelivered ? 'Completed' : 'In Progress',
+            time: isPackingComplete ? 'Completed' : fulfillmentStage >= 2 || status.includes('packing') || status.includes('processing') ? 'In Progress' : 'Pending',
             desc: 'Quality checked & packed at logistics hub',
-            completed: isOutForDelivery || isDelivered
+            completed: isPackingComplete
           },
           {
             title: '3. Courier Dispatched',
-            time: isDelivered ? 'Completed' : isOutForDelivery ? `ETA: ${eta}` : 'Pending',
+            time: isDispatched ? (isOutForDelivery ? `ETA: ${eta}` : 'Completed') : 'Pending',
             desc: isAssigned
               ? `Assigned to courier ${rider.name} (${rider.vehicle || rider.vehicleType || 'Motorbike'})`
-              : 'Dispatch manager reviewing address to assign fleet rider',
-            completed: isOutForDelivery || isDelivered
+              : isDispatched ? 'Pickup staff handed the parcel to the courier' : 'Waiting for the parcel to be dispatched',
+            completed: isDispatched || isOutForDelivery || isDelivered
           },
           {
             title: '4. Delivered to Doorstep',

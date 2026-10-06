@@ -78,7 +78,8 @@ export const FulfillmentView = () => {
       if (!ord.fulfillmentStage) {
         if (statusLower === 'delivered') stg = 7;
         else if (statusLower === 'out for delivery') stg = 6;
-        else if (statusLower === 'dispatched' || statusLower === 'ready for dispatch') stg = 5;
+        else if (statusLower === 'dispatched') stg = 5;
+        else if (statusLower === 'ready for dispatch') stg = 4;
         else if (statusLower === 'packed') stg = 4;
         else if (statusLower === 'processing' || statusLower === 'preparing') stg = 2;
         else stg = 1;
@@ -321,44 +322,44 @@ export const FulfillmentView = () => {
         </div>
 
         {/* Not Dispatched */}
-        <div className="bg-white p-4 rounded-2xl border border-amber-200 shadow-2xs bg-amber-50/40">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-black text-amber-700 block">⏳ Not Dispatched</span>
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            <span className="text-[10px] uppercase font-bold text-slate-600 block">⏳ Not Dispatched</span>
+            <span className="w-2 h-2 rounded-full bg-slate-400" />
           </div>
-          <span className="text-xl font-black font-mono text-amber-950 mt-1 block">{kpis.notDispatched}</span>
-          <span className="text-[10px] text-amber-700 font-bold">In Dark Store / Bay</span>
+          <span className="text-xl font-black font-mono text-slate-900 mt-1 block">{kpis.notDispatched}</span>
+          <span className="text-[10px] text-slate-500">In Dark Store / Bay</span>
         </div>
 
         {/* Ready for Dispatch */}
-        <div className="bg-white p-4 rounded-2xl border border-indigo-200/90 shadow-2xs bg-indigo-50/30">
-          <span className="text-[10px] uppercase font-bold text-indigo-700 block">Ready For Dispatch</span>
-          <span className="text-xl font-black font-mono text-indigo-950 mt-1 block">{kpis.ready}</span>
-          <span className="text-[10px] text-indigo-700">Sealed at Bay</span>
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+          <span className="text-[10px] uppercase font-bold text-slate-600 block">Ready For Dispatch</span>
+          <span className="text-xl font-black font-mono text-slate-900 mt-1 block">{kpis.ready}</span>
+          <span className="text-[10px] text-slate-500">Sealed at Bay</span>
         </div>
 
         {/* Dispatched to Courier (Highlight Card) */}
-        <div className="bg-white p-4 rounded-2xl border border-emerald-300 shadow-2xs bg-emerald-50/50 ring-1 ring-emerald-500/20">
+        <div className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-black text-emerald-800 block">✅ Dispatched</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-emerald-600" />
           </div>
-          <span className="text-xl font-black font-mono text-emerald-950 mt-1 block">{kpis.dispatched}</span>
-          <span className="text-[10px] text-emerald-700 font-bold">With Courier Fleet</span>
+          <span className="text-xl font-black font-mono text-slate-900 mt-1 block">{kpis.dispatched}</span>
+          <span className="text-[10px] text-slate-500">With Courier Fleet</span>
         </div>
 
         {/* In Transit */}
-        <div className="bg-white p-4 rounded-2xl border border-sky-200/90 shadow-2xs bg-sky-50/30">
-          <span className="text-[10px] uppercase font-bold text-sky-700 block">Out for Delivery</span>
-          <span className="text-xl font-black font-mono text-sky-950 mt-1 block">{kpis.inTransit}</span>
-          <span className="text-[10px] text-sky-700">Stage 6</span>
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+          <span className="text-[10px] uppercase font-bold text-slate-600 block">Out for Delivery</span>
+          <span className="text-xl font-black font-mono text-slate-900 mt-1 block">{kpis.inTransit}</span>
+          <span className="text-[10px] text-slate-500">Stage 6</span>
         </div>
 
         {/* Delivered */}
-        <div className="bg-white p-4 rounded-2xl border border-teal-200/90 shadow-2xs bg-teal-50/30">
-          <span className="text-[10px] uppercase font-bold text-teal-700 block">Delivered (OTP)</span>
-          <span className="text-xl font-black font-mono text-teal-950 mt-1 block">{kpis.delivered}</span>
-          <span className="text-[10px] text-teal-700">Completed</span>
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+          <span className="text-[10px] uppercase font-bold text-slate-600 block">Delivered (OTP)</span>
+          <span className="text-xl font-black font-mono text-slate-900 mt-1 block">{kpis.delivered}</span>
+          <span className="text-[10px] text-slate-500">Completed</span>
         </div>
       </div>
 
@@ -497,20 +498,24 @@ export const FulfillmentView = () => {
               <tbody className="divide-y divide-slate-100/80">
                 {filteredOrders.map((ord) => {
                   const stageColors = {
-                    1: 'bg-blue-50 text-blue-800 border-blue-200',
-                    2: 'bg-amber-50 text-amber-800 border-amber-200',
-                    3: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-                    4: 'bg-indigo-50 text-indigo-800 border-indigo-200',
-                    5: 'bg-purple-50 text-purple-800 border-purple-200',
-                    6: 'bg-sky-50 text-sky-800 border-sky-200',
+                    1: 'bg-slate-50 text-slate-700 border-slate-200',
+                    2: 'bg-slate-50 text-slate-700 border-slate-200',
+                    3: 'bg-slate-50 text-slate-700 border-slate-200',
+                    4: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+                    5: 'bg-slate-50 text-slate-700 border-slate-200',
+                    6: 'bg-slate-50 text-slate-700 border-slate-200',
                     7: 'bg-emerald-100 text-emerald-900 border-emerald-300'
                   };
 
                   const stageNames = {
                     1: '1. Order Placed',
-                    2: '2. Packing',
-                    3: '3. Shelf Picking',
-                    4: '4. Ready Dispatch',
+                    2: '2. Received by Staff',
+                    3: ord.pickupStep === 'packed'
+                      ? '3. Packed'
+                      : ord.pickupStep === 'verified'
+                      ? '3. Parcel Verified'
+                      : '3. Shelf Picking',
+                    4: '4. Ready for Dispatch',
                     5: '5. Courier Dispatch',
                     6: '6. Out for Delivery',
                     7: '7. Delivered (OTP)'
@@ -592,7 +597,7 @@ export const FulfillmentView = () => {
                           }`}
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                          <span>{stageNames[ord.fulfillmentStage] || `Stage ${ord.fulfillmentStage}`}</span>
+                          <span>{ord.fulfillmentStage === 4 && ord.pickupStep === 'ready' ? '4. Ready for Dispatch' : stageNames[ord.fulfillmentStage] || `Stage ${ord.fulfillmentStage}`}</span>
                         </span>
                       </td>
 

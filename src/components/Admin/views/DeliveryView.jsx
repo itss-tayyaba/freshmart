@@ -99,7 +99,7 @@ export const DeliveryView = () => {
   const pendingDispatches = (customerOrders || []).filter((o) => {
     if (adminRole === 'rider') {
       const assignedRiderId = o.assignedRider?.id || o.assignedRider?.riderId;
-      return assignedRiderId === (user?.riderId || user?.id) && ['Dispatched', 'Out for Delivery', 'Arrived at Customer'].includes(o.status);
+      return assignedRiderId === (user?.riderId || user?.id) && ['Ready for Dispatch', 'Dispatched', 'Out for Delivery', 'Arrived at Customer'].includes(o.status);
     }
     return (Number(o.fulfillmentStage) >= 4 || ['Ready for Dispatch', 'Dispatched', 'Out for Delivery'].includes(o.status)) && o.status !== 'Delivered';
   });
@@ -444,22 +444,14 @@ export const DeliveryView = () => {
                 return (
                   <div
                     key={order.id}
-                    className={`rounded-3xl p-5 sm:p-6 shadow-md transition-all space-y-4 ${
-                      isUnassigned
-                        ? 'bg-gradient-to-br from-amber-50/70 via-white to-orange-50/20 border-2 border-amber-300/80 ring-2 ring-amber-400/10 hover:border-amber-400'
-                        : 'bg-gradient-to-br from-emerald-50/30 via-white to-slate-50/50 border border-emerald-200/90 hover:border-emerald-300'
-                    }`}
+                    className="rounded-3xl p-5 sm:p-6 bg-white border border-slate-200 shadow-sm space-y-4"
                   >
                     {/* Top Row: Order ID, Status, Customer Initials & Total Amount */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
                       
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold shrink-0 shadow-md ${
-                            isUnassigned
-                              ? 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-amber-500/20'
-                              : 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-emerald-900/20'
-                          }`}
+                          className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold shrink-0 bg-slate-100 text-slate-700"
                         >
                           {isUnassigned ? '⏳' : '📦'}
                         </div>
@@ -471,17 +463,7 @@ export const DeliveryView = () => {
                             </span>
 
                             <span
-                              className={`text-[11px] font-black px-3 py-1 rounded-full shadow-xs flex items-center gap-1.5 ${
-                                order.status === 'Delivered'
-                                  ? 'bg-emerald-600 text-white'
-                                  : order.status === 'Out for Delivery'
-                                  ? 'bg-purple-600 text-white'
-                                  : order.status === 'Packed (Chilled Box)'
-                                  ? 'bg-teal-600 text-white'
-                                  : isUnassigned
-                                  ? 'bg-amber-500 text-slate-950 animate-pulse'
-                                  : 'bg-blue-600 text-white'
-                              }`}
+                              className="text-[11px] font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1.5"
                             >
                               <span>{order.status || (isUnassigned ? 'Awaiting Rider Assignment' : 'In Fulfillment')}</span>
                             </span>
@@ -505,7 +487,7 @@ export const DeliveryView = () => {
                         <span className="font-black text-lg text-slate-900 font-mono block">
                           PKR {order.totalAmount}
                         </span>
-                        <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 inline-block mt-0.5">
+                        <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 inline-block mt-0.5">
                           {order.payment === 'Cash on Delivery' || !order.payment ? '💵 Cash on Delivery (COD)' : `💳 ${order.payment}`}
                         </span>
                       </div>
@@ -515,34 +497,34 @@ export const DeliveryView = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                       
                       {/* Left Card: Customer Delivery Address */}
-                      <div className="bg-gradient-to-br from-[#07382c] via-[#0b4d3c] to-[#0f4d3c] text-white p-4 sm:p-5 rounded-2xl border border-emerald-500/30 shadow-md space-y-2.5 relative overflow-hidden">
+                      <div className="bg-slate-50 text-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-2.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-emerald-300 font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-amber-300" />
+                          <span className="text-slate-600 font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-slate-500" />
                             <span>Customer Delivery Destination</span>
                           </span>
-                          <span className="text-[10px] font-bold text-slate-950 bg-amber-400 px-2.5 py-0.5 rounded-full font-mono uppercase shadow-xs">
+                          <span className="text-[10px] font-bold text-slate-700 bg-white border border-slate-200 px-2.5 py-0.5 rounded-full font-mono uppercase">
                             {order.city || 'Lahore'}
                           </span>
                         </div>
 
-                        <p className="font-bold text-white text-xs sm:text-sm leading-snug">
+                        <p className="font-bold text-slate-900 text-xs sm:text-sm leading-snug">
                           {order.address || 'House 12, Street 4, Sector B, Johar Town, Lahore, Pakistan'}
                         </p>
 
-                        <div className="pt-2 border-t border-emerald-600/40 flex items-center justify-between text-[11px]">
+                        <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[11px]">
                           <a
                             href={`tel:${order.customerPhone || order.phone || '03001234567'}`}
-                            className="text-emerald-200 hover:text-white font-mono font-bold flex items-center gap-1.5 hover:underline"
+                            className="text-slate-600 hover:text-slate-900 font-mono font-bold flex items-center gap-1.5 hover:underline"
                           >
-                            <Phone className="w-3 h-3 text-emerald-300" />
+                            <Phone className="w-3 h-3 text-slate-500" />
                             <span>{order.customerPhone || order.phone || '+92 300 1234567'}</span>
                           </a>
 
                           <button
                             type="button"
                             onClick={() => handleCopyText(order.address || 'Standard Address', 'Address')}
-                            className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-emerald-200 rounded-lg text-[10px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+                            className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition-colors cursor-pointer flex items-center gap-1"
                           >
                             <Copy className="w-2.5 h-2.5" />
                             <span>Copy Address</span>
@@ -551,31 +533,31 @@ export const DeliveryView = () => {
                       </div>
 
                       {/* Right Card: Assign Fleet Courier Dropdown */}
-                      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-4 sm:p-5 rounded-2xl border border-slate-700 shadow-md space-y-3 flex flex-col justify-between">
+                      <div className="bg-white text-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-3 flex flex-col justify-between">
                         <div className="flex items-center justify-between">
-                          <span className="text-slate-300 font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5">
-                            <Bike className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-slate-600 font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5">
+                            <Bike className="w-3.5 h-3.5 text-slate-500" />
                             <span>Assign Fleet Courier</span>
                           </span>
 
                           {order.assignedRider ? (
-                            <span className="text-slate-950 font-bold text-[10px] bg-emerald-400 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                            <span className="text-slate-700 font-bold text-[10px] bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                               <CheckCircle2 className="w-3 h-3" />
                               <span>{order.assignedRider.name}</span>
                             </span>
                           ) : (
-                            <span className="text-amber-300 font-bold text-[10px] bg-amber-500/20 border border-amber-400/40 px-2 py-0.5 rounded-full">
+                            <span className="text-slate-500 font-bold text-[10px] bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
                               ● Unassigned
                             </span>
                           )}
                         </div>
 
                         {isAdmin && (<div className="space-y-1.5">
-                          <label className="text-[11px] text-slate-300 font-semibold block">Select Available Courier:</label>
+                          <label className="text-[11px] text-slate-600 font-semibold block">Select Available Courier:</label>
                           <select
                             value={order.assignedRider?.id || ''}
                             onChange={(e) => assignRiderToOrder(order.id, e.target.value)}
-                            className="w-full bg-slate-800 hover:bg-slate-750 text-white border-2 border-emerald-500/60 rounded-xl px-3.5 py-2.5 font-bold text-xs focus:ring-2 focus:ring-emerald-400 focus:outline-none cursor-pointer transition-all shadow-inner"
+                            className="w-full bg-white text-slate-800 border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none cursor-pointer"
                           >
                             <option value="">-- Choose Rider to Dispatch --</option>
                             {riders.filter((r) => ['on-duty', 'available'].includes(String(r.status || '').toLowerCase())).map((r) => (
@@ -587,11 +569,11 @@ export const DeliveryView = () => {
                         </div>)}
 
                         {order.assignedRider && (
-                          <div className="pt-2 border-t border-slate-700 flex items-center justify-between text-[11px] text-emerald-300">
-                            <span>Phone: <strong className="font-mono text-white">{order.assignedRider.phone}</strong></span>
+                          <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-600">
+                            <span>Phone: <strong className="font-mono text-slate-900">{order.assignedRider.phone}</strong></span>
                             <a
                               href={`tel:${order.assignedRider.phone}`}
-                              className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-lg text-[10px] font-black transition-colors"
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-lg text-[10px] font-bold transition-colors"
                             >
                               Call Courier
                             </a>
@@ -610,39 +592,26 @@ export const DeliveryView = () => {
 
 {adminRole === 'rider' && (
                       <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          onClick={() => updateDeliveryOrderStatus(order.id, 'Out for Delivery')}
-                          className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
-                            order.status === 'Out for Delivery'
-                              ? 'bg-purple-600 text-white shadow-md'
-                              : 'bg-purple-50 hover:bg-purple-100 text-purple-900'
-                          }`}
-                        >
-                          <span>🛵 Out for Delivery</span>
-                        </button>
-
-                        <button
-                          onClick={() => updateDeliveryOrderStatus(order.id, 'Arrived at Customer')}
-                          className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
-                            order.status === 'Arrived at Customer'
-                              ? 'bg-blue-600 text-white shadow-md'
-                              : 'bg-blue-50 hover:bg-blue-100 text-blue-900'
-                          }`}
-                        >
-                          <span>📍 At Doorstep</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleOpenOtpModal(order)}
-                          className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
-                            order.status === 'Delivered'
-                              ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400'
-                              : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:scale-105'
-                          }`}
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>{order.status === 'Delivered' ? '✅ Delivered' : '🔐 Verify OTP & Deliver'}</span>
-                        </button>
+                        {order.status === 'Ready for Dispatch' && (
+                          <button onClick={() => updateDeliveryOrderStatus(order.id, 'Dispatched')} className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs transition cursor-pointer">
+                            Pick Up Parcel
+                          </button>
+                        )}
+                        {order.status === 'Dispatched' && (
+                          <button onClick={() => updateDeliveryOrderStatus(order.id, 'Out for Delivery')} className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs transition cursor-pointer">
+                            Start Delivery
+                          </button>
+                        )}
+                        {order.status === 'Out for Delivery' && (
+                          <button onClick={() => updateDeliveryOrderStatus(order.id, 'Arrived at Customer')} className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs transition cursor-pointer">
+                            Arrived at Customer
+                          </button>
+                        )}
+                        {order.status === 'Arrived at Customer' && (
+                          <button onClick={() => handleOpenOtpModal(order)} className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs transition cursor-pointer flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Verify OTP & Deliver
+                          </button>
+                        )}
                       </div>
                       )}
                     </div>

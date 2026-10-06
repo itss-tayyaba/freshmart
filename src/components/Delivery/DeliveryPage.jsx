@@ -217,10 +217,12 @@ export const DeliveryPage = () => {
   const getStageIndex = (order) => {
     if (!order) return 1;
     const s = (order.status || '').toLowerCase();
-    if (s.includes('delivered') || s.includes('completed')) return 5;
+    const stage = Number(order.fulfillmentStage || 0);
+    if (stage >= 7 || s.includes('delivered') || s.includes('completed')) return 5;
     if (s.includes('arrived') || s.includes('doorstep')) return 4;
-    if (s.includes('out for delivery') || s.includes('picked up') || s.includes('transit') || order.assignedRider) return 3;
-    if (s.includes('packing') || s.includes('processing')) return 2;
+    if (stage >= 6 || s.includes('out for delivery') || s.includes('picked up') || s.includes('transit')) return 3;
+    if (stage >= 5 || s.includes('dispatched')) return 3;
+    if (stage >= 2 || s.includes('packing') || s.includes('processing') || s.includes('ready for dispatch') || order.assignedRider) return 2;
     return 1; // Pending / Placed
   };
 
@@ -502,57 +504,57 @@ export const DeliveryPage = () => {
                 {/* Milestone 3: Rider Assigned */}
                 <div className={`p-3.5 rounded-2xl border flex items-start gap-3 transition-all ${
                   assignedRider
-                    ? 'bg-emerald-50 border-emerald-200 ring-2 ring-emerald-500/20'
-                    : activeStage === 1
-                    ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-400/20'
+                    ? 'bg-emerald-50 border-emerald-200'
                     : 'bg-slate-50 border-slate-200'
                 }`}>
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
-                    assignedRider
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-amber-500 text-white'
+                    assignedRider ? 'bg-emerald-700 text-white' : 'bg-slate-300 text-slate-600'
                   }`}>
                     {assignedRider ? <CheckCircle2 className="w-4 h-4" /> : '3'}
                   </div>
                   <div className="flex-1 text-xs">
                     <div className="flex items-center justify-between">
-                      <h4 className={`font-bold ${assignedRider ? 'text-emerald-900' : 'text-amber-900'}`}>
+                      <h4 className={`font-bold ${assignedRider ? 'text-emerald-900' : 'text-slate-700'}`}>
                         3. Courier Allocation & Dispatch
                       </h4>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        assignedRider ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                      }`}>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${assignedRider ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
                         {assignedRider ? 'Rider Assigned' : 'Awaiting Courier Assignment'}
                       </span>
                     </div>
                     <p className="text-slate-600 text-[11px] mt-0.5">
                       {assignedRider
-                        ? `Assigned to courier ${assignedRider.name} (${assignedRider.vehicle || assignedRider.vehicleType}). Parcel handed over for express dispatch.`
-                        : `The dispatch manager is reviewing your drop-off address and assigning the closest on-duty courier from ${selectedCity.city}.`}
+                        ? currentOrder?.status === 'Ready for Dispatch'
+                          ? `Assigned to ${assignedRider.name}. Your parcel is staged and waiting for rider pickup.`
+                          : currentOrder?.status === 'Dispatched'
+                          ? `${assignedRider.name} picked up your parcel and is preparing to start the delivery.`
+                          : `Assigned to courier ${assignedRider.name} (${assignedRider.vehicle || assignedRider.vehicleType}).`
+                        : `The delivery system is checking your delivery zone and available riders in ${selectedCity.city}.`}
                     </p>
                   </div>
                 </div>
 
                 {/* Milestone 4: Out for Delivery */}
                 <div className={`p-3.5 rounded-2xl border flex items-start gap-3 transition-all ${
-                  activeStage >= 4 ? 'bg-emerald-50 border-emerald-200' : activeStage === 3 ? 'bg-purple-50 border-purple-300 ring-2 ring-purple-400/20' : 'bg-slate-50 border-slate-200 opacity-60'
+                  activeStage >= 4 ? 'bg-emerald-50 border-emerald-200' : activeStage === 3 ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200 opacity-60'
                 }`}>
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
-                    activeStage >= 4 ? 'bg-emerald-600 text-white' : activeStage === 3 ? 'bg-purple-600 text-white' : 'bg-slate-300 text-slate-600'
+                    activeStage >= 4 || activeStage === 3 ? 'bg-emerald-700 text-white' : 'bg-slate-300 text-slate-600'
                   }`}>
                     {activeStage >= 4 ? <CheckCircle2 className="w-4 h-4" /> : '4'}
                   </div>
                   <div className="flex-1 text-xs">
                     <div className="flex items-center justify-between">
-                      <h4 className={`font-bold ${activeStage >= 3 ? 'text-purple-900' : 'text-slate-700'}`}>
+                      <h4 className={`font-bold ${activeStage >= 3 ? 'text-emerald-900' : 'text-slate-700'}`}>
                         4. Out for Delivery & Heading to Destination
                       </h4>
                       {activeStage === 3 && (
-                        <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full animate-pulse">In Progress</span>
+                        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">In Progress</span>
                       )}
                     </div>
                     <p className="text-slate-600 text-[11px] mt-0.5">
-                      Rider is en route to <strong className="text-slate-800">{currentOrder?.address || selectedNeighborhood.name}</strong>.
+                      {currentOrder?.status === 'Dispatched'
+                        ? 'Parcel picked up; delivery will begin shortly.'
+                        : `Rider is en route to ${currentOrder?.address || selectedNeighborhood.name}.`}
                     </p>
                   </div>
                 </div>

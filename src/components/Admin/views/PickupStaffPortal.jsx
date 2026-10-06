@@ -10,9 +10,6 @@ import {
   Boxes,
   Check,
   Package,
-  Layers,
-  Sparkles,
-  AlertCircle
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 
@@ -97,7 +94,7 @@ export const PickupStaffPortal = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] uppercase tracking-widest text-emerald-300 font-extrabold bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-500/30">
+              <span className="text-[10px] uppercase tracking-widest text-slate-300 font-extrabold bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">
                 Pickup Staff Workspace
               </span>
               <span className="text-xs text-slate-400 font-mono">
@@ -127,12 +124,12 @@ export const PickupStaffPortal = () => {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base sm:text-lg font-black text-slate-900">Assigned Parcel Queues</h2>
-              <span className="rounded-full bg-emerald-100 text-emerald-800 font-black px-2.5 py-0.5 text-xs">
+                <span className="rounded-full bg-slate-100 text-slate-700 font-black px-2.5 py-0.5 text-xs">
                 {orders.length} Parcels
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1 max-w-xl">
-              Inspect parcels delivered to your desk, pick shelf items line-by-line, package securely, and mark ready for courier dispatch.
+              Receive each assigned order, pick and pack its items, verify the parcel, then stage it for rider pickup.
             </p>
           </div>
 
@@ -150,7 +147,7 @@ export const PickupStaffPortal = () => {
             </div>
             <h3 className="font-bold text-slate-800 text-sm">No Parcels Assigned Right Now</h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto">
-              When the Store Admin updates orders with <b>"Deliver to Staff"</b>, they will immediately appear here for shelf picking and packing.
+              Orders assigned by the store admin will appear here for receiving and preparation.
             </p>
           </div>
         ) : (
@@ -160,7 +157,10 @@ export const PickupStaffPortal = () => {
             const customer = order.customer?.name || order.customerName || order.customer || 'Customer';
             const location = order.address || order.shippingAddress?.address || order.city || order.shippingAddress?.city || 'Delivery Address';
             const city = order.city || order.shippingAddress?.city || 'Lahore';
-            const isDispatched = Boolean(order.isDispatched || stage >= 5 || ['dispatched', 'out for delivery', 'delivered'].includes((order.status || '').toLowerCase()));
+            const pickupStep = order.pickupStep || (stage >= 4 ? 'ready' : stage === 3 ? 'picking' : stage === 2 ? 'received' : 'assigned');
+            const workflowSteps = ['Receive', 'Pick', 'Pack', 'Verify', 'Ready'];
+            const activeWorkflowStep = ({ assigned: 0, received: 1, picking: 1, packed: 2, verified: 3, ready: 4, handed_to_rider: 5 }[pickupStep] ?? 0);
+            const canChangePicks = stage === 3 && pickupStep === 'picking';
             const currentPicked = pickedState[order.id] || order.pickedItems || [];
             const isAllPicked = items.length > 0 && currentPicked.length === items.length;
 
@@ -176,7 +176,7 @@ export const PickupStaffPortal = () => {
                       <span className="font-mono text-emerald-700 font-black text-sm">
                         {order.id}
                       </span>
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                         {order.status || 'Assigned to Staff'}
                       </span>
                       {order.packageType && (
@@ -187,7 +187,7 @@ export const PickupStaffPortal = () => {
                     </div>
                     <h3 className="font-bold text-slate-900 text-base mt-1">{customer}</h3>
                     <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
-                      <MapPin size={14} className="text-rose-500 shrink-0" />
+                      <MapPin size={14} className="text-slate-500 shrink-0" />
                       <span>{location} • <b>{city}</b></span>
                     </div>
                   </div>
@@ -203,12 +203,27 @@ export const PickupStaffPortal = () => {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-5 gap-2" aria-label="Parcel preparation progress">
+                  {workflowSteps.map((step, index) => {
+                    const complete = index < activeWorkflowStep;
+                    const current = index === activeWorkflowStep;
+                    return (
+                      <div key={step} className="flex items-center gap-2 min-w-0">
+                        <span className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold border ${complete || current ? 'bg-emerald-700 border-emerald-700 text-white' : 'bg-white border-slate-300 text-slate-500'}`}>
+                          {complete ? <Check size={12} /> : index + 1}
+                        </span>
+                        <span className={`text-[10px] sm:text-xs truncate ${current ? 'font-bold text-slate-900' : 'font-medium text-slate-500'}`}>{step}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
                 {/* LINE-WISE PICKING CHECKLIST */}
                 <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-xs uppercase tracking-wide text-slate-700 font-black flex items-center gap-1.5">
-                        <Package size={14} className="text-emerald-600" />
+                        <Package size={14} className="text-slate-600" />
                         <span>Line-Wise Shelf Pick Checklist ({currentPicked.length} of {items.length} Picked)</span>
                       </h4>
                       <p className="text-[11px] text-slate-400 mt-0.5">
@@ -219,7 +234,8 @@ export const PickupStaffPortal = () => {
                     <button
                       type="button"
                       onClick={() => handlePickAll(order.id, items.length)}
-                      className="text-xs font-bold px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition cursor-pointer flex items-center gap-1"
+                      disabled={!canChangePicks || items.length === 0}
+                      className="text-xs font-bold px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                     >
                       <Check size={14} />
                       <span>{isAllPicked ? 'Uncheck All' : 'Pick All'}</span>
@@ -237,16 +253,16 @@ export const PickupStaffPortal = () => {
                         return (
                           <div
                             key={item.id || item.productId || idx}
-                            onClick={() => toggleItemPick(order.id, idx)}
-                            className={`p-3 flex items-center justify-between gap-3 text-xs transition cursor-pointer hover:bg-slate-50 ${
-                              isPicked ? 'bg-emerald-50/60' : 'bg-white'
+                            onClick={() => canChangePicks && toggleItemPick(order.id, idx)}
+                            className={`p-3 flex items-center justify-between gap-3 text-xs transition ${canChangePicks ? 'cursor-pointer hover:bg-slate-50' : 'cursor-default'} ${
+                        isPicked ? 'bg-slate-50' : 'bg-white'
                             }`}
                           >
                             <div className="flex items-center gap-3 min-w-0">
                               <div
                                 className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 transition-colors ${
                                   isPicked
-                                    ? 'bg-emerald-600 border-emerald-600 text-white'
+                                  ? 'bg-emerald-700 border-emerald-700 text-white'
                                     : 'border-slate-300 bg-white'
                                 }`}
                               >
@@ -267,7 +283,7 @@ export const PickupStaffPortal = () => {
                               <span className="font-mono font-black text-xs text-slate-800 block">
                                 × {qty}
                               </span>
-                              <span className={`text-[10px] font-bold ${isPicked ? 'text-emerald-700' : 'text-amber-600'}`}>
+                                <span className={`text-[10px] font-bold ${isPicked ? 'text-emerald-700' : 'text-slate-500'}`}>
                                 {isPicked ? '✓ Verified' : 'To Pick'}
                               </span>
                             </div>
@@ -296,55 +312,63 @@ export const PickupStaffPortal = () => {
                     {stage < 2 ? (
                       <button
                         onClick={() =>
-                          updateStage(order, 2, 'Packing', {
+                          updateStage(order, 2, 'Received by Pickup Staff', {
+                            pickupStep: 'received',
                             pickupAcceptedAt: new Date().toISOString()
                           })
                         }
                         className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer"
                       >
                         <CheckCircle2 size={16} />
-                        <span>Accept Parcel & Start Packing</span>
+                        <span>Receive Order</span>
                       </button>
                     ) : stage === 2 ? (
                       <button
-                        onClick={() => updateStage(order, 3, 'Picking')}
-                        className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer"
+                        onClick={() => updateStage(order, 3, 'Picking', { pickupStep: 'picking', pickingStartedAt: new Date().toISOString() })}
+                        className="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer"
                       >
                         <Play size={16} />
-                        <span>Start Line-Wise Picking</span>
+                        <span>Start Picking</span>
                       </button>
-                    ) : stage === 3 && isAllPicked ? (
+                    ) : stage === 3 && pickupStep === 'picking' && isAllPicked ? (
                       <button
                         onClick={() =>
-                          updateStage(order, 4, 'Ready for Dispatch', {
+                          updateStage(order, 3, 'Packed', {
+                            pickupStep: 'packed',
                             parcelCode:
                               order.parcelCode ||
                               `PRCL-${String(order.id).replace(/\W/g, '').slice(-8).toUpperCase()}`,
                             sealedAt: new Date().toISOString(),
-                            isDispatched: false,
-                            dispatchStatus: 'Ready for Dispatch',
-                            readyForDispatchAt: new Date().toISOString()
+                            packedAt: new Date().toISOString()
                           })
                         }
-                        className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs flex items-center gap-2 shadow-md shadow-emerald-600/20 transition cursor-pointer"
+                        className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white font-black text-xs flex items-center gap-2 shadow-sm transition cursor-pointer"
                       >
                         <PackageCheck size={16} />
-                        <span>Pack & Mark Ready for Dispatch</span>
+                        <span>Pack Items</span>
                       </button>
-                    ) : stage === 3 ? (
-                      <span className="text-amber-700 text-xs font-bold">Pick every item before sealing this parcel.</span>
+                    ) : stage === 3 && pickupStep === 'picking' ? (
+                      <span className="text-slate-600 text-xs font-bold">Pick every item before packing this parcel.</span>
+                    ) : stage === 3 && pickupStep === 'packed' ? (
+                      <button onClick={() => updateStage(order, 3, 'Parcel Verified', { pickupStep: 'verified', parcelVerifiedAt: new Date().toISOString() })} className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs flex items-center gap-2">
+                        <CheckCircle2 size={16}/><span>Verify Parcel</span>
+                      </button>
+                    ) : stage === 3 && pickupStep === 'verified' ? (
+                      <button onClick={() => updateStage(order, 4, 'Ready for Dispatch', { pickupStep: 'ready', isDispatched: false, dispatchStatus: 'Ready for Dispatch', readyForDispatchAt: new Date().toISOString() })} className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs flex items-center gap-2">
+                        <PackageCheck size={16}/><span>Ready for Dispatch</span>
+                      </button>
                     ) : stage === 4 && order.assignedRider ? (
-                      <button onClick={() => updateStage(order, 5, 'Dispatched', { isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: new Date().toISOString() })} className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center gap-2">
-                        <PackageCheck size={16}/><span>Hand to {order.assignedRider.name} · Mark Dispatched</span>
-                      </button>
+                      <span className="text-slate-700 bg-slate-100 border border-slate-200 px-3 py-2 rounded-xl text-xs font-bold">
+                        Assigned to {order.assignedRider.name}; waiting for rider pickup
+                      </span>
                     ) : stage === 4 ? (
-                      <span className="text-indigo-700 bg-indigo-50 border border-indigo-100 px-3 py-2 rounded-xl text-xs font-bold">
-                        Ready for dispatch · Waiting for rider assignment
+                      <span className="text-slate-700 bg-slate-100 border border-slate-200 px-3 py-2 rounded-xl text-xs font-bold">
+                        Ready for dispatch; delivery system is finding a rider
                       </span>
                     ) : (
-                      <span className="text-emerald-700 font-bold text-xs flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                      <span className="text-slate-700 font-bold text-xs flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
                         <ScanLine size={16} />
-                        <span>Dispatched · handed to courier</span>
+                        <span>{order.status === 'Dispatched' ? 'Parcel collected by rider' : order.status}</span>
                       </span>
                     )}
                   </div>

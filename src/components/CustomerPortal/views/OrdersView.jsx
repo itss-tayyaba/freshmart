@@ -109,6 +109,25 @@ export const OrdersView = () => {
                 </div>
               </div>
 
+              {['dispatched', 'out for delivery'].includes(String(order.status || '').toLowerCase()) && (
+                <div className="flex items-start gap-3 bg-sky-50 border border-sky-200 rounded-2xl px-4 py-3">
+                  <Truck className="w-5 h-5 text-sky-700 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-black text-sky-950">
+                      {String(order.status).toLowerCase() === 'dispatched' ? 'Your parcel has been dispatched' : 'Your parcel is out for delivery'}
+                    </p>
+                    <p className="text-[11px] text-sky-800 mt-0.5">
+                      {String(order.status).toLowerCase() === 'dispatched'
+                        ? 'The pickup staff handed your parcel to the courier.'
+                        : 'The courier is on the way to your delivery address.'}
+                      {order.fulfillmentUpdatedAt && (
+                        <span> Updated {new Date(order.fulfillmentUpdatedAt).toLocaleString()}</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Handover OTP PIN Section */}
               {order.status !== 'Delivered' ? (
                 <div className="flex items-center justify-between bg-amber-50/90 border border-amber-200/90 rounded-2xl px-4 py-2.5">

@@ -2283,7 +2283,7 @@ export const StoreProvider = ({ children }) => {
   const verifyOrderDeliveryOtp = async (orderId, otp, riderId) => {
     const orderForRider = customerOrders.find((order) => order.id === orderId || order.orderId === orderId || order._id === orderId);
     const assignedRiderId = orderForRider?.assignedRider?.id || orderForRider?.assignedRider?.riderId;
-    if (adminRole !== 'rider' || !assignedRiderId || assignedRiderId !== (user?.riderId || user?.id) || !['Out for Delivery', 'Arrived at Customer'].includes(orderForRider?.status)) {
+    if (adminRole !== 'rider' || !assignedRiderId || assignedRiderId !== (user?.riderId || user?.id) || orderForRider?.status !== 'Arrived at Customer') {
       addToast('Access denied', 'Only the rider assigned to this order can confirm delivery.', 'error');
       return { success: false, message: 'Only the assigned rider can confirm delivery.' };
     }
@@ -2381,21 +2381,30 @@ export const StoreProvider = ({ children }) => {
   const updateDeliveryOrderStatus = async (orderId, newStatus) => {
     const assignedOrder = customerOrders.find((order) => order.id === orderId || order.orderId === orderId || order._id === orderId);
     const riderId = assignedOrder?.assignedRider?.id || assignedOrder?.assignedRider?.riderId;
-    const isAssignedRider = adminRole === 'rider' && riderId && riderId === (user?.riderId || user?.id) && ['Dispatched', 'Out for Delivery', 'Arrived at Customer'].includes(assignedOrder?.status);
+    const isAssignedRider = adminRole === 'rider' && riderId && riderId === (user?.riderId || user?.id) && ['Ready for Dispatch', 'Dispatched', 'Out for Delivery', 'Arrived at Customer'].includes(assignedOrder?.status);
     if (!isAssignedRider && !(adminRole === 'admin' && newStatus === 'Cancelled')) {
       addToast('Status update denied', 'Only the assigned rider can update delivery progress.', 'error');
       return false;
     }
-    const stage = newStatus === 'Delivered' ? 7 : ['Out for Delivery', 'Picked Up from Dark Store', 'Picked Up'].includes(newStatus) ? 6 : undefined;
+    const allowedRiderTransitions = {
+      'Ready for Dispatch': 'Dispatched',
+      Dispatched: 'Out for Delivery',
+      'Out for Delivery': 'Arrived at Customer'
+    };
+    if (adminRole === 'rider' && allowedRiderTransitions[assignedOrder?.status] !== newStatus) {
+      addToast('Invalid delivery step', 'Complete parcel pickup, delivery, and doorstep steps in order.', 'error');
+      return false;
+    }
+    const stage = newStatus === 'Delivered' ? 7 : newStatus === 'Dispatched' ? 5 : ['Out for Delivery', 'Picked Up from Dark Store', 'Picked Up', 'Arrived at Customer'].includes(newStatus) ? 6 : undefined;
     const updatedAt = new Date().toISOString();
     setCustomerOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, ...(stage ? { fulfillmentStage: stage } : {}), fulfillmentUpdatedAt: updatedAt } : o))
+      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, ...(stage ? { fulfillmentStage: stage } : {}), ...(newStatus === 'Dispatched' ? { pickupStep: 'handed_to_rider', isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: updatedAt } : {}), fulfillmentUpdatedAt: updatedAt } : o))
     );
     setAdminOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, ...(stage ? { fulfillmentStage: stage } : {}), fulfillmentUpdatedAt: updatedAt } : o))
+      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, ...(stage ? { fulfillmentStage: stage } : {}), ...(newStatus === 'Dispatched' ? { pickupStep: 'handed_to_rider', isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: updatedAt } : {}), fulfillmentUpdatedAt: updatedAt } : o))
     );
     if (activeDeliveryOrder && activeDeliveryOrder.id === orderId) {
-      setActiveDeliveryOrder((prev) => ({ ...prev, status: newStatus, ...(stage ? { fulfillmentStage: stage } : {}), fulfillmentUpdatedAt: updatedAt }));
+      setActiveDeliveryOrder((prev) => ({ ...prev, status: newStatus, ...(stage ? { fulfillmentStage: stage } : {}), ...(newStatus === 'Dispatched' ? { pickupStep: 'handed_to_rider', isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: updatedAt } : {}), fulfillmentUpdatedAt: updatedAt }));
     }
     addToast('Delivery Status Updated 🚚', `Order ${orderId}: ${newStatus}`);
 
@@ -3933,7 +3942,7 @@ export const StoreProvider = ({ children }) => {
 
     const stageStatusMap = {
       1: 'Pending',
-      2: 'Packing',
+      2: 'Received by Pickup Staff',
       3: 'Picking',
       4: 'Ready for Dispatch',
       5: 'Dispatched',
