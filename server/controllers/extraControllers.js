@@ -667,15 +667,21 @@ export const getDeliveries = async (req, res) => {
 // --- ANALYTICS & REPORTS CONTROLLER ---
 export const getAnalyticsDashboard = async (req, res) => {
   try {
-    let kpis = { ...ADMIN_ANALYTICS_KPIS };
-    let recentOrders = ADMIN_RECENT_ORDERS;
-    let topProducts = ADMIN_BEST_SELLING_PRODUCTS;
+    let kpis = {
+      todaySales: { amount: 0, formatted: 'Rs. 0', growth: '0 Orders', subtitle: 'vs yesterday' },
+      orders: { count: 0, formatted: '0', growth: '0 Orders', subtitle: '100% Fulfillment SLA' },
+      customers: { count: 0, formatted: '0', growth: '0 Shoppers', subtitle: 'Active registered shoppers' },
+      products: { count: 0, formatted: '0', growth: '0 Items', subtitle: 'Catalog categories' },
+      lowStock: { count: 0, formatted: '0', growth: 'Healthy Stock', subtitle: 'Items below restock threshold' }
+    };
+    let recentOrders = [];
+    let topProducts = [];
 
     if (isDbOnline()) {
       try {
         const [productCount, userCount, orderCount, lowStockCount, ordersAgg] = await Promise.all([
           Product.countDocuments(),
-          User.countDocuments(),
+          User.countDocuments({ role: 'customer' }),
           Order.countDocuments(),
           Product.countDocuments({ stock: { $lte: 15 } }),
           Order.aggregate([{ $group: { _id: null, totalSales: { $sum: "$total" } } }])
@@ -695,10 +701,8 @@ export const getAnalyticsDashboard = async (req, res) => {
         kpis.lowStock.count = lowStockCount;
         kpis.lowStock.formatted = lowStockCount.toLocaleString();
 
-        if (totalRevenue > 0) {
-          kpis.todaySales.amount = totalRevenue;
-          kpis.todaySales.formatted = `Rs. ${totalRevenue.toLocaleString()}`;
-        }
+        kpis.todaySales.amount = totalRevenue;
+        kpis.todaySales.formatted = `Rs. ${totalRevenue.toLocaleString()}`;
       } catch (dbErr) {
         console.warn('Analytics DB count error:', dbErr.message);
       }
