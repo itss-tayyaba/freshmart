@@ -104,12 +104,7 @@ export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
   // Stage 5: Rider Matching Algorithm
   // Factors: Delivery zone match, Rider availability, Rider active capacity
   const matchingRiders = useMemo(() => {
-    const list = Array.isArray(riders) && riders.length > 0 ? riders : [
-      { id: 'RDR-101', name: 'Ali Raza', phone: '+92 300 8123456', zone: 'Peoples Colony / D-Ground', status: 'On-Duty', rating: 4.9, activeOrders: 1 },
-      { id: 'RDR-102', name: 'Usman Farooq', phone: '+92 321 9876543', zone: 'Gulberg / Main Hub', status: 'On-Duty', rating: 4.8, activeOrders: 0 },
-      { id: 'RDR-103', name: 'Zubair Ahmed', phone: '+92 333 4567890', zone: 'DHA / Madina Town', status: 'On-Duty', rating: 4.7, activeOrders: 2 },
-      { id: 'RDR-104', name: 'Hamza Tariq', phone: '+92 345 1230987', zone: 'Civil Lines / Samanabad', status: 'Off-Duty', rating: 4.6, activeOrders: 0 }
-    ];
+    const list = Array.isArray(riders) ? riders : [];
 
     const customerZoneLower = (customerAddress + ' ' + customerCity).toLowerCase();
 
@@ -812,6 +807,7 @@ export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
                   </div>
                 </div>
                 <button
+                  disabled={matchingRiders.length === 0}
                   onClick={() => {
                     const best = matchingRiders[0];
                     if (best) {
@@ -819,7 +815,7 @@ export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
                       addToast('Best Rider Selected 🛵', `${best.name} matches destination area (${best.matchScore}% fit).`);
                     }
                   }}
-                  className="text-xs font-bold px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white shadow-xs transition cursor-pointer flex items-center gap-1.5"
+                  className="text-xs font-bold px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-xs transition cursor-pointer flex items-center gap-1.5"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>Auto-Select Best</span>
@@ -848,71 +844,81 @@ export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
                   Eligible Riders Ranked by Smart Match Score ({matchingRiders.length} Available)
                 </span>
 
-                {matchingRiders.map((r) => {
-                  const isSelected = selectedRider?.id === r.id;
-                  return (
-                    <div
-                      key={r.id}
-                      onClick={() => setSelectedRider(r)}
-                      className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                        isSelected
-                          ? 'bg-purple-50/80 border-purple-400 ring-2 ring-purple-400/40 shadow-sm'
-                          : 'bg-white border-slate-200 hover:border-slate-300 shadow-2xs'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3.5">
-                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-100 to-indigo-100 text-purple-800 font-black text-sm flex items-center justify-center shrink-0 border border-purple-200">
-                          🛵
+                {matchingRiders.length === 0 ? (
+                  <div className="p-8 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-2">
+                    <div className="text-3xl">🛵</div>
+                    <h4 className="text-sm font-bold text-slate-800">No Fleet Riders Registered</h4>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      There are currently 0 riders in the delivery fleet. You can add riders to assign deliveries.
+                    </p>
+                  </div>
+                ) : (
+                  matchingRiders.map((r) => {
+                    const isSelected = selectedRider?.id === r.id;
+                    return (
+                      <div
+                        key={r.id}
+                        onClick={() => setSelectedRider(r)}
+                        className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                          isSelected
+                            ? 'bg-purple-50/80 border-purple-400 ring-2 ring-purple-400/40 shadow-sm'
+                            : 'bg-white border-slate-200 hover:border-slate-300 shadow-2xs'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3.5">
+                          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-100 to-indigo-100 text-purple-800 font-black text-sm flex items-center justify-center shrink-0 border border-purple-200">
+                            🛵
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-black text-slate-900 text-sm">{r.name}</span>
+                              <span
+                                className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                                  r.status === 'On-Duty'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-slate-100 text-slate-500'
+                                }`}
+                              >
+                                {r.status}
+                              </span>
+                              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                                ⭐ {r.rating || '4.9'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
+                              <span>📍 Zone: <b>{r.zone}</b></span>
+                              <span>• {r.distanceKm} km away</span>
+                              <span>• Active load: <b>{r.activeCount}/3 parcels</b></span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-black text-slate-900 text-sm">{r.name}</span>
+
+                        <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                          <div className="text-right">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Match Score</span>
                             <span
-                              className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                                r.status === 'On-Duty'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-slate-100 text-slate-500'
+                              className={`font-mono font-black text-sm ${
+                                r.matchScore >= 80 ? 'text-emerald-600' : 'text-amber-600'
                               }`}
                             >
-                              {r.status}
-                            </span>
-                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
-                              ⭐ {r.rating || '4.9'}
+                              {r.matchScore}% Fit
                             </span>
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
-                            <span>📍 Zone: <b>{r.zone}</b></span>
-                            <span>• {r.distanceKm} km away</span>
-                            <span>• Active load: <b>{r.activeCount}/3 parcels</b></span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                        <div className="text-right">
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Match Score</span>
-                          <span
-                            className={`font-mono font-black text-sm ${
-                              r.matchScore >= 80 ? 'text-emerald-600' : 'text-amber-600'
+                          <button
+                            type="button"
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                              isSelected
+                                ? 'bg-purple-600 text-white shadow-xs'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                             }`}
                           >
-                            {r.matchScore}% Fit
-                          </span>
+                            {isSelected ? '✓ Assigned' : 'Select'}
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                            isSelected
-                              ? 'bg-purple-600 text-white shadow-xs'
-                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                          }`}
-                        >
-                          {isSelected ? '✓ Assigned' : 'Select'}
-                        </button>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
 
               {/* Actions */}

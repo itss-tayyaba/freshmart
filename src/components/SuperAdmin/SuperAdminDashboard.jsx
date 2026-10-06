@@ -1968,34 +1968,41 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {[
-                        { id: '#ORD-9821', store: 'Al-Fatah', logo: '🏬', cust: 'Hafsa Tariq', hub: 'Gulberg Hub, Lahore', amt: 'PKR 4,850', st: 'In Transit', color: 'bg-blue-100 text-blue-800' },
-                        { id: '#ORD-9820', store: 'Chase Value', logo: '🛒', cust: 'Farhan Ali', hub: 'Shaheed-e-Millat, Karachi', amt: 'PKR 2,490', st: 'Delivered', color: 'bg-emerald-100 text-emerald-800' },
-                        { id: '#ORD-9819', store: 'Chase Up', logo: '🏪', cust: 'Zubair Khan', hub: 'Clifton Hub, Karachi', amt: 'PKR 3,120', st: 'Packing', color: 'bg-amber-100 text-amber-800' },
-                        { id: '#ORD-9818', store: 'Fresh Mart', logo: '🛒', cust: 'Aimen Yasin', hub: 'DHA Hub, Lahore', amt: 'PKR 1,850', st: 'Delivered', color: 'bg-emerald-100 text-emerald-800' },
-                        { id: '#ORD-9817', store: 'Local Grocery', logo: '🏬', cust: 'Hamza Sheikh', hub: 'Multan Cantt', amt: 'PKR 1,240', st: 'Pending', color: 'bg-slate-100 text-slate-800' }
-                      ].map((ord) => (
-                        <tr key={ord.id} className="hover:bg-slate-50/70 transition">
-                          <td className="py-3 pl-4 font-mono font-bold text-slate-900">{ord.id}</td>
-                          <td className="py-3 font-semibold text-slate-800">
-                            <span className="mr-1">{ord.logo}</span> {ord.store}
-                          </td>
-                          <td className="py-3 text-slate-700 font-medium">{ord.cust}</td>
-                          <td className="py-3 text-slate-500">{ord.hub}</td>
-                          <td className="py-3 font-mono font-bold text-slate-900">{ord.amt}</td>
-                          <td className="py-3">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${ord.color}`}>{ord.st}</span>
-                          </td>
-                          <td className="py-3 pr-4 text-right">
-                            <button
-                              onClick={() => addToast('Order Details 📦', `Viewing invoice for ${ord.id} from ${ord.store}`)}
-                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition"
-                            >
-                              Invoice
-                            </button>
+                      {adminOrders.length === 0 ? (
+                        <tr>
+                          <td colSpan="7" className="py-12 text-center text-slate-400">
+                            <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto text-lg mb-2">📦</div>
+                            <p className="text-xs font-bold text-slate-600">No supermarket orders placed yet</p>
+                            <p className="text-[11px] text-slate-400">Live orders will appear here as customers place them.</p>
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        adminOrders.map((ord) => {
+                          const tenantObj = (tenants || []).find((t) => t.id === ord.tenantId);
+                          return (
+                            <tr key={ord.id} className="hover:bg-slate-50/70 transition">
+                              <td className="py-3 pl-4 font-mono font-bold text-slate-900">{ord.id}</td>
+                              <td className="py-3 font-semibold text-slate-800">
+                                <span className="mr-1">{tenantObj?.logo || '🏬'}</span> {tenantObj?.name || ord.tenantName || 'FreshMart'}
+                              </td>
+                              <td className="py-3 text-slate-700 font-medium">{ord.customerName || ord.customer || 'Customer'}</td>
+                              <td className="py-3 text-slate-500">{ord.city || ord.shippingAddress?.city || 'Lahore'}</td>
+                              <td className="py-3 font-mono font-bold text-slate-900">PKR {Number(ord.total || ord.totalAmount || 0).toLocaleString()}</td>
+                              <td className="py-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${ord.statusColor || 'bg-slate-100 text-slate-800'}`}>{ord.status || 'Pending'}</span>
+                              </td>
+                              <td className="py-3 pr-4 text-right">
+                                <button
+                                  onClick={() => addToast('Order Details 📦', `Viewing invoice for ${ord.id}`)}
+                                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition cursor-pointer"
+                                >
+                                  Invoice
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>

@@ -345,9 +345,9 @@ export const getOrders = async (req, res) => {
         return res.json({ success: true, count: orders.length, orders });
       }
     }
-    res.json({ success: true, count: ADMIN_ORDERS_FULL.length, orders: ADMIN_ORDERS_FULL });
+    res.json({ success: true, count: 0, orders: [] });
   } catch (error) {
-    res.json({ success: true, count: ADMIN_ORDERS_FULL.length, orders: ADMIN_ORDERS_FULL });
+    res.json({ success: true, count: 0, orders: [] });
   }
 };
 

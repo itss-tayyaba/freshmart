@@ -134,11 +134,35 @@ export const StoreProvider = ({ children }) => {
     return null;
   });
 
+  // One-time purge of legacy mock orders, customers, and riders so admin/customer starts with 0 records
+  try {
+    const cleanMockKey = 'freshmart_v4_cleared_mock_data';
+    if (!localStorage.getItem(cleanMockKey)) {
+      localStorage.removeItem('freshmart_admin_orders');
+      localStorage.removeItem('freshmart_customer_orders');
+      localStorage.removeItem('freshmart_customers');
+      localStorage.removeItem('freshmart_customers_v3');
+      localStorage.removeItem('freshmart_riders');
+      localStorage.removeItem('freshmart_active_delivery');
+      localStorage.setItem(cleanMockKey, 'true');
+    }
+  } catch (e) {}
+
   // Customer Placed Orders History (Starts empty until customer places orders)
   const [customerOrders, setCustomerOrders] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_customer_orders');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(
+            (o) =>
+              !['#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#CU-2190', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
+                o.id || o.orderId
+              )
+          );
+        }
+      }
     } catch (e) {}
     return [];
   });
@@ -897,206 +921,37 @@ export const StoreProvider = ({ children }) => {
   // Applied Coupon (null by default unless customer/admin applies code)
   const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-  const INITIAL_BRANCH_ORDERS = [
-    {
-      id: '#AF-1082',
-      orderId: '#AF-1082',
-      tenantId: 'tenant-alfatah',
-      tenantName: 'Al-Fatah Supermarket',
-      customer: 'Mrs. Huma Faisal',
-      customerName: 'Mrs. Huma Faisal',
-      customerPhone: '0300-8441122',
-      customerEmail: 'huma.faisal@gmail.com',
-      shippingAddress: { city: 'Lahore', address: 'House 42, Block L, Gulberg III, Lahore' },
-      address: 'House 42, Block L, Gulberg III, Lahore',
-      total: 6400,
-      totalAmount: 6400,
-      status: 'Out for Delivery',
-      statusColor: 'bg-amber-100 text-amber-800',
-      payment: 'Credit Card',
-      paymentMethod: 'Credit Card (Al-Fatah VIP POS)',
-      time: '12 mins ago',
-      createdAt: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
-      deliveryOtp: '7412',
-      items: [
-        { name: 'Al-Fatah Royal Imperial Basmati Rice XXL Grain (5kg)', price: 2450, quantity: 1 },
-        { name: 'Prime Australian Black Angus Ribeye Steak Cuts (500g)', price: 3950, quantity: 1 }
-      ],
-      orderItems: [
-        { name: 'Al-Fatah Royal Imperial Basmati Rice XXL Grain (5kg)', price: 2450, quantity: 1 },
-        { name: 'Prime Australian Black Angus Ribeye Steak Cuts (500g)', price: 3950, quantity: 1 }
-      ]
-    },
-    {
-      id: '#AF-1081',
-      orderId: '#AF-1081',
-      tenantId: 'tenant-alfatah',
-      tenantName: 'Al-Fatah Supermarket',
-      customer: 'Dr. Tariq Malik',
-      customerName: 'Dr. Tariq Malik',
-      customerPhone: '0321-4567890',
-      customerEmail: 'tariq.malik@hospital.pk',
-      shippingAddress: { city: 'Lahore', address: 'Street 9, Sector C, DHA Phase 5, Lahore' },
-      address: 'Street 9, Sector C, DHA Phase 5, Lahore',
-      total: 4630,
-      totalAmount: 4630,
-      status: 'Delivered',
-      statusColor: 'bg-emerald-100 text-emerald-800',
-      payment: 'Online Visa',
-      paymentMethod: 'Visa / Mastercard',
-      time: '45 mins ago',
-      createdAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-      deliveryOtp: '8921',
-      items: [
-        { name: 'Lindt Swiss Excellence 85% Dark Chocolate Bar (100g)', price: 980, quantity: 1 },
-        { name: 'Borges Extra Virgin Olive Oil Spain Cold Pressed (1L)', price: 3650, quantity: 1 }
-      ],
-      orderItems: [
-        { name: 'Lindt Swiss Excellence 85% Dark Chocolate Bar (100g)', price: 980, quantity: 1 },
-        { name: 'Borges Extra Virgin Olive Oil Spain Cold Pressed (1L)', price: 3650, quantity: 1 }
-      ]
-    },
-    {
-      id: '#CV-4091',
-      orderId: '#CV-4091',
-      tenantId: 'tenant-chasevalue',
-      tenantName: 'Chase Value',
-      customer: 'Muhammad Farhan',
-      customerName: 'Muhammad Farhan',
-      customerPhone: '0333-2198765',
-      customerEmail: 'farhan.wholesale@gmail.com',
-      shippingAddress: { city: 'Karachi', address: 'Plot 18-B, Shaheed-e-Millat Road, Karachi' },
-      address: 'Plot 18-B, Shaheed-e-Millat Road, Karachi',
-      total: 5480,
-      totalAmount: 5480,
-      status: 'Processing',
-      statusColor: 'bg-blue-100 text-blue-800',
-      payment: 'Cash on Delivery',
-      paymentMethod: 'Cash on Delivery (Wholesale Invoice)',
-      time: '18 mins ago',
-      createdAt: new Date(Date.now() - 18 * 60 * 1000).toISOString(),
-      deliveryOtp: '3382',
-      items: [
-        { name: 'Chase Value Mega Saver Whole Wheat Chakki Atta (10kg)', price: 1380, quantity: 1 },
-        { name: 'Chase Value Premium Banaspati Cooking Oil Tin (5L Mega Tin)', price: 2450, quantity: 1 },
-        { name: 'Chase Value Super White Detergent Powder (6kg + Free Bucket)', price: 1650, quantity: 1 }
-      ],
-      orderItems: [
-        { name: 'Chase Value Mega Saver Whole Wheat Chakki Atta (10kg)', price: 1380, quantity: 1 },
-        { name: 'Chase Value Premium Banaspati Cooking Oil Tin (5L Mega Tin)', price: 2450, quantity: 1 },
-        { name: 'Chase Value Super White Detergent Powder (6kg + Free Bucket)', price: 1650, quantity: 1 }
-      ]
-    },
-    {
-      id: '#CV-4088',
-      orderId: '#CV-4088',
-      tenantId: 'tenant-chasevalue',
-      tenantName: 'Chase Value',
-      customer: 'Bilal Ahmed Siddiqui',
-      customerName: 'Bilal Ahmed Siddiqui',
-      customerPhone: '0312-9876543',
-      customerEmail: 'bilal.siddiqui@gmail.com',
-      shippingAddress: { city: 'Karachi', address: 'Block D, North Nazimabad, Karachi' },
-      address: 'Block D, North Nazimabad, Karachi',
-      total: 3160,
-      totalAmount: 3160,
-      status: 'Delivered',
-      statusColor: 'bg-emerald-100 text-emerald-800',
-      payment: 'JazzCash',
-      paymentMethod: 'JazzCash Mobile Wallet',
-      time: '1 hour ago',
-      createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-      deliveryOtp: '4190',
-      items: [
-        { name: 'Wholesale Daal Chana Unpolished Economy Pack (2kg)', price: 540, quantity: 2 },
-        { name: 'Direct Factory Refined White Sugar Economy Pack (5kg)', price: 720, quantity: 1 },
-        { name: 'Tapal Danedar Tea Bulk Economy Pouch (900g)', price: 1420, quantity: 1 }
-      ],
-      orderItems: [
-        { name: 'Wholesale Daal Chana Unpolished Economy Pack (2kg)', price: 540, quantity: 2 },
-        { name: 'Direct Factory Refined White Sugar Economy Pack (5kg)', price: 720, quantity: 1 },
-        { name: 'Tapal Danedar Tea Bulk Economy Pouch (900g)', price: 1420, quantity: 1 }
-      ]
-    },
-    {
-      id: '#CU-2190',
-      orderId: '#CU-2190',
-      tenantId: 'tenant-chaseup',
-      tenantName: 'Chase Up',
-      customer: 'Khurram Shehzad',
-      customerName: 'Khurram Shehzad',
-      customerPhone: '0322-5544332',
-      customerEmail: 'khurram.shehzad@yahoo.com',
-      shippingAddress: { city: 'Karachi', address: 'Apartment 402, Block 5, Clifton, Karachi' },
-      address: 'Apartment 402, Block 5, Clifton, Karachi',
-      total: 6190,
-      totalAmount: 6190,
-      status: 'Out for Delivery',
-      statusColor: 'bg-amber-100 text-amber-800',
-      payment: 'Credit Card',
-      paymentMethod: 'HBL POS Swipe',
-      time: '20 mins ago',
-      createdAt: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
-      deliveryOtp: '6721',
-      items: [
-        { name: 'Chase Up Fresh Homogenized Full Cream Milk Carton (12 x 1L)', price: 3120, quantity: 1 },
-        { name: 'Dalda Pure Canola Oil Pouch Bundle (5 x 1L Multi-Saver)', price: 2650, quantity: 1 },
-        { name: 'Shan Special Bombay Biryani Masala Family Pack (100g x 3)', price: 420, quantity: 1 }
-      ],
-      orderItems: [
-        { name: 'Chase Up Fresh Homogenized Full Cream Milk Carton (12 x 1L)', price: 3120, quantity: 1 },
-        { name: 'Dalda Pure Canola Oil Pouch Bundle (5 x 1L Multi-Saver)', price: 2650, quantity: 1 },
-        { name: 'Shan Special Bombay Biryani Masala Family Pack (100g x 3)', price: 420, quantity: 1 }
-      ]
-    },
-    {
-      id: '#FM-9482',
-      orderId: '#FM-9482',
-      tenantId: 'tenant-freshmart',
-      tenantName: 'FreshMart Direct',
-      customer: 'Aimen Yasin',
-      customerName: 'Aimen Yasin',
-      customerPhone: '0320-6551699',
-      customerEmail: 'aimen@gmail.com',
-      shippingAddress: { city: 'Lahore', address: 'Main Boulevard, Gulberg III, Lahore' },
-      address: 'Main Boulevard, Gulberg III, Lahore',
-      total: 990,
-      totalAmount: 990,
-      status: 'Delivered',
-      statusColor: 'bg-emerald-100 text-emerald-800',
-      payment: 'Cash on Delivery',
-      paymentMethod: 'Cash on Delivery',
-      time: '15 mins ago',
-      createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-      deliveryOtp: '9999',
-      items: [
-        { name: 'Farm Fresh Hydroponic Crisp Romaine Lettuce (250g)', price: 220, quantity: 1 },
-        { name: 'Pure Desi Golden-Yolked Farm Eggs (Dozen Pack)', price: 420, quantity: 1 },
-        { name: 'Freshly Squeezed Valencia Orange Cold Juice (500ml Bottle)', price: 350, quantity: 1 }
-      ],
-      orderItems: [
-        { name: 'Farm Fresh Hydroponic Crisp Romaine Lettuce (250g)', price: 220, quantity: 1 },
-        { name: 'Pure Desi Golden-Yolked Farm Eggs (Dozen Pack)', price: 420, quantity: 1 },
-        { name: 'Freshly Squeezed Valencia Orange Cold Juice (500ml Bottle)', price: 350, quantity: 1 }
-      ]
-    }
-  ];
+  const INITIAL_BRANCH_ORDERS = [];
 
-  // Admin Data State (Starts with authentic multi-branch seed orders, augmented as orders arrive)
+  // Admin Data State (Starts empty, populated strictly as customers or store admin create live orders)
   const [adminOrders, setAdminOrders] = useState(() => {
     try {
       const savedAdmin = localStorage.getItem('freshmart_admin_orders');
       if (savedAdmin) {
         const parsed = JSON.parse(savedAdmin);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter(
+            (o) =>
+              !['#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#CU-2190', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
+                o.id || o.orderId
+              )
+          );
+        }
       }
       const saved = localStorage.getItem('freshmart_customer_orders');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter(
+            (o) =>
+              !['#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#CU-2190', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
+                o.id || o.orderId
+              )
+          );
+        }
       }
     } catch (e) {}
-    return INITIAL_BRANCH_ORDERS;
+    return [];
   });
   const [adminStats, setAdminStats] = useState(ADMIN_STATS);
 
@@ -1836,6 +1691,32 @@ export const StoreProvider = ({ children }) => {
     return staff;
   };
 
+  const deletePickupStaff = (staffId) => {
+    setPickupStaff((previous) => (previous || []).filter((person) => person.id !== staffId));
+    addToast('Pickup staff removed', 'Staff account has been deleted.');
+  };
+
+  const clearAllStoreOrders = () => {
+    setCustomerOrders([]);
+    setAdminOrders([]);
+    setActiveDeliveryOrder(null);
+    try {
+      localStorage.removeItem('freshmart_customer_orders');
+      localStorage.removeItem('freshmart_admin_orders');
+      localStorage.removeItem('freshmart_active_delivery');
+    } catch (e) {}
+    addToast('All Orders Cleared', 'All order records have been reset to 0.');
+  };
+
+  const clearAllCustomers = () => {
+    setCustomers([]);
+    try {
+      localStorage.removeItem('freshmart_customers_v3');
+      localStorage.removeItem('freshmart_customers');
+    } catch (e) {}
+    addToast('All Customers Cleared', 'Customer list has been reset to 0.');
+  };
+
   // Default Suppliers List (Zero mock seeds: populated strictly via live Admin additions or Vendor onboarding applications)
   const defaultSuppliersList = [];
 
@@ -1873,6 +1754,8 @@ export const StoreProvider = ({ children }) => {
               c.id !== 'CUST-002' &&
               c.name !== 'Hafsa' &&
               c.name !== 'Aimen' &&
+              c.name !== 'Hafsa Tariq' &&
+              c.name !== 'Aimen Yasin' &&
               c.email !== 'hafsa@gmail.com' &&
               c.email !== 'aimen@gmail.com'
           );
@@ -1910,8 +1793,13 @@ export const StoreProvider = ({ children }) => {
       try {
         const res = await apiService.getRiders();
         if (res && res.success && Array.isArray(res.riders)) {
-          setRiders(res.riders);
-          localStorage.setItem('freshmart_riders', JSON.stringify(res.riders));
+          const cleanRiders = res.riders.filter(
+            (r) =>
+              !['RDR-101', 'RDR-102', 'RDR-103', 'RDR-104'].includes(r.id) &&
+              !['Ali Raza', 'Usman Farooq', 'Zubair Ahmed', 'Hamza Tariq'].includes(r.name)
+          );
+          setRiders(cleanRiders);
+          localStorage.setItem('freshmart_riders', JSON.stringify(cleanRiders));
         }
       } catch (e) {}
     };
@@ -1930,6 +1818,8 @@ export const StoreProvider = ({ children }) => {
               c.id !== 'CUST-002' &&
               c.name !== 'Hafsa' &&
               c.name !== 'Aimen' &&
+              c.name !== 'Hafsa Tariq' &&
+              c.name !== 'Aimen Yasin' &&
               c.email !== 'hafsa@gmail.com' &&
               c.email !== 'aimen@gmail.com'
           );
@@ -3951,6 +3841,9 @@ export const StoreProvider = ({ children }) => {
         setRiders,
         pickupStaff,
         addPickupStaff,
+        deletePickupStaff,
+        clearAllStoreOrders,
+        clearAllCustomers,
         addRider,
         updateRider,
         deleteRider,

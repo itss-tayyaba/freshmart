@@ -135,7 +135,6 @@ export const AdminDashboard = () => {
       { label: 'Categories', icon: Layers },
       { label: 'Orders', icon: ShoppingBag, badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-amber-500/20 text-amber-300' },
       { label: 'Pickup Staff', icon: Boxes, badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
-      { label: 'Rider', icon: Truck, badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-amber-500/20 text-amber-300' },
       { label: 'Customers', icon: Users },
       { label: 'Inventory', icon: Boxes, badge: lowStockCount > 0 ? lowStockCount : null, badgeColor: 'bg-rose-500/20 text-rose-300' },
       { label: 'Promotions', icon: Tag },

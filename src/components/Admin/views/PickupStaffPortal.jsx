@@ -59,8 +59,8 @@ export const PickupStaffPortal = () => {
                 <div className="text-xs text-slate-500">{order.parcelCode ? `Parcel ${order.parcelCode}` : 'Parcel ID will be created when packed'}</div>
                 {stage < 2 ? <button onClick={() => updateStage(order, 2, 'Processing', { pickupAcceptedAt: new Date().toISOString() })} className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-sm flex items-center gap-2"><CheckCircle2 size={16}/>Accept Order</button>
                   : stage === 2 ? <button onClick={() => updateStage(order, 3, 'Picking')} className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-sm flex items-center gap-2"><Play size={16}/>Start Picking</button>
-                  : stage === 3 || stage === 4 ? <button onClick={() => updateStage(order, 5, 'Ready for Dispatch', { parcelCode: order.parcelCode || `PRCL-${String(order.id).replace(/\W/g, '').slice(-8).toUpperCase()}`, sealedAt: new Date().toISOString() })} className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-sm flex items-center gap-2"><PackageCheck size={16}/>Packed · Ready for Dispatch</button>
-                  : <span className="text-emerald-700 font-bold text-sm flex items-center gap-2"><ScanLine size={16}/>Ready for rider handoff</span>}
+                  : stage === 3 || stage === 4 ? <button onClick={() => updateStage(order, 5, 'Dispatched', { parcelCode: order.parcelCode || `PRCL-${String(order.id).replace(/\W/g, '').slice(-8).toUpperCase()}`, sealedAt: new Date().toISOString(), isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: new Date().toISOString() })} className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-sm flex items-center gap-2 cursor-pointer"><PackageCheck size={16}/>Packed · Mark Dispatched 🚀</button>
+                  : <span className="text-emerald-700 font-bold text-sm flex items-center gap-2"><ScanLine size={16}/>✅ Dispatched · Ready for courier handoff</span>}
               </div>
             </article>
           );
