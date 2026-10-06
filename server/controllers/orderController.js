@@ -77,6 +77,22 @@ export const resolveHubCoords = (cityStr) => {
   return CITY_HUBS.lahore;
 };
 
+const resolveRiderCoords = (rider) => {
+  const saved = rider?.coordinates;
+  if (Number.isFinite(Number(saved?.lat)) && Number.isFinite(Number(saved?.lng))) {
+    return { lat: Number(saved.lat), lng: Number(saved.lng) };
+  }
+  const zone = String(rider?.zone || '').toLowerCase();
+  if (zone.includes('gulberg')) return { lat: 31.5204, lng: 74.3587 };
+  if (zone.includes('dha') && zone.includes('karachi')) return { lat: 24.8270, lng: 67.0251 };
+  if (zone.includes('dha')) return { lat: 31.4826, lng: 74.4074 };
+  if (zone.includes('johar') || zone.includes('model town')) return { lat: 31.4697, lng: 74.2728 };
+  if (zone.includes('clifton')) return { lat: 24.8270, lng: 67.0251 };
+  if (zone.includes('islamabad') || zone.includes('blue area') || zone.includes('f-6') || zone.includes('f-7')) return { lat: 33.7215, lng: 73.0565 };
+  if (zone.includes('faisalabad')) return { lat: 31.4125, lng: 73.0995 };
+  return null;
+};
+
 // Build authentic chronological timeline based on true order state
 export const buildDynamicTimeline = (order) => {
   const status = (order.status || 'Pending').toLowerCase();
@@ -474,8 +490,8 @@ export const assignRiderToOrder = async (req, res) => {
     const { id } = req.params;
     const { riderId, rider, status } = req.body;
 
-    let targetRider = rider;
-    if (!targetRider && isDbOnline() && riderId) {
+    let targetRider = null;
+    if (isDbOnline() && riderId) {
       const dbRider = await Rider.findOne({ $or: [{ id: riderId }, { _id: riderId }] });
       if (dbRider) {
         targetRider = {
@@ -485,18 +501,25 @@ export const assignRiderToOrder = async (req, res) => {
           vehicle: dbRider.vehicleNumber || dbRider.vehicleType,
           vehicleType: dbRider.vehicleType,
           zone: dbRider.zone,
+          status: dbRider.status,
+          coverageRadiusKm: dbRider.coverageRadiusKm || 15,
           rating: dbRider.rating || 5.0,
-          coordinates: dbRider.coordinates || { lat: 31.5150, lng: 74.3450 }
+          coordinates: dbRider.coordinates
         };
       }
     }
+    if (!targetRider) targetRider = rider;
 
     if (!targetRider && !riderId) {
       return res.status(400).json({ success: false, message: 'Rider details or riderId required' });
     }
 
     const defaultHub = CITY_HUBS.lahore;
-    const riderCoords = targetRider?.coordinates || { lat: defaultHub.lat, lng: defaultHub.lng };
+    const riderCoords = resolveRiderCoords(targetRider) || { lat: defaultHub.lat, lng: defaultHub.lng };
+    const coverageRadiusKm = Number(targetRider?.coverageRadiusKm) || 15;
+    if (targetRider?.status && !['available', 'on-duty'].includes(String(targetRider.status).toLowerCase())) {
+      return res.status(400).json({ success: false, message: 'Rider is not currently available for assignment.' });
+    }
 
     const assignedInfo = {
       id: targetRider?.id || riderId,
@@ -509,6 +532,7 @@ export const assignRiderToOrder = async (req, res) => {
       zone: targetRider?.zone || 'Lahore Hub',
       rating: targetRider?.rating || 5.0,
       coordinates: riderCoords,
+      coverageRadiusKm,
       currentLat: riderCoords.lat,
       currentLng: riderCoords.lng,
       assignedAt: new Date(),
@@ -517,7 +541,7 @@ export const assignRiderToOrder = async (req, res) => {
       etaMinutes: 15
     };
 
-    const newStatus = status || 'Out for Delivery';
+    const newStatus = 'Ready for Dispatch';
 
     if (isDbOnline()) {
       const order = await Order.findOne({
@@ -530,8 +554,14 @@ export const assignRiderToOrder = async (req, res) => {
       });
 
       if (order) {
+        if (Number(order.fulfillmentStage || 0) < 4 && order.status !== 'Ready for Dispatch') {
+          return res.status(409).json({ success: false, message: 'Pickup staff must mark the parcel Ready for Dispatch before rider assignment.' });
+        }
         const destCoords = order.destinationCoords || resolveDestinationCoords(order.shippingAddress);
         const distanceKm = calculateDistanceKm(riderCoords.lat, riderCoords.lng, destCoords.lat, destCoords.lng);
+        if (distanceKm > coverageRadiusKm) {
+          return res.status(400).json({ success: false, message: `Rider is outside the customer's delivery area (${distanceKm} km away; coverage is ${coverageRadiusKm} km).` });
+        }
         const etaMinutes = calculateEtaMinutes(distanceKm);
         const etaText = distanceKm <= 0.2 ? 'Arriving now (1-2 mins)' : `${etaMinutes} mins`;
 
@@ -540,6 +570,9 @@ export const assignRiderToOrder = async (req, res) => {
 
         order.assignedRider = assignedInfo;
         order.status = newStatus;
+        order.fulfillmentStage = Math.max(Number(order.fulfillmentStage || 0), 4);
+        order.isDispatched = false;
+        order.dispatchStatus = 'Rider Assigned';
         order.destinationCoords = destCoords;
         order.distanceKm = distanceKm;
         order.eta = etaText;
@@ -560,8 +593,14 @@ export const assignRiderToOrder = async (req, res) => {
       (o) => o.id === id || o.orderId === id || o.id === `#${id}` || o.id === id.replace(/^#/, '')
     );
     if (memOrder) {
+      if (Number(memOrder.fulfillmentStage || 0) < 4 && memOrder.status !== 'Ready for Dispatch') {
+        return res.status(409).json({ success: false, message: 'Pickup staff must mark the parcel Ready for Dispatch before rider assignment.' });
+      }
       const destCoords = resolveDestinationCoords(memOrder.shippingAddress || { address: memOrder.address, city: memOrder.city });
       const distanceKm = calculateDistanceKm(riderCoords.lat, riderCoords.lng, destCoords.lat, destCoords.lng);
+      if (distanceKm > coverageRadiusKm) {
+        return res.status(400).json({ success: false, message: `Rider is outside the customer's delivery area (${distanceKm} km away; coverage is ${coverageRadiusKm} km).` });
+      }
       const etaMinutes = calculateEtaMinutes(distanceKm);
       const etaText = distanceKm <= 0.2 ? 'Arriving now (1-2 mins)' : `${etaMinutes} mins`;
 
@@ -570,6 +609,9 @@ export const assignRiderToOrder = async (req, res) => {
 
       memOrder.assignedRider = assignedInfo;
       memOrder.status = newStatus;
+      memOrder.fulfillmentStage = Math.max(Number(memOrder.fulfillmentStage || 0), 4);
+      memOrder.isDispatched = false;
+      memOrder.dispatchStatus = 'Rider Assigned';
       memOrder.statusClass = 'bg-purple-100 text-purple-800';
       memOrder.destinationCoords = destCoords;
       memOrder.distanceKm = distanceKm;

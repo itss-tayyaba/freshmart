@@ -233,6 +233,8 @@ export const getRiders = async (req, res) => {
         vehicleType: r.vehicleType,
         vehicleNumber: r.vehicleNumber,
         zone: r.zone,
+        coordinates: r.coordinates,
+        coverageRadiusKm: r.coverageRadiusKm,
         status: r.status,
         username: r.username,
         deliveriesCount: r.deliveriesCount || 0,
@@ -248,7 +250,7 @@ export const getRiders = async (req, res) => {
 
 export const addRider = async (req, res) => {
   try {
-    const { id, name, phone, vehicleType, vehicleNumber, zone, status, username, password, cnic } = req.body;
+    const { id, name, phone, vehicleType, vehicleNumber, zone, status, username, password, cnic, coordinates, coverageRadiusKm } = req.body;
     const riderId = id || 'RDR-' + Math.floor(100 + Math.random() * 900);
     const newRider = {
       id: riderId,
@@ -261,6 +263,10 @@ export const addRider = async (req, res) => {
       username: username || name.toLowerCase().replace(/\s+/g, '_'),
       password: password || 'rider123',
       cnic: cnic || '',
+      coordinates: coordinates && Number.isFinite(Number(coordinates.lat)) && Number.isFinite(Number(coordinates.lng))
+        ? { lat: Number(coordinates.lat), lng: Number(coordinates.lng) }
+        : undefined,
+      coverageRadiusKm: Number(coverageRadiusKm) || 15,
       deliveriesCount: 0,
       rating: 5.0
     };
@@ -276,6 +282,8 @@ export const addRider = async (req, res) => {
           vehicleType: createdRider.vehicleType,
           vehicleNumber: createdRider.vehicleNumber,
           zone: createdRider.zone,
+          coordinates: createdRider.coordinates,
+          coverageRadiusKm: createdRider.coverageRadiusKm,
           status: createdRider.status,
           username: createdRider.username,
           deliveriesCount: createdRider.deliveriesCount,
@@ -758,4 +766,3 @@ export const uploadImage = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-

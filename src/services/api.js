@@ -261,7 +261,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/assign-rider`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(typeof riderData === 'string' ? { riderId: riderData } : riderData)
       });
       return await handleResponse(res);

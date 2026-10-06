@@ -120,6 +120,54 @@ const mergeApiOrders = (remoteOrders, localOrders, role, user) => {
   return [...mergedRemote, ...remainingLocal];
 };
 
+const readCoordinates = (...values) => {
+  for (const value of values) {
+    if (!value) continue;
+    const lat = Number(value.lat ?? value.latitude);
+    const lng = Number(value.lng ?? value.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0)) return { lat, lng };
+  }
+  return null;
+};
+
+const orderDeliveryCoordinates = (order) => {
+  const stored = readCoordinates(
+    order?.destinationCoords,
+    order?.customerCoordinates,
+    order?.coordinates,
+    order?.deliveryLocation?.coordinates,
+    order?.shippingAddress?.coordinates,
+    order?.shippingAddress?.coords,
+    order
+  );
+  if (stored) return stored;
+  const text = `${order?.address || order?.shippingAddress?.address || ''} ${order?.city || order?.shippingAddress?.city || ''}`.toLowerCase();
+  for (const city of PAKISTAN_CITIES) {
+    const neighborhood = city.neighborhoods.find((area) => text.includes(area.name.toLowerCase()) || text.includes(area.id.toLowerCase()));
+    if (neighborhood) return neighborhood.coords;
+    if (text.includes(city.city.split(',')[0].toLowerCase())) return city.hubCoords;
+  }
+  return null;
+};
+
+const riderBaseCoordinates = (rider) => {
+  const stored = readCoordinates(rider?.coordinates, rider, rider?.currentLocation);
+  if (stored) return stored;
+  const zone = String(rider?.zone || '').toLowerCase();
+  if (zone.includes('gulberg')) return { lat: 31.5204, lng: 74.3587 };
+  if (zone.includes('dha') && zone.includes('karachi')) return { lat: 24.8270, lng: 67.0251 };
+  if (zone.includes('dha')) return { lat: 31.4826, lng: 74.4074 };
+  if (zone.includes('johar') || zone.includes('model town')) return { lat: 31.4697, lng: 74.2728 };
+  if (zone.includes('clifton')) return { lat: 24.8270, lng: 67.0251 };
+  if (zone.includes('f-6') || zone.includes('f-7') || zone.includes('blue area')) return { lat: 33.7215, lng: 73.0565 };
+  for (const city of PAKISTAN_CITIES) {
+    const neighborhood = city.neighborhoods.find((area) => zone.includes(area.name.toLowerCase()) || zone.includes(area.id.toLowerCase()));
+    if (neighborhood) return neighborhood.coords;
+    if (zone.includes(city.city.split(',')[0].toLowerCase())) return city.hubCoords;
+  }
+  return null;
+};
+
 export const StoreProvider = ({ children }) => {
   // Toast notifications state & helpers (available across the whole provider)
   const [toasts, setToasts] = useState([]);
@@ -1847,6 +1895,8 @@ export const StoreProvider = ({ children }) => {
       vehicleType: '🏍️ Honda 125',
       vehicleNumber: 'LEK-4821',
       zone: 'Gulberg / Main Hub',
+      coordinates: { lat: 31.5204, lng: 74.3587 },
+      coverageRadiusKm: 15,
       status: 'On-Duty',
       deliveriesCount: 42,
       rating: 4.9
@@ -1858,6 +1908,8 @@ export const StoreProvider = ({ children }) => {
       vehicleType: '🛵 Suzuki 110',
       vehicleNumber: 'LEK-9104',
       zone: 'DHA Phase 5',
+      coordinates: { lat: 31.4826, lng: 74.4074 },
+      coverageRadiusKm: 15,
       status: 'On-Duty',
       deliveriesCount: 38,
       rating: 4.8
@@ -1869,6 +1921,8 @@ export const StoreProvider = ({ children }) => {
       vehicleType: '🏍️ Yamaha 125',
       vehicleNumber: 'LEK-3382',
       zone: 'Johar Town',
+      coordinates: { lat: 31.4697, lng: 74.2728 },
+      coverageRadiusKm: 15,
       status: 'On-Duty',
       deliveriesCount: 51,
       rating: 5.0
@@ -1880,6 +1934,8 @@ export const StoreProvider = ({ children }) => {
       vehicleType: '🏍️ Honda CD 70',
       vehicleNumber: 'LEK-7719',
       zone: 'Bahria Town',
+      coordinates: { lat: 31.3673, lng: 74.1787 },
+      coverageRadiusKm: 15,
       status: 'On-Duty',
       deliveriesCount: 29,
       rating: 4.9
@@ -2226,6 +2282,8 @@ export const StoreProvider = ({ children }) => {
       vehicleType: riderData.vehicleType || '🏍️ Honda 125',
       vehicleNumber: riderData.vehicleNumber || `LEK-${Math.floor(1000 + Math.random() * 9000)}`,
       zone: riderData.zone || 'Gulberg / Main Hub',
+      coordinates: readCoordinates(riderData.coordinates, riderData),
+      coverageRadiusKm: Number(riderData.coverageRadiusKm) || 15,
       status: riderData.status || 'On-Duty',
       cnic: riderData.cnic || '',
       username: (riderData.username || riderData.phone || riderData.name).toLowerCase().replace(/\s+/g, '_'),
@@ -2306,6 +2364,21 @@ export const StoreProvider = ({ children }) => {
     });
   };
 
+  const getEligibleRidersForOrder = (order) => {
+    const destination = orderDeliveryCoordinates(order);
+    if (!destination) return [];
+    return (riders || [])
+      .filter((rider) => ['available', 'on-duty'].includes(String(rider.status || '').toLowerCase()))
+      .map((rider) => {
+        const coordinates = riderBaseCoordinates(rider);
+        const distanceKm = coordinates ? calculateDistanceKm(destination.lat, destination.lng, coordinates.lat, coordinates.lng) : Number.POSITIVE_INFINITY;
+        const coverageRadiusKm = Number(rider.coverageRadiusKm) || 15;
+        return { ...rider, coordinates, distanceKm, coverageRadiusKm };
+      })
+      .filter((rider) => Number.isFinite(rider.distanceKm) && rider.distanceKm <= rider.coverageRadiusKm)
+      .sort((a, b) => a.distanceKm - b.distanceKm);
+  };
+
   const assignRiderToOrder = async (orderId, riderId, statusOverride) => {
     const targetRider = riders.find((r) => r.id === riderId);
     if (!targetRider) {
@@ -2314,18 +2387,21 @@ export const StoreProvider = ({ children }) => {
     }
     const all = [...(customerOrders || []), ...(adminOrders || [])];
     const sourceOrder = all.find((order) => order.id === orderId || order.orderId === orderId);
-    const assignmentFromStaffReady = adminRole === 'pickup_staff' && statusOverride === 'Ready for Dispatch';
-    const isReady =
-      sourceOrder?.fulfillmentStage >= 4 ||
-      ['Ready', 'ready', 'Ready for Dispatch', 'ready(dispatched)', 'Packed', 'Dispatched', 'Preparing'].includes(sourceOrder?.status) ||
-      assignmentFromStaffReady ||
-      ['admin', 'superadmin'].includes(adminRole);
-
-    if (!isReady) {
-      addToast('Rider assignment unavailable', 'Assign a rider once parcel is Ready or Prepared.', 'info');
+    if (!['admin', 'superadmin'].includes(adminRole)) {
+      addToast('Rider assignment denied', 'Only store admins can assign riders.', 'error');
+      return false;
+    }
+    if (!sourceOrder || (Number(sourceOrder.fulfillmentStage || 0) < 4 && sourceOrder.status !== 'Ready for Dispatch')) {
+      addToast('Rider assignment unavailable', 'Pickup staff must mark the parcel Ready for Dispatch first.', 'info');
+      return false;
+    }
+    const eligibleRider = getEligibleRidersForOrder(sourceOrder).find((rider) => rider.id === riderId);
+    if (!eligibleRider) {
+      addToast('Rider outside delivery area', 'Choose an on-duty rider whose GPS location is within their delivery radius of this customer.', 'error');
+      return false;
     }
 
-    const riderStatus = statusOverride || 'Dispatched';
+    const riderStatus = 'Ready for Dispatch';
 
     const assignedInfo = {
       id: targetRider.id,
@@ -2334,7 +2410,9 @@ export const StoreProvider = ({ children }) => {
       vehicle: targetRider.vehicleNumber || targetRider.vehicleType,
       zone: targetRider.zone || null,
       rating: targetRider.rating || 5.0,
-      coordinates: targetRider.coordinates || null,
+      coordinates: eligibleRider.coordinates,
+      distanceKm: eligibleRider.distanceKm,
+      coverageRadiusKm: eligibleRider.coverageRadiusKm,
       assignedAt: new Date().toISOString(),
       eta: '15-20 mins'
     };
@@ -2346,8 +2424,8 @@ export const StoreProvider = ({ children }) => {
               ...o,
               assignedRider: assignedInfo,
               status: riderStatus,
-              isDispatched: true,
-              fulfillmentStage: Math.max(Number(o.fulfillmentStage || 0), 5),
+              isDispatched: false,
+              fulfillmentStage: 4,
               statusClass: 'bg-purple-100 text-purple-800'
             }
           : o
@@ -2360,8 +2438,8 @@ export const StoreProvider = ({ children }) => {
               ...o,
               assignedRider: assignedInfo,
               status: riderStatus,
-              isDispatched: true,
-              fulfillmentStage: Math.max(Number(o.fulfillmentStage || 0), 5),
+              isDispatched: false,
+              fulfillmentStage: 4,
               statusClass: 'bg-purple-100 text-purple-800'
             }
           : o
@@ -2372,8 +2450,8 @@ export const StoreProvider = ({ children }) => {
         ...prev,
         assignedRider: assignedInfo,
         status: riderStatus,
-        isDispatched: true,
-        fulfillmentStage: 5,
+        isDispatched: false,
+        fulfillmentStage: 4,
         statusClass: 'bg-purple-100 text-purple-800'
       }));
     }
@@ -2382,32 +2460,22 @@ export const StoreProvider = ({ children }) => {
 
     // Persist to backend database
     try {
-      await apiService.assignRiderToOrder(orderId, {
+      const response = await apiService.assignRiderToOrder(orderId, {
         riderId: targetRider.id,
         rider: assignedInfo,
         status: riderStatus
       });
+      if (!response?.success) addToast('Rider assignment sync failed', response?.message || 'The rider assignment could not be saved on the server.', 'error');
     } catch (e) {
       console.warn('Could not sync rider assignment to backend:', e.message);
     }
+    return true;
   };
 
   const assignNearestRiderToOrder = (orderId) => {
-    const order = customerOrders.find((item) => item.id === orderId);
+    const order = [...(customerOrders || []), ...(adminOrders || [])].find((item) => item.id === orderId || item.orderId === orderId);
     if (!order) return;
-    const city = String(order.city || order.shippingAddress?.city || order.deliveryLocation?.city || '').toLowerCase();
-    const destination = order.coordinates || order.customerCoordinates || order.deliveryLocation?.coordinates || order.shippingAddress?.coordinates || (order.latitude && order.longitude ? { lat: order.latitude, lng: order.longitude } : null);
-    const available = (riders || []).filter((rider) => ['available', 'on-duty'].includes(String(rider.status || '').toLowerCase()));
-    const ranked = available.map((rider) => {
-      const zoneMatch = city && String(rider.zone || '').toLowerCase().includes(city);
-      const riderCoordinates = rider.coordinates || (rider.latitude && rider.longitude ? { lat: rider.latitude, lng: rider.longitude } : null);
-      const distance = destination && riderCoordinates
-        ? calculateDistanceKm(destination.lat || destination.latitude, destination.lng || destination.longitude, riderCoordinates.lat || riderCoordinates.latitude, riderCoordinates.lng || riderCoordinates.longitude)
-        : Number.POSITIVE_INFINITY;
-      return { rider, zoneMatch, distance };
-    }).filter((candidate) => candidate.zoneMatch || Number.isFinite(candidate.distance))
-      .sort((a, b) => a.distance - b.distance || Number(b.zoneMatch) - Number(a.zoneMatch));
-    const nearest = ranked[0]?.rider;
+    const nearest = getEligibleRidersForOrder(order)[0];
     if (nearest) return assignRiderToOrder(orderId, nearest.id, 'Ready for Dispatch');
     addToast('Waiting for Rider', 'Parcel is Ready for Dispatch; no available rider is on duty.', 'info');
   };
@@ -4337,6 +4405,7 @@ export const StoreProvider = ({ children }) => {
         toggleRiderStatus,
         assignRiderToOrder,
         assignNearestRiderToOrder,
+        getEligibleRidersForOrder,
         updateDeliveryOrderStatus,
         updateRiderLiveLocation,
         trackOrderRemote,

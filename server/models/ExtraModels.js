@@ -54,6 +54,7 @@ const riderSchema = new mongoose.Schema(
       lat: { type: Number },
       lng: { type: Number }
     },
+    coverageRadiusKm: { type: Number, default: 15, min: 1, max: 100 },
     currentLat: { type: Number },
     currentLng: { type: Number },
     activeOrders: [{ type: String }],

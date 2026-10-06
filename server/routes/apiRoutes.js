@@ -134,7 +134,7 @@ router.delete('/categories/:id', protect, adminOnly, deleteCategory);
 router.post('/orders', validate(createOrderSchema), createOrder);
 router.get('/orders/track/:orderId', trackOrder);
 // Admin & Fleet: Assign rider, update live GPS location, verify delivery OTP, and update order status
-router.put('/orders/:id/assign-rider', assignRiderToOrder);
+router.put('/orders/:id/assign-rider', protect, adminOnly, assignRiderToOrder);
 router.put('/orders/:id/rider-location', updateRiderLocation);
 router.post('/orders/:id/verify-delivery-otp', verifyDeliveryOtp);
 router.get('/orders', protect, getOrders);

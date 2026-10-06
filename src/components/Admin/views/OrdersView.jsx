@@ -118,7 +118,7 @@ const renderStatusBadge = (status) => {
     return (
       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
         <span className="w-2 h-2 rounded-full bg-emerald-500" />
-        <span>Delivered</span>
+        <span>Completed</span>
       </span>
     );
   }
@@ -135,10 +135,8 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     customerOrders,
     adminOrders,
     customers,
-    riders = [],
     assignRiderToOrder,
-    verifyOrderDeposit,
-    updateDeliveryOrderStatus,
+    getEligibleRidersForOrder,
     addToast,
     currentTenant
   } = useStore();
@@ -236,7 +234,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       return;
     }
     if (assignRiderToOrder) {
-      await assignRiderToOrder(orderId, riderId, 'Dispatched');
+      await assignRiderToOrder(orderId, riderId, 'Ready for Dispatch');
     }
   };
 
@@ -572,29 +570,25 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                     <th className="pb-3.5">Table</th>
                     <th className="pb-3.5">Items</th>
                     <th className="pb-3.5">Total & Payment</th>
-                    <th className="pb-3.5">Status</th>
                     <th className="pb-3.5">Assign Rider</th>
-                    <th className="pb-3.5">Order Status</th>
-                    <th className="pb-3.5 text-right pr-2">Action</th>
+                    <th className="pb-3.5">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredOrders.map((ord) => {
-                    const isSelected = selectedOrder?.id === ord.id;
                     const customerName = getCustomerDisplayName(ord.customer || ord.customerName);
                     const customerPhone = typeof ord.customerPhone === 'string' ? ord.customerPhone : (ord.customer?.phone || ord.phone || '+92 300 0000000');
                     const orderType = ord.orderType || (ord.table ? 'Dine-In' : 'Delivery');
                     const tableRef = ord.table || '—';
                     const itemsLine = formatDetailedItemsLine(ord);
                     const paymentBadgeLabel = `${ord.paymentMethod || 'JAZZCASH'} · ${ord.paymentStatus || 'PENDING'}`.toUpperCase();
+                    const eligibleRiders = getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : [];
+                    const orderIsReady = Number(ord.fulfillmentStage || 0) >= 4 || ord.status === 'Ready for Dispatch';
 
                     return (
                       <tr
                         key={ord.id}
-                        onClick={() => setSelectedOrder(ord)}
-                        className={`transition-colors cursor-pointer group ${
-                          isSelected ? 'bg-amber-50/50 font-medium' : 'hover:bg-[#faf7f2]/80'
-                        }`}
+                        className="transition-colors group hover:bg-slate-50/70"
                       >
                         {/* 1. Customer Column */}
                         <td className="py-4 pl-2 min-w-[140px]">
@@ -647,24 +641,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                                 {paymentBadgeLabel}
                               </span>
                             </div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (verifyOrderDeposit) verifyOrderDeposit(ord.id);
-                              }}
-                              className="mt-1 px-2.5 py-0.5 rounded-lg bg-[#38bdf8] hover:bg-[#0ea5e9] active:scale-95 text-white text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
-                              title="Verify Deposit Slip / Screenshot"
-                            >
-                              <span>🔍</span>
-                              <span>{ord.paymentStatus === 'Verified' ? 'Deposit Verified' : 'Verify Deposit'}</span>
-                            </button>
                           </div>
-                        </td>
-
-                        {/* 6. Status Badge Column (Exact match to Image 2 ● Ready) */}
-                        <td className="py-4 whitespace-nowrap">
-                          {renderStatusBadge(ord.status)}
                         </td>
 
                         {/* 7. Assign Rider Column (Choose rider... dropdown + Assign button) */}
@@ -675,20 +652,23 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                               onChange={(e) =>
                                 setSelectedRiderMap((prev) => ({ ...prev, [ord.id]: e.target.value }))
                               }
+                              disabled={!orderIsReady || eligibleRiders.length === 0}
                               className="bg-[#f5efe6] hover:bg-[#ede5d8] border border-[#ded5c5] rounded-xl px-2.5 py-1 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer w-full max-w-[160px]"
                             >
                               <option value="">Choose rider...</option>
-                              {(riders || []).map((r) => (
+                              {eligibleRiders.map((r) => (
                                 <option key={r.id} value={r.id}>
-                                  {r.name} ({r.vehicleType || '🏍️ Bike'})
+                                  {r.name} · {r.distanceKm.toFixed(1)} km
                                 </option>
                               ))}
                             </select>
+                            {!orderIsReady ? <span className="text-[10px] text-slate-500">Waiting for pickup staff to mark ready</span> : eligibleRiders.length === 0 ? <span className="text-[10px] text-rose-600">No on-duty rider covers this GPS area</span> : null}
 
                             <button
                               type="button"
                               onClick={() => handleAssignRider(ord.id)}
-                              className="px-3.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 transition cursor-pointer shadow-2xs"
+                              disabled={!orderIsReady || eligibleRiders.length === 0}
+                              className="px-3.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 transition cursor-pointer shadow-2xs disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               Assign
                             </button>
@@ -699,49 +679,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                             )}
                           </div>
                         </td>
-
-                        {/* 8. Order Status Dropdown Column (ready dropdown matching Image 2) */}
-                        <td className="py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                          <select
-                            value={(ord.status || 'pending').toLowerCase()}
-                            onChange={(e) => handleStatusChange(ord.id, e.target.value)}
-                            className="bg-[#f5efe6] hover:bg-[#ede5d8] border border-[#ded5c5] rounded-xl px-3 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
-                          >
-                            <option value="pending">pending</option>
-                            <option value="preparing">preparing</option>
-                            <option value="ready">ready</option>
-                            <option value="dispatched">dispatched</option>
-                            <option value="delivered">delivered</option>
-                            <option value="cancelled">cancelled</option>
-                          </select>
-                        </td>
-
-                        {/* 9. Action View Column */}
-                        <td className="py-4 text-right pr-2 whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeliverToStaffOrder(ord);
-                              }}
-                              className="px-2.5 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-800 text-[11px] font-bold transition-all border border-indigo-200/80 inline-flex items-center gap-1 cursor-pointer shadow-2xs"
-                              title="Deliver Parcel to Pickup Staff for Line-Wise Packing"
-                            >
-                              <Boxes className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Staff</span>
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedOrder(ord);
-                              }}
-                              className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 text-[11px] font-bold transition-colors inline-flex items-center gap-1 cursor-pointer shadow-2xs"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>View</span>
-                            </button>
-                          </div>
-                        </td>
+                        <td className="py-4 whitespace-nowrap">{renderStatusBadge(ord.status)}</td>
                       </tr>
                     );
                   })}
@@ -755,9 +693,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
             <span>
               Showing {filteredOrders.length} of {liveOrders.length} orders
             </span>
-            <span className="text-[11px] text-slate-400">
-              💡 Tip: Click on any <b>Customer Name</b> to inspect their lifetime order history.
-            </span>
+            <span className="text-[11px] text-slate-400">Status updates come from pickup staff and riders.</span>
           </div>
 
         </div>

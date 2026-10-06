@@ -33,6 +33,14 @@ import {
 import { useStore } from '../../../context/StoreContext';
 import { PAKISTAN_CITIES } from '../../../data/pakistanLocations';
 
+const RIDER_ZONE_COORDINATES = {
+  'Gulberg / Main Hub': { latitude: '31.5204', longitude: '74.3587' },
+  'DHA Phase 5 & 6': { latitude: '31.4826', longitude: '74.4074' },
+  'Johar Town / Model Town': { latitude: '31.4697', longitude: '74.2728' },
+  'Clifton & DHA (Karachi)': { latitude: '24.8270', longitude: '67.0251' },
+  'F-6 / F-7 / Blue Area (Islamabad)': { latitude: '33.7215', longitude: '73.0565' }
+};
+
 export const DeliveryView = () => {
   const {
     riders = [],
@@ -43,6 +51,7 @@ export const DeliveryView = () => {
     toggleRiderStatus,
     customerOrders = [],
     assignRiderToOrder,
+    getEligibleRidersForOrder,
     updateDeliveryOrderStatus,
     verifyOrderDeliveryOtp,
     currency = 'PKR',
@@ -73,6 +82,9 @@ export const DeliveryView = () => {
     vehicleType: '🏍️ Honda 125',
     vehicleNumber: '',
     zone: 'Gulberg / Main Hub',
+    latitude: '31.5204',
+    longitude: '74.3587',
+    coverageRadiusKm: '15',
     status: 'On-Duty',
     cnic: '',
     username: '',
@@ -127,6 +139,8 @@ export const DeliveryView = () => {
       vehicleType: newRiderForm.vehicleType,
       vehicleNumber: newRiderForm.vehicleNumber || `LEK-${Math.floor(1000 + Math.random() * 9000)}`,
       zone: newRiderForm.zone,
+      coordinates: { lat: Number(newRiderForm.latitude), lng: Number(newRiderForm.longitude) },
+      coverageRadiusKm: Number(newRiderForm.coverageRadiusKm),
       status: newRiderForm.status,
       cnic: newRiderForm.cnic,
       username: generatedUsername,
@@ -142,6 +156,9 @@ export const DeliveryView = () => {
       vehicleType: '🏍️ Honda 125',
       vehicleNumber: '',
       zone: 'Gulberg / Main Hub',
+      latitude: '31.5204',
+      longitude: '74.3587',
+      coverageRadiusKm: '15',
       status: 'On-Duty',
       cnic: '',
       username: '',
@@ -440,6 +457,7 @@ export const DeliveryView = () => {
             <div className="space-y-5">
               {pendingDispatches.map((order) => {
                 const isUnassigned = !order.assignedRider;
+                const eligibleRiders = getEligibleRidersForOrder ? getEligibleRidersForOrder(order) : [];
 
                 return (
                   <div
@@ -557,15 +575,17 @@ export const DeliveryView = () => {
                           <select
                             value={order.assignedRider?.id || ''}
                             onChange={(e) => assignRiderToOrder(order.id, e.target.value)}
+                            disabled={Number(order.fulfillmentStage || 0) < 4 && order.status !== 'Ready for Dispatch'}
                             className="w-full bg-white text-slate-800 border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none cursor-pointer"
                           >
                             <option value="">-- Choose Rider to Dispatch --</option>
-                            {riders.filter((r) => ['on-duty', 'available'].includes(String(r.status || '').toLowerCase())).map((r) => (
+                            {eligibleRiders.map((r) => (
                               <option key={r.id} value={r.id}>
-                                {r.name} ({r.vehicleType || 'Bike'} • {r.zone || 'Central'} • {r.status})
+                                {r.name} ({r.distanceKm.toFixed(1)} km away)
                               </option>
                             ))}
                           </select>
+                          {eligibleRiders.length === 0 && <p className="text-[10px] text-slate-500">No available rider is within this customer’s GPS coverage.</p>}
                         </div>)}
 
                         {order.assignedRider && (
@@ -732,6 +752,10 @@ export const DeliveryView = () => {
                       <div className="flex justify-between">
                         <span className="text-slate-400 font-semibold">Assigned Hub:</span>
                         <span className="text-emerald-700 font-bold">{rider.zone}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400 font-semibold">GPS Coverage:</span>
+                        <span className="font-mono text-slate-700">{rider.coordinates?.lat ?? rider.latitude ?? '—'}, {rider.coordinates?.lng ?? rider.longitude ?? '—'} · {rider.coverageRadiusKm || 15} km</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-400 font-semibold">Completed Parcels:</span>
@@ -1133,7 +1157,7 @@ export const DeliveryView = () => {
                   <label className="font-bold text-slate-700 block mb-1">Assigned Hub Zone</label>
                   <select
                     value={newRiderForm.zone}
-                    onChange={(e) => setNewRiderForm({ ...newRiderForm, zone: e.target.value })}
+                    onChange={(e) => setNewRiderForm({ ...newRiderForm, zone: e.target.value, ...(RIDER_ZONE_COORDINATES[e.target.value] || {}) })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
                   >
                     <option value="Gulberg / Main Hub">Gulberg / Main Hub (Lahore)</option>
@@ -1153,6 +1177,25 @@ export const DeliveryView = () => {
                     onChange={(e) => setNewRiderForm({ ...newRiderForm, cnic: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-2xl bg-slate-50 border border-slate-200 p-3">
+                <div className="sm:col-span-3">
+                  <label className="font-bold text-slate-700 block">Delivery Coverage GPS (WGS84)</label>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Orders are matched to on-duty riders within this radius of the customer’s saved coordinates.</p>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Latitude *</label>
+                  <input type="number" required min="-90" max="90" step="any" value={newRiderForm.latitude} onChange={(e) => setNewRiderForm({ ...newRiderForm, latitude: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Longitude *</label>
+                  <input type="number" required min="-180" max="180" step="any" value={newRiderForm.longitude} onChange={(e) => setNewRiderForm({ ...newRiderForm, longitude: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Radius (km) *</label>
+                  <input type="number" required min="1" max="100" value={newRiderForm.coverageRadiusKm} onChange={(e) => setNewRiderForm({ ...newRiderForm, coverageRadiusKm: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
                 </div>
               </div>
 
