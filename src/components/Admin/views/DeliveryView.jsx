@@ -225,59 +225,17 @@ export const DeliveryView = () => {
     <div className="space-y-6 animate-in fade-in duration-300 font-sans">
       
       {/* ===================================================================== */}
-      {/* 1. TOP HERO BANNER: Deep Forest Emerald Gradient with Ambient Glow     */}
-      {/* ===================================================================== */}
-      <div className="bg-gradient-to-r from-[#07382c] via-[#0b4d3c] to-[#0f6853] text-white p-6 sm:p-7 rounded-3xl shadow-xl shadow-emerald-950/20 border border-emerald-500/30 relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        
-        {/* Background ambient lighting */}
-        <div className="absolute -right-12 -top-12 w-52 h-52 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute -left-10 -bottom-10 w-44 h-44 bg-amber-400/15 rounded-full blur-2xl pointer-events-none"></div>
-
-        <div className="relative z-10 space-y-2 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs font-bold tracking-wide">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            <span>Live Logistics & Courier Dispatch Control</span>
-          </div>
-
-          <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
-            <span className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-slate-950 flex items-center justify-center font-black text-xl shadow-md">
-              🛵
-            </span>
-            <span>{isAdmin ? 'Fleet Operations & Dispatch Manager' : 'Rider Courier Portal'}</span>
-          </h2>
-
-          <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-medium">
-            {isAdmin
-              ? 'Verify customer addresses, assign active on-duty couriers, and track realtime doorstep fulfillment across Pakistan.'
-              : 'Access your assigned grocery dispatches, update delivery milestones, and view customer route maps.'}
-          </p>
+      {isAdmin && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => setIsAddRiderModalOpen(true)}
+            className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm transition-colors cursor-pointer"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>+ Add Rider</span>
+          </button>
         </div>
-
-        {/* Admin Action CTA Buttons */}
-        {isAdmin && (
-          <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
-            {riders && riders.length > 0 && (
-              <button
-                onClick={clearAllRiders}
-                className="px-4 py-2.5 bg-white/10 hover:bg-rose-500/20 text-rose-200 hover:text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 border border-rose-400/30 hover:border-rose-400 transition-all cursor-pointer backdrop-blur-xs"
-                title="Clear all registered riders"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-rose-300" />
-                <span>Reset Fleet</span>
-              </button>
-            )}
-
-            <button
-              onClick={() => setIsAddRiderModalOpen(true)}
-              className="px-5 py-2.5 bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-slate-950 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg shadow-amber-950/30 hover:scale-105 transition-all cursor-pointer"
-            >
-              <UserPlus className="w-4 h-4 text-slate-950" />
-              <span>+ Register New Rider</span>
-            </button>
-          </div>
-        )}
-      </div>
-
+      )}
       {/* ===================================================================== */}
       {/* 2. KEY FLEET KPI STATS (4 Vibrant Gradient Cards)                      */}
       {/* ===================================================================== */}
