@@ -314,7 +314,7 @@ export const StoreProvider = ({ children }) => {
         (b) => b.tenantId === tenantCanonicalId || (tenant.slug && b.slug === tenant.slug)
       );
 
-      let nearestBranch = tenantBranches[0] || FAISALABAD_BRANCH;
+      let nearestBranch = tenantBranches[0] || null;
       let minDistance = Infinity;
 
       for (const branch of tenantBranches) {
@@ -327,10 +327,6 @@ export const StoreProvider = ({ children }) => {
         }
       }
 
-      if (minDistance === Infinity) {
-        minDistance = 1.2;
-      }
-
       let estimatedTime = '15-25 mins';
       if (minDistance > 10) estimatedTime = '45-60 mins';
       else if (minDistance > 5) estimatedTime = '35-45 mins';
@@ -338,7 +334,7 @@ export const StoreProvider = ({ children }) => {
       else if (minDistance > 1) estimatedTime = '20-30 mins';
       else estimatedTime = '10-20 mins';
 
-      const isDeliverable = minDistance <= 35;
+      const isDeliverable = Number.isFinite(minDistance) && minDistance <= 35;
       const freeDeliveryThreshold = 1000;
       const deliveryFee = 100;
 
@@ -354,8 +350,8 @@ export const StoreProvider = ({ children }) => {
         theme: tenant.theme,
         color: tenant.color,
         nearestBranch,
-        distanceKm: Number(minDistance.toFixed(1)),
-        distanceFormatted: `${minDistance.toFixed(1)} km`,
+        distanceKm: Number.isFinite(minDistance) ? Number(minDistance.toFixed(1)) : null,
+        distanceFormatted: Number.isFinite(minDistance) ? `${minDistance.toFixed(1)} km` : 'Unavailable',
         estimatedTime,
         isDeliverable,
         deliveryFeeText: `Free over Rs. ${freeDeliveryThreshold.toLocaleString()}`,
@@ -367,7 +363,11 @@ export const StoreProvider = ({ children }) => {
       };
     });
 
-    return storeList.sort((a, b) => a.distanceKm - b.distanceKm);
+    // Only expose branches that can serve this address. The nearest branch may
+    // be geographically close while still being outside the delivery radius.
+    return storeList
+      .filter((store) => store.isDeliverable && store.nearestBranch)
+      .sort((a, b) => a.distanceKm - b.distanceKm);
   };
 
   // Switch store and auto-select its closest branch

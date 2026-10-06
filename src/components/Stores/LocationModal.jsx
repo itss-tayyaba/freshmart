@@ -213,8 +213,8 @@ export const LocationModal = () => {
       <div
         className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity"
         onClick={() => {
-          // Allow closing if already confirmed; or if user clicks backdrop
-          setIsLocationModalOpen(false);
+          // First-time visitors must confirm a delivery location before shopping.
+          if (isLocationConfirmed) setIsLocationModalOpen(false);
         }}
       />
 
@@ -245,7 +245,8 @@ export const LocationModal = () => {
 
             <button
               type="button"
-              onClick={() => setIsLocationModalOpen(false)}
+              onClick={() => isLocationConfirmed && setIsLocationModalOpen(false)}
+              disabled={!isLocationConfirmed}
               className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
               title="Close"
             >
@@ -550,6 +551,13 @@ export const LocationModal = () => {
                 </span>
                 <span className="text-[10px] text-emerald-700 font-bold">Fastest Dispatch</span>
               </div>
+            </div>
+          )}
+
+          {liveNearbyStores.length === 0 && (
+            <div className="p-3.5 rounded-2xl border border-amber-200 bg-amber-50 text-sm text-amber-900">
+              <strong className="block text-xs font-black">No store can deliver to this location yet</strong>
+              <span className="text-xs">Choose another neighborhood or adjust the map pin to see available stores.</span>
             </div>
           )}
 
