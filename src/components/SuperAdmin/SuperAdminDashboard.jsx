@@ -22,7 +22,6 @@ import {
   ChevronUp,
   ShieldCheck,
   Layers,
-  Truck,
   MapPin,
   Calendar,
   X,
@@ -77,11 +76,6 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
     getTenantPerformance,
     getPlatformOverview,
     adminOrders,
-    riders,
-    setRiders,
-    addRider,
-    deleteRider,
-    toggleRiderStatus,
     customers,
     setCustomers,
     addCustomer,
@@ -114,7 +108,6 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
-  const [isAddRiderOpen, setIsAddRiderOpen] = useState(false);
   const [isAddBranchOpen, setIsAddBranchOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState(null);
   const mainWorkspaceRef = useRef(null);
@@ -305,17 +298,6 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
     city: 'Lahore'
   });
 
-  const [newRiderForm, setNewRiderForm] = useState({
-    name: '',
-    phone: '',
-    tenantId: 'tenant-alfatah',
-    zone: 'Gulberg SuperHub',
-    vehicleType: '🏍️ Honda 125',
-    vehicleNumber: '',
-    password: 'riderpassword123',
-    status: 'Available'
-  });
-
   const [newBranchForm, setNewBranchForm] = useState({
     tenantId: 'tenant-alfatah',
     name: '',
@@ -461,40 +443,6 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
     setIsAddCustomerOpen(false);
   };
 
-  const handleCreateRiderSubmit = async (e) => {
-    e.preventDefault();
-    if (!newRiderForm.name || !newRiderForm.phone) {
-      addToast('Missing Details ⚠️', 'Please provide rider name and phone number.', 'error');
-      return;
-    }
-
-    const assignedStore = displayStores.find((s) => s.id === newRiderForm.tenantId);
-
-    await addRider({
-      name: newRiderForm.name,
-      phone: newRiderForm.phone,
-      vehicleType: newRiderForm.vehicleType,
-      vehicleNumber: newRiderForm.vehicleNumber || `LEK-${Math.floor(1000 + Math.random() * 9000)}`,
-      zone: newRiderForm.zone,
-      tenantId: newRiderForm.tenantId,
-      tenantName: assignedStore ? assignedStore.fullName : 'Supermarket Store',
-      password: newRiderForm.password || 'rider123',
-      status: newRiderForm.status || 'Available'
-    });
-
-    setNewRiderForm({
-      name: '',
-      phone: '',
-      tenantId: 'tenant-alfatah',
-      zone: 'Gulberg SuperHub',
-      vehicleType: '🏍️ Honda 125',
-      vehicleNumber: '',
-      password: 'riderpassword123',
-      status: 'Available'
-    });
-    setIsAddRiderOpen(false);
-  };
-
   const togglePasswordVisibility = (adminId) => {
     setShowPasswordMap((prev) => ({ ...prev, [adminId]: !prev[adminId] }));
   };
@@ -544,16 +492,6 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
       );
     });
   }, [customers, searchQuery]);
-
-  const filteredRiders = useMemo(() => {
-    return (riders || []).filter((rider) => {
-      return (
-        rider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (rider.phone && rider.phone.includes(searchQuery)) ||
-        (rider.zone && rider.zone.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
-    });
-  }, [riders, searchQuery]);
 
   // Sidebar helper button class
   const getNavClass = (key) =>
@@ -635,13 +573,6 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
                 <span>Customers</span>
                 <span className="ml-auto text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">
                   {(customers || []).length}
-                </span>
-              </button>
-              <button onClick={() => setActiveNav('riders')} className={getNavClass('riders')}>
-                <Truck className="w-4 h-4 text-rose-400" />
-                <span>Riders Fleet</span>
-                <span className="ml-auto text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">
-                  {(riders || []).length}
                 </span>
               </button>
             </div>
@@ -2005,114 +1936,7 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
           )}
 
           {/* ===================================================================== */}
-          {/* SUB-DASHBOARD: 7. RIDERS & FLEET                                      */}
-          {/* ===================================================================== */}
-          {activeNav === 'riders' && (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                    <Truck className="w-5 h-5 text-rose-500" />
-                    <span>Delivery Fleet & Dispatchers</span>
-                  </h2>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Dark store dispatch riders, vehicle fleet, shift statuses, and delivery credentials.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setIsAddRiderOpen(true)}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>+ Add Delivery Rider</span>
-                </button>
-              </div>
-
-              {(riders || []).length === 0 ? (
-                <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/90 shadow-2xs space-y-4">
-                  <div className="w-16 h-16 rounded-3xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto text-3xl shadow-xs">
-                    🛵
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-slate-900">No Fleet Riders Added Yet</h3>
-                    <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                      All pre-seeded mock riders have been removed. Super Admin can add riders manually and assign them to supermarkets and dark store fulfillment hubs.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setIsAddRiderOpen(true)}
-                    className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-900/20 transition cursor-pointer"
-                  >
-                    + Add First Delivery Rider
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredRiders.map((rider) => (
-                    <div
-                      key={rider.id}
-                      className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-3"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-700 font-bold flex items-center justify-center text-lg">
-                            🛵
-                          </div>
-                          <div>
-                            <h3 className="font-black text-slate-900 text-sm">{rider.name}</h3>
-                            <span className="text-[10px] text-slate-400 font-mono block">{rider.phone}</span>
-                          </div>
-                        </div>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            rider.status === 'Available' || rider.status === 'On-Duty'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          {rider.status}
-                        </span>
-                      </div>
-
-                      <div className="pt-2 border-t border-slate-100 space-y-1 text-xs">
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Assigned Mart:</span>
-                          <span className="font-bold text-slate-700">{rider.tenantName || 'Al-Fatah'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Dark Store Hub:</span>
-                          <span className="font-bold text-slate-700">{rider.zone || 'Main Hub'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Vehicle:</span>
-                          <span className="font-bold text-slate-700">{rider.vehicleType || '🏍️ Bike'}</span>
-                        </div>
-                      </div>
-
-                      <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => toggleRiderStatus(rider.id)}
-                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition"
-                        >
-                          Toggle Status
-                        </button>
-                        <button
-                          onClick={() => deleteRider(rider.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition"
-                          title="Delete Rider"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ===================================================================== */}
-          {/* SUB-DASHBOARD: 8. ALL ORDERS STREAM                                   */}
+          {/* SUB-DASHBOARD: 7. ALL ORDERS STREAM                                   */}
           {/* ===================================================================== */}
           {activeNav === 'orders' && (
             <div className="space-y-6">
@@ -2651,7 +2475,7 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
       </main>
 
       {/* ========================================================================= */}
-      {/* 3. MODALS (Add Store Admin, Add Tenant, Add Customer, Add Rider, etc.)    */}
+      {/* 3. MODALS (Add Store Admin, Add Tenant, Add Customer, Add Branch, etc.)   */}
       {/* ========================================================================= */}
 
       {/* --- A. ADD STORE ADMIN & SET PASSWORD MODAL --- */}
@@ -2853,117 +2677,7 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
         </div>
       )}
 
-      {/* --- C. ADD RIDER MODAL --- */}
-      {isAddRiderOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-black text-slate-900 leading-tight">Add Delivery Rider</h3>
-                <span className="text-xs text-slate-500">Super Admin direct fleet onboarding</span>
-              </div>
-              <button onClick={() => setIsAddRiderOpen(false)} className="p-2 text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateRiderSubmit} className="space-y-3 text-xs">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Rider Full Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Asad Qureshi"
-                  value={newRiderForm.name}
-                  onChange={(e) => setNewRiderForm({ ...newRiderForm, name: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Contact Phone (Login Username)</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="0300-8765432"
-                  value={newRiderForm.phone}
-                  onChange={(e) => setNewRiderForm({ ...newRiderForm, phone: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Assigned Supermarket Mart</label>
-                <select
-                  value={newRiderForm.tenantId}
-                  onChange={(e) => setNewRiderForm({ ...newRiderForm, tenantId: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
-                >
-                  {displayStores.map((store) => (
-                    <option key={store.id} value={store.id}>
-                      {store.logo} {store.fullName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Dark Store Hub Zone</label>
-                <input
-                  type="text"
-                  placeholder="Gulberg SuperHub"
-                  value={newRiderForm.zone}
-                  onChange={(e) => setNewRiderForm({ ...newRiderForm, zone: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Vehicle Type</label>
-                <select
-                  value={newRiderForm.vehicleType}
-                  onChange={(e) => setNewRiderForm({ ...newRiderForm, vehicleType: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
-                >
-                  <option value="🏍️ Honda 125">🏍️ Honda 125 (Motorbike)</option>
-                  <option value="🛵 Electric Scooter">🛵 Electric Scooter</option>
-                  <option value="🚙 Express Van">🚙 Express Van</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Rider App Login Password</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="rider123"
-                  value={newRiderForm.password}
-                  onChange={(e) => setNewRiderForm({ ...newRiderForm, password: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-mono font-bold focus:bg-white focus:outline-none"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddRiderOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition shadow-xs"
-                >
-                  Create & Set Password
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* --- D. ADD BRANCH MODAL --- */}
+      {/* --- C. ADD BRANCH MODAL --- */}
       {isAddBranchOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
