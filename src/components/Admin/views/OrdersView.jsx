@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { OrderFulfillmentModal } from '../modals/OrderFulfillmentModal';
+import { DeliverToStaffModal } from '../modals/DeliverToStaffModal';
 
 // Helper: Extract human-readable order items count/summary safely (never returns an object/array)
 const formatOrderItemsSummary = (ord) => {
@@ -86,6 +87,9 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   // Selected Order for 7-Stage Fulfillment Pipeline Modal
   const [fulfillmentModalOrder, setFulfillmentModalOrder] = useState(null);
 
+  // Selected Order for Deliver to Staff Modal
+  const [deliverToStaffOrder, setDeliverToStaffOrder] = useState(null);
+
   // Selected Customer for Customer Profile & History Modal
   const [selectedCustomerModal, setSelectedCustomerModal] = useState(null);
 
@@ -100,6 +104,9 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   const stats = useMemo(() => {
     const total = liveOrders.length;
     const pending = liveOrders.filter((o) => o.status === 'Pending').length;
+    const deliverToStaff = liveOrders.filter(
+      (o) => o.status === 'Deliver to Staff' || o.status === 'Delivered to Staff'
+    ).length;
     const preparing = liveOrders.filter((o) => o.status === 'Preparing').length;
     const outForDelivery = liveOrders.filter(
       (o) => o.status === 'Out for Delivery' || o.status === 'Dispatched to Rider'
@@ -107,7 +114,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     const delivered = liveOrders.filter((o) => o.status === 'Delivered').length;
     const cancelled = liveOrders.filter((o) => o.status === 'Cancelled').length;
 
-    return { total, pending, preparing, outForDelivery, delivered, cancelled };
+    return { total, pending, deliverToStaff, preparing, outForDelivery, delivered, cancelled };
   }, [liveOrders]);
 
   // Filtered orders
@@ -115,6 +122,12 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     return liveOrders.filter((o) => {
       // Tab filter
       if (activeTab === 'Pending' && o.status !== 'Pending') return false;
+      if (
+        activeTab === 'Deliver to Staff' &&
+        o.status !== 'Deliver to Staff' &&
+        o.status !== 'Delivered to Staff'
+      )
+        return false;
       if (activeTab === 'Preparing' && o.status !== 'Preparing') return false;
       if (
         activeTab === 'Out for Delivery' &&
@@ -203,6 +216,9 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
         return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'Preparing':
         return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'Deliver to Staff':
+      case 'Delivered to Staff':
+        return 'bg-indigo-100 text-indigo-800 border-indigo-200 font-bold';
       case 'Confirmed':
         return 'bg-indigo-100 text-indigo-800 border-indigo-200';
       case 'Cancelled':
@@ -286,6 +302,25 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
           </div>
           <div className="text-xl font-black text-amber-900">{stats.pending}</div>
           <span className="text-[10px] text-amber-600 font-medium mt-0.5 block">Awaiting Processing</span>
+        </div>
+
+        {/* Deliver to Staff */}
+        <div
+          onClick={() => setActiveTab('Deliver to Staff')}
+          className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
+            activeTab === 'Deliver to Staff'
+              ? 'bg-indigo-50/80 border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'
+              : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-2xs'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-bold text-indigo-700">Deliver to Staff</span>
+            <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs">
+              <Boxes className="w-3 h-3" />
+            </div>
+          </div>
+          <div className="text-xl font-black text-indigo-950">{stats.deliverToStaff}</div>
+          <span className="text-[10px] text-indigo-600 font-medium mt-0.5 block">Packing Desk</span>
         </div>
 
         {/* Preparing */}
@@ -562,6 +597,17 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setDeliverToStaffOrder(ord);
+                              }}
+                              className="px-2.5 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-800 text-[11px] font-bold transition-all border border-indigo-200/80 inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                              title="Deliver Parcel to Pickup Staff for Line-Wise Packing"
+                            >
+                              <Boxes className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Deliver to Staff</span>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setFulfillmentModalOrder(ord);
                               }}
                               className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-800 text-[11px] font-bold transition-all border border-emerald-200/80 inline-flex items-center gap-1 cursor-pointer shadow-2xs"
@@ -794,8 +840,19 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               </span>
             </div>
 
-            {/* 7-Stage Interactive Fulfillment Console Launcher */}
+            {/* Deliver Parcel to Staff Button */}
             <div className="pt-2">
+              <button
+                onClick={() => setDeliverToStaffOrder(selectedOrder)}
+                className="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer border border-indigo-500/30"
+              >
+                <Boxes className="w-4 h-4 text-indigo-200" />
+                <span>📦 Deliver Parcel to Staff (Pick & Pack)</span>
+              </button>
+            </div>
+
+            {/* 7-Stage Interactive Fulfillment Console Launcher */}
+            <div className="pt-1">
               <button
                 onClick={() => setFulfillmentModalOrder(selectedOrder)}
                 className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-700 to-slate-900 hover:from-emerald-700 hover:to-slate-800 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer border border-emerald-500/30"
@@ -811,6 +868,16 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                 Update Fulfillment Status
               </span>
               <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setDeliverToStaffOrder(selectedOrder)}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer col-span-2 ${
+                    selectedOrder.status === 'Deliver to Staff' || selectedOrder.status === 'Delivered to Staff'
+                      ? 'bg-indigo-600 text-white shadow-2xs'
+                      : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
+                  }`}
+                >
+                  📦 Deliver to Staff (Pick & Pack)
+                </button>
                 <button
                   onClick={() => handleStatusChange(selectedOrder.id, 'Preparing')}
                   className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -1046,6 +1113,20 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
           order={fulfillmentModalOrder}
           isOpen={Boolean(fulfillmentModalOrder)}
           onClose={() => setFulfillmentModalOrder(null)}
+        />
+      )}
+
+      {/* Deliver Parcel to Staff Modal */}
+      {deliverToStaffOrder && (
+        <DeliverToStaffModal
+          order={deliverToStaffOrder}
+          isOpen={Boolean(deliverToStaffOrder)}
+          onClose={() => setDeliverToStaffOrder(null)}
+          onSuccess={(updates) => {
+            if (selectedOrder && selectedOrder.id === deliverToStaffOrder.id) {
+              setSelectedOrder((prev) => ({ ...prev, ...updates }));
+            }
+          }}
         />
       )}
 

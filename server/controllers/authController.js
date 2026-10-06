@@ -236,6 +236,22 @@ export const loginUser = async (req, res) => {
       });
     }
 
+    // Default pickup staff fallback credentials (e.g. staff / staff123)
+    if (
+      (cleanInput === 'staff' || cleanInput === 'pickup' || cleanInput === 'rizwan_pack' || cleanInput.includes('staff')) &&
+      (password === 'staff123' || password === 'admin123' || password === 'pickup123')
+    ) {
+      return res.json({
+        success: true,
+        _id: 'staff-root',
+        id: 'PCK-101',
+        name: 'Pickup Staff',
+        username: cleanInput,
+        role: 'pickup_staff',
+        token: generateToken('staff-root', 'pickup_staff', `${cleanInput}@freshmart.pk`, 'Pickup Staff')
+      });
+    }
+
     return res.status(401).json({ success: false, message: 'Invalid email or password' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

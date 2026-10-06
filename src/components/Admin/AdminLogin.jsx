@@ -18,12 +18,13 @@ import {
   Truck,
   Sparkles,
   KeyRound,
-  Check
+  Check,
+  Boxes
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 
 export const AdminLogin = () => {
-  const { adminLogin, navigateTo, tenants, storeAdmins } = useStore();
+  const { adminLogin, navigateTo, tenants, storeAdmins, pickupStaff = [] } = useStore();
   const [selectedRole, setSelectedRole] = useState('superadmin');
   const [selectedMartId, setSelectedMartId] = useState('tenant-alfatah');
   const [username, setUsername] = useState('superadmin');
@@ -81,10 +82,10 @@ export const AdminLogin = () => {
       icon: '📦',
       sublabel: 'Packing Desk',
       badge: 'Order Packing',
-      userPlaceholder: 'staff username',
+      userPlaceholder: 'staff username or phone',
       passPlaceholder: 'staff password',
-      defaultUser: '',
-      defaultPass: ''
+      defaultUser: pickupStaff && pickupStaff.length > 0 ? (pickupStaff[0].username || '') : '',
+      defaultPass: pickupStaff && pickupStaff.length > 0 ? (pickupStaff[0].password || '') : ''
     }
   ];
 
@@ -127,6 +128,16 @@ export const AdminLogin = () => {
 
     if (roleItem.id === 'admin') {
       handleSelectMart(selectedMartId);
+    } else if (roleItem.id === 'pickup_staff') {
+      if (pickupStaff && pickupStaff.length > 0) {
+        setUsername(pickupStaff[0].username || '');
+        setPassword(pickupStaff[0].password || '');
+        showFeedback(`Loaded ${pickupStaff[0].name} (Staff) credentials`);
+      } else {
+        setUsername('');
+        setPassword('');
+        showFeedback('Enter credentials assigned by Store Admin');
+      }
     } else {
       setUsername(roleItem.defaultUser);
       setPassword(roleItem.defaultPass);
@@ -337,6 +348,21 @@ export const AdminLogin = () => {
             </div>
           )}
 
+          {/* 📦 PICKUP STAFF INFO BANNER */}
+          {selectedRole === 'pickup_staff' && (
+            <div className="p-3 bg-emerald-50/90 border border-emerald-200/80 rounded-2xl flex items-center gap-2.5 text-xs text-emerald-950 animate-in fade-in duration-200">
+              <div className="w-8 h-8 rounded-xl bg-emerald-200/70 text-emerald-900 flex items-center justify-center font-bold shrink-0 text-base">
+                📦
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-bold text-slate-900">Pickup Staff Packing Desk</div>
+                <div className="text-[11px] text-emerald-900/80 leading-snug">
+                  Sign in with credentials assigned by Store Admin to pick shelf items, pack parcels, and stage for dispatch.
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Auto-fill notification chip */}
           {autoFillFeedback && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 animate-in fade-in duration-150">
@@ -364,6 +390,8 @@ export const AdminLogin = () => {
                   ? 'Super Admin Username'
                   : selectedRole === 'supplier'
                   ? 'Supplier ID / Username'
+                  : selectedRole === 'pickup_staff'
+                  ? 'Pickup Staff Username or Phone'
                   : 'Rider Phone / ID'}
               </label>
               <div className="relative">
@@ -387,10 +415,18 @@ export const AdminLogin = () => {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-bold text-slate-800">
-                  {selectedRole === 'admin' ? 'Mart Admin Password' : 'Access Password'}
+                  {selectedRole === 'admin'
+                    ? 'Mart Admin Password'
+                    : selectedRole === 'pickup_staff'
+                    ? 'Staff Access Password'
+                    : 'Access Password'}
                 </label>
                 <span className="text-[10px] text-slate-400">
-                  {selectedRole === 'admin' ? 'Configured by Super Admin' : 'Secure master key'}
+                  {selectedRole === 'admin'
+                    ? 'Configured by Super Admin'
+                    : selectedRole === 'pickup_staff'
+                    ? 'Assigned by Store Admin'
+                    : 'Secure master key'}
                 </span>
               </div>
               <div className="relative">
@@ -480,13 +516,23 @@ export const AdminLogin = () => {
               >
                 📦 Supplier
               </button>
-              <button
-                type="button"
-                onClick={() => autoFillCredentials('rider', 'rider', 'rider123', null, 'Rider Fleet')}
-                className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 font-semibold text-[11px] transition-colors cursor-pointer"
-              >
-                🛵 Rider
-              </button>
+              {pickupStaff && pickupStaff.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => autoFillCredentials('pickup_staff', pickupStaff[0].username, pickupStaff[0].password, pickupStaff[0].tenantId, `Staff: ${pickupStaff[0].name}`)}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-950 font-bold text-[11px] transition-colors cursor-pointer"
+                >
+                  📦 Staff: {pickupStaff[0].name}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => autoFillCredentials('pickup_staff', 'staff', 'staff123', null, 'Pickup Staff (Demo)')}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-950 font-bold text-[11px] transition-colors cursor-pointer"
+                >
+                  📦 Pickup Staff
+                </button>
+              )}
             </div>
           </div>
 
@@ -499,7 +545,7 @@ export const AdminLogin = () => {
             >
               <span className="flex items-center gap-1.5">
                 <KeyRound className="w-3.5 h-3.5 text-emerald-600" />
-                <span>All Registered Mart Admins Directory (1-Click Fill)</span>
+                <span>All Registered Mart Admins & Staff Directory</span>
               </span>
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-slate-400 font-normal">
@@ -510,7 +556,7 @@ export const AdminLogin = () => {
             </button>
 
             {showCredentialsHelp && (
-              <div className="mt-2.5 pt-2.5 border-t border-slate-200 space-y-2 text-[11px] animate-in fade-in duration-200">
+              <div className="mt-2.5 pt-2.5 border-t border-slate-200 space-y-2.5 text-[11px] animate-in fade-in duration-200">
                 {/* Super Admin */}
                 <div
                   onClick={() => autoFillCredentials('superadmin', 'superadmin', 'superadmin123', null, 'Super Admin')}
@@ -547,6 +593,48 @@ export const AdminLogin = () => {
                       <div className="text-[9px] text-slate-400 mt-0.5">Password: <span className="font-mono font-bold text-slate-700">{sa.password}</span></div>
                     </div>
                   ))}
+                </div>
+
+                {/* Pickup Staff Accounts List */}
+                <div className="pt-2 border-t border-slate-200 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 text-[11px] flex items-center gap-1.5">
+                      <Boxes className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>📦 Pickup Staff (Packing Team)</span>
+                    </span>
+                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                      {(pickupStaff || []).length} registered
+                    </span>
+                  </div>
+
+                  {(pickupStaff && pickupStaff.length > 0) ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {pickupStaff.map((staff) => (
+                        <div
+                          key={staff.id}
+                          onClick={() => autoFillCredentials('pickup_staff', staff.username, staff.password, staff.tenantId, staff.name)}
+                          className={`p-2 rounded-xl border cursor-pointer transition ${
+                            selectedRole === 'pickup_staff' && username === staff.username
+                              ? 'bg-emerald-50 border-emerald-500 shadow-2xs'
+                              : 'bg-white border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-800 truncate max-w-[130px]">{staff.name}</span>
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                              Active
+                            </span>
+                          </div>
+                          <div className="font-mono text-[10px] text-slate-600 truncate mt-0.5">@{staff.username}</div>
+                          <div className="text-[9px] text-slate-400 mt-0.5">Password: <span className="font-mono font-bold text-slate-700">{staff.password}</span></div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-2.5 rounded-xl bg-slate-100/80 border border-dashed border-slate-200 text-slate-500 text-[11px] text-center">
+                      No pickup staff accounts yet. Create one from Admin Store → Pickup Staff.
+                    </div>
+                  )}
                 </div>
 
                 {/* Supplier Partner Card */}

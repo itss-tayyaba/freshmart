@@ -1228,6 +1228,59 @@ export const StoreProvider = ({ children }) => {
       }
     }
 
+    // 2.5 Auto-Detect Pickup Staff Credentials (or if targetRole === 'pickup_staff')
+    const matchedPickupStaff = (pickupStaff || []).find((person) => {
+      const uMatch =
+        (person.username && person.username.toLowerCase() === cleanUser) ||
+        (person.name && person.name.toLowerCase() === cleanUser) ||
+        (person.phone && person.phone.replace(/[^0-9]/g, '') === cleanUser.replace(/[^0-9]/g, '')) ||
+        (person.id && person.id.toLowerCase() === cleanUser);
+      const pMatch = String(person.password || '').trim() === cleanPass;
+      return uMatch && pMatch;
+    });
+
+    if (matchedPickupStaff || targetRole === 'pickup_staff') {
+      if (matchedPickupStaff) {
+        const staffTenant =
+          (tenants || []).find((t) => t.id === matchedPickupStaff.tenantId) ||
+          currentTenant || { id: matchedPickupStaff.tenantId || 'tenant-freshmart', name: 'FreshMart Direct' };
+
+        const staffUser = {
+          id: matchedPickupStaff.id,
+          name: matchedPickupStaff.name,
+          username: matchedPickupStaff.username,
+          role: 'pickup_staff',
+          tenantId: matchedPickupStaff.tenantId || staffTenant.id,
+          tenantName: staffTenant.name
+        };
+
+        if (staffTenant) {
+          setCurrentTenant(staffTenant);
+        }
+
+        const fallbackToken = `mock-pickup-token-${Date.now()}`;
+        localStorage.setItem('freshmart_admin_token', fallbackToken);
+
+        setAdminRole('pickup_staff');
+        setIsAdminLoggedIn(true);
+        setUser(staffUser);
+
+        try {
+          localStorage.setItem('freshmart_admin_session', 'true');
+          localStorage.setItem('freshmart_admin_role', 'pickup_staff');
+          localStorage.setItem('freshmart_admin_user', JSON.stringify(staffUser));
+        } catch (e) {}
+
+        addToast('Pickup Staff Authenticated 📦', `Welcome ${staffUser.name} to the packing desk.`);
+        return { success: true, role: 'pickup_staff', user: staffUser };
+      }
+
+      if (targetRole === 'pickup_staff') {
+        addToast('Authentication Failed ❌', 'Pickup staff account not found or password incorrect.', 'error');
+        return { success: false, error: 'Pickup staff account not found or password incorrect. Please check the credentials created by Store Admin.' };
+      }
+    }
+
     // 3. Super Admin Authentication (Platform Owner)
     if (targetRole === 'superadmin' || cleanUser === 'superadmin' || cleanUser === 'admin@supergrocery.pk' || cleanUser === 'superadmin@supergrocery.pk') {
       const isSuperPass = cleanPass === 'superadmin123' || cleanPass === 'admin123' || cleanPass === 'adminpassword123';
@@ -1670,29 +1723,65 @@ export const StoreProvider = ({ children }) => {
     try { localStorage.setItem('freshmart_pickup_staff', JSON.stringify(pickupStaff)); } catch (e) {}
   }, [pickupStaff]);
 
-  const addPickupStaff = (staffData) => {
-    const username = String(staffData.username || '').trim().toLowerCase();
-    if ((pickupStaff || []).some((person) => person.tenantId === (currentTenant?.id || 'tenant-freshmart') && person.username?.toLowerCase() === username)) {
-      addToast('Username already exists', 'Choose a different username for this store.', 'error');
+  const addPickupStaff = async (staffData) => {
+    const username = String(staffData?.username || '').trim().toLowerCase();
+    const password = String(staffData?.password || '').trim();
+    const name = String(staffData?.name || '').trim();
+    const phone = String(staffData?.phone || '').trim();
+
+    if (!username || !password || !name) {
+      addToast('Missing Required Fields ⚠️', 'Staff name, username, and password are required.', 'error');
       return null;
     }
+
+    if ((pickupStaff || []).some((person) => person.username?.toLowerCase() === username)) {
+      addToast('Username already exists ⚠️', 'Choose a unique username for this staff member.', 'error');
+      return null;
+    }
+
+    const tId = currentTenant?.id || 'tenant-freshmart';
+    const tName = currentTenant?.name || 'FreshMart';
+
     const staff = {
       id: `PCK-${Date.now().toString(36).toUpperCase()}`,
-      name: staffData.name.trim(),
+      name,
       username,
-      password: staffData.password,
-      phone: staffData.phone || '',
-      tenantId: currentTenant?.id || 'tenant-freshmart',
+      password,
+      phone,
+      tenantId: tId,
+      tenantName: tName,
       status: 'Active',
       createdAt: new Date().toISOString()
     };
-    setPickupStaff((previous) => [staff, ...previous]);
-    addToast('Pickup staff added', `${staff.name} can sign in with ${staff.username}.`);
+
+    const updated = [staff, ...(pickupStaff || [])];
+    setPickupStaff(updated);
+    try {
+      localStorage.setItem('freshmart_pickup_staff', JSON.stringify(updated));
+    } catch (e) {}
+
+    // Synchronize to backend User collection if API is available
+    try {
+      await apiService.register({
+        name,
+        email: `${username}@freshmart.pk`,
+        password,
+        phone: phone || '0300-1234567',
+        role: 'pickup_staff',
+        tenantId: tId
+      });
+    } catch (e) {}
+
+    addToast('Pickup Staff Account Created 🎉', `${staff.name} can sign in with username: ${staff.username}`);
     return staff;
   };
 
   const deletePickupStaff = (staffId) => {
-    setPickupStaff((previous) => (previous || []).filter((person) => person.id !== staffId));
+    const updated = (pickupStaff || []).filter((person) => person.id !== staffId);
+    setPickupStaff(updated);
+    try {
+      localStorage.setItem('freshmart_pickup_staff', JSON.stringify(updated));
+    } catch (e) {}
     addToast('Pickup staff removed', 'Staff account has been deleted.');
   };
 
@@ -2730,6 +2819,26 @@ export const StoreProvider = ({ children }) => {
   };
 
   const loginCustomer = async (email, password) => {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPass = (password || '').trim();
+
+    // Check if entered credentials match a registered pickup staff account
+    const matchedStaff = (pickupStaff || []).find((person) => {
+      const uMatch =
+        (person.username && person.username.toLowerCase() === cleanEmail) ||
+        (person.phone && cleanEmail && person.phone.replace(/[^0-9]/g, '') === cleanEmail.replace(/[^0-9]/g, '')) ||
+        (person.email && person.email.toLowerCase() === cleanEmail);
+      return uMatch && String(person.password || '').trim() === cleanPass;
+    });
+
+    if (matchedStaff) {
+      const staffLoginRes = await adminLogin(cleanEmail, cleanPass, 'pickup_staff');
+      if (staffLoginRes?.success) {
+        navigateTo('admin');
+        return { success: true, isStaff: true };
+      }
+    }
+
     let userObj = {
       id: `cust-${Date.now()}`,
       name: email.split('@')[0].replace('.', ' ').replace(/^\w/, (c) => c.toUpperCase()),

@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { OrderFulfillmentModal } from '../modals/OrderFulfillmentModal';
+import { DeliverToStaffModal } from '../modals/DeliverToStaffModal';
 
 export const FulfillmentView = () => {
   const {
@@ -48,6 +49,7 @@ export const FulfillmentView = () => {
   const [selectedStageFilter, setSelectedStageFilter] = useState('All');
   const [dispatchFilter, setDispatchFilter] = useState('All'); // 'All' | 'NotDispatched' | 'Dispatched'
   const [activeModalOrder, setActiveModalOrder] = useState(null);
+  const [deliverToStaffModalOrder, setDeliverToStaffModalOrder] = useState(null);
   const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', phone: '' });
@@ -677,6 +679,16 @@ export const FulfillmentView = () => {
                             </button>
                           )}
 
+                          {/* Deliver to Staff Modal Button */}
+                          <button
+                            onClick={() => setDeliverToStaffModalOrder(ord)}
+                            className="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 text-[11px] font-bold border border-indigo-200/80 inline-flex items-center gap-1 cursor-pointer transition shadow-2xs"
+                            title="Deliver Parcel to Staff for Line-Wise Pick & Pack"
+                          >
+                            <Boxes className="w-3.5 h-3.5" />
+                            <span>Deliver to Staff</span>
+                          </button>
+
                           {/* 7-Stage Console Modal Launcher */}
                           <button
                             onClick={() => setActiveModalOrder(ord)}
@@ -830,6 +842,15 @@ export const FulfillmentView = () => {
           order={activeModalOrder}
           isOpen={Boolean(activeModalOrder)}
           onClose={() => setActiveModalOrder(null)}
+        />
+      )}
+
+      {/* 7. DELIVER TO STAFF MODAL */}
+      {deliverToStaffModalOrder && (
+        <DeliverToStaffModal
+          order={deliverToStaffModalOrder}
+          isOpen={Boolean(deliverToStaffModalOrder)}
+          onClose={() => setDeliverToStaffModalOrder(null)}
         />
       )}
     </div>
