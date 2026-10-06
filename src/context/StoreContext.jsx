@@ -2286,6 +2286,9 @@ export const StoreProvider = ({ children }) => {
       phone: riderData.phone,
       vehicleType: riderData.vehicleType || '🏍️ Honda 125',
       vehicleNumber: riderData.vehicleNumber || `LEK-${Math.floor(1000 + Math.random() * 9000)}`,
+      branchId: riderData.branchId || null,
+      branchName: riderData.branchName || regionName,
+      city: riderData.city || '',
       region: regionName,
       zone: regionName,
       latitude: lat,
@@ -2309,7 +2312,7 @@ export const StoreProvider = ({ children }) => {
       return updated;
     });
 
-    addToast('Rider Registered 🛵', `${newRider.name} registered for ${newRider.region} (GPS: ${lat}, ${lng}).`);
+    addToast('Rider Registered 🛵', `${newRider.name} registered for ${newRider.branchName || newRider.region} (GPS: ${lat}, ${lng}).`);
 
     try {
       await apiService.createRider(newRider);
@@ -2393,32 +2396,57 @@ export const StoreProvider = ({ children }) => {
       ['available', 'on-duty'].includes(String(rider.status || '').toLowerCase())
     );
 
-    if (!destination) {
-      return onDutyRiders.map((rider) => {
-        const coordinates = riderBaseCoordinates(rider);
-        return { ...rider, coordinates, distanceKm: 0, coverageRadiusKm: Number(rider.coverageRadiusKm) || 15 };
-      });
+    const orderBranchId = order?.branchId;
+    const orderBranchName = (order?.branchName || order?.branch || '').toLowerCase();
+    const orderCity = (order?.city || order?.shippingAddress?.city || '').toLowerCase();
+
+    const enriched = onDutyRiders.map((rider) => {
+      const coordinates = riderBaseCoordinates(rider);
+      const distanceKm = destination && coordinates
+        ? calculateDistanceKm(destination.lat, destination.lng, coordinates.lat, coordinates.lng)
+        : 0;
+      const coverageRadiusKm = Number(rider.coverageRadiusKm) || 15;
+
+      const isBranchMatch = Boolean(
+        (orderBranchId && rider.branchId === orderBranchId) ||
+        (orderBranchName && (
+          (rider.branchName && rider.branchName.toLowerCase() === orderBranchName) ||
+          (rider.zone && rider.zone.toLowerCase() === orderBranchName) ||
+          (rider.region && rider.region.toLowerCase().includes(orderBranchName))
+        )) ||
+        (orderCity && (
+          (rider.city && rider.city.toLowerCase() === orderCity) ||
+          (rider.region && rider.region.toLowerCase().includes(orderCity))
+        ))
+      );
+
+      return {
+        ...rider,
+        coordinates,
+        distanceKm: Number.isFinite(distanceKm) ? distanceKm : 0,
+        coverageRadiusKm,
+        isBranchMatch
+      };
+    });
+
+    // 1. If riders are assigned directly to the order's branch / area, prioritize them!
+    const exactBranchRiders = enriched.filter((r) => r.isBranchMatch);
+    if (exactBranchRiders.length > 0) {
+      return exactBranchRiders.sort((a, b) => a.distanceKm - b.distanceKm);
     }
 
-    const matched = onDutyRiders
-      .map((rider) => {
-        const coordinates = riderBaseCoordinates(rider);
-        const distanceKm = coordinates ? calculateDistanceKm(destination.lat, destination.lng, coordinates.lat, coordinates.lng) : Number.POSITIVE_INFINITY;
-        const coverageRadiusKm = Number(rider.coverageRadiusKm) || 15;
-        return { ...rider, coordinates, distanceKm, coverageRadiusKm };
-      })
-      .filter((rider) => Number.isFinite(rider.distanceKm) && rider.distanceKm <= rider.coverageRadiusKm)
-      .sort((a, b) => a.distanceKm - b.distanceKm);
+    // 2. If destination is available, filter riders by proximity within coverage
+    if (destination) {
+      const matched = enriched
+        .filter((rider) => Number.isFinite(rider.distanceKm) && rider.distanceKm <= rider.coverageRadiusKm)
+        .sort((a, b) => a.distanceKm - b.distanceKm);
 
-    if (matched.length === 0) {
-      return onDutyRiders.map((rider) => {
-        const coordinates = riderBaseCoordinates(rider);
-        const distanceKm = coordinates ? calculateDistanceKm(destination.lat, destination.lng, coordinates.lat, coordinates.lng) : 0;
-        return { ...rider, coordinates, distanceKm: Number.isFinite(distanceKm) ? distanceKm : 0, coverageRadiusKm: Number(rider.coverageRadiusKm) || 15 };
-      });
+      if (matched.length > 0) {
+        return matched;
+      }
     }
 
-    return matched;
+    return enriched;
   };
 
   const assignRiderToOrder = async (orderId, riderId, statusOverride) => {

@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { PAKISTAN_CITIES } from '../../../data/pakistanLocations';
+import { BRANCHES, resolveTenantId } from '../../../data/companyHierarchyData';
 
 export const PAKISTAN_REGIONS = [
   // Lahore
@@ -116,10 +117,47 @@ export const DeliveryView = () => {
     currency = 'PKR',
     addToast,
     adminRole,
-    user
+    user,
+    allBranches = [],
+    branches = [],
+    currentBranch,
+    currentTenant
   } = useStore();
 
   const isAdmin = adminRole === 'admin' || adminRole === 'superadmin';
+
+  // Get only that area and branch that is added and available
+  const availableBranches = useMemo(() => {
+    const canonicalTenantId = resolveTenantId ? resolveTenantId(currentTenant?.id) : (currentTenant?.id || 'company_004');
+
+    // 1. Check all active user-added/registered branches in system
+    const activeAddedBranches = (allBranches || []).filter(
+      (b) => b && (b.status === 'active' || b.status === 'Active' || !b.status)
+    );
+
+    // Prefer store-specific added branches if available
+    const storeSpecificAdded = activeAddedBranches.filter(
+      (b) => b.tenantId === canonicalTenantId || b.tenantId === currentTenant?.id
+    );
+
+    if (storeSpecificAdded.length > 0) {
+      return storeSpecificAdded;
+    }
+
+    if (activeAddedBranches.length > 0) {
+      return activeAddedBranches;
+    }
+
+    // 2. Predefined branches for this tenant from hierarchy
+    const tenantHierarchy = (BRANCHES || []).filter(
+      (b) => b && (b.tenantId === canonicalTenantId || b.tenantId === currentTenant?.id)
+    );
+    if (tenantHierarchy.length > 0) {
+      return tenantHierarchy;
+    }
+
+    return (BRANCHES && BRANCHES.length > 0) ? BRANCHES : [];
+  }, [allBranches, currentTenant]);
 
   const [activeSubTab, setActiveSubTab] = useState('queue'); // 'queue' | 'fleet' | 'rider-app' | 'coverage'
   const [searchRider, setSearchRider] = useState('');
@@ -141,16 +179,28 @@ export const DeliveryView = () => {
   const [customRegionName, setCustomRegionName] = useState('');
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [showAdvancedRiderOptions, setShowAdvancedRiderOptions] = useState(false);
+
+  const initialBranch = availableBranches[0] || {
+    name: 'Main Store Hub',
+    city: 'Lahore',
+    latitude: 31.5204,
+    longitude: 74.3587,
+    deliveryRadius: 15
+  };
+
   const [newRiderForm, setNewRiderForm] = useState({
     name: '',
     phone: '',
     vehicleType: '🏍️ Honda 125',
     vehicleNumber: '',
-    region: 'Lahore - Gulberg / Main Hub',
-    zone: 'Lahore - Gulberg / Main Hub',
-    latitude: '31.5204',
-    longitude: '74.3587',
-    coverageRadiusKm: '15',
+    branchId: initialBranch.id || initialBranch._id || '',
+    branchName: initialBranch.name,
+    region: `${initialBranch.name} (${initialBranch.city || 'Store Area'})`,
+    zone: initialBranch.name,
+    city: initialBranch.city || '',
+    latitude: String(initialBranch.latitude || 31.5204),
+    longitude: String(initialBranch.longitude || 74.3587),
+    coverageRadiusKm: String(initialBranch.deliveryRadius || initialBranch.coverageRadiusKm || 15),
     status: 'On-Duty',
     cnic: '',
     username: '',
@@ -160,17 +210,20 @@ export const DeliveryView = () => {
   // Selected rider for mobile app simulator
   const [simulatedRiderId, setSimulatedRiderId] = useState(riders[0]?.id || 'RDR-101');
 
-  // Filter riders based on search and zone
+  // Filter riders based on search and branch/zone
   const filteredRiders = (riders || []).filter((r) => {
     const query = searchRider.toLowerCase();
-    const riderRegion = String(r.region || r.zone || '').toLowerCase();
+    const riderRegion = String(r.branchName || r.region || r.zone || '').toLowerCase();
     const matchesSearch =
       r.name.toLowerCase().includes(query) ||
       r.phone.includes(searchRider) ||
       (r.username && r.username.toLowerCase().includes(query)) ||
       (r.vehicleNumber && r.vehicleNumber.toLowerCase().includes(query)) ||
       riderRegion.includes(query);
-    const matchesZone = filterZone === 'All' || riderRegion.includes(filterZone.toLowerCase());
+    const matchesZone =
+      filterZone === 'All' ||
+      riderRegion.includes(filterZone.toLowerCase()) ||
+      (r.branchId && String(r.branchId) === String(filterZone));
     return matchesSearch && matchesZone;
   });
 
@@ -227,25 +280,31 @@ export const DeliveryView = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleRegionChange = (e) => {
+  const handleBranchSelectChange = (e) => {
     const val = e.target.value;
     if (val === 'custom') {
       setIsCustomRegion(true);
       setNewRiderForm((prev) => ({
         ...prev,
-        region: customRegionName || 'Custom Region',
-        zone: customRegionName || 'Custom Region'
+        branchId: 'custom',
+        branchName: customRegionName || 'Custom Area',
+        region: customRegionName || 'Custom Area',
+        zone: customRegionName || 'Custom Area'
       }));
     } else {
       setIsCustomRegion(false);
-      const found = PAKISTAN_REGIONS.find((r) => r.name === val);
+      const found = availableBranches.find((b) => (b.id || b._id || b.name) === val || b.name === val);
       if (found) {
         setNewRiderForm((prev) => ({
           ...prev,
-          region: found.name,
+          branchId: found.id || found._id || '',
+          branchName: found.name,
+          region: `${found.name} (${found.city || 'Store Area'})`,
           zone: found.name,
-          latitude: String(found.latitude),
-          longitude: String(found.longitude)
+          city: found.city || '',
+          latitude: String(found.latitude || 31.5204),
+          longitude: String(found.longitude || 74.3587),
+          coverageRadiusKm: String(found.deliveryRadius || found.coverageRadiusKm || 15)
         }));
       }
     }
@@ -255,9 +314,28 @@ export const DeliveryView = () => {
     setCustomRegionName(val);
     setNewRiderForm((prev) => ({
       ...prev,
+      branchName: val,
       region: val,
       zone: val
     }));
+  };
+
+  const handleOpenAddRiderModal = () => {
+    if (availableBranches.length > 0 && !isCustomRegion) {
+      const activeBr = currentBranch || availableBranches[0];
+      setNewRiderForm((prev) => ({
+        ...prev,
+        branchId: activeBr.id || activeBr._id || '',
+        branchName: activeBr.name,
+        region: `${activeBr.name} (${activeBr.city || 'Store Area'})`,
+        zone: activeBr.name,
+        city: activeBr.city || '',
+        latitude: String(activeBr.latitude || 31.5204),
+        longitude: String(activeBr.longitude || 74.3587),
+        coverageRadiusKm: String(activeBr.deliveryRadius || activeBr.coverageRadiusKm || 15)
+      }));
+    }
+    setIsAddRiderModalOpen(true);
   };
 
   const handleDetectCurrentLocation = () => {
@@ -293,17 +371,24 @@ export const DeliveryView = () => {
       return;
     }
 
-    const foundRegion = PAKISTAN_REGIONS.find((r) => r.name === newRiderForm.region);
+    const selectedBranch = availableBranches.find(
+      (b) => (b.id || b._id || b.name) === newRiderForm.branchId || b.name === newRiderForm.branchName
+    ) || availableBranches[0];
+
     let lat = Number(newRiderForm.latitude);
     let lng = Number(newRiderForm.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      lat = foundRegion ? foundRegion.latitude : 31.5204;
-      lng = foundRegion ? foundRegion.longitude : 74.3587;
+      lat = selectedBranch ? Number(selectedBranch.latitude) : 31.5204;
+      lng = selectedBranch ? Number(selectedBranch.longitude) : 74.3587;
     }
 
+    const finalBranchName = isCustomRegion
+      ? (customRegionName.trim() || 'Custom Area')
+      : (selectedBranch?.name || newRiderForm.branchName || 'Store Branch');
+
     const finalRegion = isCustomRegion
-      ? (customRegionName.trim() || 'Custom Region')
-      : (newRiderForm.region || newRiderForm.zone || 'Lahore - Gulberg / Main Hub');
+      ? (customRegionName.trim() || 'Custom Area')
+      : `${finalBranchName} (${selectedBranch?.city || 'Local'})`;
 
     const generatedUsername =
       newRiderForm.username.trim() ||
@@ -318,12 +403,15 @@ export const DeliveryView = () => {
       phone: newRiderForm.phone.trim(),
       vehicleType: newRiderForm.vehicleType || '🏍️ Honda 125',
       vehicleNumber: generatedPlate,
+      branchId: isCustomRegion ? 'custom' : (selectedBranch?.id || selectedBranch?._id || ''),
+      branchName: finalBranchName,
+      city: selectedBranch?.city || '',
       region: finalRegion,
-      zone: finalRegion,
+      zone: finalBranchName,
       latitude: lat,
       longitude: lng,
       coordinates: { lat, lng },
-      coverageRadiusKm: Number(newRiderForm.coverageRadiusKm || 15),
+      coverageRadiusKm: Number(newRiderForm.coverageRadiusKm || selectedBranch?.deliveryRadius || 15),
       status: newRiderForm.status || 'On-Duty',
       cnic: newRiderForm.cnic ? newRiderForm.cnic.trim() : '',
       username: generatedUsername,
@@ -336,16 +424,21 @@ export const DeliveryView = () => {
     setIsCustomRegion(false);
     setCustomRegionName('');
     setShowAdvancedRiderOptions(false);
+
+    const nextBr = availableBranches[0] || {};
     setNewRiderForm({
       name: '',
       phone: '',
       vehicleType: '🏍️ Honda 125',
       vehicleNumber: '',
-      region: 'Lahore - Gulberg / Main Hub',
-      zone: 'Lahore - Gulberg / Main Hub',
-      latitude: '31.5204',
-      longitude: '74.3587',
-      coverageRadiusKm: '15',
+      branchId: nextBr.id || nextBr._id || '',
+      branchName: nextBr.name || 'Main Hub',
+      region: nextBr.name ? `${nextBr.name} (${nextBr.city || 'Store Area'})` : 'Main Hub',
+      zone: nextBr.name || 'Main Hub',
+      city: nextBr.city || '',
+      latitude: String(nextBr.latitude || 31.5204),
+      longitude: String(nextBr.longitude || 74.3587),
+      coverageRadiusKm: String(nextBr.deliveryRadius || 15),
       status: 'On-Duty',
       cnic: '',
       username: '',
@@ -425,7 +518,7 @@ export const DeliveryView = () => {
 
         {isAdmin && (
           <button
-            onClick={() => setIsAddRiderModalOpen(true)}
+            onClick={handleOpenAddRiderModal}
             className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm transition-all cursor-pointer hover:shadow-md hover:scale-[1.02]"
           >
             <UserPlus className="w-4 h-4" />
@@ -604,6 +697,24 @@ export const DeliveryView = () => {
                   : [{ name: 'Grocery Package', quantity: 1, price: order.totalAmount || order.totalPrice || order.total || 810 }];
 
                 const eligibleRiders = getEligibleRidersForOrder ? getEligibleRidersForOrder(order) : [];
+
+                // Match order branch / area from available store branches
+                const orderBranch = availableBranches.find(
+                  (b) => (b.id || b._id) === order.branchId || b.name === order.branchName
+                ) || availableBranches.find((b) => b.city?.toLowerCase() === order.city?.toLowerCase()) || currentBranch || availableBranches[0];
+
+                // Filter riders by order's added & available branch / area
+                const branchMatchedRiders = eligibleRiders.filter((r) => {
+                  if (order.branchId && r.branchId === order.branchId) return true;
+                  if (orderBranch?.name && (
+                    (r.branchName && r.branchName.toLowerCase() === orderBranch.name.toLowerCase()) ||
+                    (r.zone && r.zone.toLowerCase() === orderBranch.name.toLowerCase()) ||
+                    (r.region && r.region.toLowerCase().includes(orderBranch.name.toLowerCase()))
+                  )) return true;
+                  return false;
+                });
+
+                const ridersToChoose = branchMatchedRiders.length > 0 ? branchMatchedRiders : eligibleRiders;
                 const isUnassigned = !order.assignedRider;
                 const statusRaw = (order.status || 'Ready for Dispatch').toLowerCase();
                 const isReady = ['ready', 'ready for dispatch', 'ready(dispatched)'].includes(statusRaw);
@@ -733,7 +844,11 @@ export const DeliveryView = () => {
                           <div className="space-y-1">
                             <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
                               <span>Assign Fleet Courier:</span>
-                              <span className="text-[#059669]">{eligibleRiders.length} in area</span>
+                              <span className="text-[#059669]">
+                                {branchMatchedRiders.length > 0
+                                  ? `${branchMatchedRiders.length} in ${orderBranch?.name || 'branch'}`
+                                  : `${eligibleRiders.length} available`}
+                              </span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <select
@@ -742,12 +857,20 @@ export const DeliveryView = () => {
                                 disabled={Number(order.fulfillmentStage || 0) < 4 && order.status !== 'Ready for Dispatch'}
                                 className="flex-1 bg-white border border-[#cbd5e1] rounded-xl px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
                               >
-                                <option value="">Choose rider...</option>
-                                {eligibleRiders.map((r) => (
-                                  <option key={r.id} value={r.id}>
-                                    {r.name} • {r.distanceKm.toFixed(1)} km
-                                  </option>
-                                ))}
+                                <option value="">
+                                  {branchMatchedRiders.length > 0
+                                    ? `Choose rider (${orderBranch?.name || 'Branch'})...`
+                                    : 'Choose rider...'}
+                                </option>
+                                {ridersToChoose.map((r) => {
+                                  const isExact = branchMatchedRiders.some((bm) => bm.id === r.id);
+                                  return (
+                                    <option key={r.id} value={r.id}>
+                                      {isExact ? '🟢 ' : '📍 '}
+                                      {r.name} ({r.vehicleType || '🏍️'} • {r.branchName || r.zone || r.region || 'Courier'})
+                                    </option>
+                                  );
+                                })}
                               </select>
                               <button
                                 type="button"
@@ -867,28 +990,26 @@ export const DeliveryView = () => {
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
-              <span className="text-slate-400 font-bold shrink-0">Region:</span>
+              <span className="text-slate-400 font-bold shrink-0">Branch / Area:</span>
               <select
                 value={filterZone}
                 onChange={(e) => setFilterZone(e.target.value)}
                 className="bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2 font-bold text-xs focus:outline-none cursor-pointer"
               >
-                <option value="All">All Regions / Hubs</option>
-                <option value="Lahore">Lahore</option>
-                <option value="Karachi">Karachi</option>
-                <option value="Islamabad">Islamabad</option>
-                <option value="Rawalpindi">Rawalpindi</option>
-                <option value="Faisalabad">Faisalabad</option>
-                <option value="Multan">Multan</option>
-                <option value="Peshawar">Peshawar</option>
-                <option value="Gulberg">Gulberg</option>
-                <option value="DHA">DHA</option>
-                <option value="Johar">Johar Town</option>
+                <option value="All">All Branches & Areas</option>
+                {availableBranches.map((b) => {
+                  const key = b.id || b._id || b.name;
+                  return (
+                    <option key={key} value={b.name}>
+                      🏪 {b.name} ({b.city})
+                    </option>
+                  );
+                })}
               </select>
 
               {isAdmin && (
                 <button
-                  onClick={() => setIsAddRiderModalOpen(true)}
+                  onClick={handleOpenAddRiderModal}
                   className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer shrink-0"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
@@ -907,11 +1028,11 @@ export const DeliveryView = () => {
               <div className="space-y-1">
                 <h3 className="text-base font-black text-slate-900">No Delivery Riders Registered</h3>
                 <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  Click '+ Add Rider' to register couriers, assign their operational regions, and set their GPS coverage.
+                  Click '+ Add Rider' to register couriers for your active store branches and operational areas.
                 </p>
               </div>
               <button
-                onClick={() => setIsAddRiderModalOpen(true)}
+                onClick={handleOpenAddRiderModal}
                 className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-xs font-black inline-flex items-center gap-2 cursor-pointer shadow-md hover:scale-105 transition-all"
               >
                 <UserPlus className="w-4 h-4" />
@@ -1375,59 +1496,43 @@ export const DeliveryView = () => {
                   </div>
                 </div>
 
-                {/* 3. Delivery Region / Zone */}
+                {/* 3. Assigned Branch & Delivery Area */}
                 <div>
                   <label className="font-bold text-slate-700 block mb-1 text-xs">
-                    Delivery Region / Zone <span className="text-rose-500">*</span>
+                    Assigned Branch & Area <span className="text-rose-500">*</span>
                   </label>
                   <select
-                    value={isCustomRegion ? 'custom' : (newRiderForm.region || newRiderForm.zone)}
-                    onChange={handleRegionChange}
+                    value={isCustomRegion ? 'custom' : (newRiderForm.branchId || newRiderForm.branchName || newRiderForm.region)}
+                    onChange={handleBranchSelectChange}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none cursor-pointer transition-all"
                   >
-                    <optgroup label="Lahore Hubs">
-                      <option value="Lahore - Gulberg / Main Hub">Lahore - Gulberg / Main Hub</option>
-                      <option value="Lahore - DHA Phase 5 & 6">Lahore - DHA Phase 5 & 6</option>
-                      <option value="Lahore - Johar Town & Model Town">Lahore - Johar Town & Model Town</option>
-                      <option value="Lahore - Bahria Town & Canal Road">Lahore - Bahria Town & Canal Road</option>
-                      <option value="Lahore - Cantt & Mall Road">Lahore - Cantt & Mall Road</option>
-                      <option value="Lahore - Faisal Town & Garden Town">Lahore - Faisal Town & Garden Town</option>
-                    </optgroup>
-                    <optgroup label="Karachi Hubs">
-                      <option value="Karachi - Clifton Block 2-5">Karachi - Clifton Block 2-5</option>
-                      <option value="Karachi - DHA Phase 6 & 8">Karachi - DHA Phase 6 & 8</option>
-                      <option value="Karachi - Gulshan-e-Iqbal">Karachi - Gulshan-e-Iqbal</option>
-                      <option value="Karachi - North Nazimabad">Karachi - North Nazimabad</option>
-                      <option value="Karachi - PECHS & Tariq Road">Karachi - PECHS & Tariq Road</option>
-                    </optgroup>
-                    <optgroup label="Islamabad & Rawalpindi">
-                      <option value="Islamabad - F-6 / F-7 / Blue Area">Islamabad - F-6 / F-7 / Blue Area</option>
-                      <option value="Islamabad - G-10 / G-11 / F-10">Islamabad - G-10 / G-11 / F-10</option>
-                      <option value="Islamabad - DHA & Bahria Enclave">Islamabad - DHA & Bahria Enclave</option>
-                      <option value="Rawalpindi - Saddar / Cantt">Rawalpindi - Saddar / Cantt</option>
-                      <option value="Rawalpindi - Bahria Town Phase 1-8">Rawalpindi - Bahria Town Phase 1-8</option>
-                    </optgroup>
-                    <optgroup label="Other Metros">
-                      <option value="Faisalabad - D Ground Commercial">Faisalabad - D Ground Commercial</option>
-                      <option value="Faisalabad - Peoples Colony No 1 & 2">Faisalabad - Peoples Colony No 1 & 2</option>
-                      <option value="Multan - Bosan Road & Gulgasht">Multan - Bosan Road & Gulgasht</option>
-                      <option value="Peshawar - University Town & Hayatabad">Peshawar - University Town & Hayatabad</option>
-                      <option value="Gujranwala - Model Town & DC Colony">Gujranwala - Model Town & DC Colony</option>
-                      <option value="Sialkot - Cantt & Paris Road">Sialkot - Cantt & Paris Road</option>
+                    <optgroup label="Added & Available Store Branches">
+                      {availableBranches.map((b) => {
+                        const branchKey = b.id || b._id || b.name;
+                        return (
+                          <option key={branchKey} value={branchKey}>
+                            🏪 {b.name} — {b.city} {b.address ? `(${b.address})` : ''}
+                          </option>
+                        );
+                      })}
                     </optgroup>
                     <optgroup label="Custom Area">
-                      <option value="custom">📍 + Custom Region (Specify manually)</option>
+                      <option value="custom">📍 + Add Custom Area / Location</option>
                     </optgroup>
                   </select>
 
-                  {/* Auto GPS Assigned Badge */}
+                  {/* Active Branch GPS Info Badge */}
                   {!isCustomRegion && (
                     <div className="mt-1.5 flex items-center justify-between text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200/80 rounded-lg px-2.5 py-1.5 font-medium">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>Auto GPS: <strong>{newRiderForm.latitude || '31.5204'}° N, {newRiderForm.longitude || '74.3587'}° E</strong></span>
+                      <span className="flex items-center gap-1.5 truncate">
+                        <Building className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span className="truncate">
+                          Assigned: <strong>{newRiderForm.branchName || newRiderForm.zone}</strong> ({newRiderForm.city || 'Active Branch'})
+                        </span>
                       </span>
-                      <span className="text-[10px] font-bold text-emerald-600 uppercase">15 km radius</span>
+                      <span className="text-[10px] font-bold text-emerald-700 shrink-0 ml-2">
+                        📍 {newRiderForm.latitude}° N, {newRiderForm.longitude}° E
+                      </span>
                     </div>
                   )}
 
@@ -1436,7 +1541,7 @@ export const DeliveryView = () => {
                       <input
                         type="text"
                         required
-                        placeholder="e.g. Wapda Town, Lahore"
+                        placeholder="e.g. Model Town Branch / Johar Town Area"
                         value={customRegionName}
                         onChange={(e) => handleCustomRegionNameChange(e.target.value)}
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 font-semibold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"

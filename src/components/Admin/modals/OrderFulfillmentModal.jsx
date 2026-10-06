@@ -112,6 +112,16 @@ export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
       let score = 70;
       const riderZoneLower = (r.zone || '').toLowerCase();
 
+      // Check branch match
+      const orderBranchId = order.branchId;
+      const orderBranchName = (order.branchName || order.branch || '').toLowerCase();
+      if (
+        (orderBranchId && r.branchId === orderBranchId) ||
+        (orderBranchName && r.branchName && r.branchName.toLowerCase() === orderBranchName)
+      ) {
+        score += 25;
+      }
+
       // Check zone match
       if (
         customerZoneLower.includes('peoples colony') && riderZoneLower.includes('peoples colony') ||
