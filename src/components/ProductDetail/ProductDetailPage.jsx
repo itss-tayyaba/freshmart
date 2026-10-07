@@ -12,7 +12,9 @@ import {
   RotateCcw,
   CreditCard,
   Check,
-  Share2
+  Share2,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { FRESHMART_PRODUCTS } from '../../data/freshMartData';
@@ -20,13 +22,16 @@ import { FRESHMART_PRODUCTS } from '../../data/freshMartData';
 export const ProductDetailPage = () => {
   const {
     selectedProduct,
+    setSelectedProduct,
     navigateTo,
     addToCart,
     isInWishlist,
     toggleWishlist,
     currency,
     addToast,
-    currentTenant
+    currentTenant,
+    getProductSubstitutes,
+    isProductOutOfStock
   } = useStore();
 
   const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
@@ -101,6 +106,12 @@ export const ProductDetailPage = () => {
   };
 
   const product = selectedProduct || FRESHMART_PRODUCTS[0];
+  const isOOS = Boolean(isProductOutOfStock ? isProductOutOfStock(product) : (product.inStock === false || product.stockCount === 0 || product.stock === 0));
+  const substitutes = React.useMemo(() => {
+    if (!isOOS) return [];
+    return typeof getProductSubstitutes === 'function' ? getProductSubstitutes(product, { limit: 4 }) : [];
+  }, [isOOS, product, getProductSubstitutes]);
+
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState('description'); // 'description' | 'nutrition' | 'reviews'
   const [selectedGalleryImg, setSelectedGalleryImg] = useState(product.image);
@@ -210,10 +221,17 @@ export const ProductDetailPage = () => {
                 <span className="text-[11px] text-amber-700">({product.reviewsCount} reviews)</span>
               </div>
 
-              <span className={`flex items-center gap-1 text-xs font-bold ${theme.softBg} px-2.5 py-1 rounded-lg`}>
-                <Check className="w-3.5 h-3.5" />
-                <span>In Stock ({product.stockCount} Available)</span>
-              </span>
+              {isOOS ? (
+                <span className="flex items-center gap-1 text-xs font-black bg-rose-50 text-rose-700 border border-rose-200 px-3 py-1 rounded-lg">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>Out of Stock</span>
+                </span>
+              ) : (
+                <span className={`flex items-center gap-1 text-xs font-bold ${theme.softBg} px-2.5 py-1 rounded-lg`}>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>In Stock ({product.stockCount || 50} Available)</span>
+                </span>
+              )}
             </div>
 
             {/* Price */}
@@ -238,49 +256,144 @@ export const ProductDetailPage = () => {
               {product.description}
             </p>
 
-            {/* Quantity Stepper */}
-            <div className="mt-5 space-y-2">
-              <label className="text-xs font-bold text-slate-700 block">Quantity</label>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center bg-slate-100 rounded-xl p-1">
+            {/* If In Stock: Quantity Stepper & Add to Cart Action Buttons */}
+            {!isOOS ? (
+              <>
+                <div className="mt-5 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 block">Quantity</label>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center bg-slate-100 rounded-xl p-1">
+                      <button
+                        onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                        className="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="w-10 text-center font-bold text-sm text-slate-900">
+                        {quantity}
+                      </span>
+                      <button
+                        onClick={() => setQuantity((q) => q + 1)}
+                        className="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <span className="text-xs text-slate-400 font-medium">({product.unit})</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
                   <button
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    className="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer"
+                    onClick={() => addToCart(product, quantity)}
+                    className={`py-3 px-6 ${theme.primaryBg} text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer`}
                   >
-                    <Minus className="w-3.5 h-3.5" />
+                    <ShoppingCart className="w-4 h-4" />
+                    <span>Add to Cart • {currency.symbol}{product.price * quantity}</span>
                   </button>
-                  <span className="w-10 text-center font-bold text-sm text-slate-900">
-                    {quantity}
-                  </span>
+
                   <button
-                    onClick={() => setQuantity((q) => q + 1)}
-                    className="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer"
+                    onClick={handleBuyNow}
+                    className={`py-3 px-6 bg-white ${theme.outlineBtn} border-2 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer`}
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    <Zap className="w-4 h-4" />
+                    <span>Buy Now</span>
                   </button>
                 </div>
-                <span className="text-xs text-slate-400 font-medium">({product.unit})</span>
+              </>
+            ) : (
+              /* --- 🔄 SMART PRODUCT SUBSTITUTION (When Out of Stock) --- */
+              <div className="mt-5 space-y-4">
+                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-base shrink-0 shadow-xs">
+                      🔄
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-black text-slate-900">
+                          Smart In-Stock Alternatives
+                        </h4>
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded-full uppercase">
+                          Available Now
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                        <strong>{product.name}</strong> is out of stock. Automatically matched available alternatives from the same category &amp; product type with matching size:
+                      </p>
+                    </div>
+                  </div>
+
+                  {substitutes.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {substitutes.map((alt) => (
+                        <div
+                          key={alt.id}
+                          className="bg-white p-3 rounded-2xl border border-amber-200/80 hover:border-emerald-500 shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between gap-3 group"
+                        >
+                          <div className="flex items-start gap-2.5">
+                            <img
+                              src={alt.image}
+                              alt={alt.name}
+                              className="w-14 h-14 rounded-xl object-cover bg-slate-50 border border-slate-100 shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                                {alt.brand}
+                              </span>
+                              <h5 className="font-bold text-slate-900 text-xs truncate leading-snug group-hover:text-emerald-700 transition-colors">
+                                {alt.name}
+                              </h5>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="font-black text-xs text-emerald-800 font-mono">
+                                  {currency.symbol}{alt.price}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-500">
+                                  {alt.matchDetails?.priceComparisonLabel}
+                                </span>
+                              </div>
+                              {alt.matchDetails?.sizeMatchLabel && (
+                                <span className="inline-block mt-1 text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.2 rounded-md">
+                                  {alt.matchDetails.sizeMatchLabel}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-1.5 border-t border-slate-100">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedProduct(alt);
+                                addToast('Alternative Selected ✨', `Switched to ${alt.name}.`);
+                              }}
+                              className="flex-1 py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer text-center shadow-2xs hover:scale-102"
+                            >
+                              Select Alternative
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                addToCart(alt, 1);
+                                addToast('Added Alternative 🛒', `${alt.name} added to cart.`);
+                              }}
+                              className="py-1.5 px-3 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                              title="Add directly to cart"
+                            >
+                              + Basket
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic bg-white p-3 rounded-xl border border-slate-100 text-center">
+                      No direct alternatives currently found for this specific item size.
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-
-            {/* Action Buttons: Add to Cart | Buy Now | Add to Wishlist */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
-              <button
-                onClick={() => addToCart(product, quantity)}
-                className={`py-3 px-6 ${theme.primaryBg} text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer`}
-              >
-                <ShoppingCart className="w-4 h-4" />
-                <span>Add to Cart • {currency.symbol}{product.price * quantity}</span>
-              </button>
-
-              <button
-                onClick={handleBuyNow}
-                className={`py-3 px-6 bg-white ${theme.outlineBtn} border-2 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer`}
-              >
-                <Zap className="w-4 h-4" />
-                <span>Buy Now</span>
-              </button>
-            </div>
+            )}
 
             <button
               onClick={() => toggleWishlist(product.id)}

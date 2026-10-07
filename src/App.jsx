@@ -30,10 +30,20 @@ function FreshMartAppContent() {
   const { currentPage, isVendorRegisterOpen, setIsVendorRegisterOpen } = useStore();
 
   // If in Admin / Vendor Dashboard view, render the dedicated full-screen admin/vendor experience
-  if (currentPage === 'admin' || currentPage === 'vendor' || currentPage === 'vendor-portal' || currentPage === 'delivery-portal') {
+  if (currentPage === 'admin' || currentPage === 'vendor' || currentPage === 'vendor-portal') {
     return (
       <div className="min-h-screen w-full bg-slate-100 font-sans">
         <AdminDashboard />
+        <ToastContainer />
+      </div>
+    );
+  }
+
+  // If in Delivery / Rider Portal view, render the dedicated courier dashboard experience
+  if (currentPage === 'delivery-portal' || currentPage === 'rider-portal') {
+    return (
+      <div className="min-h-screen w-full bg-[#fbf9f4] font-sans">
+        <DeliveryPortal />
         <ToastContainer />
       </div>
     );

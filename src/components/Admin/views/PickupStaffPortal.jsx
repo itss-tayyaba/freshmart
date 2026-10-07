@@ -61,13 +61,22 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     updateOrderFulfillment,
     adminLogout,
     addToast,
-    adminRole
+    adminRole,
+    getProductSubstitutes,
+    substituteOrderItem,
+    resetToTestPickupOrder,
+    currency
   } = useStore();
 
   const [activeTab, setActiveTab] = useState('All'); // 'All' | 'Pending' | 'Preparing' | 'Ready' | 'Dispatched'
   const [search, setSearch] = useState('');
   const [expandedOrders, setExpandedOrders] = useState({});
   const [pickedState, setPickedState] = useState({});
+
+  // Smart Product Substitution modal state for unavailable items
+  const [substitutionModal, setSubstitutionModal] = useState(null); // { order, item, idx }
+  const [substitutionReason, setSubstitutionReason] = useState('Customer approved substitution via phone');
+  const [selectedAlternative, setSelectedAlternative] = useState(null);
 
   // Merge & deduplicate live orders from customer & admin orders
   const allOrders = useMemo(() => {
@@ -151,6 +160,32 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       const updated = current.includes(idx) ? current.filter((i) => i !== idx) : [...current, idx];
       return { ...prev, [orderId]: updated };
     });
+  };
+
+  // Dynamically compute ranked smart substitutes for the selected unavailable item
+  const modalSubstitutes = useMemo(() => {
+    if (!substitutionModal?.item) return [];
+    return typeof getProductSubstitutes === 'function'
+      ? getProductSubstitutes(substitutionModal.item, {
+          tenantId: substitutionModal.order?.tenantId || currentTenant?.id,
+          limit: 5
+        })
+      : [];
+  }, [substitutionModal, getProductSubstitutes, currentTenant]);
+
+  const handleOpenSubstitution = (e, order, item, idx) => {
+    e.stopPropagation();
+    setSubstitutionModal({ order, item, idx });
+    setSelectedAlternative(null);
+    setSubstitutionReason('Item Out of Stock - Customer approved substitution');
+  };
+
+  const handleConfirmSubstitution = async () => {
+    if (!substitutionModal || !selectedAlternative) return;
+    const orderId = substitutionModal.order.id || substitutionModal.order.orderId;
+    await substituteOrderItem(orderId, substitutionModal.idx, selectedAlternative, substitutionReason);
+    setSubstitutionModal(null);
+    setSelectedAlternative(null);
   };
 
   const handlePickAll = (orderId, totalCount) => {
@@ -267,16 +302,30 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               </p>
             </div>
 
-            {/* Quick Search */}
-            <div className="relative w-full sm:w-72">
-              <input
-                type="text"
-                placeholder="Search by #order ID, customer, phone..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full text-xs bg-[#f8fafc] border border-[#cbd5e1] rounded-xl pl-9 pr-3 py-2 text-slate-800 placeholder-slate-400 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            {/* Actions: Test Order Button + Quick Search */}
+            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+              {typeof resetToTestPickupOrder === 'function' && (
+                <button
+                  type="button"
+                  onClick={resetToTestPickupOrder}
+                  className="px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs shrink-0"
+                  title="Loads Order #ORD-701 with Dalda Ghee (Unavailable) and Olper's Milk (Available) to test picking and substitution"
+                >
+                  <Sparkles size={14} className="text-amber-600" />
+                  <span>🧪 Test Picking &amp; Substitution Order</span>
+                </button>
+              )}
+
+              <div className="relative flex-1 sm:w-64">
+                <input
+                  type="text"
+                  placeholder="Search by #order ID, customer, phone..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full text-xs bg-[#f8fafc] border border-[#cbd5e1] rounded-xl pl-9 pr-3 py-2 text-slate-800 placeholder-slate-400 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              </div>
             </div>
           </div>
 
@@ -311,14 +360,22 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
         {filteredOrders.length === 0 ? (
           <div className="bg-white rounded-3xl border border-[#d1d5db] p-12 text-center text-slate-500 space-y-3 shadow-xs">
             <div className="w-14 h-14 rounded-2xl bg-[#f8fafc] border border-[#d1d5db] text-emerald-700 flex items-center justify-center mx-auto text-2xl">
-              ☕
+              📦
             </div>
             <h3 className="font-bold text-slate-800 text-sm">No Orders in this Queue</h3>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              {allOrders.length === 0
-                ? 'No orders placed yet. New customer orders will show up here row-wise in real time.'
-                : 'No orders matching current filter or search criteria.'}
+              Ready to test item picking and smart alternatives? Click below to load the test picking order with unavailable Dalda Ghee and in-stock Milk.
             </p>
+            {typeof resetToTestPickupOrder === 'function' && (
+              <button
+                type="button"
+                onClick={resetToTestPickupOrder}
+                className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-xs inline-flex items-center gap-2"
+              >
+                <Sparkles size={14} />
+                <span>🧪 Load Test Picking Order (Dalda Ghee + Milk)</span>
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -406,31 +463,53 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                             className="flex items-center justify-between py-1.5 px-1 rounded-lg hover:bg-[#f8fafc] transition cursor-pointer select-none group"
                           >
                             {/* Quantity and Name */}
-                            <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-900">
+                            <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-900 min-w-0 flex-1">
                               <span className="text-emerald-700 font-black min-w-[24px]">
                                 {qty}*
                               </span>
-                              <span className={`transition ${isPicked ? 'line-through text-slate-400' : 'text-slate-900'}`}>
-                                {name}
-                              </span>
+                              <div className="min-w-0 flex-1">
+                                <span className={`block truncate transition ${isPicked ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                                  {name}
+                                </span>
+                                {item.isSubstituted && item.originalProduct && (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded mt-0.5">
+                                    <span>🔄 Substituted</span>
+                                    <span className="text-slate-500">(Orig: {item.originalProduct.name})</span>
+                                  </span>
+                                )}
+                              </div>
                             </div>
 
-                            {/* Square Checkbox on right side */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleItemPick(orderId, idx);
-                              }}
-                              className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors cursor-pointer ${
-                                isPicked
-                                  ? 'bg-[#059669] border-[#059669] text-white shadow-2xs'
-                                  : 'border-slate-300 bg-white hover:border-[#059669]'
-                              }`}
-                              aria-label={`Toggle pick for ${name}`}
-                            >
-                              {isPicked && <Check size={14} className="stroke-[3]" />}
-                            </button>
+                            {/* Actions: Substitute Button + Square Checkbox */}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {!isPicked && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleOpenSubstitution(e, order, item, idx)}
+                                  className="px-2 py-0.5 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                                  title="Item out of stock? Select smart product alternative."
+                                >
+                                  <span>🔄 Substitute</span>
+                                </button>
+                              )}
+
+                              {/* Square Checkbox on right side */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleItemPick(orderId, idx);
+                                }}
+                                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors cursor-pointer ${
+                                  isPicked
+                                    ? 'bg-[#059669] border-[#059669] text-white shadow-2xs'
+                                    : 'border-slate-300 bg-white hover:border-[#059669]'
+                                }`}
+                                aria-label={`Toggle pick for ${name}`}
+                              >
+                                {isPicked && <Check size={14} className="stroke-[3]" />}
+                              </button>
+                            </div>
                           </div>
                         );
                       })}
@@ -561,6 +640,170 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
           </div>
         )}
       </main>
+
+      {/* 🔄 SMART PRODUCT SUBSTITUTION MODAL FOR PICKUP STAFF */}
+      {substitutionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-lg shadow-xs">
+                  🔄
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900">
+                    Smart Product Substitution
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Order #{String(substitutionModal.order.id || substitutionModal.order.orderId).replace(/^#/, '')} • Item Unavailable in Store
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSubstitutionModal(null)}
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Currently Ordered Item (Out of Stock) */}
+            <div className="bg-rose-50/70 border border-rose-200/90 rounded-2xl p-4 flex items-center justify-between gap-3 shrink-0">
+              <div className="min-w-0">
+                <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 block">
+                  Unavailable Ordered Item
+                </span>
+                <h4 className="font-bold text-slate-900 text-sm truncate mt-0.5">
+                  {substitutionModal.item.name || substitutionModal.item.productName}
+                </h4>
+                <p className="text-xs text-slate-600 mt-0.5 font-mono">
+                  Qty: {substitutionModal.item.quantity || 1} • Unit Price: Rs. {substitutionModal.item.price}
+                </p>
+              </div>
+              <span className="px-2.5 py-1 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0 shadow-2xs">
+                Out of Stock
+              </span>
+            </div>
+
+            {/* Suggested Smart Alternatives List */}
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-500">
+                  Recommended Alternatives ({modalSubstitutes.length}):
+                </span>
+                <span className="text-[10px] text-emerald-700 font-bold">
+                  Matched by category, type &amp; size
+                </span>
+              </div>
+
+              {modalSubstitutes.length > 0 ? (
+                modalSubstitutes.map((cand) => {
+                  const isSelected = selectedAlternative?.id === cand.id;
+                  const priceDiff = (cand.price || 0) - (substitutionModal.item.price || 0);
+
+                  return (
+                    <div
+                      key={cand.id}
+                      onClick={() => setSelectedAlternative(cand)}
+                      className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                        isSelected
+                          ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
+                          : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img
+                          src={cand.image}
+                          alt={cand.name}
+                          className="w-12 h-12 rounded-xl object-cover bg-slate-50 border border-slate-100 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-bold text-slate-400 block uppercase">
+                            {cand.brand}
+                          </span>
+                          <h5 className="font-bold text-slate-900 text-xs sm:text-sm truncate">
+                            {cand.name}
+                          </h5>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="font-mono font-extrabold text-xs text-emerald-800">
+                              Rs. {cand.price}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-500">
+                              {priceDiff === 0 ? 'Same Price' : priceDiff > 0 ? `+Rs. ${priceDiff}` : `-Rs. ${Math.abs(priceDiff)}`}
+                            </span>
+                            {cand.matchDetails?.sizeMatchLabel && (
+                              <span className="text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
+                                {cand.matchDetails.sizeMatchLabel}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400 font-semibold block text-right">
+                          Stock: {cand.stockCount || cand.stock || 25}
+                        </span>
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                          isSelected ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300'
+                        }`}>
+                          {isSelected && <Check size={12} className="stroke-[3]" />}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  No direct in-stock alternatives found in the store for this item.
+                </div>
+              )}
+            </div>
+
+            {/* Substitution Reason & Confirm Footer */}
+            <div className="pt-3 border-t border-slate-100 space-y-3 shrink-0">
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                  Customer Confirmation / Reason:
+                </label>
+                <input
+                  type="text"
+                  value={substitutionReason}
+                  onChange={(e) => setSubstitutionReason(e.target.value)}
+                  placeholder="e.g. Customer approved substitution via phone call"
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setSubstitutionModal(null)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!selectedAlternative}
+                  onClick={handleConfirmSubstitution}
+                  className={`px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer ${
+                    selectedAlternative
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95'
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  }`}
+                >
+                  <Check size={15} />
+                  <span>Confirm Substitution</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };

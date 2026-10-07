@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Truck, CheckCircle2, Clock, MapPin, Phone, MessageSquare, User, Package, ShieldCheck, ChevronRight, Loader2 } from 'lucide-react';
+import { X, Search, Truck, CheckCircle2, Clock, MapPin, Phone, MessageSquare, User, Package, ShieldCheck, ChevronRight, Loader2, RefreshCw } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { apiService } from '../../services/api';
 
@@ -64,6 +64,9 @@ export const OrderTrackerModal = () => {
           }
         ];
 
+    const rawItemsArr = Array.isArray(rawOrder.orderItems) ? rawOrder.orderItems : Array.isArray(rawOrder.rawItems) ? rawOrder.rawItems : Array.isArray(rawOrder.items) ? rawOrder.items : [];
+    const substitutedItems = rawItemsArr.filter((i) => i && (i.isSubstituted || i.originalProduct));
+
     return {
       orderId: rawOrder.orderId || rawOrder.id || rawOrder._id,
       customer: rawOrder.customerName || rawOrder.customer || 'Customer',
@@ -83,7 +86,8 @@ export const OrderTrackerModal = () => {
       isAssigned,
       eta,
       distanceKm: rawOrder.distanceKm || null,
-      timeline
+      timeline,
+      substitutedItems
     };
   };
 
@@ -322,6 +326,32 @@ export const OrderTrackerModal = () => {
                   <span className="text-[10px] font-mono font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-md">
                     OTP Verified
                   </span>
+                </div>
+              )}
+
+              {/* Substituted Items Banner (if any) */}
+              {currentOrder.substitutedItems && currentOrder.substitutedItems.length > 0 && (
+                <div className="bg-amber-50/90 border border-amber-300 rounded-2xl p-3.5 space-y-2 text-xs">
+                  <div className="flex items-center gap-2 text-amber-900 font-bold">
+                    <RefreshCw className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Product Substitution In This Order</span>
+                  </div>
+                  <div className="space-y-1.5 pl-6">
+                    {currentOrder.substitutedItems.map((item, idx) => (
+                      <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-amber-950 bg-white/80 px-3 py-2 rounded-xl border border-amber-200/60 gap-1">
+                        <div>
+                          <span className="font-bold text-slate-900">Delivering: {item.name}</span>
+                          <span className="text-amber-800 block text-[10px]">
+                            Originally ordered: <span className="line-through">{item.originalProduct?.name || 'Original item'}</span>
+                            {item.substitutionReason ? ` • (${item.substitutionReason})` : ''}
+                          </span>
+                        </div>
+                        <span className="font-mono font-bold text-emerald-700">
+                          PKR {item.price}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

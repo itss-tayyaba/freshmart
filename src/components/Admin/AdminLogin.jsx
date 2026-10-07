@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   ShieldCheck,
   Lock,
@@ -13,18 +13,23 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle2,
-  Building2,
-  Store,
   Truck,
-  Sparkles,
-  KeyRound,
   Check,
   Boxes
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 
 export const AdminLogin = () => {
-  const { adminLogin, navigateTo, tenants, storeAdmins, pickupStaff = [] } = useStore();
+  const {
+    adminLogin,
+    navigateTo,
+    tenants,
+    storeAdmins,
+    pickupStaff = [],
+    riders = [],
+    currentTenant
+  } = useStore();
+
   const [selectedRole, setSelectedRole] = useState('superadmin');
   const [selectedMartId, setSelectedMartId] = useState('tenant-alfatah');
   const [username, setUsername] = useState('superadmin');
@@ -41,6 +46,61 @@ export const AdminLogin = () => {
   const scrollToTop = () => {
     loginScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // Dynamic list of all registered marts with distinct names and brand styling
+  const availableMarts = useMemo(() => {
+    if (tenants && tenants.length > 0) {
+      return tenants.map((t) => {
+        let short = t.displayName || t.brandName || t.name;
+        if (t.id === 'tenant-chasevalue') short = 'Chase Value';
+        else if (t.id === 'tenant-chaseup') short = 'Chase Up';
+        else if (t.id === 'tenant-alfatah') short = 'Al-Fatah';
+        else if (t.id === 'tenant-freshmart') short = 'Unimart';
+        else if (t.id === 'tenant-localgrocery') short = 'Local Grocery';
+        else if (t.id === 'tenant-superstore') short = 'Super Store';
+        return {
+          id: t.id,
+          name: t.name,
+          shortName: short,
+          logo: t.logo || '🏬',
+          color: t.color || '#991b1b',
+          defaultEmail: t.ownerEmail || `admin@${t.slug || t.id.replace('tenant-', '')}.pk`
+        };
+      });
+    }
+    return [
+      { id: 'tenant-alfatah', name: 'Al-Fatah Supermarket', shortName: 'Al-Fatah', logo: '🏬', color: '#991b1b', defaultEmail: 'admin@alfatah.pk' },
+      { id: 'tenant-chasevalue', name: 'Chase Value', shortName: 'Chase Value', logo: '🛒', color: '#b45309', defaultEmail: 'admin@chasevalue.pk' },
+      { id: 'tenant-chaseup', name: 'Chase Up', shortName: 'Chase Up', logo: '🏪', color: '#7e22ce', defaultEmail: 'admin@chaseup.pk' },
+      { id: 'tenant-freshmart', name: 'Unimart (Market Store)', shortName: 'Unimart', logo: '🛍️', color: '#0284c7', defaultEmail: 'admin@unimart.pk' },
+      { id: 'tenant-localgrocery', name: 'Local Grocery', shortName: 'Local Grocery', logo: '🏬', color: '#0f766e', defaultEmail: 'admin@localgrocery.pk' },
+      { id: 'tenant-superstore', name: 'Super Store', shortName: 'Super Store', logo: '🏪', color: '#9333ea', defaultEmail: 'admin@superstore.pk' }
+    ];
+  }, [tenants]);
+
+  const currentMart = useMemo(() => {
+    return availableMarts.find((m) => m.id === selectedMartId) || availableMarts[0];
+  }, [availableMarts, selectedMartId]);
+
+  // Primary website brand color (matches Al-Fatah Ruby Crimson #991b1b, Chase Value, etc.)
+  const websiteBrandColor = useMemo(() => {
+    return currentTenant?.color || currentMart?.color || '#991b1b';
+  }, [currentTenant, currentMart]);
+
+  // Dynamic theme color tailored to active console role
+  const themeColor = useMemo(() => {
+    if (selectedRole === 'admin') {
+      return currentMart?.color || websiteBrandColor;
+    }
+    if (selectedRole === 'rider') {
+      return '#ea580c'; // High-visibility courier amber/orange
+    }
+    if (selectedRole === 'superadmin') {
+      return '#b45309'; // Executive platform gold/amber
+    }
+    // pickup_staff
+    return websiteBrandColor;
+  }, [selectedRole, currentMart, websiteBrandColor]);
 
   const roles = [
     {
@@ -66,15 +126,15 @@ export const AdminLogin = () => {
       defaultPass: 'admin123'
     },
     {
-      id: 'supplier',
-      label: 'Supplier',
-      icon: '📦',
-      sublabel: 'Vendor Portal',
-      badge: 'Supply Hub',
-      userPlaceholder: 'tayyab',
-      passPlaceholder: 'cocacola123',
-      defaultUser: 'tayyab',
-      defaultPass: 'cocacola123'
+      id: 'rider',
+      label: 'Rider',
+      icon: '🛵',
+      sublabel: 'Delivery Fleet',
+      badge: 'Live Courier',
+      userPlaceholder: 'rider phone or username (e.g. ahmad or 03001234567)',
+      passPlaceholder: 'rider password (e.g. rider123)',
+      defaultUser: riders && riders.length > 0 ? (riders[0].phone || riders[0].username || riders[0].name) : 'ahmad',
+      defaultPass: riders && riders.length > 0 ? (riders[0].password || 'rider123') : 'rider123'
     },
     {
       id: 'pickup_staff',
@@ -91,51 +151,30 @@ export const AdminLogin = () => {
 
   const currentRoleConfig = roles.find((r) => r.id === selectedRole) || roles[0];
 
-  // Dynamic list of all registered marts with distinct names and brand styling
-  const availableMarts = React.useMemo(() => {
-    if (tenants && tenants.length > 0) {
-      return tenants.map((t) => {
-        let short = t.displayName || t.brandName || t.name;
-        if (t.id === 'tenant-chasevalue') short = 'Chase Value';
-        else if (t.id === 'tenant-chaseup') short = 'Chase Up';
-        else if (t.id === 'tenant-alfatah') short = 'Al-Fatah';
-        else if (t.id === 'tenant-freshmart') short = 'Unimart';
-        else if (t.id === 'tenant-localgrocery') short = 'Local Grocery';
-        else if (t.id === 'tenant-superstore') short = 'Super Store';
-        return {
-          id: t.id,
-          name: t.name,
-          shortName: short,
-          logo: t.logo || '🏬',
-          color: t.color || '#0e7c66',
-          defaultEmail: t.ownerEmail || `admin@${t.slug || t.id.replace('tenant-', '')}.pk`
-        };
-      });
-    }
-    return [
-      { id: 'tenant-alfatah', name: 'Al-Fatah Supermarket', shortName: 'Al-Fatah', logo: '🏬', color: '#991b1b', defaultEmail: 'admin@alfatah.pk' },
-      { id: 'tenant-chasevalue', name: 'Chase Value', shortName: 'Chase Value', logo: '🛒', color: '#b45309', defaultEmail: 'admin@chasevalue.pk' },
-      { id: 'tenant-chaseup', name: 'Chase Up', shortName: 'Chase Up', logo: '🏪', color: '#7e22ce', defaultEmail: 'admin@chaseup.pk' },
-      { id: 'tenant-freshmart', name: 'Unimart (Market Store)', shortName: 'Unimart', logo: '🛍️', color: '#0284c7', defaultEmail: 'admin@unimart.pk' },
-      { id: 'tenant-localgrocery', name: 'Local Grocery', shortName: 'Local Grocery', logo: '🏬', color: '#0f766e', defaultEmail: 'admin@localgrocery.pk' },
-      { id: 'tenant-superstore', name: 'Super Store', shortName: 'Super Store', logo: '🏪', color: '#9333ea', defaultEmail: 'admin@superstore.pk' }
-    ];
-  }, [tenants]);
-
   const handleRoleSelect = (roleItem) => {
     setSelectedRole(roleItem.id);
     setErrorMessage('');
 
     if (roleItem.id === 'admin') {
       handleSelectMart(selectedMartId);
+    } else if (roleItem.id === 'rider') {
+      if (riders && riders.length > 0) {
+        setUsername(riders[0].phone || riders[0].username || riders[0].name || '');
+        setPassword(riders[0].password || 'rider123');
+        showFeedback(`Loaded Rider (${riders[0].name}) credentials`);
+      } else {
+        setUsername('ahmad');
+        setPassword('rider123');
+        showFeedback('Loaded Rider demo credentials (ahmad / rider123)');
+      }
     } else if (roleItem.id === 'pickup_staff') {
       if (pickupStaff && pickupStaff.length > 0) {
         setUsername(pickupStaff[0].username || '');
         setPassword(pickupStaff[0].password || '');
         showFeedback(`Loaded ${pickupStaff[0].name} (Staff) credentials`);
       } else {
-        setUsername('');
-        setPassword('');
+        setUsername('staff');
+        setPassword('staff123');
         showFeedback('Enter credentials assigned by Store Admin');
       }
     } else {
@@ -198,6 +237,8 @@ export const AdminLogin = () => {
       const result = await adminLogin(cleanUser, cleanPass, selectedRole);
       if (!result || !result.success) {
         setErrorMessage(result?.error || 'Invalid credentials. Please verify your login details.');
+      } else if (selectedRole === 'rider') {
+        navigateTo('delivery-portal');
       }
     } catch (err) {
       setErrorMessage(err.message || 'Login failed. Please check your credentials and try again.');
@@ -205,8 +246,6 @@ export const AdminLogin = () => {
       setIsLoading(false);
     }
   };
-
-  const currentMart = availableMarts.find((m) => m.id === selectedMartId) || availableMarts[0];
 
   return (
     <div
@@ -218,23 +257,29 @@ export const AdminLogin = () => {
       {/* Centered Content Wrapper: my-auto cleanly centers when viewport is large; collapses when content overflows so top is never cut off */}
       <div className="w-full max-w-lg mx-auto my-auto flex flex-col items-center">
         
-        {/* Top Ledgerly Monogram Brand Header */}
+        {/* Top Brand Monogram Header */}
         <div className="mb-5 sm:mb-6 text-center w-full">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-slate-200 shadow-xs mb-2.5">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+              <span
+                className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                style={{ backgroundColor: websiteBrandColor }}
+              />
+              <span
+                className="relative inline-flex rounded-full h-2 w-2"
+                style={{ backgroundColor: websiteBrandColor }}
+              />
             </span>
-            <span className="text-[11px] font-bold tracking-wider text-slate-600 uppercase">
-              Super Grocery Multi-Tenant Platform
+            <span className="text-[11px] font-bold tracking-wider text-slate-700 uppercase">
+              {currentMart?.shortName || currentTenant?.name || 'Al-Fatah'} &bull; Enterprise Console
             </span>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 flex items-center justify-center gap-2">
-            <span>Enterprise Portal</span>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 flex items-center justify-center gap-2">
+            <span>Console Authentication</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
-            Central authentication for platform Super Admins, dedicated Store Admins, Suppliers & Delivery Fleet
+            Central portal for Store Admins, Super Admins, Delivery Riders & Pickup Staff
           </p>
         </div>
 
@@ -247,7 +292,14 @@ export const AdminLogin = () => {
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                 <span>Select Console Role</span>
               </span>
-              <span className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200/60 font-semibold px-2 py-0.5 rounded-full">
+              <span
+                style={{
+                  backgroundColor: `${themeColor}14`,
+                  borderColor: `${themeColor}40`,
+                  color: themeColor
+                }}
+                className="text-[11px] font-bold px-2.5 py-0.5 rounded-full border transition-colors"
+              >
                 Active: {currentRoleConfig.label}
               </span>
             </div>
@@ -260,9 +312,19 @@ export const AdminLogin = () => {
                     key={r.id}
                     type="button"
                     onClick={() => handleRoleSelect(r)}
+                    style={
+                      isSelected
+                        ? {
+                            backgroundColor: `${themeColor}12`,
+                            borderColor: themeColor,
+                            color: themeColor,
+                            boxShadow: `0 0 0 2px ${themeColor}25`
+                          }
+                        : undefined
+                    }
                     className={`p-2.5 rounded-xl flex flex-col items-center justify-center text-center transition-all cursor-pointer border ${
                       isSelected
-                        ? 'bg-emerald-50/80 border-emerald-500 text-emerald-950 font-bold shadow-xs ring-2 ring-emerald-500/20 scale-[1.01]'
+                        ? 'font-bold scale-[1.01]'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-white hover:border-slate-300'
                     }`}
                   >
@@ -282,7 +344,13 @@ export const AdminLogin = () => {
                 <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wider">
                   <span>🏬</span> Select Supermarket (Mart):
                 </span>
-                <span className="text-[10px] text-emerald-700 bg-emerald-100 font-bold px-2 py-0.5 rounded-full">
+                <span
+                  style={{
+                    backgroundColor: `${currentMart.color}15`,
+                    color: currentMart.color
+                  }}
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                >
                   Independent Console
                 </span>
               </div>
@@ -330,34 +398,77 @@ export const AdminLogin = () => {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-bold text-slate-900">Super Admin Executive Console</div>
-                <div className="text-[11px] text-amber-900/80 leading-snug">Strict platform owner access only. Store Admins cannot enter from this side — select Store Admin tab.</div>
+                <div className="text-[11px] text-amber-900/80 leading-snug">
+                  Strict platform owner access only. Store Admins enter via the Store Admin tab with store credentials.
+                </div>
               </div>
             </div>
           )}
 
-          {/* 📦 SUPPLIER INFO BANNER */}
-          {selectedRole === 'supplier' && (
-            <div className="p-3 bg-indigo-50/90 border border-indigo-200/80 rounded-2xl flex items-center gap-2.5 text-xs text-indigo-950 animate-in fade-in duration-200">
-              <div className="w-8 h-8 rounded-xl bg-indigo-200/70 text-indigo-900 flex items-center justify-center font-bold shrink-0 text-base">
-                📦
+          {/* 🛡️ STORE ADMIN INFO BANNER */}
+          {selectedRole === 'admin' && (
+            <div
+              style={{
+                backgroundColor: `${currentMart.color}0d`,
+                borderColor: `${currentMart.color}35`
+              }}
+              className="p-3 border rounded-2xl flex items-center gap-2.5 text-xs animate-in fade-in duration-200"
+            >
+              <div
+                style={{
+                  backgroundColor: `${currentMart.color}20`,
+                  color: currentMart.color
+                }}
+                className="w-8 h-8 rounded-xl flex items-center justify-center font-bold shrink-0 text-base"
+              >
+                {currentMart.logo || '🏬'}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-bold text-slate-900">Supplier Vendor Portal</div>
-                <div className="text-[11px] text-indigo-900/80 leading-snug">Manage product supply batches, restock requests, and wholesale store invoices.</div>
+                <div className="font-bold text-slate-900">{currentMart.name} Admin Console</div>
+                <div className="text-[11px] text-slate-600 leading-snug">
+                  Manage products, inventory, live orders, staff permissions, and deliveries for {currentMart.shortName}.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 🛵 RIDER INFO BANNER */}
+          {selectedRole === 'rider' && (
+            <div className="p-3 bg-orange-50/90 border border-orange-200/90 rounded-2xl flex items-center gap-2.5 text-xs text-orange-950 animate-in fade-in duration-200">
+              <div className="w-8 h-8 rounded-xl bg-orange-200/80 text-orange-900 flex items-center justify-center font-bold shrink-0 text-base">
+                🛵
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-bold text-slate-900">Delivery Fleet & Courier Portal</div>
+                <div className="text-[11px] text-orange-900/80 leading-snug">
+                  View assigned customer deliveries, share live GPS route telemetry, and verify customer delivery OTP.
+                </div>
               </div>
             </div>
           )}
 
           {/* 📦 PICKUP STAFF INFO BANNER */}
           {selectedRole === 'pickup_staff' && (
-            <div className="p-3 bg-emerald-50/90 border border-emerald-200/80 rounded-2xl flex items-center gap-2.5 text-xs text-emerald-950 animate-in fade-in duration-200">
-              <div className="w-8 h-8 rounded-xl bg-emerald-200/70 text-emerald-900 flex items-center justify-center font-bold shrink-0 text-base">
+            <div
+              style={{
+                backgroundColor: `${websiteBrandColor}0d`,
+                borderColor: `${websiteBrandColor}30`
+              }}
+              className="p-3 border rounded-2xl flex items-center gap-2.5 text-xs animate-in fade-in duration-200"
+            >
+              <div
+                style={{
+                  backgroundColor: `${websiteBrandColor}20`,
+                  color: websiteBrandColor
+                }}
+                className="w-8 h-8 rounded-xl flex items-center justify-center font-bold shrink-0 text-base"
+              >
                 📦
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-bold text-slate-900">Pickup Staff Packing Desk</div>
-                <div className="text-[11px] text-emerald-900/80 leading-snug">
-                  Sign in with credentials assigned by Store Admin to pick shelf items, pack parcels, and stage for dispatch.
+                <div className="text-[11px] text-slate-600 leading-snug">
+                  Sign in with credentials assigned by Store Admin to pick shelf items, pack parcels, and stage for courier dispatch.
                 </div>
               </div>
             </div>
@@ -365,8 +476,15 @@ export const AdminLogin = () => {
 
           {/* Auto-fill notification chip */}
           {autoFillFeedback && (
-            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 animate-in fade-in duration-150">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <div
+              style={{
+                backgroundColor: `${themeColor}10`,
+                borderColor: `${themeColor}35`,
+                color: themeColor
+              }}
+              className="border px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 animate-in fade-in duration-150"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" style={{ color: themeColor }} />
               <span className="font-semibold text-[11px]">{autoFillFeedback}</span>
             </div>
           )}
@@ -385,14 +503,14 @@ export const AdminLogin = () => {
             <div>
               <label className="block text-xs font-bold text-slate-800 mb-1.5">
                 {selectedRole === 'admin'
-                  ? 'Mart Admin Email / Username'
+                  ? `${currentMart.shortName} Admin Email / Username`
                   : selectedRole === 'superadmin'
                   ? 'Super Admin Username'
-                  : selectedRole === 'supplier'
-                  ? 'Supplier ID / Username'
+                  : selectedRole === 'rider'
+                  ? 'Rider Phone / Username'
                   : selectedRole === 'pickup_staff'
                   ? 'Pickup Staff Username or Phone'
-                  : 'Rider Phone / ID'}
+                  : 'Username or Phone'}
               </label>
               <div className="relative">
                 <input
@@ -404,7 +522,15 @@ export const AdminLogin = () => {
                     if (errorMessage) setErrorMessage('');
                   }}
                   placeholder={currentRoleConfig.userPlaceholder}
-                  className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3.5 py-2.5 font-medium text-xs text-slate-900 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all placeholder:text-slate-400"
+                  className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3.5 py-2.5 font-medium text-xs text-slate-900 focus:outline-none transition-all placeholder:text-slate-400"
+                  onFocus={(e) => {
+                    e.target.style.borderColor = themeColor;
+                    e.target.style.boxShadow = `0 0 0 3px ${themeColor}22`;
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e2e8f0';
+                    e.target.style.boxShadow = 'none';
+                  }}
                   autoComplete="username"
                 />
                 <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -416,7 +542,9 @@ export const AdminLogin = () => {
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-bold text-slate-800">
                   {selectedRole === 'admin'
-                    ? 'Mart Admin Password'
+                    ? `${currentMart.shortName} Admin Password`
+                    : selectedRole === 'rider'
+                    ? 'Rider Access Password'
                     : selectedRole === 'pickup_staff'
                     ? 'Staff Access Password'
                     : 'Access Password'}
@@ -424,6 +552,8 @@ export const AdminLogin = () => {
                 <span className="text-[10px] text-slate-400">
                   {selectedRole === 'admin'
                     ? 'Configured by Super Admin'
+                    : selectedRole === 'rider'
+                    ? 'Assigned by Store Admin'
                     : selectedRole === 'pickup_staff'
                     ? 'Assigned by Store Admin'
                     : 'Secure master key'}
@@ -439,7 +569,15 @@ export const AdminLogin = () => {
                     if (errorMessage) setErrorMessage('');
                   }}
                   placeholder={currentRoleConfig.passPlaceholder}
-                  className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-10 py-2.5 font-medium text-xs text-slate-900 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all placeholder:text-slate-400"
+                  className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-10 py-2.5 font-medium text-xs text-slate-900 focus:outline-none transition-all placeholder:text-slate-400"
+                  onFocus={(e) => {
+                    e.target.style.borderColor = themeColor;
+                    e.target.style.boxShadow = `0 0 0 3px ${themeColor}22`;
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e2e8f0';
+                    e.target.style.boxShadow = 'none';
+                  }}
                   autoComplete="current-password"
                 />
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -459,7 +597,11 @@ export const AdminLogin = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-700/20 hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
+              style={{
+                backgroundColor: themeColor,
+                boxShadow: `0 4px 14px ${themeColor}35`
+              }}
+              className="w-full py-3 px-4 hover:opacity-95 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
             >
               {isLoading ? (
                 <>
@@ -509,18 +651,33 @@ export const AdminLogin = () => {
               >
                 🛒 Chase Value
               </button>
-              <button
-                type="button"
-                onClick={() => autoFillCredentials('supplier', 'tayyab', 'cocacola123', null, 'Supplier Partner')}
-                className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-900 font-semibold text-[11px] transition-colors cursor-pointer"
-              >
-                📦 Supplier
-              </button>
+              {riders && riders.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => autoFillCredentials('rider', riders[0].phone || riders[0].username || riders[0].name, riders[0].password || 'rider123', null, `Rider: ${riders[0].name}`)}
+                  className="px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-950 font-bold text-[11px] transition-colors cursor-pointer"
+                >
+                  🛵 Rider: {riders[0].name}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => autoFillCredentials('rider', 'ahmad', 'rider123', null, 'Rider (Ahmad Khan)')}
+                  className="px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-950 font-bold text-[11px] transition-colors cursor-pointer"
+                >
+                  🛵 Rider: Ahmad
+                </button>
+              )}
               {pickupStaff && pickupStaff.length > 0 ? (
                 <button
                   type="button"
                   onClick={() => autoFillCredentials('pickup_staff', pickupStaff[0].username, pickupStaff[0].password, pickupStaff[0].tenantId, `Staff: ${pickupStaff[0].name}`)}
-                  className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-950 font-bold text-[11px] transition-colors cursor-pointer"
+                  style={{
+                    backgroundColor: `${websiteBrandColor}10`,
+                    borderColor: `${websiteBrandColor}35`,
+                    color: websiteBrandColor
+                  }}
+                  className="px-2.5 py-1 rounded-lg border font-bold text-[11px] transition-colors cursor-pointer"
                 >
                   📦 Staff: {pickupStaff[0].name}
                 </button>
@@ -528,7 +685,12 @@ export const AdminLogin = () => {
                 <button
                   type="button"
                   onClick={() => autoFillCredentials('pickup_staff', 'staff', 'staff123', null, 'Pickup Staff (Demo)')}
-                  className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-950 font-bold text-[11px] transition-colors cursor-pointer"
+                  style={{
+                    backgroundColor: `${websiteBrandColor}10`,
+                    borderColor: `${websiteBrandColor}35`,
+                    color: websiteBrandColor
+                  }}
+                  className="px-2.5 py-1 rounded-lg border font-bold text-[11px] transition-colors cursor-pointer"
                 >
                   📦 Pickup Staff
                 </button>
@@ -544,8 +706,8 @@ export const AdminLogin = () => {
               className="w-full flex items-center justify-between text-[11px] font-bold text-slate-700 hover:text-slate-900 transition-colors cursor-pointer"
             >
               <span className="flex items-center gap-1.5">
-                <KeyRound className="w-3.5 h-3.5 text-emerald-600" />
-                <span>All Registered Mart Admins & Staff Directory</span>
+                <ShieldCheck className="w-3.5 h-3.5" style={{ color: websiteBrandColor }} />
+                <span>All Registered Mart Admins, Riders & Staff Directory</span>
               </span>
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-slate-400 font-normal">
@@ -579,7 +741,7 @@ export const AdminLogin = () => {
                       onClick={() => autoFillCredentials('admin', sa.email, sa.password, sa.tenantId, sa.tenantName)}
                       className={`p-2 rounded-xl border cursor-pointer transition ${
                         selectedRole === 'admin' && username === sa.email
-                          ? 'bg-emerald-50 border-emerald-500 shadow-2xs'
+                          ? 'bg-rose-50 border-rose-500 shadow-2xs'
                           : 'bg-white border-slate-200 hover:border-slate-300'
                       }`}
                     >
@@ -599,10 +761,16 @@ export const AdminLogin = () => {
                 <div className="pt-2 border-t border-slate-200 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-slate-800 text-[11px] flex items-center gap-1.5">
-                      <Boxes className="w-3.5 h-3.5 text-emerald-600" />
+                      <Boxes className="w-3.5 h-3.5" style={{ color: websiteBrandColor }} />
                       <span>📦 Pickup Staff (Packing Team)</span>
                     </span>
-                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                    <span
+                      style={{
+                        backgroundColor: `${websiteBrandColor}12`,
+                        color: websiteBrandColor
+                      }}
+                      className="text-[9px] font-bold px-2 py-0.5 rounded-full"
+                    >
                       {(pickupStaff || []).length} registered
                     </span>
                   </div>
@@ -615,7 +783,7 @@ export const AdminLogin = () => {
                           onClick={() => autoFillCredentials('pickup_staff', staff.username, staff.password, staff.tenantId, staff.name)}
                           className={`p-2 rounded-xl border cursor-pointer transition ${
                             selectedRole === 'pickup_staff' && username === staff.username
-                              ? 'bg-emerald-50 border-emerald-500 shadow-2xs'
+                              ? 'bg-slate-100 border-slate-400 shadow-2xs'
                               : 'bg-white border-slate-200 hover:border-slate-300'
                           }`}
                         >
@@ -632,27 +800,61 @@ export const AdminLogin = () => {
                     </div>
                   ) : (
                     <div className="p-2.5 rounded-xl bg-slate-100/80 border border-dashed border-slate-200 text-slate-500 text-[11px] text-center">
-                      No pickup staff accounts yet. Create one from Admin Store → Pickup Staff.
+                      No pickup staff accounts yet. Create one from Store Admin &rarr; Pickup Staff.
                     </div>
                   )}
                 </div>
 
-                {/* Supplier Partner Card */}
-                <div className="pt-1 border-t border-slate-200">
-                  <div
-                    onClick={() => autoFillCredentials('supplier', 'tayyab', 'cocacola123', null, 'Supplier Partner')}
-                    className={`p-2 rounded-xl border cursor-pointer transition ${
-                      selectedRole === 'supplier'
-                        ? 'bg-indigo-50 border-indigo-500 shadow-2xs'
-                        : 'bg-white border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-800">📦 Supplier Partner</span>
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800">Verified</span>
-                    </div>
-                    <div className="font-mono text-[10px] text-slate-600 mt-0.5">tayyab / cocacola123</div>
+                {/* 🛵 Delivery Riders Fleet Directory */}
+                <div className="pt-2 border-t border-slate-200 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 text-[11px] flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5 text-orange-600" />
+                      <span>🛵 Delivery Riders Fleet</span>
+                    </span>
+                    <span className="text-[9px] font-bold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200/60">
+                      {(riders || []).length} registered
+                    </span>
                   </div>
+
+                  {(riders && riders.length > 0) ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {riders.map((rdr) => (
+                        <div
+                          key={rdr.id}
+                          onClick={() => autoFillCredentials('rider', rdr.phone || rdr.username || rdr.name, rdr.password || 'rider123', null, rdr.name)}
+                          className={`p-2 rounded-xl border cursor-pointer transition ${
+                            selectedRole === 'rider' && (username === rdr.phone || username === rdr.username || username === rdr.name)
+                              ? 'bg-orange-50 border-orange-500 shadow-2xs'
+                              : 'bg-white border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-800 truncate max-w-[130px]">{rdr.name}</span>
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                              {rdr.status || 'Active'}
+                            </span>
+                          </div>
+                          <div className="font-mono text-[10px] text-slate-600 truncate mt-0.5">{rdr.phone || `@${rdr.username}`}</div>
+                          <div className="text-[9px] text-slate-400 mt-0.5">Password: <span className="font-mono font-bold text-slate-700">{rdr.password || 'rider123'}</span></div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => autoFillCredentials('rider', 'ahmad', 'rider123', null, 'Ahmad Khan (Fleet Demo)')}
+                      className={`p-2.5 rounded-xl border cursor-pointer transition ${
+                        selectedRole === 'rider' ? 'bg-orange-50 border-orange-500 shadow-2xs' : 'bg-white border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-800">🛵 Ahmad Khan (Fleet Demo Rider)</span>
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-800">Quick Test</span>
+                      </div>
+                      <div className="font-mono text-[10px] text-slate-600 mt-0.5">ahmad / rider123 (or 0300-1234567)</div>
+                      <p className="text-[9px] text-slate-400 mt-1">To register custom fleet couriers, add them via Store Admin &rarr; Delivery Fleet.</p>
+                    </div>
+                  )}
                 </div>
 
               </div>
@@ -664,10 +866,11 @@ export const AdminLogin = () => {
             <button
               type="button"
               onClick={() => navigateTo('home')}
-              className="hover:text-emerald-700 font-medium transition-colors cursor-pointer flex items-center gap-1.5"
+              style={{ color: websiteBrandColor }}
+              className="hover:opacity-80 font-bold transition-opacity cursor-pointer flex items-center gap-1.5"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Customer Storefront</span>
+              <span>Return to {currentMart?.shortName || currentTenant?.name || 'Al-Fatah'} Storefront</span>
             </button>
             <span className="text-[11px] text-slate-400">v2.5 Multi-Tenant Engine</span>
           </div>
@@ -679,7 +882,7 @@ export const AdminLogin = () => {
       {/* Trust & Compliance Subtext */}
       <div className="mt-6 text-center text-xs text-slate-400 max-w-md mx-auto space-y-1">
         <div className="flex items-center justify-center gap-1.5 text-slate-500 font-medium text-[11px]">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+          <ShieldCheck className="w-3.5 h-3.5" style={{ color: websiteBrandColor }} />
           <span>Encrypted TLS 1.3 &bull; Enterprise Tenant Isolation</span>
         </div>
         <p className="text-[10px] text-slate-400">
@@ -695,7 +898,7 @@ export const AdminLogin = () => {
           className="fixed bottom-6 right-6 z-40 bg-white/95 hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-200 shadow-lg rounded-full p-2.5 transition-all duration-200 cursor-pointer flex items-center gap-1.5 text-xs font-semibold hover:scale-105 active:scale-95"
           title="Back to Top"
         >
-          <ArrowUp className="w-4 h-4 text-emerald-600" />
+          <ArrowUp className="w-4 h-4" style={{ color: websiteBrandColor }} />
           <span className="hidden sm:inline text-[11px]">Top</span>
         </button>
       )}

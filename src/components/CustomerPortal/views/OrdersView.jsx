@@ -109,6 +109,25 @@ export const OrdersView = () => {
                 </div>
               </div>
 
+              {/* Substituted items notification */}
+              {(() => {
+                const orderItems = Array.isArray(order.orderItems) ? order.orderItems : Array.isArray(order.rawItems) ? order.rawItems : Array.isArray(order.items) ? order.items : [];
+                const subs = orderItems.filter((it) => it && (it.isSubstituted || it.originalProduct));
+                if (subs.length === 0) return null;
+                return (
+                  <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-3 text-xs space-y-1">
+                    <span className="font-bold text-amber-900 flex items-center gap-1.5 text-[11px]">
+                      <span>🔄 Product Substitution</span>
+                    </span>
+                    {subs.map((sub, sIdx) => (
+                      <p key={sIdx} className="text-slate-700 text-[11px]">
+                        Supplied: <strong className="text-slate-900">{sub.name}</strong> (Originally: <span className="line-through text-slate-500">{sub.originalProduct?.name}</span>)
+                      </p>
+                    ))}
+                  </div>
+                );
+              })()}
+
               {['dispatched', 'out for delivery'].includes(String(order.status || '').toLowerCase()) && (
                 <div className="flex items-start gap-3 bg-sky-50 border border-sky-200 rounded-2xl px-4 py-3">
                   <Truck className="w-5 h-5 text-sky-700 shrink-0 mt-0.5" />
@@ -216,6 +235,30 @@ export const OrdersView = () => {
                 <span className="font-medium text-slate-800 truncate max-w-[200px]">{showInvoiceModal.address}</span>
               </div>
             </div>
+
+            {/* Itemized Order Line Items */}
+            {(() => {
+              const list = Array.isArray(showInvoiceModal.orderItems) ? showInvoiceModal.orderItems : Array.isArray(showInvoiceModal.rawItems) ? showInvoiceModal.rawItems : Array.isArray(showInvoiceModal.items) ? showInvoiceModal.items : [];
+              if (!list || list.length === 0) return null;
+              return (
+                <div className="border border-emerald-100 rounded-2xl p-3 space-y-2 max-h-48 overflow-y-auto bg-slate-50/50">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Ordered Items</span>
+                  {list.map((it, i) => (
+                    <div key={i} className="flex justify-between items-start text-xs border-b border-slate-100 pb-1.5 last:border-b-0">
+                      <div className="min-w-0 pr-2">
+                        <span className="font-bold text-slate-800 block truncate">{it.quantity || 1}× {it.name}</span>
+                        {it.isSubstituted && it.originalProduct && (
+                          <span className="block text-[10px] text-amber-800 font-semibold mt-0.5">
+                            🔄 Substituted (Originally: {it.originalProduct.name})
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-mono font-bold text-slate-900 shrink-0">PKR {Number(it.price || 0) * Number(it.quantity || 1)}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
 
             <div className="pt-2 text-right">
               <button

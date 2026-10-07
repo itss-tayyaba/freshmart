@@ -19,7 +19,11 @@ export const CartDrawer = () => {
     removeCouponCode,
     promotions,
     navigateTo,
-    currency
+    currency,
+    getProductSubstitutes,
+    isProductOutOfStock,
+    substituteCartItem,
+    setSelectedProductForQuickView
   } = useStore();
 
   const [couponInput, setCouponInput] = useState('');
@@ -109,6 +113,35 @@ export const CartDrawer = () => {
                     <h4 className="text-xs sm:text-sm font-bold text-slate-800 truncate">
                       {p.name}
                     </h4>
+                    {item.isSubstituted && item.originalProduct && (
+                      <div className="mt-0.5">
+                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
+                          <span>🔄 Substituted</span>
+                          <span className="text-slate-500">(Originally: {item.originalProduct.name})</span>
+                        </span>
+                      </div>
+                    )}
+                    {isProductOutOfStock && isProductOutOfStock(p) && (
+                      <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[9px] font-black text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.2 rounded uppercase">
+                          Out of stock
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const alts = getProductSubstitutes ? getProductSubstitutes(p, { limit: 1 }) : [];
+                            if (alts.length > 0) {
+                              substituteCartItem(p.id, alts[0]);
+                            } else if (setSelectedProductForQuickView) {
+                              setSelectedProductForQuickView(p);
+                            }
+                          }}
+                          className="text-[10px] text-emerald-700 hover:text-emerald-900 font-black underline cursor-pointer"
+                        >
+                          Replace with alternative ✨
+                        </button>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-sm font-extrabold text-slate-900">
                         {currency.symbol}{p.price}

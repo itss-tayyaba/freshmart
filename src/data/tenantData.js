@@ -22,7 +22,7 @@ export const INITIAL_TENANTS = [
       accentColor: '#f59e0b',
       bgGradient: 'from-rose-900 via-red-950 to-slate-950'
     },
-    hubs: ['Gulberg Mall Hub', 'DHA Phase 5', 'Mall of Lahore', 'Centaurus Islamabad'],
+    hubs: ['Gulberg Main Branch (Lahore)'],
     subscription: {
       plan: 'Enterprise',
       billingCycle: 'Annual',
@@ -61,7 +61,7 @@ export const INITIAL_TENANTS = [
       accentColor: '#d97706',
       bgGradient: 'from-[#451a03] via-[#78350f] to-[#b45309]'
     },
-    hubs: ['Shaheed-e-Millat Karachi', 'North Nazimabad', 'Gulshan-e-Iqbal', 'Multan Cantt'],
+    hubs: ['Shaheed-e-Millat Main Branch (Karachi)'],
     subscription: {
       plan: 'Professional',
       billingCycle: 'Monthly',
@@ -98,7 +98,7 @@ export const INITIAL_TENANTS = [
       accentColor: '#f97316',
       bgGradient: 'from-purple-900 via-purple-950 to-slate-950'
     },
-    hubs: ['Clifton Karachi Hub', 'Hassan Square', 'Faisalabad Clock Tower', 'Gujranwala City'],
+    hubs: ['Clifton Main Branch (Karachi)'],
     subscription: {
       plan: 'Professional',
       billingCycle: 'Monthly',
@@ -137,7 +137,7 @@ export const INITIAL_TENANTS = [
       accentColor: '#38bdf8',
       bgGradient: 'from-[#033659] via-[#0284c7] to-[#38bdf8]'
     },
-    hubs: ['Gulberg SuperHub', 'DHA Phase 6', 'Johar Town Hub', 'Bahria Town Hub'],
+    hubs: ['Main Hub (Lahore)'],
     subscription: {
       plan: 'Enterprise',
       billingCycle: 'Annual',

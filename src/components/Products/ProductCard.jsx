@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, Eye, Star, Plus, Minus, ShoppingCart, Check } from 'lucide-react';
+import { Heart, Eye, Star, Plus, Minus, ShoppingCart, Check, AlertCircle, RefreshCw } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 
 export const ProductCard = ({ product }) => {
@@ -10,9 +10,11 @@ export const ProductCard = ({ product }) => {
     isInWishlist,
     toggleWishlist,
     setSelectedProductForQuickView,
-    currency
+    currency,
+    isProductOutOfStock
   } = useStore();
 
+  const isOOS = Boolean(isProductOutOfStock ? isProductOutOfStock(product) : (product.inStock === false || product.stockCount === 0 || product.stock === 0));
   const [selectedUnit, setSelectedUnit] = useState(product.unit);
   const isFavorited = isInWishlist(product.id);
 
@@ -27,12 +29,16 @@ export const ProductCard = ({ product }) => {
       
       {/* Top Card Badges & Quick Action Buttons */}
       <div className="flex items-center justify-between gap-2 mb-3">
-        <div className="flex items-center gap-1.5">
-          {product.discountPercent > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {isOOS ? (
+            <span className="bg-rose-600 text-white text-[10px] sm:text-[11px] font-black px-2 py-0.5 rounded-lg shadow-xs flex items-center gap-1">
+              <span>Out of Stock</span>
+            </span>
+          ) : product.discountPercent > 0 ? (
             <span className="bg-rose-500 text-white text-[10px] sm:text-[11px] font-extrabold px-2 py-0.5 rounded-lg shadow-xs">
               -{product.discountPercent}%
             </span>
-          )}
+          ) : null}
           {product.isOrganic && (
             <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-lg">
               Organic
@@ -137,8 +143,16 @@ export const ProductCard = ({ product }) => {
             )}
           </div>
 
-          {/* If in cart, show quantity stepper, otherwise Add to Cart button */}
-          {cartItem ? (
+          {isOOS ? (
+            <button
+              onClick={() => setSelectedProductForQuickView(product)}
+              className="py-1.5 px-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs hover:shadow-xs cursor-pointer"
+              title="Item out of stock. View smart alternatives."
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-amber-700" />
+              <span>Alternatives</span>
+            </button>
+          ) : cartItem ? (
             <div className="flex items-center bg-emerald-50 border border-emerald-200 rounded-xl p-0.5">
               <button
                 onClick={() => updateCartQuantity(prodId, -1)}

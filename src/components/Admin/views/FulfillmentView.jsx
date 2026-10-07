@@ -112,7 +112,13 @@ export const FulfillmentView = () => {
                       <span className="mt-1 flex items-center gap-1 text-xs text-slate-500"><MapPin size={12} />{order.city || order.shippingAddress?.city || order.address || 'Delivery area unavailable'}</span>
                     </td>
                     <td className="max-w-[260px] px-5 py-4 text-xs text-slate-700">
-                      {items.length ? items.map((item) => `${item.quantity || item.qty || 1}? ${item.name || item.productName || 'Item'}`).join(', ') : 'Items pending sync'}
+                      {items.length ? items.map((item) => {
+                        const base = `${item.quantity || item.qty || 1}× ${item.name || item.productName || 'Item'}`;
+                        if (item.isSubstituted && item.originalProduct) {
+                          return `${base} (🔄 Substituted, was: ${item.originalProduct.name})`;
+                        }
+                        return base;
+                      }).join(', ') : 'Items pending sync'}
                     </td>
                     <td className="px-5 py-4">
                       {canAssign ? <select value={order.pickupStaffId || ''} onChange={(event) => assignStaff(order, event.target.value)} className="w-48 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-500">

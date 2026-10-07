@@ -62,7 +62,13 @@ const formatDetailedItemsLine = (ord) => {
   const list = getOrderItemsList(ord);
   if (Array.isArray(list) && list.length > 0) {
     return list
-      .map((it) => `${it.quantity || it.qty || 1}× ${it.name || it.productName || it.title || 'Item'}`)
+      .map((it) => {
+        const base = `${it.quantity || it.qty || 1}× ${it.name || it.productName || it.title || 'Item'}`;
+        if (it.isSubstituted && it.originalProduct) {
+          return `${base} [🔄 Substituted, was: ${it.originalProduct.name}]`;
+        }
+        return base;
+      })
       .join(', ');
   }
   if (typeof ord.items === 'string') return ord.items;
@@ -830,6 +836,16 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                           />
                           <div className="min-w-0">
                             <h5 className="font-bold text-slate-900 truncate text-xs">{itemName}</h5>
+                            {item.isSubstituted && item.originalProduct && (
+                              <div className="mt-0.5 space-y-0.5">
+                                <span className="inline-flex items-center gap-1 text-[9px] font-black text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.2 rounded">
+                                  <span>🔄 Substituted</span>
+                                </span>
+                                <span className="text-[10px] text-slate-500 block truncate">
+                                  Originally: <strong className="text-slate-700">{item.originalProduct.name}</strong> (Rs. {item.originalProduct.price})
+                                </span>
+                              </div>
+                            )}
                             <span className="text-[10px] text-slate-400">
                               Qty: {itemQty} {itemUnit}
                             </span>

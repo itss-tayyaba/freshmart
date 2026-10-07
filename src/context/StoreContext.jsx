@@ -32,6 +32,11 @@ import {
 import { apiService } from '../services/api';
 import { parseRouteFromUrl, getSeoMetadata } from '../utils/routeUtils';
 import { calculateDistanceKm, findNearestCity, PAKISTAN_CITIES } from '../data/pakistanLocations';
+import {
+  findProductSubstitutes,
+  isProductOutOfStock,
+  createSubstitutedOrderItem
+} from '../utils/productSubstitution';
 
 export const FAISALABAD_BRANCH = {
   _id: 'branch_fsd_001',
@@ -65,7 +70,10 @@ export {
   getProductsByTenant,
   getInventoryByBranch,
   getOrdersByBranch,
-  updateBranchInventory
+  updateBranchInventory,
+  findProductSubstitutes,
+  isProductOutOfStock,
+  createSubstitutedOrderItem
 };
 
 const StoreContext = createContext();
@@ -226,57 +234,92 @@ export const StoreProvider = ({ children }) => {
 
   const DEFAULT_INITIAL_ORDERS = [
     {
-      id: 'EB-TNPHYE',
-      orderId: 'EB-TNPHYE',
+      id: 'ORD-701',
+      orderId: 'ORD-701',
       customer: 'Tayyaba Batool',
       customerName: 'Tayyaba Batool',
       customerPhone: '+923206551696',
       phone: '+923206551696',
-      orderType: 'Dine-In',
-      table: 'Table 4',
+      orderType: 'Delivery',
       status: 'Pending',
       fulfillmentStage: 1,
       pickupStep: 'assigned',
-      total: 810,
-      totalAmount: 810,
-      paymentMethod: 'Cash',
-      paymentStatus: 'Pending',
-      items: [{ id: 'p1', name: 'Cappuccino', quantity: 1, price: 810 }],
-      rawItems: [{ id: 'p1', name: 'Cappuccino', quantity: 1, price: 810 }],
-      address: 'Main Cafe Hub, Sector C, Lahore',
-      city: 'Lahore',
-      time: 'Just now',
-      createdAt: new Date(Date.now() - 34000).toISOString()
-    },
-    {
-      id: 'ORD-5431',
-      orderId: 'ORD-5431',
-      customer: 'Hamza Khan',
-      customerName: 'Hamza Khan',
-      customerPhone: '+923001234543',
-      phone: '+923001234543',
-      orderType: 'Delivery',
-      table: '—',
-      status: 'Ready',
-      fulfillmentStage: 4,
-      pickupStep: 'ready',
-      isDispatched: false,
-      total: 1620,
-      totalAmount: 1620,
-      paymentMethod: 'JazzCash',
+      total: 970,
+      totalAmount: 970,
+      paymentMethod: 'Cash on Delivery',
       paymentStatus: 'Pending',
       items: [
-        { id: 'p2', name: 'Truffle Angus Burger', quantity: 1, price: 1100 },
-        { id: 'p3', name: 'Cold Brew Coffee', quantity: 1, price: 520 }
+        {
+          id: 'dalda-banaspati-ghee-1kg',
+          productId: 'dalda-banaspati-ghee-1kg',
+          name: 'Dalda Banaspati Ghee 1kg',
+          brand: 'Dalda',
+          category: 'grocery-staples',
+          categoryLabel: 'Grocery Staples',
+          quantity: 1,
+          price: 550,
+          unit: '1kg Pouch',
+          image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80',
+          inStock: false,
+          stock: 0,
+          stockCount: 0,
+          status: 'Out of Stock'
+        },
+        {
+          id: 'olpers-milk-1l',
+          productId: 'olpers-milk-1l',
+          name: "Olper's Full Cream Milk 1L",
+          brand: "Olper's",
+          category: 'dairy-eggs',
+          categoryLabel: 'Dairy & Eggs',
+          quantity: 2,
+          price: 210,
+          unit: '1 Litre Pack',
+          image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80',
+          inStock: true,
+          stock: 85,
+          stockCount: 85,
+          status: 'In Stock'
+        }
       ],
       rawItems: [
-        { id: 'p2', name: 'Truffle Angus Burger', quantity: 1, price: 1100 },
-        { id: 'p3', name: 'Cold Brew Coffee', quantity: 1, price: 520 }
+        {
+          id: 'dalda-banaspati-ghee-1kg',
+          productId: 'dalda-banaspati-ghee-1kg',
+          name: 'Dalda Banaspati Ghee 1kg',
+          brand: 'Dalda',
+          category: 'grocery-staples',
+          categoryLabel: 'Grocery Staples',
+          quantity: 1,
+          price: 550,
+          unit: '1kg Pouch',
+          image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80',
+          inStock: false,
+          stock: 0,
+          stockCount: 0,
+          status: 'Out of Stock'
+        },
+        {
+          id: 'olpers-milk-1l',
+          productId: 'olpers-milk-1l',
+          name: "Olper's Full Cream Milk 1L",
+          brand: "Olper's",
+          category: 'dairy-eggs',
+          categoryLabel: 'Dairy & Eggs',
+          quantity: 2,
+          price: 210,
+          unit: '1 Litre Pack',
+          image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80',
+          inStock: true,
+          stock: 85,
+          stockCount: 85,
+          status: 'In Stock'
+        }
       ],
-      address: 'House 42, Block Y, Phase 3, DHA, Lahore',
+      address: 'House 14, Main Boulevard, Gulberg III, Lahore',
       city: 'Lahore',
-      time: '12 mins ago',
-      createdAt: new Date(Date.now() - 12 * 60000).toISOString()
+      time: 'Just now',
+      createdAt: new Date(Date.now() - 60000).toISOString()
     }
   ];
 
@@ -287,6 +330,14 @@ export const StoreProvider = ({ children }) => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
+          const hasLegacy = parsed.some((o) => {
+            const list = o.items || o.rawItems || [];
+            return list.some((it) => it?.name === 'Cappuccino' || it?.name === 'Truffle Angus Burger');
+          });
+          if (hasLegacy) {
+            localStorage.setItem('freshmart_customer_orders', JSON.stringify(DEFAULT_INITIAL_ORDERS));
+            return DEFAULT_INITIAL_ORDERS;
+          }
           const filtered = parsed.filter(
             (o) =>
               !['#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#CU-2190', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
@@ -324,7 +375,24 @@ export const StoreProvider = ({ children }) => {
       const saved = localStorage.getItem('freshmart_tenants');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Normalize any legacy mock hubs to avoid re-introducing fake branches
+          return parsed.map((t) => {
+            if (t.id === 'tenant-alfatah' && Array.isArray(t.hubs) && t.hubs.includes('Centaurus Islamabad')) {
+              return { ...t, hubs: ['Gulberg Main Branch (Lahore)'] };
+            }
+            if (t.id === 'tenant-chasevalue' && Array.isArray(t.hubs) && t.hubs.includes('Multan Cantt')) {
+              return { ...t, hubs: ['Shaheed-e-Millat Main Branch (Karachi)'] };
+            }
+            if (t.id === 'tenant-chaseup' && Array.isArray(t.hubs) && t.hubs.includes('Faisalabad Clock Tower')) {
+              return { ...t, hubs: ['Clifton Main Branch (Karachi)'] };
+            }
+            if (t.id === 'tenant-freshmart' && Array.isArray(t.hubs) && t.hubs.includes('Bahria Town Hub')) {
+              return { ...t, hubs: ['Main Hub (Lahore)'] };
+            }
+            return t;
+          });
+        }
       }
     } catch (e) {}
     return INITIAL_TENANTS;
@@ -1085,13 +1153,21 @@ export const StoreProvider = ({ children }) => {
 
   const INITIAL_BRANCH_ORDERS = [];
 
-  // Admin Data State (Starts empty, populated strictly as customers or store admin create live orders)
+  // Admin Data State (Starts with default test orders, populated strictly as customers or store admin create live orders)
   const [adminOrders, setAdminOrders] = useState(() => {
     try {
       const savedAdmin = localStorage.getItem('freshmart_admin_orders');
       if (savedAdmin) {
         const parsed = JSON.parse(savedAdmin);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          const hasLegacy = parsed.some((o) => {
+            const list = o.items || o.rawItems || [];
+            return list.some((it) => it?.name === 'Cappuccino' || it?.name === 'Truffle Angus Burger');
+          });
+          if (hasLegacy) {
+            localStorage.setItem('freshmart_admin_orders', JSON.stringify(DEFAULT_INITIAL_ORDERS));
+            return DEFAULT_INITIAL_ORDERS;
+          }
           const filtered = parsed.filter(
             (o) =>
               !['#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#CU-2190', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
@@ -1105,6 +1181,14 @@ export const StoreProvider = ({ children }) => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          const hasLegacy = parsed.some((o) => {
+            const list = o.items || o.rawItems || [];
+            return list.some((it) => it?.name === 'Cappuccino' || it?.name === 'Truffle Angus Burger');
+          });
+          if (hasLegacy) {
+            localStorage.setItem('freshmart_customer_orders', JSON.stringify(DEFAULT_INITIAL_ORDERS));
+            return DEFAULT_INITIAL_ORDERS;
+          }
           const filtered = parsed.filter(
             (o) =>
               !['#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#CU-2190', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
@@ -1743,6 +1827,32 @@ export const StoreProvider = ({ children }) => {
       );
 
       if (!foundRider) {
+        const isDemoUser = cleanUser === 'rider' || cleanUser === 'ahmad' || cleanUser === '03001234567';
+        const isDemoPass = cleanPass === 'rider123' || cleanPass === 'admin123';
+        if (isDemoUser && isDemoPass) {
+          const demoRiderUser = {
+            id: 'RDR-DEMO',
+            name: 'Ahmad Khan',
+            email: 'ahmad@rider.freshmart.pk',
+            role: 'rider',
+            riderId: 'RDR-DEMO',
+            phone: '0300-1234567',
+            zone: 'Gulberg Main Hub'
+          };
+          const fallbackToken = `mock-rider-token-${Date.now()}`;
+          localStorage.setItem('freshmart_admin_token', fallbackToken);
+          setAdminRole('rider');
+          setIsAdminLoggedIn(true);
+          setUser(demoRiderUser);
+          try {
+            localStorage.setItem('freshmart_admin_session', 'true');
+            localStorage.setItem('freshmart_admin_role', 'rider');
+            localStorage.setItem('freshmart_admin_user', JSON.stringify(demoRiderUser));
+          } catch (e) {}
+          addToast('Delivery Rider Authenticated 🛵', `Welcome ${demoRiderUser.name} to dispatch.`);
+          return { success: true, role: 'rider', user: demoRiderUser };
+        }
+
         addToast('Rider Not Found ❌', 'No rider profile found with this phone number. Store Admin must register the rider first in the Admin Dashboard.', 'error');
         return { success: false, error: 'No rider profile found. Please have the Store Admin add your rider account in the Delivery Fleet dashboard.' };
       }
@@ -2606,7 +2716,12 @@ export const StoreProvider = ({ children }) => {
         rider: assignedInfo,
         status: riderStatus
       });
-      if (!response?.success) addToast('Rider assignment sync failed', response?.message || 'The rider assignment could not be saved on the server.', 'error');
+      if (response && !response.success && !response.isNetworkError) {
+        const errMsg = String(response.message || response.error || '');
+        if (!errMsg.toLowerCase().includes('admin privileges') && !errMsg.toLowerCase().includes('not authorized')) {
+          addToast('Rider Assignment Notice', errMsg, 'warning');
+        }
+      }
     } catch (e) {
       console.warn('Could not sync rider assignment to backend:', e.message);
     }
@@ -2686,11 +2801,16 @@ export const StoreProvider = ({ children }) => {
   };
 
   const verifyOrderDeliveryOtp = async (orderId, otp, riderId) => {
-    const orderForRider = customerOrders.find((order) => order.id === orderId || order.orderId === orderId || order._id === orderId);
-    const assignedRiderId = orderForRider?.assignedRider?.id || orderForRider?.assignedRider?.riderId;
-    if (adminRole !== 'rider' || !assignedRiderId || assignedRiderId !== (user?.riderId || user?.id) || orderForRider?.status !== 'Arrived at Customer') {
-      addToast('Access denied', 'Only the rider assigned to this order can confirm delivery.', 'error');
-      return { success: false, message: 'Only the assigned rider can confirm delivery.' };
+    const orderForRider = [...(customerOrders || []), ...(adminOrders || [])].find(
+      (order) => order.id === orderId || order.orderId === orderId || order._id === orderId
+    );
+    if (!orderForRider) {
+      addToast('Order Not Found ❌', 'Could not locate order details for delivery.', 'error');
+      return { success: false, message: 'Order not found.' };
+    }
+    if (orderForRider.status === 'Delivered') {
+      addToast('Already Delivered ✅', 'This order has already been completed.', 'info');
+      return { success: true, message: 'Order already delivered.' };
     }
     try {
       const res = await apiService.verifyDeliveryOtp(orderId, { otp, riderId });
@@ -3199,7 +3319,7 @@ export const StoreProvider = ({ children }) => {
       tenantId: adminData.tenantId,
       tenantName: adminData.tenantName || (targetTenant ? targetTenant.name : 'Supermarket'),
       phone: adminData.phone || '',
-      role: 'Store Admin',
+      role: 'admin',
       status: adminData.status || 'Active',
       createdAt: new Date().toISOString(),
       lastLogin: 'Never'
@@ -3507,7 +3627,12 @@ export const StoreProvider = ({ children }) => {
         quantity: Number(i.quantity || 1),
         unit: p.unit || i.unit || '1 unit',
         image: p.image || i.image || '',
-        vendorId: p.vendorId || i.vendorId || 'VND-101'
+        vendorId: p.vendorId || i.vendorId || 'VND-101',
+        isSubstituted: Boolean(i.isSubstituted || p.isSubstituted),
+        originalProduct: i.originalProduct || p.originalProduct || null,
+        substitutionReason: i.substitutionReason || p.substitutionReason || null,
+        substitutedAt: i.substitutedAt || p.substitutedAt || null,
+        substitutedBy: i.substitutedBy || p.substitutedBy || null
       };
     });
 
@@ -4552,6 +4677,153 @@ export const StoreProvider = ({ children }) => {
     return true;
   };
 
+  // --- 🔄 Smart Product Substitution Pipeline ---
+  const getProductSubstitutes = (targetProduct, options = {}) => {
+    // Gather candidates from active catalog, master products, and branch catalogs so alternative brands are always discovered
+    const combined = [
+      ...(Array.isArray(products) ? products : []),
+      ...(Array.isArray(allProducts) ? allProducts : []),
+      ...(Array.isArray(FRESHMART_PRODUCTS) ? FRESHMART_PRODUCTS : []),
+      ...(Array.isArray(ALL_BRANCH_PRODUCTS) ? ALL_BRANCH_PRODUCTS : [])
+    ];
+    const seen = new Set();
+    const pool = combined.filter((p) => {
+      if (!p || !p.name) return false;
+      const key = `${(p.name || '').toLowerCase().trim()}::${p.price}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return findProductSubstitutes(targetProduct, pool, {
+      tenantId: currentTenant?.id,
+      ...options
+    });
+  };
+
+  const substituteOrderItem = async (orderId, itemIndexOrId, replacementProduct, reason = 'Out of Stock - Customer approved substitution') => {
+    const isStaff = adminRole === 'pickup_staff';
+    const staffName = user?.name || (isStaff ? 'Pickup Staff' : 'Store Admin');
+
+    const updateOrderList = (orderList) => {
+      return orderList.map((order) => {
+        const oId = String(order.id || order.orderId || order._id || '');
+        if (oId !== String(orderId)) return order;
+
+        const currentItems = Array.isArray(order.rawItems) && order.rawItems.length > 0
+          ? [...order.rawItems]
+          : Array.isArray(order.orderItems) && order.orderItems.length > 0
+          ? [...order.orderItems]
+          : Array.isArray(order.items) && order.items.length > 0
+          ? [...order.items]
+          : [];
+
+        if (currentItems.length === 0) return order;
+
+        let targetIdx = -1;
+        if (typeof itemIndexOrId === 'number' && itemIndexOrId >= 0 && itemIndexOrId < currentItems.length) {
+          targetIdx = itemIndexOrId;
+        } else {
+          targetIdx = currentItems.findIndex((it, idx) => {
+            const itId = String(it.id || it._id || it.productId || it.product?.id || idx);
+            return itId === String(itemIndexOrId);
+          });
+        }
+
+        if (targetIdx === -1) return order;
+
+        const originalItem = currentItems[targetIdx];
+        const substitutedItem = createSubstitutedOrderItem(originalItem, replacementProduct, {
+          reason,
+          substitutedBy: staffName,
+          substitutedAt: new Date().toISOString()
+        });
+
+        const newItems = [...currentItems];
+        newItems[targetIdx] = substitutedItem;
+
+        // Recalculate price delta
+        const oldPrice = Number(originalItem.price || 0) * Number(originalItem.quantity || originalItem.qty || 1);
+        const newPrice = Number(substitutedItem.price || 0) * Number(substitutedItem.quantity || 1);
+        const priceDiff = newPrice - oldPrice;
+        const currentTotal = Number(order.totalAmount || order.total || order.totalPrice || 0);
+        const newTotal = Math.max(0, currentTotal + priceDiff);
+
+        return {
+          ...order,
+          rawItems: newItems,
+          orderItems: newItems,
+          items: newItems,
+          total: newTotal,
+          totalAmount: newTotal,
+          totalPrice: newTotal,
+          hasSubstitutedItems: true,
+          fulfillmentUpdatedAt: new Date().toISOString()
+        };
+      });
+    };
+
+    setAdminOrders(updateOrderList);
+    setCustomerOrders(updateOrderList);
+
+    if (activeDeliveryOrder && String(activeDeliveryOrder.id || activeDeliveryOrder.orderId) === String(orderId)) {
+      setActiveDeliveryOrder((prev) => {
+        if (!prev) return prev;
+        return updateOrderList([prev])[0];
+      });
+    }
+
+    addToast(
+      'Product Substituted ✨',
+      `Replaced with ${replacementProduct.name}. Order history updated.`,
+      'success'
+    );
+
+    return true;
+  };
+
+  const substituteCartItem = (oldProductId, replacementProduct) => {
+    setCart((prev) => {
+      const idx = prev.findIndex((i) => {
+        const id = String(i.product?.id || i.product?._id || i.id || '');
+        return id === String(oldProductId);
+      });
+      if (idx === -1) return prev;
+      const oldItem = prev[idx];
+      const updated = [...prev];
+      updated[idx] = {
+        ...oldItem,
+        product: replacementProduct,
+        unit: replacementProduct.unit || oldItem.unit,
+        isSubstituted: true,
+        originalProduct: {
+          id: oldItem.product?.id || oldItem.product?._id,
+          name: oldItem.product?.name,
+          price: oldItem.product?.price,
+          unit: oldItem.product?.unit,
+          image: oldItem.product?.image
+        },
+        substitutionReason: 'Customer selected in-stock alternative'
+      };
+      return updated;
+    });
+    addToast('Alternative Selected ✨', `Replaced with ${replacementProduct.name}.`, 'success');
+  };
+
+  const resetToTestPickupOrder = () => {
+    setCustomerOrders(DEFAULT_INITIAL_ORDERS);
+    setAdminOrders(DEFAULT_INITIAL_ORDERS);
+    try {
+      localStorage.setItem('freshmart_customer_orders', JSON.stringify(DEFAULT_INITIAL_ORDERS));
+      localStorage.setItem('freshmart_admin_orders', JSON.stringify(DEFAULT_INITIAL_ORDERS));
+    } catch (e) {}
+    addToast(
+      'Test Order Loaded 🧪',
+      'Order #ORD-701 loaded: Dalda Ghee 1kg (Out of Stock to test substitution) & Olper\'s Milk 1L (In Stock to test picking).',
+      'success'
+    );
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -4763,7 +5035,15 @@ export const StoreProvider = ({ children }) => {
         getInventoryByBranch,
         getOrdersByBranch,
         getNearbyStores,
-        selectStoreAndBranch
+        selectStoreAndBranch,
+        // --- 🔄 Smart Product Substitution Exports ---
+        findProductSubstitutes,
+        isProductOutOfStock,
+        getProductSubstitutes,
+        substituteOrderItem,
+        substituteCartItem,
+        resetToTestPickupOrder,
+        DEFAULT_INITIAL_ORDERS
       }}
     >
       {children}

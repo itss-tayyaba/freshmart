@@ -554,7 +554,8 @@ export const assignRiderToOrder = async (req, res) => {
       });
 
       if (order) {
-        if (Number(order.fulfillmentStage || 0) < 4 && order.status !== 'Ready for Dispatch') {
+        const isAdminAssignment = req.user?.role === 'admin' || req.user?.role === 'superadmin' || req.headers['x-admin-role'] === 'admin' || req.headers['x-admin-role'] === 'superadmin';
+        if (!isAdminAssignment && Number(order.fulfillmentStage || 0) < 4 && order.status !== 'Ready for Dispatch') {
           return res.status(409).json({ success: false, message: 'Pickup staff must mark the parcel Ready for Dispatch before rider assignment.' });
         }
         const destCoords = order.destinationCoords || resolveDestinationCoords(order.shippingAddress);

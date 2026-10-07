@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { PAKISTAN_CITIES } from '../../../data/pakistanLocations';
-import { BRANCHES, resolveTenantId } from '../../../data/companyHierarchyData';
+import { resolveTenantId } from '../../../data/companyHierarchyData';
 
 export const PAKISTAN_REGIONS = [
   // Lahore
@@ -121,42 +121,53 @@ export const DeliveryView = () => {
     allBranches = [],
     branches = [],
     currentBranch,
-    currentTenant
+    currentTenant,
+    navigateTo
   } = useStore();
 
   const isAdmin = adminRole === 'admin' || adminRole === 'superadmin';
 
-  // Get only that area and branch that is added and available
+  // Get only the real branch and areas that are actually added or configured for this store
+  // Do NOT auto-inject fake/unreal mock branches
   const availableBranches = useMemo(() => {
     const canonicalTenantId = resolveTenantId ? resolveTenantId(currentTenant?.id) : (currentTenant?.id || 'company_004');
 
-    // 1. Check all active user-added/registered branches in system
-    const activeAddedBranches = (allBranches || []).filter(
-      (b) => b && (b.status === 'active' || b.status === 'Active' || !b.status)
+    // 1. Check branches explicitly added by user in allBranches for this store
+    const storeAddedBranches = (allBranches || []).filter(
+      (b) =>
+        b &&
+        (b.status === 'active' || b.status === 'Active' || !b.status) &&
+        (b.tenantId === canonicalTenantId || b.tenantId === currentTenant?.id)
     );
 
-    // Prefer store-specific added branches if available
-    const storeSpecificAdded = activeAddedBranches.filter(
-      (b) => b.tenantId === canonicalTenantId || b.tenantId === currentTenant?.id
-    );
-
-    if (storeSpecificAdded.length > 0) {
-      return storeSpecificAdded;
+    if (storeAddedBranches.length > 0) {
+      return storeAddedBranches;
     }
 
-    if (activeAddedBranches.length > 0) {
-      return activeAddedBranches;
+    // 2. Real hubs explicitly configured on the store/tenant (from SuperAdmin Manage store settings)
+    if (currentTenant?.hubs && Array.isArray(currentTenant.hubs) && currentTenant.hubs.length > 0) {
+      return currentTenant.hubs.map((hubName, idx) => ({
+        _id: `hub_${currentTenant.id || 'curr'}_${idx}`,
+        id: `hub_${currentTenant.id || 'curr'}_${idx}`,
+        name: hubName,
+        tenantId: currentTenant?.id || 'tenant-alfatah',
+        city: currentTenant?.city || 'Lahore',
+        status: 'active'
+      }));
     }
 
-    // 2. Predefined branches for this tenant from hierarchy
-    const tenantHierarchy = (BRANCHES || []).filter(
-      (b) => b && (b.tenantId === canonicalTenantId || b.tenantId === currentTenant?.id)
-    );
-    if (tenantHierarchy.length > 0) {
-      return tenantHierarchy;
-    }
-
-    return (BRANCHES && BRANCHES.length > 0) ? BRANCHES : [];
+    // 3. Fallback: single real primary branch for current store — DO NOT inject unadded fake branches!
+    const realBranchName = `${currentTenant?.name || 'Store'} (Main Branch)`;
+    return [
+      {
+        _id: `real_branch_${currentTenant?.id || 'main'}`,
+        id: `real_branch_${currentTenant?.id || 'main'}`,
+        name: realBranchName,
+        tenantId: currentTenant?.id || 'tenant-alfatah',
+        city: currentTenant?.city || 'Lahore',
+        status: 'active'
+      }
+    ];
   }, [allBranches, currentTenant]);
 
   const [activeSubTab, setActiveSubTab] = useState('queue'); // 'queue' | 'fleet' | 'rider-app' | 'coverage'
@@ -647,6 +658,16 @@ export const DeliveryView = () => {
             </button>
           );
         })}
+
+        <button
+          type="button"
+          onClick={() => navigateTo && navigateTo('delivery-portal')}
+          className="px-4 py-2.5 rounded-xl flex items-center gap-2 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-bold text-xs transition cursor-pointer ml-auto"
+          title="Open Dedicated Courier Rider Portal Screen"
+        >
+          <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+          <span>Launch Rider Portal ↗</span>
+        </button>
       </div>
 
       {/* ===================================================================== */}

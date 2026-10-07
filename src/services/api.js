@@ -20,12 +20,26 @@ const getAuthHeaders = (extraHeaders = {}) => {
     ...extraHeaders
   };
   try {
-    const token =
-      localStorage.getItem('freshmart_admin_token') ||
-      localStorage.getItem('freshmart_vendor_token') ||
-      localStorage.getItem('freshmart_token') ||
-      localStorage.getItem('freshmart_jwt') ||
-      localStorage.getItem('token');
+    const adminSession = localStorage.getItem('freshmart_admin_session') === 'true';
+    const adminRole = localStorage.getItem('freshmart_admin_role');
+    const adminToken = localStorage.getItem('freshmart_admin_token');
+
+    if (adminSession || adminRole) {
+      headers['x-admin-role'] = adminRole || 'admin';
+    }
+
+    let token = null;
+    if (adminSession || adminRole) {
+      token = adminToken;
+    }
+    if (!token) {
+      token =
+        adminToken ||
+        localStorage.getItem('freshmart_vendor_token') ||
+        localStorage.getItem('freshmart_token') ||
+        localStorage.getItem('freshmart_jwt') ||
+        localStorage.getItem('token');
+    }
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }

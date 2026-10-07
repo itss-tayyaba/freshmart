@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Star, Heart, Plus, Minus, ShoppingCart, ShieldCheck, Truck, Sparkles, Check } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { X, Star, Heart, Plus, Minus, ShoppingCart, ShieldCheck, Truck, Sparkles, Check, AlertCircle } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 
 export const QuickViewModal = () => {
@@ -9,10 +9,19 @@ export const QuickViewModal = () => {
     addToCart,
     isInWishlist,
     toggleWishlist,
-    currency
+    currency,
+    getProductSubstitutes,
+    isProductOutOfStock,
+    addToast
   } = useStore();
 
   const product = selectedProductForQuickView;
+  const isOOS = Boolean(isProductOutOfStock ? isProductOutOfStock(product) : (product?.inStock === false || product?.stockCount === 0 || product?.stock === 0));
+  const substitutes = useMemo(() => {
+    if (!isOOS || !product) return [];
+    return typeof getProductSubstitutes === 'function' ? getProductSubstitutes(product, { limit: 3 }) : [];
+  }, [isOOS, product, getProductSubstitutes]);
+
   const [selectedUnit, setSelectedUnit] = useState(product?.unit || '500g');
   const [quantity, setQuantity] = useState(1);
 
@@ -88,10 +97,17 @@ export const QuickViewModal = () => {
                     Certified Organic
                   </span>
                 )}
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-1">
-                  <Check className="w-3 h-3 text-emerald-600" />
-                  In Stock ({product.stockCount})
-                </span>
+                {isOOS ? (
+                  <span className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-md flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 text-rose-600" />
+                    Out of Stock
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md flex items-center gap-1">
+                    <Check className="w-3 h-3 text-emerald-600" />
+                    In Stock ({product.stockCount || 50})
+                  </span>
+                )}
               </div>
 
               {/* Title */}
@@ -128,8 +144,8 @@ export const QuickViewModal = () => {
                 {product.description}
               </p>
 
-              {/* Unit Selection Options */}
-              {product.unitOptions && (
+              {/* Unit Selection Options (if in stock) */}
+              {!isOOS && product.unitOptions && (
                 <div className="mt-4">
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
                     Select Package Size:
@@ -153,7 +169,7 @@ export const QuickViewModal = () => {
               )}
 
               {/* Nutrition Key Facts */}
-              {product.nutrition && (
+              {!isOOS && product.nutrition && (
                 <div className="mt-4 p-3 bg-slate-50 rounded-2xl border border-slate-100">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
                     Nutritional Highlights
@@ -168,56 +184,147 @@ export const QuickViewModal = () => {
                   </div>
                 </div>
               )}
+
+              {/* --- 🔄 SMART PRODUCT SUBSTITUTION (When Out of Stock) --- */}
+              {isOOS && (
+                <div className="mt-4 p-3.5 bg-amber-50/70 rounded-2xl border border-amber-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                      <span>🔄 Available Smart Alternatives</span>
+                    </span>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full uppercase">
+                      In Stock
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-tight">
+                    This item is out of stock. Select an available alternative matching size &amp; price:
+                  </p>
+
+                  <div className="space-y-2">
+                    {substitutes.length > 0 ? (
+                      substitutes.map((alt) => (
+                        <div
+                          key={alt.id}
+                          className="bg-white p-2.5 rounded-xl border border-amber-200/80 hover:border-emerald-500 flex items-center justify-between gap-3 transition-all"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <img
+                              src={alt.image}
+                              alt={alt.name}
+                              className="w-10 h-10 rounded-lg object-cover bg-slate-50 border border-slate-100 shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <h5 className="font-bold text-slate-900 text-xs truncate leading-snug">
+                                {alt.name}
+                              </h5>
+                              <div className="flex items-center gap-1.5 text-[10px]">
+                                <span className="font-mono font-bold text-emerald-800">
+                                  {currency.symbol}{alt.price}
+                                </span>
+                                <span className="text-slate-400">•</span>
+                                <span className="text-slate-500 font-medium">
+                                  {alt.matchDetails?.sizeMatchLabel || alt.unit}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedProductForQuickView(alt);
+                                addToast('Alternative Selected ✨', `Switched to ${alt.name}.`);
+                              }}
+                              className="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition cursor-pointer"
+                            >
+                              Select
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                addToCart(alt, 1);
+                                setSelectedProductForQuickView(null);
+                                addToast('Added Alternative 🛒', `${alt.name} added to cart.`);
+                              }}
+                              className="py-1 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                              title="Add directly to cart"
+                            >
+                              + Basket
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-[11px] text-slate-400 italic">No direct substitutes available right now.</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Quantity Stepper & Add to Cart Action */}
-            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center gap-3">
-              {/* Stepper */}
-              <div className="flex items-center bg-slate-100 rounded-xl p-1">
+            {!isOOS ? (
+              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center gap-3">
+                {/* Stepper */}
+                <div className="flex items-center bg-slate-100 rounded-xl p-1">
+                  <button
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    className="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold transition-colors shadow-2xs"
+                    aria-label="Decrease quantity"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="w-10 text-center font-bold text-sm text-slate-800">
+                    {quantity}
+                  </span>
+                  <button
+                    onClick={() => setQuantity((q) => q + 1)}
+                    className="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold transition-colors shadow-2xs"
+                    aria-label="Increase quantity"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Add to Cart */}
                 <button
-                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold transition-colors shadow-2xs"
-                  aria-label="Decrease quantity"
+                  onClick={handleAddToCart}
+                  className="flex-1 py-3 px-6 bg-brand-green hover:bg-emerald-800 text-white rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
                 >
-                  <Minus className="w-3.5 h-3.5" />
+                  <ShoppingCart className="w-4 h-4" />
+                  <span>
+                    Add to Cart • {currency.symbol}
+                    {Math.round(product.price * quantity * (currency.rate || 1)).toLocaleString()}
+                  </span>
                 </button>
-                <span className="w-10 text-center font-bold text-sm text-slate-800">
-                  {quantity}
-                </span>
+
+                {/* Wishlist Button */}
                 <button
-                  onClick={() => setQuantity((q) => q + 1)}
-                  className="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold transition-colors shadow-2xs"
-                  aria-label="Increase quantity"
+                  onClick={() => toggleWishlist(product.id)}
+                  className={`p-3 rounded-xl border transition-colors ${
+                    isFavorited
+                      ? 'bg-rose-50 text-rose-500 border-rose-200'
+                      : 'bg-white text-slate-500 hover:text-rose-500 border-slate-200 hover:bg-rose-50'
+                  }`}
+                  title={isFavorited ? 'Remove from Wishlist' : 'Add to Wishlist'}
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Heart className={`w-5 h-5 ${isFavorited ? 'fill-rose-500' : ''}`} />
                 </button>
               </div>
-
-              {/* Add to Cart */}
-              <button
-                onClick={handleAddToCart}
-                className="flex-1 py-3 px-6 bg-brand-green hover:bg-emerald-800 text-white rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
-              >
-                <ShoppingCart className="w-4 h-4" />
-                <span>
-                  Add to Cart • {currency.symbol}
-                  {Math.round(product.price * quantity * (currency.rate || 1)).toLocaleString()}
+            ) : (
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-xs font-bold text-rose-600">
+                  Item unavailable — Please choose one of the smart alternatives above.
                 </span>
-              </button>
-
-              {/* Wishlist Button */}
-              <button
-                onClick={() => toggleWishlist(product.id)}
-                className={`p-3 rounded-xl border transition-colors ${
-                  isFavorited
-                    ? 'bg-rose-50 text-rose-500 border-rose-200'
-                    : 'bg-white text-slate-500 hover:text-rose-500 border-slate-200 hover:bg-rose-50'
-                }`}
-                title={isFavorited ? 'Remove from Wishlist' : 'Add to Wishlist'}
-              >
-                <Heart className={`w-5 h-5 ${isFavorited ? 'fill-rose-500' : ''}`} />
-              </button>
-            </div>
+                <button
+                  onClick={() => setSelectedProductForQuickView(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            )}
 
           </div>
 

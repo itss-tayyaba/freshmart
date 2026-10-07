@@ -733,6 +733,16 @@ export const FreshMartHeader = () => {
 
             <button
               type="button"
+              onClick={() => navigateTo('delivery-portal')}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-[#1c1a17] hover:bg-stone-800 text-amber-300 transition-all shadow-xs cursor-pointer border border-stone-800"
+              title="Courier Rider Portal & Live GPS Dispatch"
+            >
+              <Bike className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Rider Portal</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => navigateTo('admin')}
               className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white transition-all shadow-xs cursor-pointer"
               title="Admin & Multi-Store Management Portal"
@@ -893,6 +903,16 @@ export const FreshMartHeader = () => {
               className="p-2.5 bg-white border border-slate-200/80 rounded-xl text-left hover:bg-slate-50 flex items-center gap-2 font-bold text-slate-800 cursor-pointer"
             >
               <span>👤</span> Customer Portal
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                navigateTo('delivery-portal');
+                setMobileMenuOpen(false);
+              }}
+              className="p-2.5 bg-[#1c1a17] text-amber-300 border border-stone-800 rounded-xl text-left hover:bg-stone-900 flex items-center gap-2 font-bold shadow-xs cursor-pointer"
+            >
+              <Bike className="w-3.5 h-3.5 text-amber-400" /> Rider Portal
             </button>
             <button
               type="button"

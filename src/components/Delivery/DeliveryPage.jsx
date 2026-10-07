@@ -440,6 +440,45 @@ export const DeliveryPage = () => {
                     </span>
                   </div>
                 </div>
+
+                {/* Product Substitution Info (if order has substituted items) */}
+                {(() => {
+                  const currentItems = Array.isArray(currentOrder.orderItems)
+                    ? currentOrder.orderItems
+                    : Array.isArray(currentOrder.rawItems)
+                    ? currentOrder.rawItems
+                    : Array.isArray(currentOrder.items)
+                    ? currentOrder.items
+                    : [];
+                  const substitutedItems = currentItems.filter((i) => i && (i.isSubstituted || i.originalProduct));
+                  if (!substitutedItems.length) return null;
+                  return (
+                    <div className="pt-3 border-t border-slate-200/60 text-xs">
+                      <div className="p-3 bg-amber-50/90 border border-amber-200/90 rounded-xl space-y-1.5">
+                        <span className="font-bold text-amber-900 flex items-center gap-1.5 text-[11px]">
+                          <span>🔄 Product Substitution</span>
+                          <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded-full font-bold">
+                            {substitutedItems.length} {substitutedItems.length === 1 ? 'item' : 'items'}
+                          </span>
+                        </span>
+                        {substitutedItems.map((sub, idx) => (
+                          <div key={idx} className="text-[11px] text-slate-700 bg-white/70 px-2.5 py-1.5 rounded-lg border border-amber-100 flex items-center justify-between">
+                            <div>
+                              <span>Delivering: <strong className="text-slate-900">{sub.name}</strong></span>
+                              <span className="block text-[10px] text-slate-500">
+                                Originally ordered: <span className="line-through">{sub.originalProduct?.name || 'Original item'}</span>
+                                {sub.substitutionReason ? ` • (${sub.substitutionReason})` : ''}
+                              </span>
+                            </div>
+                            <span className="font-mono font-bold text-emerald-800 text-xs">
+                              PKR {sub.price}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">

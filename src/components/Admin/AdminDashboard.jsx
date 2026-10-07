@@ -43,6 +43,7 @@ import { AdminModals } from './modals/AdminModals';
 import { AdminLogin } from './AdminLogin';
 import { VendorPortal } from '../VendorPortal/VendorPortal';
 import { SuperAdminDashboard } from '../SuperAdmin/SuperAdminDashboard';
+import { DeliveryPortal } from '../DeliveryPortal/DeliveryPortal';
 
 export const AdminDashboard = () => {
   const {
@@ -95,6 +96,7 @@ export const AdminDashboard = () => {
   }
 
   if (adminRole === 'pickup_staff') return <PickupStaffPortal />;
+  if (adminRole === 'rider') return <DeliveryPortal />;
 
   const roleMeta = {
     admin: { title: 'Store Admin', badge: '🛡️ Store Admin', tag: 'Full Control', iconBg: 'bg-emerald-600' },
