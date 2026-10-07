@@ -59,7 +59,7 @@ import { useStore } from '../../context/StoreContext';
 import { SUBSCRIPTION_PLANS } from '../../data/tenantData';
 import { BRANCHES } from '../../data/companyHierarchyData';
 
-export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
+export const SuperAdminDashboard = () => {
   const {
     tenants,
     setTenants,
@@ -248,22 +248,47 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
 
   // Merge live context tenants with baseline stores
   const displayStores = useMemo(() => {
-    return defaultStores.map((store) => {
+    const matched = defaultStores.map((store) => {
       const live = (tenants || []).find((t) => t.id === store.id || t.slug === store.id);
       if (live) {
         return {
           ...store,
           name: live.name?.split(' ')[0] || store.name,
           fullName: live.name || store.fullName,
+          tagline: live.tagline || store.tagline,
           status: live.status || store.status,
           plan: live.subscription?.plan || store.plan,
           ownerEmail: live.ownerEmail || store.ownerEmail,
-          ownerName: live.ownerName || store.ownerName,
-          hubs: live.hubs && live.hubs.length > 0 ? live.hubs : store.hubs
+          ownerName: live.ownerName !== undefined && live.ownerName !== '' ? live.ownerName : store.ownerName,
+          hubs: Array.isArray(live.hubs) && live.hubs.length > 0 ? live.hubs : (store.hubs || ['Main Hub'])
         };
       }
       return store;
     });
+
+    const extra = (tenants || [])
+      .filter((t) => !defaultStores.some((ds) => ds.id === t.id || ds.id === t.slug))
+      .map((t) => ({
+        id: t.id,
+        name: t.name?.split(' ')[0] || t.name,
+        fullName: t.name,
+        tagline: t.tagline || 'Express Supermarket',
+        status: t.status || 'Active',
+        branchesCount: (t.hubs && t.hubs.length) || 1,
+        ordersToday: 0,
+        revenueToday: 0,
+        revenueFormatted: 'PKR 0',
+        color: '#10b981',
+        logo: '🏬',
+        plan: t.subscription?.plan || 'Starter',
+        sharePct: '5%',
+        barHeight: 20,
+        ownerEmail: t.ownerEmail,
+        ownerName: t.ownerName || 'Mart Owner',
+        hubs: Array.isArray(t.hubs) && t.hubs.length > 0 ? t.hubs : ['Main Hub']
+      }));
+
+    return [...matched, ...extra];
   }, [tenants]);
 
   // Modals form states
@@ -287,7 +312,11 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
     ownerName: '',
     ownerEmail: '',
     ownerPhone: '',
-    city: 'Lahore, Pakistan'
+    city: 'Lahore, Pakistan',
+    hubsText: '',
+    adminEmail: '',
+    adminPassword: '',
+    showPassword: false
   });
 
   const [newCustomerForm, setNewCustomerForm] = useState({
@@ -365,13 +394,26 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
 
   const handleOpenManage = (store) => {
     setSelectedTenant(store);
+    const existingAdmin = (storeAdmins || []).find(
+      (sa) => sa.tenantId === store.id || (sa.email && sa.email.toLowerCase() === (store.ownerEmail || '').toLowerCase())
+    );
+    const hubsArray = Array.isArray(store.hubs)
+      ? store.hubs
+      : (typeof store.hubs === 'string' && store.hubs ? store.hubs.split(',') : []);
+    const hubsString = hubsArray.length > 0 ? hubsArray.join(', ') : 'Main Hub';
+    const fallbackEmail = store.ownerEmail || `admin@${(store.slug || store.id || 'mart').replace('tenant-', '')}.pk`;
+
     setEditStoreForm({
-      name: store.fullName,
-      tagline: store.tagline,
-      ownerName: store.ownerName,
-      ownerEmail: store.ownerEmail,
-      ownerPhone: '+92 300 1234567',
-      city: 'Lahore, Pakistan'
+      name: store.fullName || store.name || '',
+      tagline: store.tagline || '',
+      ownerName: store.ownerName || existingAdmin?.name || '',
+      ownerEmail: store.ownerEmail || existingAdmin?.email || fallbackEmail,
+      ownerPhone: store.ownerPhone || existingAdmin?.phone || '+92 300 1234567',
+      city: store.city || 'Lahore, Pakistan',
+      hubsText: hubsString,
+      adminEmail: existingAdmin?.email || fallbackEmail,
+      adminPassword: existingAdmin?.password || 'admin123',
+      showPassword: false
     });
     setIsManageModalOpen(true);
   };
@@ -379,20 +421,107 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
   const handleSaveManage = (e) => {
     e.preventDefault();
     if (!selectedTenant) return;
-    setTenants((prev) =>
-      prev.map((t) =>
-        t.id === selectedTenant.id
-          ? {
-              ...t,
-              name: editStoreForm.name,
-              tagline: editStoreForm.tagline,
-              ownerName: editStoreForm.ownerName,
-              ownerEmail: editStoreForm.ownerEmail
-            }
-          : t
-      )
+
+    // 1. Process dark store fulfillment hubs
+    const parsedHubs = editStoreForm.hubsText
+      ? editStoreForm.hubsText
+          .split(',')
+          .map((h) => h.trim())
+          .filter(Boolean)
+      : [];
+    const finalHubs =
+      parsedHubs.length > 0
+        ? parsedHubs
+        : Array.isArray(selectedTenant.hubs) && selectedTenant.hubs.length > 0
+        ? selectedTenant.hubs
+        : ['Main Hub'];
+
+    const cleanEmail = (editStoreForm.adminEmail || editStoreForm.ownerEmail || '').trim().toLowerCase();
+    const cleanPassword = (editStoreForm.adminPassword || 'admin123').trim();
+    const cleanOwnerName = (editStoreForm.ownerName || '').trim();
+    const cleanStoreName = (editStoreForm.name || selectedTenant.fullName || selectedTenant.name || 'Supermarket').trim();
+
+    // 2. Update tenants state
+    setTenants((prev) => {
+      const exists = prev.some((t) => t.id === selectedTenant.id || t.slug === selectedTenant.id);
+      if (exists) {
+        return prev.map((t) =>
+          t.id === selectedTenant.id || t.slug === selectedTenant.id
+            ? {
+                ...t,
+                name: cleanStoreName,
+                fullName: cleanStoreName,
+                tagline: editStoreForm.tagline,
+                ownerName: cleanOwnerName,
+                ownerEmail: cleanEmail,
+                ownerPhone: editStoreForm.ownerPhone,
+                hubs: finalHubs
+              }
+            : t
+        );
+      } else {
+        return [
+          ...prev,
+          {
+            ...selectedTenant,
+            name: cleanStoreName,
+            fullName: cleanStoreName,
+            tagline: editStoreForm.tagline,
+            ownerName: cleanOwnerName,
+            ownerEmail: cleanEmail,
+            ownerPhone: editStoreForm.ownerPhone,
+            hubs: finalHubs
+          }
+        ];
+      }
+    });
+
+    // 3. Update or Add Store Admin in storeAdmins (Mart Admins)
+    const existingAdmin = (storeAdmins || []).find(
+      (sa) => sa.tenantId === selectedTenant.id || (sa.email && sa.email.toLowerCase() === cleanEmail)
     );
-    addToast('Store Updated 🏬', `${editStoreForm.name} profile and settings saved.`);
+
+    const adminUsername = cleanEmail.includes('@') ? cleanEmail.split('@')[0] : cleanEmail;
+
+    if (existingAdmin) {
+      updateStoreAdmin(existingAdmin.id, {
+        name: cleanOwnerName || existingAdmin.name,
+        email: cleanEmail,
+        username: adminUsername || existingAdmin.username,
+        password: cleanPassword,
+        tenantId: selectedTenant.id,
+        tenantName: cleanStoreName,
+        phone: editStoreForm.ownerPhone || existingAdmin.phone || ''
+      });
+    } else {
+      addStoreAdmin({
+        name: cleanOwnerName || 'Store Admin',
+        email: cleanEmail,
+        username: adminUsername || cleanEmail,
+        password: cleanPassword,
+        tenantId: selectedTenant.id,
+        tenantName: cleanStoreName,
+        phone: editStoreForm.ownerPhone || ''
+      });
+    }
+
+    // 4. Update currentTenant if active
+    if (currentTenant && (currentTenant.id === selectedTenant.id || currentTenant.slug === selectedTenant.id)) {
+      setCurrentTenant({
+        ...currentTenant,
+        name: cleanStoreName,
+        fullName: cleanStoreName,
+        tagline: editStoreForm.tagline,
+        ownerName: cleanOwnerName,
+        ownerEmail: cleanEmail,
+        hubs: finalHubs
+      });
+    }
+
+    addToast(
+      'Supermarket & Mart Admin Saved 🏬',
+      `${cleanStoreName} profile, ${finalHubs.length} hubs, and Mart Admin account saved.`
+    );
     setIsManageModalOpen(false);
   };
 
@@ -445,17 +574,6 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
 
   const togglePasswordVisibility = (adminId) => {
     setShowPasswordMap((prev) => ({ ...prev, [adminId]: !prev[adminId] }));
-  };
-
-  const handleImpersonateStore = (store) => {
-    const liveTenant = (tenants || []).find((t) => t.id === store.id) || store;
-    setCurrentTenant(liveTenant);
-    if (onSwitchToStoreAdmin) {
-      onSwitchToStoreAdmin(liveTenant);
-    } else {
-      navigateTo('admin');
-    }
-    addToast('Switched to Store Admin 🏬', `Managing ${store.name}`);
   };
 
   // Filtered lists for dedicated sub-dashboards
@@ -653,14 +771,6 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
           </p>
           <div className="pt-1 flex flex-col gap-1.5">
             <button
-              onClick={() => handleImpersonateStore(displayStores[0])}
-              className="w-full py-1.5 bg-blue-600/80 hover:bg-blue-600 text-white rounded-lg text-[10px] font-bold transition text-center cursor-pointer flex items-center justify-center gap-1.5"
-              title="Inspect Store Admin View"
-            >
-              <Store className="w-3.5 h-3.5" />
-              <span>Inspect Store View</span>
-            </button>
-            <button
               onClick={adminLogout}
               className="w-full py-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 hover:text-white rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1.5"
               title="Sign Out"
@@ -732,16 +842,6 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
               <Calendar className="w-3.5 h-3.5 text-slate-500" />
               <span>Today</span>
             </div>
-
-            {/* Quick Impersonate Store View Button */}
-            <button
-              onClick={() => handleImpersonateStore(displayStores[0])}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition cursor-pointer"
-              title="Inspect Store Admin View"
-            >
-              <Store className="w-3.5 h-3.5 text-blue-600" />
-              <span>Store View</span>
-            </button>
 
             {/* Prominent Super Admin Logout Button */}
             <button
@@ -1248,7 +1348,9 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
                         </div>
                         <div>
                           <span className="text-[10px] text-slate-400 font-bold uppercase block">Dark Store Hubs</span>
-                          <span className="font-bold text-slate-700">{store.hubs.length} Hubs</span>
+                          <span className="font-bold text-slate-700">
+                            {Array.isArray(store.hubs) ? `${store.hubs.length} Hubs` : (store.hubs ? `${store.hubs} Hubs` : '1 Hub')}
+                          </span>
                         </div>
                         <div>
                           <span className="text-[10px] text-slate-400 font-bold uppercase block">Revenue (Today)</span>
@@ -3053,72 +3155,152 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
       {/* --- G. MANAGE STORE SETTINGS MODAL --- */}
       {isManageModalOpen && selectedTenant && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-base font-black text-slate-900 leading-tight">Manage Supermarket Profile</h3>
-                <span className="text-xs text-slate-500">{selectedTenant.fullName}</span>
+                <h3 className="text-base font-black text-slate-900 leading-tight">Manage Supermarket & Mart Admin</h3>
+                <span className="text-xs text-slate-500">{selectedTenant.fullName || selectedTenant.name}</span>
               </div>
-              <button onClick={() => setIsManageModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600">
+              <button
+                type="button"
+                onClick={() => setIsManageModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl transition cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveManage} className="space-y-3 text-xs">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Supermarket Name</label>
-                <input
-                  type="text"
-                  required
-                  value={editStoreForm.name}
-                  onChange={(e) => setEditStoreForm({ ...editStoreForm, name: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
-                />
+            <form onSubmit={handleSaveManage} className="space-y-4 text-xs">
+              {/* Basic Supermarket Info */}
+              <div className="space-y-3 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/70">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                  Store Profile
+                </span>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Supermarket Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editStoreForm.name}
+                    onChange={(e) => setEditStoreForm({ ...editStoreForm, name: e.target.value })}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Tagline</label>
+                  <input
+                    type="text"
+                    value={editStoreForm.tagline}
+                    onChange={(e) => setEditStoreForm({ ...editStoreForm, tagline: e.target.value })}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Owner Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Sheikh Tariq, Farhan Qureshi"
+                    value={editStoreForm.ownerName}
+                    onChange={(e) => setEditStoreForm({ ...editStoreForm, ownerName: e.target.value })}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">
+                    Dark Store Hubs (comma-separated)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Gulberg Mall Hub, DHA Phase 5, Mall of Lahore"
+                    value={editStoreForm.hubsText}
+                    onChange={(e) => setEditStoreForm({ ...editStoreForm, hubsText: e.target.value })}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    List dark store fulfillment hubs separated by commas. These will be updated on the supermarket card.
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Tagline</label>
-                <input
-                  type="text"
-                  value={editStoreForm.tagline}
-                  onChange={(e) => setEditStoreForm({ ...editStoreForm, tagline: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
-                />
+              {/* Mart Admin Credentials & Access */}
+              <div className="space-y-3 bg-amber-50/50 p-3.5 rounded-2xl border border-amber-200/80">
+                <div className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-amber-600" />
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 block">
+                    Mart Admin Credentials (Stored in Mart Admins)
+                  </span>
+                </div>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  Saving will automatically store/update this account in <strong>Mart Admins</strong> so the store admin can log in with this password.
+                </p>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Store Admin Login Email / Username</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. admin@alfatah.pk"
+                    value={editStoreForm.adminEmail}
+                    onChange={(e) => setEditStoreForm({ ...editStoreForm, adminEmail: e.target.value })}
+                    className="w-full bg-white border border-amber-200 rounded-xl px-3 py-2 text-slate-800 font-mono text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Store Admin Password</label>
+                  <div className="relative">
+                    <input
+                      type={editStoreForm.showPassword ? 'text' : 'password'}
+                      required
+                      placeholder="Enter login password"
+                      value={editStoreForm.adminPassword}
+                      onChange={(e) => setEditStoreForm({ ...editStoreForm, adminPassword: e.target.value })}
+                      className="w-full bg-white border border-amber-200 rounded-xl px-3 py-2 pr-10 text-slate-800 font-mono text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setEditStoreForm((prev) => ({ ...prev, showPassword: !prev.showPassword }))}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer p-1"
+                      title={editStoreForm.showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {editStoreForm.showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    The Mart Admin will use this password to access their Store Admin dashboard.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Contact Phone (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="+92 300 1234567"
+                    value={editStoreForm.ownerPhone}
+                    onChange={(e) => setEditStoreForm({ ...editStoreForm, ownerPhone: e.target.value })}
+                    className="w-full bg-white border border-amber-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Owner Name</label>
-                <input
-                  type="text"
-                  value={editStoreForm.ownerName}
-                  onChange={(e) => setEditStoreForm({ ...editStoreForm, ownerName: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Contact Email</label>
-                <input
-                  type="email"
-                  value={editStoreForm.ownerEmail}
-                  onChange={(e) => setEditStoreForm({ ...editStoreForm, ownerEmail: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsManageModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition shadow-xs"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
-                  Save Changes
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Save & Sync Mart Admin</span>
                 </button>
               </div>
             </form>
@@ -3166,7 +3348,7 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
               <div>
                 <span className="font-bold text-slate-800 block mb-1.5">Dark Store Fulfillment Hubs:</span>
                 <div className="flex flex-wrap gap-1.5">
-                  {selectedTenant.hubs.map((hub, idx) => (
+                  {(selectedTenant.hubs || []).map((hub, idx) => (
                     <span
                       key={idx}
                       className="px-2.5 py-1 bg-slate-100 text-slate-700 font-medium rounded-lg text-[11px]"
@@ -3180,13 +3362,10 @@ export const SuperAdminDashboard = ({ onSwitchToStoreAdmin }) => {
 
             <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
               <button
-                onClick={() => {
-                  setIsDetailsModalOpen(false);
-                  handleImpersonateStore(selectedTenant);
-                }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                onClick={() => setIsDetailsModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
               >
-                Enter Store Admin Console →
+                Close
               </button>
             </div>
           </div>

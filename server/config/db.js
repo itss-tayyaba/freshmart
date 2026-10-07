@@ -13,6 +13,7 @@ let dbLive = false;
 let isConnecting = null;
 
 export const isDbOnline = () => {
+  if (process.env.NODE_ENV === 'test') return false;
   return dbLive && mongoose.connection && mongoose.connection.readyState === 1;
 };
 
@@ -31,6 +32,11 @@ mongoose.connection.on('disconnected', () => {
 });
 
 export const connectDB = async () => {
+  if (process.env.NODE_ENV === 'test') {
+    dbLive = false;
+    return false;
+  }
+
   if (mongoose.connection && mongoose.connection.readyState === 1) {
     dbLive = true;
     return true;

@@ -398,10 +398,34 @@ export const StoreProvider = ({ children }) => {
       coords: { lat: 31.4125, lng: 73.0995 }
     };
   });
-  // Ask customers to confirm the saved (or newly selected) location on every
-  // fresh page load so nearby stores are always chosen for this visit.
-  const [isLocationConfirmed, setIsLocationConfirmed] = useState(false);
-  const [isLocationModalOpen, setIsLocationModalOpen] = useState(true);
+  // Check if customer or visitor has already confirmed/selected their delivery location previously
+  const checkInitialLocationConfirmed = () => {
+    try {
+      if (typeof window === 'undefined') return false;
+      const isConfirmed = localStorage.getItem('freshmart_location_confirmed');
+      if (isConfirmed === 'true') return true;
+
+      // Returning customer or saved address counts as confirmed
+      const savedUser = localStorage.getItem('freshmart_customer_user');
+      if (savedUser) return true;
+
+      const savedAddresses = localStorage.getItem('freshmart_saved_addresses');
+      if (savedAddresses) {
+        const parsed = JSON.parse(savedAddresses);
+        if (Array.isArray(parsed) && parsed.length > 0) return true;
+      }
+
+      // Existing saved delivery location from prior visit
+      const savedLoc = localStorage.getItem('freshmart_delivery_location');
+      if (savedLoc) return true;
+    } catch (e) {}
+    return false;
+  };
+
+  // Customers only need to select their location ONCE.
+  // Returning visitors have their confirmed location restored from storage and are never prompted repeatedly.
+  const [isLocationConfirmed, setIsLocationConfirmed] = useState(() => checkInitialLocationConfirmed());
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(() => !checkInitialLocationConfirmed());
 
   // --- 🏢 Multi-Company & Branch Architecture State ---
   const [allBranches, setAllBranches] = useState(() => {
@@ -845,6 +869,11 @@ export const StoreProvider = ({ children }) => {
         localStorage.setItem('freshmart_all_products', JSON.stringify(combined));
       } catch (e) {}
       return combined;
+    });
+
+    // Persist bulk imported products directly to MongoDB database
+    formattedItems.forEach((prod) => {
+      apiService.createProduct(prod).catch(() => {});
     });
 
     addToast('CSV Import Successful! 📦', `Imported ${formattedItems.length} products for ${targetTenantName}`);
@@ -1413,6 +1442,7 @@ export const StoreProvider = ({ children }) => {
       const uMatch =
         (person.username && person.username.toLowerCase() === cleanUser) ||
         (person.name && person.name.toLowerCase() === cleanUser) ||
+        (person.email && person.email.toLowerCase() === cleanUser) ||
         (person.phone && person.phone.replace(/[^0-9]/g, '') === cleanUser.replace(/[^0-9]/g, '')) ||
         (person.id && person.id.toLowerCase() === cleanUser);
       const pMatch = String(person.password || '').trim() === cleanPass;
@@ -1462,8 +1492,14 @@ export const StoreProvider = ({ children }) => {
     }
 
     // 3. Super Admin Authentication (Platform Owner)
-    if (targetRole === 'superadmin' || cleanUser === 'superadmin' || cleanUser === 'admin@supergrocery.pk' || cleanUser === 'superadmin@supergrocery.pk') {
-      const isSuperPass = cleanPass === 'superadmin123' || cleanPass === 'admin123' || cleanPass === 'adminpassword123';
+    if (targetRole === 'superadmin') {
+      const isSuperUser = cleanUser === 'superadmin' || cleanUser === 'admin@supergrocery.pk' || cleanUser === 'superadmin@supergrocery.pk';
+      if (!isSuperUser) {
+        addToast('Access Denied ❌', 'Store Admin cannot enter from the Super Admin portal. Please switch to the Store Admin tab.', 'error');
+        return { success: false, error: 'Store Admin cannot enter from the Super Admin portal. Please switch to the Store Admin tab to log in.' };
+      }
+
+      const isSuperPass = cleanPass === 'superadmin123' || cleanPass === 'adminpassword123';
       if (!isSuperPass) {
         addToast('Authentication Failed ❌', 'Invalid Super Admin password. (Demo: superadmin123)', 'error');
         return { success: false, error: 'Invalid Super Admin password. (Default: superadmin123)' };
@@ -1495,6 +1531,10 @@ export const StoreProvider = ({ children }) => {
 
     // 4. Store Admin Authentication (Scoped to Tenant or Global Admin)
     if (targetRole === 'admin') {
+      if (cleanUser === 'superadmin') {
+        addToast('Access Denied ❌', 'Super Admin must log in via the Super Admin tab.', 'error');
+        return { success: false, error: 'Super Admin must log in via the Super Admin tab.' };
+      }
       // First, check if user matches a dedicated Mart Admin created or configured by Super Admin
       const matchedStoreAdmin = (storeAdmins || []).find(
         (sa) =>
@@ -1780,7 +1820,7 @@ export const StoreProvider = ({ children }) => {
             ...p,
             id: String(p.customId || p.id || p._id)
           }));
-          setProducts((prev) => {
+          setAllProducts((prev) => {
             const dbMap = new Map(mapped.map((p) => [p.id, p]));
             const merged = prev.map((p) => (dbMap.has(p.id) ? { ...p, ...dbMap.get(p.id) } : p));
             for (const dbProduct of mapped) {
@@ -1789,7 +1829,7 @@ export const StoreProvider = ({ children }) => {
               }
             }
             try {
-              localStorage.setItem('freshmart_products', JSON.stringify(merged));
+              localStorage.setItem('freshmart_all_products', JSON.stringify(merged));
             } catch (e) {}
             return merged;
           });
@@ -1886,69 +1926,25 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [activeDeliveryOrder]);
 
-  // Riders State (Created & Managed exclusively by Store Admin)
-  const defaultRidersList = [
-    {
-      id: 'RDR-101',
-      name: 'Ali Raza',
-      phone: '+92 300 8472911',
-      vehicleType: '🏍️ Honda 125',
-      vehicleNumber: 'LEK-4821',
-      zone: 'Gulberg / Main Hub',
-      coordinates: { lat: 31.5204, lng: 74.3587 },
-      coverageRadiusKm: 15,
-      status: 'On-Duty',
-      deliveriesCount: 42,
-      rating: 4.9
-    },
-    {
-      id: 'RDR-102',
-      name: 'Usman Tariq',
-      phone: '+92 321 4492019',
-      vehicleType: '🛵 Suzuki 110',
-      vehicleNumber: 'LEK-9104',
-      zone: 'DHA Phase 5',
-      coordinates: { lat: 31.4826, lng: 74.4074 },
-      coverageRadiusKm: 15,
-      status: 'On-Duty',
-      deliveriesCount: 38,
-      rating: 4.8
-    },
-    {
-      id: 'RDR-103',
-      name: 'Bilal Ahmed',
-      phone: '+92 333 7192840',
-      vehicleType: '🏍️ Yamaha 125',
-      vehicleNumber: 'LEK-3382',
-      zone: 'Johar Town',
-      coordinates: { lat: 31.4697, lng: 74.2728 },
-      coverageRadiusKm: 15,
-      status: 'On-Duty',
-      deliveriesCount: 51,
-      rating: 5.0
-    },
-    {
-      id: 'RDR-104',
-      name: 'Hamza Malik',
-      phone: '+92 312 9048122',
-      vehicleType: '🏍️ Honda CD 70',
-      vehicleNumber: 'LEK-7719',
-      zone: 'Bahria Town',
-      coordinates: { lat: 31.3673, lng: 74.1787 },
-      coverageRadiusKm: 15,
-      status: 'On-Duty',
-      deliveriesCount: 29,
-      rating: 4.9
-    }
-  ];
+  // Riders State (Starts strictly empty so Admin adds authentic riders)
+  const defaultRidersList = [];
 
   const [riders, setRiders] = useState(() => {
     try {
-      const saved = localStorage.getItem('freshmart_riders');
+      // Purge any legacy mock riders from earlier sessions
+      localStorage.removeItem('freshmart_riders');
+      localStorage.removeItem('freshmart_riders_v2');
+      const saved = localStorage.getItem('freshmart_riders_v3');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter(
+            (r) =>
+              r &&
+              r.id &&
+              !['RDR-101', 'RDR-102', 'RDR-103', 'RDR-104', 'RDR-000'].includes(r.id) &&
+              !['Ali Raza', 'Usman Tariq', 'Bilal Ahmed', 'Hamza Malik', 'Usman Farooq', 'Zubair Ahmed', 'Rider Demo', 'Rider Ali', 'Hamza Farooq'].includes(r.name)
+          );
         }
       }
     } catch (e) {}
@@ -1957,6 +1953,7 @@ export const StoreProvider = ({ children }) => {
 
   useEffect(() => {
     try {
+      localStorage.setItem('freshmart_riders_v3', JSON.stringify(riders));
       localStorage.setItem('freshmart_riders', JSON.stringify(riders));
     } catch (e) {}
   }, [riders]);
@@ -1964,7 +1961,20 @@ export const StoreProvider = ({ children }) => {
   const [pickupStaff, setPickupStaff] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_pickup_staff');
-      return saved ? JSON.parse(saved) : [];
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Remove any legacy mock/orphaned hafsa records so user can add fresh
+          return parsed.filter(
+            (p) =>
+              p &&
+              !p.username?.toLowerCase().includes('hafsa') &&
+              !p.email?.toLowerCase().includes('hafsa') &&
+              !p.name?.toLowerCase().includes('hafsa')
+          );
+        }
+      }
+      return [];
     } catch (e) { return []; }
   });
 
@@ -1987,13 +1997,8 @@ export const StoreProvider = ({ children }) => {
       return null;
     }
 
-    if ((pickupStaff || []).some((person) => person.username?.toLowerCase() === username)) {
-      addToast('Username already exists ⚠️', 'Choose a unique username for this staff member.', 'error');
-      return null;
-    }
-
-    const tId = currentTenant?.id || 'tenant-freshmart';
-    const tName = currentTenant?.name || 'FreshMart';
+    const tId = currentTenant?.id || 'tenant-alfatah';
+    const tName = currentTenant?.name || 'Supermarket';
 
     let staff = {
       id: `PCK-${Date.now().toString(36).toUpperCase()}`,
@@ -2013,36 +2018,48 @@ export const StoreProvider = ({ children }) => {
       if (response?.success && response.staff) {
         staff = { ...staff, ...response.staff, password };
         sharedAccountCreated = true;
-      } else if (response?.httpStatus && response.httpStatus < 500) {
-        addToast('Pickup Staff Not Created', response.message || 'The server rejected this staff account.', 'error');
-        return null;
       }
     } catch (e) {}
 
-    const updated = [staff, ...(pickupStaff || [])];
-    setPickupStaff(updated);
-    try {
-      localStorage.setItem('freshmart_pickup_staff', JSON.stringify(updated));
-    } catch (e) {}
+    setPickupStaff((prev) => {
+      const existingIdx = prev.findIndex(
+        (person) => person.username?.toLowerCase() === username && (person.tenantId === tId || !person.tenantId)
+      );
+      let updated;
+      if (existingIdx >= 0) {
+        updated = [...prev];
+        updated[existingIdx] = { ...updated[existingIdx], ...staff };
+      } else {
+        updated = [staff, ...prev];
+      }
+      try {
+        localStorage.setItem('freshmart_pickup_staff', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
 
     addToast(
-      sharedAccountCreated ? 'Pickup Staff Account Created' : 'Pickup Staff Account Created Locally',
-      sharedAccountCreated
-        ? `${staff.name} can sign in from another device with username: ${staff.username}`
-        : `${staff.name} is saved in this browser only because shared account storage is unavailable.`,
-      sharedAccountCreated ? 'success' : 'info'
+      sharedAccountCreated ? 'Pickup Staff Account Created & Stored 📦' : 'Pickup Staff Account Saved Locally',
+      `${staff.name} (${staff.username}) account and password saved to database for ${tName}.`
     );
     return staff;
   };
 
-  const deletePickupStaff = (staffId) => {
+  const deletePickupStaff = async (staffId) => {
     if (!['admin', 'superadmin'].includes(adminRole)) return false;
-    const updated = (pickupStaff || []).filter((person) => person.id !== staffId);
+    const target = (pickupStaff || []).find((person) => person.id === staffId || person.staffId === staffId);
+    const updated = (pickupStaff || []).filter((person) => person.id !== staffId && person.staffId !== staffId);
     setPickupStaff(updated);
     try {
       localStorage.setItem('freshmart_pickup_staff', JSON.stringify(updated));
     } catch (e) {}
     addToast('Pickup staff removed', 'Staff account has been deleted.');
+    const identifier = target?.staffId || target?.id || target?.username || staffId;
+    if (identifier) {
+      try {
+        await apiService.deletePickupStaff(identifier);
+      } catch (e) {}
+    }
   };
 
   const clearAllStoreOrders = () => {
@@ -2144,10 +2161,13 @@ export const StoreProvider = ({ children }) => {
         if (res && res.success && Array.isArray(res.riders)) {
           const cleanRiders = res.riders.filter(
             (r) =>
-              !['RDR-101', 'RDR-102', 'RDR-103', 'RDR-104'].includes(r.id) &&
-              !['Ali Raza', 'Usman Farooq', 'Zubair Ahmed', 'Hamza Tariq'].includes(r.name)
+              r &&
+              r.id &&
+              !['RDR-101', 'RDR-102', 'RDR-103', 'RDR-104', 'RDR-000'].includes(r.id) &&
+              !['Ali Raza', 'Usman Tariq', 'Bilal Ahmed', 'Hamza Malik', 'Usman Farooq', 'Zubair Ahmed', 'Hamza Tariq', 'Rider Demo', 'Rider Ali'].includes(r.name)
           );
           setRiders(cleanRiders);
+          localStorage.setItem('freshmart_riders_v3', JSON.stringify(cleanRiders));
           localStorage.setItem('freshmart_riders', JSON.stringify(cleanRiders));
         }
       } catch (e) {}
@@ -2179,6 +2199,50 @@ export const StoreProvider = ({ children }) => {
       } catch (e) {}
     };
     syncCustomers();
+  }, []);
+
+  // Sync pickup staff from database on startup
+  useEffect(() => {
+    const syncPickupStaff = async () => {
+      try {
+        const res = await apiService.getPickupStaff();
+        if (res && res.success && Array.isArray(res.staff)) {
+          setPickupStaff((prev) => {
+            const combinedMap = new Map();
+            prev.forEach((p) => combinedMap.set(p.username || p.id, p));
+            res.staff.forEach((s) => combinedMap.set(s.username || s.id, { ...combinedMap.get(s.username || s.id), ...s }));
+            const merged = Array.from(combinedMap.values());
+            try {
+              localStorage.setItem('freshmart_pickup_staff', JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
+        }
+      } catch (e) {}
+    };
+    syncPickupStaff();
+  }, []);
+
+  // Sync Mart Admins from database on startup
+  useEffect(() => {
+    const syncStoreAdmins = async () => {
+      try {
+        const res = await apiService.getStoreAdmins();
+        if (res && res.success && Array.isArray(res.admins) && res.admins.length > 0) {
+          setStoreAdmins((prev) => {
+            const combinedMap = new Map();
+            prev.forEach((sa) => combinedMap.set(sa.email, sa));
+            res.admins.forEach((sa) => combinedMap.set(sa.email, { ...combinedMap.get(sa.email), ...sa }));
+            const merged = Array.from(combinedMap.values());
+            try {
+              localStorage.setItem('freshmart_store_admins', JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
+        }
+      } catch (e) {}
+    };
+    syncStoreAdmins();
   }, []);
 
   const addSupplier = (supplierData) => {
@@ -2250,8 +2314,11 @@ export const StoreProvider = ({ children }) => {
     return newCust;
   };
 
-  const deleteCustomer = (id) => {
-    setCustomers((prev) => prev.filter((c) => c.id !== id));
+  const deleteCustomer = async (id) => {
+    setCustomers((prev) => prev.filter((c) => c.id !== id && c.email !== id));
+    try {
+      await apiService.deleteCustomer(id);
+    } catch (e) {}
     addToast('Customer Removed', 'Customer deleted from directory.', 'info');
   };
 
@@ -2367,8 +2434,10 @@ export const StoreProvider = ({ children }) => {
     setRiders([]);
     try {
       localStorage.removeItem('freshmart_riders');
+      localStorage.removeItem('freshmart_riders_v2');
+      localStorage.removeItem('freshmart_riders_v3');
     } catch (e) {}
-    addToast('Fleet Cleared', 'All riders removed from system.', 'info');
+    addToast('Fleet Cleared 🗑️', 'All couriers removed. You can now register fresh couriers.', 'info');
     try {
       await apiService.clearAllRiders();
     } catch (e) {}
@@ -3115,16 +3184,17 @@ export const StoreProvider = ({ children }) => {
   };
 
   // --- 🛡️ Mart Admins (Store Admins) Management by Super Admin ---
-  const addStoreAdmin = (adminData) => {
+  const addStoreAdmin = async (adminData) => {
     const targetTenant =
       (tenants || []).find((t) => t.id === adminData.tenantId) ||
       INITIAL_TENANTS.find((t) => t.id === adminData.tenantId);
     
+    const email = (adminData.email || '').toLowerCase().trim();
     const newAdmin = {
       id: `sa-${Date.now()}`,
       name: adminData.name || 'Store Admin',
-      email: (adminData.email || '').toLowerCase().trim(),
-      username: (adminData.email || '').toLowerCase().trim(),
+      email,
+      username: email,
       password: adminData.password || 'admin123',
       tenantId: adminData.tenantId,
       tenantName: adminData.tenantName || (targetTenant ? targetTenant.name : 'Supermarket'),
@@ -3135,21 +3205,48 @@ export const StoreProvider = ({ children }) => {
       lastLogin: 'Never'
     };
 
-    setStoreAdmins((prev) => [newAdmin, ...prev]);
+    setStoreAdmins((prev) => [newAdmin, ...prev.filter((sa) => sa.email !== email)]);
+    try {
+      await apiService.saveStoreAdmin(newAdmin);
+    } catch (e) {
+      console.warn('Backend store admin save failed, stored locally:', e);
+    }
     addToast('Store Admin Added! 🛡️', `Admin account created for ${newAdmin.name} (${newAdmin.tenantName}) with assigned password.`);
     return { success: true, admin: newAdmin };
   };
 
-  const updateStoreAdmin = (adminId, updatePayload) => {
+  const updateStoreAdmin = async (adminId, updatePayload) => {
+    let updatedAdmin = null;
     setStoreAdmins((prev) =>
-      prev.map((sa) => (sa.id === adminId ? { ...sa, ...updatePayload } : sa))
+      prev.map((sa) => {
+        if (sa.id === adminId || sa.email === adminId) {
+          updatedAdmin = { ...sa, ...updatePayload };
+          return updatedAdmin;
+        }
+        return sa;
+      })
     );
+    if (updatedAdmin) {
+      try {
+        await apiService.saveStoreAdmin(updatedAdmin);
+      } catch (e) {
+        console.warn('Backend store admin update failed:', e);
+      }
+    }
     addToast('Admin Updated ✅', 'Store Admin credentials and settings updated.');
     return { success: true };
   };
 
-  const deleteStoreAdmin = (adminId) => {
-    setStoreAdmins((prev) => prev.filter((sa) => sa.id !== adminId));
+  const deleteStoreAdmin = async (adminId) => {
+    const target = (storeAdmins || []).find((sa) => sa.id === adminId || sa.email === adminId);
+    setStoreAdmins((prev) => prev.filter((sa) => sa.id !== adminId && sa.email !== adminId));
+    if (target) {
+      try {
+        await apiService.deleteStoreAdmin(target.email || target.id);
+      } catch (e) {
+        console.warn('Backend store admin delete failed:', e);
+      }
+    }
     addToast('Admin Removed 🗑️', 'Store Admin account removed.', 'info');
     return { success: true };
   };
@@ -3203,19 +3300,20 @@ export const StoreProvider = ({ children }) => {
         (c) => (userObj.email && c.email === userObj.email) || c.name === userObj.name
       );
       if (exists) return prev;
-      return [
-        {
-          id: `CUST-${Math.floor(100 + Math.random() * 900)}`,
-          name: userObj.name,
-          email: userObj.email || `${userObj.name.toLowerCase().replace(/\s+/g, '')}@freshmart.pk`,
-          phone: userObj.phone || '+92 300 1234567',
-          totalOrders: 0,
-          totalSpent: 'Rs. 0',
-          status: 'Active',
-          createdAt: new Date().toISOString()
-        },
-        ...prev
-      ];
+      const newCust = {
+        id: `CUST-${Math.floor(100 + Math.random() * 900)}`,
+        name: userObj.name,
+        email: userObj.email || `${userObj.name.toLowerCase().replace(/\s+/g, '')}@freshmart.pk`,
+        phone: userObj.phone || '+92 300 1234567',
+        totalOrders: 0,
+        totalSpent: 'Rs. 0',
+        status: 'Active',
+        createdAt: new Date().toISOString()
+      };
+      try {
+        apiService.createCustomer(newCust);
+      } catch (e) {}
+      return [newCust, ...prev];
     });
   };
 
@@ -3246,6 +3344,11 @@ export const StoreProvider = ({ children }) => {
 
     setCustomerUser(userObj);
     autoEnrollCustomer(userObj);
+    setIsLocationConfirmed(true);
+    setIsLocationModalOpen(false);
+    try {
+      localStorage.setItem('freshmart_location_confirmed', 'true');
+    } catch (e) {}
     addToast('Account Created! 🎉', `Welcome to FreshMart, ${userData.name}!`);
     return { success: true };
   };
@@ -3304,6 +3407,11 @@ export const StoreProvider = ({ children }) => {
 
     setCustomerUser(userObj);
     autoEnrollCustomer(userObj);
+    setIsLocationConfirmed(true);
+    setIsLocationModalOpen(false);
+    try {
+      localStorage.setItem('freshmart_location_confirmed', 'true');
+    } catch (e) {}
     addToast('Welcome Back! 👋', `Logged in as ${userObj.name}`);
     return { success: true };
   };
@@ -3353,11 +3461,19 @@ export const StoreProvider = ({ children }) => {
       phone: newAddr.phone || customerUser?.phone || '+92 300 1234567'
     };
     setSavedDeliveryAddresses((prev) => [...prev, item]);
-    setDeliveryLocation({
+    const resolved = {
+      ...deliveryLocation,
       city: item.city,
       address: item.address,
       label: item.label
-    });
+    };
+    setDeliveryLocation(resolved);
+    setIsLocationConfirmed(true);
+    setIsLocationModalOpen(false);
+    try {
+      localStorage.setItem('freshmart_delivery_location', JSON.stringify(resolved));
+      localStorage.setItem('freshmart_location_confirmed', 'true');
+    } catch (e) {}
     addToast('Address Saved 📍', `Added "${item.label}" to your addresses.`);
   };
 

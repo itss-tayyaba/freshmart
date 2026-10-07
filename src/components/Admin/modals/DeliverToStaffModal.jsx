@@ -5,7 +5,7 @@ import { useStore } from '../../../context/StoreContext';
 export const DeliverToStaffModal = ({ order, isOpen, onClose, onSuccess }) => {
   const { pickupStaff = [], assignPickupStaffToOrder, currentTenant, addToast } = useStore();
   const tenantId = order?.tenantId || currentTenant?.id || 'tenant-freshmart';
-  const staff = useMemo(() => pickupStaff.filter((member) => member.tenantId === tenantId && member.status === 'Active'), [pickupStaff, tenantId]);
+  const staff = useMemo(() => pickupStaff.filter((member) => (!member.tenantId || member.tenantId === tenantId) && member.status === 'Active'), [pickupStaff, tenantId]);
   const [selectedStaffId, setSelectedStaffId] = useState(order?.pickupStaffId || '');
   useEffect(() => setSelectedStaffId(order?.pickupStaffId || ''), [order?.id, order?.pickupStaffId]);
 

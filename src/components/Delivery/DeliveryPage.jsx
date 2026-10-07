@@ -603,7 +603,7 @@ export const DeliveryPage = () => {
                     <p className="text-xs text-slate-600 font-medium mt-0.5">
                       {currentOrder.status === 'Delivered'
                         ? 'Handover OTP has been verified and payment collected.'
-                        : `Provide this 4-digit code to rider ${assignedRider?.name || 'Ali'} upon arrival to verify handover.`}
+                        : `Provide this 4-digit code to rider ${assignedRider?.name || 'courier'} upon arrival to verify handover.`}
                     </p>
                   </div>
                 </div>

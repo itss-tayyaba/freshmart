@@ -116,7 +116,8 @@ describe('Production Real Order Tracking & GPS Telemetry Pipeline', () => {
       customerName: 'Sana Malik',
       address: 'House 18, Block G, Johar Town, Lahore',
       city: 'Lahore, Pakistan',
-      status: 'Confirmed',
+      status: 'Ready for Dispatch',
+      fulfillmentStage: 4,
       assignedRider: null
     });
 
@@ -145,7 +146,7 @@ describe('Production Real Order Tracking & GPS Telemetry Pipeline', () => {
     await assignRiderToOrder(mockReq, mockRes);
     assert.equal(assignResponse.success, true);
     assert.equal(assignResponse.order.assignedRider.name, 'Hamza Farooq');
-    assert.equal(assignResponse.order.status, 'Out for Delivery');
+    assert.equal(assignResponse.order.status, 'Ready for Dispatch');
     assert.ok(assignResponse.order.assignedRider.etaMinutes > 0);
 
     // Verify live location update

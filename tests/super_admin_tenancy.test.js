@@ -320,4 +320,85 @@ describe('Super Grocery Multi-Tenant Platform Architecture', () => {
       assert.equal(data.success, false);
     });
   });
+
+  describe('4. Manage Supermarket Profile, Hubs & Mart Admin Credentials Sync', () => {
+    it('manages owner name, dark store hubs, and stores new admin with custom password into Mart Admins', () => {
+      let tenants = [...INITIAL_TENANTS];
+      let storeAdmins = [];
+
+      // Simulated Super Admin Manage action for Chase Value
+      const targetStore = tenants.find((t) => t.id === 'tenant-chasevalue');
+      assert.ok(targetStore);
+
+      const formInput = {
+        name: 'Chase Value Wholesale',
+        tagline: 'Quality Products, Best Wholesale Prices',
+        ownerName: 'Muhammad Salman Qureshi',
+        hubsText: 'D-Ground Faisalabad Hub, Clock Tower Hub, Peoples Colony Hub',
+        adminEmail: 'salman@chasevalue.pk',
+        adminPassword: 'chaseSecurePass456'
+      };
+
+      // 1. Parse hubs
+      const hubsList = formInput.hubsText.split(',').map((h) => h.trim()).filter(Boolean);
+      assert.equal(hubsList.length, 3);
+      assert.ok(hubsList.includes('D-Ground Faisalabad Hub'));
+
+      // 2. Update tenant
+      tenants = tenants.map((t) =>
+        t.id === targetStore.id
+          ? {
+              ...t,
+              name: formInput.name,
+              fullName: formInput.name,
+              ownerName: formInput.ownerName,
+              ownerEmail: formInput.adminEmail,
+              hubs: hubsList
+            }
+          : t
+      );
+
+      const updatedTenant = tenants.find((t) => t.id === 'tenant-chasevalue');
+      assert.equal(updatedTenant.ownerName, 'Muhammad Salman Qureshi');
+      assert.equal(updatedTenant.hubs.length, 3);
+
+      // 3. Sync into Mart Admins (storeAdmins)
+      const existingAdmin = storeAdmins.find((sa) => sa.tenantId === targetStore.id);
+      if (existingAdmin) {
+        storeAdmins = storeAdmins.map((sa) =>
+          sa.id === existingAdmin.id
+            ? { ...sa, name: formInput.ownerName, email: formInput.adminEmail, password: formInput.adminPassword }
+            : sa
+        );
+      } else {
+        storeAdmins.push({
+          id: `sa-${Date.now()}`,
+          name: formInput.ownerName,
+          email: formInput.adminEmail,
+          username: formInput.adminEmail.split('@')[0],
+          password: formInput.adminPassword,
+          tenantId: targetStore.id,
+          tenantName: formInput.name,
+          role: 'Store Admin',
+          status: 'Active'
+        });
+      }
+
+      // Verify Mart Admin record in ledger
+      assert.equal(storeAdmins.length, 1);
+      const savedAdmin = storeAdmins[0];
+      assert.equal(savedAdmin.name, 'Muhammad Salman Qureshi');
+      assert.equal(savedAdmin.email, 'salman@chasevalue.pk');
+      assert.equal(savedAdmin.password, 'chaseSecurePass456');
+      assert.equal(savedAdmin.tenantId, 'tenant-chasevalue');
+
+      // 4. Test Mart Admin authentication check against saved credentials
+      const matchedAdmin = storeAdmins.find(
+        (sa) => sa.email === 'salman@chasevalue.pk' || sa.username === 'salman'
+      );
+      assert.ok(matchedAdmin);
+      assert.equal(matchedAdmin.password === 'chaseSecurePass456', true);
+      assert.equal(matchedAdmin.password === 'wrongpass', false);
+    });
+  });
 });

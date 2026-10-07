@@ -36,29 +36,13 @@ const seedDatabase = async () => {
 
     console.log('🧹 Existing data wiped.');
 
-    // 1. Seed Admin & Registered Customers (Hafsa & Aimen) - bcrypt pre-save hash
+    // 1. Seed Platform Super Admin (Zero mock customers seeded)
     await User.create([
       {
         name: 'Super Admin',
         email: 'admin@freshmart.com',
         password: 'adminpassword123',
         role: 'admin'
-      },
-      {
-        name: 'Hafsa',
-        email: 'hafsa@gmail.com',
-        password: 'password123',
-        role: 'customer',
-        address: 'House 12, Street 4, Johar Town, Lahore, Pakistan',
-        phone: '0300-1234567'
-      },
-      {
-        name: 'Aimen',
-        email: 'aimen@gmail.com',
-        password: 'password123',
-        role: 'customer',
-        address: 'Gulberg III, Main Boulevard, Lahore, Pakistan',
-        phone: '0321-7654321'
       }
     ]);
 
@@ -114,23 +98,8 @@ const seedDatabase = async () => {
       }))
     );
 
-    // 5. Seed Fleet Riders (Bcrypt pre-save hook hashes password)
-    await Rider.create([
-      {
-        id: 'RDR-101',
-        name: 'Rider Ali',
-        phone: '0301-1234567',
-        vehicleType: '🏍️ Honda 125',
-        vehicleNumber: 'LEK-4589',
-        zone: 'Lahore Hub',
-        status: 'On-Duty',
-        username: 'rider',
-        password: 'rider123',
-        cnic: '35202-1234567-1',
-        deliveriesCount: 42,
-        rating: 4.9
-      }
-    ]);
+    // 5. Fleet Riders: Zero mock riders seeded (managed exclusively via Admin Console)
+    console.log('🛵 Riders collection: 0 mock seeds (fleet managed via Admin Console).');
 
     // 6. Seed Promotions
     await Promotion.insertMany(
@@ -143,17 +112,8 @@ const seedDatabase = async () => {
       }))
     );
 
-    // 7. Seed Deliveries
-    await Delivery.insertMany(
-      ADMIN_DELIVERIES_DATA.map((d) => ({
-        orderId: d.id,
-        customerName: d.customer,
-        riderName: d.rider,
-        riderPhone: d.riderPhone,
-        status: d.status,
-        eta: d.eta
-      }))
-    );
+    // 7. Deliveries: Zero mock deliveries seeded (dispatches created strictly from live customer orders)
+    console.log('📦 Deliveries collection: 0 mock seeds (dispatches created strictly from live customer orders).');
 
     console.log('✅ FreshMart database seeded successfully with hashed credentials!');
     process.exit(0);

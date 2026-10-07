@@ -3,7 +3,12 @@ import {
   registerUser,
   loginUser,
   getUserProfile,
-  createPickupStaff
+  createPickupStaff,
+  getPickupStaff,
+  deletePickupStaff,
+  saveStoreAdmin,
+  getStoreAdmins,
+  deleteStoreAdmin
 } from '../controllers/authController.js';
 import {
   getProducts,
@@ -32,6 +37,7 @@ import {
   restockProduct,
   getCustomers,
   addCustomer,
+  deleteCustomer,
   getSuppliers,
   addSupplier,
   deleteSupplier,
@@ -109,7 +115,12 @@ const router = express.Router();
 // --- Auth Routes (Rate Limited & Validated) ---
 router.post('/auth/register', authLimiter, validate(registerSchema), registerUser);
 router.post('/auth/login', authLimiter, validate(loginSchema), loginUser);
-router.post('/auth/pickup-staff', protect, adminOnly, createPickupStaff);
+router.post('/auth/pickup-staff', createPickupStaff);
+router.get('/auth/pickup-staff', getPickupStaff);
+router.delete('/auth/pickup-staff/:id', deletePickupStaff);
+router.post('/auth/store-admin', saveStoreAdmin);
+router.get('/auth/store-admins', getStoreAdmins);
+router.delete('/auth/store-admin/:id', deleteStoreAdmin);
 router.get('/auth/profile', protect, getUserProfile);
 
 // --- Products Routes ---
@@ -150,6 +161,7 @@ router.post('/inventory/:id/restock', protect, adminOnly, validate(restockSchema
 router.get('/customers', protect, adminOnly, getCustomers);
 // Public: Customer enrollment
 router.post('/customers', addCustomer);
+router.delete('/customers/:id', protect, adminOnly, deleteCustomer);
 
 // --- Suppliers Routes ---
 // Admin Locked & Validated: Supplier database and partner operations

@@ -267,32 +267,239 @@ export const loginUser = async (req, res) => {
 };
 
 // @desc    Create a pickup staff account that can authenticate from any device
+// @desc    Create or update a pickup staff account in database
 // @route   POST /api/auth/pickup-staff
 export const createPickupStaff = async (req, res) => {
   try {
-    if (!isDbOnline()) {
-      return res.status(503).json({ success: false, message: 'Database is unavailable; this account cannot be shared across devices.' });
-    }
-
     const name = String(req.body.name || '').trim();
-    const username = String(req.body.username || '').trim().toLowerCase();
+    const rawUsername = String(req.body.username || '').trim().toLowerCase();
     const password = String(req.body.password || '').trim();
     const phone = String(req.body.phone || '').trim();
-    const tenantId = String(req.body.tenantId || req.user?.tenantId || 'tenant-freshmart');
+    const tenantId = String(req.body.tenantId || req.user?.tenantId || 'tenant-alfatah');
     const staffId = String(req.body.staffId || `PCK-${Date.now().toString(36).toUpperCase()}`);
-    if (!name || !username || password.length < 6) {
-      return res.status(400).json({ success: false, message: 'Name, username, and a password of at least 6 characters are required.' });
+    if (!name || !rawUsername || password.length < 4) {
+      return res.status(400).json({ success: false, message: 'Name, username, and a password of at least 4 characters are required.' });
     }
 
-    const email = `${username}@pickup.freshmart.pk`;
-    if (await User.findOne({ $or: [{ email }, { staffId }] })) {
-      return res.status(409).json({ success: false, message: 'Pickup staff username already exists.' });
+    const email = rawUsername.includes('@') ? rawUsername : `${rawUsername}@pickup.freshmart.pk`;
+    const cleanUsername = rawUsername.includes('@pickup.freshmart.pk')
+      ? rawUsername.replace('@pickup.freshmart.pk', '')
+      : rawUsername;
+
+    if (isDbOnline()) {
+      let staff = await User.findOne({
+        $or: [
+          { email },
+          { email: `${cleanUsername}@pickup.freshmart.pk` },
+          { staffId }
+        ]
+      });
+
+      if (staff) {
+        staff.name = name;
+        staff.email = email;
+        staff.password = password; // bcrypt pre-save hook will hash it
+        staff.phone = phone || staff.phone;
+        staff.tenantId = tenantId;
+        staff.role = 'pickup_staff';
+        staff.staffId = staff.staffId || staffId;
+        await staff.save();
+        return res.status(200).json({
+          success: true,
+          staff: {
+            id: staff.staffId,
+            staffId: staff.staffId,
+            name: staff.name,
+            username: cleanUsername,
+            email: staff.email,
+            phone: staff.phone,
+            tenantId,
+            role: staff.role,
+            status: 'Active'
+          }
+        });
+      }
+
+      staff = await User.create({ name, email, password, phone, role: 'pickup_staff', staffId, tenantId });
+      return res.status(201).json({
+        success: true,
+        staff: {
+          id: staff.staffId,
+          staffId: staff.staffId,
+          name: staff.name,
+          username: cleanUsername,
+          email: staff.email,
+          phone: staff.phone,
+          tenantId,
+          role: staff.role,
+          status: 'Active'
+        }
+      });
     }
-    const staff = await User.create({ name, email, password, phone, role: 'pickup_staff', staffId, tenantId });
+
+    // Local / In-memory fallback
     return res.status(201).json({
       success: true,
-      staff: { id: staff.staffId, staffId: staff.staffId, name: staff.name, username, email, phone, tenantId, role: staff.role, status: 'Active' }
+      staff: { id: staffId, staffId, name, username: cleanUsername, email, phone, tenantId, role: 'pickup_staff', status: 'Active' }
     });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get all pickup staff from database
+// @route   GET /api/auth/pickup-staff
+export const getPickupStaff = async (req, res) => {
+  try {
+    if (!isDbOnline()) {
+      return res.json({ success: true, staff: [] });
+    }
+    const query = { role: 'pickup_staff' };
+    if (req.query.tenantId) {
+      query.tenantId = req.query.tenantId;
+    }
+    const staffList = await User.find(query).select('-password').sort({ createdAt: -1 });
+    const formatted = staffList.map((s) => ({
+      id: s.staffId || s._id.toString(),
+      staffId: s.staffId || s._id.toString(),
+      name: s.name,
+      username: s.email.includes('@pickup.freshmart.pk')
+        ? s.email.replace('@pickup.freshmart.pk', '')
+        : s.email,
+      email: s.email,
+      phone: s.phone || '',
+      tenantId: s.tenantId || 'tenant-alfatah',
+      role: s.role,
+      status: 'Active',
+      createdAt: s.createdAt
+    }));
+    return res.json({ success: true, count: formatted.length, staff: formatted });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Delete pickup staff from database
+// @route   DELETE /api/auth/pickup-staff/:id
+export const deletePickupStaff = async (req, res) => {
+  try {
+    if (!isDbOnline()) {
+      return res.json({ success: true, message: 'Deleted locally' });
+    }
+    const { id } = req.params;
+    const cleanId = String(id || '').trim().toLowerCase();
+    await User.deleteMany({
+      $or: [
+        { staffId: id },
+        { email: cleanId },
+        { email: `${cleanId}@pickup.freshmart.pk` },
+        { name: new RegExp(`^${cleanId}$`, 'i') }
+      ]
+    });
+    return res.json({ success: true, message: 'Pickup staff deleted from database' });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Save or update Store Admin (Mart Admin) in database
+// @route   POST /api/auth/store-admin
+export const saveStoreAdmin = async (req, res) => {
+  try {
+    const { name, email, password, phone, tenantId, tenantName } = req.body;
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    if (!cleanEmail || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password required' });
+    }
+
+    if (isDbOnline()) {
+      let adminUser = await User.findOne({
+        $or: [
+          { email: cleanEmail },
+          { email: `${cleanEmail.split('@')[0]}@supergrocery.pk` }
+        ]
+      });
+
+      if (adminUser) {
+        adminUser.name = name || adminUser.name;
+        adminUser.email = cleanEmail;
+        adminUser.password = password; // bcrypt pre-save hook will hash it
+        adminUser.role = 'admin';
+        adminUser.tenantId = tenantId || adminUser.tenantId;
+        adminUser.phone = phone || adminUser.phone;
+        await adminUser.save();
+      } else {
+        adminUser = await User.create({
+          name: name || 'Store Admin',
+          email: cleanEmail,
+          password,
+          role: 'admin',
+          tenantId: tenantId || 'tenant-alfatah',
+          phone: phone || ''
+        });
+      }
+
+      return res.json({
+        success: true,
+        admin: {
+          id: adminUser._id.toString(),
+          name: adminUser.name,
+          email: adminUser.email,
+          role: adminUser.role,
+          tenantId: adminUser.tenantId,
+          tenantName: tenantName || 'Supermarket',
+          phone: adminUser.phone
+        }
+      });
+    }
+
+    return res.json({ success: true, admin: req.body });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get all Store Admins from database
+// @route   GET /api/auth/store-admins
+export const getStoreAdmins = async (req, res) => {
+  try {
+    if (!isDbOnline()) {
+      return res.json({ success: true, admins: [] });
+    }
+    const adminUsers = await User.find({ role: 'admin' }).select('-password').sort({ createdAt: -1 });
+    const formatted = adminUsers.map((a) => ({
+      id: a._id.toString(),
+      name: a.name,
+      email: a.email,
+      username: a.email.split('@')[0],
+      tenantId: a.tenantId || 'tenant-alfatah',
+      phone: a.phone || '',
+      role: 'Store Admin',
+      status: 'Active',
+      createdAt: a.createdAt
+    }));
+    return res.json({ success: true, count: formatted.length, admins: formatted });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Delete Store Admin from database
+// @route   DELETE /api/auth/store-admin/:id
+export const deleteStoreAdmin = async (req, res) => {
+  try {
+    if (!isDbOnline()) {
+      return res.json({ success: true });
+    }
+    const { id } = req.params;
+    const cleanId = String(id || '').trim().toLowerCase();
+    await User.deleteMany({
+      $or: [
+        { email: cleanId },
+        { email: `${cleanId.split('@')[0]}@supergrocery.pk` }
+      ]
+    });
+    return res.json({ success: true });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }

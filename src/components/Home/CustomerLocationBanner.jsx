@@ -105,11 +105,15 @@ export const CustomerLocationBanner = ({ onLocationConfirmed }) => {
       label: defaultN.name
     };
 
-    setDeliveryLocation(newLoc);
-    try {
-      localStorage.setItem('freshmart_delivery_location', JSON.stringify(newLoc));
-      localStorage.setItem('freshmart_location_confirmed', 'true');
-    } catch (e) {}
+    if (confirmDeliveryLocation) {
+      confirmDeliveryLocation(newLoc);
+    } else {
+      setDeliveryLocation(newLoc);
+      try {
+        localStorage.setItem('freshmart_delivery_location', JSON.stringify(newLoc));
+        localStorage.setItem('freshmart_location_confirmed', 'true');
+      } catch (e) {}
+    }
 
     addToast('City Selected 📍', `Switched to ${cityObj.city}`);
     if (onLocationConfirmed) onLocationConfirmed(newLoc);
@@ -131,11 +135,15 @@ export const CustomerLocationBanner = ({ onLocationConfirmed }) => {
       label: neighborhood.name
     };
 
-    setDeliveryLocation(newLoc);
-    try {
-      localStorage.setItem('freshmart_delivery_location', JSON.stringify(newLoc));
-      localStorage.setItem('freshmart_location_confirmed', 'true');
-    } catch (e) {}
+    if (confirmDeliveryLocation) {
+      confirmDeliveryLocation(newLoc);
+    } else {
+      setDeliveryLocation(newLoc);
+      try {
+        localStorage.setItem('freshmart_delivery_location', JSON.stringify(newLoc));
+        localStorage.setItem('freshmart_location_confirmed', 'true');
+      } catch (e) {}
+    }
 
     setIsEditingAddress(false);
     addToast('Delivery Pin Updated 📍', `Delivering to ${neighborhood.name}, ${currentCityObj.city}`);
@@ -158,11 +166,15 @@ export const CustomerLocationBanner = ({ onLocationConfirmed }) => {
       }
     };
 
-    setDeliveryLocation(newLoc);
-    try {
-      localStorage.setItem('freshmart_delivery_location', JSON.stringify(newLoc));
-      localStorage.setItem('freshmart_location_confirmed', 'true');
-    } catch (e) {}
+    if (confirmDeliveryLocation) {
+      confirmDeliveryLocation(newLoc);
+    } else {
+      setDeliveryLocation(newLoc);
+      try {
+        localStorage.setItem('freshmart_delivery_location', JSON.stringify(newLoc));
+        localStorage.setItem('freshmart_location_confirmed', 'true');
+      } catch (e) {}
+    }
 
     setIsEditingAddress(false);
     addToast('Address Confirmed 📍', `Delivering to: ${addressInput.trim()}`);

@@ -9,6 +9,7 @@ export const AddressesView = () => {
     removeSavedAddress,
     deliveryLocation,
     setDeliveryLocation,
+    confirmDeliveryLocation,
     customerUser,
     addToast
   } = useStore();
@@ -128,11 +129,21 @@ export const AddressesView = () => {
                 <div className="flex items-center justify-between pt-3 border-t border-emerald-100/70 text-xs">
                   <button
                     onClick={() => {
-                      setDeliveryLocation({
+                      const newLoc = {
+                        ...deliveryLocation,
                         city: addr.city,
                         address: addr.address,
                         label: addr.label
-                      });
+                      };
+                      if (confirmDeliveryLocation) {
+                        confirmDeliveryLocation(newLoc);
+                      } else {
+                        setDeliveryLocation(newLoc);
+                        try {
+                          localStorage.setItem('freshmart_delivery_location', JSON.stringify(newLoc));
+                          localStorage.setItem('freshmart_location_confirmed', 'true');
+                        } catch (e) {}
+                      }
                       addToast('Active Drop-off Set 📍', `Switched delivery to ${addr.label}.`);
                     }}
                     className={`font-bold transition-all cursor-pointer ${

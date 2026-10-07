@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { isDbOnline } from '../config/db.js';
 import { Product } from '../models/Product.js';
 import { User } from '../models/User.js';
@@ -138,6 +139,22 @@ export const addCustomer = async (req, res) => {
       status: 'Active'
     };
     res.status(201).json({ success: true, customer: newCust });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteCustomer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (isDbOnline()) {
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        await User.findByIdAndDelete(id);
+      } else {
+        await User.findOneAndDelete({ $or: [{ email: id }, { _id: id }] });
+      }
+    }
+    res.json({ success: true, message: 'Customer deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

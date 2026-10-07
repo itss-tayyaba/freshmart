@@ -75,7 +75,7 @@ export const DeliveryPortal = () => {
   });
 
   // Selected rider for mobile simulator
-  const [simulatedRiderId, setSimulatedRiderId] = useState(riders[0]?.id || 'RDR-101');
+  const [simulatedRiderId, setSimulatedRiderId] = useState(riders[0]?.id || '');
 
   // Filter riders based on search and zone
   const filteredRiders = riders.filter((r) => {

@@ -199,6 +199,16 @@ const LocationModalContent = () => {
     }
   };
 
+  // Dismiss or close modal (preserving confirmed state if already set, or confirming default)
+  const handleCloseModal = () => {
+    if (!isLocationConfirmed) {
+      if (confirmDeliveryLocation) {
+        confirmDeliveryLocation(deliveryLocation);
+      }
+    }
+    setIsLocationModalOpen(false);
+  };
+
   // Filter cities for search
   const filteredCities = PAKISTAN_CITIES.filter(
     (c) =>
@@ -214,10 +224,7 @@ const LocationModalContent = () => {
       {/* Dark Backdrop */}
       <div
         className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity"
-        onClick={() => {
-          // First-time visitors must confirm a delivery location before shopping.
-          if (isLocationConfirmed) setIsLocationModalOpen(false);
-        }}
+        onClick={handleCloseModal}
       />
 
       {/* Modal Dialog Card */}
@@ -247,8 +254,7 @@ const LocationModalContent = () => {
 
             <button
               type="button"
-              onClick={() => isLocationConfirmed && setIsLocationModalOpen(false)}
-              disabled={!isLocationConfirmed}
+              onClick={handleCloseModal}
               className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
               title="Close"
             >
@@ -575,15 +581,13 @@ const LocationModalContent = () => {
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto">
-            {isLocationConfirmed && (
-              <button
-                type="button"
-                onClick={() => setIsLocationModalOpen(false)}
-                className="flex-1 sm:flex-none px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-xl transition cursor-pointer"
-              >
-                Cancel
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleCloseModal}
+              className="flex-1 sm:flex-none px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-xl transition cursor-pointer"
+            >
+              Cancel
+            </button>
 
             <button
               type="button"

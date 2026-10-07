@@ -330,7 +330,7 @@ export const AdminLogin = () => {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-bold text-slate-900">Super Admin Executive Console</div>
-                <div className="text-[11px] text-amber-900/80 leading-snug">Full multi-tenant authority to manage marts, store admins, subscriptions & billing.</div>
+                <div className="text-[11px] text-amber-900/80 leading-snug">Strict platform owner access only. Store Admins cannot enter from this side — select Store Admin tab.</div>
               </div>
             </div>
           )}

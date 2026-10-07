@@ -70,6 +70,66 @@ export const apiService = {
     }
   },
 
+  async getPickupStaff(tenantId = null) {
+    try {
+      const query = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : '';
+      const res = await fetch(`${API_BASE_URL}/auth/pickup-staff${query}`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deletePickupStaff(staffId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/pickup-staff/${encodeURIComponent(staffId)}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async saveStoreAdmin(adminData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/store-admin`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(adminData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getStoreAdmins() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/store-admins`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteStoreAdmin(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/store-admin/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
   async register(userData) {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/register`, {
@@ -475,6 +535,18 @@ export const apiService = {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(customerData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteCustomer(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/customers/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
       });
       return await handleResponse(res);
     } catch (e) {

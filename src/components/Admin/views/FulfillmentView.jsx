@@ -23,7 +23,7 @@ export const FulfillmentView = () => {
   const [search, setSearch] = useState('');
 
   const tenantStaff = useMemo(
-    () => pickupStaff.filter((staff) => staff?.tenantId === (currentTenant?.id || 'tenant-freshmart')),
+    () => pickupStaff.filter((staff) => !staff?.tenantId || staff?.tenantId === (currentTenant?.id || 'tenant-alfatah')),
     [pickupStaff, currentTenant]
   );
   const orders = useMemo(() => {
