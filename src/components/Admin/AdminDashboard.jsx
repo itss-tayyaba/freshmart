@@ -53,7 +53,13 @@ export const AdminDashboard = () => {
     user,
     products,
     customerOrders,
+    customers,
+    currentTenant,
+    setCurrentTenant,
+    tenants = []
   } = useStore();
+
+  const allTenants = tenants;
   
   // Set initial activeTab
   const [activeTab, setActiveTab] = useState('Dashboard');
