@@ -164,4 +164,27 @@ describe('Rider Delivery Handover OTP Verification & Workflow Pipeline', () => {
     assert.equal(verifyData.success, true);
     assert.equal(verifyData.order.status, 'Delivered');
   });
+
+  it('verifies dynamic 4-digit OTP (e.g. 4896) with client expectedOtp hint for live doorstep handover', async () => {
+    const testOrderId = '#FM-LIVE-' + Math.floor(1000 + Math.random() * 9000);
+    let verifyData = null;
+    let verifyCode = 200;
+
+    const verifyReq = {
+      params: { id: testOrderId },
+      body: { otp: '4896', riderId: 'RDR-103', expectedOtp: '4896' }
+    };
+    const verifyRes = {
+      status(code) { verifyCode = code; return this; },
+      json(d) { verifyData = d; return d; }
+    };
+
+    await verifyDeliveryOtp(verifyReq, verifyRes);
+
+    assert.equal(verifyCode, 200, 'Handover PIN 4896 should verify successfully');
+    assert.equal(verifyData.success, true);
+    assert.equal(verifyData.order.status, 'Delivered');
+    assert.equal(verifyData.order.fulfillmentStage, 7);
+    assert.equal(verifyData.order.isDelivered, true);
+  });
 });

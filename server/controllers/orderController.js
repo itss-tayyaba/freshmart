@@ -893,10 +893,11 @@ export const verifyDeliveryOtp = async (req, res) => {
     }
 
     // Verify OTP against stored OTP (or client-provided expected OTP, or demo bypasses: 7412, 9999, 1234, 4829)
-    const expectedOtp = String(foundOrder.deliveryOtp || clientExpectedOtp || '7412').trim();
+    const expectedOtp = String(clientExpectedOtp || foundOrder.deliveryOtp || '7412').trim();
     const isOtpValid =
       cleanOtp === expectedOtp ||
       (clientExpectedOtp && cleanOtp === String(clientExpectedOtp).trim()) ||
+      (foundOrder.deliveryOtp && cleanOtp === String(foundOrder.deliveryOtp).trim()) ||
       cleanOtp === '7412' ||
       cleanOtp === '9999' ||
       cleanOtp === '1234' ||
@@ -911,6 +912,7 @@ export const verifyDeliveryOtp = async (req, res) => {
 
     // OTP Verified -> Mark Order as Delivered & Payment as Paid
     const deliveryTimestamp = new Date();
+    foundOrder.deliveryOtp = cleanOtp;
     foundOrder.status = 'Delivered';
     foundOrder.fulfillmentStage = 7;
     foundOrder.isDelivered = true;

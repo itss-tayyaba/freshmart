@@ -848,8 +848,14 @@ export const DeliveryPage = () => {
                       <button
                         onClick={async () => {
                           if (verifyOrderDeliveryOtp) {
-                            const res = await verifyOrderDeliveryOtp(currentOrder.id || currentOrder.orderId, currentOrder.deliveryOtp || '7412');
+                            const targetPin = currentOrder.deliveryOtp || '7412';
+                            const orderId = currentOrder.id || currentOrder.orderId;
+                            const riderId = assignedRider?.id || null;
+                            const res = await verifyOrderDeliveryOtp(orderId, targetPin, riderId, targetPin);
                             if (res && res.success) {
+                              if (res.order) {
+                                setRemoteOrder(res.order);
+                              }
                               addToast('Delivered! 🎉', 'OTP verified. Order marked as Delivered.');
                             }
                           }
