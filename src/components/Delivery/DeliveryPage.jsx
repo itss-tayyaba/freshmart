@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { apiService } from '../../services/api';
-import { PAKISTAN_CITIES } from '../../data/pakistanLocations';
+import { PAKISTAN_CITIES, findPakistanCity } from '../../data/pakistanLocations';
 
 export const DeliveryPage = () => {
   const {
@@ -42,45 +42,15 @@ export const DeliveryPage = () => {
     removeSavedAddress,
     customerOrders,
     activeDeliveryOrder,
-    riders
+    riders,
+    setIsLocationModalOpen
   } = useStore();
-
-  // Active City & Hub state
-  const initialCity = PAKISTAN_CITIES.find((c) => c.city === deliveryLocation?.city) || PAKISTAN_CITIES[0];
-  const [selectedCity, setSelectedCity] = useState(initialCity);
-  const [selectedNeighborhood, setSelectedNeighborhood] = useState(
-    initialCity.neighborhoods.find((n) => n.name === deliveryLocation?.neighborhood) || initialCity.neighborhoods[0]
-  );
 
   // Active tracked order selection
   const [trackedOrderId, setTrackedOrderId] = useState(
     activeDeliveryOrder?.id || (customerOrders.length > 0 ? customerOrders[0].id : '')
   );
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
-
-  const [deliveryNote, setDeliveryNote] = useState('call_gate'); // 'doorstep' | 'ring' | 'call_gate'
-
-  // Add Address Form Modal
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [addressForm, setAddressForm] = useState({
-    label: 'Home',
-    address: '',
-    city: initialCity.city,
-    phone: ''
-  });
-
-  // Keep city in sync if store deliveryLocation changes externally
-  useEffect(() => {
-    if (deliveryLocation?.city) {
-      const match = PAKISTAN_CITIES.find((c) => c.city === deliveryLocation.city);
-      if (match) {
-        setSelectedCity(match);
-        const matchN = match.neighborhoods.find((n) => n.name === deliveryLocation.neighborhood);
-        if (matchN) setSelectedNeighborhood(matchN);
-      }
-    }
-  }, [deliveryLocation]);
-
   const [remoteOrder, setRemoteOrder] = useState(null);
   const [isSearchingOrder, setIsSearchingOrder] = useState(false);
 
@@ -100,6 +70,52 @@ export const DeliveryPage = () => {
       : customerOrders.find((o) => o.id === trackedOrderId || o.orderId === trackedOrderId) ||
         activeDeliveryOrder ||
         (customerOrders.length > 0 ? customerOrders[0] : null);
+
+  // Active City & Hub state - resolves customer city (fsd, lahore, etc.)
+  const targetCityCandidate = currentOrder?.city || currentOrder?.shippingAddress?.city || deliveryLocation?.city;
+  const initialCity = findPakistanCity(targetCityCandidate);
+  const [selectedCity, setSelectedCity] = useState(initialCity);
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState(() => {
+    const targetNeigh = currentOrder?.address || deliveryLocation?.neighborhood || deliveryLocation?.area;
+    if (targetNeigh) {
+      const matchN = initialCity.neighborhoods.find(
+        (n) => targetNeigh.toLowerCase().includes(n.name.toLowerCase()) || n.name.toLowerCase().includes(targetNeigh.toLowerCase())
+      );
+      if (matchN) return matchN;
+    }
+    return initialCity.neighborhoods[0];
+  });
+
+  const [deliveryNote, setDeliveryNote] = useState('call_gate'); // 'doorstep' | 'ring' | 'call_gate'
+
+  // Add Address Form Modal
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addressForm, setAddressForm] = useState({
+    label: 'Home',
+    address: '',
+    city: initialCity.city,
+    phone: ''
+  });
+
+  // Keep city and neighborhood in sync when tracked order or customer delivery location changes
+  useEffect(() => {
+    const targetCityStr = currentOrder?.city || currentOrder?.shippingAddress?.city || deliveryLocation?.city;
+    if (targetCityStr) {
+      const match = findPakistanCity(targetCityStr);
+      if (match) {
+        setSelectedCity(match);
+        const targetNeigh = currentOrder?.address || deliveryLocation?.neighborhood || deliveryLocation?.area;
+        if (targetNeigh) {
+          const matchN = match.neighborhoods.find(
+            (n) => targetNeigh.toLowerCase().includes(n.name.toLowerCase()) || n.name.toLowerCase().includes(targetNeigh.toLowerCase())
+          );
+          setSelectedNeighborhood(matchN || match.neighborhoods[0]);
+        } else {
+          setSelectedNeighborhood(match.neighborhoods[0]);
+        }
+      }
+    }
+  }, [currentOrder?.id, currentOrder?.city, currentOrder?.address, deliveryLocation?.city, deliveryLocation?.neighborhood, deliveryLocation?.area]);
 
   const assignedRider = currentOrder?.assignedRider || null;
 
@@ -284,41 +300,73 @@ export const DeliveryPage = () => {
         </div>
       </div>
 
-      {/* 2. City & Hub Selector */}
+      {/* 2. Customer Logistics Hub & Current City */}
       <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Building className="w-4 h-4 text-emerald-600" />
-            <span className="text-xs font-black uppercase tracking-wider text-slate-700">Logistics Hub & Service Cities:</span>
+            <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+              Customer Logistics Hub & Service City:
+            </span>
           </div>
-          <span className="text-xs text-slate-400 font-medium">Dark Store fulfillment across Pakistan</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-medium">Dark Store fulfillment in {selectedCity.city.split(',')[0]}</span>
+            <button
+              onClick={() => setIsLocationModalOpen && setIsLocationModalOpen(true)}
+              className="text-xs text-emerald-700 hover:text-emerald-800 font-bold hover:underline cursor-pointer flex items-center gap-1 ml-2"
+            >
+              Change Location 📍
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-          {PAKISTAN_CITIES.map((c) => {
-            const isCityActive = selectedCity.id === c.id;
-            return (
-              <button
-                key={c.id}
-                onClick={() => handleCityChange(c)}
-                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                  isCityActive
-                    ? 'bg-emerald-800 text-white border-emerald-800 shadow-md ring-2 ring-emerald-600/30'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
-                }`}
-              >
-                <span className="text-xs font-black block">{c.city.split(',')[0]}</span>
-                <span className={`text-[10px] font-medium block truncate ${isCityActive ? 'text-emerald-200' : 'text-slate-400'}`}>
-                  {c.neighborhoods.map((n) => n.name).slice(0, 2).join(', ')}
+        {/* Displays ONLY Current City */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-1">
+          <div className="p-3.5 px-4 rounded-2xl bg-emerald-800 text-white border border-emerald-800 shadow-md ring-2 ring-emerald-600/30 flex items-center gap-3.5 min-w-[280px]">
+            <div className="w-10 h-10 rounded-xl bg-emerald-700/80 flex items-center justify-center font-black text-white shrink-0 shadow-inner">
+              <Building className="w-5 h-5 text-emerald-200" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black block">{selectedCity.city.split(',')[0]}</span>
+                <span className="text-[10px] bg-emerald-700/90 text-emerald-100 px-2 py-0.5 rounded-full font-bold">
+                  Current City Hub
                 </span>
-              </button>
-            );
-          })}
+              </div>
+              <span className="text-[11px] font-medium block text-emerald-200 mt-0.5">
+                {selectedCity.hubName.split('(')[0].trim()}
+              </span>
+              <span className="text-[10px] text-emerald-300/90 block mt-0.5">
+                {selectedCity.hubAddress}
+              </span>
+            </div>
+          </div>
+
+          {/* Quick city switcher dropdown in case user wants to test or switch */}
+          <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-200/80 shrink-0">
+            <span className="text-xs font-bold text-slate-600">Switch City:</span>
+            <select
+              value={selectedCity.id}
+              onChange={(e) => {
+                const found = PAKISTAN_CITIES.find((c) => c.id === e.target.value);
+                if (found) handleCityChange(found);
+              }}
+              className="text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-xl px-3 py-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+            >
+              {PAKISTAN_CITIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.city.split(',')[0]}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {/* Neighborhood Area Selector */}
+        {/* Popular Delivery Areas for Current City */}
         <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-bold text-slate-400">Popular Delivery Areas:</span>
+          <span className="text-[11px] font-bold text-slate-400">
+            Popular Delivery Areas in {selectedCity.city.split(',')[0]}:
+          </span>
           {selectedCity.neighborhoods.map((n) => {
             const isNActive = selectedNeighborhood.id === n.id;
             return (

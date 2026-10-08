@@ -195,3 +195,40 @@ export const findNearestCity = (lat, lng) => {
 
   return { city: nearestCity, distanceKm: minDistance };
 };
+
+/**
+ * Safely resolves a Pakistani city by name, substring, or common abbreviation (fsd, lhr, isb, khi, rwp)
+ */
+export const findPakistanCity = (cityNameOrId) => {
+  if (!cityNameOrId || typeof cityNameOrId !== 'string') return PAKISTAN_CITIES[0];
+  const query = cityNameOrId.toLowerCase().trim();
+
+  // Direct ID match
+  const byId = PAKISTAN_CITIES.find((c) => c.id.toLowerCase() === query);
+  if (byId) return byId;
+
+  // Common Pakistani city abbreviations and aliases
+  if (query.startsWith('fsd') || query.includes('faisalabad')) {
+    return PAKISTAN_CITIES.find((c) => c.id === 'faisalabad') || PAKISTAN_CITIES[0];
+  }
+  if (query.startsWith('lhr') || query.includes('lahore')) {
+    return PAKISTAN_CITIES.find((c) => c.id === 'lahore') || PAKISTAN_CITIES[0];
+  }
+  if (query.startsWith('khi') || query.includes('karachi')) {
+    return PAKISTAN_CITIES.find((c) => c.id === 'karachi') || PAKISTAN_CITIES[0];
+  }
+  if (query.startsWith('isb') || query.includes('islamabad')) {
+    return PAKISTAN_CITIES.find((c) => c.id === 'islamabad') || PAKISTAN_CITIES[0];
+  }
+  if (query.startsWith('rwp') || query.startsWith('pindi') || query.includes('rawalpindi')) {
+    return PAKISTAN_CITIES.find((c) => c.id === 'rawalpindi') || PAKISTAN_CITIES[0];
+  }
+
+  // Substring or base name matching (e.g. "Lahore, Pakistan" or "Faisalabad")
+  const matched = PAKISTAN_CITIES.find((c) => {
+    const base = c.city.toLowerCase().split(',')[0].trim();
+    return query.includes(base) || base.includes(query) || c.city.toLowerCase().includes(query);
+  });
+
+  return matched || PAKISTAN_CITIES[0];
+};

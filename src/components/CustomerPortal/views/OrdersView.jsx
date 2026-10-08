@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Package, Clock, CheckCircle2, Truck, RefreshCw, FileText, ChevronRight, MapPin, X, Star, ShoppingBag } from 'lucide-react';
+import { Package, Clock, CheckCircle2, Truck, RefreshCw, FileText, ChevronRight, MapPin, X, Star, ShoppingBag, Navigation } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
+import { CustomerLiveTrackingCard } from '../CustomerLiveTrackingCard';
 
 export const OrdersView = () => {
   const { customerOrders = [], currency = 'PKR', addToCart, addToast, navigateTo } = useStore();
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(null);
+  const [expandedTrackerOrderId, setExpandedTrackerOrderId] = useState(null);
 
   const handleReorderAll = (order) => {
     if (order.items && Array.isArray(order.items)) {
@@ -190,12 +192,20 @@ export const OrdersView = () => {
                 </div>
               )}
 
+              {/* Optional Inline Live InDrive Tracking Map */}
+              {expandedTrackerOrderId === order.id && (
+                <div className="pt-2">
+                  <CustomerLiveTrackingCard activeOrder={order} />
+                </div>
+              )}
+
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
-                  onClick={() => navigateTo('delivery')}
-                  className="px-4 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 text-emerald-800 rounded-xl font-bold text-xs transition-colors cursor-pointer border border-emerald-200/60"
+                  onClick={() => setExpandedTrackerOrderId(expandedTrackerOrderId === order.id ? null : order.id)}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 text-emerald-800 rounded-xl font-bold text-xs transition-colors cursor-pointer border border-emerald-200/60 flex items-center gap-1.5"
                 >
-                  Track on Map 📍
+                  <Navigation className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{expandedTrackerOrderId === order.id ? 'Hide Live Map' : 'InDrive Live Map 📍'}</span>
                 </button>
                 <button
                   onClick={() => handleReorderAll(order)}

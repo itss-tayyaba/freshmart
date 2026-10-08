@@ -266,14 +266,23 @@ export const DeliveryPortal = () => {
     }));
   }, [assignedOrders, baselineMockOrders, activeRider]);
 
+  // Locally tracked completed orders to ensure immediate instant transition
+  const [locallyCompletedOrders, setLocallyCompletedOrders] = useState([]);
+
   // Filter Out for Delivery vs Delivered Today
   const outForDeliveryOrders = useMemo(() => {
-    return portalOrders.filter((o) => o.status !== 'Delivered');
-  }, [portalOrders]);
+    return portalOrders.filter((o) => {
+      const bare = String(o.id || o.orderId || '').replace(/^#/, '');
+      return o.status !== 'Delivered' && !locallyCompletedOrders.includes(bare);
+    });
+  }, [portalOrders, locallyCompletedOrders]);
 
   const deliveredTodayOrders = useMemo(() => {
-    return portalOrders.filter((o) => o.status === 'Delivered');
-  }, [portalOrders]);
+    return portalOrders.filter((o) => {
+      const bare = String(o.id || o.orderId || '').replace(/^#/, '');
+      return o.status === 'Delivered' || locallyCompletedOrders.includes(bare);
+    });
+  }, [portalOrders, locallyCompletedOrders]);
 
   // Active delivery in transit (first out-for-delivery order)
   const activeOrder = outForDeliveryOrders[0] || null;
@@ -301,11 +310,13 @@ export const DeliveryPortal = () => {
     try {
       const res = await verifyOrderDeliveryOtp(orderId, entered, activeRider?.id);
       if (res && res.success) {
+        const bare = String(orderId).replace(/^#/, '');
+        setLocallyCompletedOrders((prev) => [...prev, bare]);
         addToast('Delivery Confirmed! 📦✨', `Order #${orderId} verified and completed successfully.`);
         // Clear input
         setOtpInputs((prev) => ({ ...prev, [orderId]: '' }));
       } else {
-        const errMsg = res?.message || `Incorrect OTP. Ask the customer for their 4-digit code (Demo: ${targetExpectedOtp || '7412'}).`;
+        const errMsg = res?.message || `Incorrect OTP. Ask the customer for their 4-digit code (Code: ${targetExpectedOtp || '7412'}).`;
         addToast('Verification Failed ❌', errMsg, 'error');
       }
     } catch (e) {
@@ -325,12 +336,15 @@ export const DeliveryPortal = () => {
 
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const pickupMarkerRef = useRef(null);
+  const dropoffMarkerRef = useRef(null);
   const riderMarkerRef = useRef(null);
   const routePolylineRef = useRef(null);
+  const lastActiveOrderIdRef = useRef(null);
   const locationWatchIdRef = useRef(null);
   const simulationIntervalRef = useRef(null);
 
-  // Initialize & Update Leaflet Map for Active Delivery
+  // Initialize Leaflet Map once, then smoothly update markers without destroying the map (ZERO FLICKER)
   useEffect(() => {
     if (!mapContainerRef.current || !activeOrder) return;
 
@@ -338,80 +352,124 @@ export const DeliveryPortal = () => {
     const dropoff = activeOrder.dropoffCoords || { lat: 31.4082, lng: 73.1023 };
     const currentPos = riderCoords || pickup;
 
-    // Remove previous map instance if needed
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
-      mapInstanceRef.current = null;
+    // IF map is not created yet, create it once
+    if (!mapInstanceRef.current) {
+      const map = L.map(mapContainerRef.current, {
+        center: [currentPos.lat, currentPos.lng],
+        zoom: 14,
+        zoomControl: true,
+        scrollWheelZoom: false
+      });
+      mapInstanceRef.current = map;
+
+      // OpenStreetMap Tile Layer
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map);
+
+      // Pickup Marker
+      const pickupMarker = L.marker([pickup.lat, pickup.lng], {
+        icon: createPickupPin(currentTenant?.name || 'Pickup Point')
+      }).addTo(map);
+      pickupMarker.bindPopup(`<b>${currentTenant?.name || 'Store'}</b><br/>Pickup Hub`);
+      pickupMarkerRef.current = pickupMarker;
+
+      // Drop-off Marker
+      const dropoffMarker = L.marker([dropoff.lat, dropoff.lng], {
+        icon: createDropoffPin(activeOrder.customerName || 'Customer')
+      }).addTo(map);
+      dropoffMarker
+        .bindPopup(`<b>${activeOrder.customerName}</b><br/>Exact drop-off pin`)
+        .openPopup();
+      dropoffMarkerRef.current = dropoffMarker;
+
+      // Rider Live Position Marker
+      const riderMarker = L.marker([currentPos.lat, currentPos.lng], {
+        icon: createRiderPin(),
+        zIndexOffset: 1000
+      }).addTo(map);
+      riderMarkerRef.current = riderMarker;
+
+      // Route Polyline
+      const routeCoords = [
+        [pickup.lat, pickup.lng],
+        [currentPos.lat, currentPos.lng],
+        [dropoff.lat, dropoff.lng]
+      ];
+      const polyline = L.polyline(routeCoords, {
+        color: '#2563eb',
+        weight: 4,
+        opacity: 0.75,
+        dashArray: '6, 8',
+        lineCap: 'round'
+      }).addTo(map);
+      routePolylineRef.current = polyline;
+
+      // Fit map bounds to encompass pickup, rider, and dropoff
+      const bounds = L.latLngBounds([pickup, currentPos, dropoff]);
+      map.fitBounds(bounds, { padding: [40, 40] });
+      lastActiveOrderIdRef.current = activeOrder.id;
+
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 200);
+    } else {
+      // Map ALREADY exists! DO NOT RECREATE OR REMOVE!
+      // If the active order changed, update marker positions and bounds smoothly
+      if (lastActiveOrderIdRef.current !== activeOrder.id) {
+        lastActiveOrderIdRef.current = activeOrder.id;
+
+        if (pickupMarkerRef.current) {
+          pickupMarkerRef.current.setLatLng([pickup.lat, pickup.lng]);
+        }
+        if (dropoffMarkerRef.current) {
+          dropoffMarkerRef.current.setLatLng([dropoff.lat, dropoff.lng]);
+          dropoffMarkerRef.current.setPopupContent(`<b>${activeOrder.customerName}</b><br/>Exact drop-off pin`);
+        }
+        if (riderMarkerRef.current) {
+          riderMarkerRef.current.setLatLng([currentPos.lat, currentPos.lng]);
+        }
+        if (routePolylineRef.current) {
+          routePolylineRef.current.setLatLngs([
+            [pickup.lat, pickup.lng],
+            [currentPos.lat, currentPos.lng],
+            [dropoff.lat, dropoff.lng]
+          ]);
+        }
+
+        const bounds = L.latLngBounds([pickup, currentPos, dropoff]);
+        mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40] });
+      }
     }
+  }, [activeOrder?.id, activeTab]);
 
-    const map = L.map(mapContainerRef.current, {
-      center: [currentPos.lat, currentPos.lng],
-      zoom: 14,
-      zoomControl: true,
-      scrollWheelZoom: false
-    });
-    mapInstanceRef.current = map;
-
-    // OpenStreetMap Tile Layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 19
-    }).addTo(map);
-
-    // Pickup Marker
-    const pickupMarker = L.marker([pickup.lat, pickup.lng], {
-      icon: createPickupPin(currentTenant?.name || 'Pickup Point')
-    }).addTo(map);
-    pickupMarker.bindPopup(`<b>${currentTenant?.name || 'Store'}</b><br/>Pickup Hub`);
-
-    // Drop-off Marker
-    const dropoffMarker = L.marker([dropoff.lat, dropoff.lng], {
-      icon: createDropoffPin(activeOrder.customerName || 'Customer')
-    }).addTo(map);
-    dropoffMarker
-      .bindPopup(`<b>${activeOrder.customerName}</b><br/>Exact drop-off pin`)
-      .openPopup();
-
-    // Rider Live Position Marker
-    const riderMarker = L.marker([currentPos.lat, currentPos.lng], {
-      icon: createRiderPin(),
-      zIndexOffset: 1000
-    }).addTo(map);
-    riderMarkerRef.current = riderMarker;
-
-    // Route Polyline
-    const routeCoords = [
-      [pickup.lat, pickup.lng],
-      [currentPos.lat, currentPos.lng],
-      [dropoff.lat, dropoff.lng]
-    ];
-    const polyline = L.polyline(routeCoords, {
-      color: '#2563eb',
-      weight: 4,
-      opacity: 0.75,
-      dashArray: '6, 8',
-      lineCap: 'round'
-    }).addTo(map);
-    routePolylineRef.current = polyline;
-
-    // Fit map bounds to encompass pickup, rider, and dropoff
-    const bounds = L.latLngBounds([pickup, currentPos, dropoff]);
-    map.fitBounds(bounds, { padding: [40, 40] });
-
+  // Clean up map only on component unmount
+  useEffect(() => {
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
     };
-  }, [activeOrder]);
+  }, []);
 
-  // Update Rider Marker on Live Coordinate Changes
+  // Update Rider Marker on Live Coordinate Changes without flickering
   useEffect(() => {
-    if (riderMarkerRef.current && riderCoords) {
+    if (!riderCoords || !activeOrder) return;
+    if (riderMarkerRef.current) {
       riderMarkerRef.current.setLatLng([riderCoords.lat, riderCoords.lng]);
     }
-  }, [riderCoords]);
+    if (routePolylineRef.current) {
+      const pickup = activeOrder.pickupCoords || { lat: 31.4147, lng: 73.0872 };
+      const dropoff = activeOrder.dropoffCoords || { lat: 31.4082, lng: 73.1023 };
+      routePolylineRef.current.setLatLngs([
+        [pickup.lat, pickup.lng],
+        [riderCoords.lat, riderCoords.lng],
+        [dropoff.lat, dropoff.lng]
+      ]);
+    }
+  }, [riderCoords?.lat, riderCoords?.lng]);
 
   // Toggle Live Location Sharing
   const toggleLiveLocationSharing = () => {
@@ -426,6 +484,13 @@ export const DeliveryPortal = () => {
         clearInterval(simulationIntervalRef.current);
         simulationIntervalRef.current = null;
       }
+      if (activeOrder) {
+        updateRiderLiveLocation(activeOrder.id, riderCoords, false, {
+          name: activeRider?.name,
+          phone: activeRider?.phone,
+          vehicle: activeRider?.vehicleType
+        });
+      }
       addToast('Location Sharing Paused ⏸️', 'Live GPS stream stopped.', 'info');
       return;
     }
@@ -433,6 +498,12 @@ export const DeliveryPortal = () => {
     // Start sharing
     setIsSharingLocation(true);
     addToast('Live Location Sharing Active 📡🛵', 'Customer is now tracking your live GPS route in real time!');
+
+    const riderMeta = {
+      name: activeRider?.name,
+      phone: activeRider?.phone,
+      vehicle: activeRider?.vehicleType
+    };
 
     // 1. Try real GPS via Geolocation API
     if ('geolocation' in navigator) {
@@ -444,7 +515,7 @@ export const DeliveryPortal = () => {
           };
           setRiderCoords(newPos);
           if (activeOrder) {
-            updateRiderLiveLocation(activeOrder.id, newPos);
+            updateRiderLiveLocation(activeOrder.id, newPos, true, riderMeta);
           }
         },
         (err) => {
@@ -466,7 +537,7 @@ export const DeliveryPortal = () => {
       const newPos = { lat: simLat, lng: simLng };
       setRiderCoords(newPos);
       if (activeOrder) {
-        updateRiderLiveLocation(activeOrder.id, newPos);
+        updateRiderLiveLocation(activeOrder.id, newPos, true, riderMeta);
       }
     }, 3000);
   };
