@@ -185,7 +185,7 @@ describe('Rider Delivery Handover OTP Verification & Workflow Pipeline', () => {
     assert.equal(verifyCode, 200, 'Handover PIN 4896 should verify successfully');
     assert.equal(verifyData.success, true);
     assert.equal(verifyData.order.status, 'Delivered');
-    assert.equal(verifyData.order.fulfillmentStage, 7);
+    assert.equal(verifyData.order.fulfillmentStage, 4);
     assert.equal(verifyData.order.isDelivered, true);
   });
 
@@ -237,7 +237,50 @@ describe('Rider Delivery Handover OTP Verification & Workflow Pipeline', () => {
     );
     assert.ok(matched, 'Order should be found in Admin orders list');
     assert.equal(matched.status, 'Delivered', 'Admin order status should be Delivered');
-    assert.equal(matched.fulfillmentStage, 7, 'Admin fulfillment stage should be 7');
+    assert.equal(matched.fulfillmentStage, 4, 'Admin fulfillment stage should be 4 (Delivered)');
     assert.equal(matched.paymentStatus, 'Paid', 'Admin payment status should be Paid');
+  });
+
+  it('directly assigns rider and assigns 4-digit OTP, transitioning order to Out for Delivery at stage 3', async () => {
+    const testOrderId = '#FM-ASSIGN-' + Math.floor(1000 + Math.random() * 9000);
+    const orderReq = {
+      body: {
+        orderId: testOrderId,
+        customerName: 'Ahmad Raza',
+        customerPhone: '+92 300 1122334',
+        shippingAddress: { address: 'Gulberg 3, Lahore', city: 'Lahore' },
+        orderItems: [{ name: 'Brown Bread', price: 150, quantity: 1 }],
+        totalPrice: 150,
+        paymentMethod: 'Cash on Delivery'
+      }
+    };
+    const orderRes = {
+      status() { return this; },
+      json(d) { return d; }
+    };
+    await createOrder(orderReq, orderRes);
+
+    // Assign rider directly
+    let assignData = null;
+    let assignCode = 200;
+    const assignReq = {
+      params: { id: testOrderId },
+      body: { riderId: 'RDR-101' },
+      user: { role: 'admin' },
+      headers: { 'x-admin-role': 'admin' }
+    };
+    const assignRes = {
+      status(code) { assignCode = code; return this; },
+      json(d) { assignData = d; return d; }
+    };
+    await assignRiderToOrder(assignReq, assignRes);
+
+    assert.equal(assignCode, 200);
+    assert.equal(assignData.success, true);
+    assert.ok(assignData.order.assignedRider);
+    assert.equal(assignData.order.status, 'Out for Delivery');
+    assert.equal(assignData.order.fulfillmentStage, 3);
+    assert.ok(assignData.order.deliveryOtp, 'Delivery OTP must be assigned');
+    assert.match(assignData.order.deliveryOtp, /^\d{4}$/, 'Delivery OTP must be a 4-digit code');
   });
 });

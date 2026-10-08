@@ -541,7 +541,7 @@ export const assignRiderToOrder = async (req, res) => {
       etaMinutes: 15
     };
 
-    const newStatus = 'Ready for Dispatch';
+    const newStatus = 'Out for Delivery';
 
     if (isDbOnline()) {
       const order = await Order.findOne({
@@ -554,10 +554,6 @@ export const assignRiderToOrder = async (req, res) => {
       });
 
       if (order) {
-        const isAdminAssignment = req.user?.role === 'admin' || req.user?.role === 'superadmin' || req.headers['x-admin-role'] === 'admin' || req.headers['x-admin-role'] === 'superadmin';
-        if (!isAdminAssignment && Number(order.fulfillmentStage || 0) < 4 && order.status !== 'Ready for Dispatch') {
-          return res.status(409).json({ success: false, message: 'Pickup staff must mark the parcel Ready for Dispatch before rider assignment.' });
-        }
         const destCoords = order.destinationCoords || resolveDestinationCoords(order.shippingAddress);
         const distanceKm = calculateDistanceKm(riderCoords.lat, riderCoords.lng, destCoords.lat, destCoords.lng);
         if (distanceKm > coverageRadiusKm) {
@@ -569,11 +565,16 @@ export const assignRiderToOrder = async (req, res) => {
         assignedInfo.eta = etaText;
         assignedInfo.etaMinutes = etaMinutes;
 
+        // Ensure 4-digit Handover OTP is assigned
+        if (!order.deliveryOtp) {
+          order.deliveryOtp = Math.floor(1000 + Math.random() * 9000).toString();
+        }
+
         order.assignedRider = assignedInfo;
         order.status = newStatus;
-        order.fulfillmentStage = Math.max(Number(order.fulfillmentStage || 0), 4);
-        order.isDispatched = false;
-        order.dispatchStatus = 'Rider Assigned';
+        order.fulfillmentStage = 3; // Stage 3: Rider Assigned & Dispatched
+        order.isDispatched = true;
+        order.dispatchStatus = 'Out for Delivery';
         order.destinationCoords = destCoords;
         order.distanceKm = distanceKm;
         order.eta = etaText;
@@ -583,7 +584,7 @@ export const assignRiderToOrder = async (req, res) => {
         const updated = await order.save();
         return res.json({
           success: true,
-          message: `Rider ${assignedInfo.name} assigned to order ${order.orderId}`,
+          message: `Rider ${assignedInfo.name} assigned. Handover OTP: ${order.deliveryOtp}`,
           order: updated
         });
       }
@@ -594,9 +595,6 @@ export const assignRiderToOrder = async (req, res) => {
       (o) => o.id === id || o.orderId === id || o.id === `#${id}` || o.id === id.replace(/^#/, '')
     );
     if (memOrder) {
-      if (Number(memOrder.fulfillmentStage || 0) < 4 && memOrder.status !== 'Ready for Dispatch') {
-        return res.status(409).json({ success: false, message: 'Pickup staff must mark the parcel Ready for Dispatch before rider assignment.' });
-      }
       const destCoords = resolveDestinationCoords(memOrder.shippingAddress || { address: memOrder.address, city: memOrder.city });
       const distanceKm = calculateDistanceKm(riderCoords.lat, riderCoords.lng, destCoords.lat, destCoords.lng);
       if (distanceKm > coverageRadiusKm) {
@@ -608,12 +606,17 @@ export const assignRiderToOrder = async (req, res) => {
       assignedInfo.eta = etaText;
       assignedInfo.etaMinutes = etaMinutes;
 
+      // Ensure 4-digit Handover OTP is assigned
+      if (!memOrder.deliveryOtp) {
+        memOrder.deliveryOtp = Math.floor(1000 + Math.random() * 9000).toString();
+      }
+
       memOrder.assignedRider = assignedInfo;
       memOrder.status = newStatus;
-      memOrder.fulfillmentStage = Math.max(Number(memOrder.fulfillmentStage || 0), 4);
-      memOrder.isDispatched = false;
-      memOrder.dispatchStatus = 'Rider Assigned';
-      memOrder.statusClass = 'bg-purple-100 text-purple-800';
+      memOrder.fulfillmentStage = 3; // Stage 3: Rider Assigned & Dispatched
+      memOrder.isDispatched = true;
+      memOrder.dispatchStatus = 'Out for Delivery';
+      memOrder.statusClass = 'bg-amber-100 text-amber-800';
       memOrder.destinationCoords = destCoords;
       memOrder.distanceKm = distanceKm;
       memOrder.eta = etaText;
@@ -622,7 +625,7 @@ export const assignRiderToOrder = async (req, res) => {
 
       return res.json({
         success: true,
-        message: `Rider ${assignedInfo.name} assigned to order ${memOrder.id}`,
+        message: `Rider ${assignedInfo.name} assigned. Handover OTP: ${memOrder.deliveryOtp}`,
         order: memOrder
       });
     }
@@ -914,7 +917,7 @@ export const verifyDeliveryOtp = async (req, res) => {
     const deliveryTimestamp = new Date();
     foundOrder.deliveryOtp = cleanOtp;
     foundOrder.status = 'Delivered';
-    foundOrder.fulfillmentStage = 7;
+    foundOrder.fulfillmentStage = 4; // Final Stage: Delivered
     foundOrder.isDelivered = true;
     foundOrder.statusClass = 'bg-emerald-100 text-emerald-800';
     foundOrder.paymentStatus = 'Paid';
@@ -955,7 +958,7 @@ export const verifyDeliveryOtp = async (req, res) => {
     });
     if (memOrder) {
       memOrder.status = 'Delivered';
-      memOrder.fulfillmentStage = 7;
+      memOrder.fulfillmentStage = 4; // Final Stage: Delivered
       memOrder.isDelivered = true;
       memOrder.statusClass = 'bg-emerald-100 text-emerald-800';
       memOrder.paymentStatus = 'Paid';

@@ -248,7 +248,7 @@ export const DeliveryView = () => {
         const existing = uniqueMap.get(bareKey);
         if (!existing) {
           uniqueMap.set(bareKey, ord);
-        } else if (ord.status === 'Delivered' || ord.isDelivered || Number(ord.fulfillmentStage) >= 7) {
+        } else if (ord.status === 'Delivered' || ord.isDelivered || Number(ord.fulfillmentStage) >= 4) {
           uniqueMap.set(bareKey, ord);
         }
       }
@@ -266,16 +266,10 @@ export const DeliveryView = () => {
         const assignedRiderId = o.assignedRider?.id || o.assignedRider?.riderId;
         return (
           assignedRiderId === (user?.riderId || user?.id) &&
-          ['Ready for Dispatch', 'ready', 'Dispatched', 'Out for Delivery', 'Arrived at Customer'].includes(o.status)
+          o.status !== 'Delivered'
         );
       }
-      return (
-        (Number(o.fulfillmentStage) >= 4 ||
-          ['Ready for Dispatch', 'ready', 'ready(dispatched)', 'Dispatched', 'Out for Delivery', 'Arrived at Customer'].includes(
-            o.status
-          )) &&
-        o.status !== 'Delivered'
-      );
+      return o.status !== 'Delivered';
     });
   }, [allOrdersList, adminRole, user]);
 
@@ -887,7 +881,7 @@ export const DeliveryView = () => {
                               <select
                                 value={selectedRiderMap[orderId] || ''}
                                 onChange={(e) => setSelectedRiderMap((prev) => ({ ...prev, [orderId]: e.target.value }))}
-                                disabled={Number(order.fulfillmentStage || 0) < 4 && order.status !== 'Ready for Dispatch'}
+                                disabled={order.status === 'Delivered'}
                                 className="flex-1 bg-white border border-[#cbd5e1] rounded-xl px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
                               >
                                 <option value="">
@@ -908,7 +902,7 @@ export const DeliveryView = () => {
                               <button
                                 type="button"
                                 onClick={() => handleAssignRiderToOrder(orderId)}
-                                disabled={!selectedRiderMap[orderId] || (Number(order.fulfillmentStage || 0) < 4 && order.status !== 'Ready for Dispatch')}
+                                disabled={!selectedRiderMap[orderId] || order.status === 'Delivered'}
                                 className="px-3.5 py-1.5 bg-[#059669] hover:bg-[#047857] disabled:opacity-40 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-2xs shrink-0"
                               >
                                 Assign

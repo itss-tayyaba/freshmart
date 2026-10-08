@@ -146,7 +146,7 @@ describe('Production Real Order Tracking & GPS Telemetry Pipeline', () => {
     await assignRiderToOrder(mockReq, mockRes);
     assert.equal(assignResponse.success, true);
     assert.equal(assignResponse.order.assignedRider.name, 'Hamza Farooq');
-    assert.equal(assignResponse.order.status, 'Ready for Dispatch');
+    assert.equal(assignResponse.order.status, 'Out for Delivery');
     assert.ok(assignResponse.order.assignedRider.etaMinutes > 0);
 
     // Verify live location update

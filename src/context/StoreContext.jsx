@@ -2672,10 +2672,6 @@ export const StoreProvider = ({ children }) => {
       addToast('Rider assignment denied', 'Only store admins can assign riders.', 'error');
       return false;
     }
-    if (!sourceOrder || (Number(sourceOrder.fulfillmentStage || 0) < 4 && sourceOrder.status !== 'Ready for Dispatch')) {
-      addToast('Rider assignment unavailable', 'Pickup staff must mark the parcel Ready for Dispatch first.', 'info');
-      return false;
-    }
     const eligibleRiders = getEligibleRidersForOrder(sourceOrder);
     const eligibleRider = eligibleRiders.find((rider) => rider.id === riderId) || {
       ...targetRider,
@@ -2684,7 +2680,8 @@ export const StoreProvider = ({ children }) => {
       coverageRadiusKm: Number(targetRider.coverageRadiusKm) || 15
     };
 
-    const riderStatus = 'Ready for Dispatch';
+    const effectiveOtp = sourceOrder?.deliveryOtp || String(Math.floor(1000 + Math.random() * 9000));
+    const riderStatus = 'Out for Delivery';
 
     const assignedInfo = {
       id: targetRider.id,
@@ -2707,9 +2704,11 @@ export const StoreProvider = ({ children }) => {
               ...o,
               assignedRider: assignedInfo,
               status: riderStatus,
-              isDispatched: false,
-              fulfillmentStage: 4,
-              statusClass: 'bg-purple-100 text-purple-800'
+              isDispatched: true,
+              dispatchStatus: 'Out for Delivery',
+              fulfillmentStage: 3,
+              deliveryOtp: effectiveOtp,
+              statusClass: 'bg-amber-100 text-amber-800'
             }
           : o
       )
@@ -2721,9 +2720,11 @@ export const StoreProvider = ({ children }) => {
               ...o,
               assignedRider: assignedInfo,
               status: riderStatus,
-              isDispatched: false,
-              fulfillmentStage: 4,
-              statusClass: 'bg-purple-100 text-purple-800'
+              isDispatched: true,
+              dispatchStatus: 'Out for Delivery',
+              fulfillmentStage: 3,
+              deliveryOtp: effectiveOtp,
+              statusClass: 'bg-amber-100 text-amber-800'
             }
           : o
       )
@@ -2733,20 +2734,23 @@ export const StoreProvider = ({ children }) => {
         ...prev,
         assignedRider: assignedInfo,
         status: riderStatus,
-        isDispatched: false,
-        fulfillmentStage: 4,
-        statusClass: 'bg-purple-100 text-purple-800'
+        isDispatched: true,
+        dispatchStatus: 'Out for Delivery',
+        fulfillmentStage: 3,
+        deliveryOtp: effectiveOtp,
+        statusClass: 'bg-amber-100 text-amber-800'
       }));
     }
 
-    addToast('Rider Assigned 🛵', `${targetRider.name} assigned to Order ${orderId}. Status: ${riderStatus}.`);
+    addToast('Rider Assigned & OTP Active 🛵', `${targetRider.name} assigned to Order #${String(orderId).replace(/^#/, '')}. Handover PIN: ${effectiveOtp}`);
 
     // Persist to backend database
     try {
       const response = await apiService.assignRiderToOrder(orderId, {
         riderId: targetRider.id,
         rider: assignedInfo,
-        status: riderStatus
+        status: riderStatus,
+        deliveryOtp: effectiveOtp
       });
       if (response && !response.success && !response.isNetworkError) {
         const errMsg = String(response.message || response.error || '');
@@ -2992,7 +2996,7 @@ export const StoreProvider = ({ children }) => {
     const updatedOrder = {
       ...orderForRider,
       status: 'Delivered',
-      fulfillmentStage: 7,
+      fulfillmentStage: 4, // Final Stage: Delivered
       statusClass: 'bg-emerald-100 text-emerald-800',
       isDelivered: true,
       deliveredAt,
@@ -4754,10 +4758,10 @@ export const StoreProvider = ({ children }) => {
 
     const stageStatusMap = {
       1: 'Pending',
-      2: 'Preparing',
-      3: 'Preparing',
-      4: 'Ready',
-      5: 'Dispatched',
+      2: 'Packed',
+      3: 'Out for Delivery',
+      4: 'Delivered',
+      5: 'Out for Delivery',
       6: 'Out for Delivery',
       7: 'Delivered'
     };
