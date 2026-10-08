@@ -21,6 +21,7 @@ import {
   Square
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
+import { resolveTenantId } from '../../../data/companyHierarchyData';
 
 // Helper component: Live Elapsed Timer (Ticks every second like in the screenshot)
 const ElapsedTimer = ({ createdAt, fallbackSeconds = 34 }) => {
@@ -96,7 +97,8 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
 
     return list.filter((ord) => {
       if (!activeTenantId) return true;
-      return ord.tenantId === activeTenantId || (!ord.tenantId && activeTenantId === 'tenant-alfatah');
+      if (!ord.tenantId) return false;
+      return ord.tenantId === activeTenantId || (resolveTenantId && resolveTenantId(ord.tenantId) === resolveTenantId(activeTenantId));
     }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }, [customerOrders, adminOrders, user?.tenantId, currentTenant?.id]);
 

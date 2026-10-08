@@ -21,12 +21,14 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useStore } from '../../../context/StoreContext';
 import { BRANCH_METRICS } from '../../../data/branchCatalogData';
+import { resolveTenantId } from '../../../data/companyHierarchyData';
 
 export const DashboardView = ({ onNavigateModule }) => {
   const {
     currency,
     products,
     customerOrders,
+    adminOrders,
     customers,
     updateProductStock,
     addToast,
@@ -53,10 +55,23 @@ export const DashboardView = ({ onNavigateModule }) => {
   const [isExporting, setIsExporting] = useState(false);
 
   // Use only live records for operational figures; absent data stays at zero.
-  const tenantOrders = useMemo(
-    () => (customerOrders || []).filter((order) => order.tenantId === tenantKey || (!order.tenantId && tenantKey === 'tenant-freshmart')),
-    [customerOrders, tenantKey]
-  );
+  const tenantOrders = useMemo(() => {
+    const combined = [...(customerOrders || []), ...(adminOrders || [])];
+    const uniqueMap = new Map();
+    combined.forEach((ord) => {
+      if (ord && (ord.id || ord.orderId || ord._id)) {
+        const bareKey = String(ord.id || ord.orderId || ord._id).replace(/^#/, '').trim().toLowerCase();
+        if (!uniqueMap.has(bareKey)) {
+          uniqueMap.set(bareKey, ord);
+        }
+      }
+    });
+    const all = Array.from(uniqueMap.values());
+    return all.filter((order) => {
+      if (!order.tenantId) return false;
+      return order.tenantId === tenantKey || resolveTenantId(order.tenantId) === resolveTenantId(tenantKey);
+    });
+  }, [customerOrders, adminOrders, tenantKey]);
   const tenantCustomers = useMemo(
     () => (customers || []).filter((customer) => customer.tenantId === tenantKey || (!customer.tenantId && tenantKey === 'tenant-freshmart')),
     [customers, tenantKey]
@@ -832,7 +847,7 @@ export const DashboardView = ({ onNavigateModule }) => {
                       <tr key={ord.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3 font-mono font-bold text-slate-900">{ord.id}</td>
                         <td className="py-3 font-semibold text-slate-800">
-                          {ord.customer?.name || ord.shippingAddress?.fullName || 'Customer'}
+                          {ord.customerName || (typeof ord.customer === 'string' ? ord.customer : ord.customer?.name) || ord.shippingAddress?.fullName || 'Customer'}
                         </td>
                         <td className="py-3 font-black text-slate-900">
                           {currency.symbol || 'Rs. '}

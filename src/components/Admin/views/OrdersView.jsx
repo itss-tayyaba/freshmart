@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { DeliverToStaffModal } from '../modals/DeliverToStaffModal';
+import { resolveTenantId } from '../../../data/companyHierarchyData';
 
 // Helper: Extract human-readable order items count/summary safely (never returns an object/array)
 const formatOrderItemsSummary = (ord) => {
@@ -180,7 +181,10 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     });
     const raw = Array.from(uniqueMap.values());
     if (!currentTenant?.id) return raw;
-    return raw.filter((o) => !o.tenantId || o.tenantId === currentTenant.id);
+    return raw.filter((o) => {
+      if (!o.tenantId) return false;
+      return o.tenantId === currentTenant.id || resolveTenantId(o.tenantId) === resolveTenantId(currentTenant.id);
+    });
   }, [customerOrders, adminOrders, currentTenant]);
 
   // Statistics KPI counts

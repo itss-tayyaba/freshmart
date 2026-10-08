@@ -92,6 +92,10 @@ const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
   const address = remoteOrder.shippingAddress?.address || remoteOrder.address || localOrder.address || '';
   const city = remoteOrder.shippingAddress?.city || remoteOrder.city || localOrder.city || '';
   const total = Number(remoteOrder.totalPrice ?? remoteOrder.totalAmount ?? remoteOrder.total ?? localOrder.totalAmount ?? localOrder.total ?? 0);
+  const tenantId = remoteOrder.tenantId || localOrder.tenantId || 'tenant-alfatah';
+  const tenantName = remoteOrder.tenantName || localOrder.tenantName || (tenantId === 'tenant-chasevalue' ? 'Chase Value' : tenantId === 'tenant-chaseup' ? 'Chase Up' : 'Al-Fatah Supermarket');
+  const branchId = remoteOrder.branchId || localOrder.branchId || 'branch_001';
+  const branchName = remoteOrder.branchName || localOrder.branchName || 'Main Branch';
   return {
     ...localOrder,
     ...remoteOrder,
@@ -106,6 +110,10 @@ const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
     city,
     total,
     totalAmount: total,
+    tenantId,
+    tenantName,
+    branchId,
+    branchName,
     status: remoteOrder.status || localOrder.status || 'Confirmed'
   };
 };
@@ -123,6 +131,9 @@ const mergeApiOrders = (remoteOrders, localOrders, role, user) => {
     if (!id || remoteIds.has(id)) return false;
     if (role === 'pickup_staff') return String(order.pickupStaffId) === String(user?.staffId || user?.id);
     if (role === 'rider') return String(order.assignedRider?.id || order.assignedRider?.riderId) === String(user?.riderId || user?.id);
+    if (role === 'admin' && user?.tenantId) {
+      return order.tenantId === user.tenantId || resolveTenantId(order.tenantId) === resolveTenantId(user.tenantId);
+    }
     return true;
   });
   return [...mergedRemote, ...remainingLocal];
@@ -236,6 +247,10 @@ export const StoreProvider = ({ children }) => {
     {
       id: 'ORD-701',
       orderId: 'ORD-701',
+      tenantId: 'tenant-alfatah',
+      tenantName: 'Al-Fatah Supermarket',
+      branchId: 'branch_001',
+      branchName: 'Gulberg Mall',
       customer: 'Tayyaba Batool',
       customerName: 'Tayyaba Batool',
       customerPhone: '+923206551696',
@@ -3935,11 +3950,18 @@ export const StoreProvider = ({ children }) => {
     const paymentMethod = orderData.paymentMethod || orderData.payment || 'Cash on Delivery';
     const generatedOtp = String(Math.floor(1000 + Math.random() * 9000));
 
+    const resolvedTenantId = orderData.tenantId || currentTenant?.id || 'tenant-freshmart';
+    const resolvedTenantName = orderData.tenantName || currentTenant?.displayName || currentTenant?.name || 'FreshMart Direct';
+    const resolvedBranchId = orderData.branchId || currentBranch?._id || currentBranch?.id || 'branch_001';
+    const resolvedBranchName = orderData.branchName || currentBranch?.name || 'Main Branch';
+
     const backendPayload = {
       orderId: localOrderId,
       id: localOrderId,
-      tenantId: orderData.tenantId || currentTenant?.id || 'tenant-freshmart',
-      tenantName: orderData.tenantName || currentTenant?.name || 'FreshMart Direct',
+      tenantId: resolvedTenantId,
+      tenantName: resolvedTenantName,
+      branchId: resolvedBranchId,
+      branchName: resolvedBranchName,
       deliveryOtp: orderData.deliveryOtp || generatedOtp,
       orderItems,
       rawItems: orderItems,
@@ -3968,8 +3990,10 @@ export const StoreProvider = ({ children }) => {
     let confirmedOrder = {
       ...backendPayload,
       id: localOrderId,
-      tenantId: backendPayload.tenantId,
-      tenantName: backendPayload.tenantName,
+      tenantId: resolvedTenantId,
+      tenantName: resolvedTenantName,
+      branchId: resolvedBranchId,
+      branchName: resolvedBranchName,
       deliveryOtp: backendPayload.deliveryOtp,
       items: `${orderItems.length} Item${orderItems.length > 1 ? 's' : ''}`,
       status: 'Pending',
@@ -3990,6 +4014,10 @@ export const StoreProvider = ({ children }) => {
           ...bOrder,
           id: realId,
           orderId: realId,
+          tenantId: bOrder.tenantId || resolvedTenantId,
+          tenantName: bOrder.tenantName || resolvedTenantName,
+          branchId: bOrder.branchId || resolvedBranchId,
+          branchName: bOrder.branchName || resolvedBranchName,
           deliveryOtp: bOrder.deliveryOtp || backendPayload.deliveryOtp,
           rawItems: orderItems,
           orderItems: orderItems,

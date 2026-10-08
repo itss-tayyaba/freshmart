@@ -60,10 +60,16 @@ const orderSchema = new mongoose.Schema(
       index: true,
       default: 'tenant-freshmart'
     },
+    tenantName: {
+      type: String
+    },
     branchId: {
       type: String,
       index: true,
       default: 'branch_001'
+    },
+    branchName: {
+      type: String
     },
     customerId: {
       type: String,

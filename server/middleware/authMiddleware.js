@@ -7,21 +7,7 @@ import { Supplier } from '../models/ExtraModels.js';
 export const protect = async (req, res, next) => {
   let token;
 
-  // 1. Direct admin role header support for authenticated frontend admin sessions
-  const adminRoleHeader = req?.headers ? req.headers['x-admin-role'] : null;
-  if (adminRoleHeader && ['admin', 'superadmin', 'pickup_staff', 'store admin'].includes(adminRoleHeader.toLowerCase())) {
-    const isSuper = adminRoleHeader.toLowerCase() === 'superadmin';
-    const isPickup = adminRoleHeader.toLowerCase() === 'pickup_staff';
-    req.user = {
-      _id: isSuper ? 'superadmin-root' : 'admin-root',
-      id: isSuper ? 'superadmin-root' : 'admin-root',
-      name: isSuper ? 'Platform Super Admin' : (isPickup ? 'Pickup Staff' : 'Store Admin'),
-      email: isSuper ? 'superadmin@supergrocery.pk' : 'admin@freshmart.pk',
-      role: isSuper ? 'superadmin' : (isPickup ? 'pickup_staff' : 'admin'),
-      tenantId: (req?.headers && req.headers['x-tenant-id']) || 'tenant-alfatah'
-    };
-    return next();
-  }
+  const tenantHeader = (req?.headers && req.headers['x-tenant-id']) || null;
 
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
@@ -37,7 +23,7 @@ export const protect = async (req, res, next) => {
           name: isSuper ? 'Platform Super Admin' : (isPickup ? 'Pickup Staff' : 'Store Admin'),
           email: isSuper ? 'superadmin@supergrocery.pk' : 'admin@freshmart.pk',
           role: isSuper ? 'superadmin' : (isPickup ? 'pickup_staff' : 'admin'),
-          tenantId: req.headers['x-tenant-id'] || 'tenant-alfatah'
+          tenantId: tenantHeader || (token.includes('chasevalue') ? 'tenant-chasevalue' : token.includes('chaseup') ? 'tenant-chaseup' : 'tenant-alfatah')
         };
         return next();
       }
@@ -52,6 +38,7 @@ export const protect = async (req, res, next) => {
             req.user = dbUser.toObject ? dbUser.toObject() : { ...dbUser };
             req.user.id = String(dbUser._id);
             req.user.vendorId = decoded.vendorId || dbUser.vendorId;
+            req.user.tenantId = tenantHeader || dbUser.tenantId || decoded.tenantId;
             if (decoded.role && ['admin', 'superadmin', 'pickup_staff', 'store admin'].includes(decoded.role.toLowerCase())) {
               req.user.role = decoded.role.toLowerCase() === 'superadmin' ? 'superadmin' : 'admin';
             }
@@ -92,7 +79,7 @@ export const protect = async (req, res, next) => {
           role: decoded.role || (decoded.id === 'admin-root' ? 'admin' : 'customer'),
           staffId: decoded.staffId,
           riderId: decoded.riderId,
-          tenantId: decoded.tenantId,
+          tenantId: tenantHeader || decoded.tenantId,
           vendorId: decoded.vendorId || (decoded.role === 'vendor' || decoded.role === 'supplier' ? (decoded.id || 'VND-101') : undefined)
         };
         return next();
@@ -103,6 +90,22 @@ export const protect = async (req, res, next) => {
       console.error('JWT Auth Error:', error.message);
       return res.status(401).json({ success: false, message: 'Not authorized, token invalid or expired' });
     }
+  }
+
+  // Fallback direct admin role header support
+  const adminRoleHeader = req?.headers ? req.headers['x-admin-role'] : null;
+  if (adminRoleHeader && ['admin', 'superadmin', 'pickup_staff', 'store admin'].includes(adminRoleHeader.toLowerCase())) {
+    const isSuper = adminRoleHeader.toLowerCase() === 'superadmin';
+    const isPickup = adminRoleHeader.toLowerCase() === 'pickup_staff';
+    req.user = {
+      _id: isSuper ? 'superadmin-root' : 'admin-root',
+      id: isSuper ? 'superadmin-root' : 'admin-root',
+      name: isSuper ? 'Platform Super Admin' : (isPickup ? 'Pickup Staff' : 'Store Admin'),
+      email: isSuper ? 'superadmin@supergrocery.pk' : 'admin@freshmart.pk',
+      role: isSuper ? 'superadmin' : (isPickup ? 'pickup_staff' : 'admin'),
+      tenantId: tenantHeader || 'tenant-alfatah'
+    };
+    return next();
   }
 
   return res.status(401).json({ success: false, message: 'Not authorized, no token provided' });

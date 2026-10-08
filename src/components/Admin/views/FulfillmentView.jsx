@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Boxes, UserPlus, Trash2, X, Eye, EyeOff, Clock, MapPin, PackageCheck } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
+import { resolveTenantId } from '../../../data/companyHierarchyData';
 
 const getItems = (order) => [order.rawItems, order.items, order.orderItems].find(Array.isArray) || [];
 const getOrderLabel = (order) => String(order.orderId || order.id || order._id || 'Order').replace(/^#/, '#');
@@ -30,7 +31,12 @@ export const FulfillmentView = () => {
     const unique = new Map();
     [...customerOrders, ...adminOrders].forEach((order) => {
       const id = String(order?.id || order?.orderId || order?._id || '');
-      if (!id || (order.tenantId && currentTenant?.id && order.tenantId !== currentTenant.id)) return;
+      if (!id) return;
+      if (currentTenant?.id) {
+        if (!order.tenantId) return;
+        const matchesTenant = order.tenantId === currentTenant.id || resolveTenantId(order.tenantId) === resolveTenantId(currentTenant.id);
+        if (!matchesTenant) return;
+      }
       unique.set(id, { ...unique.get(id), ...order });
     });
     return [...unique.values()].sort((a, b) => new Date(b.fulfillmentUpdatedAt || b.updatedAt || b.createdAt || 0) - new Date(a.fulfillmentUpdatedAt || a.updatedAt || a.createdAt || 0));

@@ -43,6 +43,25 @@ const getAuthHeaders = (extraHeaders = {}) => {
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
+
+    const activeTenantId =
+      localStorage.getItem('freshmart_current_tenant_id') ||
+      (() => {
+        try {
+          const u = JSON.parse(localStorage.getItem('freshmart_admin_user') || '{}');
+          return u.tenantId;
+        } catch {
+          return null;
+        }
+      })();
+    if (activeTenantId) {
+      headers['x-tenant-id'] = activeTenantId;
+    }
+
+    const activeBranchId = localStorage.getItem('freshmart_current_branch_id');
+    if (activeBranchId) {
+      headers['x-branch-id'] = activeBranchId;
+    }
   } catch (e) {}
   return headers;
 };

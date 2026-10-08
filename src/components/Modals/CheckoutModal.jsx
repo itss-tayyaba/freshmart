@@ -15,7 +15,10 @@ export const CheckoutModal = () => {
     clearCart,
     setIsOrderTrackerOpen,
     currency,
-    addToast
+    addToast,
+    placeCustomerOrder,
+    currentTenant,
+    currentBranch
   } = useStore();
 
   const [step, setStep] = useState(1); // 1: Delivery Details, 2: Payment, 3: Success
@@ -33,10 +36,62 @@ export const CheckoutModal = () => {
 
   if (!isCheckoutOpen) return null;
 
-  const handlePlaceOrder = () => {
-    // Generate random order ID
-    const newOrderId = 'GROC-' + Math.floor(1000 + Math.random() * 9000);
-    setPlacedOrderId(newOrderId);
+  const handlePlaceOrder = async () => {
+    // Generate real order ID
+    const newOrderId = '#FM' + Math.floor(10000 + Math.random() * 90000);
+
+    const orderItems = (cart || []).map((i) => {
+      const p = i.product && typeof i.product === 'object' ? i.product : i;
+      const prodId = p._id || p.id || i.id || i.productId;
+      return {
+        product: prodId,
+        id: prodId ? String(prodId) : undefined,
+        name: p.name || i.name || 'Grocery Item',
+        price: Number(p.price !== undefined ? p.price : (i.price || 0)),
+        quantity: Number(i.quantity || 1),
+        unit: p.unit || i.unit || '1 unit',
+        image: p.image || i.image || '',
+        vendorId: p.vendorId || i.vendorId || 'VND-101'
+      };
+    });
+
+    const paymentLabel = formData.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Credit / Debit Card';
+
+    const orderPayload = {
+      id: newOrderId,
+      orderId: newOrderId,
+      orderItems,
+      rawItems: orderItems,
+      items: orderItems,
+      subtotal: Number(cartSubtotal || 0),
+      deliveryCharges: Number(shippingFee || 0),
+      discountAmount: Number(discountAmount || 0),
+      totalAmount: Number(cartTotal || 0),
+      totalPrice: Number(cartTotal || 0),
+      paymentMethod: paymentLabel,
+      deliverySlot: formData.deliverySlot,
+      shippingAddress: {
+        address: formData.address,
+        city: formData.city,
+        deliverySlot: formData.deliverySlot
+      },
+      address: formData.address,
+      city: formData.city,
+      customerName: formData.name,
+      customerPhone: formData.phone,
+      tenantId: currentTenant?.id || 'tenant-freshmart',
+      tenantName: currentTenant?.displayName || currentTenant?.name || 'FreshMart',
+      branchId: currentBranch?._id || currentBranch?.id || 'branch_001',
+      branchName: currentBranch?.name || 'Main Branch',
+      status: 'Pending'
+    };
+
+    let resultOrder = orderPayload;
+    if (placeCustomerOrder) {
+      resultOrder = (await placeCustomerOrder(orderPayload)) || orderPayload;
+    }
+    const finalOrderId = resultOrder.orderId || resultOrder.id || newOrderId;
+    setPlacedOrderId(finalOrderId);
     setStep(3);
     clearCart();
 
@@ -47,7 +102,7 @@ export const CheckoutModal = () => {
       origin: { y: 0.6 }
     });
 
-    addToast('Order Placed Successfully! 🥗', `Order ${newOrderId} has been confirmed.`, 'success');
+    addToast('Order Placed Successfully! 🥗', `Order ${finalOrderId} has been confirmed.`, 'success');
   };
 
   const handleTrackOrder = () => {

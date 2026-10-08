@@ -245,7 +245,7 @@ export const DeliveryView = () => {
     return matchesSearch && matchesZone;
   });
 
-  // Unified Orders List (Deduplicated with Delivered state prioritized)
+  // Unified Orders List (Deduplicated with Delivered state prioritized and filtered strictly by tenant)
   const allOrdersList = useMemo(() => {
     const combined = [...(customerOrders || []), ...(adminOrders || [])];
     const uniqueMap = new Map();
@@ -260,8 +260,13 @@ export const DeliveryView = () => {
         }
       }
     });
-    return Array.from(uniqueMap.values());
-  }, [customerOrders, adminOrders]);
+    const list = Array.from(uniqueMap.values());
+    if (!currentTenant?.id) return list;
+    return list.filter((ord) => {
+      if (!ord.tenantId) return false;
+      return ord.tenantId === currentTenant.id || (resolveTenantId && resolveTenantId(ord.tenantId) === resolveTenantId(currentTenant.id));
+    });
+  }, [customerOrders, adminOrders, currentTenant?.id]);
 
   // KPI Metrics scoped to this store
   const activeRidersCount = storeRiders.filter((r) => r.status === 'On-Duty' || r.status === 'Busy').length;

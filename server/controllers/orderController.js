@@ -246,8 +246,28 @@ export const createOrder = async (req, res) => {
     const etaText = `${etaMinutes} mins (Upon dispatch)`;
     const deliveryOtp = req.body.deliveryOtp || String(Math.floor(1000 + Math.random() * 9000));
 
+    const tenantId = req.body.tenantId || req.body.tenant || req.user?.tenantId || 'tenant-freshmart';
+    const tenantName =
+      req.body.tenantName ||
+      req.body.storeName ||
+      (tenantId === 'tenant-chasevalue'
+        ? 'Chase Value'
+        : tenantId === 'tenant-chaseup'
+        ? 'Chase Up'
+        : tenantId === 'tenant-alfatah'
+        ? 'Al-Fatah Supermarket'
+        : 'Unimaart');
+    const branchId = req.body.branchId || req.body.branch || req.user?.branchId || 'branch_001';
+    const branchName = req.body.branchName || req.body.branchTitle || 'Main Branch';
+    const customerId = req.body.customerId || req.user?._id || req.user?.id || 'CUST-GUEST';
+
     const initialOrderObj = {
       orderId,
+      tenantId,
+      tenantName,
+      branchId,
+      branchName,
+      customerId,
       user: req.user?._id,
       customerName: custName,
       customerPhone: custPhone,
@@ -306,6 +326,11 @@ export const createOrder = async (req, res) => {
     const newOrder = {
       id: orderId,
       orderId,
+      tenantId,
+      tenantName,
+      branchId,
+      branchName,
+      customerId,
       customer: custName,
       customerName: custName,
       customerPhone: custPhone,
@@ -359,14 +384,21 @@ export const getOrders = async (req, res) => {
     const isAdmin = role === 'admin' || role === 'superadmin';
     const staffId = req.user?.staffId || req.user?.id;
     const riderId = req.user?.riderId || req.user?.id;
+    const userTenantId = req.headers?.['x-tenant-id'] || req.query?.tenantId || req.user?.tenantId;
+    const userBranchId = req.headers?.['x-branch-id'] || req.query?.branchId || req.user?.branchId;
+
     if (!isAdmin && role !== 'pickup_staff' && role !== 'rider') {
       return res.status(403).json({ success: false, message: 'Access denied: staff or admin account required.' });
     }
 
     const filter = {};
-    if (role === 'pickup_staff') filter.pickupStaffId = staffId;
+    if (role === 'pickup_staff') {
+      if (staffId) filter.pickupStaffId = staffId;
+      if (userTenantId && role !== 'superadmin') filter.tenantId = userTenantId;
+    }
     if (role === 'rider') filter['assignedRider.id'] = riderId;
-    if (role === 'admin' && req.user?.tenantId) filter.tenantId = req.user.tenantId;
+    if (role === 'admin' && userTenantId && role !== 'superadmin') filter.tenantId = userTenantId;
+    if (userBranchId && role !== 'superadmin') filter.branchId = userBranchId;
 
     if (isDbOnline()) {
       const orders = await Order.find(filter).sort({ createdAt: -1 });
@@ -374,9 +406,23 @@ export const getOrders = async (req, res) => {
     }
 
     let orders = [...ADMIN_ORDERS_FULL];
-    if (role === 'pickup_staff') orders = orders.filter((order) => String(order.pickupStaffId) === String(staffId));
-    if (role === 'rider') orders = orders.filter((order) => String(order.assignedRider?.id || order.assignedRider?.riderId) === String(riderId));
-    if (role === 'admin' && req.user?.tenantId) orders = orders.filter((order) => !order.tenantId || order.tenantId === req.user.tenantId);
+    if (role === 'pickup_staff') {
+      orders = orders.filter((order) => {
+        const matchesStaff = !staffId || String(order.pickupStaffId) === String(staffId);
+        const matchesTenant = !userTenantId || order.tenantId === userTenantId;
+        const matchesBranch = !userBranchId || order.branchId === userBranchId;
+        return matchesStaff && matchesTenant && matchesBranch;
+      });
+    }
+    if (role === 'rider') {
+      orders = orders.filter((order) => String(order.assignedRider?.id || order.assignedRider?.riderId) === String(riderId));
+    }
+    if (role === 'admin' && userTenantId && role !== 'superadmin') {
+      orders = orders.filter((order) => order.tenantId === userTenantId);
+      if (userBranchId) {
+        orders = orders.filter((order) => !order.branchId || order.branchId === userBranchId);
+      }
+    }
     return res.json({ success: true, count: orders.length, orders });
   } catch (error) {
     res.json({ success: true, count: 0, orders: [] });
