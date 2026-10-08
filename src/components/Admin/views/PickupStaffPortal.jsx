@@ -92,14 +92,13 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     });
 
     const list = Array.from(uniqueMap.values());
-    const activeTenantId = user?.tenantId || currentTenant?.id || 'tenant-freshmart';
+    const activeTenantId = user?.tenantId || currentTenant?.id;
 
     return list.filter((ord) => {
-      // Allow tenant match or fallback
-      const tenantMatch = !ord.tenantId || ord.tenantId === activeTenantId || activeTenantId === 'tenant-freshmart';
-      return tenantMatch;
+      if (!activeTenantId) return true;
+      return ord.tenantId === activeTenantId || (!ord.tenantId && activeTenantId === 'tenant-alfatah');
     }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-  }, [customerOrders, adminOrders, user, currentTenant]);
+  }, [customerOrders, adminOrders, user?.tenantId, currentTenant?.id]);
 
   // Tab counts
   const counts = useMemo(() => {
@@ -253,14 +252,15 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] uppercase tracking-widest text-emerald-300 font-extrabold bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                Pickup Staff Dashboard
+                {currentTenant?.name || user?.tenantName || 'Store'} &bull; Pickup Desk
               </span>
               <span className="text-xs text-slate-400 font-mono">
                 @{user?.username || 'staff_desk'}
               </span>
             </div>
-            <h1 className="text-base sm:text-lg font-black text-white mt-0.5">
-              Kitchen & Packing Desk
+            <h1 className="text-base sm:text-lg font-black text-white mt-0.5 flex items-center gap-2">
+              <span>{currentTenant?.logo || '🏬'}</span>
+              <span>{currentTenant?.name || user?.tenantName || 'Store'} Packing Station</span>
             </h1>
           </div>
         </div>

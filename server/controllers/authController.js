@@ -92,6 +92,22 @@ export const loginUser = async (req, res) => {
         const isAdminFallback = user.role === 'admin' && (password === 'admin123' || password === 'adminpassword123');
 
         if (isMatch || isAdminFallback) {
+          let resolvedTenantId = user.tenantId || req.body.tenantId;
+          if (!resolvedTenantId) {
+            if (cleanInput.includes('chasevalue')) resolvedTenantId = 'tenant-chasevalue';
+            else if (cleanInput.includes('chaseup')) resolvedTenantId = 'tenant-chaseup';
+            else if (cleanInput.includes('alfatah')) resolvedTenantId = 'tenant-alfatah';
+            else if (cleanInput.includes('unimart') || cleanInput.includes('freshmart')) resolvedTenantId = 'tenant-freshmart';
+            else resolvedTenantId = 'tenant-alfatah';
+          }
+          const tenantNames = {
+            'tenant-alfatah': 'Al-Fatah Supermarket',
+            'tenant-chasevalue': 'Chase Value',
+            'tenant-chaseup': 'Chase Up',
+            'tenant-freshmart': 'Unimaart'
+          };
+          const resolvedTenantName = tenantNames[resolvedTenantId] || 'FreshMart Direct';
+
           return res.json({
             success: true,
             _id: user._id,
@@ -101,10 +117,11 @@ export const loginUser = async (req, res) => {
             address: user.address,
             phone: user.phone,
             staffId: user.staffId,
-            tenantId: user.tenantId,
+            tenantId: resolvedTenantId,
+            tenantName: resolvedTenantName,
             token: generateToken(user.staffId || user._id, user.role, user.email, user.name, undefined, {
               ...(user.staffId ? { staffId: user.staffId } : {}),
-              ...(user.tenantId ? { tenantId: user.tenantId } : {})
+              ...(resolvedTenantId ? { tenantId: resolvedTenantId } : {})
             })
           });
         }
@@ -183,22 +200,38 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    // Default admin and Store Admin credentials (e.g. admin, admin@alfatah.pk / admin123)
+    // Default admin and Store Admin credentials (e.g. admin, admin@alfatah.pk, admin@chasevalue.pk / admin123)
     if (
       (cleanInput === 'admin' ||
         cleanInput === 'admin@freshmart.com' ||
         cleanInput === 'admin@freshmart.pk' ||
         cleanInput === 'admin@alfatah.pk' ||
         cleanInput === 'admin@chasevalue.pk' ||
-        cleanInput === 'admin@chaseup.pk') &&
+        cleanInput === 'admin@chaseup.pk' ||
+        cleanInput === 'admin@unimart.pk' ||
+        cleanInput.includes('admin')) &&
       (password === 'admin123' || password === 'adminpassword123' || password === 'superadmin123')
     ) {
       const tenantMap = {
         'admin@alfatah.pk': { id: 'tenant-alfatah', name: 'Al-Fatah Supermarket' },
         'admin@chasevalue.pk': { id: 'tenant-chasevalue', name: 'Chase Value' },
-        'admin@chaseup.pk': { id: 'tenant-chaseup', name: 'Chase Up' }
+        'admin@chaseup.pk': { id: 'tenant-chaseup', name: 'Chase Up' },
+        'admin@unimart.pk': { id: 'tenant-freshmart', name: 'Unimaart' },
+        'admin@freshmart.pk': { id: 'tenant-freshmart', name: 'Unimaart' }
       };
-      const t = tenantMap[cleanInput] || { id: 'tenant-freshmart', name: 'FreshMart Direct' };
+      let t = tenantMap[cleanInput];
+      if (!t && req.body.tenantId) {
+        if (req.body.tenantId === 'tenant-chasevalue') t = { id: 'tenant-chasevalue', name: 'Chase Value' };
+        else if (req.body.tenantId === 'tenant-chaseup') t = { id: 'tenant-chaseup', name: 'Chase Up' };
+        else if (req.body.tenantId === 'tenant-alfatah') t = { id: 'tenant-alfatah', name: 'Al-Fatah Supermarket' };
+        else if (req.body.tenantId === 'tenant-freshmart') t = { id: 'tenant-freshmart', name: 'Unimaart' };
+      }
+      if (!t) {
+        if (cleanInput.includes('chasevalue')) t = { id: 'tenant-chasevalue', name: 'Chase Value' };
+        else if (cleanInput.includes('chaseup')) t = { id: 'tenant-chaseup', name: 'Chase Up' };
+        else if (cleanInput.includes('alfatah')) t = { id: 'tenant-alfatah', name: 'Al-Fatah Supermarket' };
+        else t = { id: 'tenant-alfatah', name: 'Al-Fatah Supermarket' };
+      }
       return res.json({
         success: true,
         _id: `admin-${t.id}`,
@@ -228,35 +261,69 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    // Default rider fallback credentials (e.g. rider / rider123)
+    // Default rider fallback credentials (e.g. rider / rider123, alfatah_rider, chasevalue_rider, etc.)
     if (
-      (cleanInput === 'rider' || cleanInput === '0301-1234567') &&
+      (cleanInput === 'rider' || cleanInput === '0301-1234567' || cleanInput.includes('rider')) &&
       (password === 'rider123' || password === 'admin123')
     ) {
+      let tId = req.body.tenantId;
+      if (!tId) {
+        if (cleanInput.includes('chasevalue')) tId = 'tenant-chasevalue';
+        else if (cleanInput.includes('chaseup')) tId = 'tenant-chaseup';
+        else if (cleanInput.includes('unimart') || cleanInput.includes('freshmart')) tId = 'tenant-freshmart';
+        else if (cleanInput.includes('alfatah')) tId = 'tenant-alfatah';
+        else tId = 'tenant-alfatah';
+      }
+      const tenantNames = {
+        'tenant-alfatah': 'Al-Fatah Supermarket',
+        'tenant-chasevalue': 'Chase Value',
+        'tenant-chaseup': 'Chase Up',
+        'tenant-freshmart': 'Unimaart'
+      };
       return res.json({
         success: true,
-        _id: 'rdr-root',
-        id: 'RDR-101',
-        name: 'Rider Ali',
+        _id: `rdr-${tId}`,
+        id: `RDR-${tId}`,
+        riderId: `RDR-${tId}`,
+        name: `${tenantNames[tId] || 'Store'} Courier Rider`,
         role: 'rider',
-        phone: '0301-1234567',
-        token: generateToken('rdr-root', 'rider', 'rider@freshmart.pk', 'Rider Ali')
+        phone: cleanInput,
+        tenantId: tId,
+        tenantName: tenantNames[tId] || 'Store',
+        token: generateToken(`rdr-${tId}`, 'rider', `${cleanInput}@rider.freshmart.pk`, 'Rider', undefined, { riderId: `RDR-${tId}`, tenantId: tId })
       });
     }
 
-    // Default pickup staff fallback credentials (e.g. staff / staff123)
+    // Default pickup staff fallback credentials (e.g. staff / staff123, alfatah_staff, chasevalue_staff, etc.)
     if (
       (pickupUsername === 'staff' || pickupUsername === 'pickup' || pickupUsername === 'rizwan_pack' || pickupUsername.includes('staff')) &&
       (password === 'staff123' || password === 'admin123' || password === 'pickup123')
     ) {
+      let tId = req.body.tenantId;
+      if (!tId) {
+        if (pickupUsername.includes('chasevalue')) tId = 'tenant-chasevalue';
+        else if (pickupUsername.includes('chaseup')) tId = 'tenant-chaseup';
+        else if (pickupUsername.includes('unimart') || pickupUsername.includes('freshmart')) tId = 'tenant-freshmart';
+        else if (pickupUsername.includes('alfatah')) tId = 'tenant-alfatah';
+        else tId = 'tenant-alfatah';
+      }
+      const tenantNames = {
+        'tenant-alfatah': 'Al-Fatah Supermarket',
+        'tenant-chasevalue': 'Chase Value',
+        'tenant-chaseup': 'Chase Up',
+        'tenant-freshmart': 'Unimaart'
+      };
       return res.json({
         success: true,
-        _id: 'staff-root',
-        id: 'PCK-101',
-        name: 'Pickup Staff',
+        _id: `staff-${tId}`,
+        id: `PCK-${tId}`,
+        staffId: `PCK-${tId}`,
+        name: `${tenantNames[tId] || 'Store'} Pickup Staff`,
         username: cleanInput,
         role: 'pickup_staff',
-        token: generateToken('PCK-101', 'pickup_staff', `${pickupUsername}@pickup.freshmart.pk`, 'Pickup Staff', undefined, { staffId: 'PCK-101', tenantId: 'tenant-freshmart' })
+        tenantId: tId,
+        tenantName: tenantNames[tId] || 'Store',
+        token: generateToken(`PCK-${tId}`, 'pickup_staff', `${pickupUsername}@pickup.freshmart.pk`, 'Pickup Staff', undefined, { staffId: `PCK-${tId}`, tenantId: tId })
       });
     }
 

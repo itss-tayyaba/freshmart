@@ -221,8 +221,15 @@ export const DeliveryView = () => {
   // Selected rider for mobile app simulator
   const [simulatedRiderId, setSimulatedRiderId] = useState(riders[0]?.id || '');
 
+  // Filter riders belonging to active store tenant
+  const storeRiders = useMemo(() => {
+    const tId = currentTenant?.id;
+    if (!tId) return riders || [];
+    return (riders || []).filter((r) => !r.tenantId || r.tenantId === tId || (tId === 'tenant-alfatah' && !r.tenantId));
+  }, [riders, currentTenant?.id]);
+
   // Filter riders based on search and branch/zone
-  const filteredRiders = (riders || []).filter((r) => {
+  const filteredRiders = storeRiders.filter((r) => {
     const query = searchRider.toLowerCase();
     const riderRegion = String(r.branchName || r.region || r.zone || '').toLowerCase();
     const matchesSearch =
@@ -256,9 +263,9 @@ export const DeliveryView = () => {
     return Array.from(uniqueMap.values());
   }, [customerOrders, adminOrders]);
 
-  // KPI Metrics
-  const activeRidersCount = (riders || []).filter((r) => r.status === 'On-Duty' || r.status === 'Busy').length;
-  const totalDeliveries = (riders || []).reduce((sum, r) => sum + (r.deliveriesCount || 0), 0);
+  // KPI Metrics scoped to this store
+  const activeRidersCount = storeRiders.filter((r) => r.status === 'On-Duty' || r.status === 'Busy').length;
+  const totalDeliveries = storeRiders.reduce((sum, r) => sum + (r.deliveriesCount || 0), 0);
 
   const pendingDispatches = useMemo(() => {
     return allOrdersList.filter((o) => {

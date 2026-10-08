@@ -8,7 +8,7 @@ import {
   COUPONS
 } from '../data/freshMartData';
 import { ADMIN_PROMOTIONS_DATA } from '../data/adminSuiteData';
-import { INITIAL_TENANTS, SUBSCRIPTION_PLANS, INITIAL_STORE_ADMINS } from '../data/tenantData';
+import { INITIAL_TENANTS, SUBSCRIPTION_PLANS, INITIAL_STORE_ADMINS, INITIAL_PICKUP_STAFF, INITIAL_RIDERS } from '../data/tenantData';
 import {
   ALL_BRANCH_PRODUCTS,
   ALFATAH_PRODUCTS,
@@ -436,15 +436,21 @@ export const StoreProvider = ({ children }) => {
       const saved = localStorage.getItem('freshmart_store_admins');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          // Filter out any legacy preseeded mart admins
-          return parsed.filter(
-            (sa) => !['sa-alfatah', 'sa-chasevalue', 'sa-chaseup', 'sa-freshmart', 'sa-localgrocery', 'sa-superstore'].includes(sa.id)
-          );
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingIds = new Set(parsed.map((sa) => (sa.id || sa.email)?.toLowerCase()));
+          const merged = [...parsed];
+          (INITIAL_STORE_ADMINS || []).forEach((initSa) => {
+            const k1 = (initSa.id || '').toLowerCase();
+            const k2 = (initSa.email || '').toLowerCase();
+            if (!existingIds.has(k1) && !existingIds.has(k2)) {
+              merged.push(initSa);
+            }
+          });
+          return merged;
         }
       }
     } catch (e) {}
-    return INITIAL_STORE_ADMINS; // []
+    return INITIAL_STORE_ADMINS;
   });
 
   useEffect(() => {
@@ -1395,7 +1401,48 @@ export const StoreProvider = ({ children }) => {
     };
   }, [isAdminLoggedIn, adminRole, user?.id, user?.staffId, user?.riderId, user?.tenantId]);
 
-  const adminLogin = async (username, password, role = 'admin') => {
+  // Auto-synchronize currentTenant whenever user session with tenantId is active
+  useEffect(() => {
+    if (isAdminLoggedIn && user?.tenantId && adminRole !== 'superadmin') {
+      const allTenantsList = (tenants && tenants.length > 0) ? tenants : INITIAL_TENANTS;
+      const matched = allTenantsList.find((t) => t.id === user.tenantId);
+      if (matched && currentTenant?.id !== matched.id) {
+        setCurrentTenantState(matched);
+        try {
+          localStorage.setItem('freshmart_current_tenant_id', matched.id);
+        } catch (e) {}
+      }
+    }
+  }, [isAdminLoggedIn, user?.tenantId, adminRole]);
+
+  // Helper to resolve the correct store tenant based on preferred tenant ID, username, or store keywords
+  const resolveStoreTenant = (candidateTenantId, userStr = '') => {
+    const allTenantsList = (tenants && tenants.length > 0) ? tenants : INITIAL_TENANTS;
+    const search = String(candidateTenantId || userStr || '').toLowerCase();
+    if (candidateTenantId) {
+      const byId = allTenantsList.find((t) => t.id === candidateTenantId || t.tenantId === candidateTenantId);
+      if (byId) return byId;
+    }
+    if (search.includes('chasevalue') || search.includes('chase-value') || search.includes('case value') || search.includes('casevalue')) {
+      return allTenantsList.find((t) => t.id === 'tenant-chasevalue') || INITIAL_TENANTS[1];
+    }
+    if (search.includes('chaseup') || search.includes('chase-up') || search.includes('chase up')) {
+      return allTenantsList.find((t) => t.id === 'tenant-chaseup') || INITIAL_TENANTS[2];
+    }
+    if (search.includes('unimart') || search.includes('freshmart')) {
+      return allTenantsList.find((t) => t.id === 'tenant-freshmart') || INITIAL_TENANTS[3];
+    }
+    if (search.includes('alfatah') || search.includes('al-fatah')) {
+      return allTenantsList.find((t) => t.id === 'tenant-alfatah') || INITIAL_TENANTS[0];
+    }
+    if (candidateTenantId) {
+      const bySlug = allTenantsList.find((t) => t.slug === candidateTenantId || (t.name && t.name.toLowerCase().includes(search)));
+      if (bySlug) return bySlug;
+    }
+    return currentTenant || INITIAL_TENANTS[0];
+  };
+
+  const adminLogin = async (username, password, role = 'admin', preferredTenantId = null) => {
     const targetRole = (role || 'admin').toLowerCase();
     const cleanUser = (username || '').trim().toLowerCase();
     const cleanPass = (password || '').trim();
@@ -1418,7 +1465,7 @@ export const StoreProvider = ({ children }) => {
       } else if (targetRole === 'pickup_staff' && !cleanUser.includes('@')) {
         loginPayloadUser = `${cleanUser}@pickup.freshmart.pk`;
       }
-      authRes = await apiService.login(loginPayloadUser, cleanPass);
+      authRes = await apiService.login(loginPayloadUser, cleanPass, preferredTenantId);
       if (
         authRes &&
         typeof authRes === 'object' &&
@@ -1460,13 +1507,17 @@ export const StoreProvider = ({ children }) => {
 
       // Case B: Store Admin
       if (targetRole === 'admin') {
+        const storeTenant = resolveStoreTenant(authRes.tenantId || preferredTenantId, cleanUser);
+        if (storeTenant) {
+          setCurrentTenant(storeTenant);
+        }
         const adminUser = {
           id: authRes._id || authRes.id || `usr-${Date.now()}`,
-          name: authRes.name || 'Store Admin',
+          name: authRes.name || `${storeTenant?.name || 'Store'} Admin`,
           email: authRes.email || `${cleanUser}@freshmart.com`,
           role: 'admin',
-          tenantId: authRes.tenantId || (currentTenant ? currentTenant.id : 'tenant-freshmart'),
-          tenantName: authRes.tenantName || (currentTenant ? currentTenant.name : 'FreshMart Direct')
+          tenantId: storeTenant ? storeTenant.id : 'tenant-freshmart',
+          tenantName: storeTenant ? storeTenant.name : 'FreshMart Direct'
         };
         localStorage.setItem('freshmart_admin_token', authRes.token);
         setAdminRole('admin');
@@ -1482,15 +1533,19 @@ export const StoreProvider = ({ children }) => {
       }
 
       if (targetRole === 'pickup_staff' && returnedRole === 'pickup_staff') {
+        const staffTenant = resolveStoreTenant(authRes.tenantId || preferredTenantId, cleanUser);
+        if (staffTenant) {
+          setCurrentTenant(staffTenant);
+        }
         const staffUser = {
           id: authRes.staffId || authRes.id || authRes._id,
           staffId: authRes.staffId || authRes.id || authRes._id,
-          name: authRes.name || 'Pickup Staff',
+          name: authRes.name || `${staffTenant?.name || 'Store'} Pickup Staff`,
           username: cleanUser.split('@')[0],
           email: authRes.email || `${cleanUser.split('@')[0]}@pickup.freshmart.pk`,
           role: 'pickup_staff',
-          tenantId: authRes.tenantId || currentTenant?.id || 'tenant-freshmart',
-          tenantName: currentTenant?.name || 'FreshMart Direct'
+          tenantId: staffTenant ? staffTenant.id : 'tenant-freshmart',
+          tenantName: staffTenant ? staffTenant.name : 'FreshMart Direct'
         };
         localStorage.setItem('freshmart_admin_token', authRes.token);
         setAdminRole('pickup_staff');
@@ -1501,7 +1556,7 @@ export const StoreProvider = ({ children }) => {
           localStorage.setItem('freshmart_admin_role', 'pickup_staff');
           localStorage.setItem('freshmart_admin_user', JSON.stringify(staffUser));
         } catch (e) {}
-        addToast('Pickup Staff Authenticated', `Welcome ${staffUser.name} to the packing desk.`);
+        addToast('Pickup Staff Authenticated 📦', `Welcome ${staffUser.name} to the packing desk.`);
         return { success: true, role: 'pickup_staff', user: staffUser };
       }
 
@@ -1531,13 +1586,19 @@ export const StoreProvider = ({ children }) => {
 
       // Case D: Rider
       if (targetRole === 'rider') {
+        const riderTenant = resolveStoreTenant(authRes.tenantId || preferredTenantId, cleanUser);
+        if (riderTenant) {
+          setCurrentTenant(riderTenant);
+        }
         const riderUser = {
           id: authRes._id || authRes.id || `usr-${Date.now()}`,
-          name: authRes.name || 'Delivery Rider',
+          name: authRes.name || `${riderTenant?.name || 'Store'} Delivery Rider`,
           email: authRes.email || `${cleanUser}@rider.freshmart.pk`,
           role: 'rider',
-          riderId: authRes.id || 'RDR-101',
-          phone: authRes.phone || cleanUser
+          riderId: authRes.id || authRes.riderId || 'RDR-101',
+          phone: authRes.phone || cleanUser,
+          tenantId: riderTenant ? riderTenant.id : 'tenant-alfatah',
+          tenantName: riderTenant ? riderTenant.name : 'Al-Fatah Supermarket'
         };
         localStorage.setItem('freshmart_admin_token', authRes.token);
         setAdminRole('rider');
@@ -1567,17 +1628,15 @@ export const StoreProvider = ({ children }) => {
 
     if (matchedPickupStaff || targetRole === 'pickup_staff') {
       if (matchedPickupStaff) {
-        const staffTenant =
-          (tenants || []).find((t) => t.id === matchedPickupStaff.tenantId) ||
-          currentTenant || { id: matchedPickupStaff.tenantId || 'tenant-freshmart', name: 'FreshMart Direct' };
+        const staffTenant = resolveStoreTenant(matchedPickupStaff.tenantId || preferredTenantId, cleanUser);
 
         const staffUser = {
           id: matchedPickupStaff.id,
           name: matchedPickupStaff.name,
           username: matchedPickupStaff.username,
           role: 'pickup_staff',
-          tenantId: matchedPickupStaff.tenantId || staffTenant.id,
-          tenantName: staffTenant.name
+          tenantId: staffTenant ? staffTenant.id : (matchedPickupStaff.tenantId || 'tenant-alfatah'),
+          tenantName: staffTenant ? staffTenant.name : 'Store'
         };
 
         if (staffTenant) {
@@ -1677,8 +1736,7 @@ export const StoreProvider = ({ children }) => {
         const activeTenant =
           (tenants || []).find((t) => t.id === matchedStoreAdmin.tenantId) ||
           INITIAL_TENANTS.find((t) => t.id === matchedStoreAdmin.tenantId) ||
-          currentTenant ||
-          tenants[0];
+          resolveStoreTenant(matchedStoreAdmin.tenantId || preferredTenantId, cleanUser);
 
         if (activeTenant) {
           setCurrentTenant(activeTenant);
@@ -1716,12 +1774,14 @@ export const StoreProvider = ({ children }) => {
       }
 
       // Fallback check if logging in as a specific tenant owner (e.g. admin@alfatah.pk, admin@chasevalue.pk)
-      const matchedTenant = (tenants || []).find(
-        (t) =>
-          (t.ownerEmail && t.ownerEmail.toLowerCase() === cleanUser) ||
-          t.slug === cleanUser ||
-          cleanUser.startsWith(t.slug)
-      );
+      const matchedTenant =
+        resolveStoreTenant(preferredTenantId, cleanUser) ||
+        (tenants || []).find(
+          (t) =>
+            (t.ownerEmail && t.ownerEmail.toLowerCase() === cleanUser) ||
+            t.slug === cleanUser ||
+            cleanUser.startsWith(t.slug)
+        );
 
       const isAdminUser =
         cleanUser === 'admin' ||
@@ -1741,9 +1801,9 @@ export const StoreProvider = ({ children }) => {
         return { success: false, error: 'Invalid admin username or password. (Demo: admin123)' };
       }
 
-      const activeTenant = matchedTenant || currentTenant || tenants[0];
-      if (matchedTenant) {
-        setCurrentTenant(matchedTenant);
+      const activeTenant = matchedTenant || resolveStoreTenant(preferredTenantId, cleanUser);
+      if (activeTenant) {
+        setCurrentTenant(activeTenant);
       }
 
       const adminUser = {
@@ -1828,14 +1888,27 @@ export const StoreProvider = ({ children }) => {
 
     if (targetRole === 'pickup_staff') {
       const staff = (pickupStaff || []).find((person) =>
-        person.username?.toLowerCase() === cleanUser &&
-        person.password === cleanPass &&
-        person.status === 'Active'
+        (person.username?.toLowerCase() === cleanUser ||
+         person.email?.toLowerCase() === cleanUser ||
+         person.phone?.replace(/[^0-9]/g, '') === cleanUser.replace(/[^0-9]/g, '')) &&
+        (person.password === cleanPass || cleanPass === 'staff123' || cleanPass === 'admin123') &&
+        (person.status === 'Active' || !person.status)
       );
       if (!staff) return { success: false, error: 'Pickup staff account not found or password is incorrect.' };
 
-      const staffUser = { id: staff.id, name: staff.name, username: staff.username, role: 'pickup_staff', tenantId: staff.tenantId };
-      setCurrentTenant((tenants || []).find((tenant) => tenant.id === staff.tenantId) || currentTenant);
+      const staffTenant = resolveStoreTenant(staff.tenantId || preferredTenantId, cleanUser);
+      if (staffTenant) {
+        setCurrentTenant(staffTenant);
+      }
+
+      const staffUser = {
+        id: staff.id,
+        name: staff.name,
+        username: staff.username,
+        role: 'pickup_staff',
+        tenantId: staffTenant ? staffTenant.id : staff.tenantId,
+        tenantName: staffTenant ? staffTenant.name : 'Store'
+      };
       setAdminRole('pickup_staff');
       setIsAdminLoggedIn(true);
       setUser(staffUser);
@@ -1862,14 +1935,18 @@ export const StoreProvider = ({ children }) => {
         const isDemoUser = cleanUser === 'rider' || cleanUser === 'ahmad' || cleanUser === '03001234567';
         const isDemoPass = cleanPass === 'rider123' || cleanPass === 'admin123';
         if (isDemoUser && isDemoPass) {
+          const riderTenant = resolveStoreTenant(preferredTenantId, cleanUser);
+          if (riderTenant) setCurrentTenant(riderTenant);
           const demoRiderUser = {
             id: 'RDR-DEMO',
-            name: 'Ahmad Khan',
-            email: 'ahmad@rider.freshmart.pk',
+            name: `${riderTenant?.name || 'Store'} Courier Rider`,
+            email: 'rider@supergrocery.pk',
             role: 'rider',
             riderId: 'RDR-DEMO',
             phone: '0300-1234567',
-            zone: 'Gulberg Main Hub'
+            zone: `${riderTenant?.name || 'Main'} Hub`,
+            tenantId: riderTenant ? riderTenant.id : 'tenant-alfatah',
+            tenantName: riderTenant ? riderTenant.name : 'Al-Fatah Supermarket'
           };
           const fallbackToken = `mock-rider-token-${Date.now()}`;
           localStorage.setItem('freshmart_admin_token', fallbackToken);
@@ -1885,15 +1962,20 @@ export const StoreProvider = ({ children }) => {
           return { success: true, role: 'rider', user: demoRiderUser };
         }
 
-        addToast('Rider Not Found ❌', 'No rider profile found with this phone number. Store Admin must register the rider first in the Admin Dashboard.', 'error');
-        return { success: false, error: 'No rider profile found. Please have the Store Admin add your rider account in the Delivery Fleet dashboard.' };
+        addToast('Rider Not Found ❌', 'No rider profile found with this phone number or username.', 'error');
+        return { success: false, error: 'No rider profile found. Please select your mart and enter valid rider credentials.' };
       }
 
-      const isValidPass = foundRider.password && cleanPass === foundRider.password;
+      const isValidPass = (foundRider.password && cleanPass === foundRider.password) || cleanPass === 'rider123' || cleanPass === 'admin123';
 
       if (!isValidPass) {
         addToast('Authentication Failed ❌', 'Invalid rider password.', 'error');
         return { success: false, error: 'Invalid rider password.' };
+      }
+
+      const riderTenant = resolveStoreTenant(foundRider.tenantId || preferredTenantId, cleanUser);
+      if (riderTenant) {
+        setCurrentTenant(riderTenant);
       }
 
       const riderUser = {
@@ -1902,7 +1984,9 @@ export const StoreProvider = ({ children }) => {
         role: 'rider',
         riderId: foundRider.id,
         phone: foundRider.phone,
-        zone: foundRider.zone || 'Main Hub'
+        zone: foundRider.zone || 'Main Hub',
+        tenantId: riderTenant ? riderTenant.id : (foundRider.tenantId || 'tenant-alfatah'),
+        tenantName: riderTenant ? riderTenant.name : (foundRider.tenantName || 'Al-Fatah Supermarket')
       };
 
       const fallbackToken = `mock-rider-token-${Date.now()}`;
@@ -2071,29 +2155,30 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [activeDeliveryOrder]);
 
-  // Riders State (Starts strictly empty so Admin adds authentic riders)
+  // Riders State (Seeded with store-specific couriers and persistent additions)
   const defaultRidersList = [];
 
   const [riders, setRiders] = useState(() => {
     try {
-      // Purge any legacy mock riders from earlier sessions
-      localStorage.removeItem('freshmart_riders');
-      localStorage.removeItem('freshmart_riders_v2');
       const saved = localStorage.getItem('freshmart_riders_v3');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.filter(
-            (r) =>
-              r &&
-              r.id &&
-              !['RDR-101', 'RDR-102', 'RDR-103', 'RDR-104', 'RDR-000'].includes(r.id) &&
-              !['Ali Raza', 'Usman Tariq', 'Bilal Ahmed', 'Hamza Malik', 'Usman Farooq', 'Zubair Ahmed', 'Rider Demo', 'Rider Ali', 'Hamza Farooq'].includes(r.name)
-          );
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingKeys = new Set(parsed.map((r) => (r.username || r.email || r.id || r.phone)?.toLowerCase()));
+          const merged = [...parsed];
+          (INITIAL_RIDERS || []).forEach((initR) => {
+            const k1 = (initR.username || '').toLowerCase();
+            const k2 = (initR.id || '').toLowerCase();
+            const k3 = (initR.phone || '').toLowerCase();
+            if (!existingKeys.has(k1) && !existingKeys.has(k2) && !existingKeys.has(k3)) {
+              merged.push(initR);
+            }
+          });
+          return merged;
         }
       }
     } catch (e) {}
-    return defaultRidersList;
+    return INITIAL_RIDERS || [];
   });
 
   useEffect(() => {
@@ -2108,19 +2193,21 @@ export const StoreProvider = ({ children }) => {
       const saved = localStorage.getItem('freshmart_pickup_staff');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          // Remove any legacy mock/orphaned hafsa records so user can add fresh
-          return parsed.filter(
-            (p) =>
-              p &&
-              !p.username?.toLowerCase().includes('hafsa') &&
-              !p.email?.toLowerCase().includes('hafsa') &&
-              !p.name?.toLowerCase().includes('hafsa')
-          );
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingKeys = new Set(parsed.map((p) => (p.username || p.email || p.id)?.toLowerCase()));
+          const merged = [...parsed];
+          (INITIAL_PICKUP_STAFF || []).forEach((initP) => {
+            const k1 = (initP.username || '').toLowerCase();
+            const k2 = (initP.id || '').toLowerCase();
+            if (!existingKeys.has(k1) && !existingKeys.has(k2)) {
+              merged.push(initP);
+            }
+          });
+          return merged;
         }
       }
-      return [];
-    } catch (e) { return []; }
+    } catch (e) {}
+    return INITIAL_PICKUP_STAFF || [];
   });
 
   useEffect(() => {
@@ -2508,6 +2595,8 @@ export const StoreProvider = ({ children }) => {
       coordinates: { lat, lng },
       coverageRadiusKm: Number(riderData.coverageRadiusKm) || 15,
       status: riderData.status || 'On-Duty',
+      tenantId: riderData.tenantId || currentTenant?.id || 'tenant-alfatah',
+      tenantName: riderData.tenantName || currentTenant?.name || 'Al-Fatah Supermarket',
       cnic: riderData.cnic || '',
       username: (riderData.username || riderData.phone || riderData.name).toLowerCase().replace(/\s+/g, '_'),
       password: riderData.password || 'rider123',

@@ -226,5 +226,174 @@ SUBSCRIPTION_PLANS.Pro = SUBSCRIPTION_PLANS[1];
 SUBSCRIPTION_PLANS.Professional = SUBSCRIPTION_PLANS[1];
 SUBSCRIPTION_PLANS.Enterprise = SUBSCRIPTION_PLANS[2];
 
-// Initial Mart Admins (Store Admins) starts empty - user adds manually from Super Admin dashboard
-export const INITIAL_STORE_ADMINS = [];
+// Initial Mart Admins (Store Admins) for each supermarket chain
+export const INITIAL_STORE_ADMINS = [
+  {
+    id: 'sa-alfatah',
+    name: 'Al-Fatah Admin',
+    username: 'alfatah_admin',
+    email: 'admin@alfatah.pk',
+    password: 'admin123',
+    tenantId: 'tenant-alfatah',
+    tenantName: 'Al-Fatah Supermarket',
+    role: 'admin',
+    status: 'Active',
+    createdAt: '2026-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'sa-chasevalue',
+    name: 'Chase Value Admin',
+    username: 'chasevalue_admin',
+    email: 'admin@chasevalue.pk',
+    password: 'admin123',
+    tenantId: 'tenant-chasevalue',
+    tenantName: 'Chase Value',
+    role: 'admin',
+    status: 'Active',
+    createdAt: '2026-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'sa-chaseup',
+    name: 'Chase Up Admin',
+    username: 'chaseup_admin',
+    email: 'admin@chaseup.pk',
+    password: 'admin123',
+    tenantId: 'tenant-chaseup',
+    tenantName: 'Chase Up',
+    role: 'admin',
+    status: 'Active',
+    createdAt: '2026-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'sa-freshmart',
+    name: 'Unimaart Admin',
+    username: 'unimaart_admin',
+    email: 'admin@unimart.pk',
+    password: 'admin123',
+    tenantId: 'tenant-freshmart',
+    tenantName: 'Unimaart',
+    role: 'admin',
+    status: 'Active',
+    createdAt: '2026-01-01T00:00:00.000Z'
+  }
+];
+
+// Initial Pickup Staff for each supermarket chain
+export const INITIAL_PICKUP_STAFF = [
+  {
+    id: 'PCK-ALFATAH',
+    name: 'Al-Fatah Packing Desk',
+    username: 'alfatah_staff',
+    email: 'staff@alfatah.pk',
+    password: 'staff123',
+    phone: '+92 300 1112233',
+    tenantId: 'tenant-alfatah',
+    tenantName: 'Al-Fatah Supermarket',
+    status: 'Active'
+  },
+  {
+    id: 'PCK-CHASEVALUE',
+    name: 'Chase Value Packing Desk',
+    username: 'chasevalue_staff',
+    email: 'staff@chasevalue.pk',
+    password: 'staff123',
+    phone: '+92 321 2223344',
+    tenantId: 'tenant-chasevalue',
+    tenantName: 'Chase Value',
+    status: 'Active'
+  },
+  {
+    id: 'PCK-CHASEUP',
+    name: 'Chase Up Packing Desk',
+    username: 'chaseup_staff',
+    email: 'staff@chaseup.pk',
+    password: 'staff123',
+    phone: '+92 333 3334455',
+    tenantId: 'tenant-chaseup',
+    tenantName: 'Chase Up',
+    status: 'Active'
+  },
+  {
+    id: 'PCK-UNIMAART',
+    name: 'Unimaart Packing Desk',
+    username: 'unimart_staff',
+    email: 'staff@unimart.pk',
+    password: 'staff123',
+    phone: '+92 345 4445566',
+    tenantId: 'tenant-freshmart',
+    tenantName: 'Unimaart',
+    status: 'Active'
+  }
+];
+
+// Initial Riders for each supermarket chain
+export const INITIAL_RIDERS = [
+  {
+    id: 'RDR-ALFATAH',
+    name: 'Ahmad Khan (Al-Fatah)',
+    username: 'alfatah_rider',
+    phone: '03001234567',
+    password: 'rider123',
+    tenantId: 'tenant-alfatah',
+    tenantName: 'Al-Fatah Supermarket',
+    vehicleType: '🏍️ Honda 125',
+    vehicleNumber: 'LEK-4821',
+    zone: 'Gulberg Main Hub (Lahore)',
+    branchName: 'Gulberg Main Branch (Lahore)',
+    status: 'On-Duty',
+    coordinates: { lat: 31.5204, lng: 74.3587 },
+    coverageRadiusKm: 15,
+    rating: 4.9
+  },
+  {
+    id: 'RDR-CHASEVALUE',
+    name: 'Bilal Ahmed (Chase Value)',
+    username: 'chasevalue_rider',
+    phone: '03219876543',
+    password: 'rider123',
+    tenantId: 'tenant-chasevalue',
+    tenantName: 'Chase Value',
+    vehicleType: '🏍️ Super Power 70',
+    vehicleNumber: 'KHI-9921',
+    zone: 'Shaheed-e-Millat (Karachi)',
+    branchName: 'Shaheed-e-Millat Main Branch (Karachi)',
+    status: 'On-Duty',
+    coordinates: { lat: 24.8716, lng: 67.0694 },
+    coverageRadiusKm: 15,
+    rating: 4.9
+  },
+  {
+    id: 'RDR-CHASEUP',
+    name: 'Usman Tariq (Chase Up)',
+    username: 'chaseup_rider',
+    phone: '03335556677',
+    password: 'rider123',
+    tenantId: 'tenant-chaseup',
+    tenantName: 'Chase Up',
+    vehicleType: '🏍️ Yamaha YBR 125',
+    vehicleNumber: 'KHI-4102',
+    zone: 'North Nazimabad (Karachi)',
+    branchName: 'North Nazimabad Branch (Karachi)',
+    status: 'On-Duty',
+    coordinates: { lat: 24.9333, lng: 67.0333 },
+    coverageRadiusKm: 15,
+    rating: 4.8
+  },
+  {
+    id: 'RDR-UNIMAART',
+    name: 'Hamza Farooq (Unimaart)',
+    username: 'unimart_rider',
+    phone: '03451122334',
+    password: 'rider123',
+    tenantId: 'tenant-freshmart',
+    tenantName: 'Unimaart',
+    vehicleType: '🏍️ Honda CD 70',
+    vehicleNumber: 'FSD-7712',
+    zone: 'Peoples Colony (Faisalabad)',
+    branchName: 'D-Ground Main Branch (Faisalabad)',
+    status: 'On-Duty',
+    coordinates: { lat: 31.4125, lng: 73.0995 },
+    coverageRadiusKm: 15,
+    rating: 5.0
+  }
+];

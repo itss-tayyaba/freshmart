@@ -151,54 +151,64 @@ export const AdminLogin = () => {
 
   const currentRoleConfig = roles.find((r) => r.id === selectedRole) || roles[0];
 
+  const handleSelectMart = (martId, role = selectedRole) => {
+    setSelectedMartId(martId);
+    setErrorMessage('');
+    
+    const martConfig = availableMarts.find((m) => m.id === martId);
+
+    if (role === 'admin') {
+      const martAdmin = (storeAdmins || []).find((sa) => sa.tenantId === martId);
+      if (martAdmin) {
+        setUsername(martAdmin.email || martAdmin.username);
+        setPassword(martAdmin.password || 'admin123');
+        showFeedback(`Loaded ${martAdmin.tenantName || 'Mart'} Admin credentials`);
+      } else if (martConfig) {
+        setUsername(martConfig.defaultEmail);
+        setPassword('admin123');
+        showFeedback(`Loaded ${martConfig.shortName} Admin credentials`);
+      }
+    } else if (role === 'rider') {
+      const martRider = (riders || []).find(
+        (r) => r.tenantId === martId || (r.username && r.username.includes(martId.replace('tenant-', '')))
+      );
+      if (martRider) {
+        setUsername(martRider.username || martRider.phone || martRider.name);
+        setPassword(martRider.password || 'rider123');
+        showFeedback(`Loaded ${martRider.name} credentials`);
+      } else {
+        const slug = martId.replace('tenant-', '');
+        setUsername(`${slug}_rider`);
+        setPassword('rider123');
+        showFeedback(`Loaded ${martConfig?.shortName || 'Store'} Rider credentials`);
+      }
+    } else if (role === 'pickup_staff') {
+      const martStaff = (pickupStaff || []).find(
+        (p) => p.tenantId === martId || (p.username && p.username.includes(martId.replace('tenant-', '')))
+      );
+      if (martStaff) {
+        setUsername(martStaff.username);
+        setPassword(martStaff.password || 'staff123');
+        showFeedback(`Loaded ${martStaff.name} credentials`);
+      } else {
+        const slug = martId.replace('tenant-', '');
+        setUsername(`${slug}_staff`);
+        setPassword('staff123');
+        showFeedback(`Loaded ${martConfig?.shortName || 'Store'} Staff credentials`);
+      }
+    }
+  };
+
   const handleRoleSelect = (roleItem) => {
     setSelectedRole(roleItem.id);
     setErrorMessage('');
 
-    if (roleItem.id === 'admin') {
-      handleSelectMart(selectedMartId);
-    } else if (roleItem.id === 'rider') {
-      if (riders && riders.length > 0) {
-        setUsername(riders[0].phone || riders[0].username || riders[0].name || '');
-        setPassword(riders[0].password || 'rider123');
-        showFeedback(`Loaded Rider (${riders[0].name}) credentials`);
-      } else {
-        setUsername('ahmad');
-        setPassword('rider123');
-        showFeedback('Loaded Rider demo credentials (ahmad / rider123)');
-      }
-    } else if (roleItem.id === 'pickup_staff') {
-      if (pickupStaff && pickupStaff.length > 0) {
-        setUsername(pickupStaff[0].username || '');
-        setPassword(pickupStaff[0].password || '');
-        showFeedback(`Loaded ${pickupStaff[0].name} (Staff) credentials`);
-      } else {
-        setUsername('staff');
-        setPassword('staff123');
-        showFeedback('Enter credentials assigned by Store Admin');
-      }
-    } else {
+    if (roleItem.id === 'superadmin') {
       setUsername(roleItem.defaultUser);
       setPassword(roleItem.defaultPass);
       showFeedback(`Loaded ${roleItem.label} credentials`);
-    }
-  };
-
-  const handleSelectMart = (martId) => {
-    setSelectedMartId(martId);
-    setErrorMessage('');
-    
-    const martAdmin = (storeAdmins || []).find((sa) => sa.tenantId === martId);
-    const martConfig = availableMarts.find((m) => m.id === martId);
-
-    if (martAdmin) {
-      setUsername(martAdmin.email || martAdmin.username);
-      setPassword(martAdmin.password || 'admin123');
-      showFeedback(`Loaded ${martAdmin.tenantName || 'Mart'} Admin credentials`);
-    } else if (martConfig) {
-      setUsername(martConfig.defaultEmail);
-      setPassword('admin123');
-      showFeedback(`Loaded ${martConfig.shortName} credentials`);
+    } else {
+      handleSelectMart(selectedMartId, roleItem.id);
     }
   };
 
@@ -234,7 +244,7 @@ export const AdminLogin = () => {
 
     setIsLoading(true);
     try {
-      const result = await adminLogin(cleanUser, cleanPass, selectedRole);
+      const result = await adminLogin(cleanUser, cleanPass, selectedRole, selectedMartId);
       if (!result || !result.success) {
         setErrorMessage(result?.error || 'Invalid credentials. Please verify your login details.');
       } else if (selectedRole === 'rider') {
@@ -337,8 +347,8 @@ export const AdminLogin = () => {
             </div>
           </div>
 
-          {/* 🏬 STORE SELECTOR FOR MART ADMINS */}
-          {selectedRole === 'admin' && (
+          {/* 🏬 STORE SELECTOR FOR MART ADMINS, RIDERS & PICKUP STAFF */}
+          {selectedRole !== 'superadmin' && (
             <div className="p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl space-y-2.5 animate-in fade-in duration-200">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wider">
@@ -351,15 +361,17 @@ export const AdminLogin = () => {
                   }}
                   className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                 >
-                  Independent Console
+                  Isolated {selectedRole === 'admin' ? 'Admin' : selectedRole === 'rider' ? 'Fleet' : 'Packing'}
                 </span>
               </div>
 
               <p className="text-[11px] text-slate-500 leading-tight">
-                Each supermarket runs on an isolated tenant console with dedicated store credentials.
+                {selectedRole === 'admin' && 'Each supermarket runs an isolated store dashboard with dedicated products & orders.'}
+                {selectedRole === 'rider' && 'Select your store to sign in to its dedicated delivery rider dispatch fleet.'}
+                {selectedRole === 'pickup_staff' && 'Select your store to sign in to its dedicated order packing desk.'}
               </p>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-0.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
                 {availableMarts.map((m) => {
                   const isSelected = selectedMartId === m.id;
                   return (
@@ -639,62 +651,60 @@ export const AdminLogin = () => {
               </button>
               <button
                 type="button"
-                onClick={() => autoFillCredentials('admin', 'admin@alfatah.pk', 'admin123', 'tenant-alfatah', 'Al-Fatah Admin')}
-                className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-900 font-semibold text-[11px] transition-colors cursor-pointer"
+                onClick={() => autoFillCredentials('admin', 'admin@chasevalue.pk', 'admin123', 'tenant-chasevalue', 'Chase Value Admin')}
+                className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 font-bold text-[11px] transition-colors cursor-pointer"
               >
-                🏬 Al-Fatah
+                🛒 Chase Value Admin
               </button>
               <button
                 type="button"
-                onClick={() => autoFillCredentials('admin', 'admin@chasevalue.pk', 'admin123', 'tenant-chasevalue', 'Chase Value')}
-                className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-semibold text-[11px] transition-colors cursor-pointer"
+                onClick={() => autoFillCredentials('admin', 'admin@alfatah.pk', 'admin123', 'tenant-alfatah', 'Al-Fatah Admin')}
+                className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-900 font-semibold text-[11px] transition-colors cursor-pointer"
               >
-                🛒 Chase Value
+                🏬 Al-Fatah Admin
               </button>
-              {riders && riders.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => autoFillCredentials('rider', riders[0].phone || riders[0].username || riders[0].name, riders[0].password || 'rider123', null, `Rider: ${riders[0].name}`)}
-                  className="px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-950 font-bold text-[11px] transition-colors cursor-pointer"
-                >
-                  🛵 Rider: {riders[0].name}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => autoFillCredentials('rider', 'ahmad', 'rider123', null, 'Rider (Ahmad Khan)')}
-                  className="px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-950 font-bold text-[11px] transition-colors cursor-pointer"
-                >
-                  🛵 Rider: Ahmad
-                </button>
-              )}
-              {pickupStaff && pickupStaff.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => autoFillCredentials('pickup_staff', pickupStaff[0].username, pickupStaff[0].password, pickupStaff[0].tenantId, `Staff: ${pickupStaff[0].name}`)}
-                  style={{
-                    backgroundColor: `${websiteBrandColor}10`,
-                    borderColor: `${websiteBrandColor}35`,
-                    color: websiteBrandColor
-                  }}
-                  className="px-2.5 py-1 rounded-lg border font-bold text-[11px] transition-colors cursor-pointer"
-                >
-                  📦 Staff: {pickupStaff[0].name}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => autoFillCredentials('pickup_staff', 'staff', 'staff123', null, 'Pickup Staff (Demo)')}
-                  style={{
-                    backgroundColor: `${websiteBrandColor}10`,
-                    borderColor: `${websiteBrandColor}35`,
-                    color: websiteBrandColor
-                  }}
-                  className="px-2.5 py-1 rounded-lg border font-bold text-[11px] transition-colors cursor-pointer"
-                >
-                  📦 Pickup Staff
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => autoFillCredentials('admin', 'admin@chaseup.pk', 'admin123', 'tenant-chaseup', 'Chase Up Admin')}
+                className="px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 font-semibold text-[11px] transition-colors cursor-pointer"
+              >
+                🏪 Chase Up Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => autoFillCredentials('admin', 'admin@unimart.pk', 'admin123', 'tenant-freshmart', 'Unimaart Admin')}
+                className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-900 font-semibold text-[11px] transition-colors cursor-pointer"
+              >
+                🛍️ Unimaart Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => autoFillCredentials('pickup_staff', 'chasevalue_staff', 'staff123', 'tenant-chasevalue', 'Chase Value Packing Desk')}
+                className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-[11px] transition-colors cursor-pointer"
+              >
+                📦 Chase Value Staff
+              </button>
+              <button
+                type="button"
+                onClick={() => autoFillCredentials('rider', 'chasevalue_rider', 'rider123', 'tenant-chasevalue', 'Chase Value Courier (Bilal Ahmed)')}
+                className="px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-100 border border-orange-300 text-orange-950 font-bold text-[11px] transition-colors cursor-pointer"
+              >
+                🛵 Chase Value Rider
+              </button>
+              <button
+                type="button"
+                onClick={() => autoFillCredentials('pickup_staff', 'alfatah_staff', 'staff123', 'tenant-alfatah', 'Al-Fatah Packing Desk')}
+                className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-900 font-semibold text-[11px] transition-colors cursor-pointer"
+              >
+                📦 Al-Fatah Staff
+              </button>
+              <button
+                type="button"
+                onClick={() => autoFillCredentials('rider', 'alfatah_rider', 'rider123', 'tenant-alfatah', 'Al-Fatah Courier (Ahmad Khan)')}
+                className="px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-900 font-semibold text-[11px] transition-colors cursor-pointer"
+              >
+                🛵 Al-Fatah Rider
+              </button>
             </div>
           </div>
 

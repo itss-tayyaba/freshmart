@@ -58,12 +58,14 @@ const handleResponse = async (res) => {
 
 export const apiService = {
   // Auth API
-  async login(email, password) {
+  async login(email, password, tenantId = null) {
     try {
+      const payload = { email, password };
+      if (tenantId) payload.tenantId = tenantId;
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify(payload)
       });
       return await handleResponse(res);
     } catch (e) {

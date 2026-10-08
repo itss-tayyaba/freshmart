@@ -153,17 +153,19 @@ export const DeliveryPortal = () => {
     return (riders || []).find((r) => r.id === selectedRiderId) || currentRider;
   }, [riders, selectedRiderId, currentRider]);
 
-  // Combined system orders
+  // Combined system orders scoped to store tenant
   const allOrdersList = useMemo(() => {
     const list = [...(customerOrders || []), ...(adminOrders || [])];
     const seen = new Set();
+    const activeTenantId = user?.tenantId || currentTenant?.id;
     return list.filter((o) => {
       const key = o.id || o.orderId || o._id;
       if (!key || seen.has(key)) return false;
+      if (activeTenantId && o.tenantId && o.tenantId !== activeTenantId) return false;
       seen.add(key);
       return true;
     });
-  }, [customerOrders, adminOrders]);
+  }, [customerOrders, adminOrders, user?.tenantId, currentTenant?.id]);
 
   // Orders specifically assigned to or relevant for this courier
   const assignedOrders = useMemo(() => {
@@ -593,7 +595,8 @@ export const DeliveryPortal = () => {
     });
   }, []);
 
-  const storeBrandName = currentTenant?.name || 'Al-Fatah Supermarket';
+  const storeBrandName = currentTenant?.name || user?.tenantName || 'Supermarket';
+  const storeLogo = currentTenant?.logo || '🏬';
 
   return (
     <div className="min-h-screen bg-[#f7f4ee] text-stone-900 flex flex-col md:flex-row antialiased font-sans">
@@ -611,7 +614,7 @@ export const DeliveryPortal = () => {
             {mobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
           <div className="flex items-center gap-2">
-            <span className="text-xl">🛵</span>
+            <span className="text-xl">{storeLogo}</span>
             <div>
               <h1 className="text-sm font-bold tracking-tight text-white">{storeBrandName}</h1>
               <p className="text-[10px] text-stone-400 font-medium">Delivery Portal</p>
@@ -658,7 +661,7 @@ export const DeliveryPortal = () => {
           {/* Logo & Portal Header */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[#27272a] border border-stone-700 flex items-center justify-center text-xl shadow-inner shrink-0">
-              🛵
+              {storeLogo}
             </div>
             <div>
               <h1 className="text-base font-extrabold tracking-tight text-white leading-tight">
