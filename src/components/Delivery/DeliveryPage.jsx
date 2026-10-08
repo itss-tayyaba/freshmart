@@ -697,12 +697,12 @@ export const DeliveryPage = () => {
 
                 <div className="flex items-center gap-2">
                   <div className="bg-white border-2 border-amber-400 px-4 py-1.5 rounded-2xl font-mono font-black text-2xl text-amber-950 tracking-widest shadow-inner">
-                    {currentOrder.deliveryOtp || '9999'}
+                    {currentOrder.deliveryOtp || '7412'}
                   </div>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(currentOrder.deliveryOtp || '9999');
-                      addToast('OTP Copied 📋', `Share PIN ${currentOrder.deliveryOtp || '9999'} with rider on delivery.`);
+                      navigator.clipboard.writeText(currentOrder.deliveryOtp || '7412');
+                      addToast('OTP Copied 📋', `Share PIN ${currentOrder.deliveryOtp || '7412'} with rider on delivery.`);
                     }}
                     className="p-2.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-xl transition-all cursor-pointer font-bold"
                     title="Copy OTP PIN"

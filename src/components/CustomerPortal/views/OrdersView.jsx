@@ -166,12 +166,12 @@ export const OrdersView = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-black text-base px-3 py-1 bg-white border border-amber-300 rounded-xl text-amber-950 tracking-widest shadow-2xs">
-                      {order.deliveryOtp || '9999'}
+                      {order.deliveryOtp || '7412'}
                     </span>
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(order.deliveryOtp || '9999');
-                        addToast('OTP Copied 📋', `Share PIN ${order.deliveryOtp || '9999'} with rider on delivery.`);
+                        navigator.clipboard.writeText(order.deliveryOtp || '7412');
+                        addToast('OTP Copied 📋', `Share PIN ${order.deliveryOtp || '7412'} with rider on delivery.`);
                       }}
                       className="p-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg cursor-pointer transition-colors text-xs"
                       title="Copy OTP PIN"

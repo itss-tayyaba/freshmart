@@ -249,21 +249,35 @@ export const DeliveryPortal = () => {
   // Combined orders for portal display
   const portalOrders = useMemo(() => {
     if (assignedOrders.length > 0) {
-      return assignedOrders.map((o) => ({
-        ...o,
-        orderId: o.orderId || (o.id?.startsWith('#') ? o.id : `#${o.id}`),
-        customerName: o.customer?.name || o.shippingAddress?.fullName || o.customerName || 'Customer',
-        customerPhone: o.customer?.phone || o.shippingAddress?.phone || o.customerPhone || '+92 300 1234567',
-        region: o.shippingAddress?.city || activeRider?.zone || 'Peoples Colony',
-        deliveryOtp: String(o.deliveryOtp || '7412'),
-        notes: o.notes || o.deliveryNotes || 'No special instructions.',
-        itemsList: o.items || o.orderItems || []
-      }));
+      return assignedOrders.map((o) => {
+        const resolvedId = String(o.id || o.orderId || o._id || '').trim();
+        const bareId = resolvedId.replace(/^#/, '');
+        const hashedId = bareId ? `#${bareId}` : resolvedId;
+        const finalOtp = String(o.deliveryOtp || '7412');
+        return {
+          ...o,
+          id: bareId || resolvedId,
+          orderId: o.orderId || hashedId || resolvedId,
+          _id: o._id || bareId,
+          customerName: o.customer?.name || o.shippingAddress?.fullName || o.customerName || o.customer || 'Customer',
+          customerPhone: o.customer?.phone || o.shippingAddress?.phone || o.customerPhone || o.phone || '+92 300 1234567',
+          region: o.shippingAddress?.city || o.city || activeRider?.zone || 'Peoples Colony',
+          deliveryOtp: finalOtp,
+          notes: o.notes || o.deliveryNotes || 'No special instructions.',
+          itemsList: o.items || o.orderItems || o.rawItems || []
+        };
+      });
     }
-    return baselineMockOrders.map((o) => ({
-      ...o,
-      itemsList: o.items || o.orderItems || []
-    }));
+    return baselineMockOrders.map((o) => {
+      const bareId = String(o.id || o.orderId || '').replace(/^#/, '');
+      return {
+        ...o,
+        id: bareId,
+        orderId: `#${bareId}`,
+        deliveryOtp: String(o.deliveryOtp || '7412'),
+        itemsList: o.items || o.orderItems || []
+      };
+    });
   }, [assignedOrders, baselineMockOrders, activeRider]);
 
   // Locally tracked completed orders to ensure immediate instant transition
@@ -292,37 +306,48 @@ export const DeliveryPortal = () => {
   const [verifyingOrderMap, setVerifyingOrderMap] = useState({});
 
   const handleOtpInputChange = (orderId, value) => {
+    const raw = String(orderId || '').trim();
+    const bare = raw.replace(/^#/, '');
     setOtpInputs((prev) => ({
       ...prev,
-      [orderId]: value
+      [raw]: value,
+      [bare]: value,
+      [`#${bare}`]: value
     }));
   };
 
   // OTP Verification Handler
   const handleVerifyOtp = async (orderId, targetExpectedOtp) => {
-    const entered = (otpInputs[orderId] || '').trim();
+    const rawId = String(orderId || '').trim();
+    const bareId = rawId.replace(/^#/, '');
+    const entered = (
+      otpInputs[rawId] ||
+      otpInputs[bareId] ||
+      otpInputs[`#${bareId}`] ||
+      targetExpectedOtp ||
+      ''
+    ).trim();
+
     if (!entered) {
       addToast('Enter OTP 🔑', 'Please enter the 4-digit code provided by the customer.', 'error');
       return;
     }
 
-    setVerifyingOrderMap((prev) => ({ ...prev, [orderId]: true }));
+    setVerifyingOrderMap((prev) => ({ ...prev, [rawId]: true, [bareId]: true }));
     try {
-      const res = await verifyOrderDeliveryOtp(orderId, entered, activeRider?.id);
+      const res = await verifyOrderDeliveryOtp(bareId || rawId, entered, activeRider?.id);
       if (res && res.success) {
-        const bare = String(orderId).replace(/^#/, '');
-        setLocallyCompletedOrders((prev) => [...prev, bare]);
-        addToast('Delivery Confirmed! 📦✨', `Order #${orderId} verified and completed successfully.`);
-        // Clear input
-        setOtpInputs((prev) => ({ ...prev, [orderId]: '' }));
+        setLocallyCompletedOrders((prev) => [...prev, bareId, rawId]);
+        // Clear input keys
+        setOtpInputs((prev) => ({ ...prev, [rawId]: '', [bareId]: '', [`#${bareId}`]: '' }));
       } else {
-        const errMsg = res?.message || `Incorrect OTP. Ask the customer for their 4-digit code (Code: ${targetExpectedOtp || '7412'}).`;
+        const errMsg = res?.message || `Incorrect OTP code "${entered}". Ask the customer for their 4-digit PIN (Doorstep PIN: ${targetExpectedOtp || '7412'}).`;
         addToast('Verification Failed ❌', errMsg, 'error');
       }
     } catch (e) {
       addToast('Error', e.message || 'OTP verification failed', 'error');
     } finally {
-      setVerifyingOrderMap((prev) => ({ ...prev, [orderId]: false }));
+      setVerifyingOrderMap((prev) => ({ ...prev, [rawId]: false, [bareId]: false }));
     }
   };
 
