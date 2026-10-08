@@ -565,16 +565,20 @@ export const assignRiderToOrder = async (req, res) => {
         assignedInfo.eta = etaText;
         assignedInfo.etaMinutes = etaMinutes;
 
+        // Set status to requested status or Out for Delivery
+        const assignedStatus = req.body.status || 'Out for Delivery';
+        const isDispatched = true;
+
         // Ensure 4-digit Handover OTP is assigned
         if (!order.deliveryOtp) {
           order.deliveryOtp = Math.floor(1000 + Math.random() * 9000).toString();
         }
 
         order.assignedRider = assignedInfo;
-        order.status = newStatus;
-        order.fulfillmentStage = 3; // Stage 3: Rider Assigned & Dispatched
+        order.status = assignedStatus;
+        order.fulfillmentStage = 3; // Stage 3: Dispatched & Out for Delivery
         order.isDispatched = true;
-        order.dispatchStatus = 'Out for Delivery';
+        order.dispatchStatus = assignedStatus;
         order.destinationCoords = destCoords;
         order.distanceKm = distanceKm;
         order.eta = etaText;
@@ -606,16 +610,20 @@ export const assignRiderToOrder = async (req, res) => {
       assignedInfo.eta = etaText;
       assignedInfo.etaMinutes = etaMinutes;
 
+      // Set status to requested status or Out for Delivery
+      const assignedStatus = req.body.status || 'Out for Delivery';
+      const isDispatched = true;
+
       // Ensure 4-digit Handover OTP is assigned
       if (!memOrder.deliveryOtp) {
         memOrder.deliveryOtp = Math.floor(1000 + Math.random() * 9000).toString();
       }
 
       memOrder.assignedRider = assignedInfo;
-      memOrder.status = newStatus;
-      memOrder.fulfillmentStage = 3; // Stage 3: Rider Assigned & Dispatched
+      memOrder.status = assignedStatus;
+      memOrder.fulfillmentStage = 3; // Stage 3: Dispatched & Out for Delivery
       memOrder.isDispatched = true;
-      memOrder.dispatchStatus = 'Out for Delivery';
+      memOrder.dispatchStatus = assignedStatus;
       memOrder.statusClass = 'bg-amber-100 text-amber-800';
       memOrder.destinationCoords = destCoords;
       memOrder.distanceKm = distanceKm;

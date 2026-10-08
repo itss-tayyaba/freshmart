@@ -349,12 +349,26 @@ export const DeliveryPage = () => {
     const s = (order.status || '').toLowerCase();
     const stage = Number(order.fulfillmentStage || 0);
     if (stage === 4 || stage >= 7 || s.includes('delivered') || s.includes('completed') || order.isDelivered) return 4;
-    if (stage === 3 || stage >= 5 || s.includes('out for delivery') || s.includes('transit') || s.includes('picked up') || s.includes('dispatched') || order.assignedRider) return 3;
-    if (stage === 2 || s.includes('packing') || s.includes('processing') || s.includes('ready') || s.includes('packed')) return 2;
+    if (stage === 3 || stage >= 5 || s.includes('out for delivery') || s.includes('transit') || s.includes('picked up') || s.includes('dispatched') || order.isDispatched) return 3;
+    if (stage === 2 || s.includes('packing') || s.includes('processing') || s.includes('ready') || s.includes('packed') || order.assignedRider) return 2;
     return 1; // Pending / Placed
   };
 
   const activeStage = getStageIndex(currentOrder);
+
+  const isDelivered =
+    activeStage === 4 ||
+    currentOrder?.fulfillmentStage === 4 ||
+    currentOrder?.isDelivered === true ||
+    (currentOrder?.status || '').toLowerCase() === 'delivered' ||
+    (currentOrder?.status || '').toLowerCase() === 'completed';
+
+  const isDispatched =
+    isDelivered ||
+    currentOrder?.isDispatched === true ||
+    ['dispatched', 'out for delivery', 'in transit'].includes((currentOrder?.status || '').toLowerCase()) ||
+    ['dispatched', 'out for delivery'].includes((currentOrder?.dispatchStatus || '').toLowerCase()) ||
+    Number(currentOrder?.fulfillmentStage || 0) >= 3;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
@@ -702,32 +716,62 @@ export const DeliveryPage = () => {
 
                 {/* Milestone 3: Courier Dispatched & Out for Delivery */}
                 <div className={`p-3.5 rounded-2xl border flex items-start gap-3 transition-all ${
-                  activeStage >= 3 || assignedRider
+                  isDelivered || isDispatched
                     ? 'bg-emerald-50 border-emerald-200'
+                    : assignedRider
+                    ? 'bg-amber-50/80 border-amber-200'
                     : 'bg-slate-50 border-slate-200'
                 }`}>
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
-                    activeStage >= 3 || assignedRider ? 'bg-emerald-700 text-white' : 'bg-slate-300 text-slate-600'
+                    isDelivered || isDispatched
+                      ? 'bg-emerald-700 text-white'
+                      : assignedRider
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-slate-300 text-slate-600'
                   }`}>
-                    {activeStage >= 4 ? <CheckCircle2 className="w-4 h-4" /> : activeStage >= 3 || assignedRider ? <Truck className="w-4 h-4" /> : '3'}
+                    {isDelivered ? (
+                      <CheckCircle2 className="w-4 h-4" />
+                    ) : isDispatched ? (
+                      <Truck className="w-4 h-4" />
+                    ) : (
+                      '3'
+                    )}
                   </div>
                   <div className="flex-1 text-xs">
                     <div className="flex items-center justify-between">
-                      <h4 className={`font-bold ${activeStage >= 3 || assignedRider ? 'text-emerald-900' : 'text-slate-700'}`}>
-                        3. Courier Dispatched & Out for Delivery
+                      <h4 className={`font-bold ${isDelivered || isDispatched ? 'text-emerald-900' : assignedRider ? 'text-amber-950' : 'text-slate-700'}`}>
+                        {isDispatched || isDelivered
+                          ? '3. Courier Dispatched & Out for Delivery'
+                          : assignedRider
+                          ? '3. Rider Assigned (Awaiting Staff Dispatch)'
+                          : '3. Courier Dispatched & Out for Delivery'}
                       </h4>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        activeStage >= 4 ? 'bg-emerald-100 text-emerald-800' : assignedRider ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                        isDelivered
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : isDispatched
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : assignedRider
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                          : 'bg-slate-100 text-slate-600'
                       }`}>
-                        {activeStage >= 4 ? 'Completed' : assignedRider ? 'Out for Delivery' : 'Awaiting Assignment'}
+                        {isDelivered
+                          ? 'Completed'
+                          : isDispatched
+                          ? 'Out for Delivery'
+                          : assignedRider
+                          ? 'Rider Assigned'
+                          : 'Awaiting Staff Dispatch'}
                       </span>
                     </div>
                     <p className="text-slate-600 text-[11px] mt-0.5">
-                      {assignedRider
-                        ? `Assigned to courier ${assignedRider.name} (${assignedRider.vehicle || assignedRider.vehicleType || 'Motorbike'}). Live GPS tracking active.`
-                        : activeStage >= 3
-                        ? 'Courier allocation confirmed and parcel dispatched.'
-                        : `The delivery system is matching available couriers in ${selectedCity.city}.`}
+                      {isDispatched && assignedRider
+                        ? `Dispatched! Assigned to courier ${assignedRider.name} (${assignedRider.vehicle || assignedRider.vehicleType || 'Motorbike'}). Live GPS tracking active.`
+                        : isDispatched
+                        ? 'Courier allocation confirmed and parcel dispatched by pickup staff.'
+                        : assignedRider
+                        ? `Courier ${assignedRider.name} assigned. Awaiting dark store & pickup staff to complete packing and dispatch.`
+                        : `Dark store team is preparing parcel and matching available couriers in ${selectedCity.city}.`}
                     </p>
 
                     {/* Display Handover OTP clearly in Milestone 3 */}
@@ -745,25 +789,30 @@ export const DeliveryPage = () => {
 
                 {/* Milestone 4: Delivered */}
                 <div className={`p-3.5 rounded-2xl border flex items-start gap-3 transition-all ${
-                  activeStage >= 4 ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-500/20' : 'bg-slate-50 border-slate-200 opacity-60'
+                  isDelivered
+                    ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-500/20 shadow-xs'
+                    : 'bg-slate-50 border-slate-200 opacity-60'
                 }`}>
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
-                    activeStage >= 4 ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-600'
+                    isDelivered ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-300 text-slate-600'
                   }`}>
-                    {activeStage >= 4 ? <CheckCircle2 className="w-4 h-4" /> : '4'}
+                    {isDelivered ? <CheckCircle2 className="w-4 h-4" /> : '4'}
                   </div>
                   <div className="flex-1 text-xs">
                     <div className="flex items-center justify-between">
-                      <h4 className={`font-bold ${activeStage >= 4 ? 'text-emerald-900' : 'text-slate-700'}`}>
+                      <h4 className={`font-bold ${isDelivered ? 'text-emerald-900 font-black' : 'text-slate-700'}`}>
                         4. Delivered to Doorstep
                       </h4>
-                      {activeStage >= 4 && (
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Delivered</span>
+                      {isDelivered && (
+                        <span className="text-[10px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          Parcel Delivered
+                        </span>
                       )}
                     </div>
-                    <p className="text-slate-600 text-[11px] mt-0.5">
-                      {activeStage >= 4
-                        ? 'Package handed over and OTP verified at delivery address. Thank you for shopping with FreshMart!'
+                    <p className={`${isDelivered ? 'text-emerald-800 font-medium' : 'text-slate-600'} text-[11px] mt-0.5`}>
+                      {isDelivered
+                        ? 'Package handed over and OTP verified at delivery address. Order completed successfully!'
                         : 'Contactless handover and 4-digit PIN verification upon arrival.'}
                     </p>
                   </div>
@@ -775,30 +824,30 @@ export const DeliveryPage = () => {
             {/* Doorstep Handover OTP Box */}
             {currentOrder && (
               <div className={`border-2 rounded-3xl p-5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${
-                (activeStage === 5 || currentOrder.status === 'Delivered')
-                  ? 'bg-gradient-to-r from-emerald-50 via-emerald-100/40 to-teal-50 border-emerald-300'
+                isDelivered
+                  ? 'bg-gradient-to-r from-emerald-50 via-emerald-100/40 to-teal-50 border-emerald-400 shadow-md ring-2 ring-emerald-500/20'
                   : 'bg-gradient-to-r from-amber-50 via-amber-100/40 to-orange-50 border-amber-300/80'
               }`}>
                 <div className="flex items-center gap-3.5">
                   <div className={`w-12 h-12 rounded-2xl text-white flex items-center justify-center font-black text-2xl shadow-md ${
-                    (activeStage === 5 || currentOrder.status === 'Delivered') ? 'bg-emerald-600' : 'bg-amber-500'
+                    isDelivered ? 'bg-emerald-600' : 'bg-amber-500'
                   }`}>
-                    {(activeStage === 5 || currentOrder.status === 'Delivered') ? '✅' : '🔐'}
+                    {isDelivered ? '✅' : '🔐'}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <h4 className="font-black text-sm text-slate-900">Doorstep Delivery Handover OTP</h4>
                       <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                        (activeStage === 5 || currentOrder.status === 'Delivered')
-                          ? 'bg-emerald-200 text-emerald-950'
+                        isDelivered
+                          ? 'bg-emerald-200 text-emerald-950 border border-emerald-300'
                           : 'bg-amber-300 text-amber-950'
                       }`}>
-                        {(activeStage === 5 || currentOrder.status === 'Delivered') ? 'Verified' : 'Required'}
+                        {isDelivered ? 'Verified & Completed' : 'Required'}
                       </span>
                     </div>
                     <p className="text-xs text-slate-600 font-medium mt-0.5">
-                      {(activeStage === 5 || currentOrder.status === 'Delivered')
-                        ? 'Handover OTP has been verified and payment collected. Package delivered successfully.'
+                      {isDelivered
+                        ? 'Handover OTP has been verified and parcel marked as Delivered.'
                         : `Provide this 4-digit code to rider ${assignedRider?.name || 'courier'} upon arrival to verify handover.`}
                     </p>
                   </div>
@@ -806,13 +855,13 @@ export const DeliveryPage = () => {
 
                 <div className="flex items-center gap-2">
                   <div className={`px-4 py-1.5 rounded-2xl font-mono font-black text-2xl tracking-widest shadow-inner ${
-                    (activeStage === 5 || currentOrder.status === 'Delivered')
+                    isDelivered
                       ? 'bg-white border-2 border-emerald-400 text-emerald-950'
                       : 'bg-white border-2 border-amber-400 text-amber-950'
                   }`}>
                     {currentOrder.deliveryOtp || '7412'}
                   </div>
-                  {!(activeStage === 5 || currentOrder.status === 'Delivered') ? (
+                  {!isDelivered ? (
                     <>
                       <button
                         onClick={() => {
@@ -835,7 +884,7 @@ export const DeliveryPage = () => {
                               if (res.order) {
                                 setRemoteOrder(res.order);
                               }
-                              addToast('Delivered! 🎉', 'Delivery verified from customer portal. Order marked as Delivered and synced with Admin!');
+                              addToast('Delivered! 🎉', 'Handover OTP verified! Order marked Delivered.');
                             }
                           }
                         }}
@@ -847,8 +896,9 @@ export const DeliveryPage = () => {
                       </button>
                     </>
                   ) : (
-                    <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200">
-                      Delivered
+                    <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-300 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      OTP Verified • Delivered
                     </span>
                   )}
                 </div>

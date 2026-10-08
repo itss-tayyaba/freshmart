@@ -87,7 +87,11 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
   // Normalize order metadata
   const orderId = activeOrder?.id || activeOrder?.orderId || 'EB-9SMVJA';
   const cleanId = String(orderId).replace(/^#/, '');
-  const isDelivered = activeOrder?.status === 'Delivered';
+  const isDelivered =
+    activeOrder?.status === 'Delivered' ||
+    activeOrder?.isDelivered === true ||
+    (activeOrder?.status || '').toLowerCase() === 'delivered' ||
+    Number(activeOrder?.fulfillmentStage || 0) === 4;
 
   // Coords fallback (Faisalabad digital hub)
   const pickup = useMemo(() => {

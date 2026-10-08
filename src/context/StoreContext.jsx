@@ -2682,6 +2682,7 @@ export const StoreProvider = ({ children }) => {
 
     const effectiveOtp = sourceOrder?.deliveryOtp || String(Math.floor(1000 + Math.random() * 9000));
     const riderStatus = 'Out for Delivery';
+    const isDispatched = true;
 
     const assignedInfo = {
       id: targetRider.id,
@@ -2704,7 +2705,7 @@ export const StoreProvider = ({ children }) => {
               ...o,
               assignedRider: assignedInfo,
               status: riderStatus,
-              isDispatched: true,
+              isDispatched: isDispatched,
               dispatchStatus: 'Out for Delivery',
               fulfillmentStage: 3,
               deliveryOtp: effectiveOtp,
@@ -2720,7 +2721,7 @@ export const StoreProvider = ({ children }) => {
               ...o,
               assignedRider: assignedInfo,
               status: riderStatus,
-              isDispatched: true,
+              isDispatched: isDispatched,
               dispatchStatus: 'Out for Delivery',
               fulfillmentStage: 3,
               deliveryOtp: effectiveOtp,
@@ -2734,7 +2735,7 @@ export const StoreProvider = ({ children }) => {
         ...prev,
         assignedRider: assignedInfo,
         status: riderStatus,
-        isDispatched: true,
+        isDispatched: isDispatched,
         dispatchStatus: 'Out for Delivery',
         fulfillmentStage: 3,
         deliveryOtp: effectiveOtp,
