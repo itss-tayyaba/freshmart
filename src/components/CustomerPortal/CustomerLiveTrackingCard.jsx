@@ -74,7 +74,7 @@ const createRiderPin = (riderName = 'Rider') =>
   });
 
 export const CustomerLiveTrackingCard = ({ activeOrder }) => {
-  const { riderLiveTelemetry, currentTenant, addToast } = useStore();
+  const { riderLiveTelemetry, currentTenant, addToast, verifyOrderDeliveryOtp } = useStore();
 
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -379,6 +379,21 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
                 title="Copy Handover PIN"
               >
                 <Copy className="w-4 h-4 text-amber-900" />
+              </button>
+              <button
+                onClick={async () => {
+                  if (verifyOrderDeliveryOtp) {
+                    const res = await verifyOrderDeliveryOtp(orderId, deliveryOtp, activeOrder?.assignedRider?.id, deliveryOtp);
+                    if (res && res.success) {
+                      addToast('Delivery Confirmed 🎉', 'Handover verified and order marked as Delivered!');
+                    }
+                  }
+                }}
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer flex items-center gap-1.5"
+                title="Confirm and verify delivery"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Verify & Complete</span>
               </button>
             </div>
           </div>

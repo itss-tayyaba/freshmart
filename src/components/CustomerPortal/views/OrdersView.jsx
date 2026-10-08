@@ -4,7 +4,7 @@ import { useStore } from '../../../context/StoreContext';
 import { CustomerLiveTrackingCard } from '../CustomerLiveTrackingCard';
 
 export const OrdersView = () => {
-  const { customerOrders = [], currency = 'PKR', addToCart, addToast, navigateTo } = useStore();
+  const { customerOrders = [], currency = 'PKR', addToCart, addToast, navigateTo, verifyOrderDeliveryOtp } = useStore();
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(null);
   const [expandedTrackerOrderId, setExpandedTrackerOrderId] = useState(null);
@@ -177,6 +177,22 @@ export const OrdersView = () => {
                       title="Copy OTP PIN"
                     >
                       📋
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (verifyOrderDeliveryOtp) {
+                          const pin = order.deliveryOtp || '7412';
+                          const res = await verifyOrderDeliveryOtp(order.id || order.orderId, pin, order.assignedRider?.id, pin);
+                          if (res && res.success) {
+                            addToast('Order Completed 🎉', `Order #${String(order.id || '').replace(/^#/, '')} marked as Delivered!`);
+                          }
+                        }
+                      }}
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold cursor-pointer transition shadow-2xs flex items-center gap-1"
+                      title="Verify and complete delivery"
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Verify & Complete</span>
                     </button>
                   </div>
                 </div>

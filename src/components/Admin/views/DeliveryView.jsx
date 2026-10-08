@@ -238,14 +238,19 @@ export const DeliveryView = () => {
     return matchesSearch && matchesZone;
   });
 
-  // Unified Orders List (Deduplicated)
+  // Unified Orders List (Deduplicated with Delivered state prioritized)
   const allOrdersList = useMemo(() => {
     const combined = [...(customerOrders || []), ...(adminOrders || [])];
     const uniqueMap = new Map();
     combined.forEach((ord) => {
-      if (ord && (ord.id || ord.orderId)) {
-        const id = String(ord.id || ord.orderId);
-        if (!uniqueMap.has(id)) uniqueMap.set(id, ord);
+      if (ord && (ord.id || ord.orderId || ord._id)) {
+        const bareKey = String(ord.id || ord.orderId || ord._id).replace(/^#/, '').trim().toLowerCase();
+        const existing = uniqueMap.get(bareKey);
+        if (!existing) {
+          uniqueMap.set(bareKey, ord);
+        } else if (ord.status === 'Delivered' || ord.isDelivered || Number(ord.fulfillmentStage) >= 7) {
+          uniqueMap.set(bareKey, ord);
+        }
       }
     });
     return Array.from(uniqueMap.values());

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {
   createOrder,
   verifyDeliveryOtp,
-  assignRiderToOrder
+  assignRiderToOrder,
+  getOrders
 } from '../server/controllers/orderController.js';
 
 describe('Rider Delivery Handover OTP Verification & Workflow Pipeline', () => {
@@ -186,5 +187,57 @@ describe('Rider Delivery Handover OTP Verification & Workflow Pipeline', () => {
     assert.equal(verifyData.order.status, 'Delivered');
     assert.equal(verifyData.order.fulfillmentStage, 7);
     assert.equal(verifyData.order.isDelivered, true);
+  });
+
+  it('updates order status to Delivered for Admin after OTP is verified from customer or rider', async () => {
+    const testOrderId = '#FM-ADMIN-SYNC-' + Math.floor(1000 + Math.random() * 9000);
+    const orderReq = {
+      body: {
+        orderId: testOrderId,
+        customerName: 'Tayyaba Batool',
+        customerPhone: '+92 320 6551696',
+        shippingAddress: { address: 'Peoples Colony 1, Faisalabad', city: 'Faisalabad' },
+        orderItems: [{ name: 'Farm Fresh Milk', price: 220, quantity: 2 }],
+        totalPrice: 440,
+        deliveryOtp: '5821',
+        paymentMethod: 'Cash on Delivery'
+      }
+    };
+    const orderRes = {
+      status() { return this; },
+      json(d) { return d; }
+    };
+    await createOrder(orderReq, orderRes);
+
+    // Customer / Rider verifies OTP
+    let verifyData = null;
+    const verifyReq = {
+      params: { id: testOrderId },
+      body: { otp: '5821', riderId: 'RDR-104', expectedOtp: '5821' }
+    };
+    const verifyRes = {
+      status() { return this; },
+      json(d) { verifyData = d; return d; }
+    };
+    await verifyDeliveryOtp(verifyReq, verifyRes);
+    assert.equal(verifyData.success, true);
+
+    // Admin fetches all orders
+    let adminOrdersData = null;
+    const adminReq = { user: { role: 'admin' }, query: {} };
+    const adminRes = {
+      status() { return this; },
+      json(d) { adminOrdersData = d; return d; }
+    };
+    await getOrders(adminReq, adminRes);
+
+    assert.ok(adminOrdersData.orders, 'Admin orders should be returned');
+    const matched = adminOrdersData.orders.find(
+      (o) => o.orderId === testOrderId || o.id === testOrderId || String(o.id || '').replace(/^#/, '') === testOrderId.replace(/^#/, '')
+    );
+    assert.ok(matched, 'Order should be found in Admin orders list');
+    assert.equal(matched.status, 'Delivered', 'Admin order status should be Delivered');
+    assert.equal(matched.fulfillmentStage, 7, 'Admin fulfillment stage should be 7');
+    assert.equal(matched.paymentStatus, 'Paid', 'Admin payment status should be Paid');
   });
 });

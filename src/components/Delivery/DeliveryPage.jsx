@@ -856,14 +856,15 @@ export const DeliveryPage = () => {
                               if (res.order) {
                                 setRemoteOrder(res.order);
                               }
-                              addToast('Delivered! 🎉', 'OTP verified. Order marked as Delivered.');
+                              addToast('Delivered! 🎉', 'Delivery verified from customer portal. Order marked as Delivered and synced with Admin!');
                             }
                           }
                         }}
-                        className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all cursor-pointer text-xs font-black shadow-sm"
-                        title="Quick-verify OTP directly"
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all cursor-pointer text-xs font-black shadow-md flex items-center gap-1.5"
+                        title="Confirm OTP and complete delivery"
                       >
-                        Verify Now
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Verify & Complete Delivery</span>
                       </button>
                     </>
                   ) : (

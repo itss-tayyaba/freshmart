@@ -163,9 +163,22 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   // Selected Customer for Customer Profile & History Modal
   const [selectedCustomerModal, setSelectedCustomerModal] = useState(null);
 
-  // Combine live orders filtered strictly by active supermarket branch
+  // Combine live orders filtered strictly by active supermarket branch (prioritizing Delivered status)
   const liveOrders = useMemo(() => {
-    const raw = (customerOrders && customerOrders.length > 0) ? customerOrders : (adminOrders || []);
+    const combined = [...(customerOrders || []), ...(adminOrders || [])];
+    const uniqueMap = new Map();
+    combined.forEach((ord) => {
+      if (ord && (ord.id || ord.orderId || ord._id)) {
+        const bareKey = String(ord.id || ord.orderId || ord._id).replace(/^#/, '').trim().toLowerCase();
+        const existing = uniqueMap.get(bareKey);
+        if (!existing) {
+          uniqueMap.set(bareKey, ord);
+        } else if (ord.status === 'Delivered' || ord.isDelivered || Number(ord.fulfillmentStage) >= 7) {
+          uniqueMap.set(bareKey, ord);
+        }
+      }
+    });
+    const raw = Array.from(uniqueMap.values());
     if (!currentTenant?.id) return raw;
     return raw.filter((o) => !o.tenantId || o.tenantId === currentTenant.id);
   }, [customerOrders, adminOrders, currentTenant]);

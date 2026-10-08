@@ -3001,10 +3001,19 @@ export const StoreProvider = ({ children }) => {
       paymentCollected: true
     };
 
+    const isMatchingItem = (o) => {
+      if (!o) return false;
+      const target = bareId.toLowerCase();
+      const id1 = String(o.id || '').replace(/^#/, '').toLowerCase().trim();
+      const id2 = String(o.orderId || '').replace(/^#/, '').toLowerCase().trim();
+      const id3 = String(o._id || '').replace(/^#/, '').toLowerCase().trim();
+      return id1 === target || id2 === target || id3 === target || (target.length >= 4 && (id1.includes(target) || id2.includes(target)));
+    };
+
     setCustomerOrders((prev) => {
-      const exists = prev.some((o) => String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase() === bareId.toLowerCase());
+      const exists = prev.some(isMatchingItem);
       const nextList = exists
-        ? prev.map((o) => String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase() === bareId.toLowerCase() ? updatedOrder : o)
+        ? prev.map((o) => isMatchingItem(o) ? { ...o, ...updatedOrder } : o)
         : [updatedOrder, ...prev];
       try {
         localStorage.setItem('freshmart_customer_orders', JSON.stringify(nextList));
@@ -3013,9 +3022,9 @@ export const StoreProvider = ({ children }) => {
     });
 
     setAdminOrders((prev) => {
-      const exists = prev.some((o) => String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase() === bareId.toLowerCase());
+      const exists = prev.some(isMatchingItem);
       const nextList = exists
-        ? prev.map((o) => String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase() === bareId.toLowerCase() ? updatedOrder : o)
+        ? prev.map((o) => isMatchingItem(o) ? { ...o, ...updatedOrder } : o)
         : [updatedOrder, ...prev];
       try {
         localStorage.setItem('freshmart_admin_orders', JSON.stringify(nextList));
@@ -3023,11 +3032,10 @@ export const StoreProvider = ({ children }) => {
       return nextList;
     });
 
-    if (activeDeliveryOrder) {
-      const actId = String(activeDeliveryOrder.id || activeDeliveryOrder.orderId || activeDeliveryOrder._id || '').replace(/^#/, '');
-      if (actId.toLowerCase() === bareId.toLowerCase()) {
-        setActiveDeliveryOrder(updatedOrder);
-      }
+    if (activeDeliveryOrder && isMatchingItem(activeDeliveryOrder)) {
+      setActiveDeliveryOrder(updatedOrder);
+    } else if (!activeDeliveryOrder) {
+      setActiveDeliveryOrder(updatedOrder);
     }
 
     if (riderId) {
