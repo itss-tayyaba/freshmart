@@ -173,15 +173,9 @@ export const DeliveryPortal = () => {
       return rId === activeRider?.id || rName.includes(currentName) || (currentName && rName === currentName);
     });
 
-    // If no orders are explicitly assigned yet, match unassigned active orders in dispatch
+    // If no orders are explicitly assigned yet, show all active non-cancelled customer/admin orders
     if (filtered.length === 0) {
-      const dispatchable = allOrdersList.filter(
-        (o) =>
-          o.status === 'Ready for Dispatch' ||
-          o.status === 'Out for Delivery' ||
-          o.status === 'In Transit' ||
-          o.status === 'Dispatched'
-      );
+      const dispatchable = allOrdersList.filter((o) => o.status !== 'Cancelled');
       if (dispatchable.length > 0) return dispatchable;
     }
 
@@ -246,6 +240,9 @@ export const DeliveryPortal = () => {
     ];
   }, [activeRider]);
 
+  // Locally tracked completed orders to ensure immediate instant transition
+  const [locallyCompletedOrders, setLocallyCompletedOrders] = useState([]);
+
   // Combined orders for portal display
   const portalOrders = useMemo(() => {
     if (assignedOrders.length > 0) {
@@ -253,9 +250,14 @@ export const DeliveryPortal = () => {
         const resolvedId = String(o.id || o.orderId || o._id || '').trim();
         const bareId = resolvedId.replace(/^#/, '');
         const hashedId = bareId ? `#${bareId}` : resolvedId;
+        const isLocallyDone = locallyCompletedOrders.includes(bareId) || locallyCompletedOrders.includes(resolvedId);
+        const finalStatus = isLocallyDone ? 'Delivered' : (o.status || 'Out for Delivery');
         const finalOtp = String(o.deliveryOtp || '7412');
         return {
           ...o,
+          status: finalStatus,
+          fulfillmentStage: isLocallyDone ? 7 : (o.fulfillmentStage || 6),
+          isDelivered: isLocallyDone || o.isDelivered || false,
           id: bareId || resolvedId,
           orderId: o.orderId || hashedId || resolvedId,
           _id: o._id || bareId,
@@ -270,18 +272,19 @@ export const DeliveryPortal = () => {
     }
     return baselineMockOrders.map((o) => {
       const bareId = String(o.id || o.orderId || '').replace(/^#/, '');
+      const isLocallyDone = locallyCompletedOrders.includes(bareId) || locallyCompletedOrders.includes(o.id);
       return {
         ...o,
+        status: isLocallyDone ? 'Delivered' : o.status,
+        fulfillmentStage: isLocallyDone ? 7 : (o.fulfillmentStage || 6),
+        isDelivered: isLocallyDone || o.isDelivered || false,
         id: bareId,
         orderId: `#${bareId}`,
         deliveryOtp: String(o.deliveryOtp || '7412'),
         itemsList: o.items || o.orderItems || []
       };
     });
-  }, [assignedOrders, baselineMockOrders, activeRider]);
-
-  // Locally tracked completed orders to ensure immediate instant transition
-  const [locallyCompletedOrders, setLocallyCompletedOrders] = useState([]);
+  }, [assignedOrders, baselineMockOrders, activeRider, locallyCompletedOrders]);
 
   // Filter Out for Delivery vs Delivered Today
   const outForDeliveryOrders = useMemo(() => {
@@ -335,11 +338,12 @@ export const DeliveryPortal = () => {
 
     setVerifyingOrderMap((prev) => ({ ...prev, [rawId]: true, [bareId]: true }));
     try {
-      const res = await verifyOrderDeliveryOtp(bareId || rawId, entered, activeRider?.id);
+      const res = await verifyOrderDeliveryOtp(bareId || rawId, entered, activeRider?.id, targetExpectedOtp);
       if (res && res.success) {
         setLocallyCompletedOrders((prev) => [...prev, bareId, rawId]);
         // Clear input keys
         setOtpInputs((prev) => ({ ...prev, [rawId]: '', [bareId]: '', [`#${bareId}`]: '' }));
+        addToast('Delivery Confirmed 🎉', `Order #${bareId} verified and marked Delivered!`);
       } else {
         const errMsg = res?.message || `Incorrect OTP code "${entered}". Ask the customer for their 4-digit PIN (Doorstep PIN: ${targetExpectedOtp || '7412'}).`;
         addToast('Verification Failed ❌', errMsg, 'error');

@@ -41,10 +41,28 @@ export const DeliveryPage = () => {
     addSavedAddress,
     removeSavedAddress,
     customerOrders,
+    adminOrders,
     activeDeliveryOrder,
+    setActiveDeliveryOrder,
+    setCustomerOrders,
+    verifyOrderDeliveryOtp,
     riders,
     setIsLocationModalOpen
   } = useStore();
+
+  const cleanId = (id) => String(id || '').replace(/^#/, '').toLowerCase().trim();
+
+  const findMatchingOrder = (list, queryId) => {
+    if (!list || !queryId) return null;
+    const q = cleanId(queryId);
+    if (!q) return null;
+    return list.find((o) => {
+      const oId = cleanId(o.id);
+      const ordId = cleanId(o.orderId);
+      const mongoId = cleanId(o._id);
+      return oId === q || ordId === q || mongoId === q || (q.length >= 4 && (oId.includes(q) || ordId.includes(q)));
+    });
+  };
 
   // Active tracked order selection
   const [trackedOrderId, setTrackedOrderId] = useState(
@@ -63,13 +81,25 @@ export const DeliveryPage = () => {
     }
   }, [activeDeliveryOrder, customerOrders]);
 
-  // Current active order being tracked (from remote DB lookup, local state, or active delivery)
-  const currentOrder =
-    (remoteOrder && (remoteOrder.id === trackedOrderId || remoteOrder.orderId === trackedOrderId))
-      ? remoteOrder
-      : customerOrders.find((o) => o.id === trackedOrderId || o.orderId === trackedOrderId) ||
-        activeDeliveryOrder ||
-        (customerOrders.length > 0 ? customerOrders[0] : null);
+  // Current active order being tracked (from local store, remote DB, or active delivery)
+  const storeOrder =
+    findMatchingOrder(customerOrders, trackedOrderId) ||
+    findMatchingOrder(adminOrders, trackedOrderId) ||
+    (activeDeliveryOrder && cleanId(activeDeliveryOrder.id) === cleanId(trackedOrderId) ? activeDeliveryOrder : null);
+
+  const currentOrder = (() => {
+    const candidateStore = storeOrder;
+    const candidateRemote = (remoteOrder && (cleanId(remoteOrder.id) === cleanId(trackedOrderId) || cleanId(remoteOrder.orderId) === cleanId(trackedOrderId))) ? remoteOrder : null;
+
+    // If local store or remote DB marked this order Delivered, ALWAYS prioritize the Delivered state!
+    if (candidateStore && (candidateStore.status === 'Delivered' || candidateStore.isDelivered || Number(candidateStore.fulfillmentStage || 0) >= 7)) {
+      return candidateStore;
+    }
+    if (candidateRemote && (candidateRemote.status === 'Delivered' || candidateRemote.isDelivered || Number(candidateRemote.fulfillmentStage || 0) >= 7)) {
+      return candidateRemote;
+    }
+    return candidateRemote || candidateStore || activeDeliveryOrder || (customerOrders.length > 0 ? customerOrders[0] : null);
+  })();
 
   // Active City & Hub state - resolves customer city (fsd, lahore, etc.)
   const targetCityCandidate = currentOrder?.city || currentOrder?.shippingAddress?.city || deliveryLocation?.city;
@@ -116,6 +146,90 @@ export const DeliveryPage = () => {
       }
     }
   }, [currentOrder?.id, currentOrder?.city, currentOrder?.address, deliveryLocation?.city, deliveryLocation?.neighborhood, deliveryLocation?.area]);
+
+  // Live polling & real-time sync for current tracked order
+  useEffect(() => {
+    const orderIdToPoll = currentOrder?.id || currentOrder?.orderId || trackedOrderId;
+    if (!orderIdToPoll) return;
+
+    // A. Cross-window / in-app delivery event listener
+    const handleOrderDelivered = (e) => {
+      const deliveredId = cleanId(e?.detail?.orderId || e?.detail?.order?.id);
+      const currentClean = cleanId(orderIdToPoll);
+      if (deliveredId && currentClean && (deliveredId === currentClean || deliveredId.includes(currentClean) || currentClean.includes(deliveredId))) {
+        if (e.detail?.order) {
+          setRemoteOrder(e.detail.order);
+        }
+      }
+    };
+
+    const handleStorageChange = (e) => {
+      if (['freshmart_customer_orders', 'freshmart_admin_orders', 'freshmart_active_delivery', 'freshmart_last_delivered_event'].includes(e.key)) {
+        try {
+          const raw = localStorage.getItem('freshmart_customer_orders');
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              const matched = findMatchingOrder(list, orderIdToPoll);
+              if (matched) {
+                setRemoteOrder(matched);
+              }
+            }
+          }
+        } catch (err) {}
+      }
+    };
+
+    window.addEventListener('freshmart:order-delivered', handleOrderDelivered);
+    window.addEventListener('storage', handleStorageChange);
+
+    // B. Live backend polling every 3 seconds if order is not yet marked Delivered
+    let isCancelled = false;
+    const isAlreadyDelivered = currentOrder?.status === 'Delivered' || currentOrder?.isDelivered || Number(currentOrder?.fulfillmentStage || 0) >= 7;
+
+    const pollStatus = async () => {
+      if (isCancelled || isAlreadyDelivered) return;
+      try {
+        const cleanTarget = cleanId(orderIdToPoll);
+        const res = await apiService.trackOrder(cleanTarget);
+        if (!isCancelled && res && res.success && res.order) {
+          const bOrder = res.order;
+          if (bOrder.status === 'Delivered' || bOrder.isDelivered || Number(bOrder.fulfillmentStage || 0) >= 7) {
+            const updated = {
+              ...bOrder,
+              id: bOrder.orderId || bOrder.id || bOrder._id,
+              orderId: bOrder.orderId || bOrder.id || bOrder._id,
+              status: 'Delivered',
+              fulfillmentStage: 7,
+              isDelivered: true,
+              statusClass: 'bg-emerald-100 text-emerald-800'
+            };
+            setRemoteOrder(updated);
+            if (typeof setCustomerOrders === 'function') {
+              setCustomerOrders((prev) => {
+                const idx = prev.findIndex((o) => cleanId(o.id) === cleanTarget || cleanId(o.orderId) === cleanTarget);
+                if (idx >= 0) {
+                  const copy = [...prev];
+                  copy[idx] = { ...copy[idx], ...updated };
+                  return copy;
+                }
+                return [updated, ...prev];
+              });
+            }
+          }
+        }
+      } catch (err) {}
+    };
+
+    const intervalId = window.setInterval(pollStatus, 3000);
+
+    return () => {
+      isCancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener('freshmart:order-delivered', handleOrderDelivered);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [currentOrder?.id, currentOrder?.orderId, currentOrder?.status, trackedOrderId]);
 
   const assignedRider = currentOrder?.assignedRider || null;
 
@@ -234,11 +348,11 @@ export const DeliveryPage = () => {
     if (!order) return 1;
     const s = (order.status || '').toLowerCase();
     const stage = Number(order.fulfillmentStage || 0);
-    if (stage >= 7 || s.includes('delivered') || s.includes('completed')) return 5;
+    if (stage >= 7 || s.includes('delivered') || s.includes('completed') || order.isDelivered) return 5;
     if (s.includes('arrived') || s.includes('doorstep')) return 4;
-    if (stage >= 6 || s.includes('out for delivery') || s.includes('picked up') || s.includes('transit')) return 3;
-    if (stage >= 5 || s.includes('dispatched')) return 3;
-    if (stage >= 2 || s.includes('packing') || s.includes('processing') || s.includes('ready for dispatch') || order.assignedRider) return 2;
+    if (stage >= 6 || s.includes('out for delivery') || s.includes('transit') || s.includes('picked up') || s.includes('dispatched')) return 4;
+    if (stage >= 3 || order.assignedRider || s.includes('assigned') || s.includes('ready for dispatch')) return 3;
+    if (stage >= 2 || s.includes('packing') || s.includes('processing')) return 2;
     return 1; // Pending / Placed
   };
 
@@ -590,22 +704,22 @@ export const DeliveryPage = () => {
 
                 {/* Milestone 3: Rider Assigned */}
                 <div className={`p-3.5 rounded-2xl border flex items-start gap-3 transition-all ${
-                  assignedRider
+                  activeStage >= 3 || assignedRider
                     ? 'bg-emerald-50 border-emerald-200'
                     : 'bg-slate-50 border-slate-200'
                 }`}>
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
-                    assignedRider ? 'bg-emerald-700 text-white' : 'bg-slate-300 text-slate-600'
+                    activeStage >= 3 || assignedRider ? 'bg-emerald-700 text-white' : 'bg-slate-300 text-slate-600'
                   }`}>
-                    {assignedRider ? <CheckCircle2 className="w-4 h-4" /> : '3'}
+                    {activeStage >= 3 || assignedRider ? <CheckCircle2 className="w-4 h-4" /> : '3'}
                   </div>
                   <div className="flex-1 text-xs">
                     <div className="flex items-center justify-between">
-                      <h4 className={`font-bold ${assignedRider ? 'text-emerald-900' : 'text-slate-700'}`}>
+                      <h4 className={`font-bold ${activeStage >= 3 || assignedRider ? 'text-emerald-900' : 'text-slate-700'}`}>
                         3. Courier Allocation & Dispatch
                       </h4>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${assignedRider ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
-                        {assignedRider ? 'Rider Assigned' : 'Awaiting Courier Assignment'}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${activeStage >= 3 || assignedRider ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                        {activeStage >= 4 ? 'Completed' : assignedRider ? 'Rider Assigned' : 'Awaiting Courier Assignment'}
                       </span>
                     </div>
                     <p className="text-slate-600 text-[11px] mt-0.5">
@@ -615,6 +729,8 @@ export const DeliveryPage = () => {
                           : currentOrder?.status === 'Dispatched'
                           ? `${assignedRider.name} picked up your parcel and is preparing to start the delivery.`
                           : `Assigned to courier ${assignedRider.name} (${assignedRider.vehicle || assignedRider.vehicleType}).`
+                        : activeStage >= 3
+                        ? 'Courier allocation confirmed and parcel dispatched.'
                         : `The delivery system is checking your delivery zone and available riders in ${selectedCity.city}.`}
                     </p>
                   </div>
@@ -622,24 +738,28 @@ export const DeliveryPage = () => {
 
                 {/* Milestone 4: Out for Delivery */}
                 <div className={`p-3.5 rounded-2xl border flex items-start gap-3 transition-all ${
-                  activeStage >= 4 ? 'bg-emerald-50 border-emerald-200' : activeStage === 3 ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200 opacity-60'
+                  activeStage >= 4 ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200 opacity-60'
                 }`}>
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
-                    activeStage >= 4 || activeStage === 3 ? 'bg-emerald-700 text-white' : 'bg-slate-300 text-slate-600'
+                    activeStage >= 4 ? 'bg-emerald-700 text-white' : 'bg-slate-300 text-slate-600'
                   }`}>
                     {activeStage >= 4 ? <CheckCircle2 className="w-4 h-4" /> : '4'}
                   </div>
                   <div className="flex-1 text-xs">
                     <div className="flex items-center justify-between">
-                      <h4 className={`font-bold ${activeStage >= 3 ? 'text-emerald-900' : 'text-slate-700'}`}>
+                      <h4 className={`font-bold ${activeStage >= 4 ? 'text-emerald-900' : 'text-slate-700'}`}>
                         4. Out for Delivery & Heading to Destination
                       </h4>
-                      {activeStage === 3 && (
+                      {activeStage >= 5 ? (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Completed</span>
+                      ) : activeStage === 4 ? (
                         <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">In Progress</span>
-                      )}
+                      ) : null}
                     </div>
                     <p className="text-slate-600 text-[11px] mt-0.5">
-                      {currentOrder?.status === 'Dispatched'
+                      {activeStage >= 5
+                        ? 'Parcel reached destination and delivered.'
+                        : currentOrder?.status === 'Dispatched'
                         ? 'Parcel picked up; delivery will begin shortly.'
                         : `Rider is en route to ${currentOrder?.address || selectedNeighborhood.name}.`}
                     </p>
@@ -675,40 +795,76 @@ export const DeliveryPage = () => {
 
             {/* Doorstep Handover OTP Box */}
             {currentOrder && (
-              <div className="bg-gradient-to-r from-amber-50 via-amber-100/40 to-orange-50 border-2 border-amber-300/80 rounded-3xl p-5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className={`border-2 rounded-3xl p-5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${
+                (activeStage === 5 || currentOrder.status === 'Delivered')
+                  ? 'bg-gradient-to-r from-emerald-50 via-emerald-100/40 to-teal-50 border-emerald-300'
+                  : 'bg-gradient-to-r from-amber-50 via-amber-100/40 to-orange-50 border-amber-300/80'
+              }`}>
                 <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-2xl shadow-md">
-                    🔐
+                  <div className={`w-12 h-12 rounded-2xl text-white flex items-center justify-center font-black text-2xl shadow-md ${
+                    (activeStage === 5 || currentOrder.status === 'Delivered') ? 'bg-emerald-600' : 'bg-amber-500'
+                  }`}>
+                    {(activeStage === 5 || currentOrder.status === 'Delivered') ? '✅' : '🔐'}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <h4 className="font-black text-sm text-slate-900">Doorstep Delivery Handover OTP</h4>
-                      <span className="text-[10px] bg-amber-300 text-amber-950 font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-                        {currentOrder.status === 'Delivered' ? 'Verified' : 'Required'}
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                        (activeStage === 5 || currentOrder.status === 'Delivered')
+                          ? 'bg-emerald-200 text-emerald-950'
+                          : 'bg-amber-300 text-amber-950'
+                      }`}>
+                        {(activeStage === 5 || currentOrder.status === 'Delivered') ? 'Verified' : 'Required'}
                       </span>
                     </div>
                     <p className="text-xs text-slate-600 font-medium mt-0.5">
-                      {currentOrder.status === 'Delivered'
-                        ? 'Handover OTP has been verified and payment collected.'
+                      {(activeStage === 5 || currentOrder.status === 'Delivered')
+                        ? 'Handover OTP has been verified and payment collected. Package delivered successfully.'
                         : `Provide this 4-digit code to rider ${assignedRider?.name || 'courier'} upon arrival to verify handover.`}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <div className="bg-white border-2 border-amber-400 px-4 py-1.5 rounded-2xl font-mono font-black text-2xl text-amber-950 tracking-widest shadow-inner">
+                  <div className={`px-4 py-1.5 rounded-2xl font-mono font-black text-2xl tracking-widest shadow-inner ${
+                    (activeStage === 5 || currentOrder.status === 'Delivered')
+                      ? 'bg-white border-2 border-emerald-400 text-emerald-950'
+                      : 'bg-white border-2 border-amber-400 text-amber-950'
+                  }`}>
                     {currentOrder.deliveryOtp || '7412'}
                   </div>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(currentOrder.deliveryOtp || '7412');
-                      addToast('OTP Copied 📋', `Share PIN ${currentOrder.deliveryOtp || '7412'} with rider on delivery.`);
-                    }}
-                    className="p-2.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-xl transition-all cursor-pointer font-bold"
-                    title="Copy OTP PIN"
-                  >
-                    📋
-                  </button>
+                  {!(activeStage === 5 || currentOrder.status === 'Delivered') ? (
+                    <>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(currentOrder.deliveryOtp || '7412');
+                          addToast('OTP Copied 📋', `Share PIN ${currentOrder.deliveryOtp || '7412'} with rider on delivery.`);
+                        }}
+                        className="p-2.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-xl transition-all cursor-pointer font-bold"
+                        title="Copy OTP PIN"
+                      >
+                        📋
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (verifyOrderDeliveryOtp) {
+                            const res = await verifyOrderDeliveryOtp(currentOrder.id || currentOrder.orderId, currentOrder.deliveryOtp || '7412');
+                            if (res && res.success) {
+                              addToast('Delivered! 🎉', 'OTP verified. Order marked as Delivered.');
+                            }
+                          }
+                        }}
+                        className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all cursor-pointer text-xs font-black shadow-sm"
+                        title="Quick-verify OTP directly"
+                      >
+                        Verify Now
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200">
+                      Delivered
+                    </span>
+                  )}
                 </div>
               </div>
             )}
