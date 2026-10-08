@@ -102,6 +102,7 @@ export const DeliveryPortal = () => {
     addToast,
     navigateTo,
     currentTenant,
+    adminLogout,
     logoutAdmin
   } = useStore();
 
@@ -618,12 +619,30 @@ export const DeliveryPortal = () => {
           </div>
         </div>
 
-        <button
-          onClick={() => navigateTo('home')}
-          className="text-xs text-amber-300 font-bold px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 transition"
-        >
-          Store
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof adminLogout === 'function') {
+                adminLogout();
+              } else if (typeof logoutAdmin === 'function') {
+                logoutAdmin();
+              }
+              navigateTo('home');
+            }}
+            className="text-xs text-rose-300 hover:text-white font-bold px-2.5 py-1.5 rounded-lg bg-stone-800 hover:bg-rose-900/60 border border-stone-700 transition flex items-center gap-1.5 cursor-pointer"
+            title="Log out"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Log out</span>
+          </button>
+          <button
+            onClick={() => navigateTo('home')}
+            className="text-xs text-amber-300 font-bold px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 transition cursor-pointer"
+          >
+            Store
+          </button>
+        </div>
       </div>
 
       {/* ===================================================================== */}
@@ -745,7 +764,11 @@ export const DeliveryPortal = () => {
             <button
               type="button"
               onClick={() => {
-                logoutAdmin();
+                if (typeof adminLogout === 'function') {
+                  adminLogout();
+                } else if (typeof logoutAdmin === 'function') {
+                  logoutAdmin();
+                }
                 navigateTo('home');
               }}
               className="w-full py-2 px-3 bg-[#222120] hover:bg-[#2a2927] border border-stone-700 rounded-xl text-xs font-bold text-stone-300 hover:text-white transition flex items-center justify-center gap-2 cursor-pointer"

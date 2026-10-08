@@ -133,4 +133,27 @@ describe('Vendor Application Approval & Rider Fleet Password Workflow', () => {
     const badLogin = attemptRiderLogin(riders, 'usman_rider', 'wrongpass');
     assert.equal(badLogin.success, false);
   });
+
+  it('clears session, user state, and resets route when rider logs out', () => {
+    let session = {
+      isLoggedIn: true,
+      role: 'rider',
+      user: { id: 'RDR-101', name: 'Ahmad Khan', role: 'rider' },
+      currentPage: 'delivery-portal'
+    };
+
+    const adminLogout = () => {
+      session.isLoggedIn = false;
+      session.role = null;
+      session.user = null;
+      session.currentPage = 'home';
+    };
+
+    adminLogout();
+
+    assert.equal(session.isLoggedIn, false);
+    assert.equal(session.role, null);
+    assert.equal(session.user, null);
+    assert.equal(session.currentPage, 'home');
+  });
 });

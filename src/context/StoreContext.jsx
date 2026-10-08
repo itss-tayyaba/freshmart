@@ -1927,12 +1927,15 @@ export const StoreProvider = ({ children }) => {
 
   const adminLogout = () => {
     setIsAdminLoggedIn(false);
+    setUser(null);
+    setAdminRole(null);
     try {
       localStorage.removeItem('freshmart_admin_session');
       localStorage.removeItem('freshmart_admin_role');
       localStorage.removeItem('freshmart_admin_user');
       localStorage.removeItem('freshmart_admin_token');
       localStorage.removeItem('freshmart_vendor_token');
+      localStorage.removeItem('freshmart_rider_live_telemetry');
     } catch (e) {}
     addToast('Signed Out', 'You have been logged out of the staff portal.', 'info');
     navigateTo('home');
@@ -5165,6 +5168,7 @@ export const StoreProvider = ({ children }) => {
         setAdminRole,
         adminLogin,
         adminLogout,
+        logoutAdmin: adminLogout,
         promotions,
 
         setPromotions,
