@@ -54,11 +54,12 @@ const getAuthHeaders = (extraHeaders = {}) => {
           return null;
         }
       })();
+    const isExplicitAdminCall = headers['x-admin-role'] || extraHeaders?.['x-admin-role'];
     if (activeTenantId) {
       headers['x-tenant-id'] = activeTenantId;
     }
 
-    const activeBranchId = localStorage.getItem('freshmart_current_branch_id');
+    const activeBranchId = extraHeaders?.['x-branch-id'] || (!isExplicitAdminCall ? localStorage.getItem('freshmart_current_branch_id') : null);
     if (activeBranchId) {
       headers['x-branch-id'] = activeBranchId;
     }

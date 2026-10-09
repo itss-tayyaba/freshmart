@@ -21,7 +21,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useStore } from '../../../context/StoreContext';
 import { BRANCH_METRICS } from '../../../data/branchCatalogData';
-import { resolveTenantId } from '../../../data/companyHierarchyData';
+import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 
 export const DashboardView = ({ onNavigateModule }) => {
   const {
@@ -69,11 +69,11 @@ export const DashboardView = ({ onNavigateModule }) => {
     const all = Array.from(uniqueMap.values());
     return all.filter((order) => {
       if (!order.tenantId) return false;
-      return order.tenantId === tenantKey || resolveTenantId(order.tenantId) === resolveTenantId(tenantKey);
+      return isSameTenant(order.tenantId, tenantKey);
     });
   }, [customerOrders, adminOrders, tenantKey]);
   const tenantCustomers = useMemo(
-    () => (customers || []).filter((customer) => customer.tenantId === tenantKey || (!customer.tenantId && tenantKey === 'tenant-freshmart')),
+    () => (customers || []).filter((customer) => isSameTenant(customer.tenantId, tenantKey) || (!customer.tenantId && tenantKey === 'tenant-freshmart')),
     [customers, tenantKey]
   );
   const totalCustomers = tenantCustomers.length;
@@ -83,6 +83,7 @@ export const DashboardView = ({ onNavigateModule }) => {
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
   const todayOrders = tenantOrders.filter((order) => {
+    if (order.time === 'Just now' || order.date === 'Today') return true;
     const date = new Date(order.createdAt || order.date || order.timestamp || '');
     return !Number.isNaN(date.getTime()) && date >= todayStart && date < tomorrowStart;
   });

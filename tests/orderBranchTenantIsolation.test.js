@@ -4,7 +4,7 @@ import {
   createOrder,
   getOrders
 } from '../server/controllers/orderController.js';
-import { resolveTenantId } from '../src/data/companyHierarchyData.js';
+import { resolveTenantId, isSameTenant } from '../src/data/companyHierarchyData.js';
 
 describe('Multi-Tenant Store and Branch Order Isolation (Zero Cross-Store Order Leaks)', () => {
   it('stamps Chase Value orders with tenantId, tenantName, branchId, and branchName', async () => {
@@ -130,5 +130,33 @@ describe('Multi-Tenant Store and Branch Order Isolation (Zero Cross-Store Order 
     assert.equal(resolveTenantId('tenant-alfatah'), 'company_001');
     assert.equal(resolveTenantId('tenant-chaseup'), 'company_002');
     assert.equal(resolveTenantId('tenant-freshmart'), 'company_004');
+  });
+
+  it('isSameTenant matches canonical, legacy, and slug formats symmetrically', () => {
+    assert.equal(isSameTenant('tenant-alfatah', 'company_001'), true);
+    assert.equal(isSameTenant('company_001', 'tenant-alfatah'), true);
+    assert.equal(isSameTenant('tenant-alfatah', 'tenant-alfatah'), true);
+    assert.equal(isSameTenant('tenant-chasevalue', 'company_003'), true);
+    assert.equal(isSameTenant('tenant-alfatah', 'tenant-chasevalue'), false);
+    assert.equal(isSameTenant('company_001', 'company_002'), false);
+  });
+
+  it('Al-Fatah store admin can retrieve orders using canonical company_001 ID in x-tenant-id', async () => {
+    let afOrdersData = null;
+    const req = {
+      user: { role: 'admin', tenantId: 'company_001' },
+      headers: { 'x-tenant-id': 'company_001' },
+      query: {}
+    };
+    const res = {
+      status() { return this; },
+      json(d) { afOrdersData = d; return d; }
+    };
+
+    await getOrders(req, res);
+    assert.equal(afOrdersData.success, true);
+    assert.ok(Array.isArray(afOrdersData.orders));
+    const hasAlFatahOrder = afOrdersData.orders.some((o) => o.orderId === '#AF-TEST-9002');
+    assert.ok(hasAlFatahOrder, 'Al-Fatah test order #AF-TEST-9002 must appear when queried with company_001');
   });
 });

@@ -23,6 +23,7 @@ import {
   INVENTORY as SEED_INVENTORY,
   ORDERS as SEED_BRANCH_ORDERS,
   resolveTenantId,
+  isSameTenant,
   getBranchesByTenant,
   getProductsByTenant,
   getInventoryByBranch,
@@ -91,11 +92,15 @@ const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
   const items = remoteOrder.orderItems || remoteOrder.rawItems || (Array.isArray(remoteOrder.items) ? remoteOrder.items : localOrder.rawItems || localOrder.items || []);
   const address = remoteOrder.shippingAddress?.address || remoteOrder.address || localOrder.address || '';
   const city = remoteOrder.shippingAddress?.city || remoteOrder.city || localOrder.city || '';
-  const total = Number(remoteOrder.totalPrice ?? remoteOrder.totalAmount ?? remoteOrder.total ?? localOrder.totalAmount ?? localOrder.total ?? 0);
-  const tenantId = remoteOrder.tenantId || localOrder.tenantId || 'tenant-alfatah';
-  const tenantName = remoteOrder.tenantName || localOrder.tenantName || (tenantId === 'tenant-chasevalue' ? 'Chase Value' : tenantId === 'tenant-chaseup' ? 'Chase Up' : 'Al-Fatah Supermarket');
-  const branchId = remoteOrder.branchId || localOrder.branchId || 'branch_001';
-  const branchName = remoteOrder.branchName || localOrder.branchName || 'Main Branch';
+  const itemTenantId = items?.find?.(it => it?.tenantId)?.tenantId;
+  const tenantId = remoteOrder.tenantId || localOrder.tenantId || itemTenantId || 'tenant-alfatah';
+  const tenantName = remoteOrder.tenantName || localOrder.tenantName || (
+    isSameTenant(tenantId, 'tenant-alfatah') ? 'Al-Fatah Supermarket' :
+    isSameTenant(tenantId, 'tenant-chasevalue') ? 'Chase Value' :
+    isSameTenant(tenantId, 'tenant-chaseup') ? 'Chase Up' : 'Unimaart'
+  );
+  const branchId = remoteOrder.branchId || localOrder.branchId || (isSameTenant(tenantId, 'tenant-alfatah') ? 'branch_002' : 'branch_001');
+  const branchName = remoteOrder.branchName || localOrder.branchName || (isSameTenant(tenantId, 'tenant-alfatah') ? 'Gulberg Mall' : 'Main Branch');
   return {
     ...localOrder,
     ...remoteOrder,
@@ -114,7 +119,8 @@ const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
     tenantName,
     branchId,
     branchName,
-    status: remoteOrder.status || localOrder.status || 'Confirmed'
+    status: remoteOrder.status || localOrder.status || 'Pending',
+    createdAt: remoteOrder.createdAt || localOrder.createdAt || new Date().toISOString()
   };
 };
 
@@ -132,7 +138,7 @@ const mergeApiOrders = (remoteOrders, localOrders, role, user) => {
     if (role === 'pickup_staff') return String(order.pickupStaffId) === String(user?.staffId || user?.id);
     if (role === 'rider') return String(order.assignedRider?.id || order.assignedRider?.riderId) === String(user?.riderId || user?.id);
     if (role === 'admin' && user?.tenantId) {
-      return order.tenantId === user.tenantId || resolveTenantId(order.tenantId) === resolveTenantId(user.tenantId);
+      return isSameTenant(order.tenantId, user.tenantId);
     }
     return true;
   });
@@ -554,27 +560,19 @@ export const StoreProvider = ({ children }) => {
       const saved = localStorage.getItem('freshmart_branches');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          // Filter out any legacy pre-seeded mock branches
-          const userOnlyBranches = parsed.filter(
-            (b) =>
-              b &&
-              !b._id?.startsWith('branch_00') &&
-              !b._id?.startsWith('branch_af') &&
-              !b._id?.startsWith('branch_cu') &&
-              !b._id?.startsWith('branch_cv') &&
-              !b._id?.startsWith('branch_fm') &&
-              !b.id?.startsWith('branch_00') &&
-              !b.id?.startsWith('branch_af') &&
-              !b.id?.startsWith('branch_cu') &&
-              !b.id?.startsWith('branch_cv') &&
-              !b.id?.startsWith('branch_fm')
-          );
-          return userOnlyBranches;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingIds = new Set(parsed.map((b) => b._id || b.id));
+          const combined = [...parsed];
+          (BRANCHES || []).forEach((b) => {
+            if (!existingIds.has(b._id) && !existingIds.has(b.id)) {
+              combined.push(b);
+            }
+          });
+          return combined;
         }
       }
     } catch (e) {}
-    return [];
+    return BRANCHES || [];
   });
 
   useEffect(() => {
@@ -862,23 +860,16 @@ export const StoreProvider = ({ children }) => {
     return updated;
   };
 
-  // Products Catalog - Starts completely empty so each Mart Admin can bulk import via CSV
+  // Products Catalog - Seeded with multi-tenant branch catalogs
   const [allProducts, setAllProducts] = useState(() => {
     try {
-      const cacheVersion = localStorage.getItem('freshmart_catalog_v_empty');
-      if (cacheVersion === '3.2') {
-        const saved = localStorage.getItem('freshmart_all_products');
-        if (saved !== null) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return parsed;
-        }
+      const saved = localStorage.getItem('freshmart_all_products');
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-      localStorage.setItem('freshmart_catalog_v_empty', '3.2');
-      localStorage.setItem('freshmart_all_products', JSON.stringify([]));
-      return [];
-    } catch (e) {
-      return [];
-    }
+    } catch (e) {}
+    return ALL_BRANCH_PRODUCTS || [];
   });
 
   // Automatically persist any updates to products catalog to localStorage
@@ -1027,19 +1018,43 @@ export const StoreProvider = ({ children }) => {
 
   const setCurrentTenant = (tenantOrId) => {
     const target = typeof tenantOrId === 'string'
-      ? (tenants.find((t) => t.id === tenantOrId || t.slug === tenantOrId) || INITIAL_TENANTS[0])
+      ? (tenants.find((t) => t.id === tenantOrId || t.slug === tenantOrId) || INITIAL_TENANTS.find((t) => t.id === tenantOrId) || INITIAL_TENANTS[0])
       : tenantOrId;
+    if (!target) return;
     setCurrentTenantState(target);
     try {
       localStorage.setItem('freshmart_current_tenant_id', target.id);
     } catch (e) {}
+
+    // Synchronize store admin session when switching stores so admin views immediately receive correct orders
+    if (isAdminLoggedIn && adminRole === 'admin') {
+      setUser((prevUser) => {
+        const updatedUser = {
+          ...prevUser,
+          tenantId: target.id,
+          tenantName: target.displayName || target.name
+        };
+        try {
+          localStorage.setItem('freshmart_admin_user', JSON.stringify(updatedUser));
+        } catch (e) {}
+        return updatedUser;
+      });
+    }
+
+    // Switch branch to target store's branch
+    const canonical = resolveTenantId(target.id);
+    const tenantBranches = (allBranches || BRANCHES).filter((b) => b.tenantId === canonical);
+    if (tenantBranches.length > 0) {
+      setCurrentBranch(tenantBranches[0]);
+    }
+
     const branchItems = allProducts.filter(
       (p) => p.tenantId === target.id || (!p.tenantId && target.id === 'tenant-freshmart')
     );
     if (branchItems.length > 0) {
       setSelectedProduct(branchItems[0]);
     }
-    addToast('Store Switched 🏬', `Now viewing ${target.name}`);
+    addToast('Store Switched 🏬', `Now viewing ${target.displayName || target.name}`);
   };
 
   useEffect(() => {
@@ -1420,7 +1435,7 @@ export const StoreProvider = ({ children }) => {
   useEffect(() => {
     if (isAdminLoggedIn && user?.tenantId && adminRole !== 'superadmin') {
       const allTenantsList = (tenants && tenants.length > 0) ? tenants : INITIAL_TENANTS;
-      const matched = allTenantsList.find((t) => t.id === user.tenantId);
+      const matched = allTenantsList.find((t) => isSameTenant(t.id, user.tenantId));
       if (matched && currentTenant?.id !== matched.id) {
         setCurrentTenantState(matched);
         try {
@@ -3924,6 +3939,44 @@ export const StoreProvider = ({ children }) => {
       ? orderData.items
       : cart || [];
 
+    // Detect tenant from orderData, cart items, or currentTenant
+    const cartItemTenant = (rawItemsList || []).find((it) => {
+      const p = it.product && typeof it.product === 'object' ? it.product : it;
+      return p.tenantId || it.tenantId;
+    });
+    const cartTenantId = cartItemTenant?.product?.tenantId || cartItemTenant?.tenantId;
+
+    const resolvedTenantId =
+      orderData.tenantId ||
+      (cartTenantId && cartTenantId !== 'tenant-freshmart' ? cartTenantId : null) ||
+      currentTenant?.id ||
+      cartTenantId ||
+      'tenant-alfatah';
+
+    const matchedTenantObj =
+      (tenants || []).find((t) => isSameTenant(t.id, resolvedTenantId)) ||
+      INITIAL_TENANTS.find((t) => isSameTenant(t.id, resolvedTenantId));
+
+    const resolvedTenantName =
+      orderData.tenantName ||
+      matchedTenantObj?.displayName ||
+      matchedTenantObj?.name ||
+      (isSameTenant(resolvedTenantId, 'tenant-alfatah') ? 'Al-Fatah Supermarket' :
+       isSameTenant(resolvedTenantId, 'tenant-chasevalue') ? 'Chase Value' :
+       isSameTenant(resolvedTenantId, 'tenant-chaseup') ? 'Chase Up' : 'Unimaart');
+
+    const canonicalTenant = resolveTenantId(resolvedTenantId);
+    const validTenantBranches = (allBranches || BRANCHES).filter((b) => b.tenantId === canonicalTenant);
+    let resolvedBranch = validTenantBranches.find((b) => b._id === orderData.branchId || b.id === orderData.branchId);
+    if (!resolvedBranch && currentBranch && (currentBranch.tenantId === canonicalTenant || isSameTenant(currentBranch.tenantId, resolvedTenantId))) {
+      resolvedBranch = currentBranch;
+    }
+    if (!resolvedBranch && validTenantBranches.length > 0) {
+      resolvedBranch = validTenantBranches[0];
+    }
+    const resolvedBranchId = resolvedBranch?._id || resolvedBranch?.id || orderData.branchId || (isSameTenant(resolvedTenantId, 'tenant-alfatah') ? 'branch_002' : 'branch_001');
+    const resolvedBranchName = resolvedBranch?.name || orderData.branchName || (isSameTenant(resolvedTenantId, 'tenant-alfatah') ? 'Gulberg Mall' : 'Main Branch');
+
     const orderItems = rawItemsList.map((i) => {
       const p = i.product && typeof i.product === 'object' ? i.product : i;
       const prodId = p._id || p.id || i.id || i.productId;
@@ -3936,6 +3989,8 @@ export const StoreProvider = ({ children }) => {
         unit: p.unit || i.unit || '1 unit',
         image: p.image || i.image || '',
         vendorId: p.vendorId || i.vendorId || 'VND-101',
+        tenantId: p.tenantId || i.tenantId || resolvedTenantId,
+        branchId: resolvedBranchId,
         isSubstituted: Boolean(i.isSubstituted || p.isSubstituted),
         originalProduct: i.originalProduct || p.originalProduct || null,
         substitutionReason: i.substitutionReason || p.substitutionReason || null,
@@ -3956,11 +4011,6 @@ export const StoreProvider = ({ children }) => {
     const localOrderId = orderData.orderId || orderData.id || ('#FM' + Math.floor(10000 + Math.random() * 90000));
     const paymentMethod = orderData.paymentMethod || orderData.payment || 'Cash on Delivery';
     const generatedOtp = String(Math.floor(1000 + Math.random() * 9000));
-
-    const resolvedTenantId = orderData.tenantId || currentTenant?.id || 'tenant-freshmart';
-    const resolvedTenantName = orderData.tenantName || currentTenant?.displayName || currentTenant?.name || 'FreshMart Direct';
-    const resolvedBranchId = orderData.branchId || currentBranch?._id || currentBranch?.id || 'branch_001';
-    const resolvedBranchName = orderData.branchName || currentBranch?.name || 'Main Branch';
 
     const backendPayload = {
       orderId: localOrderId,

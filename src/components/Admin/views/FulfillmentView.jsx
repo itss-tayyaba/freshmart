@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Boxes, UserPlus, Trash2, X, Eye, EyeOff, Clock, MapPin, PackageCheck } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
-import { resolveTenantId } from '../../../data/companyHierarchyData';
+import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 
 const getItems = (order) => [order.rawItems, order.items, order.orderItems].find(Array.isArray) || [];
 const getOrderLabel = (order) => String(order.orderId || order.id || order._id || 'Order').replace(/^#/, '#');
@@ -15,7 +15,7 @@ const getStaffActivity = (order) => {
 
 export const FulfillmentView = () => {
   const {
-    adminOrders = [], customerOrders = [], currentTenant, pickupStaff = [],
+    adminOrders = [], customerOrders = [], currentTenant, user, pickupStaff = [],
     addPickupStaff, deletePickupStaff, assignPickupStaffToOrder
   } = useStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -23,24 +23,26 @@ export const FulfillmentView = () => {
   const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', phone: '' });
   const [search, setSearch] = useState('');
 
+  const activeTenantId = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
+
   const tenantStaff = useMemo(
-    () => pickupStaff.filter((staff) => !staff?.tenantId || staff?.tenantId === (currentTenant?.id || 'tenant-alfatah')),
-    [pickupStaff, currentTenant]
+    () => pickupStaff.filter((staff) => !staff?.tenantId || isSameTenant(staff?.tenantId, activeTenantId)),
+    [pickupStaff, activeTenantId]
   );
   const orders = useMemo(() => {
     const unique = new Map();
     [...customerOrders, ...adminOrders].forEach((order) => {
       const id = String(order?.id || order?.orderId || order?._id || '');
       if (!id) return;
-      if (currentTenant?.id) {
+      if (activeTenantId) {
         if (!order.tenantId) return;
-        const matchesTenant = order.tenantId === currentTenant.id || resolveTenantId(order.tenantId) === resolveTenantId(currentTenant.id);
+        const matchesTenant = isSameTenant(order.tenantId, activeTenantId);
         if (!matchesTenant) return;
       }
       unique.set(id, { ...unique.get(id), ...order });
     });
     return [...unique.values()].sort((a, b) => new Date(b.fulfillmentUpdatedAt || b.updatedAt || b.createdAt || 0) - new Date(a.fulfillmentUpdatedAt || a.updatedAt || a.createdAt || 0));
-  }, [customerOrders, adminOrders, currentTenant]);
+  }, [customerOrders, adminOrders, activeTenantId]);
   const filteredOrders = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return orders;

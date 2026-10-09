@@ -31,6 +31,7 @@ import {
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useStore } from '../../../context/StoreContext';
+import { isSameTenant } from '../../../data/companyHierarchyData';
 
 export const ReportsView = () => {
   const {
@@ -64,8 +65,11 @@ export const ReportsView = () => {
         list.push(ord);
       }
     }
+    if (currentTenant?.id) {
+      return list.filter((o) => !o.tenantId || isSameTenant(o.tenantId, currentTenant.id));
+    }
     return list;
-  }, [customerOrders, adminOrders]);
+  }, [customerOrders, adminOrders, currentTenant]);
 
   const activeOrders = useMemo(() => {
     if (selectedBranch === 'All') return allStoreOrders;

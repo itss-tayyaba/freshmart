@@ -156,6 +156,19 @@ export const CheckoutPage = () => {
     }
 
     const orderId = '#FM' + Math.floor(10000 + Math.random() * 90000);
+
+    // Infer tenant from cart items or active store
+    const cartItemTenant = (cart || []).find((i) => {
+      const p = i.product && typeof i.product === 'object' ? i.product : i;
+      return p.tenantId || i.tenantId;
+    });
+    const cartProductTenantId = cartItemTenant?.product?.tenantId || cartItemTenant?.tenantId;
+    const finalTenantId =
+      (cartProductTenantId && cartProductTenantId !== 'tenant-freshmart' ? cartProductTenantId : null) ||
+      currentTenant?.id ||
+      cartProductTenantId ||
+      'tenant-alfatah';
+
     const orderItems = cart.map((i) => ({
       product: i.product?.id || i.product?._id,
       id: i.product?.id || i.product?._id,
@@ -164,7 +177,8 @@ export const CheckoutPage = () => {
       quantity: Number(i.quantity || 1),
       unit: i.unit || i.product?.unit || '1 unit',
       image: i.product?.image || '',
-      vendorId: i.product?.vendorId || 'VND-101'
+      vendorId: i.product?.vendorId || 'VND-101',
+      tenantId: i.product?.tenantId || i.tenantId || finalTenantId
     }));
 
     const orderPayload = {
@@ -193,10 +207,10 @@ export const CheckoutPage = () => {
       recipientName: addressData.recipientName,
       customerPhone: addressData.phone,
       phone: addressData.phone,
-      tenantId: currentTenant?.id || 'tenant-freshmart',
-      tenantName: currentTenant?.displayName || currentTenant?.name || 'FreshMart',
-      branchId: currentBranch?._id || currentBranch?.id || nearbyInfo?.nearestBranch?._id || 'branch_fsd_001',
-      branchName: currentBranch?.name || nearbyInfo?.nearestBranch?.name || 'Central Hub',
+      tenantId: finalTenantId,
+      tenantName: currentTenant?.displayName || currentTenant?.name || (finalTenantId === 'tenant-alfatah' ? 'Al-Fatah Supermarket' : 'Store'),
+      branchId: currentBranch?._id || currentBranch?.id || nearbyInfo?.nearestBranch?._id || (finalTenantId === 'tenant-alfatah' ? 'branch_002' : 'branch_001'),
+      branchName: currentBranch?.name || nearbyInfo?.nearestBranch?.name || (finalTenantId === 'tenant-alfatah' ? 'Gulberg Mall' : 'Main Branch'),
       distanceKm: nearbyInfo?.distanceKm || 1.2,
       status: 'Pending',
       createdAt: new Date().toISOString()

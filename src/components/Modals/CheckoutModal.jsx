@@ -40,6 +40,18 @@ export const CheckoutModal = () => {
     // Generate real order ID
     const newOrderId = '#FM' + Math.floor(10000 + Math.random() * 90000);
 
+    // Infer tenant from cart items or active store
+    const cartItemTenant = (cart || []).find((i) => {
+      const p = i.product && typeof i.product === 'object' ? i.product : i;
+      return p.tenantId || i.tenantId;
+    });
+    const cartProductTenantId = cartItemTenant?.product?.tenantId || cartItemTenant?.tenantId;
+    const finalTenantId =
+      (cartProductTenantId && cartProductTenantId !== 'tenant-freshmart' ? cartProductTenantId : null) ||
+      currentTenant?.id ||
+      cartProductTenantId ||
+      'tenant-alfatah';
+
     const orderItems = (cart || []).map((i) => {
       const p = i.product && typeof i.product === 'object' ? i.product : i;
       const prodId = p._id || p.id || i.id || i.productId;
@@ -51,7 +63,8 @@ export const CheckoutModal = () => {
         quantity: Number(i.quantity || 1),
         unit: p.unit || i.unit || '1 unit',
         image: p.image || i.image || '',
-        vendorId: p.vendorId || i.vendorId || 'VND-101'
+        vendorId: p.vendorId || i.vendorId || 'VND-101',
+        tenantId: p.tenantId || i.tenantId || finalTenantId
       };
     });
 
@@ -79,10 +92,10 @@ export const CheckoutModal = () => {
       city: formData.city,
       customerName: formData.name,
       customerPhone: formData.phone,
-      tenantId: currentTenant?.id || 'tenant-freshmart',
-      tenantName: currentTenant?.displayName || currentTenant?.name || 'FreshMart',
-      branchId: currentBranch?._id || currentBranch?.id || 'branch_001',
-      branchName: currentBranch?.name || 'Main Branch',
+      tenantId: finalTenantId,
+      tenantName: currentTenant?.displayName || currentTenant?.name || (finalTenantId === 'tenant-alfatah' ? 'Al-Fatah Supermarket' : 'Store'),
+      branchId: currentBranch?._id || currentBranch?.id || (finalTenantId === 'tenant-alfatah' ? 'branch_002' : 'branch_001'),
+      branchName: currentBranch?.name || (finalTenantId === 'tenant-alfatah' ? 'Gulberg Mall' : 'Main Branch'),
       status: 'Pending'
     };
 

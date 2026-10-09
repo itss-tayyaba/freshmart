@@ -690,6 +690,18 @@ export const resolveTenantId = (identifier) => {
   return found ? found.tenantId : identifier;
 };
 
+// Check if two tenant identifiers refer to the same supermarket company
+export const isSameTenant = (t1, t2) => {
+  if (!t1 || !t2) return false;
+  if (t1 === t2) return true;
+  const c1 = resolveTenantId(t1);
+  const c2 = resolveTenantId(t2);
+  if (c1 && c2 && c1 === c2) return true;
+  const clean1 = String(t1).replace(/^tenant-/, '').toLowerCase();
+  const clean2 = String(t2).replace(/^tenant-/, '').toLowerCase();
+  return clean1 === clean2;
+};
+
 // Retrieve branches for a company
 export const getBranchesByTenant = (tenantId) => {
   const canonical = resolveTenantId(tenantId);

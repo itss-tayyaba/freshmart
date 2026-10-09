@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { DeliverToStaffModal } from '../modals/DeliverToStaffModal';
-import { resolveTenantId } from '../../../data/companyHierarchyData';
+import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 
 // Helper: Extract human-readable order items count/summary safely (never returns an object/array)
 const formatOrderItemsSummary = (ord) => {
@@ -145,7 +145,8 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     assignRiderToOrder,
     getEligibleRidersForOrder,
     addToast,
-    currentTenant
+    currentTenant,
+    user
   } = useStore();
 
   const [activeTab, setActiveTab] = useState('All');
@@ -180,17 +181,18 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       }
     });
     const raw = Array.from(uniqueMap.values());
-    if (!currentTenant?.id) return raw;
+    const targetTenantId = currentTenant?.id || user?.tenantId;
+    if (!targetTenantId) return raw;
     return raw.filter((o) => {
       if (!o.tenantId) return false;
-      return o.tenantId === currentTenant.id || resolveTenantId(o.tenantId) === resolveTenantId(currentTenant.id);
+      return isSameTenant(o.tenantId, targetTenantId);
     });
-  }, [customerOrders, adminOrders, currentTenant]);
+  }, [customerOrders, adminOrders, currentTenant, user?.tenantId]);
 
   // Statistics KPI counts
   const stats = useMemo(() => {
     const total = liveOrders.length;
-    const pending = liveOrders.filter((o) => o.status === 'Pending').length;
+    const pending = liveOrders.filter((o) => o.status === 'Pending' || o.status === 'Confirmed').length;
     const deliverToStaff = liveOrders.filter(
       (o) => o.status === 'Deliver to Staff' || o.status === 'Delivered to Staff'
     ).length;
@@ -208,7 +210,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   const filteredOrders = useMemo(() => {
     return liveOrders.filter((o) => {
       // Tab filter
-      if (activeTab === 'Pending' && o.status !== 'Pending') return false;
+      if (activeTab === 'Pending' && o.status !== 'Pending' && o.status !== 'Confirmed') return false;
       if (
         activeTab === 'Deliver to Staff' &&
         o.status !== 'Deliver to Staff' &&

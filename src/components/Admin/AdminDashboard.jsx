@@ -24,6 +24,7 @@ import {
   Truck
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { isSameTenant } from '../../data/companyHierarchyData';
 
 // 11 Views
 import { DashboardView } from './views/DashboardView';
@@ -107,9 +108,11 @@ export const AdminDashboard = () => {
     ? { title: 'Rider', badge: 'Rider', tag: 'Delivery Operations', iconBg: 'bg-rose-600' }
     : roleMeta[adminRole] || roleMeta.admin;
 
-  const pendingOrdersCount = (customerOrders || []).filter(
-    (o) => o.status === 'Processing' || o.status === 'Pending' || o.status === 'Packed'
-  ).length;
+  const activeTenantId = currentTenant?.id || user?.tenantId;
+  const pendingOrdersCount = (customerOrders || []).filter((o) => {
+    if (activeTenantId && o.tenantId && !isSameTenant(o.tenantId, activeTenantId)) return false;
+    return o.status === 'Processing' || o.status === 'Pending' || o.status === 'Packed' || o.status === 'Confirmed';
+  }).length;
 
   const lowStockCount = (products || []).filter(
     (p) => Number(p.stock !== undefined ? p.stock : (p.stockCount || 0)) < 15

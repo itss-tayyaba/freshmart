@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { PAKISTAN_CITIES } from '../../../data/pakistanLocations';
-import { resolveTenantId } from '../../../data/companyHierarchyData';
+import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 
 export const PAKISTAN_REGIONS = [
   // Lahore
@@ -261,12 +261,13 @@ export const DeliveryView = () => {
       }
     });
     const list = Array.from(uniqueMap.values());
-    if (!currentTenant?.id) return list;
+    const targetTenantId = currentTenant?.id || user?.tenantId;
+    if (!targetTenantId) return list;
     return list.filter((ord) => {
       if (!ord.tenantId) return false;
-      return ord.tenantId === currentTenant.id || (resolveTenantId && resolveTenantId(ord.tenantId) === resolveTenantId(currentTenant.id));
+      return isSameTenant(ord.tenantId, targetTenantId);
     });
-  }, [customerOrders, adminOrders, currentTenant?.id]);
+  }, [customerOrders, adminOrders, currentTenant?.id, user?.tenantId]);
 
   // KPI Metrics scoped to this store
   const activeRidersCount = storeRiders.filter((r) => r.status === 'On-Duty' || r.status === 'Busy').length;

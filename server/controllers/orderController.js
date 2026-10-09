@@ -3,6 +3,7 @@ import { Order } from '../models/Order.js';
 import { Product } from '../models/Product.js';
 import { Rider } from '../models/ExtraModels.js';
 import { ADMIN_ORDERS_FULL } from '../../src/data/adminSuiteData.js';
+import { resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyData.js';
 
 // Dark Store Hub coordinates for Pakistani fulfillment centers
 export const CITY_HUBS = {
@@ -283,9 +284,10 @@ export const createOrder = async (req, res) => {
       deliveryPrice,
       discountPrice: discount,
       totalPrice,
-      status: req.body.status || 'Confirmed',
+      status: req.body.status || 'Pending',
       assignedRider: req.body.assignedRider || null,
-      deliveryOtp
+      deliveryOtp,
+      createdAt: req.body.createdAt || new Date().toISOString()
     };
 
     initialOrderObj.timeline = buildDynamicTimeline(initialOrderObj);
@@ -355,11 +357,12 @@ export const createOrder = async (req, res) => {
       deliveryCharges: deliveryPrice,
       discountPrice: discount,
       discountAmount: discount,
-      status: req.body.status || 'Confirmed',
-      statusClass: 'bg-emerald-100 text-emerald-800',
+      status: req.body.status || 'Pending',
+      statusClass: 'bg-amber-100 text-amber-800',
       payment: paymentMethod,
       paymentMethod,
       time: 'Just now',
+      createdAt: initialOrderObj.createdAt || new Date().toISOString(),
       assignedRider: req.body.assignedRider || null,
       deliveryOtp,
       timeline: initialOrderObj.timeline
@@ -385,7 +388,7 @@ export const getOrders = async (req, res) => {
     const staffId = req.user?.staffId || req.user?.id;
     const riderId = req.user?.riderId || req.user?.id;
     const userTenantId = req.headers?.['x-tenant-id'] || req.query?.tenantId || req.user?.tenantId;
-    const userBranchId = req.headers?.['x-branch-id'] || req.query?.branchId || req.user?.branchId;
+    const userBranchId = req.query?.branchId; // Explicit branch filter from query param only
 
     if (!isAdmin && role !== 'pickup_staff' && role !== 'rider') {
       return res.status(403).json({ success: false, message: 'Access denied: staff or admin account required.' });
@@ -394,10 +397,22 @@ export const getOrders = async (req, res) => {
     const filter = {};
     if (role === 'pickup_staff') {
       if (staffId) filter.pickupStaffId = staffId;
-      if (userTenantId && role !== 'superadmin') filter.tenantId = userTenantId;
+      if (userTenantId && role !== 'superadmin') {
+        const canonical = resolveTenantId(userTenantId);
+        filter.$or = [
+          { tenantId: userTenantId },
+          ...(canonical ? [{ tenantId: canonical }, { companyId: canonical }] : [])
+        ];
+      }
     }
     if (role === 'rider') filter['assignedRider.id'] = riderId;
-    if (role === 'admin' && userTenantId && role !== 'superadmin') filter.tenantId = userTenantId;
+    if (role === 'admin' && userTenantId && role !== 'superadmin') {
+      const canonical = resolveTenantId(userTenantId);
+      filter.$or = [
+        { tenantId: userTenantId },
+        ...(canonical ? [{ tenantId: canonical }, { companyId: canonical }] : [])
+      ];
+    }
     if (userBranchId && role !== 'superadmin') filter.branchId = userBranchId;
 
     if (isDbOnline()) {
@@ -409,7 +424,8 @@ export const getOrders = async (req, res) => {
     if (role === 'pickup_staff') {
       orders = orders.filter((order) => {
         const matchesStaff = !staffId || String(order.pickupStaffId) === String(staffId);
-        const matchesTenant = !userTenantId || order.tenantId === userTenantId;
+        const orderTenant = order.tenantId || order.companyId;
+        const matchesTenant = !userTenantId || isSameTenant(orderTenant, userTenantId);
         const matchesBranch = !userBranchId || order.branchId === userBranchId;
         return matchesStaff && matchesTenant && matchesBranch;
       });
@@ -418,7 +434,10 @@ export const getOrders = async (req, res) => {
       orders = orders.filter((order) => String(order.assignedRider?.id || order.assignedRider?.riderId) === String(riderId));
     }
     if (role === 'admin' && userTenantId && role !== 'superadmin') {
-      orders = orders.filter((order) => order.tenantId === userTenantId);
+      orders = orders.filter((order) => {
+        const orderTenant = order.tenantId || order.companyId;
+        return isSameTenant(orderTenant, userTenantId);
+      });
       if (userBranchId) {
         orders = orders.filter((order) => !order.branchId || order.branchId === userBranchId);
       }
