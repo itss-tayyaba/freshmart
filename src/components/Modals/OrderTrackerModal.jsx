@@ -15,11 +15,11 @@ export const OrderTrackerModal = () => {
     if (!rawOrder) return null;
     const isAssigned = !!rawOrder.assignedRider;
     const status = (rawOrder.status || 'Pending').toLowerCase();
-    const isDelivered = status === 'delivered' || status === 'completed';
+    const isDelivered = status === 'delivered' || status === 'completed' || rawOrder.isDelivered === true;
     const fulfillmentStage = Number(rawOrder.fulfillmentStage || 0);
-    const isDispatched = fulfillmentStage >= 5 || status.includes('dispatched');
-    const isOutForDelivery = fulfillmentStage >= 6 || status.includes('out for delivery') || status.includes('picked up') || status.includes('transit');
-    const isPackingComplete = fulfillmentStage >= 4 || isDispatched || isOutForDelivery || isDelivered;
+    const isDispatched = rawOrder.isDispatched === true || fulfillmentStage >= 5 || status.includes('dispatched');
+    const isOutForDelivery = fulfillmentStage >= 6 || status.includes('out for delivery') || status.includes('picked up') || status.includes('transit') || (isAssigned && !isDelivered);
+    const isPackingComplete = fulfillmentStage >= 4 || isDispatched || isOutForDelivery || (isDelivered && isAssigned);
 
     const shipping = rawOrder.shippingAddress || {};
     const addr = typeof shipping === 'string' ? shipping : (shipping.address || rawOrder.address || 'Delivery Address');
@@ -50,11 +50,11 @@ export const OrderTrackerModal = () => {
           },
           {
             title: '3. Courier Dispatched',
-            time: isDispatched ? (isOutForDelivery ? `ETA: ${eta}` : 'Completed') : 'Pending',
+            time: isDelivered ? (isAssigned ? 'Completed' : 'Awaiting Assignment') : isDispatched || isOutForDelivery ? `ETA: ${eta}` : isAssigned ? 'Rider Assigned' : 'Pending',
             desc: isAssigned
               ? `Assigned to courier ${rider.name} (${rider.vehicle || rider.vehicleType || 'Motorbike'})`
-              : isDispatched ? 'Pickup staff handed the parcel to the courier' : 'Waiting for the parcel to be dispatched',
-            completed: isDispatched || isOutForDelivery || isDelivered
+              : isDispatched ? 'Pickup staff handed the parcel to the courier' : 'Waiting for courier rider to be assigned',
+            completed: isDelivered ? Boolean(isAssigned || isDispatched) : Boolean(isDispatched || isOutForDelivery)
           },
           {
             title: '4. Delivered to Doorstep',
@@ -287,36 +287,60 @@ export const OrderTrackerModal = () => {
 
               {/* Handover OTP PIN */}
               {!currentOrder.isDelivered ? (
-                <div className="bg-amber-50 border border-amber-300/80 rounded-2xl p-4 flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-base shadow-xs">
-                      🔐
-                    </div>
-                    <div>
-                      <div className="font-black text-amber-950 flex items-center gap-1.5">
-                        <span>Doorstep Handover OTP</span>
-                        <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-bold uppercase">Required</span>
+                currentOrder.isAssigned ? (
+                  <div className="bg-amber-50 border border-amber-300/80 rounded-2xl p-4 flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-base shadow-xs">
+                        🔐
                       </div>
-                      <p className="text-[11px] text-amber-800 font-medium">
-                        Share this 4-digit PIN with rider {currentOrder.driverName !== 'Awaiting Courier Assignment' ? currentOrder.driverName : ''} at delivery
-                      </p>
+                      <div>
+                        <div className="font-black text-amber-950 flex items-center gap-1.5">
+                          <span>Doorstep Handover OTP</span>
+                          <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-bold uppercase">Required</span>
+                        </div>
+                        <p className="text-[11px] text-amber-800 font-medium">
+                          Share this 4-digit PIN with rider {currentOrder.driverName !== 'Awaiting Courier Assignment' ? currentOrder.driverName : ''} at delivery
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-black text-lg px-3.5 py-1 bg-white border border-amber-300 rounded-xl text-amber-950 tracking-widest shadow-2xs">
+                        {currentOrder.deliveryOtp || '9999'}
+                      </span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(currentOrder.deliveryOtp || '9999');
+                        }}
+                        className="p-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg cursor-pointer transition-colors text-xs"
+                        title="Copy OTP PIN"
+                      >
+                        📋
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-black text-lg px-3.5 py-1 bg-white border border-amber-300 rounded-xl text-amber-950 tracking-widest shadow-2xs">
-                      {currentOrder.deliveryOtp || '9999'}
-                    </span>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(currentOrder.deliveryOtp || '9999');
-                      }}
-                      className="p-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg cursor-pointer transition-colors text-xs"
-                      title="Copy OTP PIN"
-                    >
-                      📋
-                    </button>
+                ) : (
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-slate-300 text-slate-600 flex items-center justify-center font-bold text-base shadow-xs">
+                        🔒
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-700 flex items-center gap-1.5">
+                          <span>Doorstep Handover OTP</span>
+                          <span className="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-bold uppercase">Awaiting Rider</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-medium">
+                          OTP will be assigned once a courier rider is assigned to your order
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-base px-3 py-1 bg-white border border-slate-200 rounded-xl text-slate-400 tracking-widest shadow-2xs">
+                        ••••
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )
               ) : (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-2.5 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2 text-emerald-800 font-bold">

@@ -2767,7 +2767,7 @@ export const StoreProvider = ({ children }) => {
     return enriched;
   };
 
-  const assignRiderToOrder = async (orderId, riderId, statusOverride) => {
+  const assignRiderToOrder = async (orderId, riderId, statusOverride, allowDemo = false) => {
     const targetRider = riders.find((r) => r.id === riderId);
     if (!targetRider) {
       addToast('Select a Rider', 'Please select a valid courier from the list.', 'error');
@@ -2775,7 +2775,7 @@ export const StoreProvider = ({ children }) => {
     }
     const all = [...(customerOrders || []), ...(adminOrders || [])];
     const sourceOrder = all.find((order) => order.id === orderId || order.orderId === orderId);
-    if (!['admin', 'superadmin'].includes(adminRole)) {
+    if (!['admin', 'superadmin'].includes(adminRole) && !allowDemo) {
       addToast('Rider assignment denied', 'Only store admins can assign riders.', 'error');
       return false;
     }
@@ -2872,11 +2872,11 @@ export const StoreProvider = ({ children }) => {
     return true;
   };
 
-  const assignNearestRiderToOrder = (orderId) => {
+  const assignNearestRiderToOrder = (orderId, allowDemo = false) => {
     const order = [...(customerOrders || []), ...(adminOrders || [])].find((item) => item.id === orderId || item.orderId === orderId);
     if (!order) return;
-    const nearest = getEligibleRidersForOrder(order)[0];
-    if (nearest) return assignRiderToOrder(orderId, nearest.id, 'Ready for Dispatch');
+    const nearest = getEligibleRidersForOrder(order)[0] || riders[0];
+    if (nearest) return assignRiderToOrder(orderId, nearest.id, 'Out for Delivery', allowDemo);
     addToast('Waiting for Rider', 'Parcel is Ready for Dispatch; no available rider is on duty.', 'info');
   };
 
@@ -3057,6 +3057,13 @@ export const StoreProvider = ({ children }) => {
     if (orderForRider.status === 'Delivered') {
       addToast('Already Delivered ✅', `Order #${bareId} has already been completed.`, 'info');
       return { success: true, message: 'Order already delivered.', order: orderForRider };
+    }
+
+    const hasAssignedRider = Boolean(orderForRider.assignedRider || riderId);
+    if (!hasAssignedRider) {
+      const errMsg = `Cannot verify delivery: Courier rider has not been assigned to Order #${bareId} yet. Handover OTP is only assigned once a courier is dispatched.`;
+      addToast('Awaiting Rider 🛵', errMsg, 'warning');
+      return { success: false, message: errMsg };
     }
 
     const cleanOtp = String(otp || '').trim();

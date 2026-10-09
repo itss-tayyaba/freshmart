@@ -283,4 +283,63 @@ describe('Rider Delivery Handover OTP Verification & Workflow Pipeline', () => {
     assert.ok(assignData.order.deliveryOtp, 'Delivery OTP must be assigned');
     assert.match(assignData.order.deliveryOtp, /^\d{4}$/, 'Delivery OTP must be a 4-digit code');
   });
+
+  it('enforces progressive milestone tracking: unassigned order has pending dispatch, rider assignment enables stage 3, and OTP verification completes stage 4', async () => {
+    const testOrderId = '#FM-STAGE-TEST-' + Math.floor(1000 + Math.random() * 9000);
+    const orderReq = {
+      body: {
+        orderId: testOrderId,
+        customerName: 'Tayyaba Batool',
+        customerPhone: '+92 320 6551696',
+        shippingAddress: { address: 'House 55, Block B, Gulberg 3, Lahore', city: 'Lahore, Pakistan' },
+        orderItems: [{ name: 'Fresh Milk 1L', price: 210, quantity: 2 }],
+        totalPrice: 420,
+        paymentMethod: 'Cash on Delivery'
+      }
+    };
+    let created = null;
+    await createOrder(orderReq, { status() { return this; }, json(d) { created = d; return d; } });
+
+    // 1. Initial State: Unassigned
+    const initialOrder = created.order;
+    assert.equal(initialOrder.assignedRider, null);
+    assert.equal(initialOrder.timeline[0].completed, true, 'Stage 1 (Order Confirmed) must be completed');
+    assert.equal(initialOrder.timeline[1].completed, false, 'Stage 2 (Dark Store Packing) must NOT be prematurely completed');
+    assert.equal(initialOrder.timeline[2].completed, false, 'Stage 3 (Express Delivery) must NOT be prematurely completed');
+    assert.equal(initialOrder.timeline[3].completed, false, 'Stage 4 (Delivered) must NOT be completed');
+
+    // 2. Rider Assignment: Advances to Stage 3
+    let assigned = null;
+    await assignRiderToOrder(
+      {
+        params: { id: testOrderId },
+        body: { riderId: 'RDR-101' },
+        user: { role: 'admin' },
+        headers: { 'x-admin-role': 'admin' }
+      },
+      { status() { return this; }, json(d) { assigned = d; return d; } }
+    );
+    assert.ok(assigned.order.assignedRider, 'Rider must now be attached');
+    assert.equal(assigned.order.status, 'Out for Delivery');
+    assert.equal(assigned.order.fulfillmentStage, 3);
+    assert.ok(assigned.order.deliveryOtp, 'Delivery OTP must be active');
+    assert.equal(assigned.order.timeline[0].completed, true);
+    assert.equal(assigned.order.timeline[1].completed, true, 'Stage 2 Packing completed upon dispatch');
+    assert.equal(assigned.order.timeline[2].completed, true, 'Stage 3 Out for Delivery active');
+    assert.equal(assigned.order.timeline[3].completed, false, 'Stage 4 Doorstep delivery still pending handover');
+
+    // 3. OTP Verification: Completes Stage 4
+    let verified = null;
+    await verifyDeliveryOtp(
+      {
+        params: { id: testOrderId },
+        body: { otp: assigned.order.deliveryOtp, riderId: 'RDR-101' }
+      },
+      { status() { return this; }, json(d) { verified = d; return d; } }
+    );
+    assert.equal(verified.success, true);
+    assert.equal(verified.order.status, 'Delivered');
+    assert.equal(verified.order.fulfillmentStage, 4);
+    assert.equal(verified.order.timeline[3].completed, true, 'Stage 4 turns completed upon OTP verification');
+  });
 });

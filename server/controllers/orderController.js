@@ -97,8 +97,8 @@ const resolveRiderCoords = (rider) => {
 export const buildDynamicTimeline = (order) => {
   const status = (order.status || 'Pending').toLowerCase();
   const isDelivered = status === 'delivered' || status === 'completed';
-  const isOut = status.includes('out') || status.includes('transit') || status.includes('picked up') || (order.assignedRider && !isDelivered);
-  const isPreparing = isOut || isDelivered || status.includes('prep') || status.includes('pack') || status.includes('process');
+  const isOut = Boolean(status.includes('out') || status.includes('transit') || status.includes('picked up') || (order.assignedRider && !isDelivered));
+  const isPreparing = Boolean(isOut || (isDelivered && (order.assignedRider || order.isDispatched)) || status.includes('prep') || status.includes('pack') || status.includes('process'));
 
   const createdDate = order.createdAt ? new Date(order.createdAt) : new Date();
   const formatTime = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -121,8 +121,8 @@ export const buildDynamicTimeline = (order) => {
     },
     {
       title: 'Out for Express Delivery',
-      time: isDelivered ? 'Completed' : isOut ? `ETA: ${etaText}` : 'Awaiting Assignment',
-      completed: isOut || isDelivered,
+      time: isDelivered ? (assigned || order.isDispatched ? 'Completed' : 'Awaiting Assignment') : isOut ? `ETA: ${etaText}` : 'Awaiting Assignment',
+      completed: isDelivered ? Boolean(assigned || order.isDispatched) : isOut,
       desc: assigned
         ? `Assigned to courier ${assigned.name} (${assigned.vehicle || assigned.vehicleType || 'Motorbike'}). GPS tracking live.`
         : 'Dispatch team is reviewing address to assign fleet rider'

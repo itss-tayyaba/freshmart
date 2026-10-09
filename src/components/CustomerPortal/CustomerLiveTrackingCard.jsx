@@ -353,7 +353,7 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
               COMPLETED
             </span>
           </div>
-        ) : (
+        ) : activeOrder?.assignedRider ? (
           <div className="bg-amber-50/90 border border-amber-300/80 rounded-2xl p-4 flex items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-bold text-base shrink-0 shadow-xs">
@@ -365,7 +365,7 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
                   <span className="text-[9px] bg-amber-200 text-amber-900 font-bold px-1.5 py-0.2 rounded uppercase">Required</span>
                 </div>
                 <p className="text-[10px] text-amber-800 leading-tight mt-0.5 truncate">
-                  Tell this 4-digit code to the rider upon parcel arrival
+                  Tell this 4-digit code to rider {riderName} upon arrival
                 </p>
               </div>
             </div>
@@ -400,6 +400,26 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
                 <span>Verify & Complete</span>
               </button>
             </div>
+          </div>
+        ) : (
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-slate-300 text-slate-600 flex items-center justify-center font-bold text-base shrink-0 shadow-xs">
+                🔒
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-slate-800 text-xs">Customer Handover OTP</span>
+                  <span className="text-[9px] bg-slate-200 text-slate-600 font-bold px-1.5 py-0.2 rounded uppercase">Awaiting Rider</span>
+                </div>
+                <p className="text-[10px] text-slate-500 leading-tight mt-0.5 truncate">
+                  OTP will be assigned once a delivery rider is assigned to your order
+                </p>
+              </div>
+            </div>
+            <span className="font-mono font-bold text-sm px-3 py-1 bg-white border border-slate-200 rounded-xl text-slate-400 tracking-widest shadow-2xs">
+              ••••
+            </span>
           </div>
         )}
 

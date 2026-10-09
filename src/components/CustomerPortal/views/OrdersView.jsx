@@ -151,51 +151,71 @@ export const OrdersView = () => {
 
               {/* Handover OTP PIN Section */}
               {order.status !== 'Delivered' ? (
-                <div className="flex items-center justify-between bg-amber-50/90 border border-amber-200/90 rounded-2xl px-4 py-2.5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm shadow-xs">
-                      🔐
-                    </div>
-                    <div>
-                      <div className="text-xs font-black text-amber-950 flex items-center gap-1.5">
-                        <span>Doorstep Handover OTP</span>
-                        <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-bold uppercase">Required</span>
+                order.assignedRider ? (
+                  <div className="flex items-center justify-between bg-amber-50/90 border border-amber-200/90 rounded-2xl px-4 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                        🔐
                       </div>
-                      <div className="text-[10px] text-amber-800 font-medium">Share this 4-digit PIN with your delivery rider upon arrival</div>
+                      <div>
+                        <div className="text-xs font-black text-amber-950 flex items-center gap-1.5">
+                          <span>Doorstep Handover OTP</span>
+                          <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-bold uppercase">Required</span>
+                        </div>
+                        <div className="text-[10px] text-amber-800 font-medium">Share this 4-digit PIN with rider {order.assignedRider.name || ''} upon arrival</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-black text-base px-3 py-1 bg-white border border-amber-300 rounded-xl text-amber-950 tracking-widest shadow-2xs">
+                        {order.deliveryOtp || '7412'}
+                      </span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(order.deliveryOtp || '7412');
+                          addToast('OTP Copied 📋', `Share PIN ${order.deliveryOtp || '7412'} with rider on delivery.`);
+                        }}
+                        className="p-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg cursor-pointer transition-colors text-xs"
+                        title="Copy OTP PIN"
+                      >
+                        📋
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (verifyOrderDeliveryOtp) {
+                            const pin = order.deliveryOtp || '7412';
+                            const res = await verifyOrderDeliveryOtp(order.id || order.orderId, pin, order.assignedRider?.id, pin);
+                            if (res && res.success) {
+                              addToast('Order Completed 🎉', `Order #${String(order.id || '').replace(/^#/, '')} marked as Delivered!`);
+                            }
+                          }
+                        }}
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold cursor-pointer transition shadow-2xs flex items-center gap-1"
+                        title="Verify and complete delivery"
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Verify & Complete</span>
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-black text-base px-3 py-1 bg-white border border-amber-300 rounded-xl text-amber-950 tracking-widest shadow-2xs">
-                      {order.deliveryOtp || '7412'}
+                ) : (
+                  <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-slate-300 text-slate-600 flex items-center justify-center font-bold text-sm shadow-xs">
+                        🔒
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          <span>Doorstep Handover OTP</span>
+                          <span className="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-bold uppercase">Awaiting Rider</span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-medium">OTP will be assigned once a courier rider is assigned to this order</div>
+                      </div>
+                    </div>
+                    <span className="font-mono font-bold text-sm px-3 py-1 bg-white border border-slate-200 rounded-xl text-slate-400 tracking-widest shadow-2xs">
+                      ••••
                     </span>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(order.deliveryOtp || '7412');
-                        addToast('OTP Copied 📋', `Share PIN ${order.deliveryOtp || '7412'} with rider on delivery.`);
-                      }}
-                      className="p-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg cursor-pointer transition-colors text-xs"
-                      title="Copy OTP PIN"
-                    >
-                      📋
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (verifyOrderDeliveryOtp) {
-                          const pin = order.deliveryOtp || '7412';
-                          const res = await verifyOrderDeliveryOtp(order.id || order.orderId, pin, order.assignedRider?.id, pin);
-                          if (res && res.success) {
-                            addToast('Order Completed 🎉', `Order #${String(order.id || '').replace(/^#/, '')} marked as Delivered!`);
-                          }
-                        }
-                      }}
-                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold cursor-pointer transition shadow-2xs flex items-center gap-1"
-                      title="Verify and complete delivery"
-                    >
-                      <CheckCircle2 className="w-3 h-3" />
-                      <span>Verify & Complete</span>
-                    </button>
                   </div>
-                </div>
+                )
               ) : (
                 <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-2 text-xs">
                   <div className="flex items-center gap-2 text-emerald-800 font-bold">
