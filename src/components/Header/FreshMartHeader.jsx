@@ -619,24 +619,6 @@ export const FreshMartHeader = () => {
                   <span>Track Order</span>
                 </button>
               </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => navigateTo('delivery')}
-                  style={{
-                    color: currentPage === 'delivery' ? tenantThemeColor : undefined,
-                    borderBottomColor: currentPage === 'delivery' ? tenantThemeColor : 'transparent'
-                  }}
-                  className={`transition-colors pb-1 cursor-pointer flex items-center gap-1.5 ${
-                    currentPage === 'delivery'
-                      ? 'font-bold border-b-2'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <Truck className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Delivery Info</span>
-                </button>
-              </li>
             </ul>
 
           </div>

@@ -128,6 +128,22 @@ export const sanitizeOrder = (ord) => {
     };
   }
 
+  // Ensure mock Lahore address is converted to real Faisalabad delivery destination
+  if (addrStr.includes('gulberg iii, lahore') || addrStr.includes('main boulevard, gulberg')) {
+    const fixedAddr = 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad';
+    const fixedCity = 'Faisalabad';
+    return {
+      ...ord,
+      address: fixedAddr,
+      city: fixedCity,
+      shippingAddress: typeof ord.shippingAddress === 'object' && ord.shippingAddress ? {
+        ...ord.shippingAddress,
+        address: fixedAddr,
+        city: fixedCity
+      } : { address: fixedAddr, city: fixedCity }
+    };
+  }
+
   return ord;
 };
 
@@ -396,8 +412,12 @@ export const StoreProvider = ({ children }) => {
           status: 'In Stock'
         }
       ],
-      address: 'House 14, Main Boulevard, Gulberg III, Lahore',
-      city: 'Lahore',
+      address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+      city: 'Faisalabad',
+      shippingAddress: {
+        address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+        city: 'Faisalabad'
+      },
       deliveryOtp: '7412',
       time: 'Just now',
       createdAt: new Date(Date.now() - 60000).toISOString()
