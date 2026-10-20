@@ -136,7 +136,7 @@ export const SuperAdminDashboard = () => {
       fullName: 'Al-Fatah Supermarket',
       tagline: 'Premium Supermarket',
       status: 'Active',
-      branchesCount: 4,
+      branchesCount: 0,
       ordersToday: 645,
       revenueToday: 312450,
       revenueFormatted: 'PKR 312,450',
@@ -147,7 +147,7 @@ export const SuperAdminDashboard = () => {
       barHeight: 88,
       ownerEmail: 'admin@alfatah.pk',
       ownerName: 'Sheikh Tariq Al-Fatah',
-      hubs: ['Gulberg Mall Hub', 'DHA Phase 5', 'Mall of Lahore', 'Centaurus Islamabad']
+      hubs: []
     },
     {
       id: 'tenant-chasevalue',
@@ -155,7 +155,7 @@ export const SuperAdminDashboard = () => {
       fullName: 'Chase Value (Local Grocery)',
       tagline: 'Quality Products, Great Prices',
       status: 'Active',
-      branchesCount: 3,
+      branchesCount: 0,
       ordersToday: 512,
       revenueToday: 241230,
       revenueFormatted: 'PKR 241,230',
@@ -166,7 +166,7 @@ export const SuperAdminDashboard = () => {
       barHeight: 68,
       ownerEmail: 'admin@chasevalue.pk',
       ownerName: 'Farhan Qureshi',
-      hubs: ['Shaheed-e-Millat Karachi', 'North Nazimabad', 'Gulshan-e-Iqbal']
+      hubs: []
     },
     {
       id: 'tenant-chaseup',
@@ -174,7 +174,7 @@ export const SuperAdminDashboard = () => {
       fullName: 'Chase Up Department Chain',
       tagline: 'Family Shopping Store',
       status: 'Active',
-      branchesCount: 3,
+      branchesCount: 0,
       ordersToday: 467,
       revenueToday: 218760,
       revenueFormatted: 'PKR 218,760',
@@ -185,7 +185,7 @@ export const SuperAdminDashboard = () => {
       barHeight: 62,
       ownerEmail: 'admin@chaseup.pk',
       ownerName: 'Muhammad Salman',
-      hubs: ['Clifton Karachi Hub', 'Hassan Square', 'Faisalabad Clock Tower']
+      hubs: []
     },
     {
       id: 'tenant-freshmart',
@@ -193,7 +193,7 @@ export const SuperAdminDashboard = () => {
       fullName: 'Fresh Mart Direct',
       tagline: 'Fresh • Healthy • Local',
       status: 'Active',
-      branchesCount: 2,
+      branchesCount: 0,
       ordersToday: 398,
       revenueToday: 176540,
       revenueFormatted: 'PKR 176,540',
@@ -204,7 +204,7 @@ export const SuperAdminDashboard = () => {
       barHeight: 50,
       ownerEmail: 'admin@freshmart.pk',
       ownerName: 'Aimen Yasin',
-      hubs: ['Gulberg SuperHub', 'DHA Phase 6', 'Johar Town']
+      hubs: []
     },
     {
       id: 'tenant-localgrocery',
@@ -212,7 +212,7 @@ export const SuperAdminDashboard = () => {
       fullName: 'Local Grocery Express',
       tagline: 'Fresh • Local • Reliable',
       status: 'Active',
-      branchesCount: 2,
+      branchesCount: 0,
       ordersToday: 283,
       revenueToday: 142690,
       revenueFormatted: 'PKR 142,690',
@@ -223,7 +223,7 @@ export const SuperAdminDashboard = () => {
       barHeight: 40,
       ownerEmail: 'admin@localgrocery.pk',
       ownerName: 'Hamza Sheikh',
-      hubs: ['Multan Cantt Hub', 'Model Town Hub']
+      hubs: []
     },
     {
       id: 'tenant-superstore',
@@ -231,7 +231,7 @@ export const SuperAdminDashboard = () => {
       fullName: 'Super Store Snacks & More',
       tagline: 'Snacks • Drinks • More',
       status: 'Inactive',
-      branchesCount: 2,
+      branchesCount: 0,
       ordersToday: 154,
       revenueToday: 94320,
       revenueFormatted: 'PKR 94,320',
@@ -242,7 +242,7 @@ export const SuperAdminDashboard = () => {
       barHeight: 26,
       ownerEmail: 'admin@superstore.pk',
       ownerName: 'Bilal Khan',
-      hubs: ['Rawalpindi Saddar Hub']
+      hubs: []
     }
   ];
 
@@ -250,6 +250,7 @@ export const SuperAdminDashboard = () => {
   const displayStores = useMemo(() => {
     const matched = defaultStores.map((store) => {
       const live = (tenants || []).find((t) => t.id === store.id || t.slug === store.id);
+      const activeBranchesForStore = (allBranches || []).filter((b) => isSameTenant(b.tenantId, store.id));
       if (live) {
         return {
           ...store,
@@ -260,36 +261,44 @@ export const SuperAdminDashboard = () => {
           plan: live.subscription?.plan || store.plan,
           ownerEmail: live.ownerEmail || store.ownerEmail,
           ownerName: live.ownerName !== undefined && live.ownerName !== '' ? live.ownerName : store.ownerName,
-          hubs: Array.isArray(live.hubs) && live.hubs.length > 0 ? live.hubs : (store.hubs || ['Main Hub'])
+          branchesCount: activeBranchesForStore.length,
+          hubs: activeBranchesForStore.map((b) => b.name)
         };
       }
-      return store;
+      return {
+        ...store,
+        branchesCount: activeBranchesForStore.length,
+        hubs: activeBranchesForStore.map((b) => b.name)
+      };
     });
 
     const extra = (tenants || [])
       .filter((t) => !defaultStores.some((ds) => ds.id === t.id || ds.id === t.slug))
-      .map((t) => ({
-        id: t.id,
-        name: t.name?.split(' ')[0] || t.name,
-        fullName: t.name,
-        tagline: t.tagline || 'Express Supermarket',
-        status: t.status || 'Active',
-        branchesCount: (t.hubs && t.hubs.length) || 1,
-        ordersToday: 0,
-        revenueToday: 0,
-        revenueFormatted: 'PKR 0',
-        color: '#10b981',
-        logo: '🏬',
-        plan: t.subscription?.plan || 'Starter',
-        sharePct: '5%',
-        barHeight: 20,
-        ownerEmail: t.ownerEmail,
-        ownerName: t.ownerName || 'Mart Owner',
-        hubs: Array.isArray(t.hubs) && t.hubs.length > 0 ? t.hubs : ['Main Hub']
-      }));
+      .map((t) => {
+        const activeBranchesForStore = (allBranches || []).filter((b) => isSameTenant(b.tenantId, t.id));
+        return {
+          id: t.id,
+          name: t.name?.split(' ')[0] || t.name,
+          fullName: t.name,
+          tagline: t.tagline || 'Express Supermarket',
+          status: t.status || 'Active',
+          branchesCount: activeBranchesForStore.length,
+          ordersToday: 0,
+          revenueToday: 0,
+          revenueFormatted: 'PKR 0',
+          color: '#10b981',
+          logo: '🏬',
+          plan: t.subscription?.plan || 'Starter',
+          sharePct: '5%',
+          barHeight: 20,
+          ownerEmail: t.ownerEmail,
+          ownerName: t.ownerName || 'Mart Owner',
+          hubs: activeBranchesForStore.map((b) => b.name)
+        };
+      });
 
     return [...matched, ...extra];
-  }, [tenants]);
+  }, [tenants, allBranches]);
 
   // Modals form states
   const [newAdminForm, setNewAdminForm] = useState({
@@ -705,10 +714,6 @@ export const SuperAdminDashboard = () => {
               <button onClick={() => setActiveNav('orders')} className={getNavClass('orders')}>
                 <ShoppingBag className="w-4 h-4 text-emerald-400" />
                 <span>Cross-Store Orders</span>
-              </button>
-              <button onClick={() => setActiveNav('tracking')} className={getNavClass('tracking')}>
-                <Navigation className="w-4 h-4 text-indigo-400" />
-                <span>Live GPS Tracking</span>
               </button>
               <button onClick={() => setActiveNav('performance')} className={getNavClass('performance')}>
                 <Activity className="w-4 h-4 text-cyan-400" />
@@ -1451,7 +1456,23 @@ export const SuperAdminDashboard = () => {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    {branchList.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setAllBranches([]);
+                          try {
+                            localStorage.removeItem('freshmart_branches');
+                          } catch (e) {}
+                          addToast('Branches Deleted 🗑️', 'All store branches have been permanently removed.');
+                        }}
+                        className="px-3.5 py-2.5 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                        title="Permanently remove all branches"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span>Delete All Branches</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => setIsAddBranchOpen(true)}
                       className="px-4 py-2.5 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-black shadow-md flex items-center gap-2 transition cursor-pointer"
@@ -1782,13 +1803,31 @@ export const SuperAdminDashboard = () => {
                     Every grocery shop has its dedicated Store Admin account and custom credentials assigned by Super Admin.
                   </p>
                 </div>
-                <button
-                  onClick={() => setIsAddAdminOpen(true)}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>+ Add Store Admin & Set Password</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {(storeAdmins || []).length > 0 && (
+                    <button
+                      onClick={() => {
+                        setStoreAdmins([]);
+                        try {
+                          localStorage.removeItem('freshmart_store_admins');
+                        } catch (e) {}
+                        addToast('All Admins Deleted 🗑️', 'All mart admins have been permanently deleted.');
+                      }}
+                      className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                      title="Permanently remove all store admins"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete All Admins</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setIsAddAdminOpen(true)}
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>+ Add Store Admin & Set Password</span>
+                  </button>
+                </div>
               </div>
 
               {/* Empty state if no admins added yet */}
@@ -2107,62 +2146,6 @@ export const SuperAdminDashboard = () => {
                       )}
                     </tbody>
                   </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ===================================================================== */}
-          {/* SUB-DASHBOARD: 9. LIVE GPS TRACKING                                   */}
-          {/* ===================================================================== */}
-          {activeNav === 'tracking' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                  <Navigation className="w-5 h-5 text-indigo-600" />
-                  <span>Live GPS Dark Store Radar & Telemetry</span>
-                </h2>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Real-time rider coordinates and active 15-minute dispatch radius monitoring.
-                </p>
-              </div>
-
-              <div className="bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl min-h-[360px] flex flex-col justify-between">
-                <div className="relative z-10 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
-                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                      Live Telemetry Active
-                    </span>
-                  </div>
-                  <span className="text-xs text-slate-400 font-mono">18 Dark Store Hubs Online</span>
-                </div>
-
-                <div className="relative z-10 my-auto text-center space-y-2">
-                  <div className="text-5xl">🛰️</div>
-                  <h3 className="text-xl font-black">Super Grocery Dark Store GPS Radar</h3>
-                  <p className="text-xs text-slate-400 max-w-md mx-auto">
-                    Live telemetry tracking riders across Lahore (Gulberg, DHA), Karachi (Clifton, Shaheed-e-Millat), and Islamabad.
-                  </p>
-                </div>
-
-                <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center pt-4 border-t border-slate-800 text-xs">
-                  <div>
-                    <span className="text-slate-400 block text-[10px]">Active In-Transit</span>
-                    <span className="text-lg font-black text-emerald-400">14 Dispatches</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px]">Avg Speed</span>
-                    <span className="text-lg font-black text-sky-400">32 km/h</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px]">Avg Delivery Time</span>
-                    <span className="text-lg font-black text-amber-400">18.2 Mins</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px]">SLA On-Time</span>
-                    <span className="text-lg font-black text-purple-400">99.2%</span>
-                  </div>
                 </div>
               </div>
             </div>

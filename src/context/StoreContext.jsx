@@ -612,26 +612,30 @@ export const StoreProvider = ({ children }) => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const merged = parsed.map((sa) => {
-            const initSa = (INITIAL_STORE_ADMINS || []).find(
-              (i) => (i.id && i.id.toLowerCase() === (sa.id || '').toLowerCase()) ||
-                     (i.email && i.email.toLowerCase() === (sa.email || '').toLowerCase())
-            );
-            return initSa ? { ...initSa, ...sa, branchId: initSa.branchId ?? sa.branchId, branchName: initSa.branchName ?? sa.branchName } : sa;
-          });
-          const existingIds = new Set(merged.map((sa) => (sa.id || sa.email)?.toLowerCase()));
-          (INITIAL_STORE_ADMINS || []).forEach((initSa) => {
-            const k1 = (initSa.id || '').toLowerCase();
-            const k2 = (initSa.email || '').toLowerCase();
-            if (!existingIds.has(k1) && !existingIds.has(k2)) {
-              merged.push(initSa);
-            }
-          });
-          return merged;
+          // Permanently purge all old pre-seeded mock admins
+          const clean = parsed.filter(
+            (sa) =>
+              !String(sa.id || '').startsWith('sa-') &&
+              ![
+                'admin@alfatah.pk',
+                'admin.gulberg@alfatah.pk',
+                'admin.dha@alfatah.pk',
+                'admin@unimart.pk',
+                'admin.peoplescolony@unimart.pk',
+                'admin.gulberg@unimart.pk',
+                'admin@chasevalue.pk',
+                'admin.fsd@chasevalue.pk',
+                'admin@chaseup.pk',
+                'admin.clifton@chaseup.pk',
+                'admin@localgrocery.pk',
+                'admin@superstore.pk'
+              ].includes(String(sa.email || '').toLowerCase())
+          );
+          return clean;
         }
       }
     } catch (e) {}
-    return INITIAL_STORE_ADMINS;
+    return [];
   });
 
   useEffect(() => {
@@ -721,18 +725,21 @@ export const StoreProvider = ({ children }) => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const existingIds = new Set(parsed.map((b) => b._id || b.id));
-          const combined = [...parsed];
-          (BRANCHES || []).forEach((b) => {
-            if (!existingIds.has(b._id) && !existingIds.has(b.id)) {
-              combined.push(b);
-            }
+          // Permanently purge any of the 15 seeded dummy branches
+          const clean = parsed.filter((b) => {
+            const bId = String(b._id || b.id || '').toLowerCase();
+            return (
+              !bId.startsWith('branch_0') &&
+              !bId.startsWith('branch_af') &&
+              !bId.startsWith('branch_cv') &&
+              !bId.startsWith('branch_um')
+            );
           });
-          return combined;
+          return clean;
         }
       }
     } catch (e) {}
-    return BRANCHES || [];
+    return [];
   });
 
   useEffect(() => {
@@ -746,16 +753,18 @@ export const StoreProvider = ({ children }) => {
     const fetchDbBranches = async () => {
       try {
         const res = await apiService.getBranches();
-        if (res && res.success && Array.isArray(res.branches) && res.branches.length > 0) {
-          const existingIds = new Set(res.branches.map((b) => b._id || b.id));
-          const combined = [...res.branches];
-          (BRANCHES || []).forEach((b) => {
-            if (!existingIds.has(b._id) && !existingIds.has(b.id)) {
-              combined.push(b);
-            }
+        if (res && res.success && Array.isArray(res.branches)) {
+          const clean = res.branches.filter((b) => {
+            const bId = String(b._id || b.id || '').toLowerCase();
+            return (
+              !bId.startsWith('branch_0') &&
+              !bId.startsWith('branch_af') &&
+              !bId.startsWith('branch_cv') &&
+              !bId.startsWith('branch_um')
+            );
           });
-          setAllBranches(combined);
-          localStorage.setItem('freshmart_branches', JSON.stringify(combined));
+          setAllBranches(clean);
+          localStorage.setItem('freshmart_branches', JSON.stringify(clean));
         }
       } catch (e) {
         console.warn('Could not sync branches from backend database:', e.message);
