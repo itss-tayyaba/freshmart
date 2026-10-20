@@ -553,18 +553,14 @@ export const StoreProvider = ({ children }) => {
   const [riderLiveTelemetry, setRiderLiveTelemetry] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_rider_live_telemetry');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.orderId && parsed.orderId !== 'EB-9SMVJA' && parsed.riderName !== 'Ahmad Khan') {
+          return parsed;
+        }
+      }
     } catch (e) {}
-    return {
-      orderId: 'EB-9SMVJA',
-      coords: { lat: 31.4147, lng: 73.0872 },
-      isSharing: false,
-      riderName: 'Ahmad Khan',
-      riderPhone: '+92 320 6551696',
-      vehicle: '🏍️ Honda 125 (LEK-4821)',
-      speed: '34 km/h',
-      updatedAt: Date.now()
-    };
+    return null;
   });
 
   useEffect(() => {
@@ -3102,16 +3098,22 @@ export const StoreProvider = ({ children }) => {
   };
 
   const getEligibleRidersForOrder = (order) => {
+    if (!order) return [];
     const destination = orderDeliveryCoordinates(order);
-    const onDutyRiders = (riders || []).filter((rider) =>
-      ['available', 'on-duty'].includes(String(rider.status || '').toLowerCase())
-    );
+    const orderTenantId = order?.tenantId || (order?.items?.[0]?.tenantId) || currentTenant?.id || 'tenant-freshmart';
+
+    // Strictly filter riders matching the order's supermarket chain & available/on-duty
+    const tenantRiders = (riders || []).filter((rider) => {
+      const matchTenant = isSameTenant(rider.tenantId, orderTenantId);
+      const isAvailable = ['available', 'on-duty'].includes(String(rider.status || '').toLowerCase());
+      return matchTenant && isAvailable;
+    });
 
     const orderBranchId = order?.branchId;
     const orderBranchName = (order?.branchName || order?.branch || '').toLowerCase();
     const orderCity = (order?.city || order?.shippingAddress?.city || '').toLowerCase();
 
-    const enriched = onDutyRiders.map((rider) => {
+    const enriched = tenantRiders.map((rider) => {
       const coordinates = riderBaseCoordinates(rider);
       const distanceKm = destination && coordinates
         ? calculateDistanceKm(destination.lat, destination.lng, coordinates.lat, coordinates.lng)
@@ -3146,18 +3148,8 @@ export const StoreProvider = ({ children }) => {
       return exactBranchRiders.sort((a, b) => a.distanceKm - b.distanceKm);
     }
 
-    // 2. If destination is available, filter riders by proximity within coverage
-    if (destination) {
-      const matched = enriched
-        .filter((rider) => Number.isFinite(rider.distanceKm) && rider.distanceKm <= rider.coverageRadiusKm)
-        .sort((a, b) => a.distanceKm - b.distanceKm);
-
-      if (matched.length > 0) {
-        return matched;
-      }
-    }
-
-    return enriched;
+    // 2. Sort by distance within this supermarket's fleet
+    return enriched.sort((a, b) => a.distanceKm - b.distanceKm);
   };
 
   const assignRiderToOrder = async (orderId, riderId, statusOverride, allowDemo = false) => {
@@ -3197,6 +3189,21 @@ export const StoreProvider = ({ children }) => {
       assignedAt: new Date().toISOString(),
       eta: '15-20 mins'
     };
+
+    const telemetry = {
+      orderId: String(orderId).replace(/^#/, ''),
+      coords: eligibleRider.coordinates || { lat: 31.4125, lng: 73.0995 },
+      isSharing: true,
+      riderName: targetRider.name,
+      riderPhone: targetRider.phone,
+      vehicle: targetRider.vehicleNumber || targetRider.vehicleType,
+      speed: '28 km/h',
+      updatedAt: Date.now()
+    };
+    setRiderLiveTelemetry(telemetry);
+    try {
+      localStorage.setItem('freshmart_rider_live_telemetry', JSON.stringify(telemetry));
+    } catch (e) {}
 
     setCustomerOrders((prev) =>
       prev.map((o) =>
@@ -3268,9 +3275,10 @@ export const StoreProvider = ({ children }) => {
   const assignNearestRiderToOrder = (orderId, allowDemo = false) => {
     const order = [...(customerOrders || []), ...(adminOrders || [])].find((item) => item.id === orderId || item.orderId === orderId);
     if (!order) return;
-    const nearest = getEligibleRidersForOrder(order)[0] || riders[0];
+    const eligible = getEligibleRidersForOrder(order);
+    const nearest = eligible[0];
     if (nearest) return assignRiderToOrder(orderId, nearest.id, 'Out for Delivery', allowDemo);
-    addToast('Waiting for Rider', 'Parcel is Ready for Dispatch; no available rider is on duty.', 'info');
+    addToast('Waiting for Rider', 'Parcel is Ready for Dispatch; looking for an available on-duty rider nearby.', 'info');
   };
 
   const updateRiderLiveLocation = async (orderId, coords, isSharing = true, riderMeta = {}) => {
@@ -3279,10 +3287,10 @@ export const StoreProvider = ({ children }) => {
       orderId: cleanId,
       coords,
       isSharing: isSharing !== undefined ? isSharing : true,
-      riderName: riderMeta.name || 'Ahmad Khan',
-      riderPhone: riderMeta.phone || '+92 320 6551696',
-      vehicle: riderMeta.vehicle || '🏍️ Honda 125 (LEK-4821)',
-      speed: riderMeta.speed || '34 km/h',
+      riderName: riderMeta.name || 'Assigned Courier',
+      riderPhone: riderMeta.phone || '',
+      vehicle: riderMeta.vehicle || '🏍️ Delivery Bike',
+      speed: riderMeta.speed || '28 km/h',
       updatedAt: Date.now()
     };
 

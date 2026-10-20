@@ -589,18 +589,7 @@ export const CustomerPortal = () => {
                 const activeOrder =
                   activeDeliveryOrder ||
                   customerOrders.find((o) => o.status !== 'Delivered') ||
-                  (customerOrders.length > 0 ? customerOrders[0] : {
-                    id: 'EB-9SMVJA',
-                    orderId: '#EB-9SMVJA',
-                    status: 'In Transit',
-                    customerName: customerUser?.name || 'Tayyaba batool',
-                    shippingAddress: {
-                      address: 'DIGITALSOFTS, Peoples Colony No. 1, Faisalabad',
-                      city: 'Faisalabad'
-                    },
-                    deliveryOtp: '7412',
-                    totalAmount: 3.78
-                  });
+                  (customerOrders.length > 0 ? customerOrders[0] : null);
 
                 if (!activeOrder) return null;
                 return <CustomerLiveTrackingCard activeOrder={activeOrder} />;
