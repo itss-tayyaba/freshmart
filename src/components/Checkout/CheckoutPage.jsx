@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useStore } from '../../context/StoreContext';
+import { isSameTenant } from '../../data/companyHierarchyData';
 import { PaymentMethodCard } from './PaymentMethodCard';
 
 export const CheckoutPage = () => {
@@ -51,10 +52,10 @@ export const CheckoutPage = () => {
     getNearbyStores
   } = useStore();
 
-  const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
-  const isAlFatah = currentTenant?.id === 'tenant-alfatah';
-  const isChaseUp = currentTenant?.id === 'tenant-chaseup';
-  const isUnimaart = currentTenant?.id === 'tenant-freshmart';
+  const isCaseValue = isSameTenant(currentTenant?.id, 'tenant-chasevalue');
+  const isAlFatah = isSameTenant(currentTenant?.id, 'tenant-alfatah');
+  const isChaseUp = isSameTenant(currentTenant?.id, 'tenant-chaseup');
+  const isUnimaart = !isCaseValue && !isAlFatah && !isChaseUp;
 
   const nearbyInfo = React.useMemo(() => {
     if (typeof getNearbyStores === 'function') {
@@ -73,7 +74,7 @@ export const CheckoutPage = () => {
       ? 'bg-[#991b1b] hover:bg-[#7f1d1d]'
       : isChaseUp
       ? 'bg-[#6b21a8] hover:bg-[#581c87]'
-      : 'bg-emerald-600 hover:bg-emerald-700',
+      : 'bg-[#0284c7] hover:bg-[#0369a1]',
     primaryText: isUnimaart
       ? 'text-[#0284c7]'
       : isCaseValue
@@ -82,7 +83,7 @@ export const CheckoutPage = () => {
       ? 'text-[#991b1b]'
       : isChaseUp
       ? 'text-[#6b21a8]'
-      : 'text-emerald-700',
+      : 'text-[#0284c7]',
     softBg: isUnimaart
       ? 'bg-sky-50 text-sky-800 border-sky-200'
       : isCaseValue
@@ -91,7 +92,7 @@ export const CheckoutPage = () => {
       ? 'bg-rose-50 text-rose-800 border-rose-200'
       : isChaseUp
       ? 'bg-purple-50 text-purple-800 border-purple-200'
-      : 'bg-emerald-50 text-emerald-800 border-emerald-200',
+      : 'bg-sky-50 text-sky-800 border-sky-200',
     accentColor: isUnimaart
       ? '#0284c7'
       : isCaseValue
@@ -100,7 +101,70 @@ export const CheckoutPage = () => {
       ? '#991b1b'
       : isChaseUp
       ? '#6b21a8'
-      : '#10b981'
+      : '#0284c7',
+    iconGradient: isUnimaart
+      ? 'from-[#0284c7] to-sky-400'
+      : isCaseValue
+      ? 'from-[#5c3417] to-amber-600'
+      : isAlFatah
+      ? 'from-[#991b1b] to-rose-600'
+      : isChaseUp
+      ? 'from-[#6b21a8] to-purple-500'
+      : 'from-[#0284c7] to-sky-400',
+    cardBorder: isUnimaart
+      ? 'border-sky-100 shadow-sky-950/5'
+      : isCaseValue
+      ? 'border-[#ebdcc7] shadow-amber-950/5'
+      : isAlFatah
+      ? 'border-rose-100 shadow-rose-950/5'
+      : isChaseUp
+      ? 'border-purple-100 shadow-purple-950/5'
+      : 'border-sky-100 shadow-sky-950/5',
+    refBoxBg: isUnimaart
+      ? 'bg-gradient-to-r from-sky-50 to-blue-50/60 border-sky-200/80'
+      : isCaseValue
+      ? 'bg-gradient-to-r from-[#fdfaf4] to-[#f4ebe0]/60 border-[#ebdcc7]'
+      : isAlFatah
+      ? 'bg-gradient-to-r from-rose-50 to-amber-50/50 border-rose-200/80'
+      : isChaseUp
+      ? 'bg-gradient-to-r from-purple-50 to-indigo-50/50 border-purple-200/80'
+      : 'bg-gradient-to-r from-sky-50 to-blue-50/60 border-sky-200/80',
+    refText: isUnimaart
+      ? 'text-sky-800'
+      : isCaseValue
+      ? 'text-[#5c3417]'
+      : isAlFatah
+      ? 'text-rose-800'
+      : isChaseUp
+      ? 'text-purple-800'
+      : 'text-sky-800',
+    refIdText: isUnimaart
+      ? 'text-sky-950'
+      : isCaseValue
+      ? 'text-[#3d2314]'
+      : isAlFatah
+      ? 'text-rose-950'
+      : isChaseUp
+      ? 'text-purple-950'
+      : 'text-sky-950',
+    badge: isUnimaart
+      ? 'bg-sky-100 text-sky-800'
+      : isCaseValue
+      ? 'bg-[#f4ebe0] text-[#5c3417]'
+      : isAlFatah
+      ? 'bg-rose-100 text-rose-800'
+      : isChaseUp
+      ? 'bg-purple-100 text-purple-800'
+      : 'bg-sky-100 text-sky-800',
+    focusRing: isUnimaart
+      ? 'focus:ring-sky-500 focus:border-sky-500'
+      : isCaseValue
+      ? 'focus:ring-[#5c3417] focus:border-[#5c3417]'
+      : isAlFatah
+      ? 'focus:ring-rose-500 focus:border-rose-500'
+      : isChaseUp
+      ? 'focus:ring-purple-500 focus:border-purple-500'
+      : 'focus:ring-sky-500 focus:border-sky-500'
   };
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -261,11 +325,11 @@ export const CheckoutPage = () => {
       <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-100 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold mb-1">
-            <span className="hover:text-emerald-700 cursor-pointer" onClick={() => navigateTo('home')}>Home</span>
+            <span className="hover:opacity-80 cursor-pointer" onClick={() => navigateTo('home')}>Home</span>
             <span>/</span>
-            <span className="hover:text-emerald-700 cursor-pointer" onClick={() => navigateTo('shop')}>Shop</span>
+            <span className="hover:opacity-80 cursor-pointer" onClick={() => navigateTo('shop')}>Shop</span>
             <span>/</span>
-            <span className="text-emerald-700 font-bold">Checkout</span>
+            <span className={`${theme.primaryText} font-bold`}>Checkout</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Checkout
@@ -323,88 +387,103 @@ export const CheckoutPage = () => {
 
       {isOrderPlaced ? (
         /* ========================================================================= */
-        /* ORDER SUCCESS CELEBRATION SCREEN                                          */
+        /* ORDER SUCCESS CELEBRATION SCREEN (Compact, Responsive & Theme-Branded)    */
         /* ========================================================================= */
-        <div className="bg-white rounded-3xl p-8 sm:p-12 border border-emerald-100 shadow-2xl shadow-emerald-950/10 text-center max-w-2xl mx-auto space-y-8 animate-in zoom-in-95 duration-300">
+        <div className={`bg-white rounded-3xl p-5 sm:p-6 border ${theme.cardBorder} shadow-xl text-center max-w-lg mx-auto space-y-4 animate-in zoom-in-95 duration-300`}>
           
           {/* Animated Celebration Icon */}
-          <div className="relative w-24 h-24 mx-auto">
-            <div className="w-24 h-24 bg-gradient-to-tr from-emerald-600 to-teal-400 text-white rounded-3xl flex items-center justify-center shadow-xl shadow-emerald-900/30 rotate-3 transform hover:rotate-0 transition-transform">
-              <CheckCircle2 className="w-12 h-12 text-white" />
+          <div className="relative w-14 h-14 mx-auto">
+            <div className={`w-14 h-14 bg-gradient-to-tr ${theme.iconGradient} text-white rounded-2xl flex items-center justify-center shadow-lg rotate-2 transform hover:rotate-0 transition-transform`}>
+              <CheckCircle2 className="w-7 h-7 text-white" />
             </div>
-            <div className="absolute -top-2 -right-2 bg-amber-400 text-slate-950 text-[10px] font-black uppercase px-2 py-0.5 rounded-full shadow-md animate-pulse">
+            <div className="absolute -top-1 -right-2 bg-amber-400 text-slate-950 text-[9px] font-black uppercase px-2 py-0.5 rounded-full shadow-xs animate-pulse">
               Confirmed
             </div>
           </div>
 
-          <div className="space-y-2">
-            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+          <div className="space-y-1">
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
               Order Confirmed & In Transit! 🚀
             </h2>
-            <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
+            <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
               Your grocery basket has been packed in temperature-controlled boxes and handed to our express rider.
             </p>
           </div>
 
           {/* Order Reference Box */}
-          <div className="bg-gradient-to-r from-emerald-50 to-teal-50/60 p-4 rounded-2xl border border-emerald-200/80 flex items-center justify-between">
+          <div className={`${theme.refBoxBg} p-3 sm:p-3.5 rounded-2xl border flex items-center justify-between`}>
             <div className="text-left">
-              <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">Order Reference Number</span>
-              <span className="font-mono font-black text-lg text-emerald-950">{placedOrderDetails?.id}</span>
+              <span className={`text-[10px] uppercase font-bold ${theme.refText} tracking-wider block`}>
+                Order Reference Number
+              </span>
+              <span className={`font-mono font-black text-base sm:text-lg ${theme.refIdText}`}>
+                {placedOrderDetails?.id}
+              </span>
             </div>
             <button
               onClick={() => handleCopyOrderId(placedOrderDetails?.id)}
-              className="px-3 py-1.5 bg-white hover:bg-emerald-100/70 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              className={`px-2.5 py-1.5 bg-white hover:opacity-90 ${theme.refText} rounded-xl text-xs font-bold border transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs`}
             >
-              {copiedOrderId ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              {copiedOrderId ? <Check className={`w-3.5 h-3.5 ${theme.primaryText}`} /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copiedOrderId ? 'Copied' : 'Copy ID'}</span>
             </button>
           </div>
 
           {/* ETA Live Timeline Box */}
-          <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200/80 text-left space-y-4">
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 text-left space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                <Clock className="w-4 h-4 text-emerald-600 animate-spin" style={{ animationDuration: '6s' }} />
-                <span>Estimated Arrival: <strong className="text-emerald-700">10-14 Minutes</strong></span>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                <Clock className={`w-4 h-4 ${theme.primaryText} animate-spin`} style={{ animationDuration: '6s' }} />
+                <span>
+                  Estimated Arrival: <strong className={theme.primaryText}>10-14 Minutes</strong>
+                </span>
               </div>
-              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+              <span className={`text-[10px] font-bold ${theme.badge} px-2 py-0.5 rounded-full`}>
                 Express Courier
               </span>
             </div>
 
-            <div className="space-y-2.5 text-xs text-slate-600 border-t border-slate-200/60 pt-3">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Destination Address:</span>
-                <span className="font-bold text-slate-800 text-right truncate max-w-[220px]">{placedOrderDetails?.address}</span>
+            <div className="space-y-2 text-xs text-slate-600 border-t border-slate-200/60 pt-2.5">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-slate-400 shrink-0">Destination Address:</span>
+                <span className="font-bold text-slate-800 text-right truncate max-w-[240px]">
+                  {placedOrderDetails?.address}
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Receiver:</span>
-                <span className="font-bold text-slate-800">{placedOrderDetails?.recipientName} ({placedOrderDetails?.phone})</span>
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-slate-400 shrink-0">Receiver:</span>
+                <span className="font-bold text-slate-800 truncate">
+                  {placedOrderDetails?.recipientName || 'Valued Customer'}{' '}
+                  {placedOrderDetails?.phone ? `(${placedOrderDetails.phone})` : ''}
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Payment Gateway:</span>
-                <span className="font-bold text-emerald-800">{placedOrderDetails?.paymentMethod}</span>
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-slate-400 shrink-0">Payment Gateway:</span>
+                <span className={`font-bold ${theme.primaryText}`}>
+                  {placedOrderDetails?.paymentMethod || 'COD'}
+                </span>
               </div>
-              <div className="flex justify-between font-black text-sm pt-2 border-t border-slate-200 text-slate-900">
+              <div className="flex justify-between items-center font-black text-sm pt-2 border-t border-slate-200 text-slate-900">
                 <span>Total Amount Paid:</span>
-                <span className="text-emerald-700 font-mono">{currency.symbol}{placedOrderDetails?.totalAmount?.toLocaleString()}</span>
+                <span className={`${theme.primaryText} font-mono`}>
+                  {currency.symbol}{placedOrderDetails?.totalAmount?.toLocaleString()}
+                </span>
               </div>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
             <button
               onClick={() => navigateTo('delivery')}
-              className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black transition-all shadow-lg shadow-emerald-900/20 cursor-pointer flex items-center justify-center gap-2"
+              className={`flex-1 py-3 ${theme.primaryBg} text-white rounded-xl text-xs font-black transition-all shadow-md cursor-pointer flex items-center justify-center gap-2`}
             >
               <Truck className="w-4 h-4" />
               <span>Track Courier on Live GPS Map</span>
             </button>
             <button
               onClick={() => navigateTo('customer-portal')}
-              className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-2xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-2"
+              className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-2"
             >
               <ShoppingBag className="w-4 h-4" />
               <span>View Order in Customer Portal</span>
@@ -414,8 +493,8 @@ export const CheckoutPage = () => {
         </div>
       ) : cart.length === 0 ? (
         /* Empty Cart State */
-        <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm max-w-lg mx-auto space-y-4">
-          <div className="w-20 h-20 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-4xl shadow-inner">
+        <div className={`bg-white rounded-3xl p-12 text-center border ${theme.cardBorder} shadow-sm max-w-lg mx-auto space-y-4`}>
+          <div className={`w-20 h-20 rounded-full ${theme.badge} flex items-center justify-center mx-auto text-4xl shadow-inner`}>
             🛒
           </div>
           <h2 className="text-2xl font-black text-slate-900">Your basket is empty</h2>
@@ -424,7 +503,7 @@ export const CheckoutPage = () => {
           </p>
           <button
             onClick={() => navigateTo('shop')}
-            className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl text-xs shadow-md shadow-emerald-900/20 transition-all cursor-pointer inline-flex items-center gap-2"
+            className={`px-8 py-3.5 ${theme.primaryBg} text-white font-black rounded-2xl text-xs shadow-md transition-all cursor-pointer inline-flex items-center gap-2`}
           >
             <span>Browse Products</span>
             <ArrowRight className="w-4 h-4" />
@@ -438,10 +517,10 @@ export const CheckoutPage = () => {
           <div className="lg:col-span-8 space-y-6">
             
             {/* Step 1: Delivery Address */}
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xl shadow-emerald-950/5 space-y-5">
+            <div className={`bg-white rounded-3xl p-6 sm:p-8 border ${theme.cardBorder} shadow-xl space-y-5`}>
               <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs shadow-xs">
+                  <div className={`w-8 h-8 rounded-xl ${theme.badge} flex items-center justify-center font-black text-xs shadow-xs`}>
                     1
                   </div>
                   <div>
@@ -450,14 +529,14 @@ export const CheckoutPage = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200/60">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                <div className={`flex items-center gap-1.5 text-xs font-bold ${theme.softBg} px-3 py-1 rounded-full border`}>
+                  <MapPin className={`w-3.5 h-3.5 ${theme.primaryText}`} />
                   <span>Doorstep Delivery</span>
                 </div>
               </div>
 
               {/* Fulfilling Store & Branch Routing Banner */}
-              <div className="bg-emerald-50/90 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className={`${theme.refBoxBg} rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs`}>
                 <div className="flex items-center gap-3">
                   <div
                     style={{ backgroundColor: currentTenant?.color || '#0284c7' }}
@@ -470,13 +549,13 @@ export const CheckoutPage = () => {
                       Fulfilling Store: {currentTenant?.displayName || currentTenant?.name} — {currentBranch?.name || nearbyInfo?.nearestBranch?.name || 'Central Hub'}
                     </h4>
                     <p className="text-slate-600 text-[11px] mt-0.5">
-                      Branch Distance: <strong className="text-emerald-800">{nearbyInfo?.distanceFormatted || '1.2 km'} away</strong> • Estimated Delivery: <strong className="text-slate-800">{nearbyInfo?.estimatedTime || '20-30 mins'}</strong>
+                      Branch Distance: <strong className={theme.primaryText}>{nearbyInfo?.distanceFormatted || '1.2 km'} away</strong> • Estimated Delivery: <strong className="text-slate-800">{nearbyInfo?.estimatedTime || '20-30 mins'}</strong>
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="px-2.5 py-1 bg-white border border-emerald-300 rounded-lg text-emerald-800 font-extrabold text-[10px] shadow-2xs">
+                  <span className={`px-2.5 py-1 bg-white border ${theme.cardBorder} rounded-lg ${theme.primaryText} font-extrabold text-[10px] shadow-2xs`}>
                     🟢 In Delivery Zone
                   </span>
                 </div>
@@ -492,7 +571,7 @@ export const CheckoutPage = () => {
                     type="text"
                     value={addressData.recipientName}
                     onChange={(e) => setAddressData({ ...addressData, recipientName: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all"
+                    className={`w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-900 focus:bg-white focus:ring-2 ${theme.focusRing} focus:outline-none transition-all`}
                     placeholder="e.g. Your Name"
                   />
                 </div>
@@ -505,7 +584,7 @@ export const CheckoutPage = () => {
                     type="text"
                     value={addressData.phone}
                     onChange={(e) => setAddressData({ ...addressData, phone: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all font-mono"
+                    className={`w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-900 focus:bg-white focus:ring-2 ${theme.focusRing} focus:outline-none transition-all font-mono`}
                     placeholder="e.g. 0300-1234567"
                   />
                 </div>
@@ -518,7 +597,7 @@ export const CheckoutPage = () => {
                     type="text"
                     value={addressData.address}
                     onChange={(e) => setAddressData({ ...addressData, address: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all"
+                    className={`w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-900 focus:bg-white focus:ring-2 ${theme.focusRing} focus:outline-none transition-all`}
                     placeholder="e.g. House 12, Street 4, Sector B, Johar Town, Lahore"
                   />
                 </div>
@@ -531,7 +610,7 @@ export const CheckoutPage = () => {
                     type="text"
                     value={addressData.notes}
                     onChange={(e) => setAddressData({ ...addressData, notes: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all"
+                    className={`w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-900 focus:bg-white focus:ring-2 ${theme.focusRing} focus:outline-none transition-all`}
                     placeholder="e.g. Near Emporium Mall, ring doorbell upon arrival"
                   />
                 </div>
@@ -549,12 +628,12 @@ export const CheckoutPage = () => {
           {/* Right Column: Order Summary Sticky Panel (4 Columns) */}
           <div className="lg:col-span-4 space-y-6 sticky top-24">
             
-            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-100 shadow-xl shadow-emerald-950/5 space-y-5">
+            <div className={`bg-white rounded-3xl p-6 sm:p-7 border ${theme.cardBorder} shadow-xl space-y-5`}>
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <h3 className="font-black text-sm text-slate-900">
                   Order Summary <span className="text-slate-400 font-normal">({cart.length} items)</span>
                 </h3>
-                <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+                <span className={`text-xs font-black ${theme.badge} px-2.5 py-1 rounded-full`}>
                   {currency.symbol}{grandTotalWithTip.toLocaleString()}
                 </span>
               </div>
@@ -593,13 +672,13 @@ export const CheckoutPage = () => {
                       placeholder="Promo Code"
                       value={couponInput}
                       onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                      className="w-full text-xs font-mono font-bold uppercase bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-2 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className={`w-full text-xs font-mono font-bold uppercase bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-2 py-2.5 focus:bg-white focus:outline-none focus:ring-2 ${theme.focusRing}`}
                     />
                     <Tag className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                   </div>
                   <button
                     type="submit"
-                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+                    className={`px-4 py-2.5 ${theme.primaryBg} text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-2xs`}
                   >
                     Apply
                   </button>
@@ -607,21 +686,21 @@ export const CheckoutPage = () => {
 
                 {/* Applied Coupon Display */}
                 {appliedCoupon ? (
-                  <div className="flex items-center justify-between text-xs bg-emerald-50 border border-emerald-200 text-emerald-900 p-2.5 rounded-xl font-bold animate-in fade-in">
+                  <div className={`flex items-center justify-between text-xs ${theme.softBg} p-2.5 rounded-xl font-bold border animate-in fade-in`}>
                     <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <Sparkles className={`w-4 h-4 ${theme.primaryText} shrink-0`} />
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span className="font-mono block">{appliedCoupon.code}</span>
-                          <span className="text-[9px] font-black uppercase bg-emerald-600 text-white px-1.5 py-0.5 rounded-md">
+                          <span className={`text-[9px] font-black uppercase ${theme.primaryBg} text-white px-1.5 py-0.5 rounded-md`}>
                             {appliedCoupon.isAutoApplied ? 'Auto-Applied' : 'Active'}
                           </span>
                         </div>
-                        <span className="text-[10px] text-emerald-700 font-normal block">{appliedCoupon.description}</span>
+                        <span className={`text-[10px] ${theme.primaryText} font-normal block`}>{appliedCoupon.description}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-black text-emerald-800 shrink-0">-{currency.symbol}{discountAmount.toLocaleString()}</span>
+                      <span className={`font-black ${theme.primaryText} shrink-0`}>-{currency.symbol}{discountAmount.toLocaleString()}</span>
                       <button
                         type="button"
                         onClick={removeCouponCode}
@@ -644,7 +723,7 @@ export const CheckoutPage = () => {
                             key={p.code}
                             type="button"
                             onClick={() => applyCouponCode(p.code)}
-                            className="px-2 py-0.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 rounded-md font-mono font-bold transition-colors cursor-pointer"
+                            className={`px-2 py-0.5 bg-slate-100 hover:${theme.softBg} text-slate-700 rounded-md font-mono font-bold transition-colors cursor-pointer`}
                           >
                             {p.code}
                           </button>
@@ -672,7 +751,7 @@ export const CheckoutPage = () => {
                   <span>Delivery Charges</span>
                   <span className="font-bold text-slate-800">
                     {deliveryCharges === 0 ? (
-                      <span className="text-emerald-700 font-black bg-emerald-50 px-2 py-0.5 rounded">FREE</span>
+                      <span className={`text-xs font-black ${theme.badge} px-2 py-0.5 rounded`}>FREE</span>
                     ) : (
                       `${currency.symbol}${deliveryCharges}`
                     )}
@@ -680,7 +759,7 @@ export const CheckoutPage = () => {
                 </div>
 
                 {riderTip > 0 && (
-                  <div className="flex justify-between text-emerald-800 font-bold">
+                  <div className={`flex justify-between ${theme.primaryText} font-bold`}>
                     <span>Rider Tip</span>
                     <span className="font-mono">+{currency.symbol}{riderTip.toLocaleString()}</span>
                   </div>
@@ -703,8 +782,8 @@ export const CheckoutPage = () => {
 
               {/* Safety Badges */}
               <div className="space-y-2 pt-2 text-[11px] text-slate-400">
-                <div className="flex items-center justify-center gap-1.5 font-semibold text-emerald-800 bg-emerald-50/60 p-2 rounded-xl">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div className={`flex items-center justify-center gap-1.5 font-semibold ${theme.softBg} p-2 rounded-xl border`}>
+                  <ShieldCheck className={`w-4 h-4 ${theme.primaryText} shrink-0`} />
                   <span>100% Quality & Freshness Money-Back Guarantee</span>
                 </div>
                 <p className="text-center text-[10px] text-slate-400">

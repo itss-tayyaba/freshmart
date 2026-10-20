@@ -29,6 +29,8 @@ import {
   FRESHMART_CATEGORIES,
   FRESHMART_PRODUCTS
 } from '../../data/freshMartData';
+import { ALL_BRANCH_PRODUCTS } from '../../data/branchCatalogData';
+import { isSameTenant } from '../../data/companyHierarchyData';
 import { UnimaartHero } from '../Unimaart/UnimaartHero';
 import { UnimaartCategoryStrip } from '../Unimaart/UnimaartCategoryStrip';
 import { UnimaartTopSave } from '../Unimaart/UnimaartTopSave';
@@ -96,26 +98,65 @@ export const FreshMartHome = () => {
     setTimeout(() => setCopiedCode(null), 3000);
   };
 
-  // Dynamic Bestsellers derived from real-time products (guarantees store's demo products are always shown)
-  const bestsellersList = useMemo(() => {
-    if (!products || products.length === 0) return [];
-    if (activeBestsellerTab === 'all') return products.slice(0, 5);
-    const matched = products.filter(
-      (p) =>
-        p.category === activeBestsellerTab ||
-        p.departmentId === activeBestsellerTab ||
-        (p.category && activeBestsellerTab.includes(p.category)) ||
-        (p.categoryLabel && p.categoryLabel.toLowerCase().includes(activeBestsellerTab.toLowerCase()))
+  const isCaseValue = isSameTenant(currentTenant?.id, 'tenant-chasevalue');
+  const isAlFatah = isSameTenant(currentTenant?.id, 'tenant-alfatah');
+  const isChaseUp = isSameTenant(currentTenant?.id, 'tenant-chaseup');
+  const isUnimaart = !isCaseValue && !isAlFatah && !isChaseUp;
+
+  // Resolved store products pool strictly isolated per supermarket
+  const storeCatalog = useMemo(() => {
+    if (products && products.length > 0) return products;
+    const fallback = (ALL_BRANCH_PRODUCTS || []).filter((p) =>
+      isSameTenant(p.tenantId, currentTenant?.id) || (!p.tenantId && isSameTenant(currentTenant?.id, 'tenant-freshmart'))
     );
-    return (matched.length > 0 ? matched : products).slice(0, 5);
-  }, [products, activeBestsellerTab]);
+    return fallback.length > 0 ? fallback : (ALL_BRANCH_PRODUCTS || []).slice(0, 5);
+  }, [products, currentTenant]);
 
-  const spotlightApple = products.find((p) => p.id === (storeSettings?.dealOfDayProductId || 'fresh-apples-1kg')) || products.find(p => p.isFlashDeal) || (products.length > 0 ? products[0] : null);
+  // Dynamically derive category pills from the products currently present in the active store
+  const bestsellerTabs = useMemo(() => {
+    const tabs = [{ id: 'all', label: 'All Products' }];
+    const seen = new Set(['all']);
 
-  const isUnimaart = currentTenant?.id === 'tenant-freshmart';
-  const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
-  const isAlFatah = currentTenant?.id === 'tenant-alfatah';
-  const isChaseUp = currentTenant?.id === 'tenant-chaseup';
+    storeCatalog.forEach((p) => {
+      const catId = p.category || p.departmentId;
+      const catLabel = p.categoryLabel || p.departmentName || p.category;
+      if (catId && !seen.has(catId)) {
+        seen.add(catId);
+        tabs.push({ id: catId, label: catLabel });
+      }
+    });
+
+    return tabs;
+  }, [storeCatalog]);
+
+  // Dynamic Bestsellers list: shows all store products on 'all', or filters by category
+  const bestsellersList = useMemo(() => {
+    if (!storeCatalog || storeCatalog.length === 0) return [];
+    if (activeBestsellerTab === 'all') return storeCatalog;
+
+    const target = activeBestsellerTab.toLowerCase();
+    const matched = storeCatalog.filter((p) => {
+      const cat = (p.category || '').toLowerCase();
+      const deptId = (p.departmentId || '').toLowerCase();
+      const catLabel = (p.categoryLabel || '').toLowerCase();
+      const deptName = (p.departmentName || '').toLowerCase();
+      return (
+        cat === target ||
+        deptId === target ||
+        cat.includes(target) ||
+        target.includes(cat) ||
+        catLabel.includes(target) ||
+        deptName.includes(target)
+      );
+    });
+
+    return matched.length > 0 ? matched : storeCatalog;
+  }, [storeCatalog, activeBestsellerTab]);
+
+  const spotlightApple =
+    storeCatalog.find((p) => p.id === (storeSettings?.dealOfDayProductId || 'fresh-apples-1kg')) ||
+    storeCatalog.find((p) => p.isFlashDeal) ||
+    (storeCatalog.length > 0 ? storeCatalog[0] : null);
 
   const tenantTopBarBg = isCaseValue
     ? 'bg-[#5c3417]'
@@ -123,7 +164,7 @@ export const FreshMartHome = () => {
     ? 'bg-[#7f1d1d]'
     : isChaseUp
     ? 'bg-[#581c87]'
-    : 'bg-[#0f6b3a]';
+    : 'bg-[#0052a3]';
 
   const tenantTheme = {
     primaryBtn: isUnimaart
@@ -134,7 +175,7 @@ export const FreshMartHome = () => {
       ? 'bg-[#991b1b] hover:bg-[#7f1d1d]'
       : isChaseUp
       ? 'bg-[#6b21a8] hover:bg-[#581c87]'
-      : 'bg-emerald-600 hover:bg-emerald-700',
+      : 'bg-[#0284c7] hover:bg-[#0369a1]',
     bannerGradient: isUnimaart
       ? 'bg-gradient-to-br from-[#033659] via-[#0284c7] to-slate-950 border border-sky-400/20'
       : isCaseValue
@@ -143,7 +184,7 @@ export const FreshMartHome = () => {
       ? 'bg-gradient-to-br from-[#450a0a] via-[#7f1d1d] to-[#991b1b] border border-amber-400/20'
       : isChaseUp
       ? 'bg-gradient-to-br from-[#3b0764] via-[#581c87] to-[#6b21a8] border border-orange-400/20'
-      : 'bg-gradient-to-br from-emerald-800 to-emerald-950',
+      : 'bg-gradient-to-br from-[#033659] to-[#0284c7]',
     accentText: isUnimaart
       ? 'text-sky-200'
       : isCaseValue
@@ -152,7 +193,7 @@ export const FreshMartHome = () => {
       ? 'text-rose-200'
       : isChaseUp
       ? 'text-purple-200'
-      : 'text-emerald-200',
+      : 'text-sky-200',
     accentBorder: isUnimaart
       ? 'border-sky-400'
       : isCaseValue
@@ -161,7 +202,7 @@ export const FreshMartHome = () => {
       ? 'border-amber-400'
       : isChaseUp
       ? 'border-orange-400'
-      : 'border-emerald-600',
+      : 'border-sky-400',
     filterPillActive: isUnimaart
       ? 'bg-[#0284c7] text-white shadow-md'
       : isCaseValue
@@ -170,7 +211,7 @@ export const FreshMartHome = () => {
       ? 'bg-[#991b1b] text-white shadow-md'
       : isChaseUp
       ? 'bg-[#6b21a8] text-white shadow-md'
-      : 'bg-emerald-600 text-white shadow-md',
+      : 'bg-[#0284c7] text-white shadow-md',
     badgeBg: isUnimaart
       ? 'bg-sky-50 text-sky-700'
       : isCaseValue
@@ -179,7 +220,7 @@ export const FreshMartHome = () => {
       ? 'bg-rose-50 text-rose-800'
       : isChaseUp
       ? 'bg-purple-50 text-purple-800'
-      : 'bg-emerald-50 text-emerald-700',
+      : 'bg-sky-50 text-sky-700',
     hoverText: isUnimaart
       ? 'hover:text-[#0284c7]'
       : isCaseValue
@@ -188,7 +229,7 @@ export const FreshMartHome = () => {
       ? 'hover:text-[#991b1b]'
       : isChaseUp
       ? 'hover:text-[#6b21a8]'
-      : 'hover:text-emerald-700'
+      : 'hover:text-[#0284c7]'
   };
 
   return (
@@ -762,14 +803,7 @@ export const FreshMartHome = () => {
 
           {/* Category Filter Pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-            {[
-              { id: 'all', label: 'All' },
-              { id: 'fruits-veg', label: 'Fruits & Veg' },
-              { id: 'dairy-eggs', label: 'Dairy & Eggs' },
-              { id: 'beverages', label: 'Beverages' },
-              { id: 'grocery-staples', label: 'Staples' },
-              { id: 'snacks', label: 'Snacks' }
-            ].map((tab) => (
+            {bestsellerTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveBestsellerTab(tab.id)}

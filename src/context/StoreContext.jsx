@@ -1095,12 +1095,18 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [allProducts]);
 
-  // Reactive products list strictly scoped to currentTenant (No fallback to all other marts)
+  // Reactive products list strictly scoped to currentTenant with robust fallback
   const products = useMemo(() => {
-    if (!currentTenant?.id) return allProducts;
-    return allProducts.filter(
-      (p) => p.tenantId === currentTenant.id || (!p.tenantId && currentTenant.id === 'tenant-freshmart')
+    const targetTenantId = currentTenant?.id || 'tenant-freshmart';
+    let filtered = (allProducts || []).filter(
+      (p) => isSameTenant(p.tenantId, targetTenantId) || (!p.tenantId && isSameTenant(targetTenantId, 'tenant-freshmart'))
     );
+    if (!filtered || filtered.length === 0) {
+      filtered = (ALL_BRANCH_PRODUCTS || []).filter(
+        (p) => isSameTenant(p.tenantId, targetTenantId) || (!p.tenantId && isSameTenant(targetTenantId, 'tenant-freshmart'))
+      );
+    }
+    return filtered;
   }, [allProducts, currentTenant]);
 
   // Transparent setProducts wrapper to mutate current branch items within allProducts

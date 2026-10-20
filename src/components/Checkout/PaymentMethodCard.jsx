@@ -14,9 +14,81 @@ import {
   Info
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { isSameTenant } from '../../data/companyHierarchyData';
 
 export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
-  const { addToast, customerUser } = useStore();
+  const { addToast, customerUser, currentTenant } = useStore();
+
+  const isCaseValue = isSameTenant(currentTenant?.id, 'tenant-chasevalue');
+  const isAlFatah = isSameTenant(currentTenant?.id, 'tenant-alfatah');
+  const isChaseUp = isSameTenant(currentTenant?.id, 'tenant-chaseup');
+  const isUnimaart = !isCaseValue && !isAlFatah && !isChaseUp;
+
+  const theme = {
+    primaryBg: isUnimaart
+      ? 'bg-[#0284c7]'
+      : isCaseValue
+      ? 'bg-[#5c3417]'
+      : isAlFatah
+      ? 'bg-[#991b1b]'
+      : isChaseUp
+      ? 'bg-[#6b21a8]'
+      : 'bg-[#0284c7]',
+    primaryText: isUnimaart
+      ? 'text-[#0284c7]'
+      : isCaseValue
+      ? 'text-[#5c3417]'
+      : isAlFatah
+      ? 'text-[#991b1b]'
+      : isChaseUp
+      ? 'text-[#6b21a8]'
+      : 'text-[#0284c7]',
+    softBg: isUnimaart
+      ? 'bg-sky-50 text-sky-800 border-sky-200'
+      : isCaseValue
+      ? 'bg-[#f4ebe0] text-[#5c3417] border-[#ebdcc7]'
+      : isAlFatah
+      ? 'bg-rose-50 text-rose-800 border-rose-200'
+      : isChaseUp
+      ? 'bg-purple-50 text-purple-800 border-purple-200'
+      : 'bg-sky-50 text-sky-800 border-sky-200',
+    selectedCard: isUnimaart
+      ? 'border-[#0284c7] bg-sky-50/70 shadow-md ring-1 ring-[#0284c7]'
+      : isCaseValue
+      ? 'border-[#5c3417] bg-[#fdfaf4] shadow-md ring-1 ring-[#5c3417]'
+      : isAlFatah
+      ? 'border-[#991b1b] bg-rose-50/70 shadow-md ring-1 ring-[#991b1b]'
+      : isChaseUp
+      ? 'border-[#6b21a8] bg-purple-50/70 shadow-md ring-1 ring-[#6b21a8]'
+      : 'border-[#0284c7] bg-sky-50/70 shadow-md ring-1 ring-[#0284c7]',
+    badge: isUnimaart
+      ? 'bg-sky-100 text-sky-800'
+      : isCaseValue
+      ? 'bg-[#f4ebe0] text-[#5c3417]'
+      : isAlFatah
+      ? 'bg-rose-100 text-rose-800'
+      : isChaseUp
+      ? 'bg-purple-100 text-purple-800'
+      : 'bg-sky-100 text-sky-800',
+    focusRing: isUnimaart
+      ? 'focus:ring-[#0284c7] focus:border-[#0284c7]'
+      : isCaseValue
+      ? 'focus:ring-[#5c3417] focus:border-[#5c3417]'
+      : isAlFatah
+      ? 'focus:ring-[#991b1b] focus:border-[#991b1b]'
+      : isChaseUp
+      ? 'focus:ring-[#6b21a8] focus:border-[#6b21a8]'
+      : 'focus:ring-[#0284c7] focus:border-[#0284c7]',
+    cardGradient: isUnimaart
+      ? 'from-[#033659] via-[#0284c7] to-[#012540] border-sky-400/40 text-sky-300'
+      : isCaseValue
+      ? 'from-[#3d2314] via-[#5c3417] to-[#25150b] border-amber-500/40 text-amber-200'
+      : isAlFatah
+      ? 'from-[#450a0a] via-[#7f1d1d] to-[#200404] border-rose-500/40 text-rose-200'
+      : isChaseUp
+      ? 'from-[#3b0764] via-[#6b21a8] to-[#1e0333] border-purple-500/40 text-purple-200'
+      : 'from-[#033659] via-[#0284c7] to-[#012540] border-sky-400/40 text-sky-300'
+  };
 
   const [activeSubWallet, setActiveSubWallet] = useState('jazzcash'); // 'jazzcash' | 'easypaisa' | 'sadapay' | 'nayapay' | 'raast'
   const [copiedField, setCopiedField] = useState(null);
@@ -92,12 +164,12 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
   const activeWalletData = merchantWallets[activeSubWallet] || merchantWallets.jazzcash;
 
   return (
-    <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xl shadow-emerald-950/5 space-y-6">
+    <div className={`bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xl space-y-6`}>
       
       {/* 1. Header with Golden Shield & 256-bit Secure Badge */}
       <div className="flex items-center justify-between pb-4 border-b border-slate-100">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs shadow-xs">
+          <div className={`w-8 h-8 rounded-xl ${theme.badge} flex items-center justify-center font-black text-xs shadow-xs`}>
             2
           </div>
           <div>
@@ -106,8 +178,8 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200/60">
-          <Lock className="w-3.5 h-3.5 text-emerald-600" />
+        <div className={`flex items-center gap-1.5 text-xs font-bold ${theme.softBg} px-3 py-1 rounded-full border`}>
+          <Lock className={`w-3.5 h-3.5 ${theme.primaryText}`} />
           <span>256-Bit SSL Secure</span>
         </div>
       </div>
@@ -129,25 +201,25 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
               onClick={() => setSelectedPayment(m.id)}
               className={`p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between gap-3 relative overflow-hidden ${
                 isSelected
-                  ? 'border-emerald-600 bg-emerald-50/70 shadow-md shadow-emerald-900/10 ring-1 ring-emerald-500'
+                  ? theme.selectedCard
                   : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/80 hover:border-slate-300 text-slate-700'
               }`}
             >
               <div className="flex items-center justify-between">
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                  isSelected ? 'bg-emerald-600 text-white shadow-2xs' : 'bg-white text-slate-600 border border-slate-200'
+                  isSelected ? `${theme.primaryBg} text-white shadow-2xs` : 'bg-white text-slate-600 border border-slate-200'
                 }`}>
                   <Icon className="w-4 h-4" />
                 </div>
                 <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
-                  isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
+                  isSelected ? `${theme.primaryBg} text-white` : 'bg-slate-200 text-slate-600'
                 }`}>
                   {m.badge}
                 </span>
               </div>
 
               <div>
-                <span className={`text-xs font-black block ${isSelected ? 'text-emerald-950' : 'text-slate-800'}`}>
+                <span className={`text-xs font-black block ${isSelected ? theme.primaryText : 'text-slate-800'}`}>
                   {m.label}
                 </span>
                 <span className="text-[10px] text-slate-400 block mt-0.5">{m.sub}</span>
@@ -165,16 +237,16 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
       {selectedPayment === 'card' && (
         <div className="space-y-6 pt-2 animate-in fade-in duration-200">
           
-          {/* Virtual Emerald Luxury Credit Card Container */}
-          <div className="max-w-md mx-auto bg-gradient-to-br from-[#063a2f] via-[#08483b] to-[#042820] rounded-3xl p-6 text-white shadow-2xl shadow-emerald-950/30 space-y-6 relative overflow-hidden border border-emerald-600/40">
-            <div className="absolute -right-16 -top-16 w-44 h-44 bg-emerald-400/20 rounded-full blur-2xl pointer-events-none" />
-            <div className="absolute -left-16 -bottom-16 w-40 h-40 bg-teal-400/10 rounded-full blur-2xl pointer-events-none" />
+          {/* Virtual Luxury Credit Card Container */}
+          <div className={`max-w-md mx-auto bg-gradient-to-br ${theme.cardGradient} rounded-3xl p-6 text-white shadow-2xl space-y-6 relative overflow-hidden border`}>
+            <div className="absolute -right-16 -top-16 w-44 h-44 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute -left-16 -bottom-16 w-40 h-40 bg-white/5 rounded-full blur-2xl pointer-events-none" />
 
             {/* Top Brand & Visa Logo */}
             <div className="flex items-center justify-between relative z-10">
-              <span className="font-black text-xs tracking-widest text-emerald-300 uppercase flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-lime-400" />
-                <span>FRESHMART PLATINUM</span>
+              <span className="font-black text-xs tracking-widest uppercase flex items-center gap-1.5 opacity-90">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{currentTenant?.displayName || currentTenant?.name || 'SUPER GROCERY'} PLATINUM</span>
               </span>
               <div className="flex items-center gap-1.5">
                 <span className="font-black text-xs font-mono bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-md border border-white/20">
@@ -305,7 +377,7 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
                   onClick={() => setActiveSubWallet(k)}
                   className={`px-3.5 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                     isActive
-                      ? 'bg-emerald-600 text-white shadow-sm'
+                      ? `${theme.primaryBg} text-white shadow-sm`
                       : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                   }`}
                 >
@@ -331,15 +403,15 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
               </div>
 
               <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-2xs">
-                <span className="font-mono font-black text-emerald-800 text-sm">{activeWalletData.number}</span>
+                <span className={`font-mono font-black ${theme.primaryText} text-sm`}>{activeWalletData.number}</span>
                 <button
                   type="button"
                   onClick={() => handleCopy(activeWalletData.number, `${activeWalletData.name} Number`)}
-                  className="p-1 text-slate-400 hover:text-emerald-700 cursor-pointer"
+                  className={`p-1 text-slate-400 hover:${theme.primaryText} cursor-pointer`}
                   title="Copy Number"
                 >
                   {copiedField === `${activeWalletData.name} Number` ? (
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className={`w-4 h-4 ${theme.primaryText}`} />
                   ) : (
                     <Copy className="w-4 h-4" />
                   )}
@@ -359,7 +431,7 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
                   type="text"
                   value={walletForm.senderPhone}
                   onChange={(e) => setWalletForm({ ...walletForm, senderPhone: e.target.value })}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:ring-2 ${theme.focusRing} focus:outline-none`}
                   placeholder="03001234567"
                 />
               </div>
@@ -370,7 +442,7 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
                   type="text"
                   value={walletForm.transactionId}
                   onChange={(e) => setWalletForm({ ...walletForm, transactionId: e.target.value })}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-mono font-bold text-emerald-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-mono font-bold ${theme.primaryText} focus:ring-2 ${theme.focusRing} focus:outline-none`}
                   placeholder="e.g. 984210482910"
                 />
               </div>
@@ -395,7 +467,7 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
 
               <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1">
                 <span className="text-[10px] uppercase font-bold text-slate-400">Account Title</span>
-                <span className="font-bold text-slate-900 block text-xs">FreshMart Retail Pvt Ltd</span>
+                <span className="font-bold text-slate-900 block text-xs">{currentTenant?.name || 'FreshMart'} Direct Retail</span>
                 <span className="text-[11px] text-slate-500">Corporate Current Account</span>
               </div>
             </div>
@@ -408,9 +480,9 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
               <button
                 type="button"
                 onClick={() => handleCopy('PK52MEZN0001920384729102', 'IBAN')}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+                className={`px-3 py-1.5 bg-slate-100 hover:${theme.softBg} text-slate-700 hover:${theme.primaryText} rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1`}
               >
-                {copiedField === 'IBAN' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedField === 'IBAN' ? <Check className={`w-3.5 h-3.5 ${theme.primaryText}`} /> : <Copy className="w-3.5 h-3.5" />}
                 <span>Copy</span>
               </button>
             </div>
@@ -422,7 +494,7 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
                   type="text"
                   value={bankForm.senderBankName}
                   onChange={(e) => setBankForm({ ...bankForm, senderBankName: e.target.value })}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:ring-2 ${theme.focusRing} focus:outline-none`}
                   placeholder="e.g. HBL / Alfalah"
                 />
               </div>
@@ -433,7 +505,7 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
                   type="text"
                   value={bankForm.transactionRef}
                   onChange={(e) => setBankForm({ ...bankForm, transactionRef: e.target.value })}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-mono font-bold text-emerald-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-mono font-bold ${theme.primaryText} focus:ring-2 ${theme.focusRing} focus:outline-none`}
                   placeholder="e.g. REF-88912"
                 />
               </div>
@@ -447,20 +519,20 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
       {/* ========================================================================= */}
       {selectedPayment === 'cod' && (
         <div className="space-y-4 animate-in fade-in duration-200">
-          <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-200/80 space-y-3">
+          <div className={`${theme.softBg} rounded-2xl p-5 border space-y-3`}>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
+              <div className={`w-10 h-10 rounded-xl ${theme.primaryBg} text-white flex items-center justify-center font-bold shadow-xs`}>
                 💵
               </div>
               <div>
-                <h4 className="font-black text-sm text-emerald-950">Cash on Delivery (Doorstep Payment)</h4>
-                <p className="text-xs text-emerald-800">Pay in cash or swipe card with our delivery rider upon grocery arrival.</p>
+                <h4 className={`font-black text-sm ${theme.primaryText}`}>Cash on Delivery (Doorstep Payment)</h4>
+                <p className="text-xs opacity-90">Pay in cash or swipe card with our delivery rider upon grocery arrival.</p>
               </div>
             </div>
 
-            <div className="p-3 bg-white rounded-xl border border-emerald-200 text-xs space-y-1 text-slate-700">
-              <div className="flex items-center gap-1.5 font-bold text-emerald-900">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs space-y-1 text-slate-700">
+              <div className={`flex items-center gap-1.5 font-bold ${theme.primaryText}`}>
+                <CheckCircle2 className={`w-4 h-4 ${theme.primaryText}`} />
                 <span>Exact cash or digital QR payment accepted at your doorstep.</span>
               </div>
               <p className="text-[11px] text-slate-500 pl-5">
