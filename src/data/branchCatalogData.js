@@ -1265,13 +1265,67 @@ export const FRESHMART_PRODUCTS_CATALOG = [
   }
 ];
 
-// Master combined initial catalog (all 4 branches)
+const DEPT_LOOKUP_MAP = {
+  'tenant-alfatah': {
+    'grocery-staples': { id: 'dept-af-staples', code: 'DEPT-AF-01', name: 'Gourmet Staples & Royal Grains' },
+    'dairy-eggs': { id: 'dept-af-dairy', code: 'DEPT-AF-02', name: 'Artisanal Dairy & Gourmet Cheese' },
+    'meat-poultry': { id: 'dept-af-meat', code: 'DEPT-AF-03', name: 'Premium Halal Meats & Seafood' },
+    'snacks': { id: 'dept-af-snacks', code: 'DEPT-AF-04', name: 'Imported Confectionery & Luxury Chocolates' },
+    'beverages': { id: 'dept-af-beverages', code: 'DEPT-AF-05', name: 'Artisan Coffee, Teas & Sparkling Drinks' },
+    'personal-care': { id: 'dept-af-personal', code: 'DEPT-AF-06', name: 'Luxury Skincare & Imported Personal Care' },
+    'fruits-veg': { id: 'dept-af-produce', code: 'DEPT-AF-07', name: 'Hydroponic & Exotic Farm Produce' },
+    'bakery': { id: 'dept-af-bakery', code: 'DEPT-AF-08', name: 'Artisan European Bakery & Patisserie' }
+  },
+  'tenant-chasevalue': {
+    'grocery-staples': { id: 'dept-cv-staples', code: 'DEPT-CV-01', name: 'Wholesale Sacks (Atta, Rice & Pulses)' },
+    'oil-ghee': { id: 'dept-cv-oil', code: 'DEPT-CV-02', name: 'Wholesale Edible Oils & Banaspati Tins' },
+    'household': { id: 'dept-cv-household', code: 'DEPT-CV-03', name: 'Bulk Cleaners, Jumbo Detergents & Home' },
+    'dairy-eggs': { id: 'dept-cv-dairy', code: 'DEPT-CV-04', name: 'Commercial Dairy & Crate Eggs' },
+    'beverages': { id: 'dept-cv-beverages', code: 'DEPT-CV-05', name: 'Wholesale Tea Cartons & Beverages' },
+    'snacks': { id: 'dept-cv-snacks', code: 'DEPT-CV-06', name: 'Bulk Confectionery & Wholesale Biscuits' },
+    'personal-care': { id: 'dept-cv-personal', code: 'DEPT-CV-07', name: 'Economy Bundles & Personal Care' }
+  },
+  'tenant-chaseup': {
+    'beverages': { id: 'dept-cu-beverages', code: 'DEPT-CU-01', name: 'Family Pack Beverages & National Teas' },
+    'grocery-staples': { id: 'dept-cu-pantry', code: 'DEPT-CU-02', name: 'Essential Pantry, Spices & Recipe Mixes' },
+    'breakfast': { id: 'dept-cu-breakfast', code: 'DEPT-CU-03', name: 'Family Breakfast, Jams & Cereals' },
+    'dairy-eggs': { id: 'dept-cu-dairy', code: 'DEPT-CU-04', name: 'Daily Dairy, Farm Eggs & Fresh Yogurt' },
+    'snacks': { id: 'dept-cu-snacks', code: 'DEPT-CU-05', name: 'Family Munchies, Biscuits & Snacks' },
+    'personal-care': { id: 'dept-cu-personal', code: 'DEPT-CU-06', name: 'Family Hygiene & Personal Care' },
+    'fruits-veg': { id: 'dept-cu-produce', code: 'DEPT-CU-07', name: 'Market Fresh Green Produce' },
+    'meat-poultry': { id: 'dept-cu-meat', code: 'DEPT-CU-08', name: 'Fresh Cut Halal Poultry & Cuts' }
+  },
+  'tenant-freshmart': {
+    'fruits-veg': { id: 'dept-um-produce', code: 'DEPT-UM-01', name: 'Fresh Farm Fruits & Organic Vegetables' },
+    'dairy-eggs': { id: 'dept-um-dairy', code: 'DEPT-UM-02', name: 'Fresh Dairy, Pasture Eggs & Farm Milk' },
+    'meat-poultry': { id: 'dept-um-meat', code: 'DEPT-UM-03', name: 'Hygienic Halal Chicken & Mutton Cuts' },
+    'bakery': { id: 'dept-um-bakery', code: 'DEPT-UM-04', name: 'Oven Fresh Breads & Daily Bakes' },
+    'beverages': { id: 'dept-um-beverages', code: 'DEPT-UM-05', name: 'Cold Pressed Juices & Daily Drinks' },
+    'snacks': { id: 'dept-um-snacks', code: 'DEPT-UM-06', name: 'Healthy Munchies & Snack Treats' },
+    'grocery-staples': { id: 'dept-um-staples', code: 'DEPT-UM-07', name: 'Everyday Cooking Essentials & Spices' },
+    'personal-care': { id: 'dept-um-personal', code: 'DEPT-UM-08', name: 'Personal Care, Soaps & Hair Care' }
+  }
+};
+
+const enrichProductWithDepartment = (p) => {
+  const storeMap = DEPT_LOOKUP_MAP[p.tenantId] || DEPT_LOOKUP_MAP['tenant-freshmart'];
+  const info = (storeMap && storeMap[p.category]) || { id: `dept-${p.category}`, code: 'DEPT-GEN', name: p.categoryLabel || 'General' };
+  return {
+    ...p,
+    customId: p.customId || p.id,
+    departmentId: p.departmentId || info.id,
+    departmentCode: p.departmentCode || info.code,
+    departmentName: p.departmentName || info.name
+  };
+};
+
+// Master combined initial catalog (all 4 branches) enriched with unique department mappings
 export const ALL_BRANCH_PRODUCTS = [
   ...ALFATAH_PRODUCTS,
   ...CHASEVALUE_PRODUCTS,
   ...CHASEUP_PRODUCTS,
   ...FRESHMART_PRODUCTS_CATALOG
-];
+].map(enrichProductWithDepartment);
 
 // Branch Specific Analytics & Dashboard Metrics Data
 export const BRANCH_METRICS = {

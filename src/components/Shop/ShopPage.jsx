@@ -149,7 +149,14 @@ export const ShopPage = () => {
       list = list.filter((p) => {
         const pCat = String(p.category || '').toLowerCase().trim();
         const pCatLabel = String(p.categoryLabel || '').toLowerCase().trim();
-        return pCat === cleanCat || pCatLabel === cleanCat || pCat.includes(cleanCat) || cleanCat.includes(pCat);
+        const pDeptId = String(p.departmentId || '').toLowerCase().trim();
+        return (
+          pCat === cleanCat ||
+          pCatLabel === cleanCat ||
+          pDeptId === cleanCat ||
+          (cleanCat.includes(pCat) && pCat.length > 2) ||
+          (pCat.includes(cleanCat) && cleanCat.length > 2)
+        );
       });
     }
 

@@ -9,6 +9,7 @@ import {
 } from '../data/freshMartData';
 import { ADMIN_PROMOTIONS_DATA } from '../data/adminSuiteData';
 import { INITIAL_TENANTS, SUBSCRIPTION_PLANS, INITIAL_STORE_ADMINS, INITIAL_PICKUP_STAFF, INITIAL_RIDERS } from '../data/tenantData';
+import { STORE_DEPARTMENTS, getDepartmentsByTenant, getDepartmentById } from '../data/departmentData';
 import {
   ALL_BRANCH_PRODUCTS,
   ALFATAH_PRODUCTS,
@@ -1256,22 +1257,47 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [tenants]);
 
-  // Categories state (Single source of truth with localStorage persistence)
-  const [categories, setCategories] = useState(() => {
+  // Departments / Categories master registry (scoped per supermarket tenant)
+  const [allCategories, setAllCategories] = useState(() => {
     try {
-      const catVersion = localStorage.getItem('freshmart_cat_v');
-      if (catVersion === '6.0') {
-        const saved = localStorage.getItem('freshmart_categories');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
+      const saved = localStorage.getItem('freshmart_all_categories_v3');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length >= STORE_DEPARTMENTS.length) return parsed;
       }
-      localStorage.setItem('freshmart_cat_v', '7.0');
-      localStorage.removeItem('freshmart_categories');
     } catch (e) {}
-    return FRESHMART_CATEGORIES;
+    return STORE_DEPARTMENTS;
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_all_categories_v3', JSON.stringify(allCategories));
+    } catch (e) {}
+  }, [allCategories]);
+
+  // Reactive departments list strictly scoped to currentTenant
+  const categories = useMemo(() => {
+    const targetTenantId = currentTenant?.id || 'tenant-freshmart';
+    const scoped = allCategories.filter(
+      (c) => isSameTenant(c.tenantId, targetTenantId) || isSameTenant(c.companyId, targetTenantId)
+    );
+    if (scoped.length > 0) return scoped;
+    return getDepartmentsByTenant(targetTenantId);
+  }, [allCategories, currentTenant]);
+
+  const setCategories = (updater) => {
+    setAllCategories((prevMaster) => {
+      const targetTenantId = currentTenant?.id || 'tenant-freshmart';
+      const branchItems = prevMaster.filter(
+        (c) => isSameTenant(c.tenantId, targetTenantId) || isSameTenant(c.companyId, targetTenantId)
+      );
+      const otherItems = prevMaster.filter(
+        (c) => !isSameTenant(c.tenantId, targetTenantId) && !isSameTenant(c.companyId, targetTenantId)
+      );
+      const nextBranchItems = typeof updater === 'function' ? updater(branchItems) : updater;
+      return [...nextBranchItems, ...otherItems];
+    });
+  };
 
   // Dynamic Landing Page & Admin Store Settings
   const [storeSettings, setStoreSettings] = useState({
@@ -2360,13 +2386,17 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [categories]);
 
-  // Fetch live products on startup from Node.js backend
+  // Fetch live products & departments on startup from Node.js backend
   useEffect(() => {
     const fetchBackendData = async () => {
       try {
-        const data = await apiService.getProducts();
-        if (data && data.success && data.products && data.products.length > 0) {
-          const mapped = data.products.map((p) => ({
+        const [prodData, catData] = await Promise.all([
+          apiService.getProducts(),
+          apiService.getCategories()
+        ]);
+
+        if (prodData && prodData.success && prodData.products && prodData.products.length > 0) {
+          const mapped = prodData.products.map((p) => ({
             ...p,
             id: String(p.customId || p.id || p._id)
           }));
@@ -2383,6 +2413,26 @@ export const StoreProvider = ({ children }) => {
             } catch (e) {}
             return merged;
           });
+        }
+
+        if (catData && catData.success && (catData.departments || catData.categories)) {
+          const remoteCats = catData.departments || catData.categories;
+          if (Array.isArray(remoteCats) && remoteCats.length > 0) {
+            setAllCategories((prev) => {
+              const remoteMap = new Map(remoteCats.map((c) => [c.departmentId || c.id || c.slug, c]));
+              const merged = prev.map((c) => {
+                const key = c.departmentId || c.id || c.slug;
+                return remoteMap.has(key) ? { ...c, ...remoteMap.get(key) } : c;
+              });
+              for (const r of remoteCats) {
+                const key = r.departmentId || r.id || r.slug;
+                if (!merged.some((m) => (m.departmentId || m.id || m.slug) === key)) {
+                  merged.unshift(r);
+                }
+              }
+              return merged;
+            });
+          }
         }
       } catch (e) {}
     };
@@ -5584,6 +5634,10 @@ export const StoreProvider = ({ children }) => {
         setProducts,
         categories,
         setCategories,
+        departments: categories,
+        allDepartments: STORE_DEPARTMENTS,
+        getDepartmentsByTenant,
+        getDepartmentById,
         storeSettings,
         setStoreSettings,
         updateStoreSettings,

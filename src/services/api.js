@@ -259,9 +259,10 @@ export const apiService = {
   },
 
   // Categories API
-  async getCategories() {
+  async getCategories(tenantId = null) {
     try {
-      const res = await fetch(`${API_BASE_URL}/categories`);
+      const url = tenantId ? `${API_BASE_URL}/categories?tenantId=${tenantId}` : `${API_BASE_URL}/categories`;
+      const res = await fetch(url, { headers: getAuthHeaders() });
       return await handleResponse(res);
     } catch (e) {
       return { success: false, error: e.message };

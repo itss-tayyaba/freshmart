@@ -10,6 +10,37 @@ const productSchema = new mongoose.Schema(
       type: String,
       index: true
     },
+    tenantId: {
+      type: String,
+      required: true,
+      index: true,
+      default: 'tenant-freshmart'
+    },
+    tenantName: {
+      type: String,
+      default: 'FreshMart Direct'
+    },
+    companyId: {
+      type: String,
+      default: ''
+    },
+    branchId: {
+      type: String,
+      index: true,
+      default: 'branch_001'
+    },
+    departmentId: {
+      type: String,
+      index: true
+    },
+    departmentCode: {
+      type: String,
+      default: ''
+    },
+    departmentName: {
+      type: String,
+      default: ''
+    },
     name: {
       type: String,
       required: true,
@@ -21,7 +52,8 @@ const productSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      required: true
+      required: true,
+      index: true
     },
     categoryId: {
       type: String,
@@ -37,15 +69,11 @@ const productSchema = new mongoose.Schema(
     },
     originalPrice: {
       type: Number,
-      default: function () {
-        return this.price;
-      }
+      default: 0
     },
     wholesalePrice: {
       type: Number,
-      default: function () {
-        return Math.round(this.price * 0.85);
-      }
+      default: 0
     },
     tierPricing: [
       {
@@ -73,6 +101,10 @@ const productSchema = new mongoose.Schema(
       type: Number,
       default: 50
     },
+    stockCount: {
+      type: Number,
+      default: 50
+    },
     minStock: {
       type: Number,
       default: 15
@@ -81,7 +113,15 @@ const productSchema = new mongoose.Schema(
       type: String,
       default: 'Active'
     },
+    inStock: {
+      type: Boolean,
+      default: true
+    },
     isFlashDeal: {
+      type: Boolean,
+      default: false
+    },
+    isBestSeller: {
       type: Boolean,
       default: false
     },
@@ -103,8 +143,7 @@ const productSchema = new mongoose.Schema(
       default: 'Fresh quality verified grocery product.'
     },
     nutrition: {
-      type: Map,
-      of: String,
+      type: mongoose.Schema.Types.Mixed,
       default: {}
     },
     vendorId: {
@@ -115,11 +154,6 @@ const productSchema = new mongoose.Schema(
     vendorName: {
       type: String,
       default: 'FreshMart Direct Partner'
-    },
-    tenantId: {
-      type: String,
-      index: true,
-      default: 'tenant-freshmart'
     }
   },
   {
@@ -127,5 +161,13 @@ const productSchema = new mongoose.Schema(
     bufferCommands: false
   }
 );
+
+// High-performance compound indexes for multi-tenant catalog partitioning
+productSchema.index({ tenantId: 1, customId: 1 });
+productSchema.index({ tenantId: 1, id: 1 });
+productSchema.index({ tenantId: 1, departmentId: 1 });
+productSchema.index({ tenantId: 1, category: 1 });
+productSchema.index({ tenantId: 1, status: 1 });
+productSchema.index({ tenantId: 1, branchId: 1 });
 
 export const Product = mongoose.model('Product', productSchema);

@@ -2,12 +2,48 @@ import mongoose from 'mongoose';
 import { isDbOnline } from '../config/db.js';
 import { Product } from '../models/Product.js';
 import { FRESHMART_PRODUCTS } from '../../src/data/freshMartData.js';
+import { ALL_BRANCH_PRODUCTS } from '../../src/data/branchCatalogData.js';
+import { resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyData.js';
+import { getDepartmentById } from '../../src/data/departmentData.js';
 
-// @desc    Fetch all products with filtering, search & pagination
+// Composite multi-tenant master catalog for in-memory fallbacks
+const MASTER_IN_MEMORY_CATALOG = [
+  ...ALL_BRANCH_PRODUCTS,
+  ...FRESHMART_PRODUCTS.filter((fp) => !ALL_BRANCH_PRODUCTS.some((abp) => abp.id === fp.id))
+];
+
+// Helper to resolve department info for a product
+const enrichDepartmentInfo = (item) => {
+  if (item.departmentId && item.departmentCode) return item;
+  const dept = getDepartmentById(item.departmentId || item.category, item.tenantId);
+  return {
+    ...item,
+    departmentId: item.departmentId || dept?.departmentId || `dept-${item.category}`,
+    departmentCode: item.departmentCode || dept?.departmentCode || 'DEPT-GEN',
+    departmentName: item.departmentName || dept?.name || item.categoryLabel || 'General'
+  };
+};
+
+// @desc    Fetch all products with multi-tenant filtering, department scoping, search & pagination
 // @route   GET /api/products
 export const getProducts = async (req, res) => {
   try {
-    const { category, brand, minPrice, maxPrice, search, isFlashDeal, status } = req.query;
+    const rawTenantId =
+      req.query.tenantId ||
+      req.headers['x-tenant-id'] ||
+      req.tenantId ||
+      req.user?.tenantId;
+
+    const {
+      category,
+      departmentId,
+      brand,
+      minPrice,
+      maxPrice,
+      search,
+      isFlashDeal,
+      status
+    } = req.query;
 
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = req.query.limit !== undefined ? Math.max(1, parseInt(req.query.limit, 10) || 20) : 50;
@@ -15,21 +51,52 @@ export const getProducts = async (req, res) => {
 
     if (isDbOnline()) {
       let query = {};
-      if (category && category !== 'all') query.category = category;
+
+      if (rawTenantId && rawTenantId !== 'all') {
+        const canonical = resolveTenantId(rawTenantId);
+        query.$or = [
+          { tenantId: rawTenantId },
+          ...(canonical ? [{ tenantId: canonical }, { companyId: canonical }] : [])
+        ];
+      }
+
+      if (departmentId && departmentId !== 'all') {
+        query.departmentId = departmentId;
+      }
+
+      if (category && category !== 'all') {
+        query.$and = query.$and || [];
+        query.$and.push({
+          $or: [
+            { category: category },
+            { categoryId: category },
+            { departmentId: category }
+          ]
+        });
+      }
+
       if (brand) query.brand = brand;
+
       if (minPrice || maxPrice) {
         query.price = {};
         if (minPrice) query.price.$gte = Number(minPrice);
         if (maxPrice) query.price.$lte = Number(maxPrice);
       }
+
       if (isFlashDeal === 'true') query.isFlashDeal = true;
       if (status) query.status = status;
+
       if (search) {
-        query.$or = [
-          { name: { $regex: search, $options: 'i' } },
-          { brand: { $regex: search, $options: 'i' } },
-          { categoryLabel: { $regex: search, $options: 'i' } }
-        ];
+        const searchRegex = { $regex: search, $options: 'i' };
+        query.$and = query.$and || [];
+        query.$and.push({
+          $or: [
+            { name: searchRegex },
+            { brand: searchRegex },
+            { categoryLabel: searchRegex },
+            { description: searchRegex }
+          ]
+        });
       }
 
       const total = await Product.countDocuments(query);
@@ -43,11 +110,12 @@ export const getProducts = async (req, res) => {
       if (products && products.length > 0) {
         const mappedProducts = products.map((doc) => {
           const obj = doc.toObject ? doc.toObject() : doc;
-          return {
+          return enrichDepartmentInfo({
             ...obj,
             id: String(obj.customId || obj.id || obj._id)
-          };
+          });
         });
+
         return res.json({
           success: true,
           page,
@@ -55,55 +123,72 @@ export const getProducts = async (req, res) => {
           total,
           totalPages,
           count: mappedProducts.length,
+          tenantId: rawTenantId || 'all',
           products: mappedProducts
         });
       }
     }
 
-    // In-Memory / Instant Fallback filtering & pagination
-    let filtered = [...FRESHMART_PRODUCTS];
-    if (category && category !== 'all') filtered = filtered.filter((p) => p.category === category);
+    // In-Memory / Instant Fallback strictly filtered by tenant & department
+    let filtered = [...MASTER_IN_MEMORY_CATALOG];
+
+    if (rawTenantId && rawTenantId !== 'all') {
+      filtered = filtered.filter(
+        (p) => isSameTenant(p.tenantId, rawTenantId) || (!p.tenantId && rawTenantId === 'tenant-freshmart')
+      );
+    }
+
+    if (departmentId && departmentId !== 'all') {
+      filtered = filtered.filter(
+        (p) => p.departmentId === departmentId || p.category === departmentId
+      );
+    }
+
+    if (category && category !== 'all') {
+      filtered = filtered.filter(
+        (p) => p.category === category || p.categoryId === category || p.departmentId === category
+      );
+    }
+
     if (brand) filtered = filtered.filter((p) => p.brand === brand);
     if (isFlashDeal === 'true') filtered = filtered.filter((p) => p.isFlashDeal);
     if (minPrice) filtered = filtered.filter((p) => p.price >= Number(minPrice));
     if (maxPrice) filtered = filtered.filter((p) => p.price <= Number(maxPrice));
+
     if (search) {
+      const q = search.toLowerCase();
       filtered = filtered.filter(
         (p) =>
-          p.name.toLowerCase().includes(search.toLowerCase()) ||
-          p.brand.toLowerCase().includes(search.toLowerCase())
+          p.name.toLowerCase().includes(q) ||
+          (p.brand && p.brand.toLowerCase().includes(q)) ||
+          (p.description && p.description.toLowerCase().includes(q))
       );
     }
 
     const total = filtered.length;
     const totalPages = Math.ceil(total / limit) || 1;
-    const paginated = filtered.slice(skip, skip + limit);
+    const paginated = filtered.slice(skip, skip + limit).map(enrichDepartmentInfo);
 
-    res.json({
+    return res.json({
       success: true,
       page,
       limit,
       total,
       totalPages,
       count: paginated.length,
+      tenantId: rawTenantId || 'all',
       products: paginated
     });
   } catch (error) {
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = req.query.limit !== undefined ? Math.max(1, parseInt(req.query.limit, 10) || 20) : 50;
-    const skip = (page - 1) * limit;
-    const total = FRESHMART_PRODUCTS.length;
-    const totalPages = Math.ceil(total / limit) || 1;
-    const paginated = FRESHMART_PRODUCTS.slice(skip, skip + limit);
-
-    res.json({
+    const fallback = MASTER_IN_MEMORY_CATALOG.slice(0, 50).map(enrichDepartmentInfo);
+    return res.json({
       success: true,
-      page,
-      limit,
-      total,
-      totalPages,
-      count: paginated.length,
-      products: paginated
+      page: 1,
+      limit: 50,
+      total: fallback.length,
+      totalPages: 1,
+      count: fallback.length,
+      products: fallback
     });
   }
 };
@@ -113,24 +198,38 @@ export const getProducts = async (req, res) => {
 export const getProductById = async (req, res) => {
   try {
     const { id } = req.params;
+    const rawTenantId = req.query.tenantId || req.headers['x-tenant-id'];
+
     if (isDbOnline()) {
-      let product = null;
-      if (mongoose.Types.ObjectId.isValid(id)) {
-        product = await Product.findById(id);
+      let query = {
+        $or: [
+          ...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []),
+          { customId: id },
+          { id: id }
+        ]
+      };
+      if (rawTenantId && rawTenantId !== 'all') {
+        const canonical = resolveTenantId(rawTenantId);
+        query.tenantId = { $in: [rawTenantId, canonical] };
       }
-      if (!product) {
-        product = await Product.findOne({ $or: [{ customId: id }, { id: id }] });
+
+      const product = await Product.findOne(query);
+      if (product) {
+        const obj = product.toObject ? product.toObject() : product;
+        return res.json({ success: true, product: enrichDepartmentInfo(obj) });
       }
-      if (product) return res.json({ success: true, product });
     }
 
-    const fallback = FRESHMART_PRODUCTS.find((p) => p.id === req.params.id);
-    if (fallback) return res.json({ success: true, product: fallback });
-    res.status(404).json({ success: false, message: 'Product not found' });
+    const fallback = MASTER_IN_MEMORY_CATALOG.find((p) => p.id === id || p.customId === id);
+    if (fallback) {
+      return res.json({ success: true, product: enrichDepartmentInfo(fallback) });
+    }
+
+    return res.status(404).json({ success: false, message: `Product '${id}' not found` });
   } catch (error) {
-    const fallback = FRESHMART_PRODUCTS.find((p) => p.id === req.params.id);
-    if (fallback) return res.json({ success: true, product: fallback });
-    res.status(500).json({ success: false, message: error.message });
+    const fallback = MASTER_IN_MEMORY_CATALOG.find((p) => p.id === req.params.id);
+    if (fallback) return res.json({ success: true, product: enrichDepartmentInfo(fallback) });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -143,18 +242,30 @@ export const createProduct = async (req, res) => {
       name,
       brand,
       category,
+      categoryId,
       categoryLabel,
+      departmentId,
+      departmentCode,
+      departmentName,
+      tenantId,
+      tenantName,
+      branchId,
       price,
       originalPrice,
+      wholesalePrice,
+      tierPricing,
       discountPercent,
       stock,
       unit,
       image,
+      gallery,
       description,
+      nutrition,
       isFlashDeal,
       isBestSeller,
       status
     } = req.body;
+
     const productId = id || `prod-${Date.now()}`;
     const priceNum = Number(price) || 0;
     const discountNum = Math.max(0, Number(discountPercent !== undefined ? discountPercent : 0));
@@ -166,54 +277,58 @@ export const createProduct = async (req, res) => {
         : priceNum
     );
 
-    if (isDbOnline()) {
-      const product = new Product({
-        customId: productId,
-        id: productId,
-        name,
-        brand: brand || 'Farm Fresh',
-        category: category || 'fruits-veg',
-        categoryLabel: categoryLabel || 'Fruits & Vegetables',
-        price: priceNum,
-        originalPrice: origPriceNum,
-        discountPercent: discountNum,
-        stock: Number(stock !== undefined ? stock : 50),
-        unit: unit || '1 Kg',
-        image: image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
-        description: description || 'Fresh high-grade grocery product.',
-        isFlashDeal: Boolean(isFlashDeal),
-        isBestSeller: Boolean(isBestSeller),
-        status: status || (Number(stock) > 0 ? 'Active' : 'Out of Stock')
-      });
-      const created = await product.save();
-      return res.status(201).json({ success: true, product: created });
-    }
+    const storeTenantId = tenantId || 'tenant-freshmart';
+    const deptInfo = getDepartmentById(departmentId || category, storeTenantId);
 
-    const newProduct = {
+    const newProdPayload = {
+      customId: productId,
       id: productId,
       name,
       brand: brand || 'Farm Fresh',
       category: category || 'fruits-veg',
-      categoryLabel: categoryLabel || 'Fruits & Vegetables',
+      categoryId: categoryId || category || 'fruits-veg',
+      categoryLabel: categoryLabel || deptInfo?.name || 'Produce',
+      departmentId: departmentId || deptInfo?.departmentId || `dept-${category || 'gen'}`,
+      departmentCode: departmentCode || deptInfo?.departmentCode || 'DEPT-GEN',
+      departmentName: departmentName || deptInfo?.name || categoryLabel || 'General',
+      tenantId: storeTenantId,
+      tenantName: tenantName || deptInfo?.tenantName || 'FreshMart Direct',
+      branchId: branchId || 'branch_001',
       price: priceNum,
       originalPrice: origPriceNum,
+      wholesalePrice: Number(wholesalePrice || Math.round(priceNum * 0.85)),
+      tierPricing: Array.isArray(tierPricing) ? tierPricing : [{ minQty: 10, discountPercent: 10 }],
       discountPercent: discountNum,
       stock: Number(stock !== undefined ? stock : 50),
+      stockCount: Number(stock !== undefined ? stock : 50),
+      minStock: 15,
       unit: unit || '1 Kg',
       image: image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
+      gallery: Array.isArray(gallery) ? gallery : [image],
       description: description || 'Fresh high-grade grocery product.',
+      nutrition: nutrition || {},
       isFlashDeal: Boolean(isFlashDeal),
       isBestSeller: Boolean(isBestSeller),
-      status: status || (Number(stock) > 0 ? 'Active' : 'Out of Stock')
+      status: status || (Number(stock) > 0 ? 'Active' : 'Out of Stock'),
+      inStock: Number(stock) > 0
     };
-    FRESHMART_PRODUCTS.unshift(newProduct);
-    res.status(201).json({ success: true, product: newProduct });
+
+    if (isDbOnline()) {
+      const product = new Product(newProdPayload);
+      const created = await product.save();
+      return res.status(201).json({ success: true, product: created });
+    }
+
+    MASTER_IN_MEMORY_CATALOG.unshift(newProdPayload);
+    FRESHMART_PRODUCTS.unshift(newProdPayload);
+
+    return res.status(201).json({ success: true, product: newProdPayload });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// @desc    Update a product or product picture (Admin)
+// @desc    Update a product (Admin)
 // @route   PUT /api/products/:id
 export const updateProduct = async (req, res) => {
   try {
@@ -234,62 +349,41 @@ export const updateProduct = async (req, res) => {
         if (updateData.description !== undefined) product.description = updateData.description;
         if (updateData.price !== undefined) product.price = Number(updateData.price);
         if (updateData.originalPrice !== undefined) product.originalPrice = Number(updateData.originalPrice);
+        if (updateData.wholesalePrice !== undefined) product.wholesalePrice = Number(updateData.wholesalePrice);
         if (updateData.discountPercent !== undefined) product.discountPercent = Number(updateData.discountPercent);
-        if (updateData.stock !== undefined) product.stock = Number(updateData.stock);
+        if (updateData.stock !== undefined) {
+          product.stock = Number(updateData.stock);
+          product.stockCount = product.stock;
+          product.inStock = product.stock > 0;
+        }
         if (updateData.unit !== undefined) product.unit = updateData.unit;
         if (updateData.category !== undefined) product.category = updateData.category;
         if (updateData.categoryLabel !== undefined) product.categoryLabel = updateData.categoryLabel;
+        if (updateData.departmentId !== undefined) product.departmentId = updateData.departmentId;
+        if (updateData.departmentCode !== undefined) product.departmentCode = updateData.departmentCode;
+        if (updateData.departmentName !== undefined) product.departmentName = updateData.departmentName;
         if (updateData.brand !== undefined) product.brand = updateData.brand;
         if (updateData.image) product.image = updateData.image;
+        if (updateData.gallery) product.gallery = updateData.gallery;
+        if (updateData.nutrition) product.nutrition = updateData.nutrition;
         if (updateData.isFlashDeal !== undefined) product.isFlashDeal = Boolean(updateData.isFlashDeal);
         if (updateData.isBestSeller !== undefined) product.isBestSeller = Boolean(updateData.isBestSeller);
         if (updateData.status !== undefined) product.status = updateData.status;
 
         const updated = await product.save();
         return res.json({ success: true, product: updated });
-      } else {
-        // Upsert if not existing yet in MongoDB
-        const price = Number(updateData.price || 100);
-        const discountPercent = Math.max(0, Number(updateData.discountPercent !== undefined ? updateData.discountPercent : 0));
-        const originalPrice = Number(
-          updateData.originalPrice !== undefined && Number(updateData.originalPrice) >= price
-            ? updateData.originalPrice
-            : discountPercent > 0
-            ? Math.round(price / (1 - discountPercent / 100))
-            : price
-        );
-
-        const newProduct = new Product({
-          customId: id,
-          id: id,
-          name: updateData.name || 'Product',
-          brand: updateData.brand || 'Farm Fresh',
-          category: updateData.category || 'fruits-veg',
-          categoryLabel: updateData.categoryLabel || 'Fruits & Vegetables',
-          price: price,
-          originalPrice: originalPrice,
-          discountPercent: discountPercent,
-          stock: Number(updateData.stock || 50),
-          unit: updateData.unit || '1 Kg',
-          image: updateData.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
-          description: updateData.description || 'Fresh high-grade grocery product.',
-          isFlashDeal: Boolean(updateData.isFlashDeal),
-          isBestSeller: Boolean(updateData.isBestSeller),
-          status: updateData.status || 'Active'
-        });
-        const created = await newProduct.save();
-        return res.json({ success: true, product: created });
       }
     }
 
-    // Also update in-memory catalog
-    const idx = FRESHMART_PRODUCTS.findIndex((p) => p.id === id || p.customId === id);
+    // In-memory catalog update
+    const idx = MASTER_IN_MEMORY_CATALOG.findIndex((p) => p.id === id || p.customId === id);
     if (idx !== -1) {
-      FRESHMART_PRODUCTS[idx] = { ...FRESHMART_PRODUCTS[idx], ...updateData };
+      MASTER_IN_MEMORY_CATALOG[idx] = { ...MASTER_IN_MEMORY_CATALOG[idx], ...updateData };
     }
-    res.json({ success: true, message: 'Product updated', product: updateData });
+
+    return res.json({ success: true, message: 'Product updated', product: updateData });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -298,18 +392,21 @@ export const updateProduct = async (req, res) => {
 export const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
+
     if (isDbOnline()) {
       if (mongoose.Types.ObjectId.isValid(id)) {
         await Product.findByIdAndDelete(id);
       }
       await Product.deleteOne({ $or: [{ customId: id }, { id: id }] });
     }
-    const idx = FRESHMART_PRODUCTS.findIndex((p) => p.id === id);
+
+    const idx = MASTER_IN_MEMORY_CATALOG.findIndex((p) => p.id === id || p.customId === id);
     if (idx !== -1) {
-      FRESHMART_PRODUCTS.splice(idx, 1);
+      MASTER_IN_MEMORY_CATALOG.splice(idx, 1);
     }
-    res.json({ success: true, message: 'Product removed' });
+
+    return res.json({ success: true, message: 'Product removed successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
