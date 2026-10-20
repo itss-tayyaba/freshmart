@@ -1,16 +1,40 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import L from 'leaflet';
 import {
   X,
-  Compass,
+  MapPin,
   Check,
   Zap,
   ShieldCheck,
   ChevronDown
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
-import { PAKISTAN_CITIES, findNearestCity } from '../../data/pakistanLocations';
-import { detectUserLocation } from '../../utils/geolocationHelper';
+import { PAKISTAN_CITIES } from '../../data/pakistanLocations';
+import { reverseGeocodeAddress } from '../../utils/geolocationHelper';
 import { apiService } from '../../services/api';
+
+// Custom Modern SVG Pin for Leaflet Map to guarantee zero missing asset issues in Vite
+const createUserPin = () =>
+  L.divIcon({
+    className: 'custom-user-leaflet-pin',
+    html: `
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: grab;">
+        <span style="position: absolute; top: -2px; width: 34px; height: 34px; border-radius: 9999px; background: rgba(16, 185, 129, 0.35); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+        <div style="position: relative; width: 34px; height: 34px; border-radius: 9999px; background: #059669; border: 2.5px solid #ffffff; box-shadow: 0 8px 12px -2px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; color: white;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin: auto;">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+        </div>
+        <div style="margin-top: 2px; padding: 2px 7px; border-radius: 9999px; background: #064e3b; color: white; font-size: 9px; font-weight: 800; letter-spacing: 0.5px; white-space: nowrap; box-shadow: 0 3px 5px -1px rgba(0,0,0,0.2);">
+          YOUR LOCATION
+        </div>
+      </div>
+    `,
+    iconSize: [36, 52],
+    iconAnchor: [18, 44],
+    popupAnchor: [0, -44]
+  });
 
 export const LocationModal = () => {
   const { isLocationModalOpen } = useStore();
@@ -27,15 +51,12 @@ const LocationModalContent = () => {
     addToast
   } = useStore();
 
-  const [locateStatus, setLocateStatus] = useState('');
-  const [isLocating, setIsLocating] = useState(false);
-  const [permissionBlocked, setPermissionBlocked] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Editable coordinates state
+  // Editable coordinates state (defaults to Muhammad Nagar, Faisalabad: 31.3973, 73.1180)
   const [currentCoords, setCurrentCoords] = useState(() => ({
-    lat: Number(deliveryLocation?.lat || deliveryLocation?.coords?.lat || 31.4125),
-    lng: Number(deliveryLocation?.lng || deliveryLocation?.coords?.lng || 73.0995)
+    lat: Number(deliveryLocation?.lat || deliveryLocation?.coords?.lat || 31.3973),
+    lng: Number(deliveryLocation?.lng || deliveryLocation?.coords?.lng || 73.1180)
   }));
 
   // Selected City ID
@@ -51,11 +72,18 @@ const LocationModalContent = () => {
     deliveryLocation?.address || 'Muhammad Nagar, Faisalabad'
   );
 
+  // Leaflet map refs
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const userMarkerRef = useRef(null);
+
+  const currentCityObj = PAKISTAN_CITIES.find((c) => c.id === selectedCityId) || PAKISTAN_CITIES[0];
+
   // Sync internal state when deliveryLocation changes
   useEffect(() => {
     if (deliveryLocation) {
-      const lat = Number(deliveryLocation?.lat || deliveryLocation?.coords?.lat || 31.4125);
-      const lng = Number(deliveryLocation?.lng || deliveryLocation?.coords?.lng || 73.0995);
+      const lat = Number(deliveryLocation?.lat || deliveryLocation?.coords?.lat || 31.3973);
+      const lng = Number(deliveryLocation?.lng || deliveryLocation?.coords?.lng || 73.1180);
       setCurrentCoords({ lat, lng });
       if (deliveryLocation.address) setAddressInput(deliveryLocation.address);
 
@@ -66,43 +94,91 @@ const LocationModalContent = () => {
     }
   }, [deliveryLocation]);
 
-  const currentCityObj = PAKISTAN_CITIES.find((c) => c.id === selectedCityId) || PAKISTAN_CITIES[0];
+  // Initialize interactive Leaflet Map
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
 
-  // Auto-Detect Location (GPS with graceful permission denial fallback)
-  const handleAutoDetect = async () => {
-    setIsLocating(true);
-    setLocateStatus('Fetching Location...');
-    setPermissionBlocked(false);
-
-    try {
-      const result = await detectUserLocation({
-        onProgress: (status) => setLocateStatus(status)
-      });
-
-      if (result) {
-        setCurrentCoords({ lat: result.lat, lng: result.lng });
-        if (result.matchedCityId) {
-          setSelectedCityId(result.matchedCityId);
-        }
-        if (result.address) {
-          setAddressInput(result.address);
-        }
-        addToast(
-          'Location Detected 🎯',
-          `Detected location in ${result.city}`
-        );
-      } else {
-        setPermissionBlocked(true);
-        addToast('Location Info', 'GPS not available. Please choose your city/region from the list below.', 'info');
-      }
-    } catch (err) {
-      setPermissionBlocked(true);
-      addToast('Location Info', 'Location access was blocked. Please choose your city from the list below.', 'info');
-    } finally {
-      setIsLocating(false);
-      setLocateStatus('');
+    // Clean up any stale map instance
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
     }
-  };
+
+    const initialLat = currentCoords.lat;
+    const initialLng = currentCoords.lng;
+
+    const map = L.map(mapContainerRef.current, {
+      center: [initialLat, initialLng],
+      zoom: 15,
+      zoomControl: true,
+      scrollWheelZoom: true
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(map);
+
+    // Draggable user location pin
+    const userMarker = L.marker([initialLat, initialLng], {
+      icon: createUserPin(),
+      draggable: true,
+      zIndexOffset: 1000
+    }).addTo(map);
+
+    userMarker.bindPopup(`
+      <div style="font-family: inherit; font-size: 11px; line-height: 1.4;">
+        <strong style="color: #059669; font-size: 12px;">📍 Delivery Location</strong>
+        <p style="margin: 3px 0 0; color: #475569;">Drag this pin or click anywhere on the map to set your exact doorstep.</p>
+      </div>
+    `);
+
+    // Helper to update coordinates and reverse-geocode address
+    const handleUpdateCoords = async (lat, lng) => {
+      const fixedLat = Number(lat.toFixed(5));
+      const fixedLng = Number(lng.toFixed(5));
+      setCurrentCoords({ lat: fixedLat, lng: fixedLng });
+      userMarker.setLatLng([fixedLat, fixedLng]);
+
+      try {
+        const rev = await reverseGeocodeAddress(fixedLat, fixedLng);
+        if (rev && rev.formatted) {
+          setAddressInput(rev.formatted);
+        }
+      } catch (err) {
+        // preserve current input
+      }
+    };
+
+    // On Marker Drag
+    userMarker.on('dragend', () => {
+      const pos = userMarker.getLatLng();
+      handleUpdateCoords(pos.lat, pos.lng);
+    });
+
+    // On Map Click
+    map.on('click', (e) => {
+      handleUpdateCoords(e.latlng.lat, e.latlng.lng);
+    });
+
+    mapInstanceRef.current = map;
+    userMarkerRef.current = userMarker;
+
+    // Invalidate size once rendered inside modal to ensure tiles draw smoothly
+    const timer = setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 250);
+
+    return () => {
+      clearTimeout(timer);
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
 
   // City selection from dropdown
   const handleSelectCity = (cityObj) => {
@@ -112,7 +188,26 @@ const LocationModalContent = () => {
 
     setCurrentCoords({ lat: coords.lat, lng: coords.lng });
     setAddressInput(defaultNeighborhood.defaultAddress);
+
+    if (mapInstanceRef.current && userMarkerRef.current) {
+      userMarkerRef.current.setLatLng([coords.lat, coords.lng]);
+      mapInstanceRef.current.setView([coords.lat, coords.lng], 15, { animate: true });
+    }
+
     addToast('City Selected 📍', `Switched to ${cityObj.city}`);
+  };
+
+  // Quick Area Pill Click (e.g. Muhammad Nagar)
+  const handleSelectArea = (n) => {
+    setAddressInput(n.defaultAddress);
+    setCurrentCoords({ lat: n.coords.lat, lng: n.coords.lng });
+
+    if (mapInstanceRef.current && userMarkerRef.current) {
+      userMarkerRef.current.setLatLng([n.coords.lat, n.coords.lng]);
+      mapInstanceRef.current.setView([n.coords.lat, n.coords.lng], 16, { animate: true });
+    }
+
+    addToast('Area Selected 📍', `${n.name}, ${currentCityObj.city}`);
   };
 
   // Final confirmation: Locks location, saves to store and database
@@ -173,39 +268,39 @@ const LocationModalContent = () => {
       ? '#6b21a8'
       : currentTenant?.id === 'tenant-chasevalue'
       ? '#78350f'
-      : '#991b1b');
+      : '#0284c7');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       {/* Dark Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm transition-opacity"
         onClick={handleCloseModal}
       />
 
-      {/* Clean Modal Card (Matching Reference Design) */}
-      <div className="relative bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden z-10 border border-slate-100 p-6 sm:p-8 text-center animate-in fade-in zoom-in-95 duration-200">
+      {/* Clean Modal Card with Leaflet Map */}
+      <div className="relative bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden z-10 border border-slate-100 p-5 sm:p-7 text-center max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
         
         {/* Close Button */}
         <button
           type="button"
           onClick={handleCloseModal}
-          className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+          className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer z-20"
           title="Close"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Store Brand Emblem at top */}
-        <div className="flex flex-col items-center justify-center mb-3">
+        <div className="flex flex-col items-center justify-center mb-2">
           <div
             style={{ backgroundColor: `${tenantThemeColor}15`, borderColor: `${tenantThemeColor}30` }}
-            className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-xs border mb-2 overflow-hidden"
+            className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-xs border mb-1.5 overflow-hidden"
           >
             {currentTenant?.logo && currentTenant.logo.startsWith('http') ? (
               <img src={currentTenant.logo} alt={currentTenant?.name} className="w-full h-full object-cover" />
             ) : (
-              <span className="text-3xl">{currentTenant?.logo || '🏬'}</span>
+              <span className="text-2xl">{currentTenant?.logo || '🛒'}</span>
             )}
           </div>
           <h3 className="text-base font-black text-slate-900 tracking-tight">
@@ -216,64 +311,25 @@ const LocationModalContent = () => {
           </p>
         </div>
 
-        {/* 1. Select your order type - DELIVERY ONLY (Zero pickup button as requested) */}
-        <div className="my-4">
-          <h4 className="text-sm font-bold text-slate-900 mb-2.5">
-            Select your order type
-          </h4>
+        {/* 1. Order Type - DELIVERY ONLY */}
+        <div className="my-3">
           <div className="flex justify-center">
             <div
               style={{ backgroundColor: tenantThemeColor }}
-              className="text-white px-8 py-2.5 rounded-full font-bold text-xs sm:text-sm shadow-md inline-flex items-center gap-2 select-none"
+              className="text-white px-7 py-2 rounded-full font-bold text-xs shadow-md inline-flex items-center gap-2 select-none"
             >
-              <Zap className="w-4 h-4 fill-amber-300 text-amber-300" />
+              <Zap className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
               <span>Delivery</span>
             </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">
+          <p className="text-[10px] text-slate-400 mt-1">
             Doorstep delivery directly to your home or office
           </p>
         </div>
 
-        {/* 2. Please select your location */}
-        <div className="my-4 pt-3 border-t border-slate-100">
-          <h4 className="text-sm font-bold text-slate-800 mb-2.5">
-            Please select your location
-          </h4>
-
-          {/* Quick Locate Button with graceful blocked handling */}
-          <button
-            type="button"
-            onClick={handleAutoDetect}
-            disabled={isLocating}
-            className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer border ${
-              isLocating
-                ? 'bg-slate-100 border-slate-300 text-slate-600'
-                : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900 shadow-xs'
-            }`}
-          >
-            <Compass className={`w-4 h-4 text-emerald-600 ${isLocating ? 'animate-spin' : ''}`} />
-            <span>{isLocating ? (locateStatus || 'Fetching Location...') : '🎯 Fetch Current Location'}</span>
-          </button>
-          <p className="text-[10px] text-slate-400 mt-1.5 text-center">
-            💡 Laptops/PCs estimate location via internet provider. You can tap your exact area below or type your street.
-          </p>
-
-          {/* Location permission block alert if browser denied GPS permission */}
-          {permissionBlocked && (
-            <div className="mt-2 text-[11px] text-amber-800 bg-amber-50 border border-amber-200/80 rounded-xl p-2.5 text-left flex items-start gap-2">
-              <span className="text-sm">⚠️</span>
-              <div>
-                <span className="font-bold block">Browser Location Blocked</span>
-                Location access was denied or blocked by browser settings. Please pick your city/region and enter your street address below.
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 3. Select City / Region Dropdown */}
+        {/* 2. Select City / Region Dropdown */}
         <div className="text-left mt-3">
-          <label className="text-xs font-bold text-slate-700 block mb-1.5">
+          <label className="text-xs font-bold text-slate-700 block mb-1">
             Select City / Region
           </label>
           <div className="relative">
@@ -283,9 +339,8 @@ const LocationModalContent = () => {
                 const city = PAKISTAN_CITIES.find((c) => c.id === e.target.value);
                 if (city) handleSelectCity(city);
               }}
-              className="w-full text-xs font-bold bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-xl px-3.5 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer appearance-none transition-all shadow-xs"
+              className="w-full text-xs font-bold bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer appearance-none transition-all shadow-xs"
             >
-              <option value="" disabled>Select City / Region</option>
               {PAKISTAN_CITIES.map((c) => (
                 <option key={c.id} value={c.id}>
                   📍 {c.city}
@@ -298,9 +353,65 @@ const LocationModalContent = () => {
           </div>
         </div>
 
-        {/* 4. Street Address Input */}
+        {/* Quick Area Pills (e.g. Muhammad Nagar) */}
+        {currentCityObj?.neighborhoods?.length > 0 && (
+          <div className="mt-2 text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+              Popular areas in {currentCityObj.city.split(',')[0]}:
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {currentCityObj.neighborhoods.map((n) => {
+                const isSelected = addressInput.toLowerCase().includes(n.name.toLowerCase());
+                return (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => handleSelectArea(n)}
+                    className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    📍 {n.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 3. 🗺️ EXACT LEAFLET MAP LOCATION PINPOINT (REPLACED FETCH LOCATION) */}
+        <div className="mt-3.5 text-left">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Pin Your Exact Delivery Location on Leaflet Map</span>
+            </label>
+            <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold">
+              Exact Doorstep Pin
+            </span>
+          </div>
+
+          <div className="rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-xs bg-slate-100 relative">
+            <div ref={mapContainerRef} className="w-full h-44 sm:h-52 z-0" />
+
+            {/* Live Coordinate Badge at bottom-left */}
+            <div className="absolute bottom-2 left-2 z-[1000] bg-slate-900/85 backdrop-blur-md text-white text-[9px] font-mono px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1.5 pointer-events-none">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{currentCoords.lat.toFixed(4)}°, {currentCoords.lng.toFixed(4)}°</span>
+            </div>
+
+            {/* Helper Hint at bottom-right */}
+            <div className="absolute bottom-2 right-2 z-[1000] bg-white/95 backdrop-blur-xs text-slate-700 text-[9px] font-bold px-2 py-1 rounded-md shadow-xs pointer-events-none">
+              👆 Drag pin or click map
+            </div>
+          </div>
+        </div>
+
+        {/* 4. Full Street Address Input */}
         <div className="text-left mt-3">
-          <label className="text-xs font-bold text-slate-700 block mb-1.5">
+          <label className="text-xs font-bold text-slate-700 block mb-1">
             Delivery Address (Street / House / Sector)
           </label>
           <input
@@ -308,62 +419,30 @@ const LocationModalContent = () => {
             value={addressInput}
             onChange={(e) => setAddressInput(e.target.value)}
             placeholder="e.g. Muhammad Nagar, Faisalabad"
-            className="w-full text-xs font-semibold bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-xl px-3.5 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-xs"
+            className="w-full text-xs font-semibold bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-xs"
           />
-
-          {/* Quick-Select Areas in Selected City (e.g. Muhammad Nagar) */}
-          {currentCityObj?.neighborhoods?.length > 0 && (
-            <div className="mt-2.5 text-left">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                Popular areas in {currentCityObj.city.split(',')[0]}:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {currentCityObj.neighborhoods.map((n) => {
-                  const isSelected = addressInput.toLowerCase().includes(n.name.toLowerCase());
-                  return (
-                    <button
-                      key={n.id}
-                      type="button"
-                      onClick={() => {
-                        setAddressInput(n.defaultAddress);
-                        setCurrentCoords({ lat: n.coords.lat, lng: n.coords.lng });
-                        addToast('Area Selected 📍', `${n.name}, ${currentCityObj.city}`);
-                      }}
-                      className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                          : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      📍 {n.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* 5. Confirmation Action Button ("Select") */}
-        <div className="mt-5">
+        {/* 5. Select & Confirm Button */}
+        <div className="mt-4">
           <button
             type="button"
             onClick={handleConfirmLocation}
             disabled={isSaving}
             style={{ backgroundColor: tenantThemeColor }}
-            className="w-full py-3.5 px-6 text-white font-black text-sm rounded-xl shadow-md hover:shadow-lg hover:opacity-95 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-[0.99]"
+            className="w-full py-3 px-6 text-white font-black text-sm rounded-xl shadow-md hover:shadow-lg hover:opacity-95 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-[0.99]"
           >
             {isSaving ? (
               <span>Saving Location to Store & Database...</span>
             ) : (
               <>
                 <Check className="w-4 h-4" />
-                <span>Select</span>
+                <span>Select Delivery Location</span>
               </>
             )}
           </button>
 
-          <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
+          <div className="mt-2.5 flex items-center justify-center gap-1.5 text-[10px] text-slate-500">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             <span>Saved to store & database • 100% Express Doorstep Delivery</span>
           </div>
