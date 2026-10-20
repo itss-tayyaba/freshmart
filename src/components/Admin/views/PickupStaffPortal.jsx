@@ -97,8 +97,9 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
 
     return list.filter((ord) => {
       if (!activeTenantId) return true;
-      if (!ord.tenantId) return false;
-      return isSameTenant(ord.tenantId, activeTenantId);
+      const tId = ord.tenantId || ord.items?.[0]?.tenantId;
+      if (!tId) return false;
+      return isSameTenant(tId, activeTenantId);
     }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }, [customerOrders, adminOrders, user?.tenantId, currentTenant?.id]);
 

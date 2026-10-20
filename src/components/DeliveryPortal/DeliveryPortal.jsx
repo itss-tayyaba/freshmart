@@ -23,6 +23,7 @@ import {
   X
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { isSameTenant } from '../../data/companyHierarchyData';
 
 // Custom Leaflet SVG Markers for reliable Vite asset rendering
 const createPickupPin = (label = 'Store') =>
@@ -96,6 +97,9 @@ export const DeliveryPortal = () => {
     riders = [],
     customerOrders = [],
     adminOrders = [],
+    setCustomerOrders,
+    setAdminOrders,
+    assignRiderToOrder,
     updateRiderLiveLocation,
     verifyOrderDeliveryOtp,
     currency = 'Rs.',
@@ -105,6 +109,21 @@ export const DeliveryPortal = () => {
     adminLogout,
     logoutAdmin
   } = useStore();
+
+  // Currency Formatter - Guarantee no [object Object] leaks
+  const currencySymbol = useMemo(() => {
+    if (typeof currency === 'string') return currency.trim();
+    if (currency && typeof currency.symbol === 'string') return currency.symbol.trim();
+    return 'Rs.';
+  }, [currency]);
+
+  const formatPrice = (amount) => {
+    const num = Number(amount || 0);
+    if (currencySymbol === '$') {
+      return `$${num.toFixed(2)}`;
+    }
+    return `${currencySymbol} ${num.toLocaleString()}`;
+  };
 
   // Active navigation tab
   const [activeTab, setActiveTab] = useState('out-for-delivery'); // 'out-for-delivery' | 'delivered-today'
@@ -133,7 +152,7 @@ export const DeliveryPortal = () => {
       return riders[0];
     }
 
-    // 3. Fallback default matching the uploaded screenshot: 'ahmad' in 'Peoples Colony'
+    // 3. Fallback default: 'ahmad' in 'Peoples Colony'
     return {
       id: 'RDR-AHMAD',
       name: 'ahmad',
@@ -161,133 +180,69 @@ export const DeliveryPortal = () => {
     return list.filter((o) => {
       const key = o.id || o.orderId || o._id;
       if (!key || seen.has(key)) return false;
-      if (activeTenantId && o.tenantId && o.tenantId !== activeTenantId) return false;
+      if (activeTenantId && o.tenantId && !isSameTenant(o.tenantId, activeTenantId)) return false;
       seen.add(key);
       return true;
     });
   }, [customerOrders, adminOrders, user?.tenantId, currentTenant?.id]);
 
-  // Orders specifically assigned to or relevant for this courier
+  // Orders specifically assigned to this courier that are active
   const assignedOrders = useMemo(() => {
-    const filtered = allOrdersList.filter((o) => {
+    const currentRiderId = activeRider?.id || user?.riderId;
+    const currentName = (activeRider?.name || user?.name || '').toLowerCase().trim();
+
+    return allOrdersList.filter((o) => {
+      if (o.status === 'Cancelled' || o.status === 'Delivered') return false;
       const rId = o.assignedRider?.id || o.assignedRider?.riderId;
-      const rName = (o.assignedRider?.name || '').toLowerCase();
-      const currentName = (activeRider?.name || '').toLowerCase();
-      return rId === activeRider?.id || rName.includes(currentName) || (currentName && rName === currentName);
+      const rName = (o.assignedRider?.name || '').toLowerCase().trim();
+
+      const idMatches = Boolean(rId && (rId === currentRiderId || rId === activeRider?.id));
+      const nameMatches = Boolean(currentName && rName && (rName === currentName || rName.includes(currentName) || currentName.includes(rName)));
+
+      return idMatches || nameMatches;
     });
+  }, [allOrdersList, activeRider, user?.riderId, user?.name]);
 
-    // If no orders are explicitly assigned yet, show all active non-cancelled customer/admin orders
-    if (filtered.length === 0) {
-      const dispatchable = allOrdersList.filter((o) => o.status !== 'Cancelled');
-      if (dispatchable.length > 0) return dispatchable;
-    }
-
-    return filtered;
-  }, [allOrdersList, activeRider]);
-
-  // Screenshot mock baseline orders if store has 0 orders
-  const baselineMockOrders = useMemo(() => {
-    return [
-      {
-        id: 'EB-9SMVJA',
-        orderId: '#EB-9SMVJA',
-        status: 'In Transit',
-        statusClass: 'bg-blue-100 text-blue-800',
-        customerName: 'Tayyaba batool',
-        customerPhone: '+923206551696',
-        region: activeRider?.zone || 'Peoples Colony',
-        shippingAddress: {
-          address: 'DIGITALSOFTS, Peoples Colony No. 1, Faisalabad',
-          city: 'Faisalabad'
-        },
-        items: [
-          { name: 'Espresso', quantity: 1, price: 3.78 }
-        ],
-        orderItems: [
-          { name: 'Espresso', quantity: 1, price: 3.78 }
-        ],
-        totalAmount: 3.78,
-        notes: 'No special instructions.',
-        deliveryOtp: '7412',
-        pickupCoords: { lat: 31.4147, lng: 73.0872 },
-        dropoffCoords: { lat: 31.4082, lng: 73.1023 },
-        distanceKm: 2.9,
-        etaMinutes: 6
-      },
-      {
-        id: 'EB-PKSGDN',
-        orderId: '#EB-PKSGDN',
-        status: 'Out for Delivery',
-        statusClass: 'bg-blue-100 text-blue-800',
-        customerName: 'Tayyaba batool',
-        customerPhone: '+923206551696',
-        region: activeRider?.zone || 'Peoples Colony',
-        shippingAddress: {
-          address: 'DIGITALSOFTS, Peoples Colony No. 1, Faisalabad',
-          city: 'Faisalabad'
-        },
-        items: [
-          { name: 'Espresso', quantity: 1, price: 3.78 }
-        ],
-        orderItems: [
-          { name: 'Espresso', quantity: 1, price: 3.78 }
-        ],
-        totalAmount: 3.78,
-        notes: 'No special instructions.',
-        deliveryOtp: '4829',
-        pickupCoords: { lat: 31.4147, lng: 73.0872 },
-        dropoffCoords: { lat: 31.4082, lng: 73.1023 },
-        distanceKm: 2.9,
-        etaMinutes: 6
-      }
-    ];
-  }, [activeRider]);
+  // Orders packed & ready for dispatch in this store, waiting for courier acceptance
+  const readyForDispatchOrders = useMemo(() => {
+    return allOrdersList.filter((o) => {
+      if (o.status === 'Cancelled' || o.status === 'Delivered') return false;
+      const s = String(o.status || '').toLowerCase();
+      const isReady = ['ready', 'ready for dispatch', 'ready(dispatched)', 'packed'].includes(s) || o.pickupStep === 'verified' || o.pickupStep === 'packed';
+      const isAlreadyAssigned = Boolean(o.assignedRider && (o.assignedRider.id || o.assignedRider.name));
+      return isReady && !isAlreadyAssigned;
+    });
+  }, [allOrdersList]);
 
   // Locally tracked completed orders to ensure immediate instant transition
   const [locallyCompletedOrders, setLocallyCompletedOrders] = useState([]);
 
-  // Combined orders for portal display
+  // Combined orders for portal display (strictly real assigned orders, no hardcoded baseline orders)
   const portalOrders = useMemo(() => {
-    if (assignedOrders.length > 0) {
-      return assignedOrders.map((o) => {
-        const resolvedId = String(o.id || o.orderId || o._id || '').trim();
-        const bareId = resolvedId.replace(/^#/, '');
-        const hashedId = bareId ? `#${bareId}` : resolvedId;
-        const isLocallyDone = locallyCompletedOrders.includes(bareId) || locallyCompletedOrders.includes(resolvedId);
-        const finalStatus = isLocallyDone ? 'Delivered' : (o.status || 'Out for Delivery');
-        const finalOtp = String(o.deliveryOtp || '7412');
-        return {
-          ...o,
-          status: finalStatus,
-          fulfillmentStage: isLocallyDone ? 7 : (o.fulfillmentStage || 6),
-          isDelivered: isLocallyDone || o.isDelivered || false,
-          id: bareId || resolvedId,
-          orderId: o.orderId || hashedId || resolvedId,
-          _id: o._id || bareId,
-          customerName: o.customer?.name || o.shippingAddress?.fullName || o.customerName || o.customer || 'Customer',
-          customerPhone: o.customer?.phone || o.shippingAddress?.phone || o.customerPhone || o.phone || '+92 300 1234567',
-          region: o.shippingAddress?.city || o.city || activeRider?.zone || 'Peoples Colony',
-          deliveryOtp: finalOtp,
-          notes: o.notes || o.deliveryNotes || 'No special instructions.',
-          itemsList: o.items || o.orderItems || o.rawItems || []
-        };
-      });
-    }
-    return baselineMockOrders.map((o) => {
-      const bareId = String(o.id || o.orderId || '').replace(/^#/, '');
-      const isLocallyDone = locallyCompletedOrders.includes(bareId) || locallyCompletedOrders.includes(o.id);
+    return assignedOrders.map((o) => {
+      const resolvedId = String(o.id || o.orderId || o._id || '').trim();
+      const bareId = resolvedId.replace(/^#/, '');
+      const hashedId = bareId ? `#${bareId}` : resolvedId;
+      const isLocallyDone = locallyCompletedOrders.includes(bareId) || locallyCompletedOrders.includes(resolvedId);
+      const finalStatus = isLocallyDone ? 'Delivered' : (o.status || 'Out for Delivery');
+      const finalOtp = String(o.deliveryOtp || '7412');
       return {
         ...o,
-        status: isLocallyDone ? 'Delivered' : o.status,
+        status: finalStatus,
         fulfillmentStage: isLocallyDone ? 7 : (o.fulfillmentStage || 6),
         isDelivered: isLocallyDone || o.isDelivered || false,
-        id: bareId,
-        orderId: `#${bareId}`,
-        deliveryOtp: String(o.deliveryOtp || '7412'),
-        itemsList: o.items || o.orderItems || []
+        id: bareId || resolvedId,
+        orderId: o.orderId || hashedId || resolvedId,
+        _id: o._id || bareId,
+        customerName: o.customer?.name || o.shippingAddress?.fullName || o.customerName || o.customer || 'Customer',
+        customerPhone: o.customer?.phone || o.shippingAddress?.phone || o.customerPhone || o.phone || '+92 300 1234567',
+        region: o.shippingAddress?.city || o.city || activeRider?.zone || 'Peoples Colony',
+        deliveryOtp: finalOtp,
+        notes: o.notes || o.deliveryNotes || 'No special instructions.',
+        itemsList: o.items || o.orderItems || o.rawItems || []
       };
     });
-  }, [assignedOrders, baselineMockOrders, activeRider, locallyCompletedOrders]);
+  }, [assignedOrders, locallyCompletedOrders, activeRider]);
 
   // Filter Out for Delivery vs Delivered Today
   const outForDeliveryOrders = useMemo(() => {
@@ -306,6 +261,108 @@ export const DeliveryPortal = () => {
 
   // Active delivery in transit (first out-for-delivery order)
   const activeOrder = outForDeliveryOrders[0] || null;
+
+  // Courier Parcel Acceptance (When pickup staff packs parcel and stages for dispatch)
+  const handleAcceptDispatchOrder = async (order) => {
+    const rawId = order.id || order.orderId;
+    const bareId = String(rawId).replace(/^#/, '');
+    if (typeof assignRiderToOrder === 'function') {
+      await assignRiderToOrder(rawId, activeRider.id, 'Out for Delivery', true);
+    } else {
+      const otp = order.deliveryOtp || '7412';
+      const updated = {
+        ...order,
+        assignedRider: {
+          id: activeRider.id,
+          name: activeRider.name,
+          phone: activeRider.phone,
+          vehicle: activeRider.vehicleNumber || activeRider.vehicleType,
+          zone: activeRider.zone
+        },
+        status: 'Out for Delivery',
+        isDispatched: true,
+        dispatchStatus: 'Out for Delivery',
+        fulfillmentStage: 5,
+        deliveryOtp: otp
+      };
+      if (typeof setCustomerOrders === 'function') {
+        setCustomerOrders((prev) => prev.map((o) => (o.id === rawId || o.orderId === rawId || o.id === bareId ? updated : o)));
+      }
+      if (typeof setAdminOrders === 'function') {
+        setAdminOrders((prev) => prev.map((o) => (o.id === rawId || o.orderId === rawId || o.id === bareId ? updated : o)));
+      }
+    }
+    addToast('Parcel Accepted 🛵', `Order #${bareId} accepted! Navigation route and customer PIN are active.`);
+  };
+
+  // Demo Dispatch Generator for rapid testing
+  const handleDispatchDemoOrder = () => {
+    const tId = activeRider?.tenantId || user?.tenantId || currentTenant?.id || 'tenant-freshmart';
+    const tName = activeRider?.tenantName || currentTenant?.name || user?.tenantName || 'Unimaart';
+    const randNum = Math.floor(1000 + Math.random() * 9000);
+    const demoId = `ORD-${randNum}`;
+    const otp = String(Math.floor(1000 + Math.random() * 9000));
+    const customerCity = activeRider?.zone?.includes('Karachi') ? 'Karachi' : activeRider?.zone?.includes('Lahore') ? 'Lahore' : 'Faisalabad';
+
+    const newOrder = {
+      id: demoId,
+      orderId: `#${demoId}`,
+      tenantId: tId,
+      tenantName: tName,
+      branchId: 'branch_demo',
+      branchName: `${tName} Hub`,
+      customer: 'Tayyaba Batool',
+      customerName: 'Tayyaba Batool',
+      customerPhone: '+923206551696',
+      phone: '+923206551696',
+      orderType: 'Delivery',
+      status: 'Out for Delivery',
+      isDispatched: true,
+      dispatchStatus: 'Out for Delivery',
+      fulfillmentStage: 5,
+      total: 1450,
+      totalAmount: 1450,
+      paymentMethod: 'Cash on Delivery',
+      paymentStatus: 'Pending',
+      items: [
+        { name: 'Fresh Milk 1L', quantity: 2, price: 220 },
+        { name: 'Whole Wheat Bread', quantity: 1, price: 160 },
+        { name: 'Farm Fresh Eggs (12 pcs)', quantity: 1, price: 340 }
+      ],
+      orderItems: [
+        { name: 'Fresh Milk 1L', quantity: 2, price: 220 },
+        { name: 'Whole Wheat Bread', quantity: 1, price: 160 },
+        { name: 'Farm Fresh Eggs (12 pcs)', quantity: 1, price: 340 }
+      ],
+      shippingAddress: {
+        address: 'DIGITALSOFTS, Peoples Colony No. 1',
+        city: customerCity
+      },
+      address: 'DIGITALSOFTS, Peoples Colony No. 1',
+      city: customerCity,
+      deliveryOtp: otp,
+      assignedRider: {
+        id: activeRider.id,
+        name: activeRider.name,
+        phone: activeRider.phone,
+        vehicle: activeRider.vehicleNumber || activeRider.vehicleType,
+        zone: activeRider.zone
+      },
+      pickupCoords: { lat: 31.4147, lng: 73.0872 },
+      dropoffCoords: { lat: 31.4082, lng: 73.1023 },
+      distanceKm: 2.4,
+      etaMinutes: 6,
+      createdAt: new Date().toISOString()
+    };
+
+    if (typeof setCustomerOrders === 'function') {
+      setCustomerOrders((prev) => [newOrder, ...prev.filter((o) => (o.id || o.orderId) !== demoId)]);
+    }
+    if (typeof setAdminOrders === 'function') {
+      setAdminOrders((prev) => [newOrder, ...prev.filter((o) => (o.id || o.orderId) !== demoId)]);
+    }
+    addToast('Parcel Dispatched 🛵', `Dispatched Order #${demoId} to ${activeRider.name}. Customer PIN: ${otp}`);
+  };
 
   // OTP form state per order
   const [otpInputs, setOtpInputs] = useState({});
@@ -860,128 +917,129 @@ export const DeliveryPortal = () => {
         </div>
 
         {/* ===================================================================== */}
-        {/* SECTION 1: ACTIVE DELIVERY (Map + Live GPS + Handover OTP)            */}
+        {/* SECTION 1: ACTIVE DELIVERY (Compact Map + Live GPS + Handover OTP)    */}
         {/* ===================================================================== */}
         {activeOrder && (
-          <section className="bg-white rounded-3xl border border-stone-200/90 shadow-2xs overflow-hidden p-6 sm:p-7 space-y-6">
+          <section className="bg-white rounded-2xl border border-stone-200/90 shadow-2xs overflow-hidden p-4 sm:p-5 space-y-4">
             
-            {/* Card Header */}
-            <div className="flex items-center justify-between pb-2 border-b border-stone-100">
-              <h2 className="text-base sm:text-lg font-bold text-stone-900">
-                Active Delivery
-              </h2>
-              <span className="px-3 py-1 bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold rounded-full flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+            {/* Card Header: Compact title, ID pill, ETA and status */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-stone-100">
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-sm sm:text-base font-extrabold text-stone-900 font-serif">
+                  Active Delivery
+                </h2>
+                <span className="px-2 py-0.5 rounded-lg bg-stone-100 border border-stone-200 font-mono text-xs font-bold text-stone-800">
+                  {activeOrder.orderId}
+                </span>
+                <span className="text-xs text-stone-500 font-medium hidden sm:inline">
+                  • ~{activeOrder.etaMinutes || '6'} min • {activeOrder.distanceKm || '2.4'} km
+                </span>
+              </div>
+              <span className="px-2.5 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 text-[11px] font-bold rounded-full flex items-center gap-1.5 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
                 <span>IN TRANSIT</span>
               </span>
             </div>
 
             {/* Split Grid: Leaflet Map (Left) + Order Details & Actions (Right) */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
               
-              {/* Left Column: Interactive Leaflet Map */}
-              <div className="lg:col-span-7 flex flex-col relative min-h-[340px] sm:min-h-[420px] rounded-2xl overflow-hidden border border-stone-200/90 shadow-inner">
-                <div ref={mapContainerRef} className="w-full h-full min-h-[340px] sm:min-h-[420px]" />
+              {/* Left Column: Interactive Leaflet Map - Streamlined & Compact */}
+              <div className="lg:col-span-6 flex flex-col relative h-48 sm:h-56 rounded-xl overflow-hidden border border-stone-200 shadow-inner">
+                <div ref={mapContainerRef} className="w-full h-full min-h-[192px] sm:min-h-[224px]" />
 
-                {/* Overlay Badge at Bottom Left matching screenshot */}
-                <div className="absolute bottom-3 left-3 z-[1000] bg-white/95 backdrop-blur-md border border-stone-200 px-3 py-1.5 rounded-xl shadow-md text-xs font-bold text-stone-800 flex items-center gap-2">
+                {/* Overlay Badge at Bottom Left */}
+                <div className="absolute bottom-2 left-2 z-[1000] bg-white/95 backdrop-blur-xs border border-stone-200 px-2.5 py-1 rounded-lg shadow-xs text-[11px] font-bold text-stone-800 flex items-center gap-1.5">
                   <span>{activeOrder.orderId}</span>
                   <span className="text-stone-300">•</span>
-                  <span>{activeOrder.distanceKm || '2.9'} km</span>
+                  <span>{activeOrder.distanceKm || '2.4'} km</span>
                   <span className="text-stone-300">•</span>
-                  <span>~{activeOrder.etaMinutes || '6'} min to drop-off</span>
+                  <span>~{activeOrder.etaMinutes || '6'}m ETA</span>
                 </div>
               </div>
 
               {/* Right Column: Order Details & Courier Controls */}
-              <div className="lg:col-span-5 flex flex-col justify-between space-y-5">
+              <div className="lg:col-span-6 flex flex-col justify-between space-y-3">
                 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   
-                  {/* Order ID */}
-                  <h3 className="text-xl font-extrabold text-stone-900 tracking-tight">
-                    {activeOrder.orderId}
-                  </h3>
-
-                  {/* Pickup & Dropoff Timeline matching screenshot */}
-                  <div className="space-y-3.5 text-xs">
-                    
+                  {/* Pickup & Dropoff Route */}
+                  <div className="space-y-2 text-xs bg-stone-50/70 p-2.5 rounded-xl border border-stone-100">
                     {/* Pickup Point */}
-                    <div className="flex items-start gap-2.5">
-                      <span className="w-3 h-3 rounded-full bg-amber-600 shrink-0 mt-0.5"></span>
-                      <div>
-                        <h4 className="font-bold text-stone-900">{storeBrandName}</h4>
-                        <p className="text-[11px] text-stone-400">Pickup location</p>
+                    <div className="flex items-start gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-600 shrink-0 mt-1"></span>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-stone-900 truncate">
+                          {activeOrder.tenantName || activeOrder.branchName || storeBrandName}
+                        </h4>
+                        <p className="text-[10px] text-stone-500">Supermarket Pickup Hub</p>
                       </div>
                     </div>
 
                     {/* Drop-off Point */}
-                    <div className="flex items-start gap-2.5">
-                      <span className="w-3 h-3 rounded-full bg-blue-600 shrink-0 mt-0.5"></span>
-                      <div>
-                        <h4 className="font-bold text-stone-900">{activeOrder.customerName}</h4>
-                        <p className="text-stone-600 text-[11px] leading-relaxed">
-                          {activeOrder.shippingAddress?.address || 'Peoples Colony, Faisalabad'} - Exact map pin
+                    <div className="flex items-start gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0 mt-1"></span>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-stone-900 truncate">
+                          {activeOrder.customerName}
+                        </h4>
+                        <p className="text-stone-600 text-[11px] line-clamp-1">
+                          {activeOrder.shippingAddress?.address || activeOrder.address || 'Peoples Colony, Faisalabad'}
                         </p>
                       </div>
                     </div>
-
                   </div>
 
-                  {/* Order Total Box matching screenshot */}
-                  <div className="bg-[#fbf9f4] border border-stone-200/90 rounded-2xl p-3.5 flex items-center justify-between">
-                    <span className="text-xs font-medium text-stone-600">Order total</span>
-                    <span className="text-base font-extrabold text-stone-900 font-serif">
-                      {currency === '$' ? `$${activeOrder.totalAmount?.toFixed(2) || '3.78'}` : `${currency} ${activeOrder.totalAmount?.toLocaleString() || '1,450'}`}
-                    </span>
-                  </div>
+                  {/* Order Total & Contact Actions Row */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="px-3 py-1.5 bg-[#fbf9f4] border border-stone-200/90 rounded-xl">
+                      <span className="text-[10px] font-semibold text-stone-500 block uppercase">Order Total</span>
+                      <span className="text-sm font-extrabold text-stone-900 font-serif">
+                        {formatPrice(activeOrder.totalAmount)}
+                      </span>
+                    </div>
 
-                  {/* Call & WhatsApp Action Buttons */}
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <a
-                      href={`tel:${activeOrder.customerPhone || '+923206551696'}`}
-                      className="px-3.5 py-2.5 bg-white hover:bg-stone-50 border border-stone-200 text-stone-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs"
-                    >
-                      <Phone className="w-3.5 h-3.5 text-rose-600" />
-                      <span>Call Customer</span>
-                    </a>
+                    <div className="flex items-center gap-1.5">
+                      <a
+                        href={`tel:${activeOrder.customerPhone || '+923206551696'}`}
+                        className="px-2.5 py-1.5 bg-white hover:bg-stone-50 border border-stone-200 text-stone-800 rounded-xl text-xs font-bold flex items-center gap-1 transition shadow-2xs"
+                        title="Call Customer"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-rose-600" />
+                        <span className="hidden sm:inline">Call</span>
+                      </a>
 
-                    <a
-                      href={`https://wa.me/${(activeOrder.customerPhone || '923206551696').replace(/[^0-9]/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3.5 py-2.5 bg-[#25D366] hover:bg-[#20ba5a] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs"
-                    >
-                      <MessageCircle className="w-3.5 h-3.5" />
-                      <span>WhatsApp</span>
-                    </a>
-                  </div>
+                      <a
+                        href={`https://wa.me/${(activeOrder.customerPhone || '923206551696').replace(/[^0-9]/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1.5 bg-[#25D366] hover:bg-[#20ba5a] text-white rounded-xl text-xs font-bold flex items-center gap-1 transition shadow-2xs"
+                        title="WhatsApp Customer"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>WhatsApp</span>
+                      </a>
 
-                  {/* Live Location Sharing Button */}
-                  <div>
-                    <button
-                      type="button"
-                      onClick={toggleLiveLocationSharing}
-                      className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
-                        isSharingLocation
-                          ? 'bg-emerald-700 text-white shadow-md'
-                          : 'bg-white hover:bg-stone-50 border border-stone-200 text-stone-800 shadow-2xs'
-                      }`}
-                    >
-                      <Navigation className={`w-3.5 h-3.5 ${isSharingLocation ? 'animate-spin' : 'text-stone-500'}`} />
-                      <span>{isSharingLocation ? '● Sharing Live Location (Active)' : 'Start Live Location'}</span>
-                    </button>
-                    {isSharingLocation && (
-                      <p className="text-[10px] text-emerald-700 font-semibold text-center mt-1">
-                        GPS telemetry transmitting to customer tracking screen.
-                      </p>
-                    )}
+                      <button
+                        type="button"
+                        onClick={toggleLiveLocationSharing}
+                        className={`py-1.5 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                          isSharingLocation
+                            ? 'bg-emerald-700 text-white shadow-2xs'
+                            : 'bg-white hover:bg-stone-50 border border-stone-200 text-stone-800 shadow-2xs'
+                        }`}
+                        title={isSharingLocation ? 'Sharing Live GPS' : 'Start Sharing GPS'}
+                      >
+                        <Navigation className={`w-3.5 h-3.5 ${isSharingLocation ? 'animate-spin' : 'text-stone-500'}`} />
+                        <span className="hidden sm:inline">{isSharingLocation ? 'GPS Live' : 'Share GPS'}</span>
+                      </button>
+                    </div>
                   </div>
 
                 </div>
 
                 {/* Customer OTP Verification Section */}
-                <div className="pt-3 border-t border-stone-100 space-y-1.5">
+                <div className="pt-2 border-t border-stone-100 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block">
                       CUSTOMER OTP
@@ -991,7 +1049,7 @@ export const DeliveryPortal = () => {
                         type="button"
                         onClick={() => handleOtpInputChange(activeOrder.id, activeOrder.deliveryOtp)}
                         className="text-[10px] text-amber-700 font-bold hover:underline cursor-pointer"
-                        title="Demo Quick Fill"
+                        title="Click to fill customer OTP"
                       >
                         (Customer PIN: {activeOrder.deliveryOtp})
                       </button>
@@ -1002,16 +1060,16 @@ export const DeliveryPortal = () => {
                     <input
                       type="text"
                       maxLength={6}
-                      placeholder="Customer OTP"
+                      placeholder="Customer 4-digit PIN"
                       value={otpInputs[activeOrder.id] || ''}
                       onChange={(e) => handleOtpInputChange(activeOrder.id, e.target.value)}
-                      className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-stone-900 placeholder-stone-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-stone-400"
+                      className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3 py-1.5 text-xs font-bold text-stone-900 placeholder-stone-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-stone-400"
                     />
                     <button
                       type="button"
                       disabled={verifyingOrderMap[activeOrder.id]}
                       onClick={() => handleVerifyOtp(activeOrder.id, activeOrder.deliveryOtp)}
-                      className="px-5 py-2.5 bg-[#3f4a3c] hover:bg-[#323b30] text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
+                      className="px-4 py-1.5 bg-[#3f4a3c] hover:bg-[#323b30] text-white rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer disabled:opacity-50"
                     >
                       {verifyingOrderMap[activeOrder.id] ? 'Verifying...' : 'Verify'}
                     </button>
@@ -1026,7 +1084,98 @@ export const DeliveryPortal = () => {
         )}
 
         {/* ===================================================================== */}
-        {/* SECTION 2: OUT FOR DELIVERY (Grid Cards matching screenshot)         */}
+        {/* READY FOR DISPATCH BANNER (Parcels packed by staff waiting for rider)  */}
+        {/* ===================================================================== */}
+        {readyForDispatchOrders.length > 0 && !activeOrder && (
+          <section className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-amber-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-amber-200/60">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📦</span>
+                <div>
+                  <h3 className="text-sm font-bold text-amber-950">
+                    Parcels Packed & Ready for Pickup ({readyForDispatchOrders.length})
+                  </h3>
+                  <p className="text-[11px] text-amber-800">
+                    Store pickup staff has verified and staged parcel(s) at {storeBrandName}.
+                  </p>
+                </div>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-200/80 text-amber-900 border border-amber-300">
+                Awaiting Courier
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {readyForDispatchOrders.map((ord) => (
+                <div
+                  key={ord.id}
+                  className="bg-white rounded-xl border border-amber-200 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
+                >
+                  <div className="space-y-0.5 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-stone-900 font-mono">
+                        {ord.orderId || `#${ord.id}`}
+                      </span>
+                      <span className="text-stone-300">•</span>
+                      <span className="font-bold text-stone-700">
+                        {formatPrice(ord.totalAmount || ord.total)}
+                      </span>
+                      <span className="text-stone-300">•</span>
+                      <span className="font-semibold text-stone-600">
+                        {ord.customerName || ord.customer || 'Customer'}
+                      </span>
+                    </div>
+                    <p className="text-stone-500 text-[11px]">
+                      📍 Drop-off: {ord.shippingAddress?.address || ord.address || ord.city || 'Faisalabad'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleAcceptDispatchOrder(ord)}
+                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer shrink-0"
+                  >
+                    <span>🛵 Accept & Start Delivery</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ===================================================================== */}
+        {/* STANDBY / IDLE ON-DUTY STATE (When rider has 0 active or ready parcels)*/}
+        {/* ===================================================================== */}
+        {!activeOrder && readyForDispatchOrders.length === 0 && (
+          <section className="bg-white rounded-2xl border border-stone-200/90 shadow-2xs p-6 text-center space-y-3">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-2xl shadow-2xs">
+              🛵
+            </div>
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                <span>ON-DUTY & ONLINE</span>
+              </div>
+              <h3 className="text-base font-bold text-stone-900">
+                Awaiting Store Dispatch Orders
+              </h3>
+              <p className="text-xs text-stone-500 max-w-md mx-auto">
+                You are on standby in <b>{activeRider?.zone || 'Store Delivery Zone'}</b> for {storeBrandName}. When store pickup staff packs and marks a parcel ready, it will appear here in real-time.
+              </p>
+            </div>
+            <div className="pt-2 flex justify-center">
+              <button
+                type="button"
+                onClick={handleDispatchDemoOrder}
+                className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-2xs cursor-pointer"
+              >
+                <span>⚡ Dispatch Test Parcel from {storeBrandName}</span>
+              </button>
+            </div>
+          </section>
+        )}
+
+        {/* ===================================================================== */}
+        {/* SECTION 2: OUT FOR DELIVERY (Grid Cards)                              */}
         {/* ===================================================================== */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
@@ -1039,28 +1188,26 @@ export const DeliveryPortal = () => {
           </div>
 
           {outForDeliveryOrders.length === 0 ? (
-            <div className="bg-white rounded-3xl p-10 text-center border border-stone-200/80 shadow-2xs space-y-2">
+            <div className="bg-white rounded-2xl p-8 text-center border border-stone-200/80 shadow-2xs space-y-2">
               <span className="text-3xl">🎉</span>
               <h3 className="text-base font-bold text-stone-900">All Parcels Delivered!</h3>
               <p className="text-xs text-stone-500 max-w-sm mx-auto">
-                No orders waiting for drop-off. New orders dispatched by store admin will appear here automatically.
+                No orders currently waiting for drop-off. New orders dispatched by store admin or accepted from pickup queue will appear here automatically.
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {outForDeliveryOrders.map((order) => {
-                const totalFormatted = currency === '$'
-                  ? `$${order.totalAmount?.toFixed(2) || '3.78'}`
-                  : `${currency} ${order.totalAmount?.toLocaleString() || '1,450'}`;
+                const totalFormatted = formatPrice(order.totalAmount);
 
                 return (
                   <div
                     key={order.id}
-                    className="bg-white rounded-3xl p-6 border border-stone-200/90 shadow-2xs flex flex-col justify-between space-y-4 hover:border-stone-300 transition"
+                    className="bg-white rounded-2xl p-5 border border-stone-200/90 shadow-2xs flex flex-col justify-between space-y-3.5 hover:border-stone-300 transition"
                   >
                     {/* Header: Order ID + Status */}
                     <div className="flex items-center justify-between">
-                      <span className="text-base font-extrabold text-stone-900">
+                      <span className="text-base font-extrabold text-stone-900 font-mono">
                         {order.orderId}
                       </span>
                       <span className="px-2.5 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 text-[11px] font-bold rounded-full flex items-center gap-1">
@@ -1074,11 +1221,11 @@ export const DeliveryPortal = () => {
                       <p><span className="font-bold text-stone-900">Customer:</span> {order.customerName}</p>
                       <p><span className="font-bold text-stone-900">Phone:</span> {order.customerPhone}</p>
                       <p><span className="font-bold text-stone-900">Region:</span> {order.region || activeRider?.zone || 'Peoples Colony'}</p>
-                      <p><span className="font-bold text-stone-900">Address:</span> {order.shippingAddress?.address || 'Peoples Colony No. 1, Faisalabad'}</p>
+                      <p><span className="font-bold text-stone-900">Address:</span> {order.shippingAddress?.address || order.address || 'Peoples Colony No. 1, Faisalabad'}</p>
                     </div>
 
-                    {/* Items List matching screenshot */}
-                    <div className="pt-2 border-t border-stone-100 space-y-1.5">
+                    {/* Items List */}
+                    <div className="pt-2 border-t border-stone-100 space-y-1">
                       <span className="text-[10px] font-bold tracking-wider text-stone-400 uppercase block">
                         ITEMS IN THIS ORDER
                       </span>
@@ -1086,20 +1233,20 @@ export const DeliveryPortal = () => {
                         {order.itemsList && order.itemsList.length > 0 ? (
                           order.itemsList.map((item, idx) => (
                             <div key={idx} className="flex justify-between items-center">
-                              <span className="font-medium text-stone-800">{item.name}</span>
-                              <span className="font-bold text-stone-500 font-mono">x{item.quantity || 1}</span>
+                              <span className="font-medium text-stone-800">{item.name || item.productName || 'Grocery Item'}</span>
+                              <span className="font-bold text-stone-500 font-mono">x{item.quantity || item.qty || 1}</span>
                             </div>
                           ))
                         ) : (
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-stone-800">Espresso</span>
+                            <span className="font-medium text-stone-800">Grocery Package</span>
                             <span className="font-bold text-stone-500 font-mono">x1</span>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Notes matching screenshot */}
+                    {/* Notes */}
                     <div className="pt-2 border-t border-stone-100 space-y-0.5 text-xs">
                       <span className="text-[10px] font-bold tracking-wider text-stone-400 uppercase block">
                         NOTES
@@ -1109,11 +1256,11 @@ export const DeliveryPortal = () => {
                       </p>
                     </div>
 
-                    {/* Call Button & Price matching screenshot */}
+                    {/* Call Button & Price */}
                     <div className="flex items-center justify-between pt-2 border-t border-stone-100">
                       <a
                         href={`tel:${order.customerPhone || '+923206551696'}`}
-                        className="px-3.5 py-2 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                        className="px-3 py-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
                       >
                         <Phone className="w-3 h-3 text-rose-600" />
                         <span>Call Customer</span>
@@ -1124,7 +1271,7 @@ export const DeliveryPortal = () => {
                       </span>
                     </div>
 
-                    {/* Enter Customer OTP row matching screenshot */}
+                    {/* Enter Customer OTP row */}
                     <div className="pt-2 border-t border-stone-100 space-y-1">
                       <div className="flex items-center justify-between">
                         <label className="text-[10px] font-bold tracking-wider uppercase text-stone-500 block">
@@ -1147,13 +1294,13 @@ export const DeliveryPortal = () => {
                           placeholder="Customer OTP"
                           value={otpInputs[order.id] || ''}
                           onChange={(e) => handleOtpInputChange(order.id, e.target.value)}
-                          className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs font-bold text-stone-900 placeholder-stone-400 focus:bg-white focus:outline-none"
+                          className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3 py-1.5 text-xs font-bold text-stone-900 placeholder-stone-400 focus:bg-white focus:outline-none"
                         />
                         <button
                           type="button"
                           disabled={verifyingOrderMap[order.id]}
                           onClick={() => handleVerifyOtp(order.id, order.deliveryOtp)}
-                          className="px-4 py-2 bg-[#3f4a3c] hover:bg-[#323b30] text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
+                          className="px-4 py-1.5 bg-[#3f4a3c] hover:bg-[#323b30] text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
                         >
                           {verifyingOrderMap[order.id] ? 'Verifying...' : 'Verify'}
                         </button>
@@ -1168,14 +1315,19 @@ export const DeliveryPortal = () => {
         </section>
 
         {/* ===================================================================== */}
-        {/* SECTION 3: DELIVERED TODAY (Table matching screenshot)                */}
+        {/* SECTION 3: DELIVERED TODAY (Table)                                    */}
         {/* ===================================================================== */}
         <section className="space-y-4">
-          <h2 className="text-lg font-bold text-stone-900 font-serif">
-            Delivered Today
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-stone-900 font-serif">
+              Delivered Today
+            </h2>
+            <span className="text-xs text-stone-500 font-semibold">
+              {deliveredTodayOrders.length} orders
+            </span>
+          </div>
 
-          <div className="bg-white rounded-3xl border border-stone-200/90 shadow-2xs overflow-hidden">
+          <div className="bg-white rounded-2xl border border-stone-200/90 shadow-2xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
@@ -1196,9 +1348,7 @@ export const DeliveryPortal = () => {
                     </tr>
                   ) : (
                     deliveredTodayOrders.map((order) => {
-                      const totalFormatted = currency === '$'
-                        ? `$${order.totalAmount?.toFixed(2) || '3.78'}`
-                        : `${currency} ${order.totalAmount?.toLocaleString() || '1,450'}`;
+                      const totalFormatted = formatPrice(order.totalAmount);
 
                       const deliveredTime = order.deliveredAt
                         ? new Date(order.deliveredAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
@@ -1214,7 +1364,7 @@ export const DeliveryPortal = () => {
                           </td>
                           <td className="py-3.5 px-6 text-stone-500">
                             {order.itemsList && order.itemsList.length > 0
-                              ? order.itemsList.map((i) => `${i.name} (x${i.quantity || 1})`).join(', ')
+                              ? order.itemsList.map((i) => `${i.name || i.productName || 'Item'} (x${i.quantity || 1})`).join(', ')
                               : '1 Item'}
                           </td>
                           <td className="py-3.5 px-6 font-bold text-stone-900 font-mono">

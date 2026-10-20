@@ -23,10 +23,14 @@ export const FulfillmentView = () => {
   const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', phone: '' });
   const [search, setSearch] = useState('');
 
-  const activeTenantId = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
+  const activeTenantId = currentTenant?.id || user?.tenantId || 'tenant-freshmart';
 
   const tenantStaff = useMemo(
-    () => pickupStaff.filter((staff) => !staff?.tenantId || isSameTenant(staff?.tenantId, activeTenantId)),
+    () => pickupStaff.filter((staff) => {
+      const sTenant = staff?.tenantId || staff?.companyId;
+      if (!sTenant) return false;
+      return isSameTenant(sTenant, activeTenantId);
+    }),
     [pickupStaff, activeTenantId]
   );
   const orders = useMemo(() => {
@@ -35,8 +39,9 @@ export const FulfillmentView = () => {
       const id = String(order?.id || order?.orderId || order?._id || '');
       if (!id) return;
       if (activeTenantId) {
-        if (!order.tenantId) return;
-        const matchesTenant = isSameTenant(order.tenantId, activeTenantId);
+        const orderTenant = order.tenantId || order.items?.[0]?.tenantId;
+        if (!orderTenant) return;
+        const matchesTenant = isSameTenant(orderTenant, activeTenantId);
         if (!matchesTenant) return;
       }
       unique.set(id, { ...unique.get(id), ...order });
@@ -51,7 +56,11 @@ export const FulfillmentView = () => {
 
   const submitStaff = async (event) => {
     event.preventDefault();
-    const created = await addPickupStaff(staffForm);
+    const created = await addPickupStaff({
+      ...staffForm,
+      tenantId: activeTenantId,
+      tenantName: currentTenant?.name || currentTenant?.displayName || user?.tenantName || 'Supermarket'
+    });
     if (!created) return;
     setStaffForm({ name: '', username: '', password: '', phone: '' });
     setIsAddOpen(false);

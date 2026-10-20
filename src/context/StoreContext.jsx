@@ -2616,7 +2616,13 @@ export const StoreProvider = ({ children }) => {
               merged.push(initP);
             }
           });
-          return merged;
+          return merged.map((p) => {
+            if (!p.tenantId) {
+              const matchedInit = (INITIAL_PICKUP_STAFF || []).find((ip) => ip.id === p.id || ip.username === p.username);
+              if (matchedInit) return { ...p, tenantId: matchedInit.tenantId, tenantName: matchedInit.tenantName };
+            }
+            return p;
+          });
         }
       }
     } catch (e) {}
@@ -2642,8 +2648,8 @@ export const StoreProvider = ({ children }) => {
       return null;
     }
 
-    const tId = currentTenant?.id || 'tenant-alfatah';
-    const tName = currentTenant?.name || 'Supermarket';
+    const tId = staffData?.tenantId || currentTenant?.id || user?.tenantId || 'tenant-freshmart';
+    const tName = staffData?.tenantName || currentTenant?.name || currentTenant?.displayName || user?.tenantName || 'Supermarket';
 
     let staff = {
       id: `PCK-${Date.now().toString(36).toUpperCase()}`,
@@ -2668,7 +2674,7 @@ export const StoreProvider = ({ children }) => {
 
     setPickupStaff((prev) => {
       const existingIdx = prev.findIndex(
-        (person) => person.username?.toLowerCase() === username && (person.tenantId === tId || !person.tenantId)
+        (person) => person.username?.toLowerCase() === username && isSameTenant(person.tenantId, tId)
       );
       let updated;
       if (existingIdx >= 0) {
@@ -3169,8 +3175,8 @@ export const StoreProvider = ({ children }) => {
     }
     const all = [...(customerOrders || []), ...(adminOrders || [])];
     const sourceOrder = all.find((order) => order.id === orderId || order.orderId === orderId);
-    if (!['admin', 'superadmin'].includes(adminRole) && !allowDemo) {
-      addToast('Rider assignment denied', 'Only store admins can assign riders.', 'error');
+    if (!['admin', 'superadmin', 'rider'].includes(adminRole) && !allowDemo) {
+      addToast('Rider assignment denied', 'Only store admins or couriers can assign riders.', 'error');
       return false;
     }
     const eligibleRiders = getEligibleRidersForOrder(sourceOrder);
@@ -3182,7 +3188,7 @@ export const StoreProvider = ({ children }) => {
     };
 
     const effectiveOtp = sourceOrder?.deliveryOtp || String(Math.floor(1000 + Math.random() * 9000));
-    const riderStatus = 'Out for Delivery';
+    const riderStatus = statusOverride || 'Out for Delivery';
     const isDispatched = true;
 
     const assignedInfo = {
@@ -5463,13 +5469,13 @@ export const StoreProvider = ({ children }) => {
       addToast('Assignment denied', 'Only a store admin can assign pickup staff.', 'error');
       return false;
     }
-    const staff = (pickupStaff || []).find((person) => person.id === staffId && person.tenantId === currentTenant?.id && person.status === 'Active');
+    const staff = (pickupStaff || []).find((person) => person.id === staffId && isSameTenant(person.tenantId, currentTenant?.id || user?.tenantId) && (person.status === 'Active' || !person.status));
     if (!staff) {
       addToast('Pickup staff unavailable', 'Select an active pickup staff account for this store.', 'error');
       return false;
     }
     const current = [...(customerOrders || []), ...(adminOrders || [])].find((item) => item.id === orderId || item.orderId === orderId || item._id === orderId);
-    if (!current || (current.tenantId && current.tenantId !== currentTenant?.id)) return false;
+    if (!current || (current.tenantId && !isSameTenant(current.tenantId, currentTenant?.id || user?.tenantId))) return false;
     const assignment = {
       pickupStaffId: staff.id,
       pickupStaffName: staff.name,

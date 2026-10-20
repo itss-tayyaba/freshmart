@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Boxes, MapPin, UserCheck, X } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
+import { isSameTenant } from '../../../data/companyHierarchyData';
 
 export const DeliverToStaffModal = ({ order, isOpen, onClose, onSuccess }) => {
-  const { pickupStaff = [], assignPickupStaffToOrder, currentTenant, addToast } = useStore();
-  const tenantId = order?.tenantId || currentTenant?.id || 'tenant-freshmart';
-  const staff = useMemo(() => pickupStaff.filter((member) => (!member.tenantId || member.tenantId === tenantId) && member.status === 'Active'), [pickupStaff, tenantId]);
+  const { pickupStaff = [], assignPickupStaffToOrder, currentTenant, user, addToast } = useStore();
+  const tenantId = order?.tenantId || currentTenant?.id || user?.tenantId || 'tenant-freshmart';
+  const staff = useMemo(() => pickupStaff.filter((member) => isSameTenant(member.tenantId || member.companyId, tenantId) && (member.status === 'Active' || !member.status)), [pickupStaff, tenantId]);
   const [selectedStaffId, setSelectedStaffId] = useState(order?.pickupStaffId || '');
   useEffect(() => setSelectedStaffId(order?.pickupStaffId || ''), [order?.id, order?.pickupStaffId]);
 
