@@ -21,7 +21,6 @@ import {
   Home,
   Building,
   Navigation,
-  Heart,
   X
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -107,7 +106,7 @@ export const CheckoutPage = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedSlot, setSelectedSlot] = useState('⚡ Instant 10-15 Mins Express Delivery');
   const [selectedPayment, setSelectedPayment] = useState('card'); // 'card' | 'wallet_raast' | 'bank' | 'cod'
-  const [riderTip, setRiderTip] = useState(50);
+  const [riderTip, setRiderTip] = useState(0);
   const [isEcoFriendly, setIsEcoFriendly] = useState(true);
   const [couponInput, setCouponInput] = useState('');
   const [isOrderPlaced, setIsOrderPlaced] = useState(false);
@@ -273,12 +272,11 @@ export const CheckoutPage = () => {
           </h1>
         </div>
 
-        {/* 3-Step Stepper Progress */}
+        {/* 2-Step Stepper Progress */}
         <div className="flex items-center gap-2 bg-slate-50 px-4 py-2.5 rounded-2xl border border-slate-200/80 shadow-2xs">
           {[
             { num: 1, label: 'Address' },
-            { num: 2, label: 'Payment' },
-            { num: 3, label: 'Courier Tip' }
+            { num: 2, label: 'Payment' }
           ].map((s, idx) => {
             const isCompleted = isOrderPlaced || currentStep > s.num;
             const isCurrent = currentStep === s.num;
@@ -310,7 +308,7 @@ export const CheckoutPage = () => {
                   </span>
                 </div>
 
-                {idx < 2 && (
+                {idx < 1 && (
                   <div
                     className={`w-4 sm:w-8 h-0.5 rounded-full transition-all ${
                       currentStep > idx + 1 || isOrderPlaced ? theme.primaryBg.split(' ')[0] : 'bg-slate-200'
@@ -545,47 +543,6 @@ export const CheckoutPage = () => {
               selectedPayment={selectedPayment}
               setSelectedPayment={setSelectedPayment}
             />
-
-            {/* Step 3: Courier Tip */}
-            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-100 shadow-xl shadow-emerald-950/5 space-y-4">
-              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs shadow-xs">
-                  3
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900">Courier Tip</h3>
-                  <p className="text-[11px] text-slate-400">Support your delivery partner on the road</p>
-                </div>
-              </div>
-
-              {/* Rider Tip */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-1">
-                <div className="space-y-0.5 text-center sm:text-left">
-                  <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
-                    <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
-                    <span>Rider Appreciation Tip</span>
-                  </h4>
-                  <p className="text-[11px] text-slate-400">100% of tips go directly into your courier's pocket.</p>
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap justify-center">
-                  {[0, 50, 100, 200, 500].map((amount) => (
-                    <button
-                      key={amount}
-                      type="button"
-                      onClick={() => setRiderTip(amount)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        riderTip === amount
-                          ? `${theme.primaryBg} text-white shadow-sm ring-2 ring-offset-1`
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      {amount === 0 ? 'No Tip' : `${currency.symbol}${amount}`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
 
           </div>
 
