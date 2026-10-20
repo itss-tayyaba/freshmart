@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import L from 'leaflet';
 import {
   X,
@@ -6,14 +6,16 @@ import {
   Check,
   Zap,
   ShieldCheck,
-  ChevronDown
+  ChevronDown,
+  Compass,
+  Store
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { PAKISTAN_CITIES } from '../../data/pakistanLocations';
-import { reverseGeocodeAddress } from '../../utils/geolocationHelper';
+import { detectUserLocation, reverseGeocodeAddress } from '../../utils/geolocationHelper';
 import { apiService } from '../../services/api';
 
-// Custom Modern SVG Pin for Leaflet Map to guarantee zero missing asset issues in Vite
+// Custom Modern SVG Pin for User Location to guarantee zero missing asset issues in Vite
 const createUserPin = () =>
   L.divIcon({
     className: 'custom-user-leaflet-pin',
@@ -36,6 +38,28 @@ const createUserPin = () =>
     popupAnchor: [0, -44]
   });
 
+// Custom Store Pin for Supermarket Stores on Leaflet Map
+const createStorePin = (store) => {
+  const color = store.color || '#0284c7';
+  const logo = store.logo || '🏬';
+  return L.divIcon({
+    className: 'custom-store-pin',
+    html: `
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer;">
+        <div style="width: 30px; height: 30px; border-radius: 10px; background: ${color}; border: 2px solid #ffffff; box-shadow: 0 4px 8px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center; color: white; font-size: 13px;">
+          <span>${logo}</span>
+        </div>
+        <div style="margin-top: 2px; padding: 1px 5px; border-radius: 5px; background: #0f172a; color: white; font-size: 8px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+          ${store.displayName || store.name}
+        </div>
+      </div>
+    `,
+    iconSize: [34, 46],
+    iconAnchor: [17, 38],
+    popupAnchor: [0, -38]
+  });
+};
+
 export const LocationModal = () => {
   const { isLocationModalOpen } = useStore();
   return isLocationModalOpen ? <LocationModalContent /> : null;
@@ -48,10 +72,14 @@ const LocationModalContent = () => {
     deliveryLocation,
     confirmDeliveryLocation,
     currentTenant,
+    setCurrentTenant,
+    getNearbyStores,
     addToast
   } = useStore();
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locateStatus, setLocateStatus] = useState('');
 
   // Editable coordinates state (defaults to Muhammad Nagar, Faisalabad: 31.3973, 73.1180)
   const [currentCoords, setCurrentCoords] = useState(() => ({
@@ -76,8 +104,17 @@ const LocationModalContent = () => {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const userMarkerRef = useRef(null);
+  const storeMarkersRef = useRef([]);
 
   const currentCityObj = PAKISTAN_CITIES.find((c) => c.id === selectedCityId) || PAKISTAN_CITIES[0];
+
+  // Dynamically calculate nearby grocery stores based on current customer coordinates
+  const nearbyStores = useMemo(() => {
+    if (typeof getNearbyStores === 'function') {
+      return getNearbyStores(currentCoords);
+    }
+    return [];
+  }, [getNearbyStores, currentCoords]);
 
   // Sync internal state when deliveryLocation changes
   useEffect(() => {
@@ -180,6 +217,87 @@ const LocationModalContent = () => {
     };
   }, []);
 
+  // Update store markers on the Leaflet Map
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    // Clear previous store markers
+    storeMarkersRef.current.forEach((m) => map.removeLayer(m));
+    storeMarkersRef.current = [];
+
+    nearbyStores.forEach((st) => {
+      const bLat = Number(st.nearestBranch?.latitude || st.nearestBranch?.coordinates?.lat || 31.4125);
+      const bLng = Number(st.nearestBranch?.longitude || st.nearestBranch?.coordinates?.lng || 73.0995);
+      if (!bLat || !bLng) return;
+
+      const marker = L.marker([bLat, bLng], {
+        icon: createStorePin(st),
+        zIndexOffset: 500
+      }).addTo(map);
+
+      marker.bindPopup(`
+        <div style="font-family: inherit; font-size: 11px; line-height: 1.4; min-width: 140px;">
+          <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 2px;">
+            <span style="font-size: 14px;">${st.logo || '🏬'}</span>
+            <strong style="color: #0f172a; font-size: 12px;">${st.displayName || st.name}</strong>
+          </div>
+          <div style="display: inline-block; padding: 2px 6px; border-radius: 9999px; background: #ecfdf5; color: #047857; font-weight: 800; font-size: 10px; margin-bottom: 3px;">
+            📍 ${st.distanceFormatted || '1.2 km'} away
+          </div>
+          <p style="margin: 0; color: #475569; font-size: 10px;">
+            ⚡ Fast Delivery: <strong>${st.estimatedTime || '15-25 mins'}</strong>
+          </p>
+        </div>
+      `);
+
+      storeMarkersRef.current.push(marker);
+    });
+  }, [nearbyStores]);
+
+  // 🎯 DETECT CURRENT LOCATION (Auto-Locate GPS)
+  const handleDetectLocation = async () => {
+    setIsLocating(true);
+    setLocateStatus('Requesting GPS Coordinates...');
+
+    try {
+      const result = await detectUserLocation({
+        onProgress: (status) => setLocateStatus(status)
+      });
+
+      if (result) {
+        const detectedLat = Number(result.lat.toFixed(5));
+        const detectedLng = Number(result.lng.toFixed(5));
+
+        setCurrentCoords({ lat: detectedLat, lng: detectedLng });
+        if (result.matchedCityId) {
+          setSelectedCityId(result.matchedCityId);
+        }
+        if (result.address) {
+          setAddressInput(result.address);
+        }
+
+        // Pan map and update marker
+        if (mapInstanceRef.current && userMarkerRef.current) {
+          userMarkerRef.current.setLatLng([detectedLat, detectedLng]);
+          mapInstanceRef.current.setView([detectedLat, detectedLng], 16, { animate: true });
+        }
+
+        addToast(
+          'Location Detected 🎯',
+          `Centered map at ${result.city} (${result.label || 'GPS'})`
+        );
+      } else {
+        addToast('GPS Notice', 'Could not retrieve GPS coordinates. You can drag the pin on the map.', 'info');
+      }
+    } catch (err) {
+      addToast('GPS Notice', 'Location access blocked. You can click or drag the pin on the Leaflet map.', 'info');
+    } finally {
+      setIsLocating(false);
+      setLocateStatus('');
+    }
+  };
+
   // City selection from dropdown
   const handleSelectCity = (cityObj) => {
     setSelectedCityId(cityObj.id);
@@ -278,7 +396,7 @@ const LocationModalContent = () => {
         onClick={handleCloseModal}
       />
 
-      {/* Clean Modal Card with Leaflet Map */}
+      {/* Clean Modal Card with Leaflet Map & Grocery Stores */}
       <div className="relative bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden z-10 border border-slate-100 p-5 sm:p-7 text-center max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
         
         {/* Close Button */}
@@ -312,7 +430,7 @@ const LocationModalContent = () => {
         </div>
 
         {/* 1. Order Type - DELIVERY ONLY */}
-        <div className="my-3">
+        <div className="my-2.5">
           <div className="flex justify-center">
             <div
               style={{ backgroundColor: tenantThemeColor }}
@@ -381,20 +499,32 @@ const LocationModalContent = () => {
           </div>
         )}
 
-        {/* 3. 🗺️ EXACT LEAFLET MAP LOCATION PINPOINT (REPLACED FETCH LOCATION) */}
-        <div className="mt-3.5 text-left">
-          <div className="flex items-center justify-between mb-1.5">
+        {/* 3. 🗺️ LEAFLET MAP & DETECT CURRENT LOCATION ACTION */}
+        <div className="mt-3.5 text-left space-y-2">
+          <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Pin Your Exact Delivery Location on Leaflet Map</span>
+              <span>Interactive Leaflet Map & Grocery Stores</span>
             </label>
             <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold">
               Exact Doorstep Pin
             </span>
           </div>
 
+          {/* 🎯 DETECT CURRENT LOCATION BUTTON */}
+          <button
+            type="button"
+            onClick={handleDetectLocation}
+            disabled={isLocating}
+            className="w-full py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:shadow-lg active:scale-[0.99]"
+          >
+            <Compass className={`w-4 h-4 ${isLocating ? 'animate-spin' : ''}`} />
+            <span>{isLocating ? (locateStatus || 'Locating Your Exact GPS...') : '🎯 Detect Current Location (Auto-Locate GPS)'}</span>
+          </button>
+
+          {/* Map Box */}
           <div className="rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-xs bg-slate-100 relative">
-            <div ref={mapContainerRef} className="w-full h-44 sm:h-52 z-0" />
+            <div ref={mapContainerRef} className="w-full h-48 sm:h-56 z-0" />
 
             {/* Live Coordinate Badge at bottom-left */}
             <div className="absolute bottom-2 left-2 z-[1000] bg-slate-900/85 backdrop-blur-md text-white text-[9px] font-mono px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1.5 pointer-events-none">
@@ -409,7 +539,73 @@ const LocationModalContent = () => {
           </div>
         </div>
 
-        {/* 4. Full Street Address Input */}
+        {/* 🏬 4. NEARBY GROCERY STORES & DISTANCE FROM CURRENT LOCATION */}
+        {nearbyStores && nearbyStores.length > 0 && (
+          <div className="mt-3 p-3 bg-slate-50/90 rounded-2xl border border-slate-200/90 text-left space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-black text-slate-800 flex items-center gap-1.5">
+                <Store className="w-3.5 h-3.5 text-emerald-600" />
+                Nearby Grocery Stores from Your Pin:
+              </span>
+              <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                Live Proximity
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {nearbyStores.map((store, idx) => {
+                const isSelectedStore = (currentTenant?.id || 'tenant-freshmart') === store.id;
+                const isClosest = idx === 0;
+
+                return (
+                  <div
+                    key={store.id}
+                    onClick={() => {
+                      if (setCurrentTenant) setCurrentTenant(store);
+                      addToast('Store Switched 🏬', `Shopping at ${store.name}`);
+                    }}
+                    className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-1.5 ${
+                      isSelectedStore
+                        ? 'bg-white border-emerald-500 shadow-xs ring-1 ring-emerald-500'
+                        : 'bg-white/80 hover:bg-white border-slate-200'
+                    }`}
+                    title={`Click to shop at ${store.name}`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div
+                        style={{ backgroundColor: store.color || '#0284c7' }}
+                        className="w-6 h-6 rounded-lg flex items-center justify-center text-white text-[11px] shrink-0 font-bold shadow-2xs"
+                      >
+                        {store.logo || '🏬'}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-bold text-slate-900 block truncate leading-tight">
+                          {store.displayName || store.name}
+                        </span>
+                        <span className="text-[9px] text-slate-400 block truncate">
+                          ⚡ {store.estimatedTime || '15-25 mins'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="text-[11px] font-black text-emerald-700 block font-mono leading-tight">
+                        {store.distanceFormatted || '1.2 km'}
+                      </span>
+                      {isClosest && (
+                        <span className="text-[8px] font-black uppercase text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
+                          Nearest
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 5. Full Street Address Input */}
         <div className="text-left mt-3">
           <label className="text-xs font-bold text-slate-700 block mb-1">
             Delivery Address (Street / House / Sector)
@@ -423,7 +619,7 @@ const LocationModalContent = () => {
           />
         </div>
 
-        {/* 5. Select & Confirm Button */}
+        {/* 6. Select & Confirm Button */}
         <div className="mt-4">
           <button
             type="button"
