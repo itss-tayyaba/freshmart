@@ -14,6 +14,14 @@ export const PAKISTAN_CITIES = [
     hubCoords: { lat: 31.4125, lng: 73.0995 },
     neighborhoods: [
       {
+        id: 'fsd-muhammad-nagar',
+        name: 'Muhammad Nagar',
+        area: 'Muhammad Nagar / Naimat Colony',
+        coords: { lat: 31.3973, lng: 73.1180 },
+        defaultAddress: 'Muhammad Nagar, Faisalabad',
+        postalCode: '38000'
+      },
+      {
         id: 'fsd-dground',
         name: 'D Ground',
         area: 'D Ground Market / Batala Colony',
@@ -28,6 +36,22 @@ export const PAKISTAN_CITIES = [
         coords: { lat: 31.4050, lng: 73.1090 },
         defaultAddress: 'Street 4, Peoples Colony No. 2, Faisalabad',
         postalCode: '38040'
+      },
+      {
+        id: 'fsd-madina',
+        name: 'Madina Town',
+        area: 'Madina Town / Kohinoor City',
+        coords: { lat: 31.4312, lng: 73.1158 },
+        defaultAddress: 'Main Boulevard, Madina Town, Faisalabad',
+        postalCode: '38000'
+      },
+      {
+        id: 'fsd-kohinoor',
+        name: 'Kohinoor City',
+        area: 'Kohinoor City / Jaranwala Road',
+        coords: { lat: 31.4082, lng: 73.1145 },
+        defaultAddress: 'Kohinoor City, Jaranwala Road, Faisalabad',
+        postalCode: '38000'
       }
     ]
   },

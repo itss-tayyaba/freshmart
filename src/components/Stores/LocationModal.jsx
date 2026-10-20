@@ -48,7 +48,7 @@ const LocationModalContent = () => {
 
   // Custom address input form state
   const [addressInput, setAddressInput] = useState(
-    deliveryLocation?.address || 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad'
+    deliveryLocation?.address || 'Muhammad Nagar, Faisalabad'
   );
 
   // Sync internal state when deliveryLocation changes
@@ -255,6 +255,9 @@ const LocationModalContent = () => {
             <Compass className={`w-4 h-4 text-emerald-600 ${isLocating ? 'animate-spin' : ''}`} />
             <span>{isLocating ? (locateStatus || 'Fetching Location...') : '🎯 Fetch Current Location'}</span>
           </button>
+          <p className="text-[10px] text-slate-400 mt-1.5 text-center">
+            💡 Laptops/PCs estimate location via internet provider. You can tap your exact area below or type your street.
+          </p>
 
           {/* Location permission block alert if browser denied GPS permission */}
           {permissionBlocked && (
@@ -304,9 +307,41 @@ const LocationModalContent = () => {
             type="text"
             value={addressInput}
             onChange={(e) => setAddressInput(e.target.value)}
-            placeholder="e.g. House 88, Main D-Ground, Peoples Colony 1, Faisalabad"
+            placeholder="e.g. Muhammad Nagar, Faisalabad"
             className="w-full text-xs font-semibold bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-xl px-3.5 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-xs"
           />
+
+          {/* Quick-Select Areas in Selected City (e.g. Muhammad Nagar) */}
+          {currentCityObj?.neighborhoods?.length > 0 && (
+            <div className="mt-2.5 text-left">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                Popular areas in {currentCityObj.city.split(',')[0]}:
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {currentCityObj.neighborhoods.map((n) => {
+                  const isSelected = addressInput.toLowerCase().includes(n.name.toLowerCase());
+                  return (
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() => {
+                        setAddressInput(n.defaultAddress);
+                        setCurrentCoords({ lat: n.coords.lat, lng: n.coords.lng });
+                        addToast('Area Selected 📍', `${n.name}, ${currentCityObj.city}`);
+                      }}
+                      className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      📍 {n.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 5. Confirmation Action Button ("Select") */}
