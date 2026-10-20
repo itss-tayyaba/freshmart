@@ -17,6 +17,7 @@ import {
 } from '../src/data/branchCatalogData.js';
 import { getCategories, getCategoryById } from '../server/controllers/categoryController.js';
 import { getProducts, getProductById } from '../server/controllers/productController.js';
+import { saveCustomerLocation, getCustomerLocation } from '../server/controllers/extraControllers.js';
 
 describe('Backend Robustness & Unique Department/Product Architecture', () => {
 
@@ -193,6 +194,57 @@ describe('Backend Robustness & Unique Department/Product Architecture', () => {
       assert.equal(responseData.product.departmentCode, 'DEPT-AF-01');
       assert.ok(responseData.product.nutrition, 'Product must include relative nutritional info');
       assert.ok(responseData.product.description.length > 20, 'Product must include detailed description');
+    });
+  });
+
+  // =========================================================================
+  // 4. Delivery Location Persistence & Order Type Enforcement
+  // =========================================================================
+  describe('4. Delivery Location Persistence & Order Type Enforcement', () => {
+    it('persists customer location with city, address, and enforces orderType as Delivery', async () => {
+      let responseData = null;
+      let statusCode = 200;
+      const req = {
+        body: {
+          city: 'Faisalabad',
+          address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+          area: 'Peoples Colony 1',
+          coords: { lat: 31.4125, lng: 73.0995 },
+          phone: '+92 300 1234567',
+          tenantId: 'tenant-alfatah',
+          sessionId: 'test_session_123'
+        },
+        headers: {}
+      };
+      const res = {
+        status(code) { statusCode = code; return this; },
+        json(data) { responseData = data; return data; }
+      };
+
+      await saveCustomerLocation(req, res);
+      assert.equal(statusCode, 200);
+      assert.equal(responseData.success, true);
+      assert.equal(responseData.location.city, 'Faisalabad');
+      assert.equal(responseData.location.orderType, 'Delivery');
+      assert.ok(responseData.location.address.includes('Peoples Colony'));
+    });
+
+    it('retrieves previously saved delivery location by session or user', async () => {
+      let responseData = null;
+      const req = {
+        query: { sessionId: 'test_session_123' },
+        headers: {}
+      };
+      const res = {
+        json(data) { responseData = data; return data; },
+        status() { return this; }
+      };
+
+      await getCustomerLocation(req, res);
+      assert.equal(responseData.success, true);
+      assert.ok(responseData.location);
+      assert.equal(responseData.location.city, 'Faisalabad');
+      assert.equal(responseData.location.orderType, 'Delivery');
     });
   });
 

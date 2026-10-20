@@ -992,12 +992,13 @@ export const StoreProvider = ({ children }) => {
     addToast('Store Activated 🛒', `Now shopping at ${storeTenant.name}`);
   };
 
-  // Confirm customer delivery location, lock coordinates, and auto-route to closest store
+  // Confirm customer delivery location, lock coordinates, persist to database & store, and auto-route
   const confirmDeliveryLocation = (newLoc) => {
     if (!newLoc) return;
     const resolved = {
       ...deliveryLocation,
       ...newLoc,
+      orderType: 'Delivery',
       coords: newLoc.coords || {
         lat: Number(newLoc.lat || 31.4125),
         lng: Number(newLoc.lng || 73.0995)
@@ -1012,6 +1013,24 @@ export const StoreProvider = ({ children }) => {
       localStorage.setItem('freshmart_location_confirmed', 'true');
     } catch (e) {}
 
+    // Persist delivery location directly to MongoDB database
+    try {
+      apiService.saveLocation({
+        city: resolved.city,
+        address: resolved.address,
+        area: resolved.area || '',
+        neighborhood: resolved.neighborhood || '',
+        coords: resolved.coords,
+        lat: resolved.lat,
+        lng: resolved.lng,
+        label: resolved.label || 'Home',
+        phone: resolved.phone || '',
+        tenantId: currentTenant?.id || 'tenant-freshmart',
+        tenantName: currentTenant?.name || 'FreshMart',
+        orderType: 'Delivery'
+      });
+    } catch (e) {}
+
     // Find and auto-route to closest store based on Haversine distance
     const nearby = getNearbyStores(resolved.coords);
     if (nearby && nearby.length > 0) {
@@ -1023,7 +1042,7 @@ export const StoreProvider = ({ children }) => {
 
     addToast(
       'Location Confirmed 📍',
-      `Delivering to: ${resolved.address || resolved.city}. Nearest store active!`
+      `Delivering to: ${resolved.address || resolved.city}. Saved to database & store!`
     );
   };
 

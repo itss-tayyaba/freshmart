@@ -137,3 +137,30 @@ const deliverySchema = new mongoose.Schema(
 );
 
 export const Delivery = mongoose.model('Delivery', deliverySchema);
+
+const customerLocationSchema = new mongoose.Schema(
+  {
+    sessionId: { type: String, index: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    userPhone: { type: String, default: '' },
+    userName: { type: String, default: 'Valued Customer' },
+    tenantId: { type: String, default: 'tenant-freshmart', index: true },
+    tenantName: { type: String, default: 'FreshMart' },
+    city: { type: String, required: true },
+    address: { type: String, required: true },
+    area: { type: String, default: '' },
+    neighborhood: { type: String, default: '' },
+    coords: {
+      lat: { type: Number, default: 31.4125 },
+      lng: { type: Number, default: 73.0995 }
+    },
+    lat: { type: Number, default: 31.4125 },
+    lng: { type: Number, default: 73.0995 },
+    hubName: { type: String, default: '' },
+    label: { type: String, default: 'Home' },
+    orderType: { type: String, default: 'Delivery' }
+  },
+  { timestamps: true, bufferCommands: false }
+);
+
+export const CustomerLocation = mongoose.model('CustomerLocation', customerLocationSchema);

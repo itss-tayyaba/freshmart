@@ -53,7 +53,9 @@ import {
   validateCoupon,
   getDeliveries,
   getAnalyticsDashboard,
-  uploadImage
+  uploadImage,
+  saveCustomerLocation,
+  getCustomerLocation
 } from '../controllers/extraControllers.js';
 import {
   registerVendor,
@@ -162,6 +164,9 @@ router.get('/customers', protect, adminOnly, getCustomers);
 // Public: Customer enrollment
 router.post('/customers', addCustomer);
 router.delete('/customers/:id', protect, adminOnly, deleteCustomer);
+// Delivery Location Persistence (Stores to Database & Session)
+router.post('/customer/location', saveCustomerLocation);
+router.get('/customer/location', getCustomerLocation);
 
 // --- Suppliers Routes ---
 // Admin Locked & Validated: Supplier database and partner operations

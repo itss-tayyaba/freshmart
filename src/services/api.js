@@ -269,6 +269,30 @@ export const apiService = {
     }
   },
 
+  async saveLocation(locationData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/customer/location`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(locationData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getSavedLocation() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/customer/location`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
   async createCategory(categoryData) {
     try {
       const res = await fetch(`${API_BASE_URL}/categories`, {

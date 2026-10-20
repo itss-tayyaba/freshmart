@@ -3,7 +3,7 @@ import { isDbOnline } from '../config/db.js';
 import { Product } from '../models/Product.js';
 import { User } from '../models/User.js';
 import { Order } from '../models/Order.js';
-import { Supplier, Promotion, Delivery, Rider } from '../models/ExtraModels.js';
+import { Supplier, Promotion, Delivery, Rider, CustomerLocation } from '../models/ExtraModels.js';
 import {
   ADMIN_STATS,
   ADMIN_TOP_PRODUCTS,
@@ -780,24 +780,140 @@ export const getAnalyticsDashboard = async (req, res) => {
   }
 };
 
-// @desc    Upload image to Object Storage (Cloudinary/S3/CDN) or validate URL
-// @route   POST /api/upload
-export const uploadImage = async (req, res) => {
+// In-Memory store for customer delivery locations fallback
+let MEMORY_CUSTOMER_LOCATIONS = [];
+
+// @desc    Save customer delivery location to database & store
+// @route   POST /api/customer/location
+export const saveCustomerLocation = async (req, res) => {
   try {
-    const { image, imageUrl } = req.body;
-    if (imageUrl) {
-      return res.json({ success: true, url: imageUrl });
-    }
-    if (!image) {
-      return res.status(400).json({ success: false, message: 'No image data provided' });
+    const {
+      city,
+      address,
+      area,
+      neighborhood,
+      coords,
+      lat,
+      lng,
+      label,
+      phone,
+      orderType,
+      tenantId,
+      tenantName,
+      sessionId,
+      userId,
+      userName
+    } = req.body;
+
+    if (!city || !address) {
+      return res.status(400).json({ success: false, message: 'City and street address are required' });
     }
 
-    return res.json({
+    const resolvedCoords = coords || {
+      lat: Number(lat || 31.4125),
+      lng: Number(lng || 73.0995)
+    };
+
+    const locationPayload = {
+      sessionId: sessionId || req.headers['x-session-id'] || 'session_guest',
+      userId: req.user?._id || userId || undefined,
+      userPhone: phone || req.user?.phone || '',
+      userName: userName || req.user?.name || 'Customer',
+      tenantId: tenantId || req.headers['x-tenant-id'] || 'tenant-freshmart',
+      tenantName: tenantName || 'Store',
+      city: String(city).trim(),
+      address: String(address).trim(),
+      area: area || '',
+      neighborhood: neighborhood || '',
+      coords: resolvedCoords,
+      lat: resolvedCoords.lat,
+      lng: resolvedCoords.lng,
+      label: label || 'Home',
+      phone: phone || '',
+      orderType: 'Delivery'
+    };
+
+    if (isDbOnline()) {
+      try {
+        const query = locationPayload.userId
+          ? { userId: locationPayload.userId }
+          : { sessionId: locationPayload.sessionId };
+
+        const savedLocation = await CustomerLocation.findOneAndUpdate(
+          query,
+          locationPayload,
+          { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+        );
+
+        if (req.user?._id) {
+          await User.findByIdAndUpdate(req.user._id, {
+            $set: {
+              address: locationPayload.address,
+              deliveryLocation: locationPayload
+            }
+          });
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: 'Delivery location saved to database successfully',
+          location: savedLocation
+        });
+      } catch (dbErr) {
+        console.warn('Location DB save warning:', dbErr.message);
+      }
+    }
+
+    const idx = MEMORY_CUSTOMER_LOCATIONS.findIndex(
+      (l) => l.sessionId === locationPayload.sessionId || (locationPayload.userId && l.userId === locationPayload.userId)
+    );
+    if (idx !== -1) {
+      MEMORY_CUSTOMER_LOCATIONS[idx] = { ...MEMORY_CUSTOMER_LOCATIONS[idx], ...locationPayload, updatedAt: new Date() };
+    } else {
+      MEMORY_CUSTOMER_LOCATIONS.unshift({ ...locationPayload, createdAt: new Date() });
+    }
+
+    return res.status(200).json({
       success: true,
-      url: image.startsWith('http') ? image : image,
-      message: 'Image asset processed successfully'
+      message: 'Delivery location saved in store memory',
+      location: locationPayload
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get last saved customer delivery location
+// @route   GET /api/customer/location
+export const getCustomerLocation = async (req, res) => {
+  try {
+    const sessionId = req.query.sessionId || req.headers['x-session-id'];
+    const userId = req.user?._id || req.query.userId;
+
+    if (isDbOnline()) {
+      try {
+        const query = userId ? { userId } : sessionId ? { sessionId } : null;
+        if (query) {
+          const loc = await CustomerLocation.findOne(query).sort({ updatedAt: -1 });
+          if (loc) {
+            return res.json({ success: true, location: loc });
+          }
+        }
+      } catch (dbErr) {
+        console.warn('Location DB fetch warning:', dbErr.message);
+      }
+    }
+
+    const memoryLoc = MEMORY_CUSTOMER_LOCATIONS.find(
+      (l) => (userId && l.userId === userId) || (sessionId && l.sessionId === sessionId)
+    );
+
+    if (memoryLoc) {
+      return res.json({ success: true, location: memoryLoc });
+    }
+
+    return res.json({ success: false, message: 'No saved location found' });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

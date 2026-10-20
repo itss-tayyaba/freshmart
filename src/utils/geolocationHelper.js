@@ -118,8 +118,16 @@ function getBrowserCoordinates({ onProgress, timeoutMs = 6000 } = {}) {
         clearTimeout(timer);
         finish(pos.coords);
       },
-      () => {
-        // High accuracy failed or standard retry: try once more with default settings
+      (err) => {
+        // If permission was denied/blocked by user, don't re-prompt
+        if (err && err.code === 1) {
+          clearTimeout(timer);
+          if (onProgress) onProgress('Browser location blocked by user.');
+          finish(null);
+          return;
+        }
+
+        // Otherwise try with fallback settings
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             clearTimeout(timer);
@@ -132,7 +140,7 @@ function getBrowserCoordinates({ onProgress, timeoutMs = 6000 } = {}) {
           { enableHighAccuracy: true, timeout: 3000, maximumAge: 60000 }
         );
       },
-      { enableHighAccuracy: false, timeout: 4000, maximumAge: 60000 }
+      { enableHighAccuracy: false, timeout: 3500, maximumAge: 60000 }
     );
   });
 }
