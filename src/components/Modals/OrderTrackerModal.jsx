@@ -4,7 +4,19 @@ import { useStore } from '../../context/StoreContext';
 import { apiService } from '../../services/api';
 
 export const OrderTrackerModal = () => {
-  const { isOrderTrackerOpen, setIsOrderTrackerOpen, customerOrders, navigateTo, trackOrderRemote, deliveryLocation } = useStore();
+  const { isOrderTrackerOpen, setIsOrderTrackerOpen, customerOrders, navigateTo, trackOrderRemote, deliveryLocation, currentTenant } = useStore();
+
+  const isAlFatah = currentTenant?.id === 'tenant-alfatah';
+  const isChaseUp = currentTenant?.id === 'tenant-chaseup';
+  const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
+
+  const tenantThemeColor = currentTenant?.color || (
+    isAlFatah ? '#991b1b' :
+    isChaseUp ? '#6b21a8' :
+    isCaseValue ? '#78350f' :
+    '#0284c7'
+  );
+
   const [orderInput, setOrderInput] = useState('');
   const [currentOrder, setCurrentOrder] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -249,7 +261,8 @@ export const OrderTrackerModal = () => {
               <button
                 type="submit"
                 disabled={isSearching}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-60 shrink-0"
+                style={{ backgroundColor: tenantThemeColor }}
+                className="px-5 py-2.5 hover:opacity-90 text-white rounded-xl text-xs font-bold transition-opacity cursor-pointer flex items-center gap-1.5 disabled:opacity-60 shrink-0"
               >
                 {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
                 <span>{isSearching ? 'Searching...' : 'Track'}</span>
@@ -265,11 +278,12 @@ export const OrderTrackerModal = () => {
                     type="button"
                     key={o.id}
                     onClick={() => selectOrder(o)}
-                    className={`font-mono font-bold px-2.5 py-1 rounded-lg cursor-pointer transition-all border text-xs ${
+                    style={
                       orderInput && (orderInput.toUpperCase() === String(o.id).toUpperCase() || orderInput.toUpperCase() === String(o.orderId).toUpperCase())
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                        : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border-emerald-200'
-                    }`}
+                        ? { backgroundColor: tenantThemeColor, borderColor: tenantThemeColor, color: '#fff' }
+                        : { backgroundColor: `${tenantThemeColor}12`, borderColor: `${tenantThemeColor}30`, color: tenantThemeColor }
+                    }
+                    className={`font-mono font-bold px-2.5 py-1 rounded-lg cursor-pointer transition-all border text-xs shadow-2xs`}
                   >
                     {o.id || o.orderId} ({o.status || 'Pending'})
                   </button>
@@ -479,13 +493,25 @@ export const OrderTrackerModal = () => {
               </div>
 
               {/* Driver Details Card (if in transit / assigned) */}
-              <div className="bg-emerald-50/80 rounded-2xl p-4 border border-emerald-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div
+                style={{
+                  backgroundColor: `${tenantThemeColor}0d`,
+                  borderColor: `${tenantThemeColor}25`
+                }}
+                className="rounded-2xl p-4 border flex flex-col sm:flex-row items-center justify-between gap-4"
+              >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold">
+                  <div
+                    style={{ backgroundColor: tenantThemeColor }}
+                    className="w-10 h-10 rounded-2xl text-white flex items-center justify-center font-bold"
+                  >
                     <User className="w-5 h-5" />
                   </div>
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">
+                    <span
+                      style={{ color: tenantThemeColor }}
+                      className="text-[10px] uppercase font-bold tracking-wider"
+                    >
                       Assigned Courier Rider
                     </span>
                     <h4 className="text-xs sm:text-sm font-bold text-slate-800">
@@ -499,7 +525,8 @@ export const OrderTrackerModal = () => {
                   {currentOrder.driverPhone && (
                     <a
                       href={`tel:${currentOrder.driverPhone}`}
-                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                      style={{ backgroundColor: tenantThemeColor }}
+                      className="px-3.5 py-2 rounded-xl hover:opacity-90 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-opacity cursor-pointer"
                     >
                       <Phone className="w-3.5 h-3.5" />
                       <span>Call Driver</span>

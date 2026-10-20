@@ -12,8 +12,20 @@ export const QuickViewModal = () => {
     currency,
     getProductSubstitutes,
     isProductOutOfStock,
-    addToast
+    addToast,
+    currentTenant
   } = useStore();
+
+  const isAlFatah = currentTenant?.id === 'tenant-alfatah';
+  const isChaseUp = currentTenant?.id === 'tenant-chaseup';
+  const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
+
+  const tenantThemeColor = currentTenant?.color || (
+    isAlFatah ? '#991b1b' :
+    isChaseUp ? '#6b21a8' :
+    isCaseValue ? '#78350f' :
+    '#0284c7'
+  );
 
   const product = selectedProductForQuickView;
   const isOOS = Boolean(isProductOutOfStock ? isProductOutOfStock(product) : (product?.inStock === false || product?.stockCount === 0 || product?.stock === 0));
@@ -128,7 +140,7 @@ export const QuickViewModal = () => {
 
               {/* Price */}
               <div className="flex items-baseline gap-3 mt-4">
-                <span className="text-2xl font-black text-brand-green">
+                <span className="text-2xl font-black" style={{ color: tenantThemeColor }}>
                   {currency.symbol}{Math.round(product.price * (currency.rate || 1)).toLocaleString()}
                 </span>
                 {product.originalPrice > product.price && (
@@ -155,9 +167,14 @@ export const QuickViewModal = () => {
                       <button
                         key={opt}
                         onClick={() => setSelectedUnit(opt)}
+                        style={
+                          selectedUnit === opt
+                            ? { backgroundColor: tenantThemeColor, borderColor: tenantThemeColor }
+                            : undefined
+                        }
                         className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all ${
                           selectedUnit === opt
-                            ? 'bg-brand-green text-white border-brand-green shadow-xs'
+                            ? 'text-white shadow-xs'
                             : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                         }`}
                       >
@@ -218,7 +235,7 @@ export const QuickViewModal = () => {
                                 {alt.name}
                               </h5>
                               <div className="flex items-center gap-1.5 text-[10px]">
-                                <span className="font-mono font-bold text-emerald-800">
+                                <span className="font-mono font-bold" style={{ color: tenantThemeColor }}>
                                   {currency.symbol}{alt.price}
                                 </span>
                                 <span className="text-slate-400">•</span>
@@ -236,7 +253,8 @@ export const QuickViewModal = () => {
                                 setSelectedProductForQuickView(alt);
                                 addToast('Alternative Selected ✨', `Switched to ${alt.name}.`);
                               }}
-                              className="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition cursor-pointer"
+                              style={{ backgroundColor: tenantThemeColor }}
+                              className="py-1 px-2.5 hover:opacity-90 text-white rounded-lg text-[11px] font-bold transition cursor-pointer"
                             >
                               Select
                             </button>
@@ -290,7 +308,8 @@ export const QuickViewModal = () => {
                 {/* Add to Cart */}
                 <button
                   onClick={handleAddToCart}
-                  className="flex-1 py-3 px-6 bg-brand-green hover:bg-emerald-800 text-white rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
+                  style={{ backgroundColor: tenantThemeColor }}
+                  className="flex-1 py-3 px-6 hover:opacity-95 text-white rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
                 >
                   <ShoppingCart className="w-4 h-4" />
                   <span>

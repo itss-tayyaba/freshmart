@@ -21,6 +21,17 @@ export const CheckoutModal = () => {
     currentBranch
   } = useStore();
 
+  const isAlFatah = currentTenant?.id === 'tenant-alfatah';
+  const isChaseUp = currentTenant?.id === 'tenant-chaseup';
+  const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
+
+  const tenantThemeColor = currentTenant?.color || (
+    isAlFatah ? '#991b1b' :
+    isChaseUp ? '#6b21a8' :
+    isCaseValue ? '#78350f' :
+    '#0284c7'
+  );
+
   const [step, setStep] = useState(1); // 1: Delivery Details, 2: Payment, 3: Success
   const [formData, setFormData] = useState({
     name: 'Alex Morgan',
@@ -155,20 +166,23 @@ export const CheckoutModal = () => {
       {/* Modal Card */}
       <div className="relative bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden z-10 border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
         
-        {/* Header */}
-        <div className="p-6 bg-brand-green text-white flex items-center justify-between">
+        {/* Header - Dynamically themed */}
+        <div
+          style={{ backgroundColor: tenantThemeColor }}
+          className="p-6 text-white flex items-center justify-between shadow-xs transition-colors"
+        >
           <div>
             <h2 className="text-lg font-extrabold tracking-tight flex items-center gap-2">
-              <ShoppingBag className="w-5 h-5 text-lime-400" />
+              <ShoppingBag className="w-5 h-5 text-amber-300" />
               <span>Checkout & Express Delivery</span>
             </h2>
-            <p className="text-xs text-emerald-200 mt-0.5">
+            <p className="text-xs text-white/80 mt-0.5">
               Step {step} of 3 • Fast, Fresh & Guaranteed
             </p>
           </div>
           <button
             onClick={() => setIsCheckoutOpen(false)}
-            className="p-1.5 rounded-full hover:bg-emerald-800 text-white/90 focus:outline-none"
+            className="p-1.5 rounded-full hover:bg-black/15 text-white/90 focus:outline-none transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -181,7 +195,7 @@ export const CheckoutModal = () => {
           {step === 1 && (
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-emerald-600" />
+                <MapPin className="w-4 h-4" style={{ color: tenantThemeColor }} />
                 <span>Delivery Address & Contact</span>
               </h3>
 
@@ -192,7 +206,7 @@ export const CheckoutModal = () => {
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-400"
                   />
                 </div>
                 <div>
@@ -201,7 +215,7 @@ export const CheckoutModal = () => {
                     type="text"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-400"
                   />
                 </div>
               </div>
@@ -212,14 +226,14 @@ export const CheckoutModal = () => {
                   type="text"
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-400"
                 />
               </div>
 
               {/* Delivery Window */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                  <Clock className="w-3.5 h-3.5" style={{ color: tenantThemeColor }} />
                   <span>Choose Delivery Time Slot</span>
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -232,9 +246,18 @@ export const CheckoutModal = () => {
                       key={slot}
                       type="button"
                       onClick={() => setFormData({ ...formData, deliverySlot: slot })}
+                      style={
+                        formData.deliverySlot === slot
+                          ? {
+                              borderColor: tenantThemeColor,
+                              backgroundColor: `${tenantThemeColor}12`,
+                              color: tenantThemeColor
+                            }
+                          : undefined
+                      }
                       className={`p-2.5 rounded-xl border text-xs font-medium text-left transition-all ${
                         formData.deliverySlot === slot
-                          ? 'border-brand-green bg-emerald-50/70 text-emerald-900 font-bold'
+                          ? 'font-bold'
                           : 'border-slate-200 hover:bg-slate-50 text-slate-700'
                       }`}
                     >
@@ -250,7 +273,8 @@ export const CheckoutModal = () => {
                 </span>
                 <button
                   onClick={() => setStep(2)}
-                  className="px-6 py-2.5 bg-brand-green hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-colors cursor-pointer"
+                  style={{ backgroundColor: tenantThemeColor }}
+                  className="px-6 py-2.5 hover:opacity-95 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-opacity cursor-pointer"
                 >
                   <span>Continue to Payment</span>
                   <ArrowRight className="w-4 h-4" />
@@ -263,7 +287,7 @@ export const CheckoutModal = () => {
           {step === 2 && (
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-emerald-600" />
+                <CreditCard className="w-4 h-4" style={{ color: tenantThemeColor }} />
                 <span>Select Payment Option</span>
               </h3>
 
@@ -276,9 +300,17 @@ export const CheckoutModal = () => {
                   <label
                     key={item.id}
                     onClick={() => setFormData({ ...formData, paymentMethod: item.id })}
+                    style={
+                      formData.paymentMethod === item.id
+                        ? {
+                            borderColor: tenantThemeColor,
+                            backgroundColor: `${tenantThemeColor}0d`
+                          }
+                        : undefined
+                    }
                     className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${
                       formData.paymentMethod === item.id
-                        ? 'border-brand-green bg-emerald-50/60 shadow-2xs'
+                        ? 'shadow-2xs'
                         : 'border-slate-200 hover:bg-slate-50'
                     }`}
                   >
@@ -287,7 +319,8 @@ export const CheckoutModal = () => {
                       name="paymentMethod"
                       checked={formData.paymentMethod === item.id}
                       onChange={() => {}}
-                      className="mt-1 text-emerald-600 focus:ring-emerald-500"
+                      style={{ accentColor: tenantThemeColor }}
+                      className="mt-1"
                     />
                     <div className="flex-1">
                       <span className="text-xs font-bold text-slate-800 block">{item.label}</span>
@@ -299,9 +332,16 @@ export const CheckoutModal = () => {
 
               {formData.paymentMethod === 'card' && (
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                  <div className="flex items-center justify-between text-[11px] text-emerald-800 bg-emerald-50 px-2.5 py-1.5 rounded-lg font-medium border border-emerald-100">
+                  <div
+                    style={{
+                      backgroundColor: `${tenantThemeColor}10`,
+                      borderColor: `${tenantThemeColor}25`,
+                      color: tenantThemeColor
+                    }}
+                    className="flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-lg font-medium border"
+                  >
                     <span className="flex items-center gap-1.5">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      <ShieldCheck className="w-3.5 h-3.5" style={{ color: tenantThemeColor }} />
                       <span>Card Demo Sandbox (Tokenized Simulation)</span>
                     </span>
                     <span className="text-[10px] text-slate-500">PCI-DSS Safe</span>
@@ -311,7 +351,7 @@ export const CheckoutModal = () => {
                     <input
                       type="text"
                       placeholder="4532 •••• •••• 8921"
-                      className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-slate-400 focus:outline-none"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -320,7 +360,7 @@ export const CheckoutModal = () => {
                       <input
                         type="text"
                         placeholder="MM/YY"
-                        className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-slate-400 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -329,7 +369,7 @@ export const CheckoutModal = () => {
                         type="password"
                         placeholder="•••"
                         maxLength={4}
-                        className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-slate-400 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -337,7 +377,13 @@ export const CheckoutModal = () => {
               )}
 
               {/* Order Final Summary */}
-              <div className="p-3 bg-emerald-50/50 rounded-xl text-xs space-y-1">
+              <div
+                style={{
+                  backgroundColor: `${tenantThemeColor}0a`,
+                  borderColor: `${tenantThemeColor}20`
+                }}
+                className="p-3.5 rounded-2xl border text-xs space-y-1.5"
+              >
                 <div className="flex justify-between text-slate-600">
                   <span>Subtotal:</span>
                   <span>{currency.symbol}{Math.round(cartSubtotal * (currency.rate || 1)).toLocaleString()}</span>
@@ -348,22 +394,25 @@ export const CheckoutModal = () => {
                     <span>-{currency.symbol}{Math.round(discountAmount * (currency.rate || 1)).toLocaleString()}</span>
                   </div>
                 )}
-                <div className="flex justify-between font-bold text-slate-900 pt-1 border-t border-emerald-100">
+                <div className="flex justify-between font-bold text-slate-900 pt-1.5 border-t border-slate-200">
                   <span>Total Due:</span>
-                  <span className="text-brand-green">{currency.symbol}{Math.round(cartTotal * (currency.rate || 1)).toLocaleString()}</span>
+                  <span style={{ color: tenantThemeColor }} className="text-base font-black">
+                    {currency.symbol}{Math.round(cartTotal * (currency.rate || 1)).toLocaleString()}
+                  </span>
                 </div>
               </div>
 
               <div className="pt-4 flex items-center justify-between">
                 <button
                   onClick={() => setStep(1)}
-                  className="text-xs text-slate-500 hover:text-slate-800 font-semibold"
+                  className="text-xs text-slate-500 hover:text-slate-800 font-semibold cursor-pointer"
                 >
                   ← Back to Address
                 </button>
                 <button
                   onClick={handlePlaceOrder}
-                  className="px-6 py-3 bg-brand-accent hover:bg-brand-accentHover text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                  style={{ backgroundColor: tenantThemeColor }}
+                  className="px-6 py-3 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md hover:opacity-95 transition-all cursor-pointer"
                 >
                   <ShieldCheck className="w-4 h-4" />
                   <span>Place Order • {currency.symbol}{Math.round(cartTotal * (currency.rate || 1)).toLocaleString()}</span>
@@ -375,7 +424,10 @@ export const CheckoutModal = () => {
           {/* STEP 3: Order Placed Success */}
           {step === 3 && (
             <div className="text-center py-6 space-y-4">
-              <div className="w-16 h-16 bg-emerald-100 text-brand-green rounded-full flex items-center justify-center mx-auto shadow-md animate-bounce-soft">
+              <div
+                style={{ backgroundColor: `${tenantThemeColor}18`, color: tenantThemeColor }}
+                className="w-16 h-16 rounded-full flex items-center justify-center mx-auto shadow-md animate-bounce-soft"
+              >
                 <Check className="w-8 h-8 stroke-[2.5]" />
               </div>
 
@@ -389,7 +441,7 @@ export const CheckoutModal = () => {
               <div className="bg-slate-50 rounded-2xl p-4 max-w-md mx-auto border border-slate-100 text-left text-xs space-y-2">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Order ID:</span>
-                  <span className="font-mono font-bold text-brand-green">{placedOrderId}</span>
+                  <span className="font-mono font-bold" style={{ color: tenantThemeColor }}>{placedOrderId}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Delivery Slot:</span>
@@ -404,14 +456,15 @@ export const CheckoutModal = () => {
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
                 <button
                   onClick={handleTrackOrder}
-                  className="w-full sm:w-auto px-6 py-2.5 bg-brand-green hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
+                  style={{ backgroundColor: tenantThemeColor }}
+                  className="w-full sm:w-auto px-6 py-2.5 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm hover:opacity-95 transition-all cursor-pointer"
                 >
                   <Truck className="w-4 h-4" />
                   <span>Track Live Delivery</span>
                 </button>
                 <button
                   onClick={() => setIsCheckoutOpen(false)}
-                  className="w-full sm:w-auto px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                  className="w-full sm:w-auto px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
                   Continue Shopping
                 </button>

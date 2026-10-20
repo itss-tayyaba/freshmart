@@ -4,7 +4,18 @@ import { useStore } from '../../context/StoreContext';
 import { COUPONS } from '../../data/groceryData';
 
 export const OffersModal = () => {
-  const { isOffersOpen, setIsOffersOpen, applyCouponCode, addToast } = useStore();
+  const { isOffersOpen, setIsOffersOpen, applyCouponCode, addToast, currentTenant } = useStore();
+
+  const isAlFatah = currentTenant?.id === 'tenant-alfatah';
+  const isChaseUp = currentTenant?.id === 'tenant-chaseup';
+  const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
+
+  const tenantThemeColor = currentTenant?.color || (
+    isAlFatah ? '#991b1b' :
+    isChaseUp ? '#6b21a8' :
+    isCaseValue ? '#78350f' :
+    '#0284c7'
+  );
 
   if (!isOffersOpen) return null;
 
@@ -49,10 +60,13 @@ export const OffersModal = () => {
           {COUPONS.map((coupon) => (
             <div
               key={coupon.code}
-              className="border-2 border-dashed border-slate-200 hover:border-emerald-500 rounded-2xl p-4 bg-slate-50/50 hover:bg-emerald-50/30 transition-all flex items-center justify-between gap-4 group"
+              className="border-2 border-dashed border-slate-200 hover:border-slate-400 rounded-2xl p-4 bg-slate-50/50 transition-all flex items-center justify-between gap-4 group"
             >
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                <div
+                  style={{ backgroundColor: `${tenantThemeColor}18`, color: tenantThemeColor }}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                >
                   <Tag className="w-5 h-5" />
                 </div>
                 <div>
@@ -77,7 +91,8 @@ export const OffersModal = () => {
 
               <button
                 onClick={() => handleCopy(coupon.code)}
-                className="px-4 py-2 bg-brand-green hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
+                style={{ backgroundColor: tenantThemeColor }}
+                className="px-4 py-2 hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
               >
                 Apply
               </button>
@@ -85,10 +100,17 @@ export const OffersModal = () => {
           ))}
 
           {/* Banner */}
-          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl p-4 border border-emerald-100 flex items-center gap-3 text-xs text-emerald-900">
-            <Sparkles className="w-5 h-5 text-emerald-600 shrink-0" />
-            <span>
-              First time shopper? Use code <strong className="font-mono font-bold">FRESH30</strong> for an instant 30% discount!
+          <div
+            style={{
+              backgroundColor: `${tenantThemeColor}0d`,
+              borderColor: `${tenantThemeColor}25`,
+              color: tenantThemeColor
+            }}
+            className="rounded-2xl p-4 border flex items-center gap-3 text-xs"
+          >
+            <Sparkles className="w-5 h-5 shrink-0" style={{ color: tenantThemeColor }} />
+            <span className="text-slate-800">
+              First time shopper? Use code <strong className="font-mono font-bold" style={{ color: tenantThemeColor }}>FRESH30</strong> for an instant 30% discount!
             </span>
           </div>
         </div>

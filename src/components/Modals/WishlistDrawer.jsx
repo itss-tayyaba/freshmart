@@ -12,8 +12,20 @@ export const WishlistDrawer = () => {
     products,
     navigateTo,
     currency,
-    addToast
+    addToast,
+    currentTenant
   } = useStore();
+
+  const isAlFatah = currentTenant?.id === 'tenant-alfatah';
+  const isChaseUp = currentTenant?.id === 'tenant-chaseup';
+  const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
+
+  const tenantThemeColor = currentTenant?.color || (
+    isAlFatah ? '#991b1b' :
+    isChaseUp ? '#6b21a8' :
+    isCaseValue ? '#78350f' :
+    '#0284c7'
+  );
 
   if (!isWishlistOpen) return null;
 
@@ -37,15 +49,18 @@ export const WishlistDrawer = () => {
       {/* Drawer Container */}
       <div className="fixed inset-y-0 right-0 max-w-md w-full bg-white shadow-2xl flex flex-col z-50 animate-in slide-in-from-right duration-300">
         
-        {/* Header */}
-        <div className="p-5 bg-emerald-700 text-white flex items-center justify-between shadow-md">
+        {/* Header - Dynamically themed */}
+        <div
+          style={{ backgroundColor: tenantThemeColor }}
+          className="p-5 text-white flex items-center justify-between shadow-md transition-colors"
+        >
           <div className="flex items-center gap-2.5">
             <Heart className="w-5 h-5 text-rose-400 fill-rose-400" />
             <h2 className="text-lg font-bold">Your Wishlist ({wishlistProducts.length})</h2>
           </div>
           <button
             onClick={() => setIsWishlistOpen(false)}
-            className="p-1.5 rounded-full hover:bg-emerald-800 text-white/90 focus:outline-none cursor-pointer"
+            className="p-1.5 rounded-full hover:bg-black/15 text-white/90 focus:outline-none cursor-pointer transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -75,7 +90,7 @@ export const WishlistDrawer = () => {
                       setIsWishlistOpen(false);
                       navigateTo('product-detail', p);
                     }}
-                    className="text-xs sm:text-sm font-bold text-slate-800 truncate cursor-pointer hover:text-emerald-700"
+                    className="text-xs sm:text-sm font-bold text-slate-800 truncate cursor-pointer hover:opacity-80"
                   >
                     {p.name}
                   </h4>
@@ -92,7 +107,11 @@ export const WishlistDrawer = () => {
                     onClick={() => {
                       addToCart(p, 1);
                     }}
-                    className="p-2 bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white rounded-xl transition-colors cursor-pointer"
+                    style={{
+                      backgroundColor: `${tenantThemeColor}15`,
+                      color: tenantThemeColor
+                    }}
+                    className="p-2 hover:opacity-80 rounded-xl transition-all cursor-pointer"
                     title="Add to basket"
                   >
                     <Plus className="w-4 h-4" />
@@ -121,7 +140,8 @@ export const WishlistDrawer = () => {
                   setIsWishlistOpen(false);
                   navigateTo('shop');
                 }}
-                className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors cursor-pointer shadow-sm"
+                style={{ backgroundColor: tenantThemeColor }}
+                className="px-6 py-2.5 text-white rounded-xl text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
               >
                 Start Shopping
               </button>
@@ -134,7 +154,8 @@ export const WishlistDrawer = () => {
           <div className="p-5 border-t border-slate-100 bg-slate-50 space-y-2">
             <button
               onClick={handleMoveAllToCart}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
+              style={{ backgroundColor: tenantThemeColor }}
+              className="w-full py-3 hover:opacity-95 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition-opacity cursor-pointer"
             >
               <ShoppingBag className="w-4 h-4" />
               <span>Move All to Basket</span>
