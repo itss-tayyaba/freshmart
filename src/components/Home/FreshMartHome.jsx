@@ -96,11 +96,19 @@ export const FreshMartHome = () => {
     setTimeout(() => setCopiedCode(null), 3000);
   };
 
-  // Dynamic Bestsellers derived from real-time products
-  const bestsellersList = products.filter((p) => {
-    if (activeBestsellerTab === 'all') return p.isBestSeller !== false;
-    return p.category === activeBestsellerTab;
-  }).slice(0, 5);
+  // Dynamic Bestsellers derived from real-time products (guarantees store's demo products are always shown)
+  const bestsellersList = useMemo(() => {
+    if (!products || products.length === 0) return [];
+    if (activeBestsellerTab === 'all') return products.slice(0, 5);
+    const matched = products.filter(
+      (p) =>
+        p.category === activeBestsellerTab ||
+        p.departmentId === activeBestsellerTab ||
+        (p.category && activeBestsellerTab.includes(p.category)) ||
+        (p.categoryLabel && p.categoryLabel.toLowerCase().includes(activeBestsellerTab.toLowerCase()))
+    );
+    return (matched.length > 0 ? matched : products).slice(0, 5);
+  }, [products, activeBestsellerTab]);
 
   const spotlightApple = products.find((p) => p.id === (storeSettings?.dealOfDayProductId || 'fresh-apples-1kg')) || products.find(p => p.isFlashDeal) || (products.length > 0 ? products[0] : null);
 
@@ -371,6 +379,102 @@ export const FreshMartHome = () => {
               </div>
             </div>
           </section>
+
+          {/* 🌟 Al-Fatah Premier Products Showcase (5 Demo Items) */}
+          <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto pt-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <span>🏛️ Premier Luxury Selection</span>
+                </h2>
+                <p className="text-xs text-slate-500 font-medium">
+                  Exclusive imported delicacies, royal gourmet grains, and premium European cuts
+                </p>
+              </div>
+              <button
+                onClick={() => navigateTo('shop')}
+                className="text-xs sm:text-sm font-bold text-[#991b1b] hover:text-[#7f1d1d] flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <span>View Full Catalog</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-5">
+              {(products || []).slice(0, 5).map((item) => {
+                const prodId = item.id || item._id;
+                const isFav = isInWishlist(prodId);
+
+                return (
+                  <div
+                    key={prodId}
+                    className="bg-white border border-rose-100 rounded-3xl p-3.5 sm:p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group relative"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="bg-[#991b1b] text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-2xs">
+                        Gourmet
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleWishlist(prodId);
+                        }}
+                        className="text-slate-300 hover:text-rose-500 transition-colors p-1 cursor-pointer"
+                        title={isFav ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                      >
+                        <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : ''}`} />
+                      </button>
+                    </div>
+
+                    <div
+                      onClick={() => navigateTo('product-detail', item)}
+                      className="w-full h-32 sm:h-36 flex items-center justify-center p-2 mb-2 overflow-hidden cursor-pointer"
+                    >
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 block uppercase truncate">
+                        {item.brand || item.categoryLabel}
+                      </span>
+                      <h4
+                        onClick={() => navigateTo('product-detail', item)}
+                        className="text-xs sm:text-sm font-bold text-slate-900 leading-snug line-clamp-2 cursor-pointer hover:text-[#991b1b] transition-colors"
+                      >
+                        {item.name}
+                      </h4>
+                      <span className="text-[11px] text-slate-400 block mt-0.5 font-medium">
+                        {item.unit}
+                      </span>
+
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-sm sm:text-base font-black text-slate-900">
+                          {currency.symbol}{item.price}
+                        </span>
+                        {item.originalPrice > item.price && (
+                          <span className="text-xs text-slate-400 line-through">
+                            {currency.symbol}{item.originalPrice}
+                          </span>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => addToCart(item, 1)}
+                        className="w-full mt-3 py-2 bg-[#991b1b] hover:bg-[#7f1d1d] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add to Cart</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
         </>
       )}
 
@@ -421,6 +525,102 @@ export const FreshMartHome = () => {
                   <p className="text-[11px] text-slate-500">+92 333 5556677 support</p>
                 </div>
               </div>
+            </div>
+          </section>
+
+          {/* 🌟 Chase Up Family Mega Savers Showcase (5 Demo Items) */}
+          <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto pt-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <span>🏪 Family Mega Savers</span>
+                </h2>
+                <p className="text-xs text-slate-500 font-medium">
+                  Family milk cartons, bulk edible oils, mega biscuit boxes & daily FMCG bundles
+                </p>
+              </div>
+              <button
+                onClick={() => navigateTo('shop')}
+                className="text-xs sm:text-sm font-bold text-[#6b21a8] hover:text-[#581c87] flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <span>View Full Catalog</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-5">
+              {(products || []).slice(0, 5).map((item) => {
+                const prodId = item.id || item._id;
+                const isFav = isInWishlist(prodId);
+
+                return (
+                  <div
+                    key={prodId}
+                    className="bg-white border border-purple-100 rounded-3xl p-3.5 sm:p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group relative"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="bg-[#6b21a8] text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-2xs">
+                        Mega Saver
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleWishlist(prodId);
+                        }}
+                        className="text-slate-300 hover:text-rose-500 transition-colors p-1 cursor-pointer"
+                        title={isFav ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                      >
+                        <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : ''}`} />
+                      </button>
+                    </div>
+
+                    <div
+                      onClick={() => navigateTo('product-detail', item)}
+                      className="w-full h-32 sm:h-36 flex items-center justify-center p-2 mb-2 overflow-hidden cursor-pointer"
+                    >
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 block uppercase truncate">
+                        {item.brand || item.categoryLabel}
+                      </span>
+                      <h4
+                        onClick={() => navigateTo('product-detail', item)}
+                        className="text-xs sm:text-sm font-bold text-slate-900 leading-snug line-clamp-2 cursor-pointer hover:text-[#6b21a8] transition-colors"
+                      >
+                        {item.name}
+                      </h4>
+                      <span className="text-[11px] text-slate-400 block mt-0.5 font-medium">
+                        {item.unit}
+                      </span>
+
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-sm sm:text-base font-black text-slate-900">
+                          {currency.symbol}{item.price}
+                        </span>
+                        {item.originalPrice > item.price && (
+                          <span className="text-xs text-slate-400 line-through">
+                            {currency.symbol}{item.originalPrice}
+                          </span>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => addToCart(item, 1)}
+                        className="w-full mt-3 py-2 bg-[#6b21a8] hover:bg-[#581c87] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add to Cart</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </section>
         </>

@@ -66,7 +66,8 @@ export const CASE_VALUE_TOP_DEALS = [
 ];
 
 export const CaseValueTopDeals = () => {
-  const { navigateTo, addToCart, cart, updateCartQuantity, currency } = useStore();
+  const { navigateTo, addToCart, cart, updateCartQuantity, currency, products } = useStore();
+  const deals = (products && products.length > 0 ? products : CASE_VALUE_TOP_DEALS).slice(0, 5);
 
   return (
     <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto pt-4 space-y-4">
@@ -93,7 +94,7 @@ export const CaseValueTopDeals = () => {
 
       {/* 5-Card Responsive Grid matching screenshot */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-5">
-        {CASE_VALUE_TOP_DEALS.map((item) => {
+        {deals.map((item) => {
           const cartItem = (cart || []).find((c) => (c.id || c._id) === item.id);
           const quantity = cartItem ? cartItem.quantity : 0;
 

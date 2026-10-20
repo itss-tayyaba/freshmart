@@ -15,7 +15,7 @@ export const AdminModals = ({
   isCreatePromoOpen,
   setIsCreatePromoOpen
 }) => {
-  const { addToast, products, categories, addProductToStore, addCategoryToStore, addCustomer, addSupplier } = useStore();
+  const { addToast, products, categories, addProductToStore, addCategoryToStore, addCustomer, addSupplier, currentTenant, currentBranch } = useStore();
 
   // Add Product State
   const [productForm, setProductForm] = useState({
@@ -129,10 +129,13 @@ export const AdminModals = ({
       stock: productForm.inStock ? 50 : 0,
       inStock: productForm.inStock,
       isFlashDeal: discountNum > 0,
-      status: productForm.inStock ? 'Active' : 'Out of Stock'
+      status: productForm.inStock ? 'Active' : 'Out of Stock',
+      tenantId: currentTenant?.id || 'tenant-freshmart',
+      tenantName: currentTenant?.name || 'FreshMart Direct',
+      branchId: currentBranch?._id || currentBranch?.id || 'branch_001'
     };
 
-    addProductToStore(newProductPayload);
+    await addProductToStore(newProductPayload);
 
     setIsAddProductOpen(false);
     

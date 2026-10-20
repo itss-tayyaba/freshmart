@@ -150,12 +150,16 @@ export const ShopPage = () => {
         const pCat = String(p.category || '').toLowerCase().trim();
         const pCatLabel = String(p.categoryLabel || '').toLowerCase().trim();
         const pDeptId = String(p.departmentId || '').toLowerCase().trim();
+        const pDeptName = String(p.departmentName || '').toLowerCase().trim();
         return (
           pCat === cleanCat ||
           pCatLabel === cleanCat ||
           pDeptId === cleanCat ||
+          pDeptName === cleanCat ||
           (cleanCat.includes(pCat) && pCat.length > 2) ||
-          (pCat.includes(cleanCat) && cleanCat.length > 2)
+          (pCat.includes(cleanCat) && cleanCat.length > 2) ||
+          (cleanCat.includes(pDeptId) && pDeptId.length > 2) ||
+          (pDeptId.includes(cleanCat) && cleanCat.length > 2)
         );
       });
     }
@@ -315,9 +319,22 @@ export const ShopPage = () => {
               </button>
 
               {(categories || []).map((cat) => {
-                const count = (products || []).filter(
-                  (p) => p.category === cat.id || p.category === cat.name || p.categoryLabel === cat.name
-                ).length;
+                const cId = String(cat.id || '').toLowerCase().trim();
+                const cName = String(cat.name || '').toLowerCase().trim();
+                const count = (products || []).filter((p) => {
+                  const pCat = String(p.category || '').toLowerCase().trim();
+                  const pCatLabel = String(p.categoryLabel || '').toLowerCase().trim();
+                  const pDeptId = String(p.departmentId || '').toLowerCase().trim();
+                  const pDeptName = String(p.departmentName || '').toLowerCase().trim();
+                  return (
+                    pCat === cId ||
+                    pDeptId === cId ||
+                    pCatLabel === cName ||
+                    pDeptName === cName ||
+                    (pCat && cId && (cId.includes(pCat) || pCat.includes(cId))) ||
+                    (pDeptId && cId && (cId.includes(pDeptId) || pDeptId.includes(cId)))
+                  );
+                }).length;
 
                 return (
                   <button

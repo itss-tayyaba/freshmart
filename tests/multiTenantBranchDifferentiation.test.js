@@ -13,10 +13,10 @@ import {
 describe('Multi-Tenant Supermarket Branch Product & Dashboard Isolation', () => {
 
   it('ensures each supermarket branch has a dedicated, non-empty product catalog', () => {
-    assert.ok(ALFATAH_PRODUCTS.length >= 10, 'Al-Fatah must have at least 10 luxury items');
-    assert.ok(CHASEVALUE_PRODUCTS.length >= 10, 'Chase Value must have at least 10 wholesale items');
-    assert.ok(CHASEUP_PRODUCTS.length >= 10, 'Chase Up must have at least 10 retail FMCG items');
-    assert.ok(FRESHMART_PRODUCTS_CATALOG.length >= 10, 'FreshMart must have at least 10 organic farm items');
+    assert.ok(ALFATAH_PRODUCTS.length >= 5, 'Al-Fatah must have at least 5 luxury items');
+    assert.ok(CHASEVALUE_PRODUCTS.length >= 5, 'Chase Value must have at least 5 wholesale items');
+    assert.ok(CHASEUP_PRODUCTS.length >= 5, 'Chase Up must have at least 5 retail FMCG items');
+    assert.ok(FRESHMART_PRODUCTS_CATALOG.length >= 5, 'FreshMart must have at least 5 organic farm items');
     assert.equal(
       ALL_BRANCH_PRODUCTS.length,
       ALFATAH_PRODUCTS.length + CHASEVALUE_PRODUCTS.length + CHASEUP_PRODUCTS.length + FRESHMART_PRODUCTS_CATALOG.length,

@@ -1065,13 +1065,24 @@ export const StoreProvider = ({ children }) => {
     return updated;
   };
 
-  // Products Catalog - Seeded with multi-tenant branch catalogs
+  // Products Catalog - Seeded with multi-tenant branch catalogs (5 demo items per website)
   const [allProducts, setAllProducts] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_all_products');
       if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const baseBranchCatalogIds = new Set((ALL_BRANCH_PRODUCTS || []).map((p) => p.id));
+          const adminCreated = parsed.filter(
+            (p) =>
+              !baseBranchCatalogIds.has(p.id) &&
+              !p.id.startsWith('alfatah-') &&
+              !p.id.startsWith('chasevalue-') &&
+              !p.id.startsWith('chaseup-') &&
+              !p.id.startsWith('freshmart-')
+          );
+          return [...(ALL_BRANCH_PRODUCTS || []), ...adminCreated];
+        }
       }
     } catch (e) {}
     return ALL_BRANCH_PRODUCTS || [];
@@ -4642,11 +4653,26 @@ export const StoreProvider = ({ children }) => {
 
     setAllProducts((prev) => [fullProduct, ...prev]);
     try {
-      await apiService.createProduct(fullProduct);
+      const res = await apiService.createProduct(fullProduct);
+      if (res && res.success && res.product) {
+        const dbProduct = res.product;
+        setAllProducts((prev) =>
+          prev.map((p) =>
+            p.id === fullProduct.id
+              ? {
+                  ...p,
+                  _id: dbProduct._id,
+                  id: String(dbProduct._id || dbProduct.customId || p.id),
+                  customId: dbProduct.customId || p.customId
+                }
+              : p
+          )
+        );
+      }
     } catch (e) {
       console.warn('Backend createProduct error:', e);
     }
-    addToast('Product Added 🛒', `"${fullProduct.name}" added to ${fullProduct.tenantName} catalog.`);
+    addToast('Product Added 🛒', `"${fullProduct.name}" saved to database & ${fullProduct.tenantName} catalog.`);
   };
 
   const updateProductInStore = async (updatedProduct) => {

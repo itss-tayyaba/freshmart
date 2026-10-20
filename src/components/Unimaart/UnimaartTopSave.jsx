@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Carrot,
   Beef,
@@ -29,7 +29,9 @@ export const UnimaartTopSave = ({ activeCategory: propActiveCategory, onSelectCa
     toggleWishlist,
     isInWishlist,
     activeCategory: storeActiveCategory,
-    setActiveCategory
+    setActiveCategory,
+    products,
+    navigateTo
   } = useStore();
 
   const [localSideCat, setLocalSideCat] = useState('fruits-veg');
@@ -64,8 +66,20 @@ export const UnimaartTopSave = ({ activeCategory: propActiveCategory, onSelectCa
 
   const format2 = (val) => String(val).padStart(2, '0');
 
-  // Strictly 5 items for the active category
-  const filteredItems = get5ItemsForCategory(selectedCategory);
+  // Live items strictly matching active store catalog (5 demo items + any newly added admin items)
+  const filteredItems = useMemo(() => {
+    if (!products || products.length === 0) return get5ItemsForCategory(selectedCategory);
+    if (!selectedCategory || selectedCategory === 'all') return products.slice(0, 5);
+    const matched = products.filter(
+      (p) =>
+        p.category === selectedCategory ||
+        p.departmentId === selectedCategory ||
+        (p.category && selectedCategory.includes(p.category)) ||
+        (p.categoryLabel && p.categoryLabel.toLowerCase().includes(selectedCategory.toLowerCase()))
+    );
+    if (matched.length > 0) return matched.slice(0, 5);
+    return products.slice(0, 5);
+  }, [products, selectedCategory]);
 
   const sideCategories = [
     { id: 'all', name: '⭐ All Top Deals', icon: Sparkles },
