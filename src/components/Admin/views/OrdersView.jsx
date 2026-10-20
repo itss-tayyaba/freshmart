@@ -146,7 +146,10 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     getEligibleRidersForOrder,
     addToast,
     currentTenant,
-    user
+    user,
+    allBranches = [],
+    currentBranchFilter = 'all',
+    setCurrentBranchFilter
   } = useStore();
 
   const [activeTab, setActiveTab] = useState('All');
@@ -165,6 +168,11 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   // Selected Customer for Customer Profile & History Modal
   const [selectedCustomerModal, setSelectedCustomerModal] = useState(null);
 
+  const tenantBranches = useMemo(() => {
+    const activeTenant = currentTenant?.id || user?.tenantId;
+    return (allBranches || []).filter((b) => isSameTenant(b.tenantId, activeTenant));
+  }, [allBranches, currentTenant?.id, user?.tenantId]);
+
   // Combine live orders filtered strictly by active supermarket branch (prioritizing Delivered status)
   const liveOrders = useMemo(() => {
     const combined = [...(customerOrders || []), ...(adminOrders || [])];
@@ -182,12 +190,27 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     });
     const raw = Array.from(uniqueMap.values());
     const targetTenantId = currentTenant?.id || user?.tenantId;
-    if (!targetTenantId) return raw;
-    return raw.filter((o) => {
-      if (!o.tenantId) return false;
-      return isSameTenant(o.tenantId, targetTenantId);
-    });
-  }, [customerOrders, adminOrders, currentTenant, user?.tenantId]);
+    let list = raw;
+    if (targetTenantId) {
+      list = list.filter((o) => {
+        if (!o.tenantId) return false;
+        return isSameTenant(o.tenantId, targetTenantId);
+      });
+    }
+
+    // Branch scoping:
+    // If the logged-in user is a dedicated branch admin, restrict strictly to their branch!
+    if (user?.branchId) {
+      list = list.filter((o) => o.branchId === user.branchId);
+    } else if (currentBranchFilter && currentBranchFilter !== 'all') {
+      const isFilterValid = tenantBranches.some((b) => b._id === currentBranchFilter || b.id === currentBranchFilter);
+      if (isFilterValid) {
+        list = list.filter((o) => o.branchId === currentBranchFilter);
+      }
+    }
+
+    return list;
+  }, [customerOrders, adminOrders, currentTenant, user?.tenantId, user?.branchId, currentBranchFilter, tenantBranches]);
 
   // Statistics KPI counts
   const stats = useMemo(() => {
@@ -237,7 +260,8 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
         const matchesPhone = typeof o.customerPhone === 'string' && o.customerPhone.toLowerCase().includes(q);
         const matchesAddress = (typeof o.address === 'string' ? o.address : (o.shippingAddress?.address || '')).toLowerCase().includes(q);
         const matchesCity = (typeof o.city === 'string' ? o.city : (o.shippingAddress?.city || '')).toLowerCase().includes(q);
-        if (!matchesId && !matchesCustomer && !matchesEmail && !matchesPhone && !matchesAddress && !matchesCity)
+        const matchesBranch = (o.branchName || '').toLowerCase().includes(q) || (o.branchId || '').toLowerCase().includes(q);
+        if (!matchesId && !matchesCustomer && !matchesEmail && !matchesPhone && !matchesAddress && !matchesCity && !matchesBranch)
           return false;
       }
 
@@ -527,7 +551,31 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Branch Filter or Scope Badge */}
+              {user?.branchId ? (
+                <div className="flex items-center gap-1.5 bg-sky-50 border border-sky-200 text-sky-800 rounded-2xl px-3 py-2 text-xs font-bold shadow-2xs">
+                  <MapPin className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                  <span>📍 {user.branchName || 'Branch Scoped'}</span>
+                </div>
+              ) : tenantBranches.length > 0 ? (
+                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 text-xs font-semibold text-slate-700">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <select
+                    value={currentBranchFilter}
+                    onChange={(e) => setCurrentBranchFilter(e.target.value)}
+                    className="bg-transparent border-none text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer"
+                  >
+                    <option value="all">🏢 All Branches</option>
+                    {tenantBranches.map((b) => (
+                      <option key={b._id || b.id} value={b._id || b.id}>
+                        📍 {b.name} ({b.city})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+
               <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 text-xs font-semibold text-slate-700">
                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
                 <select
@@ -591,6 +639,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                 <thead>
                   <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase tracking-wider text-[10px]">
                     <th className="pb-3.5 pl-2">Customer</th>
+                    <th className="pb-3.5">Branch</th>
                     <th className="pb-3.5">Type</th>
                     <th className="pb-3.5">Table</th>
                     <th className="pb-3.5">Items</th>
@@ -628,6 +677,14 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                               #{String(ord.id).replace(/^#/, '')}
                             </span>
                           </div>
+                        </td>
+
+                        {/* Branch Column */}
+                        <td className="py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-sky-50 text-sky-800 border border-sky-200 shadow-2xs">
+                            <MapPin className="w-3 h-3 text-sky-600" />
+                            <span>{ord.branchName || (ord.branchId === 'branch_um_fsd' ? 'Peoples Colony' : 'Main Branch')}</span>
+                          </span>
                         </td>
 
                         {/* 2. Type Column (Delivery / Dine-in) */}
@@ -769,6 +826,13 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                 <span className="text-[11px] text-slate-400 block mt-0.5">
                   {selectedOrder.dateFormatted || 'Today'} • {selectedOrder.time || '10:30 AM'}
                 </span>
+                <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                    <MapPin className="w-3 h-3 text-sky-600" />
+                    <span>{selectedOrder.branchName || (selectedOrder.branchId === 'branch_um_fsd' ? 'Peoples Colony Dark Store' : 'Main Branch')}</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">({selectedOrder.tenantName || 'Supermarket'})</span>
+                </div>
               </div>
 
               <button

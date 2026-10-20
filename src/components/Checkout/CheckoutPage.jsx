@@ -21,7 +21,6 @@ import {
   Home,
   Building,
   Navigation,
-  Leaf,
   Heart,
   X
 } from 'lucide-react';
@@ -164,10 +163,28 @@ export const CheckoutPage = () => {
     });
     const cartProductTenantId = cartItemTenant?.product?.tenantId || cartItemTenant?.tenantId;
     const finalTenantId =
-      (cartProductTenantId && cartProductTenantId !== 'tenant-freshmart' ? cartProductTenantId : null) ||
-      currentTenant?.id ||
       cartProductTenantId ||
-      'tenant-alfatah';
+      currentTenant?.id ||
+      'tenant-freshmart';
+
+    const cityOrAddr = `${addressData.address || ''} ${addressData.city || ''}`.toLowerCase();
+    const isFaisalabad = cityOrAddr.includes('faisalabad') || cityOrAddr.includes('peoples colony') || cityOrAddr.includes('fsd');
+
+    let resolvedBranchId = currentBranch?._id || currentBranch?.id || nearbyInfo?.nearestBranch?._id;
+    let resolvedBranchName = currentBranch?.name || nearbyInfo?.nearestBranch?.name;
+
+    if (!resolvedBranchId || (isFaisalabad && (!resolvedBranchName || !resolvedBranchName.toLowerCase().includes('peoples')))) {
+      if (finalTenantId === 'tenant-freshmart') {
+        resolvedBranchId = isFaisalabad ? 'branch_um_fsd' : 'branch_010';
+        resolvedBranchName = isFaisalabad ? 'Peoples Colony Dark Store' : 'Gulberg SuperHub';
+      } else if (finalTenantId === 'tenant-alfatah') {
+        resolvedBranchId = isFaisalabad ? 'branch_af_fsd' : 'branch_002';
+        resolvedBranchName = isFaisalabad ? 'D-Ground Flagship Hub' : 'Gulberg Mall';
+      } else if (finalTenantId === 'tenant-chasevalue') {
+        resolvedBranchId = isFaisalabad ? 'branch_cv_fsd' : 'branch_007';
+        resolvedBranchName = isFaisalabad ? 'Wholesale Express Hub' : 'Shaheed-e-Millat Karachi';
+      }
+    }
 
     const orderItems = cart.map((i) => ({
       product: i.product?.id || i.product?._id,
@@ -178,7 +195,8 @@ export const CheckoutPage = () => {
       unit: i.unit || i.product?.unit || '1 unit',
       image: i.product?.image || '',
       vendorId: i.product?.vendorId || 'VND-101',
-      tenantId: i.product?.tenantId || i.tenantId || finalTenantId
+      tenantId: i.product?.tenantId || i.tenantId || finalTenantId,
+      branchId: resolvedBranchId || 'branch_um_fsd'
     }));
 
     const orderPayload = {
@@ -208,9 +226,9 @@ export const CheckoutPage = () => {
       customerPhone: addressData.phone,
       phone: addressData.phone,
       tenantId: finalTenantId,
-      tenantName: currentTenant?.displayName || currentTenant?.name || (finalTenantId === 'tenant-alfatah' ? 'Al-Fatah Supermarket' : 'Store'),
-      branchId: currentBranch?._id || currentBranch?.id || nearbyInfo?.nearestBranch?._id || (finalTenantId === 'tenant-alfatah' ? 'branch_002' : 'branch_001'),
-      branchName: currentBranch?.name || nearbyInfo?.nearestBranch?.name || (finalTenantId === 'tenant-alfatah' ? 'Gulberg Mall' : 'Main Branch'),
+      tenantName: currentTenant?.displayName || currentTenant?.name || (finalTenantId === 'tenant-alfatah' ? 'Al-Fatah Supermarket' : 'Unimaart'),
+      branchId: resolvedBranchId || 'branch_um_fsd',
+      branchName: resolvedBranchName || 'Peoples Colony Dark Store',
       distanceKm: nearbyInfo?.distanceKm || 1.2,
       status: 'Pending',
       createdAt: new Date().toISOString()
@@ -234,14 +252,14 @@ export const CheckoutPage = () => {
       });
     } catch (e) {}
 
-    addToast('Order Placed Successfully! 🎉', `Order ${resultOrder.id || orderId} confirmed for 10-minute dispatch.`);
+    addToast('Order Placed Successfully! 🎉', `Order ${resultOrder.id || orderId} has been confirmed and is being prepared.`);
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
       
       {/* 1. Header & Stepper */}
-      <div className="bg-gradient-to-r from-[#eef9f2] via-white to-[#f7faf8] rounded-3xl p-6 sm:p-8 border border-emerald-100 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-100 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold mb-1">
             <span className="hover:text-emerald-700 cursor-pointer" onClick={() => navigateTo('home')}>Home</span>
@@ -250,24 +268,17 @@ export const CheckoutPage = () => {
             <span>/</span>
             <span className="text-emerald-700 font-bold">Checkout</span>
           </div>
-          <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-            <span>Express Checkout</span>
-            <span className="text-xs bg-emerald-600 text-white font-bold px-3 py-1 rounded-full uppercase tracking-wider hidden sm:inline-flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-lime-300" />
-              <span>10-Min Fast Dispatch</span>
-            </span>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Checkout
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Zero contact delivery, farm-fresh cold storage packaging, and 100% money-back guarantee.
-          </p>
         </div>
 
         {/* 3-Step Stepper Progress */}
-        <div className="flex items-center gap-2 bg-white px-4 py-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+        <div className="flex items-center gap-2 bg-slate-50 px-4 py-2.5 rounded-2xl border border-slate-200/80 shadow-2xs">
           {[
             { num: 1, label: 'Address' },
             { num: 2, label: 'Payment' },
-            { num: 3, label: 'Preferences' }
+            { num: 3, label: 'Courier Tip' }
           ].map((s, idx) => {
             const isCompleted = isOrderPlaced || currentStep > s.num;
             const isCurrent = currentStep === s.num;
@@ -535,41 +546,20 @@ export const CheckoutPage = () => {
               setSelectedPayment={setSelectedPayment}
             />
 
-            {/* Step 3: Eco Packaging & Rider Tip */}
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xl shadow-emerald-950/5 space-y-6">
-              <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100">
+            {/* Step 3: Courier Tip */}
+            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-100 shadow-xl shadow-emerald-950/5 space-y-4">
+              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
                 <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs shadow-xs">
                   3
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900">Preferences & Courier Appreciation</h3>
-                  <p className="text-[11px] text-slate-400">Customize packaging and support our delivery partners</p>
+                  <h3 className="text-sm font-black text-slate-900">Courier Tip</h3>
+                  <p className="text-[11px] text-slate-400">Support your delivery partner on the road</p>
                 </div>
-              </div>
-
-              {/* Eco Packaging Toggle */}
-              <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200/70 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                    <Leaf className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-black text-emerald-950">100% Eco-Friendly Biodegradable Packaging</h4>
-                    <p className="text-[11px] text-emerald-800">Use zero-plastic paper totes and chilled ice-pads that are recyclable.</p>
-                  </div>
-                </div>
-
-                <input
-                  type="checkbox"
-                  checked={isEcoFriendly}
-                  onChange={(e) => setIsEcoFriendly(e.target.checked)}
-                  style={{ accentColor: theme.accentColor }}
-                  className="w-5 h-5 rounded cursor-pointer"
-                />
               </div>
 
               {/* Rider Tip */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-1">
                 <div className="space-y-0.5 text-center sm:text-left">
                   <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
                     <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />

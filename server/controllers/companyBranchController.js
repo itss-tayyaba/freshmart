@@ -271,8 +271,8 @@ export const getAllBranches = async (req, res) => {
 
     return res.json({
       success: true,
-      count: 0,
-      branches: []
+      count: BRANCHES.length,
+      branches: BRANCHES
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });

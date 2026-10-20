@@ -3,7 +3,7 @@ import { Mail, Phone, MapPin, ArrowUp, Heart, ShieldCheck, Sparkles, Smartphone 
 import { useStore } from '../../context/StoreContext';
 
 export const Footer = () => {
-  const { setActiveCategory, setIsVendorRegisterOpen, navigateTo, currentTenant } = useStore();
+  const { setActiveCategory, navigateTo, currentTenant } = useStore();
   const isUnimaart = currentTenant?.id === 'tenant-freshmart';
   const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
   const isAlFatah = currentTenant?.id === 'tenant-alfatah';
@@ -159,29 +159,7 @@ export const Footer = () => {
             </h4>
             <ul className="space-y-2 text-xs">
               <li><a href="#flash-deals-section" className={`transition-colors ${isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'}`}>Daily Deals & Coupons</a></li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setIsVendorRegisterOpen(true)}
-                  className={`font-bold transition-colors text-left flex items-center gap-1 cursor-pointer ${
-                    isUnimaart ? 'text-sky-300 hover:text-sky-400' : 'text-emerald-300 hover:text-lime-400'
-                  }`}
-                >
-                  <span>🏪 Sell on {isUnimaart ? 'Unimaart' : 'FreshMart'}</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => navigateTo('admin')}
-                  className={`text-slate-300 transition-colors text-left cursor-pointer ${
-                    isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'
-                  }`}
-                >
-                  📦 {isUnimaart ? 'Unimaart Store Admin' : 'Vendor / Partner Login'}
-                </button>
-              </li>
-              <li><a href="#" className={`transition-colors ${isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'}`}>Order Tracking</a></li>
+              <li><a href="#" onClick={(e) => { e.preventDefault(); navigateTo('track-order'); }} className={`transition-colors ${isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'}`}>Order Tracking</a></li>
               <li><a href="#" className={`transition-colors ${isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'}`}>FAQ & Support</a></li>
             </ul>
           </div>

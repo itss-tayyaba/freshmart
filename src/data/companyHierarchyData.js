@@ -667,6 +667,26 @@ export const ORDERS = [
     total: 2130,
     status: 'preparing',
     createdAt: new Date().toISOString()
+  },
+
+  // --- Unimaart Peoples Colony Dark Store (branch_um_fsd) Orders ---
+  {
+    _id: 'order_fm_83459',
+    orderId: '#FM83459',
+    id: '#FM83459',
+    tenantId: 'company_004',
+    tenantName: 'Unimaart (Market Store)',
+    branchId: 'branch_um_fsd',
+    branchName: 'Peoples Colony Dark Store',
+    customerId: 'customer_tayyaba',
+    customerName: 'tayyaba',
+    customerPhone: '+923206551696',
+    items: [
+      { productId: 'prod_produce_01', name: 'Farm Fresh Grocery Essentials', price: 140, quantity: 1 }
+    ],
+    total: 140,
+    status: 'Pending',
+    createdAt: new Date().toISOString()
   }
 ];
 

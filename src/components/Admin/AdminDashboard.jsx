@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   LayoutDashboard,
   Package,
@@ -21,10 +21,11 @@ import {
   Shield,
   Sparkles,
   CheckCircle2,
-  Truck
+  Truck,
+  MapPin
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
-import { isSameTenant } from '../../data/companyHierarchyData';
+import { isSameTenant, resolveTenantId } from '../../data/companyHierarchyData';
 
 // 11 Views
 import { DashboardView } from './views/DashboardView';
@@ -58,10 +59,18 @@ export const AdminDashboard = () => {
     customers,
     currentTenant,
     setCurrentTenant,
-    tenants = []
+    tenants = [],
+    allBranches = [],
+    currentBranchFilter = 'all',
+    setCurrentBranchFilter
   } = useStore();
 
   const allTenants = tenants;
+
+  const tenantBranches = useMemo(() => {
+    const activeTenant = currentTenant?.id || user?.tenantId;
+    return (allBranches || []).filter((b) => isSameTenant(b.tenantId, activeTenant));
+  }, [allBranches, currentTenant?.id, user?.tenantId]);
   
   // Set initial activeTab
   const [activeTab, setActiveTab] = useState('Dashboard');
@@ -409,7 +418,10 @@ export const AdminDashboard = () => {
                   value={currentTenant?.id || 'tenant-alfatah'}
                   onChange={(e) => {
                     const found = allTenants.find((t) => t.id === e.target.value);
-                    if (found) setCurrentTenant(found);
+                    if (found) {
+                      setCurrentTenant(found);
+                      setCurrentBranchFilter('all');
+                    }
                   }}
                   className="text-xs font-black text-slate-800 bg-transparent border-none focus:outline-none cursor-pointer"
                 >
@@ -421,6 +433,31 @@ export const AdminDashboard = () => {
                 </select>
               </div>
             )}
+
+            {/* Branch Scope / Branch Switcher */}
+            {user?.branchId ? (
+              <div className="flex items-center gap-1.5 bg-sky-50 border border-sky-200 text-sky-800 rounded-xl px-2.5 py-1.5 text-xs font-bold shadow-2xs">
+                <MapPin className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                <span className="truncate max-w-[140px] sm:max-w-none">{user.branchName || 'Branch Scoped'}</span>
+              </div>
+            ) : tenantBranches.length > 0 ? (
+              <div className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200/70 border border-slate-200 rounded-xl px-2.5 py-1.5 transition-colors">
+                <MapPin className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                <span className="text-[11px] font-bold text-slate-500 hidden xl:inline">Branch:</span>
+                <select
+                  value={currentBranchFilter}
+                  onChange={(e) => setCurrentBranchFilter(e.target.value)}
+                  className="text-xs font-black text-slate-800 bg-transparent border-none focus:outline-none cursor-pointer"
+                >
+                  <option value="all" className="text-slate-900 bg-white font-bold">All Branches</option>
+                  {tenantBranches.map((b) => (
+                    <option key={b._id || b.id} value={b._id || b.id} className="text-slate-900 bg-white font-bold">
+                      📍 {b.name} ({b.city})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
 
             {/* Quick Switch to Storefront */}
             <button

@@ -8,7 +8,6 @@ import {
   ShoppingCart,
   ChevronDown,
   Sparkles,
-  LayoutDashboard,
   Menu,
   X,
   User,
@@ -78,10 +77,8 @@ export const FreshMartHeader = () => {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const searchContainerRef = useRef(null);
   const mobileSearchContainerRef = useRef(null);
-  const categoryDropdownRef = useRef(null);
 
   // Close search dropdown on click outside
   useEffect(() => {
@@ -90,9 +87,6 @@ export const FreshMartHeader = () => {
       const inMobile = mobileSearchContainerRef.current && mobileSearchContainerRef.current.contains(e.target);
       if (!inDesktop && !inMobile) {
         setIsSearchFocused(false);
-      }
-      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target)) {
-        setIsCategoryDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -555,64 +549,6 @@ export const FreshMartHeader = () => {
           
           <div className="flex-1 min-w-0 flex items-center gap-3 sm:gap-6 overflow-x-auto no-scrollbar py-2">
             
-            {/* Departments Dropdown */}
-            <div ref={categoryDropdownRef} className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-                style={{ backgroundColor: tenantThemeColor }}
-                className="flex items-center gap-2 px-3.5 py-1.5 text-white rounded-xl text-xs font-bold transition-all shadow-xs hover:opacity-95 cursor-pointer"
-              >
-                <LayoutDashboard className="w-3.5 h-3.5" />
-                <span>Departments</span>
-                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {isCategoryDropdownOpen && (
-                <div className="absolute top-full left-0 mt-1.5 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="px-3.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
-                    <span>Shop by Department</span>
-                    <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">{categoriesList.length} Categories</span>
-                  </div>
-                  <div className="max-h-80 overflow-y-auto py-1 divide-y divide-slate-50">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveCategory('all');
-                        navigateTo('shop');
-                        setIsCategoryDropdownOpen(false);
-                      }}
-                      className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-800 hover:bg-slate-50 flex items-center justify-between transition-colors"
-                    >
-                      <span className="flex items-center gap-2">
-                        <span>🏬</span> All Departments
-                      </span>
-                      <span className="text-[10px] text-slate-400">Full Catalog</span>
-                    </button>
-                    {categoriesList.map((cat) => (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => {
-                          setActiveCategory(cat.id);
-                          navigateTo('shop');
-                          setIsCategoryDropdownOpen(false);
-                        }}
-                        className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center justify-between transition-colors group"
-                      >
-                        <span className="group-hover:font-bold truncate">{cat.name}</span>
-                        {cat.itemCount && (
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {cat.itemCount} items
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Main Nav Links */}
             <ul className="flex items-center gap-6 text-xs sm:text-sm font-semibold text-slate-700 shrink-0">
               <li>
@@ -705,7 +641,7 @@ export const FreshMartHeader = () => {
 
           </div>
 
-          {/* Quick Shortcuts: Customer Portal & Admin Portal */}
+          {/* Quick Shortcuts: Customer Portal */}
           <div className="flex items-center gap-2 py-2 shrink-0">
             <button
               type="button"
@@ -729,26 +665,6 @@ export const FreshMartHeader = () => {
             >
               <User className="w-3.5 h-3.5" />
               <span>Customer Portal</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigateTo('delivery-portal')}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-[#1c1a17] hover:bg-stone-800 text-amber-300 transition-all shadow-xs cursor-pointer border border-stone-800"
-              title="Courier Rider Portal & Live GPS Dispatch"
-            >
-              <Bike className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">Rider Portal</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigateTo('admin')}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white transition-all shadow-xs cursor-pointer"
-              title="Admin & Multi-Store Management Portal"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">Admin</span>
             </button>
           </div>
 
@@ -904,32 +820,12 @@ export const FreshMartHeader = () => {
             >
               <span>👤</span> Customer Portal
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                navigateTo('delivery-portal');
-                setMobileMenuOpen(false);
-              }}
-              className="p-2.5 bg-[#1c1a17] text-amber-300 border border-stone-800 rounded-xl text-left hover:bg-stone-900 flex items-center gap-2 font-bold shadow-xs cursor-pointer"
-            >
-              <Bike className="w-3.5 h-3.5 text-amber-400" /> Rider Portal
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                navigateTo('admin');
-                setMobileMenuOpen(false);
-              }}
-              className="p-2.5 bg-slate-900 text-white rounded-xl text-left hover:bg-slate-800 flex items-center gap-2 font-bold shadow-xs cursor-pointer"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> Admin Portal
-            </button>
           </div>
 
-          {/* Mobile Shop by Department */}
+          {/* Mobile Categories */}
           <div className="pt-2 border-t border-slate-200">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-              Browse Departments
+              Browse Categories
             </span>
             <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
               {categoriesList.map((cat) => (

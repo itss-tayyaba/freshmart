@@ -47,10 +47,28 @@ export const CheckoutModal = () => {
     });
     const cartProductTenantId = cartItemTenant?.product?.tenantId || cartItemTenant?.tenantId;
     const finalTenantId =
-      (cartProductTenantId && cartProductTenantId !== 'tenant-freshmart' ? cartProductTenantId : null) ||
-      currentTenant?.id ||
       cartProductTenantId ||
-      'tenant-alfatah';
+      currentTenant?.id ||
+      'tenant-freshmart';
+
+    const cityOrAddr = `${formData.address || ''} ${formData.city || ''}`.toLowerCase();
+    const isFaisalabad = cityOrAddr.includes('faisalabad') || cityOrAddr.includes('peoples colony') || cityOrAddr.includes('fsd');
+
+    let resolvedBranchId = currentBranch?._id || currentBranch?.id;
+    let resolvedBranchName = currentBranch?.name;
+
+    if (!resolvedBranchId || (isFaisalabad && (!resolvedBranchName || !resolvedBranchName.toLowerCase().includes('peoples')))) {
+      if (finalTenantId === 'tenant-freshmart') {
+        resolvedBranchId = isFaisalabad ? 'branch_um_fsd' : 'branch_010';
+        resolvedBranchName = isFaisalabad ? 'Peoples Colony Dark Store' : 'Gulberg SuperHub';
+      } else if (finalTenantId === 'tenant-alfatah') {
+        resolvedBranchId = isFaisalabad ? 'branch_af_fsd' : 'branch_002';
+        resolvedBranchName = isFaisalabad ? 'D-Ground Flagship Hub' : 'Gulberg Mall';
+      } else if (finalTenantId === 'tenant-chasevalue') {
+        resolvedBranchId = isFaisalabad ? 'branch_cv_fsd' : 'branch_007';
+        resolvedBranchName = isFaisalabad ? 'Wholesale Express Hub' : 'Shaheed-e-Millat Karachi';
+      }
+    }
 
     const orderItems = (cart || []).map((i) => {
       const p = i.product && typeof i.product === 'object' ? i.product : i;
@@ -64,7 +82,8 @@ export const CheckoutModal = () => {
         unit: p.unit || i.unit || '1 unit',
         image: p.image || i.image || '',
         vendorId: p.vendorId || i.vendorId || 'VND-101',
-        tenantId: p.tenantId || i.tenantId || finalTenantId
+        tenantId: p.tenantId || i.tenantId || finalTenantId,
+        branchId: resolvedBranchId || 'branch_um_fsd'
       };
     });
 
@@ -93,9 +112,9 @@ export const CheckoutModal = () => {
       customerName: formData.name,
       customerPhone: formData.phone,
       tenantId: finalTenantId,
-      tenantName: currentTenant?.displayName || currentTenant?.name || (finalTenantId === 'tenant-alfatah' ? 'Al-Fatah Supermarket' : 'Store'),
-      branchId: currentBranch?._id || currentBranch?.id || (finalTenantId === 'tenant-alfatah' ? 'branch_002' : 'branch_001'),
-      branchName: currentBranch?.name || (finalTenantId === 'tenant-alfatah' ? 'Gulberg Mall' : 'Main Branch'),
+      tenantName: currentTenant?.displayName || currentTenant?.name || (finalTenantId === 'tenant-alfatah' ? 'Al-Fatah Supermarket' : 'Unimaart'),
+      branchId: resolvedBranchId || 'branch_um_fsd',
+      branchName: resolvedBranchName || 'Peoples Colony Dark Store',
       status: 'Pending'
     };
 

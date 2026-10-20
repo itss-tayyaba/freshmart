@@ -15,9 +15,11 @@ import {
   CheckCircle2,
   Truck,
   Check,
-  Boxes
+  Boxes,
+  MapPin
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { resolveTenantId } from '../../data/companyHierarchyData';
 
 export const AdminLogin = () => {
   const {
@@ -25,6 +27,7 @@ export const AdminLogin = () => {
     navigateTo,
     tenants,
     storeAdmins,
+    allBranches = [],
     pickupStaff = [],
     riders = [],
     currentTenant
@@ -32,6 +35,7 @@ export const AdminLogin = () => {
 
   const [selectedRole, setSelectedRole] = useState('superadmin');
   const [selectedMartId, setSelectedMartId] = useState('tenant-alfatah');
+  const [selectedBranchId, setSelectedBranchId] = useState('all');
   const [username, setUsername] = useState('superadmin');
   const [password, setPassword] = useState('superadmin123');
   const [showPassword, setShowPassword] = useState(false);
@@ -81,6 +85,11 @@ export const AdminLogin = () => {
   const currentMart = useMemo(() => {
     return availableMarts.find((m) => m.id === selectedMartId) || availableMarts[0];
   }, [availableMarts, selectedMartId]);
+
+  const availableBranchesForMart = useMemo(() => {
+    const canonical = resolveTenantId(selectedMartId);
+    return (allBranches || []).filter((b) => b.tenantId === canonical);
+  }, [allBranches, selectedMartId]);
 
   // Primary website brand color (matches Al-Fatah Ruby Crimson #991b1b, Chase Value, etc.)
   const websiteBrandColor = useMemo(() => {
@@ -219,10 +228,15 @@ export const AdminLogin = () => {
     }, 2500);
   };
 
-  const autoFillCredentials = (roleId, user, pass, martId = null, label = '') => {
+  const autoFillCredentials = (roleId, user, pass, martId = null, label = '', branchId = null) => {
     setSelectedRole(roleId);
     if (martId) {
       setSelectedMartId(martId);
+    }
+    if (branchId) {
+      setSelectedBranchId(branchId);
+    } else {
+      setSelectedBranchId('all');
     }
     setUsername(user);
     setPassword(pass);
@@ -244,7 +258,13 @@ export const AdminLogin = () => {
 
     setIsLoading(true);
     try {
-      const result = await adminLogin(cleanUser, cleanPass, selectedRole, selectedMartId);
+      const result = await adminLogin(
+        cleanUser,
+        cleanPass,
+        selectedRole,
+        selectedMartId,
+        selectedBranchId !== 'all' ? selectedBranchId : null
+      );
       if (!result || !result.success) {
         setErrorMessage(result?.error || 'Invalid credentials. Please verify your login details.');
       } else if (selectedRole === 'rider') {
@@ -399,6 +419,33 @@ export const AdminLogin = () => {
                   );
                 })}
               </div>
+
+              {/* Branch Scope Selector for Store Admin */}
+              {selectedRole === 'admin' && availableBranchesForMart.length > 0 && (
+                <div className="pt-2.5 border-t border-slate-200/80">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wider">
+                      <MapPin className="w-3.5 h-3.5 text-sky-600" />
+                      <span>Branch Scope / Assignment:</span>
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">
+                      {selectedBranchId === 'all' ? 'All Branches (Store Admin)' : 'Branch Admin Mode'}
+                    </span>
+                  </div>
+                  <select
+                    value={selectedBranchId}
+                    onChange={(e) => setSelectedBranchId(e.target.value)}
+                    className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer"
+                  >
+                    <option value="all">🏢 All Branches (Store Admin Access)</option>
+                    {availableBranchesForMart.map((b) => (
+                      <option key={b._id || b.id} value={b._id || b.id}>
+                        📍 {b.name} ({b.city})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           )}
 
@@ -672,10 +719,17 @@ export const AdminLogin = () => {
               </button>
               <button
                 type="button"
-                onClick={() => autoFillCredentials('admin', 'admin@unimart.pk', 'admin123', 'tenant-freshmart', 'Unimaart Admin')}
+                onClick={() => autoFillCredentials('admin', 'admin.peoplescolony@unimart.pk', 'admin123', 'tenant-freshmart', 'Unimaart Peoples Colony Branch Admin (Faisalabad)', 'branch_um_fsd')}
+                className="px-2.5 py-1 rounded-lg bg-sky-100 hover:bg-sky-200 border border-sky-300 text-sky-950 font-bold text-[11px] transition-colors cursor-pointer"
+              >
+                📍 Unimaart Peoples Colony
+              </button>
+              <button
+                type="button"
+                onClick={() => autoFillCredentials('admin', 'admin@unimart.pk', 'admin123', 'tenant-freshmart', 'Unimaart Store Admin (All Branches)')}
                 className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-900 font-semibold text-[11px] transition-colors cursor-pointer"
               >
-                🛍️ Unimaart Admin
+                🛍️ Unimaart Store Admin
               </button>
               <button
                 type="button"
@@ -748,7 +802,7 @@ export const AdminLogin = () => {
                   {(storeAdmins || []).map((sa) => (
                     <div
                       key={sa.id}
-                      onClick={() => autoFillCredentials('admin', sa.email, sa.password, sa.tenantId, sa.tenantName)}
+                      onClick={() => autoFillCredentials('admin', sa.email, sa.password, sa.tenantId, `${sa.name || sa.tenantName} (${sa.branchName || 'All Branches'})`, sa.branchId)}
                       className={`p-2 rounded-xl border cursor-pointer transition ${
                         selectedRole === 'admin' && username === sa.email
                           ? 'bg-rose-50 border-rose-500 shadow-2xs'
@@ -756,10 +810,13 @@ export const AdminLogin = () => {
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800 truncate max-w-[130px]">{sa.tenantName}</span>
+                        <span className="font-bold text-slate-800 truncate max-w-[130px]">{sa.name || sa.tenantName}</span>
                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${sa.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
                           {sa.status}
                         </span>
+                      </div>
+                      <div className="text-[10px] text-sky-700 font-bold mt-0.5 truncate">
+                        📍 {sa.branchName || 'All Branches'}
                       </div>
                       <div className="font-mono text-[10px] text-slate-600 truncate mt-0.5">{sa.email}</div>
                       <div className="text-[9px] text-slate-400 mt-0.5">Password: <span className="font-mono font-bold text-slate-700">{sa.password}</span></div>

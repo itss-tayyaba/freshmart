@@ -420,7 +420,7 @@ export const getOrders = async (req, res) => {
       return res.json({ success: true, count: orders.length, orders });
     }
 
-    let orders = [...ADMIN_ORDERS_FULL];
+    let orders = ADMIN_ORDERS_FULL.length > 0 ? [...ADMIN_ORDERS_FULL] : [...ORDERS];
     if (role === 'pickup_staff') {
       orders = orders.filter((order) => {
         const matchesStaff = !staffId || String(order.pickupStaffId) === String(staffId);

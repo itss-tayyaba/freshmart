@@ -226,52 +226,151 @@ SUBSCRIPTION_PLANS.Pro = SUBSCRIPTION_PLANS[1];
 SUBSCRIPTION_PLANS.Professional = SUBSCRIPTION_PLANS[1];
 SUBSCRIPTION_PLANS.Enterprise = SUBSCRIPTION_PLANS[2];
 
-// Initial Mart Admins (Store Admins) for each supermarket chain
+// Initial Mart Admins & Branch Admins for each supermarket chain
 export const INITIAL_STORE_ADMINS = [
+  // --- Al-Fatah ---
   {
     id: 'sa-alfatah',
-    name: 'Al-Fatah Admin',
+    name: 'Al-Fatah Store Admin',
     username: 'alfatah_admin',
     email: 'admin@alfatah.pk',
     password: 'admin123',
     tenantId: 'tenant-alfatah',
     tenantName: 'Al-Fatah Supermarket',
+    branchId: null,
+    branchName: 'All Branches',
     role: 'admin',
     status: 'Active',
     createdAt: '2026-01-01T00:00:00.000Z'
   },
   {
+    id: 'sa-alfatah-gulberg',
+    name: 'Al-Fatah Gulberg Branch Admin',
+    username: 'alfatah_gulberg',
+    email: 'admin.gulberg@alfatah.pk',
+    password: 'admin123',
+    tenantId: 'tenant-alfatah',
+    tenantName: 'Al-Fatah Supermarket',
+    branchId: 'branch_002',
+    branchName: 'Gulberg Mall',
+    role: 'admin',
+    status: 'Active',
+    createdAt: '2026-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'sa-alfatah-dha',
+    name: 'Al-Fatah DHA Phase 5 Branch Admin',
+    username: 'alfatah_dha',
+    email: 'admin.dha@alfatah.pk',
+    password: 'admin123',
+    tenantId: 'tenant-alfatah',
+    tenantName: 'Al-Fatah Supermarket',
+    branchId: 'branch_001',
+    branchName: 'DHA Phase 5',
+    role: 'admin',
+    status: 'Active',
+    createdAt: '2026-01-01T00:00:00.000Z'
+  },
+
+  // --- Unimaart (Market Store) ---
+  {
+    id: 'sa-freshmart',
+    name: 'Unimaart Store Admin',
+    username: 'unimaart_admin',
+    email: 'admin@unimart.pk',
+    password: 'admin123',
+    tenantId: 'tenant-freshmart',
+    tenantName: 'Unimaart (Market Store)',
+    branchId: null,
+    branchName: 'All Branches',
+    role: 'admin',
+    status: 'Active',
+    createdAt: '2026-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'sa-freshmart-fsd',
+    name: 'Unimaart Peoples Colony Branch Admin',
+    username: 'unimart_fsd',
+    email: 'admin.peoplescolony@unimart.pk',
+    password: 'admin123',
+    tenantId: 'tenant-freshmart',
+    tenantName: 'Unimaart (Market Store)',
+    branchId: 'branch_um_fsd',
+    branchName: 'Peoples Colony Dark Store',
+    role: 'admin',
+    status: 'Active',
+    createdAt: '2026-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'sa-freshmart-gulberg',
+    name: 'Unimaart Gulberg SuperHub Branch Admin',
+    username: 'unimart_gulberg',
+    email: 'admin.gulberg@unimart.pk',
+    password: 'admin123',
+    tenantId: 'tenant-freshmart',
+    tenantName: 'Unimaart (Market Store)',
+    branchId: 'branch_010',
+    branchName: 'Gulberg SuperHub',
+    role: 'admin',
+    status: 'Active',
+    createdAt: '2026-01-01T00:00:00.000Z'
+  },
+
+  // --- Chase Value ---
+  {
     id: 'sa-chasevalue',
-    name: 'Chase Value Admin',
+    name: 'Chase Value Store Admin',
     username: 'chasevalue_admin',
     email: 'admin@chasevalue.pk',
     password: 'admin123',
     tenantId: 'tenant-chasevalue',
     tenantName: 'Chase Value',
+    branchId: null,
+    branchName: 'All Branches',
     role: 'admin',
     status: 'Active',
     createdAt: '2026-01-01T00:00:00.000Z'
   },
   {
+    id: 'sa-chasevalue-fsd',
+    name: 'Chase Value Faisalabad Branch Admin',
+    username: 'chasevalue_fsd',
+    email: 'admin.fsd@chasevalue.pk',
+    password: 'admin123',
+    tenantId: 'tenant-chasevalue',
+    tenantName: 'Chase Value',
+    branchId: 'branch_cv_fsd',
+    branchName: 'D-Ground Commercial Center',
+    role: 'admin',
+    status: 'Active',
+    createdAt: '2026-01-01T00:00:00.000Z'
+  },
+
+  // --- Chase Up ---
+  {
     id: 'sa-chaseup',
-    name: 'Chase Up Admin',
+    name: 'Chase Up Store Admin',
     username: 'chaseup_admin',
     email: 'admin@chaseup.pk',
     password: 'admin123',
     tenantId: 'tenant-chaseup',
     tenantName: 'Chase Up',
+    branchId: null,
+    branchName: 'All Branches',
     role: 'admin',
     status: 'Active',
     createdAt: '2026-01-01T00:00:00.000Z'
   },
   {
-    id: 'sa-freshmart',
-    name: 'Unimaart Admin',
-    username: 'unimaart_admin',
-    email: 'admin@unimart.pk',
+    id: 'sa-chaseup-clifton',
+    name: 'Chase Up Clifton Branch Admin',
+    username: 'chaseup_clifton',
+    email: 'admin.clifton@chaseup.pk',
     password: 'admin123',
-    tenantId: 'tenant-freshmart',
-    tenantName: 'Unimaart',
+    tenantId: 'tenant-chaseup',
+    tenantName: 'Chase Up',
+    branchId: 'branch_004',
+    branchName: 'Clifton Branch',
     role: 'admin',
     status: 'Active',
     createdAt: '2026-01-01T00:00:00.000Z'
