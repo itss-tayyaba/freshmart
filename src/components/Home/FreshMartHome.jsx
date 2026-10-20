@@ -59,6 +59,7 @@ export const FreshMartHome = () => {
 
   // Active category filter tab for Bestsellers
   const [activeBestsellerTab, setActiveBestsellerTab] = useState('all');
+  const [unimaartCategory, setUnimaartCategory] = useState('fruits-veg');
 
   // Countdown timer for Deal of the Day (08 : 45 : 30) matching screenshot
   const [dealTime, setDealTime] = useState({
@@ -99,7 +100,7 @@ export const FreshMartHome = () => {
   const bestsellersList = products.filter((p) => {
     if (activeBestsellerTab === 'all') return p.isBestSeller !== false;
     return p.category === activeBestsellerTab;
-  });
+  }).slice(0, 5);
 
   const spotlightApple = products.find((p) => p.id === (storeSettings?.dealOfDayProductId || 'fresh-apples-1kg')) || products.find(p => p.isFlashDeal) || (products.length > 0 ? products[0] : null);
 
@@ -212,8 +213,14 @@ export const FreshMartHome = () => {
           {/* UNIMAART MARKET STORE HERO, CATEGORIES & TOP SAVE TODAY (MATCHING SCREENSHOT) */}
           {/* ========================================================================= */}
           <UnimaartHero />
-          <UnimaartCategoryStrip />
-          <UnimaartTopSave />
+          <UnimaartCategoryStrip
+            activeCategory={unimaartCategory}
+            onSelectCategory={setUnimaartCategory}
+          />
+          <UnimaartTopSave
+            activeCategory={unimaartCategory}
+            onSelectCategory={setUnimaartCategory}
+          />
 
           {/* 🛡️ 4-Pillar Value Proposition Bar */}
           <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">

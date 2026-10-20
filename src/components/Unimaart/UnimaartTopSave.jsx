@@ -4,15 +4,22 @@ import {
   Beef,
   Coffee,
   Snowflake,
+  Croissant,
+  PawPrint,
+  Milk,
+  Cookie,
+  Wheat,
   Clock,
   ShoppingCart,
   Check,
   Eye,
-  Heart
+  Heart,
+  Sparkles
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { get5ItemsForCategory } from '../../data/unimaartItemsData';
 
-export const UnimaartTopSave = () => {
+export const UnimaartTopSave = ({ activeCategory: propActiveCategory, onSelectCategory }) => {
   const {
     addToCart,
     cart,
@@ -20,10 +27,14 @@ export const UnimaartTopSave = () => {
     addToast,
     setQuickViewProduct,
     toggleWishlist,
-    isInWishlist
+    isInWishlist,
+    activeCategory: storeActiveCategory,
+    setActiveCategory
   } = useStore();
 
-  const [activeSideCat, setActiveSideCat] = useState('all');
+  const [localSideCat, setLocalSideCat] = useState('fruits-veg');
+
+  const selectedCategory = propActiveCategory || storeActiveCategory || localSideCat;
 
   // Live countdown timer matching screenshot "Expires in : 14 : 23 : 59 : 55"
   const [timeLeft, setTimeLeft] = useState({
@@ -53,126 +64,74 @@ export const UnimaartTopSave = () => {
 
   const format2 = (val) => String(val).padStart(2, '0');
 
-  // 5 Top Save Featured Products (Matching screenshot items)
-  const topSaveItems = [
-    {
-      id: 'unimaart-eggs-carton',
-      name: 'Fresh Farm Golden Desi Eggs (12 Pcs Box)',
-      category: 'dairy-eggs',
-      price: 420,
-      originalPrice: 490,
-      discountPercent: 14,
-      tag: '-14%',
-      tagColor: 'bg-[#ff4757]',
-      unit: '12 Pcs Pack',
-      image: 'https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&w=400&q=80',
-      description: 'Golden-yolk farm eggs collected at dawn and packed in biodegradable protective carton.'
-    },
-    {
-      id: 'unimaart-orange-juice',
-      name: 'Valencia Cold-Pressed Orange Juice (500ml)',
-      category: 'beverages',
-      price: 350,
-      originalPrice: 400,
-      discountPercent: 12,
-      tag: '-12%',
-      tagColor: 'bg-[#ff4757]',
-      unit: '500ml Bottle',
-      image: 'https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=400&q=80',
-      description: 'Cold-pressed Sargodha Valencia oranges, zero artificial sugar or preservatives.'
-    },
-    {
-      id: 'unimaart-crispy-chips',
-      name: 'Crispy Spiced Potato Munchies Pouch (120g)',
-      category: 'snacks',
-      price: 150,
-      originalPrice: 180,
-      discountPercent: 16,
-      tag: '-16%',
-      tagColor: 'bg-[#ff4757]',
-      unit: '120g Foil Pouch',
-      image: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=400&q=80',
-      description: 'Thin-cut golden potato crisps with traditional Pakistani masala blend.'
-    },
-    {
-      id: 'unimaart-fresh-milk-twin',
-      name: 'Chilled Pure Raw Cow Milk Bottles (1L x 2)',
-      category: 'dairy-eggs',
-      price: 260,
-      originalPrice: 300,
-      discountPercent: 13,
-      tag: 'NEW',
-      tagColor: 'bg-[#f59e0b]',
-      unit: 'Twin 1L Bottles',
-      image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=400&q=80',
-      description: 'Non-homogenized pure cow milk delivered chilled straight from organic dairy farm.'
-    },
-    {
-      id: 'unimaart-fresh-chicken-cuts',
-      name: 'Farm Fresh Boneless Skinless Chicken (500g)',
-      category: 'meat-poultry',
-      price: 590,
-      originalPrice: 650,
-      discountPercent: 9,
-      tag: '-9%',
-      tagColor: 'bg-[#ff4757]',
-      unit: '500g Tray',
-      image: 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?auto=format&fit=crop&w=400&q=80',
-      description: 'Tender vacuum-sealed halal fresh chicken breast cuts kept strictly under 3°C.'
-    }
-  ];
-
-  const filteredItems = activeSideCat === 'all'
-    ? topSaveItems
-    : topSaveItems.filter((i) => i.category === activeSideCat);
+  // Strictly 5 items for the active category
+  const filteredItems = get5ItemsForCategory(selectedCategory);
 
   const sideCategories = [
+    { id: 'all', name: '⭐ All Top Deals', icon: Sparkles },
     { id: 'fruits-veg', name: 'Vegetables & Fruit', icon: Carrot },
-    { id: 'meat-poultry', name: 'Meats & Seafood', icon: Beef },
     { id: 'beverages', name: 'Beverages', icon: Coffee },
-    { id: 'frozen-foods', name: 'Frozen Foods', icon: Snowflake }
+    { id: 'meat-poultry', name: 'Meats & Seafood', icon: Beef },
+    { id: 'frozen-foods', name: 'Frozen Foods', icon: Snowflake },
+    { id: 'bakery', name: 'Breakfast & Bakery', icon: Croissant },
+    { id: 'pet-food', name: 'Pet Food', icon: PawPrint },
+    { id: 'dairy-eggs', name: 'Milk & Dairies', icon: Milk },
+    { id: 'snacks', name: 'Snacks & Munchies', icon: Cookie },
+    { id: 'grocery-staples', name: 'Grocery Staples', icon: Wheat }
   ];
 
+  const handleSelect = (catId) => {
+    setLocalSideCat(catId);
+    if (onSelectCategory) {
+      onSelectCategory(catId);
+    }
+    if (setActiveCategory) {
+      setActiveCategory(catId);
+    }
+  };
+
+  const activeCategoryMeta = sideCategories.find((c) => c.id === selectedCategory) || sideCategories[1];
+
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+    <section id="unimaart-top-save" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 scroll-mt-20">
       <div className="flex flex-col lg:flex-row gap-6 items-start">
         
         {/* ========================================================================= */}
         {/* 1. LEFT CATEGORY SIDEBAR */}
         {/* ========================================================================= */}
-        <div className="w-full lg:w-56 shrink-0 bg-[#f8f9fa] border border-slate-200/80 rounded-3xl p-5 shadow-2xs space-y-3">
-          <div className="pb-2.5 border-b border-slate-200">
-            <h3 className="text-sm font-black text-slate-900 tracking-tight">Category</h3>
+        <div className="w-full lg:w-60 shrink-0 bg-[#f8f9fa] border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-2xs space-y-3">
+          <div className="pb-2.5 border-b border-slate-200 flex items-center justify-between">
+            <h3 className="text-sm font-black text-slate-900 tracking-tight">Category Filter</h3>
+            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+              5 items each
+            </span>
           </div>
 
           <div className="space-y-1">
-            <button
-              onClick={() => setActiveSideCat('all')}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer text-left ${
-                activeSideCat === 'all'
-                  ? 'bg-[#0284c7] text-white shadow-2xs'
-                  : 'text-slate-600 hover:bg-slate-200/60'
-              }`}
-            >
-              <span>All Deals</span>
-            </button>
-
             {sideCategories.map((sc) => {
               const Icon = sc.icon;
-              const isSelected = activeSideCat === sc.id;
+              const isSelected = selectedCategory === sc.id;
 
               return (
                 <button
                   key={sc.id}
-                  onClick={() => setActiveSideCat(isSelected ? 'all' : sc.id)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-left ${
+                  type="button"
+                  onClick={() => handleSelect(sc.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors cursor-pointer text-left ${
                     isSelected
                       ? 'bg-[#0284c7] text-white font-bold shadow-2xs'
-                      : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
+                      : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 font-semibold'
                   }`}
                 >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span className="truncate">{sc.name}</span>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{sc.name}</span>
+                  </div>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                    isSelected ? 'bg-white/20 text-white' : 'text-slate-400'
+                  }`}>
+                    5
+                  </span>
                 </button>
               );
             })}
@@ -180,7 +139,7 @@ export const UnimaartTopSave = () => {
         </div>
 
         {/* ========================================================================= */}
-        {/* 2. RIGHT "TOP SAVE TODAY" WITH COUNTDOWN & 5 PRODUCT CARDS */}
+        {/* 2. RIGHT "TOP SAVE TODAY" WITH COUNTDOWN & EXACTLY 5 PRODUCT CARDS */}
         {/* ========================================================================= */}
         <div className="flex-1 w-full space-y-4">
           
@@ -189,7 +148,7 @@ export const UnimaartTopSave = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                  Top Save Today
+                  {activeCategoryMeta.name} <span className="text-[#0284c7] text-base font-bold">(5 Items)</span>
                 </h2>
               </div>
               
@@ -203,7 +162,7 @@ export const UnimaartTopSave = () => {
               </div>
 
               <p className="text-xs text-slate-500 font-medium">
-                Limited-Time Offer You Can't Miss
+                Fresh & handpicked daily • 10-15 min express delivery
               </p>
             </div>
 
@@ -216,10 +175,10 @@ export const UnimaartTopSave = () => {
             </div>
           </div>
 
-          {/* 5 Product Cards Row */}
+          {/* Exactly 5 Product Cards Grid (Matching reference) */}
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3.5 sm:gap-4 pt-1">
             {filteredItems.map((prod) => {
-              const inCart = (cart || []).some((item) => item.id === prod.id);
+              const inCart = (cart || []).some((item) => (item.product?.id || item.id) === prod.id);
 
               return (
                 <div
@@ -237,14 +196,19 @@ export const UnimaartTopSave = () => {
 
                   {/* Wishlist Button */}
                   <button
-                    onClick={() => toggleWishlist(prod)}
-                    className="absolute top-2.5 right-2.5 z-10 p-1.5 rounded-full bg-white/90 hover:bg-white text-slate-400 hover:text-rose-500 shadow-2xs transition-colors"
+                    type="button"
+                    onClick={() => toggleWishlist(prod.id || prod)}
+                    className="absolute top-2.5 right-2.5 z-10 p-1.5 rounded-full bg-white/90 hover:bg-white text-slate-400 hover:text-rose-500 shadow-2xs transition-colors cursor-pointer"
+                    title="Wishlist"
                   >
                     <Heart className={`w-3.5 h-3.5 ${isInWishlist(prod.id) ? 'fill-rose-500 text-rose-500' : ''}`} />
                   </button>
 
                   {/* Product Artwork */}
-                  <div className="relative pt-4 pb-2 flex items-center justify-center h-36 overflow-hidden">
+                  <div
+                    onClick={() => setQuickViewProduct && setQuickViewProduct(prod)}
+                    className="relative pt-4 pb-2 flex items-center justify-center h-36 overflow-hidden cursor-pointer bg-slate-50/50 rounded-xl mb-1"
+                  >
                     <img
                       src={prod.image}
                       alt={prod.name}
@@ -281,6 +245,7 @@ export const UnimaartTopSave = () => {
 
                       {/* Add to Cart Button */}
                       <button
+                        type="button"
                         onClick={() => {
                           addToCart(prod, 1);
                           addToast('Added to Cart 🛒', `${prod.name} added to cart.`);
