@@ -1714,7 +1714,7 @@ export const DeliveryPortal = () => {
                       return (
                         <tr key={order.id} className="hover:bg-slate-50/70 transition">
                           <td className="py-3.5 px-6 font-black text-slate-900 font-mono">
-                            {order.orderId}
+                            {String(order.orderId || order.id || '').replace(/^#/, '')}
                           </td>
                           <td className="py-3.5 px-6 font-bold text-slate-900">
                             {order.customerName}
