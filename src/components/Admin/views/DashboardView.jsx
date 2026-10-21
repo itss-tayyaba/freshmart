@@ -38,7 +38,9 @@ export const DashboardView = ({ onNavigateModule }) => {
     setCurrentTenant,
     allTenants,
     branchMetrics,
-    getBranchMetrics
+    getBranchMetrics,
+    allBranches = [],
+    user
   } = useStore();
 
   // Active Tenant Metrics & Branding
