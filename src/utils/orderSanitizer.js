@@ -24,14 +24,18 @@ export const sanitizeOrder = (ord) => {
       : (ord.address || 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad');
     const fixedCity = fixedAddr.toLowerCase().includes('faisalabad') ? 'Faisalabad' : (ord.city || 'Faisalabad');
 
+    const hasUnimaartBranch = Boolean(ord.branchName && (ord.branchName.includes('Dark Store') || ord.branchName.includes('Unimaart') || ord.branchId === 'branch_um_fsd'));
+    const resolvedBranchId = (!ord.branchId || hasUnimaartBranch) ? (isFsd ? 'branch_af_fsd' : 'branch_001') : ord.branchId;
+    const resolvedBranchName = (!ord.branchName || hasUnimaartBranch) ? (isFsd ? 'D-Ground Flagship Hub' : 'Gulberg Mall') : ord.branchName;
+
     return {
       ...ord,
       id: ord.id || ord.orderId || 'ORD-701',
       orderId: ord.orderId || ord.id || 'ORD-701',
       tenantId: 'tenant-alfatah',
       tenantName: 'Al-Fatah Supermarket',
-      branchId: ord.branchId || (isFsd ? 'branch_af_fsd' : 'branch_001'),
-      branchName: ord.branchName || (isFsd ? 'D-Ground Flagship Hub' : 'Gulberg Mall'),
+      branchId: resolvedBranchId,
+      branchName: resolvedBranchName,
       address: fixedAddr,
       city: fixedCity,
       shippingAddress: typeof ord.shippingAddress === 'object' && ord.shippingAddress ? {

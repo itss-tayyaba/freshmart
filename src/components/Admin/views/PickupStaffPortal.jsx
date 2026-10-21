@@ -120,9 +120,9 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
 
   // Tab counts
   const counts = useMemo(() => {
-    const isPending = (o) => ['Pending', 'pending', 'Pending_Kitchen', 'pending_kitchen', 'Order Placed', 'Received by Pickup Staff'].includes(o.status) || (!o.status);
+    const isPending = (o) => ['Pending', 'pending', 'Pending_Kitchen', 'pending_kitchen', 'Order Placed', 'Received by Pickup Staff', 'Deliver to Staff', 'Delivered to Staff'].includes(o.status) || (!o.status);
     const isPreparing = (o) => ['Preparing', 'preparing', 'Processing', 'Picking', 'Packed'].includes(o.status);
-    const isReady = (o) => ['Ready', 'ready', 'Ready for Dispatch', 'ready(dispatched)'].includes(o.status);
+    const isReady = (o) => ['Ready', 'ready', 'Ready for Dispatch', 'ready(dispatched)'].includes(o.status) || o.isDispatchedByStaff;
     const isDispatched = (o) => ['Dispatched', 'dispatched', 'Out for Delivery', 'Delivered'].includes(o.status) || o.isDispatched;
 
     return {
@@ -139,7 +139,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     return allOrders.filter((ord) => {
       const statusLower = (ord.status || 'pending').toLowerCase();
 
-      if (activeTab === 'Pending' && !['pending', 'pending_kitchen', 'order placed', 'received by pickup staff'].includes(statusLower)) {
+      if (activeTab === 'Pending' && !['pending', 'pending_kitchen', 'order placed', 'received by pickup staff', 'deliver to staff', 'delivered to staff'].includes(statusLower)) {
         return false;
       }
       if (activeTab === 'Preparing' && !['preparing', 'processing', 'picking', 'packed'].includes(statusLower)) {
@@ -220,11 +220,14 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
   const handleStartPreparing = async (order) => {
     await updateOrderFulfillment(order.id, {
       fulfillmentStage: 3,
-      status: 'Picking',
+      status: 'Preparing',
       pickupStep: 'picking',
-      pickingStartedAt: new Date().toISOString()
+      preparingStartedAt: new Date().toISOString(),
+      pickingStartedAt: new Date().toISOString(),
+      prepEstimatedMinutes: 10,
+      isDispatchedByStaff: false
     });
-    addToast('Order Preparing 🔥', `Started preparing order #${order.id}`);
+    addToast('Order Preparing 🔥', `Started preparing order #${order.id}. Delivery rider can now see estimated prep time.`);
   };
 
   const handlePackItems = async (order, itemsCount) => {
@@ -242,7 +245,9 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       pickedItems: Array.from({ length: itemsCount }, (_, i) => i),
       parcelCode,
       sealedAt: new Date().toISOString(),
-      packedAt: new Date().toISOString()
+      packedAt: new Date().toISOString(),
+      prepEstimatedMinutes: 2,
+      isDispatchedByStaff: false
     });
     addToast('Parcel Packed 📦', `Items verified and sealed in parcel ${parcelCode}`);
   };
@@ -253,10 +258,12 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       status: 'Ready for Dispatch',
       pickupStep: 'verified',
       isDispatched: false,
+      isDispatchedByStaff: true,
       parcelVerifiedAt: new Date().toISOString(),
-      readyForDispatchAt: new Date().toISOString()
+      readyForDispatchAt: new Date().toISOString(),
+      dispatchedAt: new Date().toISOString()
     });
-    addToast('Order Ready for Dispatch ✅', `Order #${order.id} is Ready! Admin can now assign a rider.`);
+    addToast('Order Dispatched at Desk ✅', `Order #${order.id} dispatched! Admin can now assign a delivery rider.`);
   };
 
   return (

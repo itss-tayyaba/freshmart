@@ -144,6 +144,8 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     customers,
     assignRiderToOrder,
     getEligibleRidersForOrder,
+    pickupStaff = [],
+    assignPickupStaffToOrder,
     addToast,
     currentTenant,
     user,
@@ -156,6 +158,36 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   const [search, setSearch] = useState('');
   const [selectedDateRange, setSelectedDateRange] = useState('All Time');
   const [selectedRiderMap, setSelectedRiderMap] = useState({});
+  const [selectedStaffMap, setSelectedStaffMap] = useState({});
+
+  const tenantStaff = useMemo(() => {
+    const activeTenant = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
+    return (pickupStaff || []).filter(
+      (s) => isSameTenant(s.tenantId || s.companyId, activeTenant) && (s.status === 'Active' || !s.status)
+    );
+  }, [pickupStaff, currentTenant?.id, user?.tenantId]);
+
+  const handleAssignPickupStaff = async (orderId) => {
+    const staffId = selectedStaffMap[orderId];
+    if (!staffId) {
+      addToast('Select Pickup Staff 📦', 'Please select a pickup staff member from the dropdown first.', 'error');
+      return;
+    }
+    if (assignPickupStaffToOrder) {
+      const ok = assignPickupStaffToOrder(orderId, staffId);
+      if (ok) {
+        if (selectedOrder && selectedOrder.id === orderId) {
+          const staffObj = tenantStaff.find((s) => s.id === staffId);
+          setSelectedOrder((prev) => (prev ? {
+            ...prev,
+            pickupStaffId: staffId,
+            pickupStaffName: staffObj?.name || 'Pickup Staff',
+            status: 'Deliver to Staff'
+          } : null));
+        }
+      }
+    }
+  };
 
   // Selected Order for Right Side Drawer
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -659,7 +691,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                     <th className="pb-3.5">Table</th>
                     <th className="pb-3.5">Items</th>
                     <th className="pb-3.5">Total & Payment</th>
-                    <th className="pb-3.5">Assign Rider</th>
+                    <th className="pb-3.5">Fulfillment & Rider</th>
                     <th className="pb-3.5">Status</th>
                   </tr>
                 </thead>
@@ -741,63 +773,163 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                           </div>
                         </td>
 
-                        {/* 7. Assign Rider Column (Choose rider... dropdown + Assign button) */}
+                        {/* 7. Fulfillment & Rider Column: Step 1 (Pickup Staff) -> Step 2 (Staff Prepares & Dispatches) -> Step 3 (Admin Assigns Rider) */}
                         <td className="py-4" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex flex-col items-start gap-1.5 min-w-[130px]">
-                            {ord.status === 'Delivered' ? (
-                              <div className="space-y-0.5">
-                                <span className="text-[11px] text-emerald-700 font-bold flex items-center gap-1">
-                                  ✓ Handover Verified
-                                </span>
-                                {ord.assignedRider && (
-                                  <span className="text-[10px] text-slate-500 block">
-                                    Delivered by {ord.assignedRider.name}
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <>
-                                <select
-                                  value={ord.assignedRider?.id || selectedRiderMap[ord.id] || ''}
-                                  onChange={(e) =>
-                                    setSelectedRiderMap((prev) => ({ ...prev, [ord.id]: e.target.value }))
-                                  }
-                                  disabled={eligibleRiders.length === 0}
-                                  className="bg-[#f5efe6] hover:bg-[#ede5d8] border border-[#ded5c5] rounded-xl px-2.5 py-1 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer w-full max-w-[160px]"
-                                >
-                                  <option value="">Choose rider...</option>
-                                  {eligibleRiders.map((r) => (
-                                    <option key={r.id} value={r.id}>
-                                      {r.name} · {r.distanceKm.toFixed(1)} km
-                                    </option>
-                                  ))}
-                                </select>
-                                {eligibleRiders.length === 0 && (
-                                  <span className="text-[10px] text-rose-600">No on-duty rider covers this GPS area</span>
-                                )}
+                          <div className="flex flex-col items-start gap-1.5 min-w-[160px]">
+                            {(() => {
+                              const hasPickupStaff = Boolean(ord.pickupStaffId || ord.pickupStaffName || ord.pickupStaff);
+                              const isDispatchedByStaff =
+                                ['ready for dispatch', 'ready', 'dispatched', 'out for delivery', 'delivered', 'dispatched to rider'].includes(String(ord.status || '').toLowerCase()) ||
+                                Boolean(ord.isDispatchedByStaff || ord.isDispatched || ord.readyForDispatchAt || ord.pickupStep === 'verified' || Number(ord.fulfillmentStage) >= 4);
 
-                                <div className="flex items-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleAssignRider(ord.id)}
-                                    disabled={!selectedRiderMap[ord.id] && !ord.assignedRider}
-                                    className="px-3.5 py-1 bg-[#059669] hover:bg-[#047857] text-white rounded-lg text-xs font-semibold transition cursor-pointer shadow-2xs disabled:cursor-not-allowed disabled:opacity-40"
+                              // 1. Delivered state
+                              if (ord.status === 'Delivered') {
+                                return (
+                                  <div className="space-y-0.5">
+                                    <span className="text-[11px] text-emerald-700 font-bold flex items-center gap-1">
+                                      ✓ Handover Verified
+                                    </span>
+                                    {ord.assignedRider && (
+                                      <span className="text-[10px] text-slate-500 block">
+                                        Delivered by {ord.assignedRider.name}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              }
+
+                              // 2. In Transit with Rider
+                              if (ord.assignedRider && (ord.status === 'Out for Delivery' || ord.status === 'Dispatched to Rider')) {
+                                return (
+                                  <div className="bg-sky-50 border border-sky-200/90 rounded-xl p-2 w-full max-w-[170px] space-y-1 shadow-2xs">
+                                    <div className="text-xs font-bold text-sky-900 flex items-center gap-1.5">
+                                      <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
+                                      <span>🛵 {ord.assignedRider.name}</span>
+                                    </div>
+                                    <span className="text-[10px] text-sky-700 block font-medium">
+                                      Out for Delivery · Live GPS
+                                    </span>
+                                    {ord.deliveryOtp && (
+                                      <span className="inline-block text-[10px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded">
+                                        OTP: {ord.deliveryOtp}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              }
+
+                              // 3. Step 1: Needs Pickup Staff Assignment
+                              if (!hasPickupStaff && (ord.status === 'Pending' || ord.status === 'Confirmed' || !ord.status)) {
+                                return (
+                                  <div className="space-y-1.5 w-full max-w-[170px]">
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                      Step 1: Assign Pickup Staff
+                                    </span>
+                                    <select
+                                      value={selectedStaffMap[ord.id] || ''}
+                                      onChange={(e) =>
+                                        setSelectedStaffMap((prev) => ({ ...prev, [ord.id]: e.target.value }))
+                                      }
+                                      className="bg-white hover:bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer w-full text-ellipsis"
+                                    >
+                                      <option value="">Choose pickup staff...</option>
+                                      {tenantStaff.map((s) => (
+                                        <option key={s.id} value={s.id}>
+                                          📦 {s.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAssignPickupStaff(ord.id)}
+                                        disabled={!selectedStaffMap[ord.id]}
+                                        className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition cursor-pointer shadow-2xs disabled:opacity-40"
+                                      >
+                                        Assign Staff
+                                      </button>
+                                      {ord.deliveryOtp && (
+                                        <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded">
+                                          OTP: {ord.deliveryOtp}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              // 4. Step 2: In Preparation by Pickup Staff (Awaiting Staff Dispatch)
+                              if (hasPickupStaff && !isDispatchedByStaff) {
+                                return (
+                                  <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-2 w-full max-w-[170px] space-y-1 shadow-2xs">
+                                    <div className="text-xs font-bold text-amber-950 truncate flex items-center gap-1.5">
+                                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                                      <span>📦 {ord.pickupStaffName || 'Pickup Staff'}</span>
+                                    </div>
+                                    <div className="text-[11px] text-amber-800 font-semibold flex items-center gap-1">
+                                      <span>🍳 {ord.status === 'Packed' ? 'Packed & Sealed' : 'Preparing items...'}</span>
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 italic bg-white/80 border border-amber-200/60 rounded px-1.5 py-0.5">
+                                      ⏳ Awaiting staff dispatch to assign rider
+                                    </div>
+                                    {ord.deliveryOtp && (
+                                      <span className="inline-block text-[10px] font-mono font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded">
+                                        OTP: {ord.deliveryOtp}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              }
+
+                              // 5. Step 3: Dispatched by Pickup Staff (Ready for Rider Assignment)
+                              return (
+                                <div className="space-y-1.5 w-full max-w-[170px]">
+                                  <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                    <span>✓ Dispatched by {ord.pickupStaffName || 'Staff'}</span>
+                                  </div>
+                                  <select
+                                    value={ord.assignedRider?.id || selectedRiderMap[ord.id] || ''}
+                                    onChange={(e) =>
+                                      setSelectedRiderMap((prev) => ({ ...prev, [ord.id]: e.target.value }))
+                                    }
+                                    disabled={eligibleRiders.length === 0}
+                                    className="bg-[#f5efe6] hover:bg-[#ede5d8] border border-[#ded5c5] rounded-xl px-2.5 py-1 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer w-full"
                                   >
-                                    Assign
-                                  </button>
-                                  {ord.assignedRider && (
-                                    <span className="text-[10px] text-purple-700 font-bold">
-                                      ✓ {ord.assignedRider.name}
+                                    <option value="">Choose rider...</option>
+                                    {eligibleRiders.map((r) => (
+                                      <option key={r.id} value={r.id}>
+                                        🛵 {r.name} · {r.distanceKm.toFixed(1)} km
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {eligibleRiders.length === 0 && (
+                                    <span className="text-[10px] text-rose-600 block">No on-duty rider covers this GPS area</span>
+                                  )}
+
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAssignRider(ord.id)}
+                                      disabled={!selectedRiderMap[ord.id] && !ord.assignedRider}
+                                      className="px-3.5 py-1 bg-[#059669] hover:bg-[#047857] text-white rounded-lg text-xs font-bold transition cursor-pointer shadow-2xs disabled:cursor-not-allowed disabled:opacity-40"
+                                    >
+                                      Assign Rider
+                                    </button>
+                                    {ord.assignedRider && (
+                                      <span className="text-[10px] text-purple-700 font-bold truncate">
+                                        ✓ {ord.assignedRider.name}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {ord.deliveryOtp && (
+                                    <span className="text-[10px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-md inline-block">
+                                      OTP: {ord.deliveryOtp}
                                     </span>
                                   )}
                                 </div>
-                                {ord.deliveryOtp && (
-                                  <span className="text-[10px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-md">
-                                    OTP: {ord.deliveryOtp}
-                                  </span>
-                                )}
-                              </>
-                            )}
+                              );
+                            })()}
                           </div>
                         </td>
                         <td className="py-4 whitespace-nowrap">{renderStatusBadge(ord.status)}</td>

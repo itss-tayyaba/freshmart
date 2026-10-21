@@ -203,12 +203,54 @@ export const DeliveryPortal = () => {
     });
   }, [allOrdersList, activeRider, user?.riderId, user?.name]);
 
-  // Orders packed & ready for dispatch in this store, waiting for courier acceptance
+  // Live timer tick for estimated preparation countdown
+  const [prepClock, setPrepClock] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setPrepClock(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getPrepTimeInfo = (ord) => {
+    const startTs = ord.preparingStartedAt
+      ? new Date(ord.preparingStartedAt).getTime()
+      : (ord.createdAt ? new Date(ord.createdAt).getTime() : Date.now());
+    const estMins = Number(ord.prepEstimatedMinutes || 10);
+    const elapsedMs = Math.max(0, prepClock - startTs);
+    const totalMs = estMins * 60 * 1000;
+    const remainingMs = Math.max(0, totalMs - elapsedMs);
+    const remainingMins = Math.ceil(remainingMs / (60 * 1000));
+    return {
+      remainingMins,
+      formatted: remainingMs <= 0 ? 'Ready any moment (< 1m)' : `~${remainingMins} mins left`,
+      isReadyAnyMoment: remainingMs <= 0
+    };
+  };
+
+  // Orders currently being packed / prepared by pickup staff in this store
+  const preparingOrders = useMemo(() => {
+    return allOrdersList.filter((o) => {
+      if (o.status === 'Cancelled' || o.status === 'Delivered') return false;
+      const s = String(o.status || '').toLowerCase();
+      const isPreparing =
+        ['preparing', 'picking', 'deliver to staff', 'delivered to staff', 'received by pickup staff'].includes(s) ||
+        o.pickupStep === 'picking' ||
+        o.pickupStep === 'received';
+      const isDispatched = o.isDispatchedByStaff || o.isDispatched || s === 'ready for dispatch' || s === 'ready';
+      const isAlreadyAssigned = Boolean(o.assignedRider && (o.assignedRider.id || o.assignedRider.name));
+      return isPreparing && !isDispatched && !isAlreadyAssigned;
+    });
+  }, [allOrdersList]);
+
+  // Orders packed & ready for dispatch in this store, waiting for courier acceptance or admin assignment
   const readyForDispatchOrders = useMemo(() => {
     return allOrdersList.filter((o) => {
       if (o.status === 'Cancelled' || o.status === 'Delivered') return false;
       const s = String(o.status || '').toLowerCase();
-      const isReady = ['ready', 'ready for dispatch', 'ready(dispatched)', 'packed'].includes(s) || o.pickupStep === 'verified' || o.pickupStep === 'packed';
+      const isReady =
+        o.isDispatchedByStaff ||
+        ['ready', 'ready for dispatch', 'ready(dispatched)', 'packed'].includes(s) ||
+        o.pickupStep === 'verified' ||
+        o.pickupStep === 'packed';
       const isAlreadyAssigned = Boolean(o.assignedRider && (o.assignedRider.id || o.assignedRider.name));
       return isReady && !isAlreadyAssigned;
     });
@@ -1084,24 +1126,108 @@ export const DeliveryPortal = () => {
         )}
 
         {/* ===================================================================== */}
-        {/* READY FOR DISPATCH BANNER (Parcels packed by staff waiting for rider)  */}
+        {/* 1. PREPARING PARCELS BANNER (Track live prep time & dispatch status)   */}
         {/* ===================================================================== */}
-        {readyForDispatchOrders.length > 0 && !activeOrder && (
-          <section className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-amber-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-amber-200/60">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">📦</span>
+        {preparingOrders.length > 0 && !activeOrder && (
+          <section className="bg-gradient-to-r from-amber-50/90 via-orange-50/60 to-amber-50/90 rounded-2xl border border-amber-200 p-4 sm:p-5 shadow-2xs space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-amber-200/70">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">🍳</span>
                 <div>
-                  <h3 className="text-sm font-bold text-amber-950">
-                    Parcels Packed & Ready for Pickup ({readyForDispatchOrders.length})
+                  <h3 className="text-sm font-bold text-amber-950 flex items-center gap-2">
+                    <span>Parcels Preparing at Pickup Desk</span>
+                    <span className="bg-amber-200 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded-full">
+                      {preparingOrders.length} In Progress
+                    </span>
                   </h3>
                   <p className="text-[11px] text-amber-800">
-                    Store pickup staff has verified and staged parcel(s) at {storeBrandName}.
+                    Store pickup staff is currently packing items at {storeBrandName}. Track live countdown to pickup.
                   </p>
                 </div>
               </div>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-200/80 text-amber-900 border border-amber-300">
-                Awaiting Courier
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1.5 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
+                <span>Dispatch: Preparing (Not Dispatched Yet)</span>
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              {preparingOrders.map((ord) => {
+                const prepInfo = getPrepTimeInfo(ord);
+                return (
+                  <div
+                    key={ord.id}
+                    className="bg-white rounded-xl border border-amber-200/90 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
+                  >
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-extrabold text-stone-900 font-mono text-sm">
+                          {ord.orderId || `#${ord.id}`}
+                        </span>
+                        <span className="text-stone-300">•</span>
+                        <span className="font-black text-emerald-700">
+                          {formatPrice(ord.totalAmount || ord.total)}
+                        </span>
+                        <span className="text-stone-300">•</span>
+                        <span className="font-bold text-stone-800">
+                          {ord.customerName || ord.customer || 'Customer'}
+                        </span>
+                        {ord.pickupStaffName && (
+                          <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 font-semibold text-[10px] border border-stone-200">
+                            📦 Packing by {ord.pickupStaffName}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-stone-500 text-[11px] flex items-center gap-1">
+                        <span>📍 Drop-off:</span>
+                        <span className="font-medium text-stone-700">
+                          {ord.shippingAddress?.address || ord.address || ord.city || 'Faisalabad'}
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap sm:flex-col items-start sm:items-end gap-1.5 shrink-0">
+                      {/* Live countdown timer badge */}
+                      <span className="px-3 py-1 rounded-xl text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1.5 shadow-2xs">
+                        <Clock className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Ready in: <b className="font-black font-mono">{prepInfo.formatted}</b></span>
+                      </span>
+
+                      {/* Dispatch Status */}
+                      <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                        <span>Dispatch: Preparing (Not Dispatched Yet)</span>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ===================================================================== */}
+        {/* 2. READY FOR DISPATCH BANNER (Parcels packed by staff waiting for rider)  */}
+        {/* ===================================================================== */}
+        {readyForDispatchOrders.length > 0 && !activeOrder && (
+          <section className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200 p-4 sm:p-5 shadow-2xs space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-emerald-200/60">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📦</span>
+                <div>
+                  <h3 className="text-sm font-bold text-emerald-950 flex items-center gap-2">
+                    <span>Parcels Dispatched & Ready for Pickup</span>
+                    <span className="bg-emerald-200 text-emerald-900 text-[10px] font-black px-2 py-0.5 rounded-full">
+                      {readyForDispatchOrders.length} Ready
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-emerald-800">
+                    Store pickup staff has verified and staged parcel(s) at {storeBrandName} counter.
+                  </p>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1 shadow-2xs">
+                <span>✓ Dispatch: Ready at Counter</span>
               </span>
             </div>
 
@@ -1109,11 +1235,11 @@ export const DeliveryPortal = () => {
               {readyForDispatchOrders.map((ord) => (
                 <div
                   key={ord.id}
-                  className="bg-white rounded-xl border border-amber-200 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
+                  className="bg-white rounded-xl border border-emerald-200 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
                 >
-                  <div className="space-y-0.5 text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-stone-900 font-mono">
+                  <div className="space-y-1 text-xs">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-extrabold text-stone-900 font-mono text-sm">
                         {ord.orderId || `#${ord.id}`}
                       </span>
                       <span className="text-stone-300">•</span>
@@ -1124,15 +1250,28 @@ export const DeliveryPortal = () => {
                       <span className="font-semibold text-stone-600">
                         {ord.customerName || ord.customer || 'Customer'}
                       </span>
+                      {ord.pickupStaffName && (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          ✓ Dispatched by {ord.pickupStaffName}
+                        </span>
+                      )}
                     </div>
                     <p className="text-stone-500 text-[11px]">
                       📍 Drop-off: {ord.shippingAddress?.address || ord.address || ord.city || 'Faisalabad'}
                     </p>
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded">
+                        ⏱️ Time to Pickup: <b>Ready Now (0m)</b>
+                      </span>
+                      <span className="text-[10px] font-bold text-stone-600 bg-stone-100 px-2 py-0.5 rounded">
+                        Dispatch: <b>Dispatched & Ready</b>
+                      </span>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleAcceptDispatchOrder(ord)}
-                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer shrink-0"
+                    className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer shrink-0"
                   >
                     <span>🛵 Accept & Start Delivery</span>
                   </button>
@@ -1145,7 +1284,7 @@ export const DeliveryPortal = () => {
         {/* ===================================================================== */}
         {/* STANDBY / IDLE ON-DUTY STATE (When rider has 0 active or ready parcels)*/}
         {/* ===================================================================== */}
-        {!activeOrder && readyForDispatchOrders.length === 0 && (
+        {!activeOrder && readyForDispatchOrders.length === 0 && preparingOrders.length === 0 && (
           <section className="bg-white rounded-2xl border border-stone-200/90 shadow-2xs p-6 text-center space-y-3">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-2xl shadow-2xs">
               🛵

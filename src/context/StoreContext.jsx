@@ -5429,6 +5429,7 @@ export const StoreProvider = ({ children }) => {
       pickupStaffId: staff.id,
       pickupStaffName: staff.name,
       pickupStaffUsername: staff.username,
+      status: 'Deliver to Staff',
       fulfillmentStage: 2,
       pickupStep: 'received',
       pickupAssignedAt: new Date().toISOString(),

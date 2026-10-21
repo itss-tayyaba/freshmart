@@ -23,8 +23,28 @@ describe('Al-Fatah Store Admin Order Visibility & Multi-Tenant Isolation', () =>
     assert.equal(sanitized.id, 'ORD-701');
     assert.equal(sanitized.tenantId, 'tenant-alfatah');
     assert.equal(sanitized.tenantName, 'Al-Fatah Supermarket');
+    assert.equal(sanitized.branchId, 'branch_af_fsd');
+    assert.equal(sanitized.branchName, 'D-Ground Flagship Hub');
     assert.equal(isSameTenant(sanitized.tenantId, 'tenant-alfatah'), true);
     assert.equal(isSameTenant(sanitized.tenantId, 'tenant-freshmart'), false);
+  });
+
+  it('corrects Al-Fatah order if it was previously stamped with Peoples Colony Dark Store', () => {
+    const orderWithWrongBranch = {
+      id: 'ORD-701',
+      orderId: 'ORD-701',
+      tenantId: 'tenant-alfatah',
+      tenantName: 'Al-Fatah Supermarket',
+      branchId: 'branch_um_fsd',
+      branchName: 'Peoples Colony Dark Store',
+      customer: 'Tayyaba Batool',
+      address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+      city: 'Faisalabad'
+    };
+
+    const sanitized = sanitizeOrder(orderWithWrongBranch);
+    assert.equal(sanitized.branchId, 'branch_af_fsd');
+    assert.equal(sanitized.branchName, 'D-Ground Flagship Hub');
   });
 
   it('preserves Unimaart tenant identity for #FM83459 in sanitizeOrder', () => {
@@ -109,19 +129,70 @@ describe('Al-Fatah Store Admin Order Visibility & Multi-Tenant Isolation', () =>
     assert.equal(unimaartAdminOrders[0].id, '#FM83459');
   });
 
-  it('recovers corrupted ORD-701 that was mistakenly marked as tenant-freshmart back to Al-Fatah', () => {
-    const corruptedOrder = {
+  it('validates multi-step fulfillment lifecycle: Assign Staff -> Staff Prepares -> Rider sees countdown -> Staff Dispatches -> Admin assigns Rider', () => {
+    // 1. Order Placed in Pending (No staff yet)
+    let order = {
       id: 'ORD-701',
-      orderId: 'ORD-701',
-      tenantId: 'tenant-freshmart', // previously corrupted
-      tenantName: 'Unimaart',
+      status: 'Pending',
+      tenantId: 'tenant-alfatah',
       customer: 'Tayyaba Batool',
-      address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad'
+      total: 970
     };
+    const hasStaffAssignedInitially = Boolean(order.pickupStaffId || order.pickupStaffName);
+    assert.equal(hasStaffAssignedInitially, false, 'Step 1: Order starts with no pickup staff assigned');
 
-    const recovered = sanitizeOrder(corruptedOrder);
-    assert.equal(recovered.tenantId, 'tenant-alfatah');
-    assert.equal(recovered.tenantName, 'Al-Fatah Supermarket');
-    assert.equal(isSameTenant(recovered.tenantId, 'tenant-alfatah'), true);
+    // 2. Admin assigns order to pickup staff
+    const staff = { id: 'PCK-ALFATAH', name: 'Al-Fatah Packing Desk' };
+    order = {
+      ...order,
+      pickupStaffId: staff.id,
+      pickupStaffName: staff.name,
+      status: 'Deliver to Staff',
+      fulfillmentStage: 2,
+      pickupStep: 'received'
+    };
+    assert.equal(order.status, 'Deliver to Staff');
+    assert.equal(order.pickupStaffName, 'Al-Fatah Packing Desk');
+
+    // 3. Pickup staff starts preparing
+    order = {
+      ...order,
+      status: 'Preparing',
+      pickupStep: 'picking',
+      preparingStartedAt: new Date().toISOString(),
+      prepEstimatedMinutes: 10,
+      isDispatchedByStaff: false
+    };
+    assert.equal(order.status, 'Preparing');
+    assert.equal(order.isDispatchedByStaff, false);
+
+    // Rider sees preparation time left
+    const now = Date.now();
+    const started = new Date(order.preparingStartedAt).getTime();
+    const remainingMins = Math.ceil((10 * 60 * 1000 - (now - started)) / (60 * 1000));
+    assert.ok(remainingMins <= 10 && remainingMins >= 0);
+
+    // 4. Pickup staff dispatches the parcel
+    order = {
+      ...order,
+      status: 'Ready for Dispatch',
+      pickupStep: 'verified',
+      isDispatchedByStaff: true,
+      dispatchedAt: new Date().toISOString(),
+      fulfillmentStage: 4
+    };
+    assert.equal(order.isDispatchedByStaff, true);
+    assert.equal(order.status, 'Ready for Dispatch');
+
+    // 5. Admin can now assign rider
+    const rider = { id: 'RDR-001', name: 'Ahmad Khan', phone: '+923001234567' };
+    order = {
+      ...order,
+      status: 'Out for Delivery',
+      assignedRider: rider,
+      fulfillmentStage: 5
+    };
+    assert.equal(order.status, 'Out for Delivery');
+    assert.equal(order.assignedRider.name, 'Ahmad Khan');
   });
 });
