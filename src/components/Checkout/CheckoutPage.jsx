@@ -177,6 +177,14 @@ export const CheckoutPage = () => {
   const [placedOrderDetails, setPlacedOrderDetails] = useState(null);
   const [copiedOrderId, setCopiedOrderId] = useState(false);
 
+  const placedItemsList = React.useMemo(() => {
+    if (!placedOrderDetails) return [];
+    if (Array.isArray(placedOrderDetails.rawItems)) return placedOrderDetails.rawItems;
+    if (Array.isArray(placedOrderDetails.orderItems)) return placedOrderDetails.orderItems;
+    if (Array.isArray(placedOrderDetails.items)) return placedOrderDetails.items;
+    return [];
+  }, [placedOrderDetails]);
+
   const [addressData, setAddressData] = useState({
     recipientName: customerUser?.name || '',
     phone: customerUser?.phone || '',
@@ -481,30 +489,30 @@ export const CheckoutPage = () => {
               </div>
 
               {/* Ordered Items Preview */}
-              {(placedOrderDetails?.items || placedOrderDetails?.orderItems || placedOrderDetails?.rawItems)?.length > 0 && (
+              {placedItemsList.length > 0 && (
                 <div className="border-t border-slate-200/60 pt-3 text-left">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-                      Items in This Order ({(placedOrderDetails?.items || placedOrderDetails?.orderItems || placedOrderDetails?.rawItems).length})
+                      Items in This Order ({placedItemsList.length})
                     </span>
                     <span className="text-[11px] font-bold text-slate-500">
-                      {(placedOrderDetails?.items || placedOrderDetails?.orderItems || placedOrderDetails?.rawItems).reduce((s, i) => s + (Number(i.quantity) || 1), 0)} units total
+                      {placedItemsList.reduce((s, i) => s + (Number(i.quantity) || 1), 0)} units total
                     </span>
                   </div>
                   <div className="max-h-48 overflow-y-auto space-y-2 pr-1 divide-y divide-slate-100">
-                    {(placedOrderDetails?.items || placedOrderDetails?.orderItems || placedOrderDetails?.rawItems).map((it, idx) => (
+                    {placedItemsList.map((it, idx) => (
                       <div key={idx} className="pt-2 first:pt-0 flex items-center justify-between text-xs gap-2">
                         <div className="flex items-center gap-2.5 min-w-0">
                           {it.image && (
                             <img
                               src={it.image}
-                              alt={it.name}
+                              alt={it.name || 'Product'}
                               className="w-9 h-9 rounded-lg object-cover bg-slate-100 border border-slate-200 shrink-0"
                             />
                           )}
                           <div className="min-w-0">
-                            <p className="font-bold text-slate-800 truncate leading-tight">{it.name}</p>
-                            <p className="text-[10px] text-slate-400">{it.quantity}x • {it.unit || 'pack'}</p>
+                            <p className="font-bold text-slate-800 truncate leading-tight">{it.name || 'Product'}</p>
+                            <p className="text-[10px] text-slate-400">{it.quantity || 1}x • {it.unit || 'pack'}</p>
                           </div>
                         </div>
                         <span className="font-bold font-mono text-slate-900 shrink-0">
@@ -570,44 +578,46 @@ export const CheckoutPage = () => {
           <div className="lg:col-span-8 space-y-6">
             
             {/* Mobile / Tablet Quick Items Summary (Visible on small screens where right column is below) */}
-            <div className="lg:hidden bg-white rounded-3xl p-5 border border-slate-200/80 shadow-md space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <ShoppingBag className={`w-4 h-4 ${theme.primaryText}`} />
-                  <h3 className="font-black text-xs text-slate-900">
-                    Selected Items ({cart.length})
-                  </h3>
-                </div>
-                <span className={`text-xs font-black ${theme.badge} px-2.5 py-0.5 rounded-full font-mono`}>
-                  {currency.symbol}{grandTotalWithTip.toLocaleString()}
-                </span>
-              </div>
-              
-              <div className="max-h-40 overflow-y-auto divide-y divide-slate-100 pr-1 space-y-2">
-                {cart.map((item, idx) => (
-                  <div key={idx} className="pt-2 first:pt-0 flex items-center justify-between text-xs gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {item.product?.image && (
-                        <img
-                          src={item.product.image}
-                          alt={item.product.name}
-                          className="w-9 h-9 rounded-lg object-cover bg-slate-50 border border-slate-100 shrink-0"
-                        />
-                      )}
-                      <div className="min-w-0">
-                        <span className="font-bold text-slate-800 truncate block text-[11px]">{item.product?.name}</span>
-                        <span className="text-[10px] text-slate-400 block">
-                          {item.quantity}x • {item.unit || item.product?.unit || 'pack'}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="font-bold text-slate-900 shrink-0 font-mono text-[11px]">
-                      {currency.symbol}{((item.product?.price || 0) * item.quantity).toLocaleString()}
-                    </span>
+            {Array.isArray(cart) && cart.length > 0 && (
+              <div className="lg:hidden bg-white rounded-3xl p-5 border border-slate-200/80 shadow-md space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className={`w-4 h-4 ${theme.primaryText}`} />
+                    <h3 className="font-black text-xs text-slate-900">
+                      Selected Items ({cart.length})
+                    </h3>
                   </div>
-                ))}
+                  <span className={`text-xs font-black ${theme.badge} px-2.5 py-0.5 rounded-full font-mono`}>
+                    {currency.symbol}{grandTotalWithTip.toLocaleString()}
+                  </span>
+                </div>
+                
+                <div className="max-h-40 overflow-y-auto divide-y divide-slate-100 pr-1 space-y-2">
+                  {cart.map((item, idx) => (
+                    <div key={idx} className="pt-2 first:pt-0 flex items-center justify-between text-xs gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {item.product?.image && (
+                          <img
+                            src={item.product.image}
+                            alt={item.product.name}
+                            className="w-9 h-9 rounded-lg object-cover bg-slate-50 border border-slate-100 shrink-0"
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <span className="font-bold text-slate-800 truncate block text-[11px]">{item.product?.name}</span>
+                          <span className="text-[10px] text-slate-400 block">
+                            {item.quantity}x • {item.unit || item.product?.unit || 'pack'}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="font-bold text-slate-900 shrink-0 font-mono text-[11px]">
+                        {currency.symbol}{((item.product?.price || 0) * item.quantity).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Step 1: Delivery Address */}
             <div className={`bg-white rounded-3xl p-6 sm:p-8 border ${theme.cardBorder} shadow-xl space-y-5`}>

@@ -35,7 +35,7 @@ export const FloatingCartPill = () => {
     'staff-portal'
   ];
 
-  if (!cart || cart.length === 0 || isCartOpen || hiddenPages.includes(currentPage)) {
+  if (!Array.isArray(cart) || cart.length === 0 || isCartOpen || hiddenPages.includes(currentPage)) {
     return null;
   }
 
