@@ -22,7 +22,7 @@ export const INITIAL_TENANTS = [
       accentColor: '#f59e0b',
       bgGradient: 'from-rose-900 via-red-950 to-slate-950'
     },
-    hubs: ['Gulberg Main Branch (Lahore)'],
+    hubs: ['D-Ground Flagship Hub (Faisalabad)', 'Peoples Colony Main Branch (Faisalabad)'],
     subscription: {
       plan: 'Enterprise',
       billingCycle: 'Annual',
@@ -299,11 +299,11 @@ export const INITIAL_RIDERS = [
     tenantId: 'tenant-alfatah',
     tenantName: 'Al-Fatah Supermarket',
     vehicleType: '🏍️ Honda 125',
-    vehicleNumber: 'LEK-4821',
-    zone: 'Gulberg Main Hub (Lahore)',
-    branchName: 'Gulberg Main Branch (Lahore)',
+    vehicleNumber: 'FSD-4821',
+    zone: 'Peoples Colony No. 1 (Faisalabad)',
+    branchName: 'D-Ground Flagship Hub (Faisalabad)',
     status: 'On-Duty',
-    coordinates: { lat: 31.5204, lng: 74.3587 },
+    coordinates: { lat: 31.4147, lng: 73.0872 },
     coverageRadiusKm: 15,
     rating: 4.9
   },

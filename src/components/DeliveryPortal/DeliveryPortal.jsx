@@ -2,6 +2,10 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import L from 'leaflet';
 import {
   Bike,
+  Package,
+  PackageCheck,
+  Truck,
+  Wallet,
   CheckCircle2,
   Clock,
   Phone,
@@ -129,19 +133,33 @@ export const DeliveryPortal = () => {
   const [activeTab, setActiveTab] = useState('out-for-delivery'); // 'out-for-delivery' | 'delivered-today'
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  // Active selected courier rider (ahmad / usman / logged in courier)
+  // Active selected courier rider (Ahmad Khan / logged in courier)
   const currentRider = useMemo(() => {
     // 1. If currently signed in as a rider
     if (user && (user.role === 'rider' || adminRole === 'rider')) {
       const matched = (riders || []).find((r) => r.id === user.riderId || r.name === user.name);
-      if (matched) return matched;
+      if (matched) {
+        return {
+          ...matched,
+          zone: matched.zone && !matched.zone.toLowerCase().includes('gulberg') && !matched.zone.toLowerCase().includes('lahore')
+            ? matched.zone
+            : 'Peoples Colony No. 1 (Faisalabad)',
+          branchName: matched.branchName && !matched.branchName.toLowerCase().includes('gulberg') && !matched.branchName.toLowerCase().includes('lahore')
+            ? matched.branchName
+            : 'D-Ground Flagship Hub (Faisalabad)',
+          vehicleNumber: matched.vehicleNumber && !matched.vehicleNumber.startsWith('LEK')
+            ? matched.vehicleNumber
+            : 'FSD-4821'
+        };
+      }
       return {
-        id: user.riderId || 'RDR-AHMAD',
-        name: user.name || 'ahmad',
-        zone: user.zone || 'Peoples Colony',
-        phone: user.phone || '+92 320 6551696',
+        id: user.riderId || 'RDR-ALFATAH',
+        name: user.name || 'Ahmad Khan (Al-Fatah)',
+        zone: 'Peoples Colony No. 1 (Faisalabad)',
+        branchName: 'D-Ground Flagship Hub (Faisalabad)',
+        phone: user.phone || '+92 300 1234567',
         vehicleType: '🏍️ Honda 125',
-        vehicleNumber: 'LEK-4821',
+        vehicleNumber: 'FSD-4821',
         rating: 4.9,
         status: 'On-Duty'
       };
@@ -150,18 +168,32 @@ export const DeliveryPortal = () => {
     // 2. If riders exist in database / state, match tenant rider first
     if (riders && riders.length > 0) {
       const tenantMatch = riders.find((r) => isSameTenant(r.tenantId, currentTenant?.id || user?.tenantId));
-      if (tenantMatch) return tenantMatch;
+      if (tenantMatch) {
+        return {
+          ...tenantMatch,
+          zone: tenantMatch.zone && !tenantMatch.zone.toLowerCase().includes('gulberg') && !tenantMatch.zone.toLowerCase().includes('lahore')
+            ? tenantMatch.zone
+            : 'Peoples Colony No. 1 (Faisalabad)',
+          branchName: tenantMatch.branchName && !tenantMatch.branchName.toLowerCase().includes('gulberg') && !tenantMatch.branchName.toLowerCase().includes('lahore')
+            ? tenantMatch.branchName
+            : 'D-Ground Flagship Hub (Faisalabad)',
+          vehicleNumber: tenantMatch.vehicleNumber && !tenantMatch.vehicleNumber.startsWith('LEK')
+            ? tenantMatch.vehicleNumber
+            : 'FSD-4821'
+        };
+      }
       return riders[0];
     }
 
-    // 3. Fallback default: 'ahmad' in 'Peoples Colony' (Al-Fatah)
+    // 3. Fallback default: 'Ahmad Khan' in 'Peoples Colony No. 1 (Faisalabad)'
     return {
-      id: 'RDR-AHMAD',
-      name: 'Ahmad Khan',
-      zone: 'Peoples Colony',
-      phone: '+92 320 6551696',
+      id: 'RDR-ALFATAH',
+      name: 'Ahmad Khan (Al-Fatah)',
+      zone: 'Peoples Colony No. 1 (Faisalabad)',
+      branchName: 'D-Ground Flagship Hub (Faisalabad)',
+      phone: '+92 300 1234567',
       vehicleType: '🏍️ Honda 125',
-      vehicleNumber: 'LEK-4821',
+      vehicleNumber: 'FSD-4821',
       rating: 4.9,
       status: 'On-Duty'
     };
@@ -266,6 +298,15 @@ export const DeliveryPortal = () => {
       const isLocallyDone = locallyCompletedOrders.includes(bareId) || locallyCompletedOrders.includes(resolvedId);
       const finalStatus = isLocallyDone ? 'Delivered' : (o.status || 'Out for Delivery');
       const finalOtp = String(o.deliveryOtp || '7412');
+
+      const shipping = o.shippingAddress || {};
+      let rawAddr = typeof shipping === 'string' ? shipping : (shipping.address || o.address || 'Peoples Colony No. 1, Faisalabad');
+      let rawCity = typeof shipping === 'object' ? (shipping.city || o.city) : (o.city || 'Faisalabad');
+      if (String(rawAddr).toLowerCase().includes('gulberg') || String(rawCity).toLowerCase().includes('lahore')) {
+        rawAddr = 'DIGITALSOFTS, Peoples Colony No. 1, Faisalabad';
+        rawCity = 'Faisalabad';
+      }
+
       return {
         ...o,
         status: finalStatus,
@@ -275,14 +316,30 @@ export const DeliveryPortal = () => {
         orderId: o.orderId || hashedId || resolvedId,
         _id: o._id || bareId,
         customerName: o.customer?.name || o.shippingAddress?.fullName || o.customerName || o.customer || 'Customer',
-        customerPhone: o.customer?.phone || o.shippingAddress?.phone || o.customerPhone || o.phone || '+92 300 1234567',
-        region: o.shippingAddress?.city || o.city || activeRider?.zone || 'Peoples Colony',
+        customerPhone: o.customer?.phone || o.shippingAddress?.phone || o.customerPhone || o.phone || '+92 320 6551696',
+        address: rawAddr,
+        shippingAddress: {
+          ...(typeof shipping === 'object' ? shipping : {}),
+          address: rawAddr,
+          city: rawCity
+        },
+        city: rawCity,
+        region: rawCity === 'Faisalabad' ? 'Peoples Colony No. 1 (Faisalabad)' : rawCity,
         deliveryOtp: finalOtp,
-        notes: o.notes || o.deliveryNotes || 'No special instructions.',
+        notes: o.notes || o.deliveryNotes || 'Standard Parcel Delivery. Handle grocery bags with care.',
         itemsList: o.items || o.orderItems || o.rawItems || []
       };
     });
   }, [assignedOrders, locallyCompletedOrders, activeRider]);
+
+  // Total Cash on Delivery to collect across active parcel run
+  const totalCodAmount = useMemo(() => {
+    return portalOrders.filter((o) => o.status !== 'Delivered').reduce((sum, ord) => {
+      const pm = String(ord.paymentMethod || '').toLowerCase();
+      const isCod = !pm || pm.includes('cash') || pm.includes('cod') || pm.includes('delivery');
+      return isCod ? sum + Number(ord.totalAmount || ord.total || 0) : sum;
+    }, 0);
+  }, [portalOrders]);
 
   // Filter Out for Delivery vs Delivered Today
   const outForDeliveryOrders = useMemo(() => {
@@ -685,16 +742,16 @@ export const DeliveryPortal = () => {
   const storeLogo = currentTenant?.logo || '🏬';
 
   return (
-    <div className="min-h-screen bg-[#f7f4ee] text-stone-900 flex flex-col md:flex-row antialiased font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col md:flex-row antialiased font-sans">
       
       {/* ===================================================================== */}
       {/* MOBILE TOP BAR                                                        */}
       {/* ===================================================================== */}
-      <div className="md:hidden bg-[#18181b] text-white px-4 py-3 flex items-center justify-between border-b border-stone-800 shrink-0">
+      <div className="md:hidden bg-slate-950 text-white px-4 py-3 flex items-center justify-between border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-            className="p-1.5 rounded-lg text-stone-300 hover:text-white hover:bg-stone-800 transition"
+            className="p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition"
             aria-label="Toggle menu"
           >
             {mobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -703,7 +760,7 @@ export const DeliveryPortal = () => {
             <span className="text-xl">{storeLogo}</span>
             <div>
               <h1 className="text-sm font-bold tracking-tight text-white">{storeBrandName}</h1>
-              <p className="text-[10px] text-stone-400 font-medium">Delivery Portal</p>
+              <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Parcel Dispatch</p>
             </div>
           </div>
         </div>
@@ -719,7 +776,7 @@ export const DeliveryPortal = () => {
               }
               navigateTo('home');
             }}
-            className="text-xs text-rose-300 hover:text-white font-bold px-2.5 py-1.5 rounded-lg bg-stone-800 hover:bg-rose-900/60 border border-stone-700 transition flex items-center gap-1.5 cursor-pointer"
+            className="text-xs text-rose-300 hover:text-white font-bold px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-rose-900/60 border border-slate-800 transition flex items-center gap-1.5 cursor-pointer"
             title="Log out"
           >
             <LogOut className="w-3.5 h-3.5" />
@@ -727,13 +784,13 @@ export const DeliveryPortal = () => {
           </button>
           <button
             onClick={() => (navigateTo ? navigateTo('admin') : window.location.assign('/admin'))}
-            className="text-xs text-amber-300 font-bold px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 transition cursor-pointer"
+            className="text-xs text-amber-300 font-bold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 transition cursor-pointer"
           >
             Admin
           </button>
           <button
             onClick={() => navigateTo('home')}
-            className="text-xs text-stone-300 font-bold px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 transition cursor-pointer"
+            className="text-xs text-slate-300 font-bold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 transition cursor-pointer"
           >
             Store
           </button>
@@ -741,10 +798,10 @@ export const DeliveryPortal = () => {
       </div>
 
       {/* ===================================================================== */}
-      {/* 1. LEFT SIDEBAR (Dark Charcoal Theme matching screenshot)             */}
+      {/* 1. LEFT SIDEBAR (Modern Dark Charcoal Logistics Cockpit)              */}
       {/* ===================================================================== */}
       <aside
-        className={`fixed md:sticky top-0 left-0 z-40 h-screen w-72 bg-[#18181b] text-white flex flex-col justify-between border-r border-stone-800 transition-transform duration-200 shrink-0 ${
+        className={`fixed md:sticky top-0 left-0 z-40 h-screen w-72 bg-slate-950 text-white flex flex-col justify-between border-r border-slate-800 transition-transform duration-200 shrink-0 ${
           mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
@@ -752,21 +809,24 @@ export const DeliveryPortal = () => {
           
           {/* Logo & Portal Header */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#27272a] border border-stone-700 flex items-center justify-center text-xl shadow-inner shrink-0">
+            <div className="w-11 h-11 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl shadow-inner shrink-0">
               {storeLogo}
             </div>
             <div>
-              <h1 className="text-base font-extrabold tracking-tight text-white leading-tight">
+              <h1 className="text-base font-black tracking-tight text-white leading-tight">
                 {storeBrandName}
               </h1>
-              <p className="text-[11px] font-semibold text-stone-400">Delivery Portal</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Express Parcel Dispatch</p>
+              </div>
             </div>
           </div>
 
           {/* Navigation Section */}
           <div className="space-y-2">
-            <span className="text-[10px] font-black tracking-wider text-stone-500 uppercase px-3">
-              DASHBOARD
+            <span className="text-[10px] font-black tracking-wider text-slate-500 uppercase px-3">
+              COURIER RUNS
             </span>
             <nav className="space-y-1.5 pt-1">
               
@@ -779,15 +839,15 @@ export const DeliveryPortal = () => {
                 }}
                 className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
                   activeTab === 'out-for-delivery'
-                    ? 'bg-[#322c23] text-amber-200 border border-amber-900/50 shadow-sm'
-                    : 'text-stone-300 hover:bg-[#27272a] hover:text-white'
+                    ? 'bg-slate-800 text-amber-200 border border-amber-500/40 shadow-sm'
+                    : 'text-slate-300 hover:bg-slate-900 hover:text-white'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="text-base">🛵</span>
-                  <span>Out for Delivery</span>
+                  <Package className="w-4 h-4 text-amber-400" />
+                  <span>Active Parcels</span>
                 </div>
-                <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-[#453c30] text-amber-100">
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-amber-500/20 text-amber-200 border border-amber-500/30">
                   {outForDeliveryOrders.length}
                 </span>
               </button>
@@ -801,15 +861,15 @@ export const DeliveryPortal = () => {
                 }}
                 className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
                   activeTab === 'delivered-today'
-                    ? 'bg-[#322c23] text-amber-200 border border-amber-900/50 shadow-sm'
-                    : 'text-stone-300 hover:bg-[#27272a] hover:text-white'
+                    ? 'bg-slate-800 text-emerald-200 border border-emerald-500/40 shadow-sm'
+                    : 'text-slate-300 hover:bg-slate-900 hover:text-white'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                   <span>Delivered Today</span>
                 </div>
-                <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-[#27272a] text-stone-300">
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   {deliveredTodayOrders.length}
                 </span>
               </button>
@@ -818,22 +878,25 @@ export const DeliveryPortal = () => {
 
         </div>
 
-        {/* Bottom Profile & Actions matching screenshot */}
-        <div className="p-6 border-t border-stone-800/80 space-y-3">
+        {/* Bottom Profile & Actions */}
+        <div className="p-5 border-t border-slate-800 space-y-3 bg-slate-900/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#a16207] text-white flex items-center justify-center font-black text-sm uppercase shadow-sm shrink-0">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 text-white flex items-center justify-center font-black text-base uppercase shadow-md shrink-0 border border-amber-400/30">
               {(activeRider?.name || 'A')[0]}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <h2 className="text-xs font-bold text-white truncate leading-tight capitalize">
-                  {activeRider?.name || 'Ahmad Khan'}
+                  {activeRider?.name || 'Ahmad Khan (Al-Fatah)'}
                 </h2>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" title="On Duty"></span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-pulse" title="Online & On Duty"></span>
               </div>
-              <p className="text-[11px] text-stone-400 flex items-center gap-1 mt-0.5 truncate">
+              <p className="text-[11px] text-slate-300 font-medium flex items-center gap-1 mt-0.5 truncate">
                 <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
-                <span className="truncate">{activeRider?.zone || 'Peoples Colony'}</span>
+                <span className="truncate">{activeRider?.zone || 'Peoples Colony No. 1 (Faisalabad)'}</span>
+              </p>
+              <p className="text-[10px] text-emerald-400 font-semibold mt-0.5">
+                {activeRider?.vehicleType || '🏍️ Honda 125'} • {activeRider?.vehicleNumber || 'FSD-4821'}
               </p>
             </div>
           </div>
@@ -842,7 +905,7 @@ export const DeliveryPortal = () => {
             <button
               type="button"
               onClick={() => (navigateTo ? navigateTo('admin') : window.location.assign('/admin'))}
-              className="w-full py-2 px-3 bg-[#2a2723] hover:bg-[#34302b] border border-amber-900/40 rounded-xl text-xs font-bold text-amber-200 transition flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-bold text-amber-200 transition flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
             >
               <Store className="w-3.5 h-3.5 text-amber-400" />
               <span>Store Admin Suite</span>
@@ -858,16 +921,16 @@ export const DeliveryPortal = () => {
                 }
                 navigateTo('home');
               }}
-              className="w-full py-2 px-3 bg-[#222120] hover:bg-[#2a2927] border border-stone-700 rounded-xl text-xs font-bold text-stone-300 hover:text-white transition flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition flex items-center justify-center gap-2 cursor-pointer"
             >
-              <LogOut className="w-3.5 h-3.5 text-stone-400" />
+              <LogOut className="w-3.5 h-3.5 text-slate-400" />
               <span>Log out</span>
             </button>
 
             <button
               type="button"
               onClick={() => navigateTo('home')}
-              className="w-full py-2 px-3 hover:bg-stone-800/60 rounded-xl text-[11px] font-semibold text-stone-400 hover:text-amber-300 transition flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full py-2 px-3 hover:bg-slate-900 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <ArrowLeft className="w-3 h-3" />
               <span>Back to Supermarket</span>
@@ -878,203 +941,297 @@ export const DeliveryPortal = () => {
       </aside>
 
       {/* ===================================================================== */}
-      {/* 2. MAIN CONTENT AREA (Warm Cream Tone matching screenshot)            */}
+      {/* 2. MAIN CONTENT AREA (Modern Slate Parcel Delivery Operations Console) */}
       {/* ===================================================================== */}
-      <main className="flex-1 min-w-0 p-4 sm:p-8 lg:p-10 space-y-8 overflow-y-auto max-w-7xl mx-auto">
+      <main className="flex-1 min-w-0 p-4 sm:p-7 lg:p-8 space-y-7 overflow-y-auto max-w-7xl mx-auto">
         
-        {/* Top Header: Welcome & Date */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-stone-900 font-serif">
-              Welcome back, {activeRider?.name || 'ahmad'}!
-            </h1>
-          </div>
-
-          <div className="bg-white border border-stone-200/90 rounded-2xl px-4 py-2 text-xs font-semibold text-stone-600 shadow-2xs self-start sm:self-auto">
-            {formattedToday}
-          </div>
-        </div>
-
-        {/* Top 3 Stat Cards matching screenshot */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-          
-          {/* Card 1: Out for Delivery */}
-          <div className="bg-white rounded-3xl p-6 border border-stone-200/80 shadow-2xs relative overflow-hidden">
-            <div className="space-y-1">
-              <span className="text-xs font-semibold text-stone-500 block">Out for Delivery</span>
-              <p className="text-3xl sm:text-4xl font-black text-stone-900 font-serif">
-                {outForDeliveryOrders.length}
-              </p>
-              <span className="text-[11px] text-stone-400 font-medium block">
-                Awaiting drop-off
-              </span>
+        {/* Top Header: Courier Operations Console */}
+        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800 flex items-center justify-center font-black text-2xl shrink-0">
+              🛵
             </div>
-            {/* Subtle warm glow in top right */}
-            <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full bg-amber-500/5 blur-xl pointer-events-none" />
-          </div>
-
-          {/* Card 2: Delivered Today */}
-          <div className="bg-white rounded-3xl p-6 border border-stone-200/80 shadow-2xs relative overflow-hidden">
-            <div className="space-y-1">
-              <span className="text-xs font-semibold text-stone-500 block">Delivered Today</span>
-              <p className="text-3xl sm:text-4xl font-black text-stone-900 font-serif">
-                {deliveredTodayOrders.length}
-              </p>
-              <span className="text-[11px] text-stone-400 font-medium block">
-                Completed since midnight
-              </span>
-            </div>
-            <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full bg-emerald-500/5 blur-xl pointer-events-none" />
-          </div>
-
-          {/* Card 3: Your Region */}
-          <div className="bg-white rounded-3xl p-6 border border-stone-200/80 shadow-2xs relative overflow-hidden">
-            <div className="space-y-1">
-              <span className="text-xs font-semibold text-stone-500 block">Your Region</span>
-              <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 truncate">
-                {activeRider?.zone || 'Peoples Colony'}
-              </p>
-              <span className="text-[11px] text-stone-400 font-medium block">
-                {outForDeliveryOrders.length}/{portalOrders.length} active orders
-              </span>
-            </div>
-            <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full bg-blue-500/5 blur-xl pointer-events-none" />
-          </div>
-
-        </div>
-
-        {/* ===================================================================== */}
-        {/* SECTION 1: ACTIVE DELIVERY (Compact Map + Live GPS + Handover OTP)    */}
-        {/* ===================================================================== */}
-        {activeOrder && (
-          <section className="bg-white rounded-2xl border border-stone-200/90 shadow-2xs overflow-hidden p-4 sm:p-5 space-y-4">
-            
-            {/* Card Header: Compact title, ID pill, ETA and status */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-stone-100">
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-sm sm:text-base font-extrabold text-stone-900 font-serif">
-                  Active Delivery
-                </h2>
-                <span className="px-2 py-0.5 rounded-lg bg-stone-100 border border-stone-200 font-mono text-xs font-bold text-stone-800">
-                  {activeOrder.orderId}
-                </span>
-                <span className="text-xs text-stone-500 font-medium hidden sm:inline">
-                  • ~{activeOrder.etaMinutes || '6'} min • {activeOrder.distanceKm || '2.4'} km
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
+                  Parcel Delivery Operations
+                </h1>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  Online
                 </span>
               </div>
-              <span className="px-2.5 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 text-[11px] font-bold rounded-full flex items-center gap-1.5 shadow-2xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
-                <span>IN TRANSIT</span>
+              <p className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-1.5">
+                <span className="font-bold text-slate-700">{activeRider?.name || 'Ahmad Khan (Al-Fatah)'}</span>
+                <span>•</span>
+                <span className="text-rose-600 font-semibold flex items-center gap-1">
+                  <MapPin className="w-3 h-3 shrink-0" />
+                  {activeRider?.zone || 'Peoples Colony No. 1 (Faisalabad)'}
+                </span>
+                <span>•</span>
+                <span className="text-slate-500">{activeRider?.vehicleType || '🏍️ Honda 125'} ({activeRider?.vehicleNumber || 'FSD-4821'})</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 self-start md:self-auto">
+            <div className="bg-slate-50 border border-slate-200/90 rounded-2xl px-3.5 py-2 text-xs font-bold text-slate-700 flex items-center gap-2 shadow-2xs">
+              <Clock className="w-3.5 h-3.5 text-slate-400" />
+              <span>{formattedToday}</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleDispatchDemoOrder}
+              className="px-3.5 py-2 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              title="Dispatch test grocery parcel to courier"
+            >
+              <Package className="w-3.5 h-3.5 text-amber-400" />
+              <span>+ Demo Parcel</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 4 Logistics KPI Stat Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5">
+          
+          {/* Card 1: Active Run */}
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Parcels</span>
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center">
+                <Package className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2.5">
+              <p className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
+                {outForDeliveryOrders.length}
+              </p>
+              <span className="text-[11px] text-amber-800 font-bold block mt-0.5">
+                In courier bag • On-duty
               </span>
             </div>
+          </div>
 
-            {/* Split Grid: Leaflet Map (Left) + Order Details & Actions (Right) */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-              
-              {/* Left Column: Interactive Leaflet Map - Streamlined & Compact */}
-              <div className="lg:col-span-6 flex flex-col relative h-48 sm:h-56 rounded-xl overflow-hidden border border-stone-200 shadow-inner">
-                <div ref={mapContainerRef} className="w-full h-full min-h-[192px] sm:min-h-[224px]" />
+          {/* Card 2: COD Cash to Collect */}
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">COD To Collect</span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center">
+                <Wallet className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2.5">
+              <p className="text-xl sm:text-2xl font-black text-emerald-800 font-mono">
+                {formatPrice(totalCodAmount)}
+              </p>
+              <span className="text-[11px] text-emerald-700 font-bold block mt-0.5">
+                Cash on delivery settlement
+              </span>
+            </div>
+          </div>
 
-                {/* Overlay Badge at Bottom Left */}
-                <div className="absolute bottom-2 left-2 z-[1000] bg-white/95 backdrop-blur-xs border border-stone-200 px-2.5 py-1 rounded-lg shadow-xs text-[11px] font-bold text-stone-800 flex items-center gap-1.5">
-                  <span>{activeOrder.orderId}</span>
-                  <span className="text-stone-300">•</span>
-                  <span>{activeOrder.distanceKm || '2.4'} km</span>
-                  <span className="text-stone-300">•</span>
-                  <span>~{activeOrder.etaMinutes || '6'}m ETA</span>
+          {/* Card 3: Delivered Today */}
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Delivered Today</span>
+              <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-700 flex items-center justify-center">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2.5">
+              <p className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
+                {deliveredTodayOrders.length}
+              </p>
+              <span className="text-[11px] text-sky-700 font-bold block mt-0.5">
+                Completed & verified
+              </span>
+            </div>
+          </div>
+
+          {/* Card 4: Dispatch SuperHub */}
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Delivery Hub</span>
+              <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-700 flex items-center justify-center">
+                <MapPin className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2.5">
+              <p className="text-sm sm:text-base font-black text-slate-900 truncate">
+                Faisalabad Metro
+              </p>
+              <span className="text-[11px] text-slate-500 font-medium block truncate mt-0.5">
+                Al-Fatah D-Ground SuperHub
+              </span>
+            </div>
+          </div>
+
+        </div>
+
+        {/* ===================================================================== */}
+        {/* SECTION 1: ACTIVE PARCEL DELIVERY (Interactive Map + Live Telemetry)   */}
+        {/* ===================================================================== */}
+        {activeOrder && (
+          <section className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden p-5 sm:p-6 space-y-5">
+            
+            {/* Parcel Header Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-700 flex items-center justify-center font-bold">
+                  <Package className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base sm:text-lg font-black text-slate-900 font-mono tracking-tight">
+                      Parcel #{activeOrder.orderId}
+                    </h2>
+                    <span className="px-2.5 py-0.5 bg-blue-100 text-blue-900 border border-blue-300 text-[10px] font-black rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-2xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                      <span>Out for Delivery</span>
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Express Doorstep Handover • Route: ~{activeOrder.etaMinutes || '6'} mins ({activeOrder.distanceKm || '2.4'} km away)
+                  </p>
                 </div>
               </div>
 
-              {/* Right Column: Order Details & Courier Controls */}
-              <div className="lg:col-span-6 flex flex-col justify-between space-y-3">
-                
-                <div className="space-y-3">
-                  
-                  {/* Pickup & Dropoff Route */}
-                  <div className="space-y-2 text-xs bg-stone-50/70 p-2.5 rounded-xl border border-stone-100">
-                    {/* Pickup Point */}
-                    <div className="flex items-start gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-amber-600 shrink-0 mt-1"></span>
-                      <div className="min-w-0">
-                        <h4 className="font-bold text-stone-900 truncate">
-                          {activeOrder.tenantName || activeOrder.branchName || storeBrandName}
-                        </h4>
-                        <p className="text-[10px] text-stone-500">Supermarket Pickup Hub</p>
-                      </div>
-                    </div>
+              {/* Live Sharing Status & GPS Navigation Buttons */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleLiveLocationSharing}
+                  className={`py-2 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-2xs ${
+                    isSharingLocation
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20'
+                      : 'bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800'
+                  }`}
+                  title={isSharingLocation ? 'GPS Broadcast Active' : 'Start Live GPS Broadcast'}
+                >
+                  <Navigation className={`w-3.5 h-3.5 ${isSharingLocation ? 'animate-spin' : 'text-slate-500'}`} />
+                  <span>{isSharingLocation ? 'Live GPS Active' : 'Broadcast GPS'}</span>
+                </button>
 
-                    {/* Drop-off Point */}
-                    <div className="flex items-start gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0 mt-1"></span>
-                      <div className="min-w-0">
-                        <h4 className="font-bold text-stone-900 truncate">
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(activeOrder.shippingAddress?.address || activeOrder.address || 'Peoples Colony No. 1, Faisalabad')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-2 px-3.5 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white transition flex items-center gap-1.5 shadow-2xs"
+                  title="Open in Google Maps Navigation"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Google Maps</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Split Grid: Leaflet Map (Left) + Manifest & Handover Controls (Right) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+              
+              {/* Left Column: Interactive Leaflet Map */}
+              <div className="lg:col-span-6 flex flex-col relative h-56 sm:h-64 rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
+                <div ref={mapContainerRef} className="w-full h-full min-h-[224px] sm:min-h-[256px]" />
+
+                {/* Overlay Badge at Bottom Left */}
+                <div className="absolute bottom-2.5 left-2.5 z-[1000] bg-white/95 backdrop-blur-md border border-slate-200 px-3 py-1.5 rounded-xl shadow-md text-[11px] font-bold text-slate-800 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                  <span className="font-mono font-black">{activeOrder.orderId}</span>
+                  <span className="text-slate-300">•</span>
+                  <span>{activeOrder.distanceKm || '2.4'} km</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-emerald-700 font-bold">~{activeOrder.etaMinutes || '6'}m ETA</span>
+                </div>
+              </div>
+
+              {/* Right Column: Parcel Manifest & Handover Controls */}
+              <div className="lg:col-span-6 flex flex-col justify-between space-y-4">
+                
+                {/* Route Points */}
+                <div className="space-y-2.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 text-xs">
+                  {/* Pickup Hub */}
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-3 h-3 rounded-full bg-amber-600 shrink-0 mt-0.5 border-2 border-white shadow-2xs"></span>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-slate-900 truncate">
+                        {activeOrder.tenantName || storeBrandName} (D-Ground Hub)
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        {activeOrder.branchName || 'D-Ground Flagship Hub, Peoples Colony No. 1, Faisalabad'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border-l-2 border-dashed border-slate-300 ml-1.5 h-3"></div>
+
+                  {/* Customer Drop-off */}
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-3 h-3 rounded-full bg-blue-600 shrink-0 mt-0.5 border-2 border-white shadow-2xs"></span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-slate-900 truncate">
                           {activeOrder.customerName}
                         </h4>
-                        <p className="text-stone-600 text-[11px] line-clamp-1">
-                          {activeOrder.shippingAddress?.address || activeOrder.address || 'Peoples Colony, Faisalabad'}
-                        </p>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {activeOrder.customerPhone}
+                        </span>
                       </div>
+                      <p className="text-slate-700 text-xs font-medium line-clamp-2 mt-0.5">
+                        📍 {activeOrder.shippingAddress?.address || activeOrder.address || 'Peoples Colony No. 1, Faisalabad'}
+                      </p>
                     </div>
                   </div>
+                </div>
 
-                  {/* Order Total & Contact Actions Row */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="px-3 py-1.5 bg-[#fbf9f4] border border-stone-200/90 rounded-xl">
-                      <span className="text-[10px] font-semibold text-stone-500 block uppercase">Order Total</span>
-                      <span className="text-sm font-extrabold text-stone-900 font-serif">
-                        {formatPrice(activeOrder.totalAmount)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <a
-                        href={`tel:${activeOrder.customerPhone || '+923206551696'}`}
-                        className="px-2.5 py-1.5 bg-white hover:bg-stone-50 border border-stone-200 text-stone-800 rounded-xl text-xs font-bold flex items-center gap-1 transition shadow-2xs"
-                        title="Call Customer"
-                      >
-                        <Phone className="w-3.5 h-3.5 text-rose-600" />
-                        <span className="hidden sm:inline">Call</span>
-                      </a>
-
-                      <a
-                        href={`https://wa.me/${(activeOrder.customerPhone || '923206551696').replace(/[^0-9]/g, '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2.5 py-1.5 bg-[#25D366] hover:bg-[#20ba5a] text-white rounded-xl text-xs font-bold flex items-center gap-1 transition shadow-2xs"
-                        title="WhatsApp Customer"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        <span>WhatsApp</span>
-                      </a>
-
-                      <button
-                        type="button"
-                        onClick={toggleLiveLocationSharing}
-                        className={`py-1.5 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
-                          isSharingLocation
-                            ? 'bg-emerald-700 text-white shadow-2xs'
-                            : 'bg-white hover:bg-stone-50 border border-stone-200 text-stone-800 shadow-2xs'
-                        }`}
-                        title={isSharingLocation ? 'Sharing Live GPS' : 'Start Sharing GPS'}
-                      >
-                        <Navigation className={`w-3.5 h-3.5 ${isSharingLocation ? 'animate-spin' : 'text-stone-500'}`} />
-                        <span className="hidden sm:inline">{isSharingLocation ? 'GPS Live' : 'Share GPS'}</span>
-                      </button>
-                    </div>
+                {/* Items & Contact Actions */}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 bg-slate-100 rounded-xl text-xs font-bold text-slate-700 border border-slate-200">
+                      📦 {activeOrder.itemsList?.length || 1} Item{(activeOrder.itemsList?.length || 1) > 1 ? 's' : ''} in Bag
+                    </span>
+                    <span className="px-3 py-1 bg-amber-50 rounded-xl text-xs font-black text-amber-900 border border-amber-200 font-mono">
+                      {formatPrice(activeOrder.totalAmount)}
+                    </span>
                   </div>
 
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={`tel:${activeOrder.customerPhone || '+923206551696'}`}
+                      className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
+                      title="Call Customer"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Call</span>
+                    </a>
+
+                    <a
+                      href={`https://wa.me/${(activeOrder.customerPhone || '923206551696').replace(/[^0-9]/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-[#25D366] hover:bg-[#20ba5a] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
+                      title="WhatsApp Customer"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>WhatsApp</span>
+                    </a>
+                  </div>
                 </div>
 
                 {/* Customer Handover PIN Verification Section */}
-                <div className="pt-2.5 border-t border-stone-100 space-y-1.5">
+                <div className="bg-amber-50/70 border border-amber-300/80 rounded-2xl p-3.5 space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-stone-700 block">
-                      CUSTOMER HANDOVER PIN
-                    </label>
-                    <span className="text-[10px] text-stone-500 font-medium">
-                      Ask customer for 4-digit PIN
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm">🔐</span>
+                      <label className="text-[11px] font-black uppercase tracking-wider text-amber-950 block">
+                        Customer Handover PIN
+                      </label>
+                    </div>
+                    <span className="text-[10px] text-amber-900 font-bold bg-amber-200/80 px-2 py-0.5 rounded-full">
+                      Required for Delivery
                     </span>
                   </div>
+
+                  <p className="text-[11px] text-amber-800">
+                    Ask customer for their 4-digit security PIN upon physical handover of parcel:
+                  </p>
 
                   <div className="flex items-center gap-2">
                     <input
@@ -1083,15 +1240,16 @@ export const DeliveryPortal = () => {
                       placeholder="Enter customer's 4-digit PIN"
                       value={otpInputs[activeOrder.id] || ''}
                       onChange={(e) => handleOtpInputChange(activeOrder.id, e.target.value)}
-                      className="flex-1 bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs font-bold text-stone-900 placeholder-stone-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-stone-400"
+                      className="flex-1 bg-white border border-amber-300 rounded-xl px-3.5 py-2 text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                     <button
                       type="button"
                       disabled={verifyingOrderMap[activeOrder.id]}
                       onClick={() => handleVerifyOtp(activeOrder.id, activeOrder.deliveryOtp)}
-                      className="px-4 py-2 bg-[#3f4a3c] hover:bg-[#323b30] text-white rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer disabled:opacity-50 shrink-0"
+                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer disabled:opacity-50 shrink-0 flex items-center gap-1.5"
                     >
-                      {verifyingOrderMap[activeOrder.id] ? 'Verifying...' : 'Verify PIN & Deliver'}
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>{verifyingOrderMap[activeOrder.id] ? 'Verifying...' : 'Verify PIN & Deliver'}</span>
                     </button>
                   </div>
                 </div>
@@ -1296,19 +1454,20 @@ export const DeliveryPortal = () => {
         {/* ===================================================================== */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-stone-900 font-serif">
-              Out for Delivery
+            <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
+              <Package className="w-5 h-5 text-amber-500" />
+              <span>Out for Delivery ({outForDeliveryOrders.length})</span>
             </h2>
-            <span className="text-xs text-stone-500 font-semibold">
-              {outForDeliveryOrders.length} orders
+            <span className="text-xs text-slate-500 font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+              {outForDeliveryOrders.length} Parcels in Transit
             </span>
           </div>
 
           {outForDeliveryOrders.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 text-center border border-stone-200/80 shadow-2xs space-y-2">
+            <div className="bg-white rounded-3xl p-8 text-center border border-slate-200/80 shadow-2xs space-y-2">
               <span className="text-3xl">🎉</span>
-              <h3 className="text-base font-bold text-stone-900">All Parcels Delivered!</h3>
-              <p className="text-xs text-stone-500 max-w-sm mx-auto">
+              <h3 className="text-base font-black text-slate-900">All Parcels Delivered!</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
                 No orders currently waiting for drop-off. New orders dispatched by store admin or accepted from pickup queue will appear here automatically.
               </p>
             </div>
@@ -1320,82 +1479,83 @@ export const DeliveryPortal = () => {
                 return (
                   <div
                     key={order.id}
-                    className="bg-white rounded-2xl p-5 border border-stone-200/90 shadow-2xs flex flex-col justify-between space-y-3.5 hover:border-stone-300 transition"
+                    className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-2xs flex flex-col justify-between space-y-3.5 hover:border-slate-300 transition"
                   >
                     {/* Header: Order ID + Status */}
                     <div className="flex items-center justify-between">
-                      <span className="text-base font-extrabold text-stone-900 font-mono">
-                        {order.orderId}
+                      <span className="text-base font-black text-slate-900 font-mono">
+                        Parcel #{order.orderId}
                       </span>
-                      <span className="px-2.5 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 text-[11px] font-bold rounded-full flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                      <span className="px-2.5 py-0.5 bg-blue-100 border border-blue-300 text-blue-900 text-[10px] font-black rounded-full flex items-center gap-1 uppercase tracking-wider">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
                         <span>OUT FOR DELIVERY</span>
                       </span>
                     </div>
 
                     {/* Customer Info */}
-                    <div className="space-y-1 text-xs text-stone-700">
-                      <p><span className="font-bold text-stone-900">Customer:</span> {order.customerName}</p>
-                      <p><span className="font-bold text-stone-900">Phone:</span> {order.customerPhone}</p>
-                      <p><span className="font-bold text-stone-900">Region:</span> {order.region || activeRider?.zone || 'Peoples Colony'}</p>
-                      <p><span className="font-bold text-stone-900">Address:</span> {order.shippingAddress?.address || order.address || 'Peoples Colony No. 1, Faisalabad'}</p>
+                    <div className="space-y-1 text-xs text-slate-700 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                      <p><span className="font-bold text-slate-900">Customer:</span> {order.customerName}</p>
+                      <p><span className="font-bold text-slate-900">Phone:</span> {order.customerPhone}</p>
+                      <p><span className="font-bold text-slate-900">Territory:</span> {order.region || activeRider?.zone || 'Peoples Colony No. 1 (Faisalabad)'}</p>
+                      <p><span className="font-bold text-slate-900">Drop-off:</span> {order.shippingAddress?.address || order.address || 'Peoples Colony No. 1, Faisalabad'}</p>
                     </div>
 
                     {/* Items List */}
-                    <div className="pt-2 border-t border-stone-100 space-y-1">
-                      <span className="text-[10px] font-bold tracking-wider text-stone-400 uppercase block">
-                        ITEMS IN THIS ORDER
+                    <div className="pt-2 border-t border-slate-100 space-y-1">
+                      <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase block">
+                        PARCEL CONTENTS
                       </span>
-                      <div className="space-y-1 text-xs text-stone-800">
+                      <div className="space-y-1 text-xs text-slate-800">
                         {order.itemsList && order.itemsList.length > 0 ? (
                           order.itemsList.map((item, idx) => (
                             <div key={idx} className="flex justify-between items-center">
-                              <span className="font-medium text-stone-800">{item.name || item.productName || 'Grocery Item'}</span>
-                              <span className="font-bold text-stone-500 font-mono">x{item.quantity || item.qty || 1}</span>
+                              <span className="font-medium text-slate-800">{item.name || item.productName || 'Grocery Item'}</span>
+                              <span className="font-bold text-slate-500 font-mono">x{item.quantity || item.qty || 1}</span>
                             </div>
                           ))
                         ) : (
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-stone-800">Grocery Package</span>
-                            <span className="font-bold text-stone-500 font-mono">x1</span>
+                            <span className="font-medium text-slate-800">Grocery Parcel Package</span>
+                            <span className="font-bold text-slate-500 font-mono">x1</span>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Notes */}
-                    <div className="pt-2 border-t border-stone-100 space-y-0.5 text-xs">
-                      <span className="text-[10px] font-bold tracking-wider text-stone-400 uppercase block">
-                        NOTES
-                      </span>
-                      <p className="text-stone-500 text-[11px] italic">
-                        {order.notes || 'No special instructions.'}
-                      </p>
-                    </div>
-
                     {/* Call Button & Price */}
-                    <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                      <a
-                        href={`tel:${order.customerPhone || '+923206551696'}`}
-                        className="px-3 py-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
-                      >
-                        <Phone className="w-3 h-3 text-rose-600" />
-                        <span>Call Customer</span>
-                      </a>
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                      <div className="flex items-center gap-1.5">
+                        <a
+                          href={`tel:${order.customerPhone || '+923206551696'}`}
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                        >
+                          <Phone className="w-3 h-3 text-rose-600" />
+                          <span>Call</span>
+                        </a>
+                        <a
+                          href={`https://wa.me/${(order.customerPhone || '923206551696').replace(/[^0-9]/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 bg-[#25D366] hover:bg-[#20ba5a] text-white rounded-xl text-xs font-bold flex items-center gap-1 transition"
+                        >
+                          <MessageCircle className="w-3 h-3" />
+                          <span>WhatsApp</span>
+                        </a>
+                      </div>
 
-                      <span className="text-base font-extrabold text-stone-900 font-serif">
+                      <span className="text-base font-black text-slate-900 font-mono">
                         {totalFormatted}
                       </span>
                     </div>
 
                     {/* Enter Customer Handover PIN row */}
-                    <div className="pt-2.5 border-t border-stone-100 space-y-1.5">
+                    <div className="pt-2.5 border-t border-slate-100 space-y-1.5 bg-amber-50/50 p-3 rounded-2xl border border-amber-200/60">
                       <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold tracking-wider uppercase text-stone-700 block">
+                        <label className="text-[10px] font-black tracking-wider uppercase text-amber-950 block">
                           Customer Handover PIN
                         </label>
-                        <span className="text-[10px] text-stone-500 font-medium">
-                          Ask customer for 4-digit PIN
+                        <span className="text-[10px] text-amber-800 font-bold">
+                          Required for Delivery
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1405,13 +1565,13 @@ export const DeliveryPortal = () => {
                           placeholder="Enter customer's 4-digit PIN"
                           value={otpInputs[order.id] || ''}
                           onChange={(e) => handleOtpInputChange(order.id, e.target.value)}
-                          className="flex-1 bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs font-bold text-stone-900 placeholder-stone-400 focus:outline-none focus:border-stone-500"
+                          className="flex-1 bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
                         />
                         <button
                           type="button"
                           disabled={verifyingOrderMap[order.id]}
                           onClick={() => handleVerifyOtp(order.id, order.deliveryOtp)}
-                          className="px-4 py-2 bg-[#3f4a3c] hover:bg-[#323b30] text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50 shrink-0"
+                          className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer disabled:opacity-50 shrink-0"
                         >
                           {verifyingOrderMap[order.id] ? 'Verifying...' : 'Verify & Deliver'}
                         </button>
@@ -1430,31 +1590,33 @@ export const DeliveryPortal = () => {
         {/* ===================================================================== */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-stone-900 font-serif">
-              Delivered Today
+            <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              <span>Delivered Parcels Today</span>
             </h2>
-            <span className="text-xs text-stone-500 font-semibold">
-              {deliveredTodayOrders.length} orders
+            <span className="text-xs text-slate-500 font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+              {deliveredTodayOrders.length} parcels completed
             </span>
           </div>
 
-          <div className="bg-white rounded-2xl border border-stone-200/90 shadow-2xs overflow-hidden">
+          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-stone-100 text-[10px] font-bold text-stone-400 uppercase tracking-wider bg-stone-50/50">
-                    <th className="py-3 px-6">ORDER</th>
-                    <th className="py-3 px-6">CUSTOMER</th>
-                    <th className="py-3 px-6">ITEMS</th>
-                    <th className="py-3 px-6">TOTAL</th>
-                    <th className="py-3 px-6">TIME</th>
+                  <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider bg-slate-50/70">
+                    <th className="py-3.5 px-6">PARCEL ID</th>
+                    <th className="py-3.5 px-6">CUSTOMER</th>
+                    <th className="py-3.5 px-6">DESTINATION</th>
+                    <th className="py-3.5 px-6">ITEMS</th>
+                    <th className="py-3.5 px-6">TOTAL</th>
+                    <th className="py-3.5 px-6">HANDOVER TIME</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-100 text-stone-700">
+                <tbody className="divide-y divide-slate-100 text-slate-700">
                   {deliveredTodayOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-12 text-center text-xs text-stone-400 italic">
-                        Nothing delivered yet today.
+                      <td colSpan={6} className="py-12 text-center text-xs text-slate-400 italic">
+                        No parcels delivered yet today.
                       </td>
                     </tr>
                   ) : (
@@ -1466,23 +1628,26 @@ export const DeliveryPortal = () => {
                         : 'Just now';
 
                       return (
-                        <tr key={order.id} className="hover:bg-stone-50/60 transition">
-                          <td className="py-3.5 px-6 font-extrabold text-stone-900">
+                        <tr key={order.id} className="hover:bg-slate-50/70 transition">
+                          <td className="py-3.5 px-6 font-black text-slate-900 font-mono">
                             {order.orderId}
                           </td>
-                          <td className="py-3.5 px-6 font-semibold text-stone-900">
+                          <td className="py-3.5 px-6 font-bold text-slate-900">
                             {order.customerName}
                           </td>
-                          <td className="py-3.5 px-6 text-stone-500">
+                          <td className="py-3.5 px-6 text-slate-600 text-xs">
+                            {order.shippingAddress?.address || order.address || 'Peoples Colony No. 1, Faisalabad'}
+                          </td>
+                          <td className="py-3.5 px-6 text-slate-500">
                             {order.itemsList && order.itemsList.length > 0
                               ? order.itemsList.map((i) => `${i.name || i.productName || 'Item'} (x${i.quantity || 1})`).join(', ')
                               : '1 Item'}
                           </td>
-                          <td className="py-3.5 px-6 font-bold text-stone-900 font-mono">
+                          <td className="py-3.5 px-6 font-black text-slate-900 font-mono">
                             {totalFormatted}
                           </td>
-                          <td className="py-3.5 px-6 font-medium text-stone-500">
-                            {deliveredTime}
+                          <td className="py-3.5 px-6 font-medium text-emerald-700">
+                            ✓ {deliveredTime}
                           </td>
                         </tr>
                       );
@@ -1497,12 +1662,12 @@ export const DeliveryPortal = () => {
       </main>
 
       {/* ===================================================================== */}
-      {/* FLOATING HELP / CHAT BUTTON matching screenshot                       */}
+      {/* FLOATING HELP / CHAT BUTTON                                           */}
       {/* ===================================================================== */}
       <button
         type="button"
         onClick={() => addToast('Courier Dispatch Help 💬', 'Dispatch desk is online and monitoring your route.')}
-        className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-[#8c5e39] hover:bg-[#784f2f] text-white flex items-center justify-center shadow-xl hover:scale-105 transition cursor-pointer z-50"
+        className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-xl hover:scale-105 transition cursor-pointer z-50"
         title="Support & Dispatch Chat"
         aria-label="Support & Dispatch Chat"
       >

@@ -198,6 +198,7 @@ const riderBaseCoordinates = (rider) => {
   const stored = readCoordinates(rider?.coordinates, rider, rider?.currentLocation);
   if (stored) return stored;
   const zone = String(rider?.zone || '').toLowerCase();
+  if (zone.includes('peoples colony') || zone.includes('d-ground') || zone.includes('faisalabad')) return { lat: 31.4147, lng: 73.0872 };
   if (zone.includes('gulberg')) return { lat: 31.5204, lng: 74.3587 };
   if (zone.includes('dha') && zone.includes('karachi')) return { lat: 24.8270, lng: 67.0251 };
   if (zone.includes('dha')) return { lat: 31.4826, lng: 74.4074 };
@@ -534,8 +535,8 @@ export const StoreProvider = ({ children }) => {
         if (Array.isArray(parsed) && parsed.length > 0) {
           // Normalize any legacy mock hubs to avoid re-introducing fake branches
           return parsed.map((t) => {
-            if (t.id === 'tenant-alfatah' && Array.isArray(t.hubs) && t.hubs.includes('Centaurus Islamabad')) {
-              return { ...t, hubs: ['Gulberg Main Branch (Lahore)'] };
+            if (t.id === 'tenant-alfatah') {
+              return { ...t, hubs: ['D-Ground Flagship Hub (Faisalabad)', 'Peoples Colony Main Branch (Faisalabad)'] };
             }
             if (t.id === 'tenant-chasevalue' && Array.isArray(t.hubs) && t.hubs.includes('Multan Cantt')) {
               return { ...t, hubs: ['Shaheed-e-Millat Main Branch (Karachi)'] };
@@ -2591,7 +2592,23 @@ export const StoreProvider = ({ children }) => {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const existingKeys = new Set(parsed.map((r) => (r.username || r.email || r.id || r.phone)?.toLowerCase()));
-          const merged = [...parsed];
+          const merged = parsed.map((r) => {
+            if (
+              r.id === 'RDR-ALFATAH' ||
+              isSameTenant(r.tenantId, 'tenant-alfatah') ||
+              (r.name && r.name.toLowerCase().includes('alfatah')) ||
+              (r.name && r.name.toLowerCase().includes('ahmad khan') && String(r.zone).toLowerCase().includes('lahore'))
+            ) {
+              return {
+                ...r,
+                zone: 'Peoples Colony No. 1 (Faisalabad)',
+                branchName: 'D-Ground Flagship Hub (Faisalabad)',
+                vehicleNumber: 'FSD-4821',
+                coordinates: { lat: 31.4147, lng: 73.0872 }
+              };
+            }
+            return r;
+          });
           (INITIAL_RIDERS || []).forEach((initR) => {
             const k1 = (initR.username || '').toLowerCase();
             const k2 = (initR.id || '').toLowerCase();

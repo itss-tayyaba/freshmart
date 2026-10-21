@@ -394,4 +394,31 @@ test('Pickup Staff Management & "Deliver to Staff" Workflow', async (t) => {
       'StoreContext error toast must not leak "(Doorstep OTP: ...)"'
     );
   });
+
+  await t.test('14. Al-Fatah Rider & Store Hubs are accurately positioned in Faisalabad (Peoples Colony & D-Ground)', async () => {
+    const { INITIAL_RIDERS, INITIAL_TENANTS } = await import('../src/data/tenantData.js');
+
+    const alFatahRider = INITIAL_RIDERS.find((r) => r.id === 'RDR-ALFATAH');
+    assert.ok(alFatahRider, 'RDR-ALFATAH must exist in INITIAL_RIDERS');
+    assert.equal(
+      alFatahRider.zone.includes('Faisalabad') || alFatahRider.zone.includes('Peoples Colony'),
+      true,
+      'Al-Fatah rider zone must be in Faisalabad'
+    );
+    assert.equal(
+      alFatahRider.zone.includes('Lahore') || alFatahRider.zone.includes('Gulberg'),
+      false,
+      'Al-Fatah rider zone must not be in Lahore or Gulberg'
+    );
+    assert.equal(alFatahRider.coordinates.lat, 31.4147, 'Al-Fatah rider lat must be Faisalabad D-Ground');
+    assert.equal(alFatahRider.coordinates.lng, 73.0872, 'Al-Fatah rider lng must be Faisalabad D-Ground');
+
+    const alFatahTenant = INITIAL_TENANTS.find((t) => t.id === 'tenant-alfatah');
+    assert.ok(alFatahTenant, 'tenant-alfatah must exist');
+    assert.equal(
+      alFatahTenant.hubs.some((h) => h.includes('Faisalabad') || h.includes('D-Ground')),
+      true,
+      'Al-Fatah tenant hubs must be in Faisalabad'
+    );
+  });
 });
