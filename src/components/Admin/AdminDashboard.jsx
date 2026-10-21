@@ -56,6 +56,7 @@ export const AdminDashboard = () => {
     user,
     products,
     customerOrders,
+    adminOrders = [],
     customers,
     currentTenant,
     setCurrentTenant,
@@ -118,16 +119,85 @@ export const AdminDashboard = () => {
     : roleMeta[adminRole] || roleMeta.admin;
 
   const activeTenantId = currentTenant?.id || user?.tenantId;
-  const pendingOrdersCount = (customerOrders || []).filter((o) => {
-    const orderTenant =
-      o.tenantId ||
-      o.companyId ||
-      o.tenantName ||
-      o.items?.[0]?.tenantId ||
-      o.rawItems?.[0]?.tenantId;
-    if (activeTenantId && orderTenant && !isSameTenant(orderTenant, activeTenantId)) return false;
-    return o.status === 'Processing' || o.status === 'Pending' || o.status === 'Packed' || o.status === 'Confirmed';
-  }).length;
+
+  // Track locally completed delivered orders to ensure synced badge counts
+  const deliveredOrderIds = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('freshmart_rider_delivered_orders');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return new Set(parsed.map((id) => String(id).replace(/^#/, '').trim().toLowerCase()));
+        }
+      }
+    } catch (e) {}
+    return new Set();
+  }, [customerOrders, adminOrders]);
+
+  // Unified tenant orders deduplicated by bare ID, prioritizing Delivered status
+  const unifiedTenantOrders = useMemo(() => {
+    const combined = [...(customerOrders || []), ...(adminOrders || [])];
+    const map = new Map();
+    combined.forEach((o) => {
+      if (!o) return;
+      const bare = String(o.id || o.orderId || o._id || '').replace(/^#/, '').trim().toLowerCase();
+      if (!bare) return;
+      const orderTenant =
+        o.tenantId ||
+        o.companyId ||
+        o.tenantName ||
+        o.items?.[0]?.tenantId ||
+        o.rawItems?.[0]?.tenantId;
+      if (activeTenantId && orderTenant && !isSameTenant(orderTenant, activeTenantId)) return;
+
+      const isDelivered =
+        o.status === 'Delivered' ||
+        o.status === 'Completed' ||
+        o.isDelivered === true ||
+        Number(o.fulfillmentStage) >= 4 ||
+        deliveredOrderIds.has(bare);
+
+      const existing = map.get(bare);
+      if (!existing || isDelivered) {
+        map.set(bare, { ...o, isDelivered, status: isDelivered ? 'Delivered' : o.status });
+      }
+    });
+    return Array.from(map.values());
+  }, [customerOrders, adminOrders, activeTenantId, deliveredOrderIds]);
+
+  // Pending active orders count for Orders badge (only non-delivered, active orders)
+  const pendingOrdersCount = useMemo(() => {
+    return unifiedTenantOrders.filter((o) => {
+      if (o.isDelivered || o.status === 'Delivered' || o.status === 'Completed' || o.status === 'Cancelled') return false;
+      const s = String(o.status || '').toLowerCase();
+      return [
+        'pending',
+        'processing',
+        'confirmed',
+        'deliver to staff',
+        'preparing',
+        'picking',
+        'packed',
+        'ready',
+        'ready for dispatch',
+        'dispatched',
+        'out for delivery'
+      ].includes(s);
+    }).length;
+  }, [unifiedTenantOrders]);
+
+  // Pending pickup staff orders count (only orders awaiting staff packing)
+  const pendingPickupStaffCount = useMemo(() => {
+    return unifiedTenantOrders.filter((o) => {
+      if (o.isDelivered || o.status === 'Delivered' || o.status === 'Completed' || o.status === 'Cancelled') return false;
+      const s = String(o.status || '').toLowerCase();
+      return (
+        ['pending', 'deliver to staff', 'preparing', 'picking'].includes(s) ||
+        o.pickupStep === 'assigned' ||
+        o.pickupStep === 'picking'
+      );
+    }).length;
+  }, [unifiedTenantOrders]);
 
   const lowStockCount = (products || []).filter(
     (p) => Number(p.stock !== undefined ? p.stock : (p.stockCount || 0)) < 15
@@ -155,7 +225,7 @@ export const AdminDashboard = () => {
       { label: 'Products', icon: Package, badge: totalProductsCount > 0 ? totalProductsCount : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { label: 'Categories', icon: Layers },
       { label: 'Orders', icon: ShoppingBag, badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-amber-500/20 text-amber-300' },
-      { label: 'Pickup Staff', icon: Boxes, badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
+      { label: 'Pickup Staff', icon: Boxes, badge: pendingPickupStaffCount > 0 ? pendingPickupStaffCount : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { label: 'Riders', icon: Truck, customName: 'Rider Fleet & Assignments' },
       { label: 'Customers', icon: Users },
       { label: 'Inventory', icon: Boxes, badge: lowStockCount > 0 ? lowStockCount : null, badgeColor: 'bg-rose-500/20 text-rose-300' },

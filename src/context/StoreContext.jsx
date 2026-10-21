@@ -1499,6 +1499,17 @@ export const StoreProvider = ({ children }) => {
 
   // Self-healing effect: Guarantee both ORD-701 (Al-Fatah) and #FM83459 (Unimaart) are always present and properly formatted
   useEffect(() => {
+    let deliveredIds = new Set();
+    try {
+      const raw = localStorage.getItem('freshmart_rider_delivered_orders');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          deliveredIds = new Set(parsed.map((id) => String(id).replace(/^#/, '').toLowerCase().trim()));
+        }
+      }
+    } catch (e) {}
+
     const ensureDefaultOrders = (orders) => {
       let current = (orders || []).map(sanitizeOrder);
       for (const defOrder of DEFAULT_INITIAL_ORDERS) {
@@ -1508,10 +1519,21 @@ export const StoreProvider = ({ children }) => {
           return oKey === defKey;
         });
         if (!exists) {
-          current = [defOrder, ...current];
+          const isDefDelivered = deliveredIds.has(defKey);
+          current = [
+            isDefDelivered
+              ? { ...defOrder, status: 'Delivered', isDelivered: true, fulfillmentStage: 4, isPaid: true }
+              : defOrder,
+            ...current
+          ];
         }
       }
-      return current;
+      return current.map((o) => {
+        const bare = String(o.id || o.orderId || o._id || '').toLowerCase().replace(/^#/, '').trim();
+        return deliveredIds.has(bare)
+          ? { ...o, status: 'Delivered', isDelivered: true, fulfillmentStage: 4, isPaid: true }
+          : o;
+      });
     };
 
     setAdminOrders((prev) => {
@@ -2555,11 +2577,27 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [customerOrders]);
 
-  // Keep the admin and pickup staff dashboards current when they are open in separate tabs.
+  // Keep the admin, pickup staff and rider dashboards current when they are open in separate tabs.
   useEffect(() => {
     const syncOrderStorage = (event) => {
-      if (!['freshmart_customer_orders', 'freshmart_admin_orders'].includes(event.key)) return;
+      if (!['freshmart_customer_orders', 'freshmart_admin_orders', 'freshmart_rider_delivered_orders'].includes(event.key)) return;
       try {
+        if (event.key === 'freshmart_rider_delivered_orders') {
+          const raw = event.newValue;
+          if (raw) {
+            const deliveredIds = new Set(JSON.parse(raw).map((id) => String(id).replace(/^#/, '').toLowerCase().trim()));
+            const markDelivered = (prev) =>
+              prev.map((o) => {
+                const bare = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+                return deliveredIds.has(bare)
+                  ? { ...o, status: 'Delivered', isDelivered: true, fulfillmentStage: 4, isPaid: true }
+                  : o;
+              });
+            setCustomerOrders(markDelivered);
+            setAdminOrders(markDelivered);
+          }
+          return;
+        }
         const orders = event.newValue ? JSON.parse(event.newValue) : [];
         if (!Array.isArray(orders)) return;
         const sanitized = orders.map(sanitizeOrder);
