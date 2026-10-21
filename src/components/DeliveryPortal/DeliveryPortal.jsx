@@ -508,14 +508,6 @@ export const DeliveryPortal = () => {
     });
   }, [portalOrders, locallyCompletedOrders]);
 
-  // Auto-switch to 'delivered-today' if no active deliveries are pending and delivered parcels exist
-  useEffect(() => {
-    if (!hasAutoSwitchedRef.current && outForDeliveryOrders.length === 0 && deliveredTodayOrders.length > 0) {
-      hasAutoSwitchedRef.current = true;
-      setActiveTab('delivered-today');
-    }
-  }, [outForDeliveryOrders.length, deliveredTodayOrders.length]);
-
   // Active delivery in transit (first out-for-delivery order)
   const activeOrder = outForDeliveryOrders[0] || null;
 
@@ -948,28 +940,6 @@ export const DeliveryPortal = () => {
                   {outForDeliveryOrders.length}
                 </span>
               </button>
-
-              {/* Delivered Today Tab */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('delivered-today');
-                  setMobileSidebarOpen(false);
-                }}
-                className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'delivered-today'
-                    ? 'bg-slate-800 text-emerald-200 border border-emerald-500/40 shadow-sm'
-                    : 'text-slate-300 hover:bg-slate-900 hover:text-white'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>Delivered Today</span>
-                </div>
-                <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  {deliveredTodayOrders.length}
-                </span>
-              </button>
             </nav>
           </div>
 
@@ -1082,15 +1052,8 @@ export const DeliveryPortal = () => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5">
           
           {/* Card 1: Active Run */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('out-for-delivery')}
-            className={`rounded-3xl p-4 sm:p-5 border shadow-2xs relative overflow-hidden flex flex-col justify-between text-left transition cursor-pointer ${
-              activeTab === 'out-for-delivery'
-                ? 'bg-amber-500/10 border-amber-400 ring-2 ring-amber-400/40'
-                : 'bg-white border-slate-200/80 hover:border-slate-300'
-            }`}
-          >
+          {/* Card 1: Active Run */}
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-center justify-between w-full">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Parcels</span>
               <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center">
@@ -1105,7 +1068,7 @@ export const DeliveryPortal = () => {
                 In courier bag • On-duty
               </span>
             </div>
-          </button>
+          </div>
 
           {/* Card 2: COD Cash to Collect */}
           <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs relative overflow-hidden flex flex-col justify-between">
@@ -1126,15 +1089,7 @@ export const DeliveryPortal = () => {
           </div>
 
           {/* Card 3: Delivered Today */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('delivered-today')}
-            className={`rounded-3xl p-4 sm:p-5 border shadow-2xs relative overflow-hidden flex flex-col justify-between text-left transition cursor-pointer ${
-              activeTab === 'delivered-today'
-                ? 'bg-emerald-500/10 border-emerald-400 ring-2 ring-emerald-400/40'
-                : 'bg-white border-slate-200/80 hover:border-slate-300'
-            }`}
-          >
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-center justify-between w-full">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Delivered Today</span>
               <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-700 flex items-center justify-center">
@@ -1149,7 +1104,7 @@ export const DeliveryPortal = () => {
                 Completed & verified
               </span>
             </div>
-          </button>
+          </div>
 
           {/* Card 4: Dispatch SuperHub */}
           <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs relative overflow-hidden flex flex-col justify-between">
@@ -1172,56 +1127,9 @@ export const DeliveryPortal = () => {
         </div>
 
         {/* ===================================================================== */}
-        {/* PARCEL VIEW SWITCHER TABS: ACTIVE PARCELS vs DELIVERED TODAY          */}
-        {/* ===================================================================== */}
-        <div className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveTab('out-for-delivery')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
-                activeTab === 'out-for-delivery'
-                  ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              <Package className="w-4 h-4" />
-              <span>Active Parcels</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-black/10">
-                {outForDeliveryOrders.length}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('delivered-today')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
-                activeTab === 'delivered-today'
-                  ? 'bg-emerald-600 text-white font-black shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Delivered Today</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20">
-                {deliveredTodayOrders.length}
-              </span>
-            </button>
-          </div>
-
-          <div className="text-xs text-slate-500 font-medium px-2">
-            {activeTab === 'out-for-delivery' ? (
-              <span>Showing parcels currently in transit for delivery</span>
-            ) : (
-              <span className="text-emerald-700 font-bold">Showing {deliveredTodayOrders.length} parcel{deliveredTodayOrders.length === 1 ? '' : 's'} successfully delivered today</span>
-            )}
-          </div>
-        </div>
-
-        {/* ===================================================================== */}
         {/* SECTION 1: ACTIVE PARCEL DELIVERY (Interactive Map + Live Telemetry)   */}
         {/* ===================================================================== */}
-        {activeTab === 'out-for-delivery' && activeOrder && (
+        {activeOrder && (
           <section className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden p-5 sm:p-6 space-y-5">
             
             {/* Parcel Header Bar */}
@@ -1427,7 +1335,7 @@ export const DeliveryPortal = () => {
         {/* ===================================================================== */}
         {/* 1. PREPARING PARCELS BANNER (Track live prep time & dispatch status)   */}
         {/* ===================================================================== */}
-        {activeTab === 'out-for-delivery' && preparingOrders.length > 0 && !activeOrder && (
+        {preparingOrders.length > 0 && !activeOrder && (
           <section className="bg-gradient-to-r from-amber-50/90 via-orange-50/60 to-amber-50/90 rounded-2xl border border-amber-200 p-4 sm:p-5 shadow-2xs space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-amber-200/70">
               <div className="flex items-center gap-2.5">
@@ -1508,7 +1416,7 @@ export const DeliveryPortal = () => {
         {/* ===================================================================== */}
         {/* 2. READY FOR DISPATCH BANNER (Parcels packed by staff waiting for rider)  */}
         {/* ===================================================================== */}
-        {activeTab === 'out-for-delivery' && readyForDispatchOrders.length > 0 && !activeOrder && (
+        {readyForDispatchOrders.length > 0 && !activeOrder && (
           <section className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200 p-4 sm:p-5 shadow-2xs space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-emerald-200/60">
               <div className="flex items-center gap-2">
@@ -1606,7 +1514,6 @@ export const DeliveryPortal = () => {
         {/* ===================================================================== */}
         {/* SECTION 2: OUT FOR DELIVERY (Grid Cards)                              */}
         {/* ===================================================================== */}
-        {activeTab === 'out-for-delivery' && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
@@ -1619,52 +1526,12 @@ export const DeliveryPortal = () => {
           </div>
 
           {outForDeliveryOrders.length === 0 ? (
-            <div className="bg-white rounded-3xl p-6 sm:p-8 text-center border border-slate-200/80 shadow-2xs space-y-4">
-              <div className="space-y-2">
-                <span className="text-3xl">🎉</span>
-                <h3 className="text-base font-black text-slate-900">All Parcels Delivered!</h3>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  No orders currently waiting for drop-off. New orders dispatched by store admin or accepted from pickup queue will appear here automatically.
-                </p>
-              </div>
-
-              {deliveredTodayOrders.length > 0 && (
-                <div className="pt-3 border-t border-slate-100 text-left space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>Delivered Today ({deliveredTodayOrders.length})</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('delivered-today')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition cursor-pointer"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Full Audit View</span>
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {deliveredTodayOrders.map((ord) => (
-                      <div key={ord.id} className="bg-emerald-50/70 border border-emerald-200/90 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-2xs">
-                        <div className="space-y-1 text-xs min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-black font-mono text-slate-900 text-sm">Parcel #{ord.orderId}</span>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">✓ Delivered</span>
-                          </div>
-                          <p className="font-semibold text-slate-700 truncate">{ord.customerName} • {ord.customerPhone}</p>
-                          <p className="text-slate-500 text-[11px] truncate">📍 {ord.shippingAddress?.address || ord.address || 'Peoples Colony No. 1, Faisalabad'}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <span className="font-black font-mono text-emerald-900 text-sm block">{formatPrice(ord.totalAmount || ord.total || 0)}</span>
-                          <span className="text-[10px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-full border border-emerald-200 block mt-1">Paid COD</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+            <div className="bg-white rounded-3xl p-8 text-center border border-slate-200/80 shadow-2xs space-y-3">
+              <span className="text-3xl">🎉</span>
+              <h3 className="text-base font-black text-slate-900">All Parcels Delivered!</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                No orders currently waiting for drop-off. New orders dispatched by store admin or accepted from pickup queue will appear here automatically.
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1791,175 +1658,6 @@ export const DeliveryPortal = () => {
               })}
             </div>
           )}
-        </section>
-        )}
-
-        {/* ===================================================================== */}
-        {/* SECTION 3: DELIVERED TODAY (Cards Grid + Audit Table)                 */}
-        {/* ===================================================================== */}
-        <section className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <span>Delivered Parcels Today</span>
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Verified doorstep handovers and collected payments logged for courier run
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-emerald-800 font-bold bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200 shadow-2xs flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                <span>{deliveredTodayOrders.length} Completed Handover{deliveredTodayOrders.length === 1 ? '' : 's'}</span>
-              </span>
-              {activeTab === 'delivered-today' && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('out-for-delivery')}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
-                >
-                  View Active Parcels
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Delivered Parcel Cards Grid */}
-          {deliveredTodayOrders.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {deliveredTodayOrders.map((order) => {
-                const totalFormatted = formatPrice(order.totalAmount || order.total || order.totalPrice || 0);
-                const deliveredTime = order.deliveredAt
-                  ? new Date(order.deliveredAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-                  : 'Today';
-
-                return (
-                  <div
-                    key={order.id}
-                    className="bg-white rounded-3xl p-5 border border-emerald-200/90 shadow-2xs flex flex-col justify-between space-y-3.5 hover:border-emerald-300 transition"
-                  >
-                    {/* Header: Order ID + Status */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-base font-black text-slate-900 font-mono">
-                        Parcel #{order.orderId}
-                      </span>
-                      <span className="px-2.5 py-0.5 bg-emerald-100 border border-emerald-300 text-emerald-900 text-[10px] font-black rounded-full flex items-center gap-1 uppercase tracking-wider">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-700" />
-                        <span>DELIVERED & VERIFIED</span>
-                      </span>
-                    </div>
-
-                    {/* Customer Info */}
-                    <div className="space-y-1 text-xs text-slate-700 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                      <p><span className="font-bold text-slate-900">Customer:</span> {order.customerName}</p>
-                      <p><span className="font-bold text-slate-900">Phone:</span> {order.customerPhone}</p>
-                      <p><span className="font-bold text-slate-900">Drop-off:</span> {order.shippingAddress?.address || order.address || 'Peoples Colony No. 1, Faisalabad'}</p>
-                      <p className="text-emerald-700 font-bold flex items-center gap-1 mt-1">
-                        <Clock className="w-3 h-3" />
-                        <span>Handover Completed: {deliveredTime}</span>
-                      </p>
-                    </div>
-
-                    {/* Items List */}
-                    <div className="pt-2 border-t border-slate-100 space-y-1">
-                      <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase block">
-                        DELIVERED CONTENTS
-                      </span>
-                      <div className="space-y-1 text-xs text-slate-800">
-                        {order.itemsList && order.itemsList.length > 0 ? (
-                          order.itemsList.map((item, idx) => (
-                            <div key={idx} className="flex justify-between items-center">
-                              <span className="font-medium text-slate-800">{item.name || item.productName || 'Grocery Item'}</span>
-                              <span className="font-bold text-slate-500 font-mono">x{item.quantity || item.qty || 1}</span>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium text-slate-800">Grocery Parcel Package</span>
-                            <span className="font-bold text-slate-500 font-mono">x1</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Price & Settlement Status */}
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                      <div>
-                        <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Total Amount</span>
-                        <span className="text-base font-black text-slate-900 font-mono">{totalFormatted}</span>
-                      </div>
-                      <span className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-                        <span>Payment Settled (COD)</span>
-                      </span>
-                    </div>
-
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Delivered Audit Table */}
-          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider bg-slate-50/70">
-                    <th className="py-3.5 px-6">PARCEL ID</th>
-                    <th className="py-3.5 px-6">CUSTOMER</th>
-                    <th className="py-3.5 px-6">DESTINATION</th>
-                    <th className="py-3.5 px-6">ITEMS</th>
-                    <th className="py-3.5 px-6">TOTAL</th>
-                    <th className="py-3.5 px-6">HANDOVER TIME</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {deliveredTodayOrders.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-12 text-center text-xs text-slate-400 italic">
-                        No parcels delivered yet today.
-                      </td>
-                    </tr>
-                  ) : (
-                    deliveredTodayOrders.map((order) => {
-                      const totalFormatted = formatPrice(order.totalAmount || order.total || order.totalPrice || 0);
-
-                      const deliveredTime = order.deliveredAt
-                        ? new Date(order.deliveredAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-                        : 'Just now';
-
-                      return (
-                        <tr key={order.id} className="hover:bg-slate-50/70 transition">
-                          <td className="py-3.5 px-6 font-black text-slate-900 font-mono">
-                            {order.orderId}
-                          </td>
-                          <td className="py-3.5 px-6 font-bold text-slate-900">
-                            {order.customerName}
-                          </td>
-                          <td className="py-3.5 px-6 text-slate-600 text-xs">
-                            {order.shippingAddress?.address || order.address || 'Peoples Colony No. 1, Faisalabad'}
-                          </td>
-                          <td className="py-3.5 px-6 text-slate-500">
-                            {order.itemsList && order.itemsList.length > 0
-                              ? order.itemsList.map((i) => `${i.name || i.productName || 'Item'} (x${i.quantity || 1})`).join(', ')
-                              : '1 Item'}
-                          </td>
-                          <td className="py-3.5 px-6 font-black text-slate-900 font-mono">
-                            {totalFormatted}
-                          </td>
-                          <td className="py-3.5 px-6 font-medium text-emerald-700">
-                            ✓ {deliveredTime}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </section>
 
       </main>
