@@ -245,22 +245,25 @@ export const DeliveryPortal = () => {
     });
   }, [customerOrders, adminOrders, user?.tenantId, currentTenant?.id]);
 
-  // Orders specifically assigned to this courier that are active
+  // Orders specifically assigned to this courier (both active run and delivered today)
   const assignedOrders = useMemo(() => {
     const currentRiderId = activeRider?.id || user?.riderId;
     const currentName = (activeRider?.name || user?.name || '').toLowerCase().trim();
 
     return allOrdersList.filter((o) => {
-      if (o.status === 'Cancelled' || o.status === 'Delivered') return false;
+      if (o.status === 'Cancelled') return false;
       const rId = o.assignedRider?.id || o.assignedRider?.riderId;
       const rName = (o.assignedRider?.name || '').toLowerCase().trim();
 
       const idMatches = Boolean(rId && (rId === currentRiderId || rId === activeRider?.id));
       const nameMatches = Boolean(currentName && rName && (rName === currentName || rName.includes(currentName) || currentName.includes(rName)));
 
-      return idMatches || nameMatches;
+      const bareId = String(o.id || o.orderId || o._id || '').replace(/^#/, '');
+      const isLocallyCompleted = locallyCompletedOrders.includes(bareId) || locallyCompletedOrders.includes(String(o.id));
+
+      return idMatches || nameMatches || isLocallyCompleted;
     });
-  }, [allOrdersList, activeRider, user?.riderId, user?.name]);
+  }, [allOrdersList, activeRider, user?.riderId, user?.name, locallyCompletedOrders]);
 
   // Live timer tick for estimated preparation countdown
   const [prepClock, setPrepClock] = useState(Date.now());
@@ -315,8 +318,23 @@ export const DeliveryPortal = () => {
     });
   }, [allOrdersList]);
 
-  // Locally tracked completed orders to ensure immediate instant transition
-  const [locallyCompletedOrders, setLocallyCompletedOrders] = useState([]);
+  // Locally tracked completed orders to ensure immediate instant transition (persisted in localStorage)
+  const [locallyCompletedOrders, setLocallyCompletedOrders] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_rider_delivered_orders');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_rider_delivered_orders', JSON.stringify(locallyCompletedOrders));
+    } catch (e) {}
+  }, [locallyCompletedOrders]);
 
   // Combined orders for portal display (strictly real assigned orders, no hardcoded baseline orders)
   const portalOrders = useMemo(() => {
@@ -325,7 +343,8 @@ export const DeliveryPortal = () => {
       const bareId = resolvedId.replace(/^#/, '');
       const hashedId = bareId ? `#${bareId}` : resolvedId;
       const isLocallyDone = locallyCompletedOrders.includes(bareId) || locallyCompletedOrders.includes(resolvedId);
-      const finalStatus = isLocallyDone ? 'Delivered' : (o.status || 'Out for Delivery');
+      const isStatusDelivered = o.status === 'Delivered' || o.isDelivered;
+      const finalStatus = (isLocallyDone || isStatusDelivered) ? 'Delivered' : (o.status || 'Out for Delivery');
       const finalOtp = String(o.deliveryOtp || '7412');
 
       const shipping = o.shippingAddress || {};
@@ -339,8 +358,9 @@ export const DeliveryPortal = () => {
       return {
         ...o,
         status: finalStatus,
-        fulfillmentStage: isLocallyDone ? 7 : (o.fulfillmentStage || 6),
-        isDelivered: isLocallyDone || o.isDelivered || false,
+        fulfillmentStage: (isLocallyDone || isStatusDelivered) ? 7 : (o.fulfillmentStage || 6),
+        isDelivered: isLocallyDone || isStatusDelivered || false,
+        deliveredAt: o.deliveredAt || (isLocallyDone ? new Date().toISOString() : null),
         id: bareId || resolvedId,
         orderId: o.orderId || hashedId || resolvedId,
         _id: o._id || bareId,
@@ -363,10 +383,10 @@ export const DeliveryPortal = () => {
 
   // Total Cash on Delivery to collect across active parcel run
   const totalCodAmount = useMemo(() => {
-    return portalOrders.filter((o) => o.status !== 'Delivered').reduce((sum, ord) => {
+    return portalOrders.filter((o) => o.status !== 'Delivered' && !o.isDelivered).reduce((sum, ord) => {
       const pm = String(ord.paymentMethod || '').toLowerCase();
       const isCod = !pm || pm.includes('cash') || pm.includes('cod') || pm.includes('delivery');
-      return isCod ? sum + Number(ord.totalAmount || ord.total || 0) : sum;
+      return isCod ? sum + Number(ord.totalAmount || ord.total || ord.totalPrice || 0) : sum;
     }, 0);
   }, [portalOrders]);
 
@@ -374,14 +394,16 @@ export const DeliveryPortal = () => {
   const outForDeliveryOrders = useMemo(() => {
     return portalOrders.filter((o) => {
       const bare = String(o.id || o.orderId || '').replace(/^#/, '');
-      return o.status !== 'Delivered' && !locallyCompletedOrders.includes(bare);
+      const isDelivered = o.status === 'Delivered' || o.isDelivered || locallyCompletedOrders.includes(bare);
+      return !isDelivered;
     });
   }, [portalOrders, locallyCompletedOrders]);
 
   const deliveredTodayOrders = useMemo(() => {
     return portalOrders.filter((o) => {
       const bare = String(o.id || o.orderId || '').replace(/^#/, '');
-      return o.status === 'Delivered' || locallyCompletedOrders.includes(bare);
+      const isDelivered = o.status === 'Delivered' || o.isDelivered || locallyCompletedOrders.includes(bare);
+      return isDelivered;
     });
   }, [portalOrders, locallyCompletedOrders]);
 
@@ -456,10 +478,16 @@ export const DeliveryPortal = () => {
     try {
       const res = await verifyOrderDeliveryOtp(bareId || rawId, entered, activeRider?.id, targetExpectedOtp);
       if (res && res.success) {
-        setLocallyCompletedOrders((prev) => [...prev, bareId, rawId]);
+        setLocallyCompletedOrders((prev) => {
+          const next = Array.from(new Set([...prev, bareId, rawId, `#${bareId}`]));
+          try {
+            localStorage.setItem('freshmart_rider_delivered_orders', JSON.stringify(next));
+          } catch (e) {}
+          return next;
+        });
         // Clear input keys
         setOtpInputs((prev) => ({ ...prev, [rawId]: '', [bareId]: '', [`#${bareId}`]: '' }));
-        addToast('Delivery Confirmed 🎉', `Order #${bareId} verified and marked Delivered!`);
+        addToast('Delivery Confirmed 🎉', `Order #${bareId} verified and marked Delivered! Handover logged in Delivered Parcels.`);
       } else {
         const errMsg = res?.message || `Incorrect PIN "${entered}". Please ask the customer to confirm their 4-digit handover PIN.`;
         addToast('Verification Failed ❌', errMsg, 'error');
@@ -1563,7 +1591,7 @@ export const DeliveryPortal = () => {
                     </tr>
                   ) : (
                     deliveredTodayOrders.map((order) => {
-                      const totalFormatted = formatPrice(order.totalAmount);
+                      const totalFormatted = formatPrice(order.totalAmount || order.total || order.totalPrice || 0);
 
                       const deliveredTime = order.deliveredAt
                         ? new Date(order.deliveredAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
