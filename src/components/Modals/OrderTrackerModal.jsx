@@ -532,16 +532,6 @@ export const OrderTrackerModal = () => {
                       <span>Call Driver</span>
                     </a>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => handleSearch()}
-                    disabled={isSearching}
-                    className="px-3.5 py-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
-                    title="Refresh live order status"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isSearching ? 'animate-spin' : ''}`} />
-                    <span>Refresh Status</span>
-                  </button>
                 </div>
               </div>
 
