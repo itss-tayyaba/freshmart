@@ -925,6 +925,7 @@ export const DeliveryPortal = () => {
                 onClick={() => {
                   setActiveTab('out-for-delivery');
                   setMobileSidebarOpen(false);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
                 className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
                   activeTab === 'out-for-delivery'
@@ -938,6 +939,30 @@ export const DeliveryPortal = () => {
                 </div>
                 <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-amber-500/20 text-amber-200 border border-amber-500/30">
                   {outForDeliveryOrders.length}
+                </span>
+              </button>
+
+              {/* Delivered Parcels Today Tab */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('delivered-today');
+                  setMobileSidebarOpen(false);
+                  const el = document.getElementById('delivered-parcels-today-section');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'delivered-today'
+                    ? 'bg-slate-800 text-emerald-200 border border-emerald-500/40 shadow-sm'
+                    : 'text-slate-300 hover:bg-slate-900 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>Delivered Parcels Today</span>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  {deliveredTodayOrders.length}
                 </span>
               </button>
             </nav>
@@ -1052,8 +1077,18 @@ export const DeliveryPortal = () => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5">
           
           {/* Card 1: Active Run */}
-          {/* Card 1: Active Run */}
-          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('out-for-delivery');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`rounded-3xl p-4 sm:p-5 border shadow-2xs relative overflow-hidden flex flex-col justify-between text-left transition cursor-pointer ${
+              activeTab === 'out-for-delivery'
+                ? 'bg-amber-500/10 border-amber-400 ring-2 ring-amber-400/40'
+                : 'bg-white border-slate-200/80 hover:border-slate-300'
+            }`}
+          >
             <div className="flex items-center justify-between w-full">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Parcels</span>
               <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center">
@@ -1068,7 +1103,7 @@ export const DeliveryPortal = () => {
                 In courier bag • On-duty
               </span>
             </div>
-          </div>
+          </button>
 
           {/* Card 2: COD Cash to Collect */}
           <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs relative overflow-hidden flex flex-col justify-between">
@@ -1089,7 +1124,19 @@ export const DeliveryPortal = () => {
           </div>
 
           {/* Card 3: Delivered Today */}
-          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('delivered-today');
+              const el = document.getElementById('delivered-parcels-today-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className={`rounded-3xl p-4 sm:p-5 border shadow-2xs relative overflow-hidden flex flex-col justify-between text-left transition cursor-pointer ${
+              activeTab === 'delivered-today'
+                ? 'bg-emerald-500/10 border-emerald-400 ring-2 ring-emerald-400/40'
+                : 'bg-white border-slate-200/80 hover:border-slate-300'
+            }`}
+          >
             <div className="flex items-center justify-between w-full">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Delivered Today</span>
               <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-700 flex items-center justify-center">
@@ -1104,7 +1151,7 @@ export const DeliveryPortal = () => {
                 Completed & verified
               </span>
             </div>
-          </div>
+          </button>
 
           {/* Card 4: Dispatch SuperHub */}
           <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs relative overflow-hidden flex flex-col justify-between">
@@ -1663,7 +1710,7 @@ export const DeliveryPortal = () => {
         {/* ===================================================================== */}
         {/* DELIVERED AUDIT TABLE (Clean handover log table)                      */}
         {/* ===================================================================== */}
-        <section className="space-y-4">
+        <section id="delivered-parcels-today-section" className="space-y-4 pt-2 scroll-mt-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
