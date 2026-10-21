@@ -195,4 +195,70 @@ describe('Al-Fatah Store Admin Order Visibility & Multi-Tenant Isolation', () =>
     assert.equal(order.status, 'Out for Delivery');
     assert.equal(order.assignedRider.name, 'Ahmad Khan');
   });
+
+  it('preserves Case Value tenant identity in sanitizeOrder and verifies Case Value Store Admin visibility', () => {
+    const rawCvOrder = {
+      id: '#CV4092',
+      orderId: '#CV4092',
+      tenantId: 'tenant-chasevalue',
+      tenantName: 'Case Value (Local Grocery)',
+      customer: 'Usman Farooq',
+      customerName: 'Usman Farooq',
+      customerPhone: '+923017654321',
+      address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+      city: 'Faisalabad',
+      status: 'Pending',
+      total: 1380,
+      items: [
+        {
+          id: 'chasevalue-atta-10kg',
+          name: 'Chase Value Mega Saver Whole Wheat Chakki Atta (10kg)',
+          price: 1380,
+          quantity: 1
+        }
+      ]
+    };
+
+    const sanitized = sanitizeOrder(rawCvOrder);
+    assert.equal(sanitized.tenantId, 'tenant-chasevalue');
+    assert.equal(sanitized.branchId, 'branch_cv_fsd');
+    assert.equal(sanitized.branchName, 'Wholesale Express Hub');
+    assert.equal(isSameTenant(sanitized.tenantId, 'tenant-chasevalue'), true);
+    assert.equal(isSameTenant(sanitized.tenantId, 'company_003'), true);
+    assert.equal(isSameTenant(sanitized.tenantId, 'tenant-freshmart'), false);
+
+    // Verify recovery even if order was stamped with #FM ID
+    const cvWithFmId = {
+      id: '#FM58291',
+      orderId: '#FM58291',
+      tenantId: 'tenant-chasevalue',
+      tenantName: 'Case Value (Local Grocery)',
+      address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+      items: [
+        {
+          id: 'chasevalue-atta-10kg',
+          name: 'Chase Value Mega Saver Whole Wheat Chakki Atta (10kg)',
+          price: 1380
+        }
+      ]
+    };
+    const sanitizedWithFmId = sanitizeOrder(cvWithFmId);
+    assert.equal(sanitizedWithFmId.tenantId, 'tenant-chasevalue');
+    assert.equal(isSameTenant(sanitizedWithFmId.tenantId, 'tenant-chasevalue'), true);
+
+    // Verify Case Value Store Admin filter includes this order
+    const orders = [
+      sanitized,
+      { id: 'ORD-701', tenantId: 'tenant-alfatah', total: 970 },
+      { id: '#FM83459', tenantId: 'tenant-freshmart', total: 140 }
+    ];
+    const targetTenantId = 'tenant-chasevalue';
+    const caseValueOrders = orders.filter((o) => {
+      const orderTenant = o.tenantId || o.companyId || o.tenantName;
+      return isSameTenant(orderTenant, targetTenantId);
+    });
+
+    assert.equal(caseValueOrders.length, 1);
+    assert.equal(caseValueOrders[0].id, '#CV4092');
+  });
 });

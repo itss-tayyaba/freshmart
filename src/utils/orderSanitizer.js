@@ -7,23 +7,98 @@ export const sanitizeOrder = (ord) => {
   const items = ord.items || ord.rawItems || ord.orderItems || [];
   const isFsd = addrStr.includes('peoples colony') || addrStr.includes('faisalabad') || addrStr.includes('fsd');
 
-  // 1. Detect if order belongs strictly to Al-Fatah
+  // Fix generic mock Lahore addresses
+  let fixedAddress = ord.address;
+  let fixedCity = ord.city;
+  let fixedShippingAddress = ord.shippingAddress;
+  if (addrStr.includes('gulberg iii, lahore') || addrStr.includes('main boulevard, gulberg') || !ord.address) {
+    fixedAddress = 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad';
+    fixedCity = 'Faisalabad';
+    fixedShippingAddress = typeof ord.shippingAddress === 'object' && ord.shippingAddress ? {
+      ...ord.shippingAddress,
+      address: fixedAddress,
+      city: fixedCity
+    } : { address: fixedAddress, city: fixedCity };
+  }
+
+  // Check if items list contains store-specific brand keywords (for recovering stored orders)
+  const hasCaseValueItem = Array.isArray(items) && items.some((it) => {
+    const name = String(it?.name || it?.productName || '').toLowerCase();
+    const brand = String(it?.brand || '').toLowerCase();
+    const tId = it?.tenantId || it?.product?.tenantId;
+    return (
+      name.includes('chase value') ||
+      name.includes('case value') ||
+      brand.includes('chase value') ||
+      brand.includes('case value') ||
+      isSameTenant(tId, 'tenant-chasevalue')
+    );
+  });
+
+  const hasChaseUpItem = Array.isArray(items) && items.some((it) => {
+    const name = String(it?.name || it?.productName || '').toLowerCase();
+    const brand = String(it?.brand || '').toLowerCase();
+    const tId = it?.tenantId || it?.product?.tenantId;
+    return (
+      name.includes('chase up') ||
+      brand.includes('chase up') ||
+      isSameTenant(tId, 'tenant-chaseup')
+    );
+  });
+
+  // 1. Detect Case Value / Chase Value
+  const isExplicitCaseValue =
+    isSameTenant(ord.tenantId, 'tenant-chasevalue') ||
+    isSameTenant(ord.tenantId, 'company_003') ||
+    (ord.tenantName && (String(ord.tenantName).toLowerCase().includes('case value') || String(ord.tenantName).toLowerCase().includes('chase value'))) ||
+    hasCaseValueItem ||
+    ((idStr.startsWith('#cv') || idStr.startsWith('cv-')) && (!ord.tenantId || isSameTenant(ord.tenantId, 'tenant-chasevalue')));
+
+  if (isExplicitCaseValue) {
+    return {
+      ...ord,
+      tenantId: 'tenant-chasevalue',
+      tenantName: ord.tenantName || 'Case Value (Local Grocery)',
+      branchId: ord.branchId || (isFsd ? 'branch_cv_fsd' : 'branch_007'),
+      branchName: ord.branchName || (isFsd ? 'Wholesale Express Hub' : 'Shaheed-e-Millat Main Branch (Karachi)'),
+      address: fixedAddress || ord.address,
+      city: fixedCity || ord.city,
+      shippingAddress: fixedShippingAddress || ord.shippingAddress,
+      status: ord.status || 'Pending'
+    };
+  }
+
+  // 2. Detect Chase Up
+  const isExplicitChaseUp =
+    isSameTenant(ord.tenantId, 'tenant-chaseup') ||
+    isSameTenant(ord.tenantId, 'company_002') ||
+    (ord.tenantName && String(ord.tenantName).toLowerCase().includes('chase up')) ||
+    hasChaseUpItem ||
+    ((idStr.startsWith('#cu') || idStr.startsWith('cu-')) && (!ord.tenantId || isSameTenant(ord.tenantId, 'tenant-chaseup')));
+
+  if (isExplicitChaseUp) {
+    return {
+      ...ord,
+      tenantId: 'tenant-chaseup',
+      tenantName: ord.tenantName || 'Chase Up',
+      branchId: ord.branchId || (isFsd ? 'branch_006' : 'branch_004'),
+      branchName: ord.branchName || (isFsd ? 'Faisalabad Clock Tower Hub' : 'Clifton Main Branch (Karachi)'),
+      address: fixedAddress || ord.address,
+      city: fixedCity || ord.city,
+      shippingAddress: fixedShippingAddress || ord.shippingAddress,
+      status: ord.status || 'Pending'
+    };
+  }
+
+  // 3. Detect Al-Fatah
   const isExplicitAlfatah =
-    idStr.includes('701') ||
-    idStr.startsWith('ord-701') ||
-    idStr.startsWith('#ord-701') ||
-    idStr.startsWith('#af') ||
-    idStr.startsWith('af-') ||
     isSameTenant(ord.tenantId, 'tenant-alfatah') ||
     isSameTenant(ord.tenantId, 'company_001') ||
-    (ord.tenantName && String(ord.tenantName).toLowerCase().includes('fatah'));
+    (ord.tenantName && String(ord.tenantName).toLowerCase().includes('fatah')) ||
+    ((idStr.includes('701') || idStr.startsWith('ord-701') || idStr.startsWith('#ord-701') || idStr.startsWith('#af') || idStr.startsWith('af-')) &&
+      (!ord.tenantId || isSameTenant(ord.tenantId, 'tenant-alfatah')));
 
   if (isExplicitAlfatah) {
-    const fixedAddr = (addrStr.includes('gulberg iii, lahore') || addrStr.includes('main boulevard, gulberg') || !ord.address)
-      ? 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad'
-      : (ord.address || 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad');
-    const fixedCity = fixedAddr.toLowerCase().includes('faisalabad') ? 'Faisalabad' : (ord.city || 'Faisalabad');
-
     const hasUnimaartBranch = Boolean(ord.branchName && (ord.branchName.includes('Dark Store') || ord.branchName.includes('Unimaart') || ord.branchId === 'branch_um_fsd'));
     const resolvedBranchId = (!ord.branchId || hasUnimaartBranch) ? (isFsd ? 'branch_af_fsd' : 'branch_001') : ord.branchId;
     const resolvedBranchName = (!ord.branchName || hasUnimaartBranch) ? (isFsd ? 'D-Ground Flagship Hub' : 'Gulberg Mall') : ord.branchName;
@@ -36,26 +111,20 @@ export const sanitizeOrder = (ord) => {
       tenantName: 'Al-Fatah Supermarket',
       branchId: resolvedBranchId,
       branchName: resolvedBranchName,
-      address: fixedAddr,
-      city: fixedCity,
-      shippingAddress: typeof ord.shippingAddress === 'object' && ord.shippingAddress ? {
-        ...ord.shippingAddress,
-        address: fixedAddr,
-        city: fixedCity
-      } : { address: fixedAddr, city: fixedCity },
+      address: fixedAddress || ord.address,
+      city: fixedCity || ord.city,
+      shippingAddress: fixedShippingAddress || ord.shippingAddress,
       status: ord.status || 'Pending'
     };
   }
 
-  // 2. Detect if order belongs strictly to Unimaart
+  // 4. Detect Unimaart / FreshMart
   const isExplicitUnimaart =
-    idStr.includes('fm83459') ||
-    idStr.includes('83459') ||
-    idStr.startsWith('#fm') ||
-    idStr.startsWith('fm-') ||
     isSameTenant(ord.tenantId, 'tenant-freshmart') ||
     isSameTenant(ord.tenantId, 'company_004') ||
-    (ord.tenantName && (String(ord.tenantName).toLowerCase().includes('unimaart') || String(ord.tenantName).toLowerCase().includes('unimart') || String(ord.tenantName).toLowerCase().includes('freshmart')));
+    (ord.tenantName && (String(ord.tenantName).toLowerCase().includes('unimaart') || String(ord.tenantName).toLowerCase().includes('unimart') || String(ord.tenantName).toLowerCase().includes('freshmart'))) ||
+    ((idStr.includes('fm83459') || idStr.includes('83459') || idStr.startsWith('#fm') || idStr.startsWith('fm-')) &&
+      (!ord.tenantId || isSameTenant(ord.tenantId, 'tenant-freshmart')));
 
   if (isExplicitUnimaart) {
     return {
@@ -63,52 +132,20 @@ export const sanitizeOrder = (ord) => {
       id: ord.id || ord.orderId || '#FM83459',
       orderId: ord.orderId || ord.id || '#FM83459',
       tenantId: 'tenant-freshmart',
-      tenantName: 'Unimaart (Market Store)',
-      branchId: ord.branchId || 'branch_um_fsd',
-      branchName: ord.branchName || 'Peoples Colony Dark Store',
+      tenantName: ord.tenantName || 'Unimaart (Market Store)',
+      branchId: ord.branchId || (isFsd ? 'branch_um_fsd' : 'branch_010'),
+      branchName: ord.branchName || (isFsd ? 'Peoples Colony Dark Store' : 'Gulberg SuperHub'),
+      address: fixedAddress || ord.address,
+      city: fixedCity || ord.city,
+      shippingAddress: fixedShippingAddress || ord.shippingAddress,
       status: ord.status || 'Pending'
     };
   }
 
-  // 3. Detect Chase Value
-  if (isSameTenant(ord.tenantId, 'tenant-chasevalue') || isSameTenant(ord.tenantId, 'company_003')) {
-    return {
-      ...ord,
-      tenantId: 'tenant-chasevalue',
-      tenantName: 'Chase Value',
-      branchId: ord.branchId || 'branch_cv_fsd',
-      branchName: ord.branchName || 'Wholesale Express Hub',
-      status: ord.status || 'Pending'
-    };
-  }
-
-  // 4. Detect Chase Up
-  if (isSameTenant(ord.tenantId, 'tenant-chaseup') || isSameTenant(ord.tenantId, 'company_002')) {
-    return {
-      ...ord,
-      tenantId: 'tenant-chaseup',
-      tenantName: 'Chase Up',
-      branchId: ord.branchId || 'branch_004',
-      branchName: ord.branchName || 'Clifton Main Branch (Karachi)',
-      status: ord.status || 'Pending'
-    };
-  }
-
-  // Normalize generic addresses if needed
-  if (addrStr.includes('gulberg iii, lahore') || addrStr.includes('main boulevard, gulberg')) {
-    const fixedAddr = 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad';
-    const fixedCity = 'Faisalabad';
-    return {
-      ...ord,
-      address: fixedAddr,
-      city: fixedCity,
-      shippingAddress: typeof ord.shippingAddress === 'object' && ord.shippingAddress ? {
-        ...ord.shippingAddress,
-        address: fixedAddr,
-        city: fixedCity
-      } : { address: fixedAddr, city: fixedCity }
-    };
-  }
-
-  return ord;
+  return {
+    ...ord,
+    address: fixedAddress || ord.address,
+    city: fixedCity || ord.city,
+    shippingAddress: fixedShippingAddress || ord.shippingAddress
+  };
 };

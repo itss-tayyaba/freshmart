@@ -503,7 +503,7 @@ export const AdminDashboard = () => {
                 >
                   {allTenants.map((t) => (
                     <option key={t.id} value={t.id} className="text-slate-900 bg-white font-bold">
-                      {t.logo || '🏬'} {t.name}
+                      {t.logo || '🏬'} {t.displayName || t.name}
                     </option>
                   ))}
                 </select>

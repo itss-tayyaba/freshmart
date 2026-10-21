@@ -251,11 +251,11 @@ export const createOrder = async (req, res) => {
     const tenantName =
       req.body.tenantName ||
       req.body.storeName ||
-      (tenantId === 'tenant-chasevalue'
-        ? 'Chase Value'
-        : tenantId === 'tenant-chaseup'
+      (isSameTenant(tenantId, 'tenant-chasevalue')
+        ? 'Case Value (Local Grocery)'
+        : isSameTenant(tenantId, 'tenant-chaseup')
         ? 'Chase Up'
-        : tenantId === 'tenant-alfatah'
+        : isSameTenant(tenantId, 'tenant-alfatah')
         ? 'Al-Fatah Supermarket'
         : 'Unimaart');
     const branchId = req.body.branchId || req.body.branch || req.user?.branchId || 'branch_001';

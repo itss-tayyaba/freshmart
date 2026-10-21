@@ -217,8 +217,6 @@ export const CheckoutPage = () => {
       return;
     }
 
-    const orderId = '#FM' + Math.floor(10000 + Math.random() * 90000);
-
     // Infer tenant from cart items or active store
     const cartItemTenant = (cart || []).find((i) => {
       const p = i.product && typeof i.product === 'object' ? i.product : i;
@@ -230,24 +228,42 @@ export const CheckoutPage = () => {
       currentTenant?.id ||
       'tenant-freshmart';
 
+    const isOrderChaseValue = isSameTenant(finalTenantId, 'tenant-chasevalue');
+    const isOrderChaseUp = isSameTenant(finalTenantId, 'tenant-chaseup');
+    const isOrderAlfatah = isSameTenant(finalTenantId, 'tenant-alfatah');
+
+    const orderPrefix = isOrderChaseValue ? '#CV' : isOrderChaseUp ? '#CU' : isOrderAlfatah ? '#AF' : '#FM';
+    const orderId = orderPrefix + Math.floor(10000 + Math.random() * 90000);
+
     const cityOrAddr = `${addressData.address || ''} ${addressData.city || ''}`.toLowerCase();
     const isFaisalabad = cityOrAddr.includes('faisalabad') || cityOrAddr.includes('peoples colony') || cityOrAddr.includes('fsd');
 
     let resolvedBranchId = currentBranch?._id || currentBranch?.id || nearbyInfo?.nearestBranch?._id;
     let resolvedBranchName = currentBranch?.name || nearbyInfo?.nearestBranch?.name;
 
-    if (!resolvedBranchId || (isFaisalabad && (!resolvedBranchName || !resolvedBranchName.toLowerCase().includes('peoples')))) {
-      if (finalTenantId === 'tenant-freshmart') {
-        resolvedBranchId = isFaisalabad ? 'branch_um_fsd' : 'branch_010';
-        resolvedBranchName = isFaisalabad ? 'Peoples Colony Dark Store' : 'Gulberg SuperHub';
-      } else if (finalTenantId === 'tenant-alfatah') {
+    if (!resolvedBranchId || (isOrderChaseValue && !resolvedBranchId.includes('cv')) || (isOrderChaseUp && !resolvedBranchId.includes('004') && !resolvedBranchId.includes('006')) || (isOrderAlfatah && !resolvedBranchId.includes('af'))) {
+      if (isOrderChaseValue) {
+        resolvedBranchId = isFaisalabad ? 'branch_cv_fsd' : 'branch_007';
+        resolvedBranchName = isFaisalabad ? 'Wholesale Express Hub' : 'Shaheed-e-Millat Main Branch (Karachi)';
+      } else if (isOrderChaseUp) {
+        resolvedBranchId = isFaisalabad ? 'branch_006' : 'branch_004';
+        resolvedBranchName = isFaisalabad ? 'Faisalabad Clock Tower Hub' : 'Clifton Main Branch (Karachi)';
+      } else if (isOrderAlfatah) {
         resolvedBranchId = isFaisalabad ? 'branch_af_fsd' : 'branch_002';
         resolvedBranchName = isFaisalabad ? 'D-Ground Flagship Hub' : 'Gulberg Mall';
-      } else if (finalTenantId === 'tenant-chasevalue') {
-        resolvedBranchId = isFaisalabad ? 'branch_cv_fsd' : 'branch_007';
-        resolvedBranchName = isFaisalabad ? 'Wholesale Express Hub' : 'Shaheed-e-Millat Karachi';
+      } else {
+        resolvedBranchId = isFaisalabad ? 'branch_um_fsd' : 'branch_010';
+        resolvedBranchName = isFaisalabad ? 'Peoples Colony Dark Store' : 'Gulberg SuperHub';
       }
     }
+
+    const resolvedTenantName =
+      currentTenant?.displayName ||
+      currentTenant?.name ||
+      (isOrderChaseValue ? 'Case Value (Local Grocery)' :
+       isOrderChaseUp ? 'Chase Up' :
+       isOrderAlfatah ? 'Al-Fatah Supermarket' :
+       'Unimaart (Market Store)');
 
     const orderItems = cart.map((i) => ({
       product: i.product?.id || i.product?._id,
@@ -289,9 +305,9 @@ export const CheckoutPage = () => {
       customerPhone: addressData.phone,
       phone: addressData.phone,
       tenantId: finalTenantId,
-      tenantName: currentTenant?.displayName || currentTenant?.name || (finalTenantId === 'tenant-alfatah' ? 'Al-Fatah Supermarket' : 'Unimaart'),
-      branchId: resolvedBranchId || 'branch_um_fsd',
-      branchName: resolvedBranchName || 'Peoples Colony Dark Store',
+      tenantName: resolvedTenantName,
+      branchId: resolvedBranchId || 'branch_cv_fsd',
+      branchName: resolvedBranchName || 'Wholesale Express Hub',
       distanceKm: nearbyInfo?.distanceKm || 1.2,
       status: 'Pending',
       createdAt: new Date().toISOString()

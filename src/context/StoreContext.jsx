@@ -445,6 +445,63 @@ export const StoreProvider = ({ children }) => {
       deliveryOtp: '8345',
       time: 'Just now',
       createdAt: new Date().toISOString()
+    },
+    {
+      id: '#CV4092',
+      orderId: '#CV4092',
+      tenantId: 'tenant-chasevalue',
+      tenantName: 'Case Value (Local Grocery)',
+      branchId: 'branch_cv_fsd',
+      branchName: 'Wholesale Express Hub',
+      customer: 'Usman Farooq',
+      customerName: 'Usman Farooq',
+      customerPhone: '+923017654321',
+      phone: '+923017654321',
+      orderType: 'Delivery',
+      status: 'Pending',
+      fulfillmentStage: 1,
+      pickupStep: 'assigned',
+      total: 1380,
+      totalAmount: 1380,
+      totalPrice: 1380,
+      subtotal: 1380,
+      paymentMethod: 'Cash on Delivery',
+      payment: 'Cash on Delivery',
+      paymentStatus: 'Pending',
+      items: [
+        {
+          id: 'chasevalue-atta-10kg',
+          name: 'Chase Value Mega Saver Whole Wheat Chakki Atta (10kg)',
+          price: 1380,
+          quantity: 1,
+          unit: '10kg Heavy Duty Sack',
+          image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-chasevalue',
+          branchId: 'branch_cv_fsd'
+        }
+      ],
+      rawItems: [
+        {
+          id: 'chasevalue-atta-10kg',
+          name: 'Chase Value Mega Saver Whole Wheat Chakki Atta (10kg)',
+          price: 1380,
+          quantity: 1,
+          unit: '10kg Heavy Duty Sack',
+          image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-chasevalue',
+          branchId: 'branch_cv_fsd'
+        }
+      ],
+      shippingAddress: {
+        address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+        city: 'Faisalabad'
+      },
+      address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+      city: 'Faisalabad',
+      deliverySlot: '⚡ 25-35 Mins Express Delivery',
+      deliveryOtp: '4092',
+      time: 'Just now',
+      createdAt: new Date().toISOString()
     }
   ];
 
@@ -4578,7 +4635,12 @@ export const StoreProvider = ({ children }) => {
             deliverySlot: orderData.deliverySlot || '⚡ 25-35 Mins Express Delivery'
           };
 
-    const localOrderId = orderData.orderId || orderData.id || ('#FM' + Math.floor(10000 + Math.random() * 90000));
+    const orderPrefix =
+      isSameTenant(resolvedTenantId, 'tenant-chasevalue') ? '#CV' :
+      isSameTenant(resolvedTenantId, 'tenant-chaseup') ? '#CU' :
+      isSameTenant(resolvedTenantId, 'tenant-alfatah') ? '#AF' :
+      '#FM';
+    const localOrderId = orderData.orderId || orderData.id || (orderPrefix + Math.floor(10000 + Math.random() * 90000));
     const paymentMethod = orderData.paymentMethod || orderData.payment || 'Cash on Delivery';
     const generatedOtp = String(Math.floor(1000 + Math.random() * 9000));
 
