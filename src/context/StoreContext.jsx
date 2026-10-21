@@ -93,16 +93,35 @@ export { sanitizeOrder };
 
 const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
   const id = remoteOrder.orderId || remoteOrder.id || remoteOrder._id || localOrder.id;
-  const items = remoteOrder.orderItems || remoteOrder.rawItems || (Array.isArray(remoteOrder.items) ? remoteOrder.items : localOrder.rawItems || localOrder.items || []);
+  const items = Array.isArray(remoteOrder.orderItems) ? remoteOrder.orderItems : Array.isArray(remoteOrder.rawItems) ? remoteOrder.rawItems : Array.isArray(remoteOrder.items) ? remoteOrder.items : Array.isArray(localOrder.rawItems) ? localOrder.rawItems : Array.isArray(localOrder.orderItems) ? localOrder.orderItems : Array.isArray(localOrder.items) ? localOrder.items : [];
   const address = remoteOrder.shippingAddress?.address || remoteOrder.address || localOrder.address || '';
   const city = remoteOrder.shippingAddress?.city || remoteOrder.city || localOrder.city || '';
   const itemTenantId = items?.find?.(it => it?.tenantId)?.tenantId;
   const idStr = String(id || '').toLowerCase();
-  const isUnimaartOrder = idStr.includes('fm') || items?.some?.(it => isSameTenant(it?.tenantId, 'tenant-freshmart'));
-  const tenantId = isUnimaartOrder ? 'tenant-freshmart' : (remoteOrder.tenantId || localOrder.tenantId || itemTenantId || 'tenant-alfatah');
+
+  const hasCvItem = items.some(it => {
+    const n = String(it?.name || it?.productName || '').toLowerCase();
+    const b = String(it?.brand || '').toLowerCase();
+    return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
+  });
+
+  const rawTenant = remoteOrder.tenantId || localOrder.tenantId || itemTenantId;
+  let tenantId;
+  if (isSameTenant(rawTenant, 'tenant-chasevalue') || hasCvItem || idStr.startsWith('#cv') || idStr.startsWith('cv-')) {
+    tenantId = 'tenant-chasevalue';
+  } else if (isSameTenant(rawTenant, 'tenant-chaseup') || idStr.startsWith('#cu') || idStr.startsWith('cu-')) {
+    tenantId = 'tenant-chaseup';
+  } else if (isSameTenant(rawTenant, 'tenant-alfatah') || idStr.includes('701') || idStr.startsWith('#af') || idStr.startsWith('af-')) {
+    tenantId = 'tenant-alfatah';
+  } else if (isSameTenant(rawTenant, 'tenant-freshmart') || idStr.includes('83459') || idStr.startsWith('#fm')) {
+    tenantId = 'tenant-freshmart';
+  } else {
+    tenantId = rawTenant || 'tenant-chasevalue';
+  }
+
   const tenantName = remoteOrder.tenantName || localOrder.tenantName || (
     isSameTenant(tenantId, 'tenant-alfatah') ? 'Al-Fatah Supermarket' :
-    isSameTenant(tenantId, 'tenant-chasevalue') ? 'Chase Value' :
+    isSameTenant(tenantId, 'tenant-chasevalue') ? 'Case Value (Local Grocery)' :
     isSameTenant(tenantId, 'tenant-chaseup') ? 'Chase Up' : 'Unimaart'
   );
   const total = Number(remoteOrder.totalAmount ?? remoteOrder.total ?? remoteOrder.totalPrice ?? localOrder.totalAmount ?? localOrder.total ?? localOrder.totalPrice ?? 0);

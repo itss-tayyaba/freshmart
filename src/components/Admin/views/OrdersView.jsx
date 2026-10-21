@@ -32,6 +32,7 @@ import {
 import { useStore } from '../../../context/StoreContext';
 import { DeliverToStaffModal } from '../modals/DeliverToStaffModal';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
+import { sanitizeOrder } from '../../../utils/orderSanitizer';
 
 // Helper: Extract human-readable order items count/summary safely (never returns an object/array)
 const formatOrderItemsSummary = (ord) => {
@@ -200,7 +201,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
 
   // Combine live orders filtered strictly by active supermarket branch (prioritizing Delivered status)
   const liveOrders = useMemo(() => {
-    const combined = [...(customerOrders || []), ...(adminOrders || [])];
+    const combined = [...(customerOrders || []), ...(adminOrders || [])].map(sanitizeOrder);
     const uniqueMap = new Map();
     combined.forEach((ord) => {
       if (ord && (ord.id || ord.orderId || ord._id)) {
@@ -227,6 +228,27 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
           o.items?.[0]?.tenantId ||
           o.rawItems?.[0]?.tenantId ||
           o.orderItems?.[0]?.tenantId;
+
+        const rawItemList = Array.isArray(o.rawItems)
+          ? o.rawItems
+          : Array.isArray(o.orderItems)
+          ? o.orderItems
+          : Array.isArray(o.items)
+          ? o.items
+          : [];
+        const hasCaseValue = rawItemList.some((it) => {
+          const n = String(it?.name || it?.productName || '').toLowerCase();
+          const b = String(it?.brand || '').toLowerCase();
+          return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
+        });
+        if (hasCaseValue && isSameTenant(targetTenantId, 'tenant-chasevalue')) return true;
+
+        const hasChaseUp = rawItemList.some((it) => {
+          const n = String(it?.name || it?.productName || '').toLowerCase();
+          const b = String(it?.brand || '').toLowerCase();
+          return n.includes('chase up') || b.includes('chase up') || isSameTenant(it?.tenantId, 'tenant-chaseup');
+        });
+        if (hasChaseUp && isSameTenant(targetTenantId, 'tenant-chaseup')) return true;
 
         if (!orderTenant) {
           const id = String(o.id || o.orderId || '').toLowerCase();

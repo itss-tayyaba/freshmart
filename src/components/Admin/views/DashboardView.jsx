@@ -21,7 +21,8 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useStore } from '../../../context/StoreContext';
 import { BRANCH_METRICS } from '../../../data/branchCatalogData';
-import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
+import { resolveTenantId, isSameTenant, BRANCHES } from '../../../data/companyHierarchyData';
+import { sanitizeOrder } from '../../../utils/orderSanitizer';
 
 export const DashboardView = ({ onNavigateModule }) => {
   const {
@@ -56,7 +57,7 @@ export const DashboardView = ({ onNavigateModule }) => {
 
   // Use only live records for operational figures; absent data stays at zero.
   const tenantOrders = useMemo(() => {
-    const combined = [...(customerOrders || []), ...(adminOrders || [])];
+    const combined = [...(customerOrders || []), ...(adminOrders || [])].map(sanitizeOrder);
     const uniqueMap = new Map();
     combined.forEach((ord) => {
       if (ord && (ord.id || ord.orderId || ord._id)) {
@@ -77,6 +78,27 @@ export const DashboardView = ({ onNavigateModule }) => {
         order.items?.[0]?.tenantId ||
         order.rawItems?.[0]?.tenantId ||
         order.orderItems?.[0]?.tenantId;
+
+      const rawItemList = Array.isArray(order.rawItems)
+        ? order.rawItems
+        : Array.isArray(order.orderItems)
+        ? order.orderItems
+        : Array.isArray(order.items)
+        ? order.items
+        : [];
+      const hasCaseValue = rawItemList.some((it) => {
+        const n = String(it?.name || it?.productName || '').toLowerCase();
+        const b = String(it?.brand || '').toLowerCase();
+        return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
+      });
+      if (hasCaseValue && isSameTenant(tenantKey, 'tenant-chasevalue')) return true;
+
+      const hasChaseUp = rawItemList.some((it) => {
+        const n = String(it?.name || it?.productName || '').toLowerCase();
+        const b = String(it?.brand || '').toLowerCase();
+        return n.includes('chase up') || b.includes('chase up') || isSameTenant(it?.tenantId, 'tenant-chaseup');
+      });
+      if (hasChaseUp && isSameTenant(tenantKey, 'tenant-chaseup')) return true;
 
       if (!orderTenant) {
         const id = String(order.id || order.orderId || '').toLowerCase();
@@ -101,9 +123,11 @@ export const DashboardView = ({ onNavigateModule }) => {
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
   const todayOrders = tenantOrders.filter((order) => {
-    if (order.time === 'Just now' || order.date === 'Today') return true;
+    if (order.time === 'Just now' || order.date === 'Today' || !order.createdAt) return true;
     const date = new Date(order.createdAt || order.date || order.timestamp || '');
-    return !Number.isNaN(date.getTime()) && date >= todayStart && date < tomorrowStart;
+    if (Number.isNaN(date.getTime())) return true;
+    const isWithin24h = Math.abs(Date.now() - date.getTime()) < 24 * 60 * 60 * 1000;
+    return isWithin24h || (date >= todayStart && date < tomorrowStart);
   });
   const salesToday = todayOrders.reduce(
     (sum, order) => sum + (Number(order.total ?? order.totalAmount ?? order.totalPrice) || 0),
@@ -410,7 +434,7 @@ export const DashboardView = ({ onNavigateModule }) => {
               >
                 {(allTenants || []).map((t) => (
                   <option key={t.id} value={t.id} className="text-slate-900 bg-white font-bold">
-                    {t.logo || '🏬'} {t.name}
+                    {t.logo || '🏬'} {t.displayName || t.name}
                   </option>
                 ))}
               </select>
@@ -419,7 +443,11 @@ export const DashboardView = ({ onNavigateModule }) => {
             {/* Current branch */}
             <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md border border-emerald-400/30 rounded-2xl px-3 py-1.5 shadow-xs text-xs font-black text-emerald-300">
               <MapPin className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-              <span>{currentBranch?.name || currentBranch?.city || 'No active branch selected'}</span>
+              <span>{
+                (currentBranch && isSameTenant(currentBranch.tenantId, tenantKey))
+                  ? currentBranch.name
+                  : (allBranches || BRANCHES).find(b => isSameTenant(b.tenantId, tenantKey))?.name || currentBranch?.name || 'Main SuperHub'
+              }</span>
             </div>
 
             <button

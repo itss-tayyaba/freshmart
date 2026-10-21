@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { isSameTenant, resolveTenantId } from '../../data/companyHierarchyData';
+import { sanitizeOrder } from '../../utils/orderSanitizer';
 
 // 11 Views
 import { DashboardView } from './views/DashboardView';
@@ -136,7 +137,7 @@ export const AdminDashboard = () => {
 
   // Unified tenant orders deduplicated by bare ID, prioritizing Delivered status
   const unifiedTenantOrders = useMemo(() => {
-    const combined = [...(customerOrders || []), ...(adminOrders || [])];
+    const combined = [...(customerOrders || []), ...(adminOrders || [])].map(sanitizeOrder);
     const map = new Map();
     combined.forEach((o) => {
       if (!o) return;
@@ -148,7 +149,21 @@ export const AdminDashboard = () => {
         o.tenantName ||
         o.items?.[0]?.tenantId ||
         o.rawItems?.[0]?.tenantId;
-      if (activeTenantId && orderTenant && !isSameTenant(orderTenant, activeTenantId)) return;
+
+      const rawItemList = Array.isArray(o.rawItems)
+        ? o.rawItems
+        : Array.isArray(o.orderItems)
+        ? o.orderItems
+        : Array.isArray(o.items)
+        ? o.items
+        : [];
+      const hasCaseValue = rawItemList.some((it) => {
+        const n = String(it?.name || it?.productName || '').toLowerCase();
+        const b = String(it?.brand || '').toLowerCase();
+        return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
+      });
+
+      if (!hasCaseValue && activeTenantId && orderTenant && !isSameTenant(orderTenant, activeTenantId)) return;
 
       const isDelivered =
         o.status === 'Delivered' ||

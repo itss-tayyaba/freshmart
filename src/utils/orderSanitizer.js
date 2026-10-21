@@ -4,7 +4,13 @@ export const sanitizeOrder = (ord) => {
   if (!ord) return ord;
   const idStr = String(ord.id || ord.orderId || ord._id || '').toLowerCase();
   const addrStr = `${ord.address || ''} ${ord.city || ''} ${ord.shippingAddress?.address || ''} ${ord.shippingAddress?.city || ''}`.toLowerCase();
-  const items = ord.items || ord.rawItems || ord.orderItems || [];
+  const rawItemList = Array.isArray(ord.rawItems)
+    ? ord.rawItems
+    : Array.isArray(ord.orderItems)
+    ? ord.orderItems
+    : Array.isArray(ord.items)
+    ? ord.items
+    : [];
   const isFsd = addrStr.includes('peoples colony') || addrStr.includes('faisalabad') || addrStr.includes('fsd');
 
   // Fix generic mock Lahore addresses
@@ -22,7 +28,7 @@ export const sanitizeOrder = (ord) => {
   }
 
   // Check if items list contains store-specific brand keywords (for recovering stored orders)
-  const hasCaseValueItem = Array.isArray(items) && items.some((it) => {
+  const hasCaseValueItem = rawItemList.some((it) => {
     const name = String(it?.name || it?.productName || '').toLowerCase();
     const brand = String(it?.brand || '').toLowerCase();
     const tId = it?.tenantId || it?.product?.tenantId;
@@ -35,7 +41,7 @@ export const sanitizeOrder = (ord) => {
     );
   });
 
-  const hasChaseUpItem = Array.isArray(items) && items.some((it) => {
+  const hasChaseUpItem = rawItemList.some((it) => {
     const name = String(it?.name || it?.productName || '').toLowerCase();
     const brand = String(it?.brand || '').toLowerCase();
     const tId = it?.tenantId || it?.product?.tenantId;
