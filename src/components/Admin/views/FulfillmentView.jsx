@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Boxes, UserPlus, Trash2, X, Eye, EyeOff, Clock, MapPin, PackageCheck } from 'lucide-react';
+import { Boxes, UserPlus, Trash2, X, Eye, EyeOff, Clock, MapPin, PackageCheck, Lock } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 
@@ -136,7 +136,8 @@ export const FulfillmentView = () => {
               {filteredOrders.map((order) => {
                 const orderId = order.id || order.orderId || order._id;
                 const items = getItems(order);
-                const canAssign = !order.isDispatched && !['Dispatched', 'Out for Delivery', 'Arrived at Customer', 'Delivered'].includes(order.status);
+                const isAssigned = Boolean(order.pickupStaffId || order.pickupStaffName);
+                const canAssign = !isAssigned && !order.isDispatched && !['Dispatched', 'Out for Delivery', 'Arrived at Customer', 'Delivered'].includes(order.status);
                 const activityAt = order.fulfillmentUpdatedAt || order.updatedAt || order.createdAt;
                 return (
                   <tr key={orderId} className="align-top hover:bg-slate-50/70">
@@ -155,9 +156,37 @@ export const FulfillmentView = () => {
                       }).join(', ') : 'Items pending sync'}
                     </td>
                     <td className="px-5 py-4">
-                      {canAssign ? <select value={order.pickupStaffId || ''} onChange={(event) => assignStaff(order, event.target.value)} className="w-48 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-500">
-                        <option value="">Assign pickup staff</option>{tenantStaff.map((staff) => <option key={staff.id} value={staff.id}>{staff.name}</option>)}
-                      </select> : <span className="text-sm font-semibold text-slate-700">{order.pickupStaffName || '?'}</span>}
+                      {canAssign ? (
+                        <select
+                          value=""
+                          onChange={(event) => assignStaff(order, event.target.value)}
+                          className="w-48 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs hover:border-slate-400"
+                        >
+                          <option value="">Assign pickup staff</option>
+                          {tenantStaff.map((staff) => (
+                            <option key={staff.id} value={staff.id}>
+                              📦 {staff.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : isAssigned ? (
+                        <div className="inline-flex items-center gap-2 rounded-xl bg-amber-50/90 border border-amber-300/80 px-3 py-1.5 shadow-2xs">
+                          <div className="w-4 h-4 rounded bg-amber-200/90 text-amber-900 flex items-center justify-center shrink-0">
+                            <Lock size={11} />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold text-amber-950 truncate block leading-tight">
+                              {order.pickupStaffName || 'Pickup Staff'}
+                            </span>
+                            <span className="text-[10px] font-semibold text-amber-800 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
+                              Locked · Assigned
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-400">—</span>
+                      )}
                     </td>
                     <td className="px-5 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${order.status === 'Ready for Dispatch' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>{getStaffActivity(order)}</span><span className="mt-1 block text-[11px] text-slate-500">{order.status || 'Order placed'}</span></td>
                     <td className="px-5 py-4 text-xs text-slate-500">{activityAt ? <span className="inline-flex items-center gap-1"><Clock size={12} />{new Date(activityAt).toLocaleString()}</span> : '?'}</td>

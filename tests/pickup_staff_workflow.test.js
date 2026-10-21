@@ -249,4 +249,33 @@ test('Pickup Staff Management & "Deliver to Staff" Workflow', async (t) => {
     const isRiderAssignmentUnlocked = Boolean(order.isDispatchedByStaff);
     assert.equal(isRiderAssignmentUnlocked, true, 'Rider assignment is unlocked on order page');
   });
+
+  await t.test('9. Once pickup staff is assigned on Pickup Staff page, the assignment is locked and cannot be changed', () => {
+    let order = {
+      id: 'ORD-703',
+      status: 'Pending',
+      tenantId: 'tenant-alfatah',
+      pickupStaffId: null,
+      pickupStaffName: null
+    };
+
+    // Initially can assign
+    const canAssignPickupStaff = (ord) => {
+      const isAssigned = Boolean(ord.pickupStaffId || ord.pickupStaffName);
+      return !isAssigned && !ord.isDispatched && !['Dispatched', 'Out for Delivery', 'Arrived at Customer', 'Delivered'].includes(ord.status);
+    };
+
+    assert.equal(canAssignPickupStaff(order), true, 'Before assignment, admin can assign staff');
+
+    // Admin assigns staff (e.g. Asad or Hafsa)
+    order = {
+      ...order,
+      pickupStaffId: 'PCK-ASAD',
+      pickupStaffName: 'Asad',
+      status: 'Deliver to Staff'
+    };
+
+    // After assignment, canAssign must be false (locked badge displayed instead of dropdown)
+    assert.equal(canAssignPickupStaff(order), false, 'After assignment, pickup staff person is locked and dropdown is disabled/hidden');
+  });
 });

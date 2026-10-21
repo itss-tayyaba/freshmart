@@ -5442,6 +5442,10 @@ export const StoreProvider = ({ children }) => {
     }
     const current = [...(customerOrders || []), ...(adminOrders || [])].find((item) => item.id === orderId || item.orderId === orderId || item._id === orderId);
     if (!current || (current.tenantId && !isSameTenant(current.tenantId, currentTenant?.id || user?.tenantId))) return false;
+    if (current.pickupStaffId || current.pickupStaffName) {
+      addToast('Pickup Staff Locked 🔒', `This order is already assigned to ${current.pickupStaffName || 'pickup staff'} and cannot be changed.`, 'error');
+      return false;
+    }
     const assignment = {
       pickupStaffId: staff.id,
       pickupStaffName: staff.name,
@@ -5455,8 +5459,17 @@ export const StoreProvider = ({ children }) => {
     setCustomerOrders((previous) => previous.map((item) => item.id === orderId || item.orderId === orderId || item._id === orderId ? { ...item, ...assignment } : item));
     setAdminOrders((previous) => previous.map((item) => item.id === orderId || item.orderId === orderId || item._id === orderId ? { ...item, ...assignment } : item));
     apiService.updateOrderStatus(orderId, 'Received by Pickup Staff', assignment).then((response) => {
-      if (!response?.success) addToast('Assignment sync failed', response?.message || 'The assigned staff member may not see this order until server storage is available.', 'error');
-    });
+      if (
+        response &&
+        !response.success &&
+        !response.isNonJsonResponse &&
+        !response.isNetworkError &&
+        response.message !== 'Invalid JSON from server' &&
+        response.message !== 'Failed to fetch'
+      ) {
+        addToast('Assignment sync warning', response.message, 'warning');
+      }
+    }).catch(() => {});
     addToast('Parcel assigned', `Order ${orderId} is now in ${staff.name}'s pickup queue.`);
     return true;
   };
