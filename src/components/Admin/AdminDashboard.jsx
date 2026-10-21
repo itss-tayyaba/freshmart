@@ -119,7 +119,13 @@ export const AdminDashboard = () => {
 
   const activeTenantId = currentTenant?.id || user?.tenantId;
   const pendingOrdersCount = (customerOrders || []).filter((o) => {
-    if (activeTenantId && o.tenantId && !isSameTenant(o.tenantId, activeTenantId)) return false;
+    const orderTenant =
+      o.tenantId ||
+      o.companyId ||
+      o.tenantName ||
+      o.items?.[0]?.tenantId ||
+      o.rawItems?.[0]?.tenantId;
+    if (activeTenantId && orderTenant && !isSameTenant(orderTenant, activeTenantId)) return false;
     return o.status === 'Processing' || o.status === 'Pending' || o.status === 'Packed' || o.status === 'Confirmed';
   }).length;
 

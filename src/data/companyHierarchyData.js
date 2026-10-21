@@ -705,9 +705,19 @@ export const resolveTenantId = (identifier) => {
       c.tenantId.toLowerCase() === clean ||
       c.slug.toLowerCase() === clean ||
       (c.legacyId && c.legacyId.toLowerCase() === clean) ||
-      c.name.toLowerCase() === clean
+      c.name.toLowerCase() === clean ||
+      (c.displayName && c.displayName.toLowerCase() === clean)
   );
-  return found ? found.tenantId : identifier;
+  if (found) return found.tenantId;
+
+  // Fuzzy / substring matching for store brand names
+  const stripped = clean.replace(/[^a-z0-9]/g, '');
+  if (stripped.includes('alfatah') || stripped.includes('fatah')) return 'company_001';
+  if (stripped.includes('chaseup')) return 'company_002';
+  if (stripped.includes('chaseval') || stripped.includes('caseval')) return 'company_003';
+  if (stripped.includes('freshmart') || stripped.includes('unimart') || stripped.includes('unimaart')) return 'company_004';
+
+  return identifier;
 };
 
 // Check if two tenant identifiers refer to the same supermarket company
@@ -717,9 +727,11 @@ export const isSameTenant = (t1, t2) => {
   const c1 = resolveTenantId(t1);
   const c2 = resolveTenantId(t2);
   if (c1 && c2 && c1 === c2) return true;
-  const clean1 = String(t1).replace(/^tenant-/, '').toLowerCase();
-  const clean2 = String(t2).replace(/^tenant-/, '').toLowerCase();
-  return clean1 === clean2;
+  const s1 = String(t1).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const s2 = String(t2).toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (s1 === s2) return true;
+  if (s1.replace(/^tenant/, '') === s2.replace(/^tenant/, '')) return true;
+  return false;
 };
 
 // Retrieve branches for a company

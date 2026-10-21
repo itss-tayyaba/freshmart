@@ -88,65 +88,8 @@ export const useStore = () => {
   return context;
 };
 
-export const sanitizeOrder = (ord) => {
-  if (!ord) return ord;
-  const idStr = String(ord.id || ord.orderId || ord._id || '').toLowerCase();
-  const custStr = String(ord.customer || ord.customerName || '').toLowerCase();
-  const addrStr = `${ord.address || ''} ${ord.city || ''} ${ord.shippingAddress?.address || ''} ${ord.shippingAddress?.city || ''}`.toLowerCase();
-  const items = ord.items || ord.rawItems || ord.orderItems || [];
-  const hasUnimaartItem = Array.isArray(items) && items.some((it) => {
-    const t = it?.tenantId || it?.product?.tenantId;
-    return isSameTenant(t, 'tenant-freshmart') || isSameTenant(t, 'company_004');
-  });
-
-  const isFsd = addrStr.includes('peoples colony') || addrStr.includes('faisalabad') || addrStr.includes('fsd');
-
-  if (
-    idStr.includes('fm83459') ||
-    idStr.includes('83459') ||
-    idStr.startsWith('#fm') ||
-    idStr.startsWith('fm-') ||
-    custStr.includes('tayyaba') ||
-    (isFsd && (hasUnimaartItem || isSameTenant(ord.tenantId, 'tenant-freshmart') || isSameTenant(ord.tenantId, 'company_004')))
-  ) {
-    return {
-      ...ord,
-      id: ord.id || ord.orderId || '#FM83459',
-      orderId: ord.orderId || ord.id || '#FM83459',
-      tenantId: 'tenant-freshmart',
-      tenantName: 'Unimaart (Market Store)',
-      branchId: 'branch_um_fsd',
-      branchName: 'Peoples Colony Dark Store',
-      status: ord.status || 'Pending'
-    };
-  }
-
-  if (isSameTenant(ord.tenantId, 'tenant-freshmart') && isFsd) {
-    return {
-      ...ord,
-      branchId: 'branch_um_fsd',
-      branchName: 'Peoples Colony Dark Store'
-    };
-  }
-
-  // Ensure mock Lahore address is converted to real Faisalabad delivery destination
-  if (addrStr.includes('gulberg iii, lahore') || addrStr.includes('main boulevard, gulberg')) {
-    const fixedAddr = 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad';
-    const fixedCity = 'Faisalabad';
-    return {
-      ...ord,
-      address: fixedAddr,
-      city: fixedCity,
-      shippingAddress: typeof ord.shippingAddress === 'object' && ord.shippingAddress ? {
-        ...ord.shippingAddress,
-        address: fixedAddr,
-        city: fixedCity
-      } : { address: fixedAddr, city: fixedCity }
-    };
-  }
-
-  return ord;
-};
+import { sanitizeOrder } from '../utils/orderSanitizer.js';
+export { sanitizeOrder };
 
 const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
   const id = remoteOrder.orderId || remoteOrder.id || remoteOrder._id || localOrder.id;
@@ -331,8 +274,8 @@ export const StoreProvider = ({ children }) => {
       orderId: 'ORD-701',
       tenantId: 'tenant-alfatah',
       tenantName: 'Al-Fatah Supermarket',
-      branchId: 'branch_001',
-      branchName: 'Gulberg Mall',
+      branchId: 'branch_af_fsd',
+      branchName: 'D-Ground Flagship Hub',
       customer: 'Tayyaba Batool',
       customerName: 'Tayyaba Batool',
       customerPhone: '+923206551696',
@@ -1547,23 +1490,25 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [adminOrders]);
 
-  // Self-healing effect: Guarantee #FM83459 is always properly formatted and present in both adminOrders and customerOrders
+  // Self-healing effect: Guarantee both ORD-701 (Al-Fatah) and #FM83459 (Unimaart) are always present and properly formatted
   useEffect(() => {
-    const ensureFmOrder = (orders) => {
-      const sanitized = (orders || []).map(sanitizeOrder);
-      const hasFm = sanitized.some((o) => {
-        const id = String(o.id || o.orderId || '').toLowerCase();
-        return id.includes('fm83459') || id.includes('83459');
-      });
-      if (!hasFm) {
-        const fmSeed = DEFAULT_INITIAL_ORDERS.find((o) => o.id === '#FM83459');
-        if (fmSeed) return [fmSeed, ...sanitized];
+    const ensureDefaultOrders = (orders) => {
+      let current = (orders || []).map(sanitizeOrder);
+      for (const defOrder of DEFAULT_INITIAL_ORDERS) {
+        const defKey = String(defOrder.id || defOrder.orderId).toLowerCase().replace(/^#/, '');
+        const exists = current.some((o) => {
+          const oKey = String(o.id || o.orderId || '').toLowerCase().replace(/^#/, '');
+          return oKey === defKey;
+        });
+        if (!exists) {
+          current = [defOrder, ...current];
+        }
       }
-      return sanitized;
+      return current;
     };
 
     setAdminOrders((prev) => {
-      const updated = ensureFmOrder(prev);
+      const updated = ensureDefaultOrders(prev);
       if (JSON.stringify(updated) !== JSON.stringify(prev)) {
         try { localStorage.setItem('freshmart_admin_orders', JSON.stringify(updated)); } catch(e) {}
         return updated;
@@ -1572,7 +1517,7 @@ export const StoreProvider = ({ children }) => {
     });
 
     setCustomerOrders((prev) => {
-      const updated = ensureFmOrder(prev);
+      const updated = ensureDefaultOrders(prev);
       if (JSON.stringify(updated) !== JSON.stringify(prev)) {
         try { localStorage.setItem('freshmart_customer_orders', JSON.stringify(updated)); } catch(e) {}
         return updated;
@@ -1735,19 +1680,23 @@ export const StoreProvider = ({ children }) => {
     };
   }, [isAdminLoggedIn, adminRole, user?.id, user?.staffId, user?.riderId, user?.tenantId]);
 
-  // Auto-synchronize currentTenant whenever user session with tenantId is active
+  // Auto-synchronize user session tenant with currentTenant
   useEffect(() => {
-    if (isAdminLoggedIn && user?.tenantId && adminRole !== 'superadmin') {
-      const allTenantsList = (tenants && tenants.length > 0) ? tenants : INITIAL_TENANTS;
-      const matched = allTenantsList.find((t) => isSameTenant(t.id, user.tenantId));
-      if (matched && currentTenant?.id !== matched.id) {
-        setCurrentTenantState(matched);
-        try {
-          localStorage.setItem('freshmart_current_tenant_id', matched.id);
-        } catch (e) {}
+    if (isAdminLoggedIn && adminRole !== 'superadmin') {
+      if (currentTenant?.id && user?.tenantId && !isSameTenant(currentTenant.id, user.tenantId)) {
+        setUser((prev) => {
+          if (!prev) return prev;
+          const updated = {
+            ...prev,
+            tenantId: currentTenant.id,
+            tenantName: currentTenant.displayName || currentTenant.name
+          };
+          try { localStorage.setItem('freshmart_admin_user', JSON.stringify(updated)); } catch(e) {}
+          return updated;
+        });
       }
     }
-  }, [isAdminLoggedIn, user?.tenantId, adminRole]);
+  }, [isAdminLoggedIn, currentTenant?.id, adminRole]);
 
   // Helper to resolve the correct store tenant based on preferred tenant ID, username, or store keywords
   const resolveStoreTenant = (candidateTenantId, userStr = '') => {
