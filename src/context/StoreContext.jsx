@@ -5123,6 +5123,7 @@ export const StoreProvider = ({ children }) => {
       ];
     });
     addToast('Added to Basket 🛒', `${product.name} (${numQty}x) added.`);
+    setIsCartOpen(true);
   };
 
   const updateCartQuantity = (productOrId, deltaOrUnit, possibleDelta) => {
@@ -5146,6 +5147,9 @@ export const StoreProvider = ({ children }) => {
         })
         .filter(Boolean);
     });
+    if (delta > 0) {
+      setIsCartOpen(true);
+    }
   };
 
   const removeFromCart = (productOrId) => {

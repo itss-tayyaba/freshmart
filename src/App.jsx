@@ -17,6 +17,7 @@ import { Footer } from './components/Footer/Footer';
 
 // Modals
 import { CartDrawer } from './components/Modals/CartDrawer';
+import { FloatingCartPill } from './components/Cart/FloatingCartPill';
 import { WishlistDrawer } from './components/Modals/WishlistDrawer';
 import { OrderTrackerModal } from './components/Modals/OrderTrackerModal';
 import { OffersModal } from './components/Modals/OffersModal';
@@ -66,6 +67,7 @@ function FreshMartAppContent() {
       <div className="min-h-screen bg-[#f8fafc] font-sans">
         <CustomerPortal />
         <CartDrawer />
+        <FloatingCartPill />
         <WishlistDrawer />
         <LocationModal />
         <ToastContainer />
@@ -97,6 +99,7 @@ function FreshMartAppContent() {
 
       {/* Global Modals & Drawers */}
       <CartDrawer />
+      <FloatingCartPill />
       <WishlistDrawer />
       <OrderTrackerModal />
       <OffersModal />
