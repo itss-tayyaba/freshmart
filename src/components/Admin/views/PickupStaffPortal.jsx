@@ -107,12 +107,36 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
         ord.items?.[0]?.tenantId ||
         ord.rawItems?.[0]?.tenantId ||
         ord.orderItems?.[0]?.tenantId;
+
+      const rawItemList = Array.isArray(ord.rawItems)
+        ? ord.rawItems
+        : Array.isArray(ord.orderItems)
+        ? ord.orderItems
+        : Array.isArray(ord.items)
+        ? ord.items
+        : [];
+      const hasCaseValue = rawItemList.some((it) => {
+        const n = String(it?.name || it?.productName || '').toLowerCase();
+        const b = String(it?.brand || '').toLowerCase();
+        return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
+      });
+      if (hasCaseValue && isSameTenant(activeTenantId, 'tenant-chasevalue')) return true;
+      if (hasCaseValue && !isSameTenant(activeTenantId, 'tenant-chasevalue')) return false;
+
+      const hasChaseUp = rawItemList.some((it) => {
+        const n = String(it?.name || it?.productName || '').toLowerCase();
+        const b = String(it?.brand || '').toLowerCase();
+        return n.includes('chase up') || n.includes('case up') || n.includes('caseup') || b.includes('chase up') || b.includes('case up') || b.includes('caseup') || isSameTenant(it?.tenantId, 'tenant-chaseup');
+      });
+      if (hasChaseUp && isSameTenant(activeTenantId, 'tenant-chaseup')) return true;
+      if (hasChaseUp && !isSameTenant(activeTenantId, 'tenant-chaseup')) return false;
+
       if (!tId) {
         const idLower = String(ord.id || ord.orderId || '').toLowerCase();
         if (idLower.includes('701') || idLower.includes('af')) return isSameTenant('tenant-alfatah', activeTenantId);
         if (idLower.includes('fm') || idLower.includes('83459')) return isSameTenant('tenant-freshmart', activeTenantId);
         if (idLower.includes('cv')) return isSameTenant('tenant-chasevalue', activeTenantId);
-        if (idLower.includes('cu')) return isSameTenant('tenant-chaseup', activeTenantId);
+        if (idLower.includes('cu') || idLower.includes('caseup')) return isSameTenant('tenant-chaseup', activeTenantId);
         return false;
       }
       return isSameTenant(tId, activeTenantId);

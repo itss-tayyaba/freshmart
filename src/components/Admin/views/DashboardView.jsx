@@ -44,7 +44,7 @@ export const DashboardView = ({ onNavigateModule }) => {
   } = useStore();
 
   // Active Tenant Metrics & Branding
-  const tenantKey = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
+  const tenantKey = user?.tenantId || currentTenant?.id || 'tenant-alfatah';
   const tenantMetrics = branchMetrics || (getBranchMetrics && getBranchMetrics(tenantKey)) || BRANCH_METRICS[tenantKey] || BRANCH_METRICS['tenant-alfatah'];
 
   // Selected period: '7days' | 'today' | '30days' | 'year'
@@ -94,20 +94,22 @@ export const DashboardView = ({ onNavigateModule }) => {
         return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
       });
       if (hasCaseValue && isSameTenant(tenantKey, 'tenant-chasevalue')) return true;
+      if (hasCaseValue && !isSameTenant(tenantKey, 'tenant-chasevalue')) return false;
 
       const hasChaseUp = rawItemList.some((it) => {
         const n = String(it?.name || it?.productName || '').toLowerCase();
         const b = String(it?.brand || '').toLowerCase();
-        return n.includes('chase up') || b.includes('chase up') || isSameTenant(it?.tenantId, 'tenant-chaseup');
+        return n.includes('chase up') || n.includes('case up') || n.includes('caseup') || b.includes('chase up') || b.includes('case up') || b.includes('caseup') || isSameTenant(it?.tenantId, 'tenant-chaseup');
       });
       if (hasChaseUp && isSameTenant(tenantKey, 'tenant-chaseup')) return true;
+      if (hasChaseUp && !isSameTenant(tenantKey, 'tenant-chaseup')) return false;
 
       if (!orderTenant) {
         const id = String(order.id || order.orderId || '').toLowerCase();
         if (id.includes('701') || id.includes('af')) return isSameTenant('tenant-alfatah', tenantKey);
         if (id.includes('fm') || id.includes('83459')) return isSameTenant('tenant-freshmart', tenantKey);
         if (id.includes('cv')) return isSameTenant('tenant-chasevalue', tenantKey);
-        if (id.includes('cu')) return isSameTenant('tenant-chaseup', tenantKey);
+        if (id.includes('cu') || id.includes('caseup')) return isSameTenant('tenant-chaseup', tenantKey);
         return false;
       }
 

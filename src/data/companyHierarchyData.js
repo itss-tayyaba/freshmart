@@ -713,8 +713,8 @@ export const resolveTenantId = (identifier) => {
   // Fuzzy / substring matching for store brand names
   const stripped = clean.replace(/[^a-z0-9]/g, '');
   if (stripped.includes('alfatah') || stripped.includes('fatah')) return 'company_001';
-  if (stripped.includes('chaseup')) return 'company_002';
-  if (stripped.includes('chaseval') || stripped.includes('caseval')) return 'company_003';
+  if (stripped.includes('chaseup') || stripped.includes('caseup') || stripped === 'cu') return 'company_002';
+  if (stripped.includes('chaseval') || stripped.includes('caseval') || stripped === 'cv') return 'company_003';
   if (stripped.includes('freshmart') || stripped.includes('unimart') || stripped.includes('unimaart')) return 'company_004';
 
   return identifier;

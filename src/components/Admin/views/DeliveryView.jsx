@@ -261,7 +261,7 @@ export const DeliveryView = () => {
       }
     });
     const list = Array.from(uniqueMap.values());
-    const targetTenantId = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
+    const targetTenantId = user?.tenantId || currentTenant?.id || 'tenant-alfatah';
     if (!targetTenantId) return list;
     return list.filter((ord) => {
       const orderTenant =
@@ -274,12 +274,35 @@ export const DeliveryView = () => {
         ord.rawItems?.[0]?.tenantId ||
         ord.orderItems?.[0]?.tenantId;
 
+      const rawItemList = Array.isArray(ord.rawItems)
+        ? ord.rawItems
+        : Array.isArray(ord.orderItems)
+        ? ord.orderItems
+        : Array.isArray(ord.items)
+        ? ord.items
+        : [];
+      const hasCaseValue = rawItemList.some((it) => {
+        const n = String(it?.name || it?.productName || '').toLowerCase();
+        const b = String(it?.brand || '').toLowerCase();
+        return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
+      });
+      if (hasCaseValue && isSameTenant(targetTenantId, 'tenant-chasevalue')) return true;
+      if (hasCaseValue && !isSameTenant(targetTenantId, 'tenant-chasevalue')) return false;
+
+      const hasChaseUp = rawItemList.some((it) => {
+        const n = String(it?.name || it?.productName || '').toLowerCase();
+        const b = String(it?.brand || '').toLowerCase();
+        return n.includes('chase up') || n.includes('case up') || n.includes('caseup') || b.includes('chase up') || b.includes('case up') || b.includes('caseup') || isSameTenant(it?.tenantId, 'tenant-chaseup');
+      });
+      if (hasChaseUp && isSameTenant(targetTenantId, 'tenant-chaseup')) return true;
+      if (hasChaseUp && !isSameTenant(targetTenantId, 'tenant-chaseup')) return false;
+
       if (!orderTenant) {
         const id = String(ord.id || ord.orderId || '').toLowerCase();
         if (id.includes('701') || id.includes('af')) return isSameTenant('tenant-alfatah', targetTenantId);
         if (id.includes('fm') || id.includes('83459')) return isSameTenant('tenant-freshmart', targetTenantId);
         if (id.includes('cv')) return isSameTenant('tenant-chasevalue', targetTenantId);
-        if (id.includes('cu')) return isSameTenant('tenant-chaseup', targetTenantId);
+        if (id.includes('cu') || id.includes('caseup')) return isSameTenant('tenant-chaseup', targetTenantId);
         return false;
       }
       return isSameTenant(orderTenant, targetTenantId);

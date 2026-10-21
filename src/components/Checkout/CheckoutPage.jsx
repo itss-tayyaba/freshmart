@@ -224,8 +224,8 @@ export const CheckoutPage = () => {
     });
     const cartProductTenantId = cartItemTenant?.product?.tenantId || cartItemTenant?.tenantId;
     const finalTenantId =
-      cartProductTenantId ||
       currentTenant?.id ||
+      cartProductTenantId ||
       'tenant-freshmart';
 
     const isOrderChaseValue = isSameTenant(finalTenantId, 'tenant-chasevalue');

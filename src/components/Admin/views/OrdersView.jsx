@@ -168,7 +168,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   const [selectedCustomerModal, setSelectedCustomerModal] = useState(null);
 
   const tenantStaff = useMemo(() => {
-    const activeTenant = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
+    const activeTenant = user?.tenantId || currentTenant?.id || 'tenant-alfatah';
     return (pickupStaff || []).filter(
       (s) => isSameTenant(s.tenantId || s.companyId, activeTenant) && (s.status === 'Active' || !s.status)
     );
@@ -197,7 +197,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   };
 
   const tenantBranches = useMemo(() => {
-    const activeTenant = currentTenant?.id || user?.tenantId;
+    const activeTenant = user?.tenantId || currentTenant?.id;
     return (allBranches || []).filter((b) => isSameTenant(b.tenantId, activeTenant));
   }, [allBranches, currentTenant?.id, user?.tenantId]);
 
@@ -217,7 +217,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       }
     });
     const raw = Array.from(uniqueMap.values());
-    const targetTenantId = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
+    const targetTenantId = user?.tenantId || currentTenant?.id || 'tenant-alfatah';
     let list = raw;
     if (targetTenantId) {
       list = list.filter((o) => {
@@ -244,20 +244,22 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
           return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
         });
         if (hasCaseValue && isSameTenant(targetTenantId, 'tenant-chasevalue')) return true;
+        if (hasCaseValue && !isSameTenant(targetTenantId, 'tenant-chasevalue')) return false;
 
         const hasChaseUp = rawItemList.some((it) => {
           const n = String(it?.name || it?.productName || '').toLowerCase();
           const b = String(it?.brand || '').toLowerCase();
-          return n.includes('chase up') || b.includes('chase up') || isSameTenant(it?.tenantId, 'tenant-chaseup');
+          return n.includes('chase up') || n.includes('case up') || n.includes('caseup') || b.includes('chase up') || b.includes('case up') || b.includes('caseup') || isSameTenant(it?.tenantId, 'tenant-chaseup');
         });
         if (hasChaseUp && isSameTenant(targetTenantId, 'tenant-chaseup')) return true;
+        if (hasChaseUp && !isSameTenant(targetTenantId, 'tenant-chaseup')) return false;
 
         if (!orderTenant) {
           const id = String(o.id || o.orderId || '').toLowerCase();
           if (id.includes('701') || id.includes('af')) return isSameTenant('tenant-alfatah', targetTenantId);
           if (id.includes('fm') || id.includes('83459')) return isSameTenant('tenant-freshmart', targetTenantId);
           if (id.includes('cv')) return isSameTenant('tenant-chasevalue', targetTenantId);
-          if (id.includes('cu')) return isSameTenant('tenant-chaseup', targetTenantId);
+          if (id.includes('cu') || id.includes('caseup')) return isSameTenant('tenant-chaseup', targetTenantId);
           return false;
         }
 
@@ -266,15 +268,16 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     }
 
     // Branch scoping:
-    // If a specific branch is selected in the store admin dropdown, filter by that branch
-    if (currentBranchFilter && currentBranchFilter !== 'all') {
+    // If a specific branch is selected in the store admin dropdown, filter by that branch if it belongs to this tenant
+    const isFilterBelongToTenant = tenantBranches.some((b) => (b._id || b.id) === currentBranchFilter);
+    if (currentBranchFilter && currentBranchFilter !== 'all' && isFilterBelongToTenant) {
       list = list.filter((o) => o.branchId === currentBranchFilter);
     } else if (user?.branchId && user?.role !== 'admin' && user?.role !== 'store_admin') {
       list = list.filter((o) => !o.branchId || o.branchId === user.branchId);
     }
 
     return list;
-  }, [customerOrders, adminOrders, currentTenant, user?.tenantId, user?.branchId, user?.role, currentBranchFilter]);
+  }, [customerOrders, adminOrders, currentTenant, user?.tenantId, user?.branchId, user?.role, currentBranchFilter, tenantBranches]);
 
   // Statistics KPI counts
   const stats = useMemo(() => {

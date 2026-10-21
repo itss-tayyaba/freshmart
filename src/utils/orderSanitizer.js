@@ -47,7 +47,9 @@ export const sanitizeOrder = (ord) => {
     const tId = it?.tenantId || it?.product?.tenantId;
     return (
       name.includes('chase up') ||
+      name.includes('case up') ||
       brand.includes('chase up') ||
+      brand.includes('case up') ||
       isSameTenant(tId, 'tenant-chaseup')
     );
   });
@@ -74,13 +76,13 @@ export const sanitizeOrder = (ord) => {
     };
   }
 
-  // 2. Detect Chase Up
+  // 2. Detect Chase Up / Case Up
   const isExplicitChaseUp =
     isSameTenant(ord.tenantId, 'tenant-chaseup') ||
     isSameTenant(ord.tenantId, 'company_002') ||
-    (ord.tenantName && String(ord.tenantName).toLowerCase().includes('chase up')) ||
+    (ord.tenantName && (String(ord.tenantName).toLowerCase().includes('chase up') || String(ord.tenantName).toLowerCase().includes('case up'))) ||
     hasChaseUpItem ||
-    ((idStr.startsWith('#cu') || idStr.startsWith('cu-')) && (!ord.tenantId || isSameTenant(ord.tenantId, 'tenant-chaseup')));
+    ((idStr.startsWith('#cu') || idStr.startsWith('cu-') || idStr.startsWith('cu')) && (!ord.tenantId || isSameTenant(ord.tenantId, 'tenant-chaseup')));
 
   if (isExplicitChaseUp) {
     return {

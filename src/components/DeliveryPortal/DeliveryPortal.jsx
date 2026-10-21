@@ -312,12 +312,35 @@ export const DeliveryPortal = () => {
         o.rawItems?.[0]?.tenantId ||
         o.orderItems?.[0]?.tenantId;
 
+      const rawItemList = Array.isArray(o.rawItems)
+        ? o.rawItems
+        : Array.isArray(o.orderItems)
+        ? o.orderItems
+        : Array.isArray(o.items)
+        ? o.items
+        : [];
+      const hasCaseValue = rawItemList.some((it) => {
+        const n = String(it?.name || it?.productName || '').toLowerCase();
+        const b = String(it?.brand || '').toLowerCase();
+        return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
+      });
+      if (hasCaseValue && isSameTenant(activeTenantId, 'tenant-chasevalue')) return true;
+      if (hasCaseValue && !isSameTenant(activeTenantId, 'tenant-chasevalue')) return false;
+
+      const hasChaseUp = rawItemList.some((it) => {
+        const n = String(it?.name || it?.productName || '').toLowerCase();
+        const b = String(it?.brand || '').toLowerCase();
+        return n.includes('chase up') || n.includes('case up') || n.includes('caseup') || b.includes('chase up') || b.includes('case up') || b.includes('caseup') || isSameTenant(it?.tenantId, 'tenant-chaseup');
+      });
+      if (hasChaseUp && isSameTenant(activeTenantId, 'tenant-chaseup')) return true;
+      if (hasChaseUp && !isSameTenant(activeTenantId, 'tenant-chaseup')) return false;
+
       if (!orderTenant) {
         const id = String(o.id || o.orderId || '').toLowerCase();
         if (id.includes('701') || id.includes('af')) return isSameTenant('tenant-alfatah', activeTenantId);
         if (id.includes('fm') || id.includes('83459')) return isSameTenant('tenant-freshmart', activeTenantId);
         if (id.includes('cv')) return isSameTenant('tenant-chasevalue', activeTenantId);
-        if (id.includes('cu')) return isSameTenant('tenant-chaseup', activeTenantId);
+        if (id.includes('cu') || id.includes('caseup')) return isSameTenant('tenant-chaseup', activeTenantId);
         return true;
       }
 

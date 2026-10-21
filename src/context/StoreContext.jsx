@@ -1823,23 +1823,19 @@ export const StoreProvider = ({ children }) => {
     };
   }, [isAdminLoggedIn, adminRole, user?.id, user?.staffId, user?.riderId, user?.tenantId]);
 
-  // Auto-synchronize user session tenant with currentTenant
+  // Keep currentTenant aligned with the logged-in Store Admin's tenant
   useEffect(() => {
-    if (isAdminLoggedIn && adminRole !== 'superadmin') {
-      if (currentTenant?.id && user?.tenantId && !isSameTenant(currentTenant.id, user.tenantId)) {
-        setUser((prev) => {
-          if (!prev) return prev;
-          const updated = {
-            ...prev,
-            tenantId: currentTenant.id,
-            tenantName: currentTenant.displayName || currentTenant.name
-          };
-          try { localStorage.setItem('freshmart_admin_user', JSON.stringify(updated)); } catch(e) {}
-          return updated;
-        });
+    if (isAdminLoggedIn && adminRole !== 'superadmin' && user?.tenantId) {
+      if (!currentTenant?.id || !isSameTenant(currentTenant.id, user.tenantId)) {
+        const matchingTenant =
+          (tenants || []).find((t) => isSameTenant(t.id, user.tenantId)) ||
+          INITIAL_TENANTS.find((t) => isSameTenant(t.id, user.tenantId));
+        if (matchingTenant) {
+          setCurrentTenant(matchingTenant);
+        }
       }
     }
-  }, [isAdminLoggedIn, currentTenant?.id, adminRole]);
+  }, [isAdminLoggedIn, user?.tenantId, adminRole, tenants]);
 
   // Helper to resolve the correct store tenant based on preferred tenant ID, username, or store keywords
   const resolveStoreTenant = (candidateTenantId, userStr = '') => {
@@ -1852,7 +1848,7 @@ export const StoreProvider = ({ children }) => {
     if (search.includes('chasevalue') || search.includes('chase-value') || search.includes('case value') || search.includes('casevalue')) {
       return allTenantsList.find((t) => t.id === 'tenant-chasevalue') || INITIAL_TENANTS[1];
     }
-    if (search.includes('chaseup') || search.includes('chase-up') || search.includes('chase up')) {
+    if (search.includes('chaseup') || search.includes('chase-up') || search.includes('chase up') || search.includes('caseup') || search.includes('case up')) {
       return allTenantsList.find((t) => t.id === 'tenant-chaseup') || INITIAL_TENANTS[2];
     }
     if (search.includes('unimart') || search.includes('freshmart')) {
@@ -4582,8 +4578,8 @@ export const StoreProvider = ({ children }) => {
 
     const resolvedTenantId =
       orderData.tenantId ||
-      cartTenantId ||
       currentTenant?.id ||
+      cartTenantId ||
       'tenant-freshmart';
 
     const matchedTenantObj =

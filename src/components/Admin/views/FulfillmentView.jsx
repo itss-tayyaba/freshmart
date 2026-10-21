@@ -23,7 +23,7 @@ export const FulfillmentView = () => {
   const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', phone: '' });
   const [search, setSearch] = useState('');
 
-  const activeTenantId = currentTenant?.id || user?.tenantId || 'tenant-freshmart';
+  const activeTenantId = user?.tenantId || currentTenant?.id || 'tenant-freshmart';
 
   const tenantStaff = useMemo(
     () => pickupStaff.filter((staff) => {
@@ -49,6 +49,39 @@ export const FulfillmentView = () => {
           order.rawItems?.[0]?.tenantId ||
           order.orderItems?.[0]?.tenantId;
 
+        const rawItemList = Array.isArray(order.rawItems)
+          ? order.rawItems
+          : Array.isArray(order.orderItems)
+          ? order.orderItems
+          : Array.isArray(order.items)
+          ? order.items
+          : [];
+        const hasCaseValue = rawItemList.some((it) => {
+          const n = String(it?.name || it?.productName || '').toLowerCase();
+          const b = String(it?.brand || '').toLowerCase();
+          return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
+        });
+        if (hasCaseValue && isSameTenant(activeTenantId, 'tenant-chasevalue')) {
+          unique.set(id, { ...unique.get(id), ...order });
+          return;
+        }
+        if (hasCaseValue && !isSameTenant(activeTenantId, 'tenant-chasevalue')) {
+          return;
+        }
+
+        const hasChaseUp = rawItemList.some((it) => {
+          const n = String(it?.name || it?.productName || '').toLowerCase();
+          const b = String(it?.brand || '').toLowerCase();
+          return n.includes('chase up') || n.includes('case up') || n.includes('caseup') || b.includes('chase up') || b.includes('case up') || b.includes('caseup') || isSameTenant(it?.tenantId, 'tenant-chaseup');
+        });
+        if (hasChaseUp && isSameTenant(activeTenantId, 'tenant-chaseup')) {
+          unique.set(id, { ...unique.get(id), ...order });
+          return;
+        }
+        if (hasChaseUp && !isSameTenant(activeTenantId, 'tenant-chaseup')) {
+          return;
+        }
+
         let matchesTenant = false;
         if (orderTenant) {
           matchesTenant = isSameTenant(orderTenant, activeTenantId);
@@ -57,7 +90,7 @@ export const FulfillmentView = () => {
           if (idLower.includes('701') || idLower.includes('af')) matchesTenant = isSameTenant('tenant-alfatah', activeTenantId);
           else if (idLower.includes('fm') || idLower.includes('83459')) matchesTenant = isSameTenant('tenant-freshmart', activeTenantId);
           else if (idLower.includes('cv')) matchesTenant = isSameTenant('tenant-chasevalue', activeTenantId);
-          else if (idLower.includes('cu')) matchesTenant = isSameTenant('tenant-chaseup', activeTenantId);
+          else if (idLower.includes('cu') || idLower.includes('caseup')) matchesTenant = isSameTenant('tenant-chaseup', activeTenantId);
         }
         if (!matchesTenant) return;
       }

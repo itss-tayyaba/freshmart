@@ -49,15 +49,15 @@ export const CheckoutModal = () => {
   if (!isCheckoutOpen) return null;
 
   const handlePlaceOrder = async () => {
-    // Infer tenant from cart items or active store
+    // Infer tenant: active storefront tenant takes priority, then cart items
     const cartItemTenant = (cart || []).find((i) => {
       const p = i.product && typeof i.product === 'object' ? i.product : i;
       return p.tenantId || i.tenantId;
     });
     const cartProductTenantId = cartItemTenant?.product?.tenantId || cartItemTenant?.tenantId;
     const finalTenantId =
-      cartProductTenantId ||
       currentTenant?.id ||
+      cartProductTenantId ||
       'tenant-freshmart';
 
     const isOrderChaseValue = isSameTenant(finalTenantId, 'tenant-chasevalue');
@@ -116,6 +116,22 @@ export const CheckoutModal = () => {
 
     const paymentLabel = formData.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Credit / Debit Card';
 
+    const defaultBranchId = isOrderChaseValue
+      ? (isFaisalabad ? 'branch_cv_fsd' : 'branch_007')
+      : isOrderChaseUp
+      ? (isFaisalabad ? 'branch_006' : 'branch_004')
+      : isOrderAlfatah
+      ? (isFaisalabad ? 'branch_af_fsd' : 'branch_002')
+      : (isFaisalabad ? 'branch_um_fsd' : 'branch_010');
+
+    const defaultBranchName = isOrderChaseValue
+      ? (isFaisalabad ? 'Wholesale Express Hub' : 'Shaheed-e-Millat Karachi')
+      : isOrderChaseUp
+      ? (isFaisalabad ? 'Faisalabad Clock Tower Hub' : 'Clifton Main Branch (Karachi)')
+      : isOrderAlfatah
+      ? (isFaisalabad ? 'D-Ground Flagship Hub' : 'Gulberg Mall')
+      : (isFaisalabad ? 'Peoples Colony Dark Store' : 'Gulberg SuperHub');
+
     const orderPayload = {
       id: newOrderId,
       orderId: newOrderId,
@@ -140,8 +156,8 @@ export const CheckoutModal = () => {
       customerPhone: formData.phone,
       tenantId: finalTenantId,
       tenantName: resolvedTenantName,
-      branchId: resolvedBranchId || 'branch_cv_fsd',
-      branchName: resolvedBranchName || 'Wholesale Express Hub',
+      branchId: resolvedBranchId || defaultBranchId,
+      branchName: resolvedBranchName || defaultBranchName,
       status: 'Pending'
     };
 
