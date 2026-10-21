@@ -922,13 +922,13 @@ export const AdminLogin = () => {
                     </div>
                   ) : (
                     <div
-                      onClick={() => autoFillCredentials('rider', 'ahmad', 'rider123', null, 'Ahmad Khan (Fleet Demo)')}
+                      onClick={() => autoFillCredentials('rider', 'ahmad', 'rider123', null, 'Ahmad Khan (Fleet Courier)')}
                       className={`p-2.5 rounded-xl border cursor-pointer transition ${
                         selectedRole === 'rider' ? 'bg-orange-50 border-orange-500 shadow-2xs' : 'bg-white border-slate-200 hover:border-slate-300'
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800">🛵 Ahmad Khan (Fleet Demo Rider)</span>
+                        <span className="font-bold text-slate-800">🛵 Ahmad Khan (Fleet Courier)</span>
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-800">Quick Test</span>
                       </div>
                       <div className="font-mono text-[10px] text-slate-600 mt-0.5">ahmad / rider123 (or 0300-1234567)</div>

@@ -202,7 +202,38 @@ export const DeliveryPortal = () => {
   // Active courier is the authenticated/assigned rider profile
   const activeRider = currentRider;
 
-  // Combined system orders scoped to store tenant
+  // Automatically purge legacy test demo parcels on mount so active parcels count is accurate
+  useEffect(() => {
+    const isDemoOrder = (o) =>
+      o && (
+        o.branchId === 'branch_demo' ||
+        (typeof o.id === 'string' && o.id.startsWith('ORD-') && o.customer === 'Tayyaba Batool') ||
+        (typeof o.orderId === 'string' && o.orderId.startsWith('#ORD-') && o.customer === 'Tayyaba Batool')
+      );
+
+    try {
+      if (typeof setCustomerOrders === 'function') {
+        setCustomerOrders((prev) => (Array.isArray(prev) ? prev.filter((o) => !isDemoOrder(o)) : prev));
+      }
+      if (typeof setAdminOrders === 'function') {
+        setAdminOrders((prev) => (Array.isArray(prev) ? prev.filter((o) => !isDemoOrder(o)) : prev));
+      }
+      ['freshmart_customer_orders', 'freshmart_admin_orders'].forEach((storageKey) => {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            const cleaned = parsed.filter((o) => !isDemoOrder(o));
+            if (cleaned.length !== parsed.length) {
+              localStorage.setItem(storageKey, JSON.stringify(cleaned));
+            }
+          }
+        }
+      });
+    } catch (e) {}
+  }, [setCustomerOrders, setAdminOrders]);
+
+  // Combined system orders scoped to store tenant (excluding any mock demo parcels)
   const allOrdersList = useMemo(() => {
     const list = [...(customerOrders || []), ...(adminOrders || [])];
     const seen = new Set();
@@ -210,6 +241,9 @@ export const DeliveryPortal = () => {
     return list.filter((o) => {
       const key = o.id || o.orderId || o._id;
       if (!key || seen.has(key)) return false;
+      if (o.branchId === 'branch_demo' || (typeof key === 'string' && key.startsWith('ORD-') && o.customer === 'Tayyaba Batool')) {
+        return false;
+      }
       if (activeTenantId && o.tenantId && !isSameTenant(o.tenantId, activeTenantId)) return false;
       seen.add(key);
       return true;

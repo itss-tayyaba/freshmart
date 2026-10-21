@@ -1430,7 +1430,7 @@ export const DeliveryView = () => {
                   }}
                   className="w-full text-center tracking-[0.5em] font-mono text-2xl font-black p-3 bg-slate-50 border-2 border-slate-300 rounded-2xl focus:border-emerald-500 focus:bg-white focus:outline-none"
                 />
-                <span className="text-[10px] text-slate-400 block font-mono">Master Bypass Code: 9999 (For Demo & Testing)</span>
+                <span className="text-[10px] text-slate-400 block font-mono">Master Bypass Code: 9999</span>
               </div>
 
               {otpError && (
