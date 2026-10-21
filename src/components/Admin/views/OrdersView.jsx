@@ -324,22 +324,42 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     }
   };
 
-  const handleAssignRider = async (orderId) => {
-    const riderId = selectedRiderMap[orderId];
+  const handleAssignRider = async (orderId, explicitRiderId) => {
+    const cleanId = String(orderId || '').replace(/^#/, '').trim();
+    const ord = (liveOrders || []).find((o) => {
+      const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').trim();
+      return oId === cleanId || o.id === orderId || o.orderId === orderId;
+    });
+
+    const eligible = (ord && getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : []) || riders || [];
+    const firstEligibleId = eligible?.[0]?.id || eligible?.[0]?._id || eligible?.[0]?.riderId;
+
+    const riderId =
+      explicitRiderId ||
+      selectedRiderMap[orderId] ||
+      selectedRiderMap[cleanId] ||
+      selectedRiderMap[`#${cleanId}`] ||
+      ord?.assignedRider?.id ||
+      ord?.assignedRider?._id ||
+      firstEligibleId;
+
     if (!riderId) {
       addToast('Select a Rider 🛵', 'Please select a rider from the dropdown first.', 'error');
       return;
     }
     if (assignRiderToOrder) {
       await assignRiderToOrder(orderId, riderId, 'Out for Delivery');
-      if (selectedOrder && selectedOrder.id === orderId) {
-        const targetRider = riders.find((r) => r.id === riderId);
+      const targetRider = (riders || []).find((r) =>
+        r.id === riderId || r._id === riderId || r.riderId === riderId || r.name === riderId
+      ) || (eligible && eligible[0]);
+
+      if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderId === orderId || String(selectedOrder.id).replace(/^#/, '') === cleanId)) {
         if (targetRider) {
           setSelectedOrder((prev) => ({
             ...prev,
             status: 'Out for Delivery',
             assignedRider: {
-              id: targetRider.id,
+              id: targetRider.id || targetRider._id || riderId,
               name: targetRider.name,
               phone: targetRider.phone,
               vehicle: targetRider.vehicleNumber || targetRider.vehicleType
@@ -850,31 +870,54 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                                     </div>
                                   )}
 
-                                  <div className="flex items-center gap-1 w-full">
-                                    <select
-                                      value={ord.assignedRider?.id || selectedRiderMap[ord.id] || ''}
-                                      onChange={(e) =>
-                                        setSelectedRiderMap((prev) => ({ ...prev, [ord.id]: e.target.value }))
-                                      }
-                                      disabled={eligibleRiders.length === 0}
-                                      className="bg-[#f5efe6] hover:bg-[#ede5d8] border border-[#ded5c5] rounded-lg px-1.5 py-1 text-[11px] font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer flex-1 min-w-0"
-                                    >
-                                      <option value="">Choose rider...</option>
-                                      {eligibleRiders.map((r) => (
-                                        <option key={r.id} value={r.id}>
-                                          🛵 {r.name} {r.distanceKm > 0 ? `· ${r.distanceKm.toFixed(1)}km` : ''}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleAssignRider(ord.id)}
-                                      disabled={!selectedRiderMap[ord.id] && !ord.assignedRider}
-                                      className="px-2 py-1 bg-[#059669] hover:bg-[#047857] text-white rounded-lg text-[11px] font-bold transition cursor-pointer shadow-2xs shrink-0 disabled:opacity-40"
-                                    >
-                                      Assign
-                                    </button>
-                                  </div>
+                                  {(() => {
+                                    const orderKey = ord.id || ord.orderId || ord._id;
+                                    const cleanOrderKey = String(orderKey).replace(/^#/, '').trim();
+                                    const currentChosenRider =
+                                      selectedRiderMap[orderKey] ||
+                                      selectedRiderMap[cleanOrderKey] ||
+                                      selectedRiderMap[`#${cleanOrderKey}`] ||
+                                      ord.assignedRider?.id ||
+                                      ord.assignedRider?._id ||
+                                      '';
+
+                                    return (
+                                      <div className="flex items-center gap-1 w-full">
+                                        <select
+                                          value={currentChosenRider}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            setSelectedRiderMap((prev) => ({
+                                              ...prev,
+                                              [orderKey]: val,
+                                              [cleanOrderKey]: val,
+                                              [`#${cleanOrderKey}`]: val
+                                            }));
+                                          }}
+                                          disabled={eligibleRiders.length === 0}
+                                          className="bg-[#f5efe6] hover:bg-[#ede5d8] border border-[#ded5c5] rounded-lg px-1.5 py-1 text-[11px] font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer flex-1 min-w-0"
+                                        >
+                                          <option value="">Choose rider...</option>
+                                          {eligibleRiders.map((r) => {
+                                            const rId = r.id || r._id || r.riderId;
+                                            return (
+                                              <option key={rId} value={rId}>
+                                                🛵 {r.name} {r.distanceKm > 0 ? `· ${r.distanceKm.toFixed(1)}km` : ''}
+                                              </option>
+                                            );
+                                          })}
+                                        </select>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleAssignRider(orderKey, currentChosenRider)}
+                                          disabled={!currentChosenRider && eligibleRiders.length === 0}
+                                          className="px-2 py-1 bg-[#059669] hover:bg-[#047857] text-white rounded-lg text-[11px] font-bold transition cursor-pointer shadow-2xs shrink-0 disabled:opacity-40"
+                                        >
+                                          Assign
+                                        </button>
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               );
                             })()}
@@ -1139,33 +1182,53 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                       </div>
                     )}
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <select
-                      value={selectedRiderMap[selectedOrder.id] || ''}
-                      onChange={(e) =>
-                        setSelectedRiderMap((prev) => ({ ...prev, [selectedOrder.id]: e.target.value }))
-                      }
-                      className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    >
-                      <option value="">Select rider to assign...</option>
-                      {(getEligibleRidersForOrder ? getEligibleRidersForOrder(selectedOrder) : riders).map((r) => (
-                        <option key={r.id} value={r.id}>
-                          🛵 {r.name} {r.distanceKm > 0 ? `· ${r.distanceKm.toFixed(1)}km` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => handleAssignRider(selectedOrder.id)}
-                      disabled={!selectedRiderMap[selectedOrder.id]}
-                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-                    >
-                      <Truck className="w-3.5 h-3.5" />
-                      <span>Assign Rider to Order</span>
-                    </button>
-                  </div>
-                )}
+                ) : (() => {
+                  const drawerKey = selectedOrder.id || selectedOrder.orderId || selectedOrder._id;
+                  const cleanDrawerKey = String(drawerKey).replace(/^#/, '').trim();
+                  const currentDrawerRider =
+                    selectedRiderMap[drawerKey] ||
+                    selectedRiderMap[cleanDrawerKey] ||
+                    selectedRiderMap[`#${cleanDrawerKey}`] ||
+                    '';
+                  const eligibleList = (getEligibleRidersForOrder ? getEligibleRidersForOrder(selectedOrder) : []) || riders || [];
+
+                  return (
+                    <div className="space-y-2">
+                      <select
+                        value={currentDrawerRider}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSelectedRiderMap((prev) => ({
+                            ...prev,
+                            [drawerKey]: val,
+                            [cleanDrawerKey]: val,
+                            [`#${cleanDrawerKey}`]: val
+                          }));
+                        }}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      >
+                        <option value="">Select rider to assign...</option>
+                        {eligibleList.map((r) => {
+                          const rId = r.id || r._id || r.riderId;
+                          return (
+                            <option key={rId} value={rId}>
+                              🛵 {r.name} {r.distanceKm > 0 ? `· ${r.distanceKm.toFixed(1)}km` : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => handleAssignRider(drawerKey, currentDrawerRider)}
+                        disabled={!currentDrawerRider && eligibleList.length === 0}
+                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                      >
+                        <Truck className="w-3.5 h-3.5" />
+                        <span>Assign Rider to Order</span>
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

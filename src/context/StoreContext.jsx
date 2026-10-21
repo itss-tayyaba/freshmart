@@ -3216,19 +3216,33 @@ export const StoreProvider = ({ children }) => {
   };
 
   const assignRiderToOrder = async (orderId, riderId, statusOverride, allowDemo = false) => {
-    const targetRider = riders.find((r) => r.id === riderId);
+    const cleanRiderId = String(riderId || '').trim();
+    const targetRider = riders.find((r) =>
+      (r.id && String(r.id) === cleanRiderId) ||
+      (r._id && String(r._id) === cleanRiderId) ||
+      (r.riderId && String(r.riderId) === cleanRiderId) ||
+      (r.username && r.username.toLowerCase() === cleanRiderId.toLowerCase()) ||
+      (r.name && r.name.toLowerCase() === cleanRiderId.toLowerCase())
+    ) || (riders && riders[0]);
+
     if (!targetRider) {
       addToast('Select a Rider', 'Please select a valid courier from the list.', 'error');
       return false;
     }
+    const cleanId = String(orderId || '').replace(/^#/, '').trim();
     const all = [...(customerOrders || []), ...(adminOrders || [])];
-    const sourceOrder = all.find((order) => order.id === orderId || order.orderId === orderId);
+    const sourceOrder = all.find((order) => {
+      const oId = String(order.id || order.orderId || order._id || '').replace(/^#/, '').trim();
+      return oId === cleanId || order.id === orderId || order.orderId === orderId;
+    });
     if (!['admin', 'superadmin', 'rider'].includes(adminRole) && !allowDemo) {
       addToast('Rider assignment denied', 'Only store admins or couriers can assign riders.', 'error');
       return false;
     }
     const eligibleRiders = getEligibleRidersForOrder(sourceOrder);
-    const eligibleRider = eligibleRiders.find((rider) => rider.id === riderId) || {
+    const eligibleRider = eligibleRiders.find((rider) =>
+      rider.id === targetRider.id || rider._id === targetRider._id || rider.riderId === targetRider.riderId
+    ) || {
       ...targetRider,
       coordinates: riderBaseCoordinates(targetRider),
       distanceKm: 0,
@@ -3240,7 +3254,7 @@ export const StoreProvider = ({ children }) => {
     const isDispatched = true;
 
     const assignedInfo = {
-      id: targetRider.id,
+      id: targetRider.id || targetRider._id || 'RDR-ALFATAH',
       name: targetRider.name,
       phone: targetRider.phone,
       vehicle: targetRider.vehicleNumber || targetRider.vehicleType,
@@ -3254,7 +3268,7 @@ export const StoreProvider = ({ children }) => {
     };
 
     const telemetry = {
-      orderId: String(orderId).replace(/^#/, ''),
+      orderId: cleanId,
       coords: eligibleRider.coordinates || { lat: 31.4125, lng: 73.0995 },
       isSharing: true,
       riderName: targetRider.name,
@@ -3268,9 +3282,14 @@ export const StoreProvider = ({ children }) => {
       localStorage.setItem('freshmart_rider_live_telemetry', JSON.stringify(telemetry));
     } catch (e) {}
 
+    const orderMatches = (o) => {
+      const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').trim();
+      return oId === cleanId || o.id === orderId || o.orderId === orderId;
+    };
+
     setCustomerOrders((prev) =>
       prev.map((o) =>
-        o.id === orderId || o.orderId === orderId
+        orderMatches(o)
           ? {
               ...o,
               assignedRider: assignedInfo,
@@ -3286,7 +3305,7 @@ export const StoreProvider = ({ children }) => {
     );
     setAdminOrders((prev) =>
       prev.map((o) =>
-        o.id === orderId || o.orderId === orderId
+        orderMatches(o)
           ? {
               ...o,
               assignedRider: assignedInfo,
@@ -3300,7 +3319,7 @@ export const StoreProvider = ({ children }) => {
           : o
       )
     );
-    if (activeDeliveryOrder && (activeDeliveryOrder.id === orderId || activeDeliveryOrder.orderId === orderId)) {
+    if (activeDeliveryOrder && orderMatches(activeDeliveryOrder)) {
       setActiveDeliveryOrder((prev) => ({
         ...prev,
         assignedRider: assignedInfo,
