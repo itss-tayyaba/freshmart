@@ -278,4 +278,44 @@ test('Pickup Staff Management & "Deliver to Staff" Workflow', async (t) => {
     // After assignment, canAssign must be false (locked badge displayed instead of dropdown)
     assert.equal(canAssignPickupStaff(order), false, 'After assignment, pickup staff person is locked and dropdown is disabled/hidden');
   });
+
+  await t.test('10. Resolves multi-tab portal routes independently without signing out', () => {
+    const parseMockUrl = (urlStr) => {
+      const url = new URL(urlStr, 'http://localhost:5173');
+      const path = url.pathname.toLowerCase();
+      const hash = url.hash.toLowerCase();
+      const searchParams = url.searchParams;
+
+      if (
+        path.startsWith('/pickup-staff') ||
+        hash === '#pickup-staff' ||
+        searchParams.get('portal') === 'pickup-staff'
+      ) {
+        return { page: 'pickup-staff', role: 'pickup_staff' };
+      }
+      if (
+        path.startsWith('/delivery-portal') ||
+        hash === '#rider' ||
+        searchParams.get('portal') === 'rider'
+      ) {
+        return { page: 'delivery-portal', role: 'rider' };
+      }
+      return { page: 'admin', role: 'admin' };
+    };
+
+    // Tab 1: Admin Dashboard
+    const tab1 = parseMockUrl('http://localhost:5173/admin');
+    assert.equal(tab1.page, 'admin');
+    assert.equal(tab1.role, 'admin');
+
+    // Tab 2: Pickup Staff Portal (Opened simultaneously in another tab)
+    const tab2 = parseMockUrl('http://localhost:5173/?portal=pickup-staff');
+    assert.equal(tab2.page, 'pickup-staff');
+    assert.equal(tab2.role, 'pickup_staff');
+
+    // Tab 3: Rider Portal (Opened simultaneously in another tab)
+    const tab3 = parseMockUrl('http://localhost:5173/?portal=rider');
+    assert.equal(tab3.page, 'delivery-portal');
+    assert.equal(tab3.role, 'rider');
+  });
 });

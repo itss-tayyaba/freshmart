@@ -5,15 +5,47 @@ export const parseRouteFromUrl = (productsList = []) => {
   const search = window.location.search || '';
   const searchParams = new URLSearchParams(search);
 
-  // 1. Admin & Vendor Dashboards
-  if (path.startsWith('/admin') || hash === '#admin' || search.includes('admin')) {
-    return { page: 'admin', product: null, category: null };
+  // 0. Dedicated Pickup Staff Portal Route (Can open directly in another tab)
+  if (
+    path.startsWith('/pickup-staff') ||
+    path.startsWith('/staff') ||
+    path.startsWith('/packing') ||
+    hash === '#pickup-staff' ||
+    hash === '#staff' ||
+    hash === '#packing' ||
+    searchParams.get('portal') === 'pickup-staff' ||
+    searchParams.get('portal') === 'pickup_staff' ||
+    searchParams.get('portal') === 'staff' ||
+    searchParams.get('role') === 'pickup_staff' ||
+    searchParams.get('page') === 'pickup-staff'
+  ) {
+    return { page: 'pickup-staff', role: 'pickup_staff', product: null, category: null };
   }
-  if (path.startsWith('/vendor') || hash === '#vendor' || search.includes('vendor')) {
-    return { page: 'vendor', product: null, category: null };
+
+  // 1. Delivery / Rider Portal Route (Can open directly in another tab)
+  if (
+    path.startsWith('/delivery-portal') ||
+    path.startsWith('/rider-portal') ||
+    path.startsWith('/rider') ||
+    path.startsWith('/courier') ||
+    hash === '#delivery-portal' ||
+    hash === '#rider-portal' ||
+    hash === '#rider' ||
+    searchParams.get('portal') === 'rider' ||
+    searchParams.get('portal') === 'delivery' ||
+    searchParams.get('role') === 'rider' ||
+    searchParams.get('page') === 'rider-portal' ||
+    searchParams.get('page') === 'delivery-portal'
+  ) {
+    return { page: 'delivery-portal', role: 'rider', product: null, category: null };
   }
-  if (path.startsWith('/delivery-portal') || hash === '#delivery-portal') {
-    return { page: 'delivery-portal', product: null, category: null };
+
+  // 2. Admin & Vendor Dashboards
+  if (path.startsWith('/admin') || hash === '#admin' || searchParams.get('portal') === 'admin' || searchParams.get('role') === 'admin' || search.includes('admin')) {
+    return { page: 'admin', role: 'admin', product: null, category: null };
+  }
+  if (path.startsWith('/vendor') || hash === '#vendor' || searchParams.get('portal') === 'vendor' || search.includes('vendor')) {
+    return { page: 'vendor', role: 'supplier', product: null, category: null };
   }
   if (path.startsWith('/customer-portal') || path.startsWith('/portal') || path.startsWith('/account') || hash === '#customer-portal' || hash === '#portal') {
     return { page: 'customer-portal', product: null, category: null };

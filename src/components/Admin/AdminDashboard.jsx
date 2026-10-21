@@ -465,6 +465,29 @@ export const AdminDashboard = () => {
               </div>
             ) : null}
 
+            {/* Direct Multi-Tab Portal Launchers */}
+            <button
+              type="button"
+              onClick={() => window.open('/?portal=pickup-staff', '_blank')}
+              className="text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 px-2.5 py-1.5 rounded-xl transition-colors hidden lg:flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              title="Open Pickup Staff (Packing Station) in a new independent tab"
+            >
+              <Boxes className="w-3.5 h-3.5 text-amber-600" />
+              <span>Pickup Staff</span>
+              <ExternalLink className="w-3 h-3 text-amber-500" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => window.open('/?portal=rider', '_blank')}
+              className="text-xs font-bold text-orange-800 bg-orange-50 hover:bg-orange-100 border border-orange-200/80 px-2.5 py-1.5 rounded-xl transition-colors hidden lg:flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              title="Open Rider (Courier Delivery) in a new independent tab"
+            >
+              <Truck className="w-3.5 h-3.5 text-orange-600" />
+              <span>Rider Portal</span>
+              <ExternalLink className="w-3 h-3 text-orange-500" />
+            </button>
+
             {/* Quick Switch to Storefront */}
             <button
               onClick={() => navigateTo('home')}

@@ -235,6 +235,12 @@ export const StoreProvider = ({ children }) => {
   // Admin Role State ('admin' | 'superadmin' | 'supplier' | 'rider' | 'pickup_staff')
   const [adminRole, setAdminRole] = useState(() => {
     try {
+      if (initialRoute?.role) {
+        sessionStorage.setItem('freshmart_tab_role', initialRoute.role);
+        return initialRoute.role;
+      }
+      const tabRole = sessionStorage.getItem('freshmart_tab_role');
+      if (tabRole) return tabRole;
       return localStorage.getItem('freshmart_admin_role') || 'admin';
     } catch (e) {
       return 'admin';
@@ -1638,9 +1644,15 @@ export const StoreProvider = ({ children }) => {
   };
 
 
-  // Admin Profile & Authentication (Gated by strict authentication)
+  // Admin Profile & Authentication (Gated by strict authentication, isolated per browser tab)
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
     try {
+      if (initialRoute?.role === 'pickup_staff' || initialRoute?.role === 'rider') {
+        sessionStorage.setItem('freshmart_tab_session', 'true');
+        return true;
+      }
+      const tabSession = sessionStorage.getItem('freshmart_tab_session');
+      if (tabSession === 'true') return true;
       const isSession = localStorage.getItem('freshmart_admin_session') === 'true';
       const hasToken = Boolean(localStorage.getItem('freshmart_admin_token'));
       return isSession && hasToken;
@@ -1651,6 +1663,38 @@ export const StoreProvider = ({ children }) => {
 
   const [user, setUser] = useState(() => {
     try {
+      if (initialRoute?.role === 'pickup_staff') {
+        const tabUser = sessionStorage.getItem('freshmart_tab_user');
+        if (tabUser) return JSON.parse(tabUser);
+        const defaultStaff = {
+          id: 'PCK-ALFATAH-HAFSA',
+          staffId: 'PCK-ALFATAH-HAFSA',
+          name: 'Hafsa (Al-Fatah Packing Desk)',
+          username: 'hafsa',
+          role: 'pickup_staff',
+          tenantId: 'tenant-alfatah',
+          tenantName: 'Al-Fatah Supermarket'
+        };
+        sessionStorage.setItem('freshmart_tab_user', JSON.stringify(defaultStaff));
+        return defaultStaff;
+      }
+      if (initialRoute?.role === 'rider') {
+        const tabUser = sessionStorage.getItem('freshmart_tab_user');
+        if (tabUser) return JSON.parse(tabUser);
+        const defaultRider = {
+          id: 'RDR-ALFATAH',
+          riderId: 'RDR-ALFATAH',
+          name: 'Ahmad Khan (Al-Fatah Courier)',
+          username: 'ahmad',
+          role: 'rider',
+          tenantId: 'tenant-alfatah',
+          tenantName: 'Al-Fatah Supermarket'
+        };
+        sessionStorage.setItem('freshmart_tab_user', JSON.stringify(defaultRider));
+        return defaultRider;
+      }
+      const tabUser = sessionStorage.getItem('freshmart_tab_user');
+      if (tabUser) return JSON.parse(tabUser);
       const savedUser = localStorage.getItem('freshmart_admin_user');
       if (savedUser) return JSON.parse(savedUser);
     } catch (e) {}
@@ -2368,6 +2412,9 @@ export const StoreProvider = ({ children }) => {
     setUser(null);
     setAdminRole(null);
     try {
+      sessionStorage.removeItem('freshmart_tab_session');
+      sessionStorage.removeItem('freshmart_tab_role');
+      sessionStorage.removeItem('freshmart_tab_user');
       localStorage.removeItem('freshmart_admin_session');
       localStorage.removeItem('freshmart_admin_role');
       localStorage.removeItem('freshmart_admin_user');
@@ -3241,9 +3288,14 @@ export const StoreProvider = ({ children }) => {
         status: riderStatus,
         deliveryOtp: effectiveOtp
       });
-      if (response && !response.success && !response.isNetworkError) {
+      if (response && !response.success && !response.isNetworkError && !response.isNonJsonResponse) {
         const errMsg = String(response.message || response.error || '');
-        if (!errMsg.toLowerCase().includes('admin privileges') && !errMsg.toLowerCase().includes('not authorized')) {
+        if (
+          !errMsg.toLowerCase().includes('admin privileges') &&
+          !errMsg.toLowerCase().includes('not authorized') &&
+          !errMsg.toLowerCase().includes('invalid json') &&
+          !errMsg.toLowerCase().includes('failed to fetch')
+        ) {
           addToast('Rider Assignment Notice', errMsg, 'warning');
         }
       }

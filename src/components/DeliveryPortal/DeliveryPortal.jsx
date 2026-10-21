@@ -739,8 +739,14 @@ export const DeliveryPortal = () => {
             <span className="hidden sm:inline">Log out</span>
           </button>
           <button
-            onClick={() => navigateTo('home')}
+            onClick={() => (navigateTo ? navigateTo('admin') : window.location.assign('/admin'))}
             className="text-xs text-amber-300 font-bold px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 transition cursor-pointer"
+          >
+            Admin
+          </button>
+          <button
+            onClick={() => navigateTo('home')}
+            className="text-xs text-stone-300 font-bold px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 transition cursor-pointer"
           >
             Store
           </button>
@@ -863,6 +869,15 @@ export const DeliveryPortal = () => {
           </div>
 
           <div className="space-y-1.5 pt-1">
+            <button
+              type="button"
+              onClick={() => (navigateTo ? navigateTo('admin') : window.location.assign('/admin'))}
+              className="w-full py-2 px-3 bg-[#2a2723] hover:bg-[#34302b] border border-amber-900/40 rounded-xl text-xs font-bold text-amber-200 transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Store className="w-3.5 h-3.5 text-amber-400" />
+              <span>Store Admin Suite</span>
+            </button>
+
             <button
               type="button"
               onClick={() => {

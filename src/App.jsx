@@ -11,6 +11,7 @@ import { AdminDashboard } from './components/Admin/AdminDashboard';
 import { RecipesPage } from './components/Recipes/RecipesPage';
 import { CustomerPortal } from './components/CustomerPortal/CustomerPortal';
 import { DeliveryPortal } from './components/DeliveryPortal/DeliveryPortal';
+import { PickupStaffPortal } from './components/Admin/views/PickupStaffPortal';
 import { Footer } from './components/Footer/Footer';
 
 
@@ -44,6 +45,16 @@ function FreshMartAppContent() {
     return (
       <div className="min-h-screen w-full bg-[#fbf9f4] font-sans">
         <DeliveryPortal />
+        <ToastContainer />
+      </div>
+    );
+  }
+
+  // If in Pickup Staff Portal view, render the dedicated packing station experience
+  if (currentPage === 'pickup-staff' || currentPage === 'pickup-portal' || currentPage === 'staff-portal') {
+    return (
+      <div className="min-h-screen w-full bg-[#f8fafc] font-sans">
+        <PickupStaffPortal />
         <ToastContainer />
       </div>
     );

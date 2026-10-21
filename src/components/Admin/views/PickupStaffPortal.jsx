@@ -66,7 +66,8 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     getProductSubstitutes,
     substituteOrderItem,
     resetToTestPickupOrder,
-    currency
+    currency,
+    navigateTo
   } = useStore();
 
   const [activeTab, setActiveTab] = useState('All'); // 'All' | 'Pending' | 'Preparing' | 'Ready' | 'Dispatched'
@@ -300,14 +301,12 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
         </div>
 
         <div className="flex items-center gap-3">
-          {onBackToAdmin && (
-            <button
-              onClick={onBackToAdmin}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition cursor-pointer"
-            >
-              ← Back to Admin
-            </button>
-          )}
+          <button
+            onClick={() => (onBackToAdmin ? onBackToAdmin() : navigateTo ? navigateTo('admin') : window.location.assign('/admin'))}
+            className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition cursor-pointer"
+          >
+            ← Store Admin
+          </button>
 
           <button
             onClick={adminLogout}
