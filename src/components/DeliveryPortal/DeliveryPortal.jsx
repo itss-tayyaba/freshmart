@@ -392,75 +392,6 @@ export const DeliveryPortal = () => {
     addToast('Parcel Accepted 🛵', `Order #${bareId} accepted! Navigation route and customer PIN are active.`);
   };
 
-  // Demo Dispatch Generator for rapid testing
-  const handleDispatchDemoOrder = () => {
-    const tId = activeRider?.tenantId || user?.tenantId || currentTenant?.id || 'tenant-freshmart';
-    const tName = activeRider?.tenantName || currentTenant?.name || user?.tenantName || 'Unimaart';
-    const randNum = Math.floor(1000 + Math.random() * 9000);
-    const demoId = `ORD-${randNum}`;
-    const otp = String(Math.floor(1000 + Math.random() * 9000));
-    const customerCity = activeRider?.zone?.includes('Karachi') ? 'Karachi' : activeRider?.zone?.includes('Lahore') ? 'Lahore' : 'Faisalabad';
-
-    const newOrder = {
-      id: demoId,
-      orderId: `#${demoId}`,
-      tenantId: tId,
-      tenantName: tName,
-      branchId: 'branch_demo',
-      branchName: `${tName} Hub`,
-      customer: 'Tayyaba Batool',
-      customerName: 'Tayyaba Batool',
-      customerPhone: '+923206551696',
-      phone: '+923206551696',
-      orderType: 'Delivery',
-      status: 'Out for Delivery',
-      isDispatched: true,
-      dispatchStatus: 'Out for Delivery',
-      fulfillmentStage: 5,
-      total: 1450,
-      totalAmount: 1450,
-      paymentMethod: 'Cash on Delivery',
-      paymentStatus: 'Pending',
-      items: [
-        { name: 'Fresh Milk 1L', quantity: 2, price: 220 },
-        { name: 'Whole Wheat Bread', quantity: 1, price: 160 },
-        { name: 'Farm Fresh Eggs (12 pcs)', quantity: 1, price: 340 }
-      ],
-      orderItems: [
-        { name: 'Fresh Milk 1L', quantity: 2, price: 220 },
-        { name: 'Whole Wheat Bread', quantity: 1, price: 160 },
-        { name: 'Farm Fresh Eggs (12 pcs)', quantity: 1, price: 340 }
-      ],
-      shippingAddress: {
-        address: 'DIGITALSOFTS, Peoples Colony No. 1',
-        city: customerCity
-      },
-      address: 'DIGITALSOFTS, Peoples Colony No. 1',
-      city: customerCity,
-      deliveryOtp: otp,
-      assignedRider: {
-        id: activeRider.id,
-        name: activeRider.name,
-        phone: activeRider.phone,
-        vehicle: activeRider.vehicleNumber || activeRider.vehicleType,
-        zone: activeRider.zone
-      },
-      pickupCoords: { lat: 31.4147, lng: 73.0872 },
-      dropoffCoords: { lat: 31.4082, lng: 73.1023 },
-      distanceKm: 2.4,
-      etaMinutes: 6,
-      createdAt: new Date().toISOString()
-    };
-
-    if (typeof setCustomerOrders === 'function') {
-      setCustomerOrders((prev) => [newOrder, ...prev.filter((o) => (o.id || o.orderId) !== demoId)]);
-    }
-    if (typeof setAdminOrders === 'function') {
-      setAdminOrders((prev) => [newOrder, ...prev.filter((o) => (o.id || o.orderId) !== demoId)]);
-    }
-    addToast('Parcel Dispatched 🛵', `Dispatched Order #${demoId} to ${activeRider.name}. Customer PIN: ${otp}`);
-  };
-
   // OTP form state per order
   const [otpInputs, setOtpInputs] = useState({});
   const [verifyingOrderMap, setVerifyingOrderMap] = useState({});
@@ -978,15 +909,6 @@ export const DeliveryPortal = () => {
               <Clock className="w-3.5 h-3.5 text-slate-400" />
               <span>{formattedToday}</span>
             </div>
-            <button
-              type="button"
-              onClick={handleDispatchDemoOrder}
-              className="px-3.5 py-2 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
-              title="Dispatch test grocery parcel to courier"
-            >
-              <Package className="w-3.5 h-3.5 text-amber-400" />
-              <span>+ Demo Parcel</span>
-            </button>
           </div>
         </div>
 
@@ -1430,21 +1352,12 @@ export const DeliveryPortal = () => {
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
                 <span>ON-DUTY & ONLINE</span>
               </div>
-              <h3 className="text-base font-bold text-stone-900">
+              <h3 className="text-base font-black text-slate-900">
                 Awaiting Store Dispatch Orders
               </h3>
-              <p className="text-xs text-stone-500 max-w-md mx-auto">
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
                 You are on standby in <b>{activeRider?.zone || 'Store Delivery Zone'}</b> for {storeBrandName}. When store pickup staff packs and marks a parcel ready, it will appear here in real-time.
               </p>
-            </div>
-            <div className="pt-2 flex justify-center">
-              <button
-                type="button"
-                onClick={handleDispatchDemoOrder}
-                className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-2xs cursor-pointer"
-              >
-                <span>⚡ Dispatch Test Parcel from {storeBrandName}</span>
-              </button>
             </div>
           </section>
         )}
