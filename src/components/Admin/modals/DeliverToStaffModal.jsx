@@ -13,6 +13,10 @@ export const DeliverToStaffModal = ({ order, isOpen, onClose, onSuccess }) => {
   if (!isOpen || !order) return null;
 
   const confirmAssignment = () => {
+    if (order.isDispatchedByStaff || ['Preparing', 'Packed', 'Ready for Dispatch', 'Dispatched', 'Out for Delivery'].includes(order.status)) {
+      addToast('Status Protected 🔒', 'This order is already being processed or dispatched by pickup staff and cannot be altered here.', 'error');
+      return;
+    }
     if (!selectedStaffId) {
       addToast('Select pickup staff', 'Choose an active staff member to receive this parcel.', 'error');
       return;

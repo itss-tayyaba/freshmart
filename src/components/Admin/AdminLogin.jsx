@@ -151,10 +151,10 @@ export const AdminLogin = () => {
       icon: '📦',
       sublabel: 'Packing Desk',
       badge: 'Order Packing',
-      userPlaceholder: 'staff username or phone',
-      passPlaceholder: 'staff password',
-      defaultUser: pickupStaff && pickupStaff.length > 0 ? (pickupStaff[0].username || '') : '',
-      defaultPass: pickupStaff && pickupStaff.length > 0 ? (pickupStaff[0].password || '') : ''
+      userPlaceholder: 'staff username (e.g. hafsa or alfatah_staff)',
+      passPlaceholder: 'staff password (e.g. staff123)',
+      defaultUser: 'hafsa',
+      defaultPass: 'staff123'
     }
   ];
 
@@ -192,18 +192,24 @@ export const AdminLogin = () => {
         showFeedback(`Loaded ${martConfig?.shortName || 'Store'} Rider credentials`);
       }
     } else if (role === 'pickup_staff') {
-      const martStaff = (pickupStaff || []).find(
-        (p) => p.tenantId === martId || (p.username && p.username.includes(martId.replace('tenant-', '')))
-      );
-      if (martStaff) {
-        setUsername(martStaff.username);
-        setPassword(martStaff.password || 'staff123');
-        showFeedback(`Loaded ${martStaff.name} credentials`);
-      } else {
-        const slug = martId.replace('tenant-', '');
-        setUsername(`${slug}_staff`);
+      if (martId === 'tenant-alfatah') {
+        setUsername('hafsa');
         setPassword('staff123');
-        showFeedback(`Loaded ${martConfig?.shortName || 'Store'} Staff credentials`);
+        showFeedback('Loaded Hafsa (Al-Fatah Staff) credentials');
+      } else {
+        const martStaff = (pickupStaff || []).find(
+          (p) => p.tenantId === martId || (p.username && p.username.includes(martId.replace('tenant-', '')))
+        );
+        if (martStaff) {
+          setUsername(martStaff.username);
+          setPassword(martStaff.password || 'staff123');
+          showFeedback(`Loaded ${martStaff.name} credentials`);
+        } else {
+          const slug = martId.replace('tenant-', '');
+          setUsername(`${slug}_staff`);
+          setPassword('staff123');
+          showFeedback(`Loaded ${martConfig?.shortName || 'Store'} Staff credentials`);
+        }
       }
     }
   };
@@ -744,6 +750,13 @@ export const AdminLogin = () => {
                 className="px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-100 border border-orange-300 text-orange-950 font-bold text-[11px] transition-colors cursor-pointer"
               >
                 🛵 Chase Value Rider
+              </button>
+              <button
+                type="button"
+                onClick={() => autoFillCredentials('pickup_staff', 'hafsa', 'staff123', 'tenant-alfatah', 'Hafsa (Al-Fatah Staff)')}
+                className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-900 font-bold text-[11px] transition-colors cursor-pointer"
+              >
+                📦 Hafsa (Al-Fatah Staff)
               </button>
               <button
                 type="button"

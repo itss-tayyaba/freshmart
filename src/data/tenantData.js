@@ -232,12 +232,23 @@ export const INITIAL_STORE_ADMINS = [];
 // Initial Pickup Staff for each supermarket chain
 export const INITIAL_PICKUP_STAFF = [
   {
+    id: 'PCK-ALFATAH-HAFSA',
+    name: 'Hafsa (Al-Fatah Packing Desk)',
+    username: 'hafsa',
+    email: 'hafsa@alfatah.pk',
+    password: 'staff123',
+    phone: '+92 300 1112233',
+    tenantId: 'tenant-alfatah',
+    tenantName: 'Al-Fatah Supermarket',
+    status: 'Active'
+  },
+  {
     id: 'PCK-ALFATAH',
     name: 'Al-Fatah Packing Desk',
     username: 'alfatah_staff',
     email: 'staff@alfatah.pk',
     password: 'staff123',
-    phone: '+92 300 1112233',
+    phone: '+92 300 1112234',
     tenantId: 'tenant-alfatah',
     tenantName: 'Al-Fatah Supermarket',
     status: 'Active'

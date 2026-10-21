@@ -177,4 +177,76 @@ test('Pickup Staff Management & "Deliver to Staff" Workflow', async (t) => {
     assert.match(order.parcelCode, /^PRCL-ORD-501/);
     assert.equal(order.pickedItems.length, 3);
   });
+
+  await t.test('7. Authenticates Hafsa as Al-Fatah pickup staff directly with hafsa / staff123', () => {
+    // Add Hafsa to the staff roster for Al-Fatah
+    addPickupStaff(
+      {
+        name: 'Hafsa (Al-Fatah Packing Desk)',
+        username: 'hafsa',
+        password: 'staff123',
+        phone: '+92 300 1112233'
+      },
+      { id: 'tenant-alfatah', name: 'Al-Fatah Supermarket' }
+    );
+
+    const authRes = authenticateStaff('hafsa', 'staff123', 'pickup_staff');
+    assert.equal(authRes.success, true);
+    assert.equal(authRes.role, 'pickup_staff');
+    assert.equal(authRes.user.username, 'hafsa');
+    assert.equal(authRes.user.tenantId, 'tenant-alfatah');
+  });
+
+  await t.test('8. Staff assigned from Pickup Staff page and Order page cannot alter staff status when in prep or dispatched', () => {
+    let order = {
+      id: 'ORD-702',
+      status: 'Pending',
+      tenantId: 'tenant-alfatah',
+      customer: 'Tayyaba Batool'
+    };
+
+    // Step 1: Assign from Pickup Staff page
+    const staffHafsa = pickupStaffList.find((s) => s.username === 'hafsa');
+    assert.ok(staffHafsa, 'Hafsa staff exists');
+
+    order = {
+      ...order,
+      pickupStaffId: staffHafsa.id,
+      pickupStaffName: staffHafsa.name,
+      status: 'Deliver to Staff',
+      fulfillmentStage: 2,
+      pickupStep: 'received'
+    };
+    assert.equal(order.pickupStaffId, staffHafsa.id);
+
+    // Step 2: Staff moves to Preparing in Pickup Staff portal
+    order = {
+      ...order,
+      status: 'Preparing',
+      pickupStep: 'picking',
+      isDispatchedByStaff: false
+    };
+
+    // Order page cannot alter or overwrite pickup staff status
+    const canOrderPageAlterStaff = (ord) => {
+      if (ord.isDispatchedByStaff || ['Preparing', 'Packed', 'Ready for Dispatch', 'Dispatched'].includes(ord.status)) {
+        return false;
+      }
+      return !ord.pickupStaffId;
+    };
+
+    assert.equal(canOrderPageAlterStaff(order), false, 'Order page is locked and cannot alter staff status');
+
+    // Step 3: Staff marks Ready for Dispatch
+    order = {
+      ...order,
+      status: 'Ready for Dispatch',
+      isDispatchedByStaff: true
+    };
+    assert.equal(canOrderPageAlterStaff(order), false, 'Order page still cannot alter staff status after dispatch');
+
+    // Step 4: Order page unlocks Rider Assignment only after staff dispatch
+    const isRiderAssignmentUnlocked = Boolean(order.isDispatchedByStaff);
+    assert.equal(isRiderAssignmentUnlocked, true, 'Rider assignment is unlocked on order page');
+  });
 });

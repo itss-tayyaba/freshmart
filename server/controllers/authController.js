@@ -294,17 +294,22 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    // Default pickup staff fallback credentials (e.g. staff / staff123, alfatah_staff, chasevalue_staff, etc.)
+    // Default pickup staff fallback credentials (e.g. hafsa, staff / staff123, alfatah_staff, chasevalue_staff, etc.)
     if (
-      (pickupUsername === 'staff' || pickupUsername === 'pickup' || pickupUsername === 'rizwan_pack' || pickupUsername.includes('staff')) &&
-      (password === 'staff123' || password === 'admin123' || password === 'pickup123')
+      (pickupUsername === 'staff' ||
+       pickupUsername === 'pickup' ||
+       pickupUsername === 'hafsa' ||
+       pickupUsername.includes('hafsa') ||
+       pickupUsername === 'rizwan_pack' ||
+       pickupUsername.includes('staff')) &&
+      (password === 'staff123' || password === 'admin123' || password === 'pickup123' || password === 'hafsa123')
     ) {
       let tId = req.body.tenantId;
       if (!tId) {
         if (pickupUsername.includes('chasevalue')) tId = 'tenant-chasevalue';
         else if (pickupUsername.includes('chaseup')) tId = 'tenant-chaseup';
         else if (pickupUsername.includes('unimart') || pickupUsername.includes('freshmart')) tId = 'tenant-freshmart';
-        else if (pickupUsername.includes('alfatah')) tId = 'tenant-alfatah';
+        else if (pickupUsername.includes('hafsa') || pickupUsername.includes('alfatah')) tId = 'tenant-alfatah';
         else tId = 'tenant-alfatah';
       }
       const tenantNames = {
@@ -313,17 +318,21 @@ export const loginUser = async (req, res) => {
         'tenant-chaseup': 'Chase Up',
         'tenant-freshmart': 'Unimaart'
       };
+      const isHafsa = pickupUsername === 'hafsa' || pickupUsername.includes('hafsa');
+      const staffDisplayName = isHafsa ? 'Hafsa (Al-Fatah Packing Desk)' : `${tenantNames[tId] || 'Store'} Pickup Staff`;
+      const staffIdentifier = isHafsa ? 'PCK-ALFATAH-HAFSA' : `PCK-${tId}`;
+
       return res.json({
         success: true,
         _id: `staff-${tId}`,
-        id: `PCK-${tId}`,
-        staffId: `PCK-${tId}`,
-        name: `${tenantNames[tId] || 'Store'} Pickup Staff`,
+        id: staffIdentifier,
+        staffId: staffIdentifier,
+        name: staffDisplayName,
         username: cleanInput,
         role: 'pickup_staff',
         tenantId: tId,
         tenantName: tenantNames[tId] || 'Store',
-        token: generateToken(`PCK-${tId}`, 'pickup_staff', `${pickupUsername}@pickup.freshmart.pk`, 'Pickup Staff', undefined, { staffId: `PCK-${tId}`, tenantId: tId })
+        token: generateToken(staffIdentifier, 'pickup_staff', `${pickupUsername}@pickup.freshmart.pk`, staffDisplayName, undefined, { staffId: staffIdentifier, tenantId: tId })
       });
     }
 
@@ -419,7 +428,31 @@ export const createPickupStaff = async (req, res) => {
 export const getPickupStaff = async (req, res) => {
   try {
     if (!isDbOnline()) {
-      return res.json({ success: true, staff: [] });
+      const defaultStaff = [
+        {
+          id: 'PCK-ALFATAH-HAFSA',
+          staffId: 'PCK-ALFATAH-HAFSA',
+          name: 'Hafsa (Al-Fatah Packing Desk)',
+          username: 'hafsa',
+          email: 'hafsa@alfatah.pk',
+          phone: '+92 300 1112233',
+          tenantId: 'tenant-alfatah',
+          role: 'pickup_staff',
+          status: 'Active'
+        },
+        {
+          id: 'PCK-ALFATAH',
+          staffId: 'PCK-ALFATAH',
+          name: 'Al-Fatah Packing Desk',
+          username: 'alfatah_staff',
+          email: 'staff@alfatah.pk',
+          phone: '+92 300 1112234',
+          tenantId: 'tenant-alfatah',
+          role: 'pickup_staff',
+          status: 'Active'
+        }
+      ];
+      return res.json({ success: true, staff: defaultStaff });
     }
     const query = { role: 'pickup_staff' };
     if (req.query.tenantId) {

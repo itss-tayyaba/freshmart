@@ -811,38 +811,22 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                                 );
                               }
 
-                              // 3. Step 1: Needs Pickup Staff Assignment
+                              // 3. Step 1: Needs Pickup Staff Assignment (Assigned from Pickup Staff page)
                               if (!hasPickupStaff && (ord.status === 'Pending' || ord.status === 'Confirmed' || !ord.status)) {
                                 return (
-                                  <div className="flex items-center gap-1 w-full">
-                                    <select
-                                      value={selectedStaffMap[ord.id] || ''}
-                                      onChange={(e) =>
-                                        setSelectedStaffMap((prev) => ({ ...prev, [ord.id]: e.target.value }))
-                                      }
-                                      className="bg-white hover:bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-[11px] font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer flex-1 min-w-0"
-                                    >
-                                      <option value="">Choose staff...</option>
-                                      {tenantStaff.map((s) => (
-                                        <option key={s.id} value={s.id}>
-                                          📦 {s.name}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleAssignPickupStaff(ord.id)}
-                                      disabled={!selectedStaffMap[ord.id]}
-                                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[11px] font-bold transition cursor-pointer shadow-2xs shrink-0 disabled:opacity-40"
-                                      title="Assign to pickup staff and lock"
-                                    >
-                                      Assign
-                                    </button>
+                                  <div className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 w-full shadow-2xs">
+                                    <div className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                                      <Package className="w-3 h-3 text-slate-400 shrink-0" />
+                                      <span className="truncate">Awaiting Staff</span>
+                                    </div>
+                                    <span className="text-[9px] text-slate-400 font-medium block truncate">
+                                      Assign in Pickup Staff tab
+                                    </span>
                                   </div>
                                 );
                               }
 
-                              // 4. Step 2: Locked · Assigned to Pickup Staff (In Prep, Awaiting Staff Dispatch)
+                              // 4. Step 2: Locked · Assigned to Pickup Staff (In Prep on Staff Portal, Awaiting Dispatch)
                               if (hasPickupStaff && !isDispatchedByStaff) {
                                 return (
                                   <div className="bg-amber-50/90 border border-amber-300/80 rounded-xl px-2.5 py-1.5 w-full shadow-2xs">
@@ -856,7 +840,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                                       <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0 ml-auto"></span>
                                     </div>
                                     <div className="flex items-center justify-between text-[10px] text-amber-900/90 font-semibold pt-1 border-t border-amber-200/60 mt-1">
-                                      <span className="truncate">⏳ Awaiting dispatch</span>
+                                      <span className="truncate">⏳ In Prep · Locked</span>
                                       {ord.deliveryOtp && (
                                         <span className="font-mono font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1 rounded text-[9px] shrink-0 ml-1">
                                           #{ord.deliveryOtp}
@@ -1134,15 +1118,34 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               </span>
             </div>
 
-            {/* Deliver Parcel to Staff Button */}
+            {/* Staff Fulfillment Status (Assigned from Pickup Staff tab, cannot be altered here) */}
             <div className="pt-2">
-              <button
-                onClick={() => setDeliverToStaffOrder(selectedOrder)}
-                className="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer border border-indigo-500/30"
-              >
-                <Boxes className="w-4 h-4 text-indigo-200" />
-                <span>📦 Deliver Parcel to Staff (Pick & Pack)</span>
-              </button>
+              {selectedOrder.pickupStaffId || selectedOrder.pickupStaffName ? (
+                <div className="p-3 bg-amber-50/90 rounded-2xl border border-amber-200 text-xs space-y-1.5 shadow-2xs">
+                  <div className="flex items-center justify-between text-amber-950 font-bold">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                      <span className="truncate">Assigned: {selectedOrder.pickupStaffName || 'Pickup Staff'}</span>
+                    </span>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300 shrink-0">
+                      {selectedOrder.isDispatchedByStaff ? 'Dispatched' : 'In Preparation'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    Status updates come directly from the Pickup Staff Portal. Orders page cannot alter staff status.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1 shadow-2xs">
+                  <div className="flex items-center gap-1.5 text-slate-800 font-bold">
+                    <Boxes className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Pickup Staff Assignment</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Orders are assigned to pickup staff in the <strong className="text-slate-900 font-bold">Pickup Staff</strong> tab.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="pt-3 border-t border-slate-100 space-y-2">
