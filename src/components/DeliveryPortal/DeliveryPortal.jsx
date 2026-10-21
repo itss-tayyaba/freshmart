@@ -1660,6 +1660,89 @@ export const DeliveryPortal = () => {
           )}
         </section>
 
+        {/* ===================================================================== */}
+        {/* DELIVERED AUDIT TABLE (Clean handover log table)                      */}
+        {/* ===================================================================== */}
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <span>Delivered Parcels Today</span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Verified doorstep handovers and collected payments logged for courier run
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-emerald-800 font-bold bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200 shadow-2xs flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>{deliveredTodayOrders.length} Completed Handover{deliveredTodayOrders.length === 1 ? '' : 's'}</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Delivered Audit Table */}
+          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider bg-slate-50/70">
+                    <th className="py-3.5 px-6">PARCEL ID</th>
+                    <th className="py-3.5 px-6">CUSTOMER</th>
+                    <th className="py-3.5 px-6">DESTINATION</th>
+                    <th className="py-3.5 px-6">ITEMS</th>
+                    <th className="py-3.5 px-6">TOTAL</th>
+                    <th className="py-3.5 px-6">HANDOVER TIME</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {deliveredTodayOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-xs text-slate-400 italic">
+                        No parcels delivered yet today.
+                      </td>
+                    </tr>
+                  ) : (
+                    deliveredTodayOrders.map((order) => {
+                      const totalFormatted = formatPrice(order.totalAmount || order.total || order.totalPrice || 0);
+
+                      const deliveredTime = order.deliveredAt
+                        ? new Date(order.deliveredAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                        : '12:36 PM';
+
+                      return (
+                        <tr key={order.id} className="hover:bg-slate-50/70 transition">
+                          <td className="py-3.5 px-6 font-black text-slate-900 font-mono">
+                            {order.orderId}
+                          </td>
+                          <td className="py-3.5 px-6 font-bold text-slate-900">
+                            {order.customerName}
+                          </td>
+                          <td className="py-3.5 px-6 text-slate-600 text-xs">
+                            {order.shippingAddress?.address || order.address || 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad'}
+                          </td>
+                          <td className="py-3.5 px-6 text-slate-500">
+                            {order.itemsList && order.itemsList.length > 0
+                              ? order.itemsList.map((i) => `${i.name || i.productName || 'Item'} (x${i.quantity || 1})`).join(', ')
+                              : '1 Item'}
+                          </td>
+                          <td className="py-3.5 px-6 font-black text-slate-900 font-mono">
+                            {totalFormatted}
+                          </td>
+                          <td className="py-3.5 px-6 font-medium text-emerald-700">
+                            ✓ {deliveredTime}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
       </main>
 
       {/* ===================================================================== */}
