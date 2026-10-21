@@ -3738,8 +3738,12 @@ export const StoreProvider = ({ children }) => {
   };
 
   const updateDeliveryOrderStatus = async (orderId, newStatus) => {
+    const cleanId = String(orderId || '').replace(/^#/, '').toLowerCase().trim();
     const all = [...(customerOrders || []), ...(adminOrders || [])];
-    const assignedOrder = all.find((order) => order.id === orderId || order.orderId === orderId || order._id === orderId);
+    const assignedOrder = all.find((order) => {
+      const oId = String(order.id || order.orderId || order._id || '').replace(/^#/, '').toLowerCase().trim();
+      return oId === cleanId || order.id === orderId || order.orderId === orderId;
+    });
     const riderId = assignedOrder?.assignedRider?.id || assignedOrder?.assignedRider?.riderId;
     const isAssignedRider = adminRole === 'rider' && riderId && riderId === (user?.riderId || user?.id);
     const isAdmin = ['admin', 'superadmin', 'pickup_staff'].includes(adminRole);
@@ -3756,8 +3760,9 @@ export const StoreProvider = ({ children }) => {
       String(newStatus).toLowerCase() === 'delivered' ? 'Delivered' :
       String(newStatus).toLowerCase() === 'cancelled' ? 'Cancelled' : newStatus;
 
+    const isNowDelivered = normalizedStatus === 'Delivered';
     const stage =
-      normalizedStatus === 'Delivered' ? 7 :
+      isNowDelivered ? 7 :
       normalizedStatus === 'Out for Delivery' ? 6 :
       normalizedStatus === 'Dispatched' ? 5 :
       ['Ready', 'Ready for Dispatch'].includes(normalizedStatus) ? 4 :
@@ -3768,15 +3773,36 @@ export const StoreProvider = ({ children }) => {
     const statusMetadata = {
       fulfillmentUpdatedAt: updatedAt,
       ...(stage ? { fulfillmentStage: stage } : {}),
+      ...(isNowDelivered ? { isDelivered: true, isPaid: true } : {}),
       ...(normalizedStatus === 'Dispatched' ? { isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: updatedAt } : {}),
       ...(normalizedStatus === 'Ready' ? { pickupStep: 'ready', isDispatched: false } : {})
     };
+
+    if (isNowDelivered) {
+      try {
+        const raw = localStorage.getItem('freshmart_rider_delivered_orders');
+        const list = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(list) && !list.includes(cleanId)) {
+          list.push(cleanId);
+          localStorage.setItem('freshmart_rider_delivered_orders', JSON.stringify(list));
+        }
+      } catch (e) {}
+    }
+
+    const orderMatches = (o) => {
+      if (!o) return false;
+      const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+      return oId === cleanId || o.id === orderId || o.orderId === orderId;
+    };
+
     setCustomerOrders((prev) =>
       prev.map((o) =>
-        o.id === orderId || o.orderId === orderId
+        orderMatches(o)
           ? {
               ...o,
               status: normalizedStatus,
+              isDelivered: isNowDelivered ? true : o.isDelivered,
+              isPaid: isNowDelivered ? true : o.isPaid,
               ...(stage ? { fulfillmentStage: stage } : {}),
               ...(normalizedStatus === 'Dispatched' ? { isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: updatedAt } : {}),
               ...(normalizedStatus === 'Ready' ? { pickupStep: 'ready', isDispatched: false } : {}),
@@ -3787,10 +3813,12 @@ export const StoreProvider = ({ children }) => {
     );
     setAdminOrders((prev) =>
       prev.map((o) =>
-        o.id === orderId || o.orderId === orderId
+        orderMatches(o)
           ? {
               ...o,
               status: normalizedStatus,
+              isDelivered: isNowDelivered ? true : o.isDelivered,
+              isPaid: isNowDelivered ? true : o.isPaid,
               ...(stage ? { fulfillmentStage: stage } : {}),
               ...(normalizedStatus === 'Dispatched' ? { isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: updatedAt } : {}),
               ...(normalizedStatus === 'Ready' ? { pickupStep: 'ready', isDispatched: false } : {}),
@@ -3799,10 +3827,12 @@ export const StoreProvider = ({ children }) => {
           : o
       )
     );
-    if (activeDeliveryOrder && (activeDeliveryOrder.id === orderId || activeDeliveryOrder.orderId === orderId)) {
+    if (activeDeliveryOrder && orderMatches(activeDeliveryOrder)) {
       setActiveDeliveryOrder((prev) => ({
         ...prev,
         status: normalizedStatus,
+        isDelivered: isNowDelivered ? true : prev?.isDelivered,
+        isPaid: isNowDelivered ? true : prev?.isPaid,
         ...(stage ? { fulfillmentStage: stage } : {}),
         ...(normalizedStatus === 'Dispatched' ? { isDispatched: true, dispatchStatus: 'Dispatched', dispatchedAt: updatedAt } : {}),
         fulfillmentUpdatedAt: updatedAt
