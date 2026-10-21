@@ -318,4 +318,80 @@ test('Pickup Staff Management & "Deliver to Staff" Workflow', async (t) => {
     assert.equal(tab3.page, 'delivery-portal');
     assert.equal(tab3.role, 'rider');
   });
+
+  await t.test('11. Rider Portal does NOT render Active Courier select switcher', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const deliveryPortalCode = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/DeliveryPortal/DeliveryPortal.jsx'),
+      'utf8'
+    );
+
+    // Active Courier select dropdown must be removed
+    assert.equal(
+      deliveryPortalCode.includes('selectedRiderId'),
+      false,
+      'DeliveryPortal must not have selectedRiderId courier switcher state'
+    );
+    assert.equal(
+      deliveryPortalCode.includes('<select') && deliveryPortalCode.includes('Active Courier'),
+      false,
+      'DeliveryPortal must not have an Active Courier select dropdown'
+    );
+  });
+
+  await t.test('12. Rider Portal does NOT run automatic simulation timers to move rider marker', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const deliveryPortalCode = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/DeliveryPortal/DeliveryPortal.jsx'),
+      'utf8'
+    );
+
+    // No simulation interval moving coordinates automatically
+    assert.equal(
+      deliveryPortalCode.includes('simulationIntervalRef.current = setInterval'),
+      false,
+      'DeliveryPortal must not have an automatic coordinate sliding timer loop'
+    );
+  });
+
+  await t.test('13. Customer Handover OTP PIN is kept private and not leaked to Rider', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const deliveryPortalCode = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/components/DeliveryPortal/DeliveryPortal.jsx'),
+      'utf8'
+    );
+    const storeContextCode = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/context/StoreContext.jsx'),
+      'utf8'
+    );
+
+    // Rider must not see customer PIN text rendered
+    assert.equal(
+      deliveryPortalCode.includes('(Customer PIN:'),
+      false,
+      'Rider UI must not display "(Customer PIN: ...)"'
+    );
+    assert.equal(
+      deliveryPortalCode.includes('(PIN: {order.deliveryOtp})'),
+      false,
+      'Rider UI must not render "(PIN: {order.deliveryOtp})"'
+    );
+
+    // Rider must enter OTP from customer rather than auto-falling back
+    assert.equal(
+      deliveryPortalCode.includes('targetExpectedOtp ||\n      \'\''),
+      false,
+      'Rider OTP verification must not automatically fall back to expected target OTP'
+    );
+
+    // Error messages must not leak the secret PIN
+    assert.equal(
+      storeContextCode.includes('(Doorstep OTP:'),
+      false,
+      'StoreContext error toast must not leak "(Doorstep OTP: ...)"'
+    );
+  });
 });

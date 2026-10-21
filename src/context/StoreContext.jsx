@@ -3534,7 +3534,7 @@ export const StoreProvider = ({ children }) => {
       cleanOtp === '4829';
 
     if (!isOtpValid) {
-      const errMsg = `Incorrect OTP code "${cleanOtp}". Please ask the customer for the accurate 4-digit code (Doorstep OTP: ${effectiveExpectedOtp}).`;
+      const errMsg = `Incorrect OTP code "${cleanOtp}". Please ask the customer to confirm their 4-digit security PIN.`;
       addToast('OTP Verification Failed ❌', errMsg, 'error');
       return { success: false, message: errMsg };
     }

@@ -147,15 +147,17 @@ export const DeliveryPortal = () => {
       };
     }
 
-    // 2. If riders exist in database / state
+    // 2. If riders exist in database / state, match tenant rider first
     if (riders && riders.length > 0) {
+      const tenantMatch = riders.find((r) => isSameTenant(r.tenantId, currentTenant?.id || user?.tenantId));
+      if (tenantMatch) return tenantMatch;
       return riders[0];
     }
 
-    // 3. Fallback default: 'ahmad' in 'Peoples Colony'
+    // 3. Fallback default: 'ahmad' in 'Peoples Colony' (Al-Fatah)
     return {
       id: 'RDR-AHMAD',
-      name: 'ahmad',
+      name: 'Ahmad Khan',
       zone: 'Peoples Colony',
       phone: '+92 320 6551696',
       vehicleType: '🏍️ Honda 125',
@@ -163,14 +165,10 @@ export const DeliveryPortal = () => {
       rating: 4.9,
       status: 'On-Duty'
     };
-  }, [user, adminRole, riders]);
+  }, [user, adminRole, riders, currentTenant]);
 
-  // Selected Rider ID for switcher (if multiple riders exist)
-  const [selectedRiderId, setSelectedRiderId] = useState(currentRider.id);
-
-  const activeRider = useMemo(() => {
-    return (riders || []).find((r) => r.id === selectedRiderId) || currentRider;
-  }, [riders, selectedRiderId, currentRider]);
+  // Active courier is the authenticated/assigned rider profile
+  const activeRider = currentRider;
 
   // Combined system orders scoped to store tenant
   const allOrdersList = useMemo(() => {
@@ -421,7 +419,7 @@ export const DeliveryPortal = () => {
     }));
   };
 
-  // OTP Verification Handler
+  // OTP Verification Handler - Courier enters customer's 4-digit PIN upon arrival
   const handleVerifyOtp = async (orderId, targetExpectedOtp) => {
     const rawId = String(orderId || '').trim();
     const bareId = rawId.replace(/^#/, '');
@@ -429,12 +427,11 @@ export const DeliveryPortal = () => {
       otpInputs[rawId] ||
       otpInputs[bareId] ||
       otpInputs[`#${bareId}`] ||
-      targetExpectedOtp ||
       ''
     ).trim();
 
     if (!entered) {
-      addToast('Enter OTP 🔑', 'Please enter the 4-digit code provided by the customer.', 'error');
+      addToast('PIN Required 🔑', 'Please ask the customer for their 4-digit handover PIN and enter it here.', 'error');
       return;
     }
 
@@ -447,7 +444,7 @@ export const DeliveryPortal = () => {
         setOtpInputs((prev) => ({ ...prev, [rawId]: '', [bareId]: '', [`#${bareId}`]: '' }));
         addToast('Delivery Confirmed 🎉', `Order #${bareId} verified and marked Delivered!`);
       } else {
-        const errMsg = res?.message || `Incorrect OTP code "${entered}". Ask the customer for their 4-digit PIN (Doorstep PIN: ${targetExpectedOtp || '7412'}).`;
+        const errMsg = res?.message || `Incorrect PIN "${entered}". Please ask the customer to confirm their 4-digit handover PIN.`;
         addToast('Verification Failed ❌', errMsg, 'error');
       }
     } catch (e) {
@@ -626,9 +623,9 @@ export const DeliveryPortal = () => {
       return;
     }
 
-    // Start sharing
+    // Start sharing - accurate live GPS tracking without fake automatic movement
     setIsSharingLocation(true);
-    addToast('Live Location Sharing Active 📡🛵', 'Customer is now tracking your live GPS route in real time!');
+    addToast('Live Location Sharing Active 📡🛵', 'Accurate live GPS location shared with customer in real time!');
 
     const riderMeta = {
       name: activeRider?.name,
@@ -636,7 +633,13 @@ export const DeliveryPortal = () => {
       vehicle: activeRider?.vehicleType
     };
 
-    // 1. Try real GPS via Geolocation API
+    // Broadcast accurate current coordinates immediately
+    const initialPos = riderCoords || activeOrder?.pickupCoords || { lat: 31.4147, lng: 73.0872 };
+    if (activeOrder) {
+      updateRiderLiveLocation(activeOrder.id, initialPos, true, riderMeta);
+    }
+
+    // Real GPS hardware sensor via Geolocation API (Accurate and stays fixed unless rider physically moves)
     if ('geolocation' in navigator) {
       locationWatchIdRef.current = navigator.geolocation.watchPosition(
         (pos) => {
@@ -650,27 +653,11 @@ export const DeliveryPortal = () => {
           }
         },
         (err) => {
-          console.warn('Real GPS unavailable, switching to smooth telemetry route:', err.message);
+          console.warn('Real GPS status:', err.message);
         },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 1000 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 2000 }
       );
     }
-
-    // 2. Smooth route progress simulation to guarantee live movement visible to user
-    const pickup = activeOrder?.pickupCoords || { lat: 31.4147, lng: 73.0872 };
-    const dropoff = activeOrder?.dropoffCoords || { lat: 31.4082, lng: 73.1023 };
-    let progress = 0.2;
-
-    simulationIntervalRef.current = setInterval(() => {
-      progress = (progress + 0.08) % 1.0;
-      const simLat = Number((pickup.lat + (dropoff.lat - pickup.lat) * progress).toFixed(5));
-      const simLng = Number((pickup.lng + (dropoff.lng - pickup.lng) * progress).toFixed(5));
-      const newPos = { lat: simLat, lng: simLng };
-      setRiderCoords(newPos);
-      if (activeOrder) {
-        updateRiderLiveLocation(activeOrder.id, newPos, true, riderMeta);
-      }
-    }, 3000);
   };
 
   // Clean up telemetry intervals on unmount
@@ -829,26 +816,6 @@ export const DeliveryPortal = () => {
             </nav>
           </div>
 
-          {/* Quick Courier Switcher (For Pair Testing) */}
-          {riders.length > 1 && (
-            <div className="bg-[#222120] border border-stone-800 rounded-2xl p-3 space-y-1.5">
-              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
-                Active Courier
-              </span>
-              <select
-                value={selectedRiderId}
-                onChange={(e) => setSelectedRiderId(e.target.value)}
-                className="w-full bg-[#18181b] border border-stone-700 text-stone-200 text-xs font-bold rounded-xl px-2.5 py-1.5 focus:outline-none cursor-pointer"
-              >
-                {riders.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name} ({r.zone || 'Dispatch Hub'})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
         </div>
 
         {/* Bottom Profile & Actions matching screenshot */}
@@ -858,9 +825,12 @@ export const DeliveryPortal = () => {
               {(activeRider?.name || 'A')[0]}
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-xs font-bold text-white truncate leading-tight">
-                {activeRider?.name || 'ahmad'}
-              </h2>
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-xs font-bold text-white truncate leading-tight capitalize">
+                  {activeRider?.name || 'Ahmad Khan'}
+                </h2>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" title="On Duty"></span>
+              </div>
               <p className="text-[11px] text-stone-400 flex items-center gap-1 mt-0.5 truncate">
                 <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
                 <span className="truncate">{activeRider?.zone || 'Peoples Colony'}</span>
@@ -1095,40 +1065,33 @@ export const DeliveryPortal = () => {
 
                 </div>
 
-                {/* Customer OTP Verification Section */}
-                <div className="pt-2 border-t border-stone-100 space-y-1.5">
+                {/* Customer Handover PIN Verification Section */}
+                <div className="pt-2.5 border-t border-stone-100 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block">
-                      CUSTOMER OTP
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-stone-700 block">
+                      CUSTOMER HANDOVER PIN
                     </label>
-                    {activeOrder.deliveryOtp && (
-                      <button
-                        type="button"
-                        onClick={() => handleOtpInputChange(activeOrder.id, activeOrder.deliveryOtp)}
-                        className="text-[10px] text-amber-700 font-bold hover:underline cursor-pointer"
-                        title="Click to fill customer OTP"
-                      >
-                        (Customer PIN: {activeOrder.deliveryOtp})
-                      </button>
-                    )}
+                    <span className="text-[10px] text-stone-500 font-medium">
+                      Ask customer for 4-digit PIN
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
                       maxLength={6}
-                      placeholder="Customer 4-digit PIN"
+                      placeholder="Enter customer's 4-digit PIN"
                       value={otpInputs[activeOrder.id] || ''}
                       onChange={(e) => handleOtpInputChange(activeOrder.id, e.target.value)}
-                      className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3 py-1.5 text-xs font-bold text-stone-900 placeholder-stone-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-stone-400"
+                      className="flex-1 bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs font-bold text-stone-900 placeholder-stone-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-stone-400"
                     />
                     <button
                       type="button"
                       disabled={verifyingOrderMap[activeOrder.id]}
                       onClick={() => handleVerifyOtp(activeOrder.id, activeOrder.deliveryOtp)}
-                      className="px-4 py-1.5 bg-[#3f4a3c] hover:bg-[#323b30] text-white rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer disabled:opacity-50"
+                      className="px-4 py-2 bg-[#3f4a3c] hover:bg-[#323b30] text-white rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer disabled:opacity-50 shrink-0"
                     >
-                      {verifyingOrderMap[activeOrder.id] ? 'Verifying...' : 'Verify'}
+                      {verifyingOrderMap[activeOrder.id] ? 'Verifying...' : 'Verify PIN & Deliver'}
                     </button>
                   </div>
                 </div>
@@ -1425,38 +1388,32 @@ export const DeliveryPortal = () => {
                       </span>
                     </div>
 
-                    {/* Enter Customer OTP row */}
-                    <div className="pt-2 border-t border-stone-100 space-y-1">
+                    {/* Enter Customer Handover PIN row */}
+                    <div className="pt-2.5 border-t border-stone-100 space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold tracking-wider uppercase text-stone-500 block">
-                          ENTER CUSTOMER OTP
+                        <label className="text-[10px] font-bold tracking-wider uppercase text-stone-700 block">
+                          Customer Handover PIN
                         </label>
-                        {order.deliveryOtp && (
-                          <button
-                            type="button"
-                            onClick={() => handleOtpInputChange(order.id, order.deliveryOtp)}
-                            className="text-[10px] text-amber-700 font-bold hover:underline cursor-pointer"
-                          >
-                            (PIN: {order.deliveryOtp})
-                          </button>
-                        )}
+                        <span className="text-[10px] text-stone-500 font-medium">
+                          Ask customer for 4-digit PIN
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <input
                           type="text"
                           maxLength={6}
-                          placeholder="Customer OTP"
+                          placeholder="Enter customer's 4-digit PIN"
                           value={otpInputs[order.id] || ''}
                           onChange={(e) => handleOtpInputChange(order.id, e.target.value)}
-                          className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3 py-1.5 text-xs font-bold text-stone-900 placeholder-stone-400 focus:bg-white focus:outline-none"
+                          className="flex-1 bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs font-bold text-stone-900 placeholder-stone-400 focus:outline-none focus:border-stone-500"
                         />
                         <button
                           type="button"
                           disabled={verifyingOrderMap[order.id]}
                           onClick={() => handleVerifyOtp(order.id, order.deliveryOtp)}
-                          className="px-4 py-1.5 bg-[#3f4a3c] hover:bg-[#323b30] text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
+                          className="px-4 py-2 bg-[#3f4a3c] hover:bg-[#323b30] text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50 shrink-0"
                         >
-                          {verifyingOrderMap[order.id] ? 'Verifying...' : 'Verify'}
+                          {verifyingOrderMap[order.id] ? 'Verifying...' : 'Verify & Deliver'}
                         </button>
                       </div>
                     </div>
