@@ -245,6 +245,24 @@ export const DeliveryPortal = () => {
     });
   }, [customerOrders, adminOrders, user?.tenantId, currentTenant?.id]);
 
+  // Locally tracked completed orders to ensure immediate instant transition (persisted in localStorage)
+  const [locallyCompletedOrders, setLocallyCompletedOrders] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_rider_delivered_orders');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_rider_delivered_orders', JSON.stringify(locallyCompletedOrders));
+    } catch (e) {}
+  }, [locallyCompletedOrders]);
+
   // Orders specifically assigned to this courier (both active run and delivered today)
   const assignedOrders = useMemo(() => {
     const currentRiderId = activeRider?.id || user?.riderId;
@@ -317,24 +335,6 @@ export const DeliveryPortal = () => {
       return isReady && !isAlreadyAssigned;
     });
   }, [allOrdersList]);
-
-  // Locally tracked completed orders to ensure immediate instant transition (persisted in localStorage)
-  const [locallyCompletedOrders, setLocallyCompletedOrders] = useState(() => {
-    try {
-      const saved = localStorage.getItem('freshmart_rider_delivered_orders');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) {}
-    return [];
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('freshmart_rider_delivered_orders', JSON.stringify(locallyCompletedOrders));
-    } catch (e) {}
-  }, [locallyCompletedOrders]);
 
   // Combined orders for portal display (strictly real assigned orders, no hardcoded baseline orders)
   const portalOrders = useMemo(() => {

@@ -160,6 +160,9 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   const [selectedDateRange, setSelectedDateRange] = useState('All Time');
   const [selectedRiderMap, setSelectedRiderMap] = useState({});
   const [selectedStaffMap, setSelectedStaffMap] = useState({});
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [deliverToStaffOrder, setDeliverToStaffOrder] = useState(null);
+  const [selectedCustomerModal, setSelectedCustomerModal] = useState(null);
 
   const tenantStaff = useMemo(() => {
     const activeTenant = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
@@ -189,17 +192,6 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       }
     }
   };
-
-  // Selected Order for Right Side Drawer
-  const [selectedOrder, setSelectedOrder] = useState(null);
-
-  // Selected Order for 7-Stage Fulfillment Pipeline Modal
-
-  // Selected Order for Deliver to Staff Modal
-  const [deliverToStaffOrder, setDeliverToStaffOrder] = useState(null);
-
-  // Selected Customer for Customer Profile & History Modal
-  const [selectedCustomerModal, setSelectedCustomerModal] = useState(null);
 
   const tenantBranches = useMemo(() => {
     const activeTenant = currentTenant?.id || user?.tenantId;
