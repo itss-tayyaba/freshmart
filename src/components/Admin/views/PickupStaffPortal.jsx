@@ -252,18 +252,27 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     addToast('Parcel Packed 📦', `Items verified and sealed in parcel ${parcelCode}`);
   };
 
-  const handleMarkReadyForDispatch = async (order) => {
+  const handleMarkReadyForDispatch = async (order, itemsCount = 0) => {
+    const totalItems = itemsCount || (Array.isArray(order.items) ? order.items.length : 1);
+    setPickedState((prev) => ({
+      ...prev,
+      [order.id]: Array.from({ length: totalItems }, (_, i) => i)
+    }));
+
+    const parcelCode = order.parcelCode || `PRCL-${String(order.id).replace(/\W/g, '').slice(-6).toUpperCase()}`;
     await updateOrderFulfillment(order.id, {
       fulfillmentStage: 4,
       status: 'Ready for Dispatch',
       pickupStep: 'verified',
+      pickedItems: Array.from({ length: totalItems }, (_, i) => i),
+      parcelCode,
       isDispatched: false,
       isDispatchedByStaff: true,
       parcelVerifiedAt: new Date().toISOString(),
       readyForDispatchAt: new Date().toISOString(),
       dispatchedAt: new Date().toISOString()
     });
-    addToast('Order Dispatched at Desk ✅', `Order #${order.id} dispatched! Admin can now assign a delivery rider.`);
+    addToast('Parcel Ready to Dispatch ✅', `Order #${order.id} is ready! Admin can now assign a delivery rider on the Orders page.`);
   };
 
   return (
@@ -422,19 +431,19 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               const isAllPicked = items.length > 0 && currentPicked.length === items.length;
               const isExpanded = Boolean(expandedOrders[orderId]);
               const statusRaw = (order.status || 'Pending').toLowerCase();
-              const isReady = ['ready', 'ready for dispatch', 'ready(dispatched)'].includes(statusRaw);
+              const isReady = ['ready', 'ready for dispatch', 'ready(dispatched)'].includes(statusRaw) || Boolean(order.isDispatchedByStaff);
               const isPreparing = ['preparing', 'processing', 'picking', 'packed'].includes(statusRaw);
-              const isPending = ['pending', 'pending_kitchen', 'order placed', 'received by pickup staff'].includes(statusRaw) || !order.status;
-              const isDispatched = ['dispatched', 'out for delivery', 'delivered'].includes(statusRaw) || order.isDispatched;
+              const isPending = ['pending', 'pending_kitchen', 'order placed', 'received by pickup staff', 'deliver to staff', 'delivered to staff'].includes(statusRaw) || !order.status;
+              const isDispatched = ['dispatched', 'out for delivery', 'delivered'].includes(statusRaw) || Boolean(order.isDispatched);
 
-              // Top badge status text
+              // Top badge status text (grocery supermarket parcels)
               const statusBadgeText = isReady
-                ? 'READY'
+                ? 'READY FOR DISPATCH'
                 : isPreparing
-                ? (statusRaw === 'packed' ? 'PACKED' : 'PREPARING')
+                ? (statusRaw === 'packed' ? 'PARCEL PACKED' : 'PACKING PARCEL')
                 : isDispatched
                 ? 'DISPATCHED'
-                : 'PENDING_KITCHEN';
+                : 'PARCEL QUEUED';
 
               return (
               <article
@@ -605,40 +614,41 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
 
                       {/* Action Button */}
                       <div>
-                        {isPending && (
-                          <button
-                            type="button"
-                            onClick={() => handleStartPreparing(order)}
-                            className="bg-[#059669] hover:bg-[#047857] active:scale-95 text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition cursor-pointer"
-                          >
-                            <Flame size={16} />
-                            <span>START PREPARING</span>
-                          </button>
-                        )}
+                        {!isReady && !isDispatched ? (
+                          <div className="flex items-center gap-2 flex-wrap justify-end">
+                            {isPending && (
+                              <button
+                                type="button"
+                                onClick={() => handleStartPreparing(order)}
+                                className="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs sm:text-sm px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                              >
+                                <Flame size={15} />
+                                <span>START PACKING</span>
+                              </button>
+                            )}
 
-                        {isPreparing && statusRaw !== 'packed' && (
-                          <button
-                            type="button"
-                            onClick={() => handlePackItems(order, items.length)}
-                            className="bg-[#059669] hover:bg-[#047857] active:scale-95 text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition cursor-pointer"
-                          >
-                            <PackageCheck size={16} />
-                            <span>{isAllPicked ? 'PACK ITEMS' : `PACK ITEMS (${currentPicked.length}/${items.length})`}</span>
-                          </button>
-                        )}
+                            {isPreparing && statusRaw !== 'packed' && !isAllPicked && (
+                              <button
+                                type="button"
+                                onClick={() => handlePackItems(order, items.length)}
+                                className="bg-slate-700 hover:bg-slate-800 active:scale-95 text-white font-bold text-xs sm:text-sm px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                              >
+                                <PackageCheck size={15} />
+                                <span>PACK ITEMS ({currentPicked.length}/{items.length})</span>
+                              </button>
+                            )}
 
-                        {isPreparing && statusRaw === 'packed' && (
-                          <button
-                            type="button"
-                            onClick={() => handleMarkReadyForDispatch(order)}
-                            className="bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition cursor-pointer"
-                          >
-                            <CheckCircle2 size={16} />
-                            <span>READY (DISPATCH)</span>
-                          </button>
-                        )}
-
-                        {isReady && (
+                            <button
+                              type="button"
+                              onClick={() => handleMarkReadyForDispatch(order, items.length)}
+                              className="bg-[#059669] hover:bg-[#047857] active:scale-95 text-white font-black text-xs sm:text-sm px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition cursor-pointer ring-2 ring-emerald-500/20"
+                              title="Mark parcel ready and notify admin to assign rider"
+                            >
+                              <CheckCircle2 size={16} />
+                              <span>READY TO DISPATCH</span>
+                            </button>
+                          </div>
+                        ) : isReady ? (
                           <div className="flex items-center gap-2">
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#e0f2fe] text-[#0369a1] border border-[#bae6fd]">
                               <span className="w-2 h-2 rounded-full bg-[#0284c7]"></span>
@@ -648,14 +658,12 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                               (Admin can assign rider)
                             </span>
                           </div>
-                        )}
-
-                        {isDispatched && (
+                        ) : isDispatched ? (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
                             <CheckCircle2 size={14} className="text-emerald-600" />
                             <span>{order.assignedRider?.name ? `Courier: ${order.assignedRider.name}` : 'Dispatched'}</span>
                           </span>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </div>

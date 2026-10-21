@@ -5403,10 +5403,17 @@ export const StoreProvider = ({ children }) => {
     if (newStatus) {
       try {
         const response = await apiService.updateOrderStatus(orderId, newStatus, updates);
-        if (!response?.success) addToast('Status sync failed', response?.message || 'The update could not be shared with the admin dashboard.', 'error');
-      } catch (e) {
-        addToast('Status sync failed', 'The update could not be shared with the admin dashboard. Check the server connection.', 'error');
-      }
+        if (
+          response &&
+          !response.success &&
+          !response.isNonJsonResponse &&
+          !response.isNetworkError &&
+          response.message !== 'Invalid JSON from server' &&
+          response.message !== 'Failed to fetch'
+        ) {
+          addToast('Status sync warning', response.message, 'warning');
+        }
+      } catch (e) {}
     }
     return true;
   };
