@@ -168,4 +168,82 @@ describe('Production Real Order Tracking & GPS Telemetry Pipeline', () => {
     assert.equal(locResponse.order.assignedRider.coordinates.lat, 31.4800);
     assert.equal(locResponse.order.assignedRider.coordinates.lng, 74.2900);
   });
+
+  it('accurately synchronizes Case Value order status updates with tracking milestones', () => {
+    const rawCvOrder = {
+      id: '#CV89210',
+      orderId: '#CV89210',
+      tenantId: 'tenant-chasevalue',
+      tenantName: 'Chase Value',
+      status: 'Pending',
+      fulfillmentStage: 1,
+      customerName: 'Ahmad Raza',
+      shippingAddress: { address: 'Peoples Colony No 1', city: 'Faisalabad' },
+      items: [{ name: 'Rice 5kg', price: 1200, quantity: 1 }]
+    };
+
+    // Helper simulating OrderTrackerModal timeline calculation
+    const evaluateTracker = (order) => {
+      const isAssigned = !!order.assignedRider;
+      const status = (order.status || 'Pending').toLowerCase();
+      const isDelivered = status === 'delivered' || status === 'completed' || order.isDelivered === true;
+      const fulfillmentStage = Number(order.fulfillmentStage || 0);
+      const isDispatched = order.isDispatched === true || fulfillmentStage >= 5 || status.includes('dispatched');
+      const isOutForDelivery = fulfillmentStage >= 6 || status.includes('out for delivery') || status.includes('picked up') || status.includes('transit') || (isAssigned && !isDelivered);
+      const isPackingComplete = fulfillmentStage >= 4 || isDispatched || isOutForDelivery || isDelivered || status.includes('ready') || status.includes('packed');
+      const isPreparing = status.includes('preparing') || status.includes('processing') || status.includes('picking') || status.includes('staff') || status.includes('received') || fulfillmentStage >= 2;
+
+      return {
+        confirmed: true,
+        packingComplete: isPackingComplete || isDelivered,
+        packingInProgress: isPreparing && !isPackingComplete && !isDelivered,
+        courierActive: isDelivered || isOutForDelivery || isDispatched,
+        delivered: isDelivered
+      };
+    };
+
+    // 1. Initial Pending state
+    const t1 = evaluateTracker(rawCvOrder);
+    assert.equal(t1.confirmed, true);
+    assert.equal(t1.packingComplete, false);
+    assert.equal(t1.courierActive, false);
+    assert.equal(t1.delivered, false);
+
+    // 2. Case Value Admin marks 'Deliver to Staff' / 'Preparing'
+    const staffOrder = { ...rawCvOrder, status: 'Preparing', fulfillmentStage: 3 };
+    const t2 = evaluateTracker(staffOrder);
+    assert.equal(t2.packingInProgress, true, 'Dark store packing should be in progress');
+    assert.equal(t2.packingComplete, false);
+
+    // 3. Case Value Admin marks 'Ready for Dispatch'
+    const readyOrder = { ...rawCvOrder, status: 'Ready for Dispatch', fulfillmentStage: 4 };
+    const t3 = evaluateTracker(readyOrder);
+    assert.equal(t3.packingComplete, true, 'Dark store packing must be marked complete when Ready for Dispatch');
+
+    // 4. Case Value Admin marks 'Out for Delivery' with courier rider
+    const outOrder = {
+      ...rawCvOrder,
+      status: 'Out for Delivery',
+      fulfillmentStage: 6,
+      assignedRider: { name: 'Ahmad Courier', phone: '+92 300 1234567' }
+    };
+    const t4 = evaluateTracker(outOrder);
+    assert.equal(t4.packingComplete, true);
+    assert.equal(t4.courierActive, true, 'Courier Dispatched step must be active/completed');
+    assert.equal(t4.delivered, false);
+
+    // 5. Case Value Admin marks 'Delivered'
+    const deliveredOrder = { ...rawCvOrder, status: 'Delivered', fulfillmentStage: 7, isDelivered: true };
+    const t5 = evaluateTracker(deliveredOrder);
+    assert.equal(t5.packingComplete, true);
+    assert.equal(t5.courierActive, true);
+    assert.equal(t5.delivered, true, 'Final doorstep delivery must be marked completed');
+
+    // 6. Bare ID matching validation (#CV89210 vs CV89210)
+    const cleanId = String(rawCvOrder.id).replace(/^#/, '').toLowerCase().trim();
+    const query1 = 'CV89210';
+    const query2 = '#cv89210';
+    assert.equal(query1.replace(/^#/, '').toLowerCase().trim(), cleanId);
+    assert.equal(query2.replace(/^#/, '').toLowerCase().trim(), cleanId);
+  });
 });

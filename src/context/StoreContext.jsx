@@ -3871,8 +3871,8 @@ export const StoreProvider = ({ children }) => {
       return oId === cleanId || o.id === orderId || o.orderId === orderId;
     };
 
-    setCustomerOrders((prev) =>
-      prev.map((o) =>
+    setCustomerOrders((prev) => {
+      const next = prev.map((o) =>
         orderMatches(o)
           ? {
               ...o,
@@ -3885,10 +3885,15 @@ export const StoreProvider = ({ children }) => {
               fulfillmentUpdatedAt: updatedAt
             }
           : o
-      )
-    );
-    setAdminOrders((prev) =>
-      prev.map((o) =>
+      );
+      try {
+        localStorage.setItem('freshmart_customer_orders', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
+    setAdminOrders((prev) => {
+      const next = prev.map((o) =>
         orderMatches(o)
           ? {
               ...o,
@@ -3901,8 +3906,13 @@ export const StoreProvider = ({ children }) => {
               fulfillmentUpdatedAt: updatedAt
             }
           : o
-      )
-    );
+      );
+      try {
+        localStorage.setItem('freshmart_admin_orders', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
     if (activeDeliveryOrder && orderMatches(activeDeliveryOrder)) {
       setActiveDeliveryOrder((prev) => ({
         ...prev,
@@ -3914,6 +3924,13 @@ export const StoreProvider = ({ children }) => {
         fulfillmentUpdatedAt: updatedAt
       }));
     }
+
+    try {
+      window.dispatchEvent(new CustomEvent('freshmart_order_updated', {
+        detail: { orderId: cleanId, status: normalizedStatus, fulfillmentStage: stage }
+      }));
+    } catch (e) {}
+
     addToast('Status Updated 📦', `Order ${orderId}: ${normalizedStatus}`);
 
     try {
@@ -5561,32 +5578,101 @@ export const StoreProvider = ({ children }) => {
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
+    const cleanId = String(orderId || '').replace(/^#/, '').toLowerCase().trim();
     const normalizedStatus =
       String(newStatus).toLowerCase() === 'ready' ? 'Ready' :
       String(newStatus).toLowerCase() === 'pending' ? 'Pending' :
       String(newStatus).toLowerCase() === 'preparing' ? 'Preparing' :
+      String(newStatus).toLowerCase() === 'deliver to staff' ? 'Deliver to Staff' :
+      String(newStatus).toLowerCase() === 'ready for dispatch' ? 'Ready for Dispatch' :
+      String(newStatus).toLowerCase() === 'out for delivery' ? 'Out for Delivery' :
       String(newStatus).toLowerCase() === 'dispatched' ? 'Dispatched' :
       String(newStatus).toLowerCase() === 'delivered' ? 'Delivered' :
       String(newStatus).toLowerCase() === 'cancelled' ? 'Cancelled' : newStatus;
 
-    setAdminOrders((prev) =>
-      prev.map((order) => {
-        if (order.id === orderId || order.orderId === orderId) {
-          return { ...order, status: normalizedStatus };
+    const isNowDelivered = normalizedStatus === 'Delivered';
+    const isNowOutForDelivery = normalizedStatus === 'Out for Delivery';
+    const isNowDispatched = ['Dispatched', 'Ready for Dispatch', 'Ready'].includes(normalizedStatus);
+    const isNowPreparing = ['Preparing', 'Packed', 'Picking', 'Processing'].includes(normalizedStatus);
+    const isNowStaffAssigned = normalizedStatus === 'Deliver to Staff';
+
+    const stage =
+      isNowDelivered ? 7 :
+      isNowOutForDelivery ? 6 :
+      normalizedStatus === 'Dispatched' ? 5 :
+      ['Ready', 'Ready for Dispatch'].includes(normalizedStatus) ? 4 :
+      isNowPreparing ? 3 :
+      isNowStaffAssigned ? 2 :
+      normalizedStatus === 'Pending' ? 1 : undefined;
+
+    const updatedAt = new Date().toISOString();
+    let statusClass = 'bg-slate-100 text-slate-800';
+    if (isNowDelivered) statusClass = 'bg-emerald-100 text-emerald-800';
+    else if (isNowOutForDelivery) statusClass = 'bg-amber-100 text-amber-800';
+    else if (normalizedStatus === 'Ready' || normalizedStatus === 'Ready for Dispatch') statusClass = 'bg-blue-100 text-blue-800';
+    else if (isNowPreparing) statusClass = 'bg-indigo-100 text-indigo-800';
+    else if (normalizedStatus === 'Cancelled') statusClass = 'bg-rose-100 text-rose-800';
+
+    const orderMatches = (o) => {
+      if (!o) return false;
+      const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+      return oId === cleanId || o.id === orderId || o.orderId === orderId;
+    };
+
+    const updateFields = {
+      status: normalizedStatus,
+      statusClass,
+      fulfillmentUpdatedAt: updatedAt,
+      ...(stage ? { fulfillmentStage: stage } : {}),
+      ...(isNowDelivered ? { isDelivered: true, isPaid: true } : {}),
+      ...(isNowDispatched ? { isDispatched: true, dispatchStatus: normalizedStatus, dispatchedAt: updatedAt } : {}),
+      ...(normalizedStatus === 'Ready' || normalizedStatus === 'Ready for Dispatch' ? { pickupStep: 'ready' } : {})
+    };
+
+    if (isNowDelivered) {
+      try {
+        const raw = localStorage.getItem('freshmart_rider_delivered_orders');
+        const list = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(list) && !list.includes(cleanId)) {
+          list.push(cleanId);
+          localStorage.setItem('freshmart_rider_delivered_orders', JSON.stringify(list));
         }
-        return order;
-      })
-    );
-    setCustomerOrders((prev) =>
-      prev.map((order) => {
-        if (order.id === orderId || order.orderId === orderId) {
-          return { ...order, status: normalizedStatus };
-        }
-        return order;
-      })
-    );
+      } catch (e) {}
+    }
+
+    setCustomerOrders((prev) => {
+      const next = prev.map((order) => (orderMatches(order) ? { ...order, ...updateFields } : order));
+      try {
+        localStorage.setItem('freshmart_customer_orders', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
+    setAdminOrders((prev) => {
+      const next = prev.map((order) => (orderMatches(order) ? { ...order, ...updateFields } : order));
+      try {
+        localStorage.setItem('freshmart_admin_orders', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
+    if (activeDeliveryOrder && orderMatches(activeDeliveryOrder)) {
+      setActiveDeliveryOrder((prev) => ({
+        ...prev,
+        ...updateFields
+      }));
+    }
+
     try {
-      await apiService.updateOrderStatus(orderId, normalizedStatus);
+      window.dispatchEvent(
+        new CustomEvent('freshmart_order_updated', {
+          detail: { orderId: cleanId, status: normalizedStatus, fulfillmentStage: stage }
+        })
+      );
+    } catch (e) {}
+
+    try {
+      await apiService.updateOrderStatus(orderId, normalizedStatus === 'Ready' ? 'Dispatched' : normalizedStatus, updateFields);
     } catch (e) {}
     addToast('Order Status Updated 📦', `Order ${orderId} is now ${normalizedStatus}.`);
     return true;
@@ -5600,6 +5686,13 @@ export const StoreProvider = ({ children }) => {
       addToast('Status update denied', 'Only pickup staff or store admin can update packing and dispatch status.', 'error');
       return false;
     }
+
+    const cleanId = String(orderId || '').replace(/^#/, '').toLowerCase().trim();
+    const orderMatches = (o) => {
+      if (!o) return false;
+      const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+      return oId === cleanId || o.id === orderId || o.orderId === orderId;
+    };
 
     const stageStatusMap = {
       1: 'Pending',
@@ -5623,9 +5716,9 @@ export const StoreProvider = ({ children }) => {
     else if (newStatus === 'Preparing' || newStatus === 'Processing' || newStatus === 'Packing') statusColor = 'bg-indigo-100 text-indigo-800';
     else if (newStatus === 'Cancelled') statusColor = 'bg-rose-100 text-rose-800';
 
-    setAdminOrders((prev) =>
-      prev.map((order) => {
-        if (order.id === orderId || order.orderId === orderId || order._id === orderId) {
+    setAdminOrders((prev) => {
+      const next = prev.map((order) => {
+        if (orderMatches(order)) {
           const merged = { ...order, ...updates };
           if (newStatus) merged.status = newStatus;
           if (statusColor) merged.statusColor = statusColor;
@@ -5636,12 +5729,16 @@ export const StoreProvider = ({ children }) => {
           return merged;
         }
         return order;
-      })
-    );
+      });
+      try {
+        localStorage.setItem('freshmart_admin_orders', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
 
-    setCustomerOrders((prev) =>
-      prev.map((order) => {
-        if (order.id === orderId || order.orderId === orderId || order._id === orderId) {
+    setCustomerOrders((prev) => {
+      const next = prev.map((order) => {
+        if (orderMatches(order)) {
           const merged = { ...order, ...updates };
           if (newStatus) merged.status = newStatus;
           if (statusColor) merged.statusColor = statusColor;
@@ -5652,8 +5749,20 @@ export const StoreProvider = ({ children }) => {
           return merged;
         }
         return order;
-      })
-    );
+      });
+      try {
+        localStorage.setItem('freshmart_customer_orders', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
+    try {
+      window.dispatchEvent(
+        new CustomEvent('freshmart_order_updated', {
+          detail: { orderId: cleanId, status: newStatus, ...updates }
+        })
+      );
+    } catch (e) {}
 
     if (newStatus) {
       try {
@@ -5674,20 +5783,35 @@ export const StoreProvider = ({ children }) => {
   };
 
   const verifyOrderDeposit = async (orderId) => {
-    setCustomerOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId || o.orderId === orderId
+    const cleanId = String(orderId || '').replace(/^#/, '').toLowerCase().trim();
+    const orderMatches = (o) => {
+      if (!o) return false;
+      const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+      return oId === cleanId || o.id === orderId || o.orderId === orderId;
+    };
+
+    setCustomerOrders((prev) => {
+      const next = prev.map((o) =>
+        orderMatches(o)
           ? { ...o, paymentStatus: 'Verified', isPaymentVerified: true, depositVerifiedAt: new Date().toISOString() }
           : o
-      )
-    );
-    setAdminOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId || o.orderId === orderId
+      );
+      try {
+        localStorage.setItem('freshmart_customer_orders', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+    setAdminOrders((prev) => {
+      const next = prev.map((o) =>
+        orderMatches(o)
           ? { ...o, paymentStatus: 'Verified', isPaymentVerified: true, depositVerifiedAt: new Date().toISOString() }
           : o
-      )
-    );
+      );
+      try {
+        localStorage.setItem('freshmart_admin_orders', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
     addToast('Deposit Verified 💳', `Payment deposit for order ${orderId} has been verified.`);
     return true;
   };
@@ -5702,7 +5826,13 @@ export const StoreProvider = ({ children }) => {
       addToast('Pickup staff unavailable', 'Select an active pickup staff account for this store.', 'error');
       return false;
     }
-    const current = [...(customerOrders || []), ...(adminOrders || [])].find((item) => item.id === orderId || item.orderId === orderId || item._id === orderId);
+    const cleanId = String(orderId || '').replace(/^#/, '').toLowerCase().trim();
+    const orderMatches = (item) => {
+      if (!item) return false;
+      const iId = String(item.id || item.orderId || item._id || '').replace(/^#/, '').toLowerCase().trim();
+      return iId === cleanId || item.id === orderId || item.orderId === orderId;
+    };
+    const current = [...(customerOrders || []), ...(adminOrders || [])].find(orderMatches);
     if (!current || (current.tenantId && !isSameTenant(current.tenantId, currentTenant?.id || user?.tenantId))) return false;
     if (current.pickupStaffId || current.pickupStaffName) {
       addToast('Pickup Staff Locked 🔒', `This order is already assigned to ${current.pickupStaffName || 'pickup staff'} and cannot be changed.`, 'error');
@@ -5718,8 +5848,29 @@ export const StoreProvider = ({ children }) => {
       pickupAssignedAt: new Date().toISOString(),
       deliveredToStaffAt: new Date().toISOString()
     };
-    setCustomerOrders((previous) => previous.map((item) => item.id === orderId || item.orderId === orderId || item._id === orderId ? { ...item, ...assignment } : item));
-    setAdminOrders((previous) => previous.map((item) => item.id === orderId || item.orderId === orderId || item._id === orderId ? { ...item, ...assignment } : item));
+    setCustomerOrders((previous) => {
+      const next = previous.map((item) => orderMatches(item) ? { ...item, ...assignment } : item);
+      try {
+        localStorage.setItem('freshmart_customer_orders', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+    setAdminOrders((previous) => {
+      const next = previous.map((item) => orderMatches(item) ? { ...item, ...assignment } : item);
+      try {
+        localStorage.setItem('freshmart_admin_orders', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
+    try {
+      window.dispatchEvent(
+        new CustomEvent('freshmart_order_updated', {
+          detail: { orderId: cleanId, status: 'Deliver to Staff', ...assignment }
+        })
+      );
+    } catch (e) {}
+
     apiService.updateOrderStatus(orderId, 'Received by Pickup Staff', assignment).then((response) => {
       if (
         response &&

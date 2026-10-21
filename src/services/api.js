@@ -367,7 +367,8 @@ export const apiService = {
 
   async updateOrderStatus(id, status, updates = {}) {
     try {
-      const res = await fetch(`${API_BASE_URL}/orders/${id}/status`, {
+      const cleanId = encodeURIComponent(String(id || '').trim());
+      const res = await fetch(`${API_BASE_URL}/orders/${cleanId}/status`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({ ...updates, status })
@@ -820,7 +821,8 @@ export const apiService = {
 
   async updateVendorOrderStatus(id, status) {
     try {
-      const res = await fetch(`${API_BASE_URL}/vendor/orders/${id}/status`, {
+      const cleanId = encodeURIComponent(String(id || '').trim());
+      const res = await fetch(`${API_BASE_URL}/vendor/orders/${cleanId}/status`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({ status })

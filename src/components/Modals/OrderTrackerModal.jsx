@@ -1,10 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Search, Truck, CheckCircle2, Clock, MapPin, Phone, MessageSquare, User, Package, ShieldCheck, ChevronRight, Loader2, RefreshCw } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { apiService } from '../../services/api';
+import { isSameTenant } from '../../data/companyHierarchyData';
 
 export const OrderTrackerModal = () => {
-  const { isOrderTrackerOpen, setIsOrderTrackerOpen, customerOrders, navigateTo, trackOrderRemote, deliveryLocation, currentTenant } = useStore();
+  const {
+    isOrderTrackerOpen,
+    setIsOrderTrackerOpen,
+    customerOrders = [],
+    adminOrders = [],
+    navigateTo,
+    trackOrderRemote,
+    deliveryLocation,
+    currentTenant
+  } = useStore();
 
   const isAlFatah = currentTenant?.id === 'tenant-alfatah';
   const isChaseUp = currentTenant?.id === 'tenant-chaseup';
@@ -22,6 +32,57 @@ export const OrderTrackerModal = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
 
+  // Deduplicate and unify customerOrders and adminOrders (plus localStorage snapshot)
+  const allOrders = useMemo(() => {
+    const map = new Map();
+    let localCust = [];
+    let localAdmin = [];
+    try {
+      const c = localStorage.getItem('freshmart_customer_orders');
+      if (c) localCust = JSON.parse(c);
+      const a = localStorage.getItem('freshmart_admin_orders');
+      if (a) localAdmin = JSON.parse(a);
+    } catch (e) {}
+
+    const list = [
+      ...(Array.isArray(customerOrders) ? customerOrders : []),
+      ...(Array.isArray(adminOrders) ? adminOrders : []),
+      ...(Array.isArray(localCust) ? localCust : []),
+      ...(Array.isArray(localAdmin) ? localAdmin : [])
+    ];
+
+    list.forEach((ord) => {
+      if (!ord) return;
+      const bare = String(ord.id || ord.orderId || ord._id || '').replace(/^#/, '').toLowerCase().trim();
+      if (!bare) return;
+      const prev = map.get(bare);
+      if (!prev) {
+        map.set(bare, ord);
+      } else {
+        const prevStage = Number(prev.fulfillmentStage || 0);
+        const curStage = Number(ord.fulfillmentStage || 0);
+        const curDelivered = ord.status === 'Delivered' || ord.isDelivered;
+        if (curDelivered || curStage >= prevStage || (ord.fulfillmentUpdatedAt && new Date(ord.fulfillmentUpdatedAt) >= new Date(prev.fulfillmentUpdatedAt || 0))) {
+          map.set(bare, { ...prev, ...ord });
+        } else {
+          map.set(bare, { ...ord, ...prev });
+        }
+      }
+    });
+
+    return Array.from(map.values());
+  }, [customerOrders, adminOrders]);
+
+  const findMatchingOrder = (queryId) => {
+    if (!queryId) return null;
+    const clean = String(queryId).replace(/^#/, '').toLowerCase().trim();
+    if (!clean) return null;
+    return allOrders.find((o) => {
+      const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+      return oId === clean;
+    });
+  };
+
   // Format a real order (from local store or backend API) into tracker modal format
   const formatOrderForTracking = (rawOrder) => {
     if (!rawOrder) return null;
@@ -31,8 +92,8 @@ export const OrderTrackerModal = () => {
     const fulfillmentStage = Number(rawOrder.fulfillmentStage || 0);
     const isDispatched = rawOrder.isDispatched === true || fulfillmentStage >= 5 || status.includes('dispatched');
     const isOutForDelivery = fulfillmentStage >= 6 || status.includes('out for delivery') || status.includes('picked up') || status.includes('transit') || (isAssigned && !isDelivered);
-    const isPackingComplete = fulfillmentStage >= 4 || isDispatched || isOutForDelivery || isDelivered;
-    const isPreparing = status.includes('preparing') || status.includes('processing') || status.includes('picking') || fulfillmentStage >= 2;
+    const isPackingComplete = fulfillmentStage >= 4 || isDispatched || isOutForDelivery || isDelivered || status.includes('ready') || status.includes('packed');
+    const isPreparing = status.includes('preparing') || status.includes('processing') || status.includes('picking') || status.includes('staff') || status.includes('received') || fulfillmentStage >= 2;
 
     const shipping = rawOrder.shippingAddress || {};
     let addr = typeof shipping === 'string' ? shipping : (shipping.address || rawOrder.address);
@@ -76,7 +137,7 @@ export const OrderTrackerModal = () => {
         time: isDelivered ? 'Completed' : isOutForDelivery || isDispatched ? `ETA: ${eta}` : isAssigned ? 'Rider Assigned' : 'Pending',
         desc: isAssigned
           ? `Assigned to courier ${rider.name} (${rider.vehicle || rider.vehicleType || 'Motorbike'})`
-          : isDispatched
+          : isDispatched || isOutForDelivery
           ? 'Pickup staff handed parcel to courier rider'
           : 'Waiting for courier rider to be assigned',
         completed: isDelivered || isOutForDelivery || isDispatched
@@ -116,46 +177,81 @@ export const OrderTrackerModal = () => {
     };
   };
 
-  // Live update the currently tracked order whenever customerOrders updates
+  // Live update the currently tracked order whenever orders change
   useEffect(() => {
     if (!isOrderTrackerOpen) return;
     setSearchError('');
-    if (!customerOrders || customerOrders.length === 0) {
+    if (allOrders.length === 0) {
       setOrderInput('');
       setCurrentOrder(null);
       return;
     }
 
-    const targetId = (orderInput || '').trim().toUpperCase();
-    const matched = targetId
-      ? customerOrders.find(
-          (o) =>
-            String(o.id || '').toUpperCase() === targetId ||
-            String(o.orderId || '').toUpperCase() === targetId ||
-            String(o._id || '').toUpperCase() === targetId
-        )
-      : null;
+    const matched = orderInput ? findMatchingOrder(orderInput) : null;
+    let chosen = matched;
+    if (!chosen) {
+      const tenantMatch = currentTenant?.id
+        ? allOrders.find((o) => isSameTenant(o.tenantId || o.companyId, currentTenant.id))
+        : null;
+      chosen = tenantMatch || allOrders[0];
+    }
 
-    const chosen = matched || customerOrders[0];
-    setOrderInput(chosen.id || chosen.orderId || '');
-    setCurrentOrder(formatOrderForTracking(chosen));
-  }, [isOrderTrackerOpen, customerOrders]);
+    if (chosen) {
+      setOrderInput(chosen.id || chosen.orderId || '');
+      setCurrentOrder(formatOrderForTracking(chosen));
+    }
+  }, [isOrderTrackerOpen, allOrders, currentTenant?.id]);
 
-  // Live background sync: fetch latest order status from backend while tracker is open
+  // Real-time listener for status changes (cross-tab & in-memory)
+  useEffect(() => {
+    if (!isOrderTrackerOpen) return;
+    const handleOrderUpdate = (e) => {
+      const updatedId = e.detail?.orderId;
+      const targetQuery = orderInput || updatedId;
+      if (targetQuery) {
+        const matched = findMatchingOrder(targetQuery);
+        if (matched) {
+          setCurrentOrder(formatOrderForTracking(matched));
+        }
+      }
+    };
+
+    window.addEventListener('freshmart_order_updated', handleOrderUpdate);
+    window.addEventListener('storage', handleOrderUpdate);
+    return () => {
+      window.removeEventListener('freshmart_order_updated', handleOrderUpdate);
+      window.removeEventListener('storage', handleOrderUpdate);
+    };
+  }, [isOrderTrackerOpen, orderInput, allOrders]);
+
+  // Live background sync: check local state and fetch latest order status from backend while tracker is open
   useEffect(() => {
     if (!isOrderTrackerOpen || !orderInput) return;
     const interval = setInterval(async () => {
       const cleanId = orderInput.trim();
       if (!cleanId) return;
+
+      // 1. Keep in sync with local memory/storage
+      const local = findMatchingOrder(cleanId);
+      if (local) {
+        setCurrentOrder(formatOrderForTracking(local));
+      }
+
+      // 2. Poll remote backend API
       try {
         const res = await apiService.trackOrder(cleanId);
         if (res && res.success && res.order) {
-          setCurrentOrder(formatOrderForTracking(res.order));
+          setCurrentOrder((prev) => {
+            if (!prev) return formatOrderForTracking(res.order);
+            const backendDelivered = res.order.status === 'Delivered' || res.order.isDelivered;
+            if (prev.isDelivered && !backendDelivered) return prev;
+            return formatOrderForTracking(res.order);
+          });
         }
       } catch (e) {}
-    }, 4000);
+    }, 3000);
     return () => clearInterval(interval);
-  }, [isOrderTrackerOpen, orderInput]);
+  }, [isOrderTrackerOpen, orderInput, allOrders]);
 
   const handleSearch = async (e) => {
     if (e) e.preventDefault();
@@ -166,14 +262,8 @@ export const OrderTrackerModal = () => {
       return;
     }
 
-    // 1. Check in local customerOrders state first
-    const foundLocal = customerOrders.find(
-      (o) =>
-        o.id.toUpperCase() === cleanId.toUpperCase() ||
-        o.id.toUpperCase().includes(cleanId.toUpperCase()) ||
-        (o.orderId && o.orderId.toUpperCase() === cleanId.toUpperCase())
-    );
-
+    // 1. Check in unified local orders first
+    const foundLocal = findMatchingOrder(cleanId);
     if (foundLocal) {
       setCurrentOrder(formatOrderForTracking(foundLocal));
       return;
@@ -198,7 +288,7 @@ export const OrderTrackerModal = () => {
   };
 
   const selectOrder = (ord) => {
-    setOrderInput(ord.id);
+    setOrderInput(ord.id || ord.orderId || '');
     setSearchError('');
     setCurrentOrder(formatOrderForTracking(ord));
   };
@@ -269,25 +359,31 @@ export const OrderTrackerModal = () => {
               </button>
             </form>
 
-            {/* Placed Customer Orders Quick Select */}
-            {customerOrders.length > 0 && (
+            {/* Placed Orders Quick Select */}
+            {allOrders.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 mt-2.5 text-xs text-slate-500">
-                <span className="font-semibold text-slate-600">Your Placed Orders:</span>
-                {customerOrders.map((o) => (
-                  <button
-                    type="button"
-                    key={o.id}
-                    onClick={() => selectOrder(o)}
-                    style={
-                      orderInput && (orderInput.toUpperCase() === String(o.id).toUpperCase() || orderInput.toUpperCase() === String(o.orderId).toUpperCase())
-                        ? { backgroundColor: tenantThemeColor, borderColor: tenantThemeColor, color: '#fff' }
-                        : { backgroundColor: `${tenantThemeColor}12`, borderColor: `${tenantThemeColor}30`, color: tenantThemeColor }
-                    }
-                    className={`font-mono font-bold px-2.5 py-1 rounded-lg cursor-pointer transition-all border text-xs shadow-2xs`}
-                  >
-                    {o.id || o.orderId} ({o.status || 'Pending'})
-                  </button>
-                ))}
+                <span className="font-semibold text-slate-600">Recent Orders:</span>
+                {allOrders.slice(0, 6).map((o) => {
+                  const oKey = o.id || o.orderId || o._id;
+                  const cleanOKey = String(oKey).replace(/^#/, '').toLowerCase().trim();
+                  const cleanCurrent = String(orderInput || '').replace(/^#/, '').toLowerCase().trim();
+                  const isSelected = cleanCurrent && cleanCurrent === cleanOKey;
+                  return (
+                    <button
+                      type="button"
+                      key={oKey}
+                      onClick={() => selectOrder(o)}
+                      style={
+                        isSelected
+                          ? { backgroundColor: tenantThemeColor, borderColor: tenantThemeColor, color: '#fff' }
+                          : { backgroundColor: `${tenantThemeColor}12`, borderColor: `${tenantThemeColor}30`, color: tenantThemeColor }
+                      }
+                      className="font-mono font-bold px-2.5 py-1 rounded-lg cursor-pointer transition-all border text-xs shadow-2xs"
+                    >
+                      {oKey} ({o.status || 'Pending'})
+                    </button>
+                  );
+                })}
               </div>
             )}
 

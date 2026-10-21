@@ -148,6 +148,8 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     getEligibleRidersForOrder,
     pickupStaff = [],
     assignPickupStaffToOrder,
+    updateDeliveryOrderStatus,
+    updateOrderStatus,
     addToast,
     currentTenant,
     user,
@@ -331,10 +333,18 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     });
   }, [liveOrders, activeTab, search]);
 
-  const handleStatusChange = (orderId, newStatus) => {
-    updateDeliveryOrderStatus(orderId, newStatus);
-    if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
+  const handleStatusChange = async (orderId, newStatus) => {
+    if (updateOrderStatus) {
+      await updateOrderStatus(orderId, newStatus);
+    } else if (updateDeliveryOrderStatus) {
+      await updateDeliveryOrderStatus(orderId, newStatus);
+    }
+    const cleanTarget = String(orderId || '').replace(/^#/, '').toLowerCase().trim();
+    if (selectedOrder) {
+      const selId = String(selectedOrder.id || selectedOrder.orderId || '').replace(/^#/, '').toLowerCase().trim();
+      if (selId === cleanTarget || selectedOrder.id === orderId) {
+        setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
+      }
     }
   };
 
@@ -937,7 +947,24 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                             })()}
                           </div>
                         </td>
-                        <td className="py-4 whitespace-nowrap">{renderStatusBadge(ord.status)}</td>
+                        <td className="py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-1.5">
+                            <select
+                              value={ord.status || 'Pending'}
+                              onChange={(e) => handleStatusChange(ord.id || ord.orderId, e.target.value)}
+                              className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs font-bold py-1 px-2.5 rounded-full shadow-2xs focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer transition"
+                              title="Change Order Status"
+                            >
+                              <option value="Pending">⏳ Pending</option>
+                              <option value="Deliver to Staff">📦 Deliver to Staff</option>
+                              <option value="Preparing">🍳 Preparing</option>
+                              <option value="Ready for Dispatch">✨ Ready for Dispatch</option>
+                              <option value="Out for Delivery">🛵 Out for Delivery</option>
+                              <option value="Delivered">✅ Delivered</option>
+                              <option value="Cancelled">❌ Cancelled</option>
+                            </select>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
@@ -1246,10 +1273,49 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 space-y-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Fulfillment status</span>
-              <p className="text-xs text-slate-600">{selectedOrder.status || 'Pending'} · Pickup staff update preparation and dispatch from their assigned workspace.</p>
-              {selectedOrder.status !== 'Cancelled' && selectedOrder.status !== 'Delivered' && <button onClick={() => handleStatusChange(selectedOrder.id, 'Cancelled')} className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Cancel Order</button>}
+            <div className="pt-3 border-t border-slate-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Fulfillment status</span>
+                {renderStatusBadge(selectedOrder.status)}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-700 block">Change Status:</label>
+                <select
+                  value={selectedOrder.status || 'Pending'}
+                  onChange={(e) => handleStatusChange(selectedOrder.id || selectedOrder.orderId, e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs"
+                >
+                  <option value="Pending">⏳ Pending (Order Confirmed)</option>
+                  <option value="Deliver to Staff">📦 Deliver to Staff</option>
+                  <option value="Preparing">🍳 Preparing (Dark Store Packing)</option>
+                  <option value="Ready for Dispatch">✨ Ready for Dispatch (Packed)</option>
+                  <option value="Out for Delivery">🛵 Out for Delivery (Courier In Transit)</option>
+                  <option value="Delivered">✅ Delivered (Handed to Customer)</option>
+                  <option value="Cancelled">❌ Cancelled</option>
+                </select>
+              </div>
+
+              <div className="flex gap-2">
+                {selectedOrder.status !== 'Delivered' && (
+                  <button
+                    type="button"
+                    onClick={() => handleStatusChange(selectedOrder.id || selectedOrder.orderId, 'Delivered')}
+                    className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 shadow-2xs transition cursor-pointer"
+                  >
+                    ✓ Mark Delivered
+                  </button>
+                )}
+                {selectedOrder.status !== 'Cancelled' && (
+                  <button
+                    type="button"
+                    onClick={() => handleStatusChange(selectedOrder.id || selectedOrder.orderId, 'Cancelled')}
+                    className="rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 px-3 py-2 text-xs font-bold text-rose-700 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
             </div>
           </aside>
         )}
