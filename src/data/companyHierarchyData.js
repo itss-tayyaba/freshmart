@@ -614,24 +614,6 @@ export const ORDERS = [
     createdAt: new Date(Date.now() - 35 * 60 * 1000).toISOString()
   },
 
-  // --- Chase Up Clifton Karachi (branch_004) Orders ---
-  {
-    _id: 'order_003',
-    orderId: 'ORD-CU-001',
-    tenantId: 'company_002',
-    branchId: 'branch_004',
-    customerId: 'customer_125',
-    customerName: 'Zainab Merchant',
-    customerPhone: '+92 333 4455667',
-    items: [
-      { productId: 'product_005', name: 'Tapal Danedar Black Tea (900g)', price: 1420, quantity: 2 },
-      { productId: 'product_006', name: 'Shan Special Biryani Masala Double Pack', price: 280, quantity: 2 }
-    ],
-    total: 3400,
-    status: 'preparing',
-    createdAt: new Date().toISOString()
-  },
-
   // --- CaseValue Shaheed-e-Millat (branch_007) Orders ---
   {
     _id: 'order_004',

@@ -420,7 +420,9 @@ export const getOrders = async (req, res) => {
       return res.json({ success: true, count: orders.length, orders });
     }
 
-    let orders = ADMIN_ORDERS_FULL.length > 0 ? [...ADMIN_ORDERS_FULL] : [...ORDERS];
+    let orders = (ADMIN_ORDERS_FULL.length > 0 ? [...ADMIN_ORDERS_FULL] : [...ORDERS]).filter(
+      (o) => o.customer !== 'Hamza Tariq' && o.customerName !== 'Hamza Tariq' && o.customer !== 'Zainab Merchant' && o.customerName !== 'Zainab Merchant'
+    );
     if (role === 'pickup_staff') {
       orders = orders.filter((order) => {
         const matchesStaff = !staffId || String(order.pickupStaffId) === String(staffId);
