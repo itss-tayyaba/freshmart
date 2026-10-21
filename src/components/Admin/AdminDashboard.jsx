@@ -49,9 +49,32 @@ import { SuperAdminDashboard } from '../SuperAdmin/SuperAdminDashboard';
 import { DeliveryPortal } from '../DeliveryPortal/DeliveryPortal';
 
 export const AdminDashboard = () => {
+  const { isAdminLoggedIn, adminRole } = useStore();
+
+  // If not logged in as Admin, show the Admin Login with Username/Password
+  if (!isAdminLoggedIn) {
+    return <AdminLogin />;
+  }
+
+  // If logged in as Super Admin (Platform Owner), render Super Admin Command Center
+  if (adminRole === 'superadmin') {
+    return <SuperAdminDashboard />;
+  }
+
+  // If logged in as Supplier or Vendor, render the dedicated Multi-Vendor Portal
+  if (adminRole === 'supplier' || adminRole === 'vendor') {
+    return <VendorPortal />;
+  }
+
+  if (adminRole === 'pickup_staff') return <PickupStaffPortal />;
+  if (adminRole === 'rider') return <DeliveryPortal />;
+
+  return <StoreAdminConsole />;
+};
+
+const StoreAdminConsole = () => {
   const {
     navigateTo,
-    isAdminLoggedIn,
     adminLogout,
     adminRole,
     user,
@@ -81,7 +104,7 @@ export const AdminDashboard = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // Modal visibility states (Must be declared before any conditional return!)
+  // Modal visibility states
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
@@ -91,24 +114,6 @@ export const AdminDashboard = () => {
   useEffect(() => {
     setActiveTab(adminRole === 'rider' ? 'Rider' : 'Dashboard');
   }, [adminRole]);
-
-  // If not logged in as Admin, show the Admin Login with Username/Password
-  if (!isAdminLoggedIn) {
-    return <AdminLogin />;
-  }
-
-  // If logged in as Super Admin (Platform Owner), render Super Admin Command Center
-  if (adminRole === 'superadmin') {
-    return <SuperAdminDashboard />;
-  }
-
-  // If logged in as Supplier or Vendor, render the dedicated Multi-Vendor Portal
-  if (adminRole === 'supplier' || adminRole === 'vendor') {
-    return <VendorPortal />;
-  }
-
-  if (adminRole === 'pickup_staff') return <PickupStaffPortal />;
-  if (adminRole === 'rider') return <DeliveryPortal />;
 
   const roleMeta = {
     admin: { title: 'Store Admin', badge: '🛡️ Store Admin', tag: 'Full Control', iconBg: 'bg-emerald-600' },
