@@ -185,6 +185,13 @@ const StoreAdminConsole = () => {
         return;
       }
 
+      if (bare.startsWith('cu') || bare.startsWith('ord-cu') || bare.includes('-cu-') || bare.includes('caseup')) {
+        if (!isSameTenant('tenant-chaseup', activeTenantId)) return;
+      }
+      if (bare.startsWith('cv') || bare.startsWith('ord-cv') || bare.includes('-cv-')) {
+        if (!isSameTenant('tenant-chasevalue', activeTenantId)) return;
+      }
+
       if (activeTenantId) {
         if (!orderTenant) {
           const id = bare;

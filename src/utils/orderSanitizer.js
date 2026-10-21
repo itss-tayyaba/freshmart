@@ -48,8 +48,12 @@ export const sanitizeOrder = (ord) => {
     return (
       name.includes('chase up') ||
       name.includes('case up') ||
+      name.includes('caseup') ||
+      name.includes('chaseup') ||
       brand.includes('chase up') ||
       brand.includes('case up') ||
+      brand.includes('caseup') ||
+      brand.includes('chaseup') ||
       isSameTenant(tId, 'tenant-chaseup')
     );
   });
@@ -60,7 +64,7 @@ export const sanitizeOrder = (ord) => {
     isSameTenant(ord.tenantId, 'company_003') ||
     (ord.tenantName && (String(ord.tenantName).toLowerCase().includes('case value') || String(ord.tenantName).toLowerCase().includes('chase value'))) ||
     hasCaseValueItem ||
-    ((idStr.startsWith('#cv') || idStr.startsWith('cv-')) && (!ord.tenantId || isSameTenant(ord.tenantId, 'tenant-chasevalue')));
+    ((idStr.startsWith('#cv') || idStr.startsWith('cv-') || idStr.startsWith('ord-cv') || idStr.includes('-cv-')) && (!ord.tenantId || isSameTenant(ord.tenantId, 'tenant-chasevalue')));
 
   if (isExplicitCaseValue) {
     return {
@@ -80,9 +84,14 @@ export const sanitizeOrder = (ord) => {
   const isExplicitChaseUp =
     isSameTenant(ord.tenantId, 'tenant-chaseup') ||
     isSameTenant(ord.tenantId, 'company_002') ||
-    (ord.tenantName && (String(ord.tenantName).toLowerCase().includes('chase up') || String(ord.tenantName).toLowerCase().includes('case up'))) ||
+    (ord.tenantName && (
+      String(ord.tenantName).toLowerCase().includes('chase up') ||
+      String(ord.tenantName).toLowerCase().includes('case up') ||
+      String(ord.tenantName).toLowerCase().includes('caseup') ||
+      String(ord.tenantName).toLowerCase().includes('chaseup')
+    )) ||
     hasChaseUpItem ||
-    ((idStr.startsWith('#cu') || idStr.startsWith('cu-') || idStr.startsWith('cu')) && (!ord.tenantId || isSameTenant(ord.tenantId, 'tenant-chaseup')));
+    ((idStr.startsWith('#cu') || idStr.startsWith('cu-') || idStr.startsWith('cu') || idStr.startsWith('ord-cu') || idStr.includes('-cu-') || idStr.includes('caseup')) && (!ord.tenantId || isSameTenant(ord.tenantId, 'tenant-chaseup')));
 
   if (isExplicitChaseUp) {
     return {

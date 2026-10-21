@@ -105,18 +105,24 @@ const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
     return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
   });
 
+  const hasCuItem = items.some(it => {
+    const n = String(it?.name || it?.productName || '').toLowerCase();
+    const b = String(it?.brand || '').toLowerCase();
+    return n.includes('chase up') || n.includes('case up') || n.includes('caseup') || n.includes('chaseup') || b.includes('chase up') || b.includes('case up') || b.includes('caseup') || b.includes('chaseup') || isSameTenant(it?.tenantId, 'tenant-chaseup');
+  });
+
   const rawTenant = remoteOrder.tenantId || localOrder.tenantId || itemTenantId;
   let tenantId;
-  if (isSameTenant(rawTenant, 'tenant-chasevalue') || hasCvItem || idStr.startsWith('#cv') || idStr.startsWith('cv-')) {
+  if (isSameTenant(rawTenant, 'tenant-chasevalue') || (hasCvItem && !hasCuItem) || idStr.startsWith('#cv') || idStr.startsWith('cv-')) {
     tenantId = 'tenant-chasevalue';
-  } else if (isSameTenant(rawTenant, 'tenant-chaseup') || idStr.startsWith('#cu') || idStr.startsWith('cu-')) {
+  } else if (isSameTenant(rawTenant, 'tenant-chaseup') || hasCuItem || idStr.startsWith('#cu') || idStr.startsWith('cu-') || idStr.includes('cu') || idStr.includes('caseup')) {
     tenantId = 'tenant-chaseup';
   } else if (isSameTenant(rawTenant, 'tenant-alfatah') || idStr.includes('701') || idStr.startsWith('#af') || idStr.startsWith('af-')) {
     tenantId = 'tenant-alfatah';
   } else if (isSameTenant(rawTenant, 'tenant-freshmart') || idStr.includes('83459') || idStr.startsWith('#fm')) {
     tenantId = 'tenant-freshmart';
   } else {
-    tenantId = rawTenant || 'tenant-chasevalue';
+    tenantId = rawTenant || (idStr.includes('cu') ? 'tenant-chaseup' : 'tenant-freshmart');
   }
 
   const tenantName = remoteOrder.tenantName || localOrder.tenantName || (
@@ -521,6 +527,140 @@ export const StoreProvider = ({ children }) => {
       deliveryOtp: '4092',
       time: 'Just now',
       createdAt: new Date().toISOString()
+    },
+    {
+      id: '#CU62901',
+      orderId: '#CU62901',
+      tenantId: 'tenant-chaseup',
+      tenantName: 'Chase Up',
+      branchId: 'branch_006',
+      branchName: 'Faisalabad Clock Tower Hub',
+      customer: 'Hamza Tariq',
+      customerName: 'Hamza Tariq',
+      customerPhone: '+923001234567',
+      phone: '+923001234567',
+      orderType: 'Delivery',
+      status: 'Pending',
+      fulfillmentStage: 1,
+      pickupStep: 'assigned',
+      total: 2450,
+      totalAmount: 2450,
+      totalPrice: 2450,
+      subtotal: 2450,
+      paymentMethod: 'Cash on Delivery',
+      payment: 'Cash on Delivery',
+      paymentStatus: 'Pending',
+      items: [
+        {
+          id: 'cu-grocery-01',
+          name: 'Case Up Premium Basmati Rice 5kg',
+          price: 2450,
+          quantity: 1,
+          unit: '5kg Pack',
+          image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-chaseup',
+          branchId: 'branch_006'
+        }
+      ],
+      rawItems: [
+        {
+          id: 'cu-grocery-01',
+          name: 'Case Up Premium Basmati Rice 5kg',
+          price: 2450,
+          quantity: 1,
+          unit: '5kg Pack',
+          image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-chaseup',
+          branchId: 'branch_006'
+        }
+      ],
+      shippingAddress: {
+        address: 'Clock Tower Hub, Faisalabad',
+        city: 'Faisalabad'
+      },
+      address: 'Clock Tower Hub, Faisalabad',
+      city: 'Faisalabad',
+      deliverySlot: '⚡ 25-35 Mins Express Delivery',
+      deliveryOtp: '6290',
+      time: 'Just now',
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: 'ORD-CU-001',
+      orderId: 'ORD-CU-001',
+      tenantId: 'tenant-chaseup',
+      tenantName: 'Chase Up',
+      branchId: 'branch_004',
+      branchName: 'Clifton Main Branch (Karachi)',
+      customer: 'Zainab Merchant',
+      customerName: 'Zainab Merchant',
+      customerPhone: '+92 333 4455667',
+      phone: '+92 333 4455667',
+      orderType: 'Delivery',
+      status: 'Preparing',
+      fulfillmentStage: 2,
+      pickupStep: 'picking',
+      total: 3400,
+      totalAmount: 3400,
+      totalPrice: 3400,
+      subtotal: 3400,
+      paymentMethod: 'Cash on Delivery',
+      payment: 'Cash on Delivery',
+      paymentStatus: 'Pending',
+      items: [
+        {
+          id: 'product_005',
+          name: 'Tapal Danedar Black Tea (900g)',
+          price: 1420,
+          quantity: 2,
+          unit: '900g Pack',
+          image: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-chaseup',
+          branchId: 'branch_004'
+        },
+        {
+          id: 'product_006',
+          name: 'Shan Special Biryani Masala Double Pack',
+          price: 280,
+          quantity: 2,
+          unit: 'Double Pack',
+          image: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-chaseup',
+          branchId: 'branch_004'
+        }
+      ],
+      rawItems: [
+        {
+          id: 'product_005',
+          name: 'Tapal Danedar Black Tea (900g)',
+          price: 1420,
+          quantity: 2,
+          unit: '900g Pack',
+          image: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-chaseup',
+          branchId: 'branch_004'
+        },
+        {
+          id: 'product_006',
+          name: 'Shan Special Biryani Masala Double Pack',
+          price: 280,
+          quantity: 2,
+          unit: 'Double Pack',
+          image: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-chaseup',
+          branchId: 'branch_004'
+        }
+      ],
+      shippingAddress: {
+        address: 'Clifton Block 2, Karachi',
+        city: 'Karachi'
+      },
+      address: 'Clifton Block 2, Karachi',
+      city: 'Karachi',
+      deliverySlot: '⚡ 25-35 Mins Express Delivery',
+      deliveryOtp: '3400',
+      time: 'Just now',
+      createdAt: new Date().toISOString()
     }
   ];
 
@@ -541,15 +681,19 @@ export const StoreProvider = ({ children }) => {
           }
           const filtered = parsed.filter(
             (o) =>
-              !['#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#CU-2190', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
+              !['#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
                 o.id || o.orderId
               )
           );
           if (filtered.length > 0) {
             const sanitized = filtered.map(sanitizeOrder);
-            const existingIds = new Set(sanitized.map((o) => String(o.id || o.orderId)));
-            const missing = DEFAULT_INITIAL_ORDERS.filter((o) => !existingIds.has(String(o.id || o.orderId)));
-            return [...sanitized, ...missing];
+            const existingIds = new Set(sanitized.map((o) => String(o.id || o.orderId).toLowerCase()));
+            const missing = DEFAULT_INITIAL_ORDERS.filter((o) => !existingIds.has(String(o.id || o.orderId).toLowerCase()));
+            const combined = [...sanitized, ...missing];
+            try {
+              localStorage.setItem('freshmart_customer_orders', JSON.stringify(combined));
+            } catch (e) {}
+            return combined;
           }
         }
       }
@@ -1524,15 +1668,19 @@ export const StoreProvider = ({ children }) => {
           }
           const filtered = parsed.filter(
             (o) =>
-              !['#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#CU-2190', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
+              !['#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
                 o.id || o.orderId
               )
           );
           if (filtered.length > 0) {
             const sanitized = filtered.map(sanitizeOrder);
-            const existingIds = new Set(sanitized.map((o) => String(o.id || o.orderId)));
-            const missing = DEFAULT_INITIAL_ORDERS.filter((o) => !existingIds.has(String(o.id || o.orderId)));
-            return [...sanitized, ...missing];
+            const existingIds = new Set(sanitized.map((o) => String(o.id || o.orderId).toLowerCase()));
+            const missing = DEFAULT_INITIAL_ORDERS.filter((o) => !existingIds.has(String(o.id || o.orderId).toLowerCase()));
+            const combined = [...sanitized, ...missing];
+            try {
+              localStorage.setItem('freshmart_admin_orders', JSON.stringify(combined));
+            } catch (e) {}
+            return combined;
           }
         }
       }
@@ -1550,15 +1698,19 @@ export const StoreProvider = ({ children }) => {
           }
           const filtered = parsed.filter(
             (o) =>
-              !['#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#CU-2190', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
+              !['#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
                 o.id || o.orderId
               )
           );
           if (filtered.length > 0) {
             const sanitized = filtered.map(sanitizeOrder);
-            const existingIds = new Set(sanitized.map((o) => String(o.id || o.orderId)));
-            const missing = DEFAULT_INITIAL_ORDERS.filter((o) => !existingIds.has(String(o.id || o.orderId)));
-            return [...sanitized, ...missing];
+            const existingIds = new Set(sanitized.map((o) => String(o.id || o.orderId).toLowerCase()));
+            const missing = DEFAULT_INITIAL_ORDERS.filter((o) => !existingIds.has(String(o.id || o.orderId).toLowerCase()));
+            const combined = [...sanitized, ...missing];
+            try {
+              localStorage.setItem('freshmart_admin_orders', JSON.stringify(combined));
+            } catch (e) {}
+            return combined;
           }
         }
       }

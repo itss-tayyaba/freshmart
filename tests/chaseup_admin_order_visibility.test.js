@@ -163,4 +163,37 @@ describe('Chase Up / Case Up Store Admin Order Visibility & Multi-Tenant Isolati
     assert.equal(list.length, 1);
     assert.equal(list[0].id, '#CU1001');
   });
+
+  it('automatically seeds and detects Chase Up initial orders in admin view', () => {
+    // Simulate user with old localStorage that only had Al-Fatah and Case Value orders
+    const oldLocalStorageOrders = [
+      { id: 'ORD-701', tenantId: 'tenant-alfatah', customer: 'Tayyaba Batool', total: 970 },
+      { id: '#CV4092', tenantId: 'tenant-chasevalue', customer: 'Usman Farooq', total: 1380 }
+    ];
+
+    const defaultInitialOrders = [
+      { id: 'ORD-701', tenantId: 'tenant-alfatah', customer: 'Tayyaba Batool', total: 970 },
+      { id: '#CV4092', tenantId: 'tenant-chasevalue', customer: 'Usman Farooq', total: 1380 },
+      { id: '#CU62901', tenantId: 'tenant-chaseup', customer: 'Hamza Tariq', total: 2450 },
+      { id: 'ORD-CU-001', tenantId: 'tenant-chaseup', customer: 'Zainab Merchant', total: 3400 }
+    ];
+
+    const existingIds = new Set(oldLocalStorageOrders.map((o) => String(o.id).toLowerCase()));
+    const missing = defaultInitialOrders.filter((o) => !existingIds.has(String(o.id).toLowerCase()));
+    const restoredOrders = [...oldLocalStorageOrders, ...missing].map(sanitizeOrder);
+
+    // Chase Up Store Admin view filter
+    const targetTenantId = 'tenant-chaseup';
+    const chaseUpOrders = restoredOrders.filter((o) => {
+      const idLower = String(o.id || o.orderId || '').toLowerCase();
+      if ((idLower.startsWith('#cu') || idLower.startsWith('cu-') || idLower.startsWith('ord-cu')) && isSameTenant(targetTenantId, 'tenant-chaseup')) {
+        return true;
+      }
+      return isSameTenant(o.tenantId, targetTenantId);
+    });
+
+    assert.equal(chaseUpOrders.length, 2);
+    assert.equal(chaseUpOrders[0].id, '#CU62901');
+    assert.equal(chaseUpOrders[1].id, 'ORD-CU-001');
+  });
 });

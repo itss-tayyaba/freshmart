@@ -104,8 +104,16 @@ export const DashboardView = ({ onNavigateModule }) => {
       if (hasChaseUp && isSameTenant(tenantKey, 'tenant-chaseup')) return true;
       if (hasChaseUp && !isSameTenant(tenantKey, 'tenant-chaseup')) return false;
 
+      const idLower = String(order.id || order.orderId || order._id || '').toLowerCase();
+      if ((idLower.startsWith('#cu') || idLower.startsWith('cu-') || idLower.startsWith('ord-cu') || idLower.includes('-cu-') || idLower.includes('caseup')) && isSameTenant(tenantKey, 'tenant-chaseup')) {
+        return true;
+      }
+      if ((idLower.startsWith('#cv') || idLower.startsWith('cv-') || idLower.startsWith('ord-cv') || idLower.includes('-cv-')) && isSameTenant(tenantKey, 'tenant-chasevalue')) {
+        return true;
+      }
+
       if (!orderTenant) {
-        const id = String(order.id || order.orderId || '').toLowerCase();
+        const id = idLower;
         if (id.includes('701') || id.includes('af')) return isSameTenant('tenant-alfatah', tenantKey);
         if (id.includes('fm') || id.includes('83459')) return isSameTenant('tenant-freshmart', tenantKey);
         if (id.includes('cv')) return isSameTenant('tenant-chasevalue', tenantKey);
