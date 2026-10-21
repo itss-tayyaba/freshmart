@@ -331,7 +331,22 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       return;
     }
     if (assignRiderToOrder) {
-      await assignRiderToOrder(orderId, riderId, 'Ready for Dispatch');
+      await assignRiderToOrder(orderId, riderId, 'Out for Delivery');
+      if (selectedOrder && selectedOrder.id === orderId) {
+        const targetRider = riders.find((r) => r.id === riderId);
+        if (targetRider) {
+          setSelectedOrder((prev) => ({
+            ...prev,
+            status: 'Out for Delivery',
+            assignedRider: {
+              id: targetRider.id,
+              name: targetRider.name,
+              phone: targetRider.phone,
+              vehicle: targetRider.vehicleNumber || targetRider.vehicleType
+            }
+          }));
+        }
+      }
     }
   };
 
@@ -792,7 +807,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                               }
 
                               // 2. In Transit with Rider
-                              if (ord.assignedRider && (ord.status === 'Out for Delivery' || ord.status === 'Dispatched to Rider')) {
+                              if (ord.assignedRider && (ord.status === 'Out for Delivery' || ord.status === 'Dispatched to Rider' || ord.status === 'Ready for Dispatch')) {
                                 return (
                                   <div className="bg-sky-50 border border-sky-200/90 rounded-lg px-2 py-1 w-full shadow-2xs">
                                     <div className="text-[11px] font-bold text-sky-900 flex items-center gap-1 truncate">
@@ -811,55 +826,30 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                                 );
                               }
 
-                              // 3. Step 1: Needs Pickup Staff Assignment (Assigned from Pickup Staff page)
-                              if (!hasPickupStaff && (ord.status === 'Pending' || ord.status === 'Confirmed' || !ord.status)) {
-                                return (
-                                  <div className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 w-full shadow-2xs">
-                                    <div className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                                      <Package className="w-3 h-3 text-slate-400 shrink-0" />
-                                      <span className="truncate">Awaiting Staff</span>
-                                    </div>
-                                    <span className="text-[9px] text-slate-400 font-medium block truncate">
-                                      Assign in Pickup Staff tab
-                                    </span>
-                                  </div>
-                                );
-                              }
-
-                              // 4. Step 2: Locked · Assigned to Pickup Staff (In Prep on Staff Portal, Awaiting Dispatch)
-                              if (hasPickupStaff && !isDispatchedByStaff) {
-                                return (
-                                  <div className="bg-amber-50/90 border border-amber-300/80 rounded-xl px-2.5 py-1.5 w-full shadow-2xs">
-                                    <div className="flex items-center gap-1.5">
-                                      <div className="w-4 h-4 rounded bg-amber-200/90 text-amber-900 flex items-center justify-center shrink-0">
-                                        <Lock className="w-2.5 h-2.5" />
-                                      </div>
-                                      <span className="text-[11px] font-black text-amber-950 truncate block leading-tight">
-                                        {ord.pickupStaffName || 'Pickup Staff'}
-                                      </span>
-                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0 ml-auto"></span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-[10px] text-amber-900/90 font-semibold pt-1 border-t border-amber-200/60 mt-1">
-                                      <span className="truncate">⏳ In Prep · Locked</span>
-                                      {ord.deliveryOtp && (
-                                        <span className="font-mono font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1 rounded text-[9px] shrink-0 ml-1">
-                                          #{ord.deliveryOtp}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              }
-
-                              // 5. Step 3: Dispatched by Pickup Staff (Ready for Rider Assignment)
+                              // 3. Unassigned Rider - Show staff preparation badge & Rider Assignment controls
                               return (
                                 <div className="flex flex-col gap-1 w-full">
-                                  <div className="flex items-center justify-between text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                                    <span className="truncate">✓ Dispatched: {ord.pickupStaffName || 'Staff'}</span>
-                                    {ord.deliveryOtp && (
-                                      <span className="font-mono text-[9px] text-emerald-900">#{ord.deliveryOtp}</span>
-                                    )}
-                                  </div>
+                                  {hasPickupStaff ? (
+                                    <div className={`flex items-center justify-between text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                      isDispatchedByStaff
+                                        ? 'text-emerald-800 bg-emerald-50 border border-emerald-200'
+                                        : 'text-amber-900 bg-amber-50 border border-amber-200'
+                                    }`}>
+                                      <span className="truncate">
+                                        {isDispatchedByStaff ? `✓ Dispatched: ${ord.pickupStaffName || 'Staff'}` : `⏳ Staff: ${ord.pickupStaffName || 'Staff'}`}
+                                      </span>
+                                      {!isDispatchedByStaff && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0 ml-1"></span>}
+                                      {ord.deliveryOtp && isDispatchedByStaff && (
+                                        <span className="font-mono text-[9px] text-emerald-900">#{ord.deliveryOtp}</span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="text-[10px] text-slate-500 font-medium flex items-center gap-1 px-1">
+                                      <Package className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                      <span className="truncate">Staff: Unassigned</span>
+                                    </div>
+                                  )}
+
                                   <div className="flex items-center gap-1 w-full">
                                     <select
                                       value={ord.assignedRider?.id || selectedRiderMap[ord.id] || ''}
@@ -872,7 +862,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                                       <option value="">Choose rider...</option>
                                       {eligibleRiders.map((r) => (
                                         <option key={r.id} value={r.id}>
-                                          🛵 {r.name} · {r.distanceKm.toFixed(1)}km
+                                          🛵 {r.name} {r.distanceKm > 0 ? `· ${r.distanceKm.toFixed(1)}km` : ''}
                                         </option>
                                       ))}
                                     </select>
@@ -1118,34 +1108,65 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               </span>
             </div>
 
-            {/* Staff Fulfillment Status (Assigned from Pickup Staff tab, cannot be altered here) */}
+            {/* Rider Assignment Section in Drawer */}
             <div className="pt-2">
-              {selectedOrder.pickupStaffId || selectedOrder.pickupStaffName ? (
-                <div className="p-3 bg-amber-50/90 rounded-2xl border border-amber-200 text-xs space-y-1.5 shadow-2xs">
-                  <div className="flex items-center justify-between text-amber-950 font-bold">
-                    <span className="flex items-center gap-1.5 truncate">
-                      <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                      <span className="truncate">Assigned: {selectedOrder.pickupStaffName || 'Pickup Staff'}</span>
+              <div className="p-3 bg-slate-50/90 rounded-2xl border border-slate-200 text-xs space-y-2 shadow-2xs">
+                <div className="flex items-center justify-between text-slate-800 font-bold">
+                  <span className="flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Courier / Delivery Rider</span>
+                  </span>
+                  {selectedOrder.assignedRider && (
+                    <span className="text-[10px] font-black uppercase text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                      Assigned
                     </span>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300 shrink-0">
-                      {selectedOrder.isDispatchedByStaff ? 'Dispatched' : 'In Preparation'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-amber-800 leading-relaxed">
-                    Status updates come directly from the Pickup Staff Portal. Orders page cannot alter staff status.
-                  </p>
+                  )}
                 </div>
-              ) : (
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1 shadow-2xs">
-                  <div className="flex items-center gap-1.5 text-slate-800 font-bold">
-                    <Boxes className="w-3.5 h-3.5 text-slate-600" />
-                    <span>Pickup Staff Assignment</span>
+
+                {selectedOrder.assignedRider ? (
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-200 text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-900">🛵 {selectedOrder.assignedRider.name}</span>
+                      <span className="text-[10px] text-emerald-700 font-bold">Active Run</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-mono">
+                      {selectedOrder.assignedRider.phone || selectedOrder.assignedRider.vehicle}
+                    </div>
+                    {selectedOrder.deliveryOtp && (
+                      <div className="text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg mt-1 flex items-center justify-between">
+                        <span>Handover PIN:</span>
+                        <span className="font-mono text-sm tracking-widest">#{selectedOrder.deliveryOtp}</span>
+                      </div>
+                    )}
                   </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Orders are assigned to pickup staff in the <strong className="text-slate-900 font-bold">Pickup Staff</strong> tab.
-                  </p>
-                </div>
-              )}
+                ) : (
+                  <div className="space-y-2">
+                    <select
+                      value={selectedRiderMap[selectedOrder.id] || ''}
+                      onChange={(e) =>
+                        setSelectedRiderMap((prev) => ({ ...prev, [selectedOrder.id]: e.target.value }))
+                      }
+                      className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    >
+                      <option value="">Select rider to assign...</option>
+                      {(getEligibleRidersForOrder ? getEligibleRidersForOrder(selectedOrder) : riders).map((r) => (
+                        <option key={r.id} value={r.id}>
+                          🛵 {r.name} {r.distanceKm > 0 ? `· ${r.distanceKm.toFixed(1)}km` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => handleAssignRider(selectedOrder.id)}
+                      disabled={!selectedRiderMap[selectedOrder.id]}
+                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                    >
+                      <Truck className="w-3.5 h-3.5" />
+                      <span>Assign Rider to Order</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="pt-3 border-t border-slate-100 space-y-2">

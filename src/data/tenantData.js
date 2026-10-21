@@ -298,6 +298,7 @@ export const INITIAL_RIDERS = [
     password: 'rider123',
     tenantId: 'tenant-alfatah',
     tenantName: 'Al-Fatah Supermarket',
+    branchId: 'branch_af_fsd',
     vehicleType: '🏍️ Honda 125',
     vehicleNumber: 'FSD-4821',
     zone: 'Peoples Colony No. 1 (Faisalabad)',

@@ -204,12 +204,7 @@ export const DeliveryPortal = () => {
 
   // Automatically purge legacy test demo parcels on mount so active parcels count is accurate
   useEffect(() => {
-    const isDemoOrder = (o) =>
-      o && (
-        o.branchId === 'branch_demo' ||
-        (typeof o.id === 'string' && o.id.startsWith('ORD-') && o.customer === 'Tayyaba Batool') ||
-        (typeof o.orderId === 'string' && o.orderId.startsWith('#ORD-') && o.customer === 'Tayyaba Batool')
-      );
+    const isDemoOrder = (o) => o && o.branchId === 'branch_demo';
 
     try {
       if (typeof setCustomerOrders === 'function') {
@@ -241,7 +236,7 @@ export const DeliveryPortal = () => {
     return list.filter((o) => {
       const key = o.id || o.orderId || o._id;
       if (!key || seen.has(key)) return false;
-      if (o.branchId === 'branch_demo' || (typeof key === 'string' && key.startsWith('ORD-') && o.customer === 'Tayyaba Batool')) {
+      if (o.branchId === 'branch_demo') {
         return false;
       }
       if (activeTenantId && o.tenantId && !isSameTenant(o.tenantId, activeTenantId)) return false;

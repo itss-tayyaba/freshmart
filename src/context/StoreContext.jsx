@@ -2601,6 +2601,7 @@ export const StoreProvider = ({ children }) => {
             ) {
               return {
                 ...r,
+                branchId: r.branchId || 'branch_af_fsd',
                 zone: 'Peoples Colony No. 1 (Faisalabad)',
                 branchName: 'D-Ground Flagship Hub (Faisalabad)',
                 vehicleNumber: 'FSD-4821',
@@ -3148,11 +3149,19 @@ export const StoreProvider = ({ children }) => {
     const orderTenantId = order?.tenantId || (order?.items?.[0]?.tenantId) || currentTenant?.id || 'tenant-freshmart';
 
     // Strictly filter riders matching the order's supermarket chain & available/on-duty
-    const tenantRiders = (riders || []).filter((rider) => {
+    let tenantRiders = (riders || []).filter((rider) => {
       const matchTenant = isSameTenant(rider.tenantId, orderTenantId);
-      const isAvailable = ['available', 'on-duty'].includes(String(rider.status || '').toLowerCase());
+      const isAvailable = ['available', 'on-duty', 'active'].includes(String(rider.status || '').toLowerCase());
       return matchTenant && isAvailable;
     });
+
+    // Fallback: If no strict tenant riders found, include any riders assigned to this tenant or active in fleet
+    if (tenantRiders.length === 0) {
+      tenantRiders = (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenantId));
+    }
+    if (tenantRiders.length === 0) {
+      tenantRiders = riders || [];
+    }
 
     const orderBranchId = order?.branchId;
     const orderBranchName = (order?.branchName || order?.branch || '').toLowerCase();
@@ -3168,9 +3177,20 @@ export const StoreProvider = ({ children }) => {
       const isBranchMatch = Boolean(
         (orderBranchId && rider.branchId === orderBranchId) ||
         (orderBranchName && (
-          (rider.branchName && rider.branchName.toLowerCase() === orderBranchName) ||
-          (rider.zone && rider.zone.toLowerCase() === orderBranchName) ||
-          (rider.region && rider.region.toLowerCase().includes(orderBranchName))
+          (rider.branchName && (
+            rider.branchName.toLowerCase() === orderBranchName ||
+            rider.branchName.toLowerCase().includes(orderBranchName) ||
+            orderBranchName.includes(rider.branchName.toLowerCase())
+          )) ||
+          (rider.zone && (
+            rider.zone.toLowerCase() === orderBranchName ||
+            rider.zone.toLowerCase().includes(orderBranchName) ||
+            orderBranchName.includes(rider.zone.toLowerCase())
+          )) ||
+          (rider.region && (
+            rider.region.toLowerCase().includes(orderBranchName) ||
+            orderBranchName.includes(rider.region.toLowerCase())
+          ))
         )) ||
         (orderCity && (
           (rider.city && rider.city.toLowerCase() === orderCity) ||
@@ -3187,14 +3207,12 @@ export const StoreProvider = ({ children }) => {
       };
     });
 
-    // 1. If riders are assigned directly to the order's branch / area, prioritize them!
-    const exactBranchRiders = enriched.filter((r) => r.isBranchMatch);
-    if (exactBranchRiders.length > 0) {
-      return exactBranchRiders.sort((a, b) => a.distanceKm - b.distanceKm);
-    }
-
-    // 2. Sort by distance within this supermarket's fleet
-    return enriched.sort((a, b) => a.distanceKm - b.distanceKm);
+    // Prioritize branch matches first, then sort by distance, keeping all available riders selectable
+    return enriched.sort((a, b) => {
+      if (a.isBranchMatch && !b.isBranchMatch) return -1;
+      if (!a.isBranchMatch && b.isBranchMatch) return 1;
+      return a.distanceKm - b.distanceKm;
+    });
   };
 
   const assignRiderToOrder = async (orderId, riderId, statusOverride, allowDemo = false) => {
