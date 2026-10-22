@@ -130,14 +130,14 @@ export const DeliveryView = () => {
   // Get only the real branch and areas that are actually added or configured for this store
   // Do NOT auto-inject fake/unreal mock branches
   const availableBranches = useMemo(() => {
-    const canonicalTenantId = resolveTenantId ? resolveTenantId(currentTenant?.id) : (currentTenant?.id || 'company_004');
+    const canonicalTenantId = resolveTenantId ? resolveTenantId(currentTenant?.id) : (currentTenant?.id || 'company_002');
 
     // 1. Check branches explicitly added by user in allBranches for this store
     const storeAddedBranches = (allBranches || []).filter(
       (b) =>
         b &&
         (b.status === 'active' || b.status === 'Active' || !b.status) &&
-        (b.tenantId === canonicalTenantId || b.tenantId === currentTenant?.id)
+        (b.tenantId === canonicalTenantId || b.tenantId === currentTenant?.id || isSameTenant(b.tenantId, currentTenant?.id))
     );
 
     if (storeAddedBranches.length > 0) {
@@ -150,21 +150,27 @@ export const DeliveryView = () => {
         _id: `hub_${currentTenant.id || 'curr'}_${idx}`,
         id: `hub_${currentTenant.id || 'curr'}_${idx}`,
         name: hubName,
-        tenantId: currentTenant?.id || 'tenant-alfatah',
-        city: currentTenant?.city || 'Lahore',
+        tenantId: currentTenant?.id || 'tenant-chaseup',
+        city: currentTenant?.city || 'Faisalabad',
+        latitude: 31.4125,
+        longitude: 73.0915,
+        deliveryRadius: 15,
         status: 'active'
       }));
     }
 
     // 3. Fallback: single real primary branch for current store — DO NOT inject unadded fake branches!
-    const realBranchName = `${currentTenant?.name || 'Store'} (Main Branch)`;
+    const realBranchName = `${currentTenant?.name || 'Store'} (Faisalabad Flagship Hub)`;
     return [
       {
         _id: `real_branch_${currentTenant?.id || 'main'}`,
         id: `real_branch_${currentTenant?.id || 'main'}`,
         name: realBranchName,
-        tenantId: currentTenant?.id || 'tenant-alfatah',
-        city: currentTenant?.city || 'Lahore',
+        tenantId: currentTenant?.id || 'tenant-chaseup',
+        city: currentTenant?.city || 'Faisalabad',
+        latitude: 31.4125,
+        longitude: 73.0915,
+        deliveryRadius: 15,
         status: 'active'
       }
     ];
@@ -192,10 +198,10 @@ export const DeliveryView = () => {
   const [showAdvancedRiderOptions, setShowAdvancedRiderOptions] = useState(false);
 
   const initialBranch = availableBranches[0] || {
-    name: 'Main Store Hub',
-    city: 'Lahore',
-    latitude: 31.5204,
-    longitude: 74.3587,
+    name: 'Mall of Faisalabad Flagship (Faisalabad)',
+    city: 'Faisalabad',
+    latitude: 31.4125,
+    longitude: 73.0915,
     deliveryRadius: 15
   };
 
@@ -206,11 +212,11 @@ export const DeliveryView = () => {
     vehicleNumber: '',
     branchId: initialBranch.id || initialBranch._id || '',
     branchName: initialBranch.name,
-    region: `${initialBranch.name} (${initialBranch.city || 'Store Area'})`,
+    region: `${initialBranch.name} (${initialBranch.city || 'Faisalabad'})`,
     zone: initialBranch.name,
-    city: initialBranch.city || '',
-    latitude: String(initialBranch.latitude || 31.5204),
-    longitude: String(initialBranch.longitude || 74.3587),
+    city: initialBranch.city || 'Faisalabad',
+    latitude: String(initialBranch.latitude || 31.4125),
+    longitude: String(initialBranch.longitude || 73.0915),
     coverageRadiusKm: String(initialBranch.deliveryRadius || initialBranch.coverageRadiusKm || 15),
     status: 'On-Duty',
     cnic: '',
@@ -221,11 +227,11 @@ export const DeliveryView = () => {
   // Selected rider for mobile app simulator
   const [simulatedRiderId, setSimulatedRiderId] = useState(riders[0]?.id || '');
 
-  // Filter riders belonging to active store tenant
+  // Filter riders belonging strictly to active store tenant
   const storeRiders = useMemo(() => {
     const tId = currentTenant?.id;
     if (!tId) return riders || [];
-    return (riders || []).filter((r) => !r.tenantId || r.tenantId === tId || (tId === 'tenant-alfatah' && !r.tenantId));
+    return (riders || []).filter((r) => isSameTenant(r.tenantId, tId));
   }, [riders, currentTenant?.id]);
 
   // Filter riders based on search and branch/zone
@@ -362,11 +368,11 @@ export const DeliveryView = () => {
           ...prev,
           branchId: found.id || found._id || '',
           branchName: found.name,
-          region: `${found.name} (${found.city || 'Store Area'})`,
+          region: `${found.name} (${found.city || 'Faisalabad'})`,
           zone: found.name,
-          city: found.city || '',
-          latitude: String(found.latitude || 31.5204),
-          longitude: String(found.longitude || 74.3587),
+          city: found.city || 'Faisalabad',
+          latitude: String(found.latitude || 31.4125),
+          longitude: String(found.longitude || 73.0915),
           coverageRadiusKm: String(found.deliveryRadius || found.coverageRadiusKm || 15)
         }));
       }
@@ -385,16 +391,16 @@ export const DeliveryView = () => {
 
   const handleOpenAddRiderModal = () => {
     if (availableBranches.length > 0 && !isCustomRegion) {
-      const activeBr = currentBranch || availableBranches[0];
+      const activeBr = availableBranches.find((b) => isSameTenant(b.tenantId, currentTenant?.id)) || availableBranches[0];
       setNewRiderForm((prev) => ({
         ...prev,
         branchId: activeBr.id || activeBr._id || '',
         branchName: activeBr.name,
-        region: `${activeBr.name} (${activeBr.city || 'Store Area'})`,
+        region: `${activeBr.name} (${activeBr.city || 'Faisalabad'})`,
         zone: activeBr.name,
-        city: activeBr.city || '',
-        latitude: String(activeBr.latitude || 31.5204),
-        longitude: String(activeBr.longitude || 74.3587),
+        city: activeBr.city || 'Faisalabad',
+        latitude: String(activeBr.latitude || 31.4125),
+        longitude: String(activeBr.longitude || 73.0915),
         coverageRadiusKm: String(activeBr.deliveryRadius || activeBr.coverageRadiusKm || 15)
       }));
     }
@@ -441,8 +447,8 @@ export const DeliveryView = () => {
     let lat = Number(newRiderForm.latitude);
     let lng = Number(newRiderForm.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      lat = selectedBranch ? Number(selectedBranch.latitude) : 31.5204;
-      lng = selectedBranch ? Number(selectedBranch.longitude) : 74.3587;
+      lat = selectedBranch ? Number(selectedBranch.latitude) : 31.4125;
+      lng = selectedBranch ? Number(selectedBranch.longitude) : 73.0915;
     }
 
     const finalBranchName = isCustomRegion
@@ -451,7 +457,7 @@ export const DeliveryView = () => {
 
     const finalRegion = isCustomRegion
       ? (customRegionName.trim() || 'Custom Area')
-      : `${finalBranchName} (${selectedBranch?.city || 'Local'})`;
+      : `${finalBranchName} (${selectedBranch?.city || 'Faisalabad'})`;
 
     const generatedUsername =
       newRiderForm.username.trim() ||
@@ -459,7 +465,7 @@ export const DeliveryView = () => {
       newRiderForm.name.toLowerCase().replace(/\s+/g, '_');
     const generatedPassword = newRiderForm.password.trim() || 'rider123';
     const generatedPlate =
-      newRiderForm.vehicleNumber.trim() || `LEK-${Math.floor(1000 + Math.random() * 9000)}`;
+      newRiderForm.vehicleNumber.trim() || `FSD-${Math.floor(1000 + Math.random() * 9000)}`;
 
     addRider({
       name: newRiderForm.name.trim(),
@@ -468,7 +474,7 @@ export const DeliveryView = () => {
       vehicleNumber: generatedPlate,
       branchId: isCustomRegion ? 'custom' : (selectedBranch?.id || selectedBranch?._id || ''),
       branchName: finalBranchName,
-      city: selectedBranch?.city || '',
+      city: selectedBranch?.city || currentTenant?.city || 'Faisalabad',
       region: finalRegion,
       zone: finalBranchName,
       latitude: lat,
@@ -476,6 +482,8 @@ export const DeliveryView = () => {
       coordinates: { lat, lng },
       coverageRadiusKm: Number(newRiderForm.coverageRadiusKm || selectedBranch?.deliveryRadius || 15),
       status: newRiderForm.status || 'On-Duty',
+      tenantId: currentTenant?.id || 'tenant-chaseup',
+      tenantName: currentTenant?.name || 'Chase Up',
       cnic: newRiderForm.cnic ? newRiderForm.cnic.trim() : '',
       username: generatedUsername,
       password: generatedPassword,

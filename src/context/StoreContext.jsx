@@ -1008,7 +1008,25 @@ export const StoreProvider = ({ children }) => {
       }
       setCurrentBranch(closest);
     } else {
-      setCurrentBranch(FAISALABAD_BRANCH);
+      const tenantHubName = currentTenant?.hubs?.[0] || `${currentTenant?.name || 'Store'} (Faisalabad Flagship Hub)`;
+      const tenantBranch = {
+        _id: `branch_${currentTenant?.id || 'curr'}_fsd`,
+        id: `branch_${currentTenant?.id || 'curr'}_fsd`,
+        code: `FSD-${(currentTenant?.name || 'ST').substring(0, 2).toUpperCase()}`,
+        name: tenantHubName,
+        shortName: `${currentTenant?.name || 'Store'} Hub`,
+        tenantId: currentTenant?.id || 'tenant-chaseup',
+        city: 'Faisalabad',
+        district: 'Mall of Faisalabad & Peoples Colony',
+        address: `${tenantHubName}, Faisalabad, Punjab, Pakistan`,
+        coordinates: { lat: 31.4125, lng: 73.0915 },
+        latitude: 31.4125,
+        longitude: 73.0915,
+        deliveryRadius: 15,
+        status: 'Active',
+        isFlagship: true
+      };
+      setCurrentBranch(tenantBranch);
     }
   }, [currentTenant, deliveryLocation, allBranches]);
 
@@ -2806,12 +2824,27 @@ export const StoreProvider = ({ children }) => {
 
   const [riders, setRiders] = useState(() => {
     try {
-      const saved = localStorage.getItem('freshmart_riders_v3');
+      const saved = localStorage.getItem('freshmart_riders_v3') || localStorage.getItem('freshmart_riders');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const existingKeys = new Set(parsed.map((r) => (r.username || r.email || r.id || r.phone)?.toLowerCase()));
-          const merged = parsed.map((r) => {
+          // Permanently purge Usman Tariq / RDR-CHASEUP / chaseup_rider
+          const withoutUsman = parsed.filter((r) => {
+            const rName = (r.name || '').toLowerCase();
+            const rId = (r.id || '').toUpperCase();
+            const rUser = (r.username || '').toLowerCase();
+            if (
+              rId === 'RDR-CHASEUP' ||
+              rUser === 'chaseup_rider' ||
+              (rName.includes('usman') && isSameTenant(r.tenantId, 'tenant-chaseup'))
+            ) {
+              return false;
+            }
+            return true;
+          });
+
+          const existingKeys = new Set(withoutUsman.map((r) => (r.username || r.email || r.id || r.phone)?.toLowerCase()));
+          const merged = withoutUsman.map((r) => {
             if (
               r.id === 'RDR-ALFATAH' ||
               isSameTenant(r.tenantId, 'tenant-alfatah') ||
@@ -2827,21 +2860,6 @@ export const StoreProvider = ({ children }) => {
                 coordinates: { lat: 31.4147, lng: 73.0872 }
               };
             }
-            if (
-              r.id === 'RDR-CHASEUP' ||
-              isSameTenant(r.tenantId, 'tenant-chaseup') ||
-              (r.name && r.name.toLowerCase().includes('chase up'))
-            ) {
-              return {
-                ...r,
-                branchId: r.branchId || 'branch_cu_fsd',
-                zone: 'Mall of Faisalabad & Clock Tower Hub',
-                branchName: 'Mall of Faisalabad Flagship',
-                vehicleNumber: 'FSD-4102',
-                status: 'On-Duty',
-                coordinates: { lat: 31.4125, lng: 73.0915 }
-              };
-            }
             return r;
           });
           (INITIAL_RIDERS || []).forEach((initR) => {
@@ -2852,6 +2870,10 @@ export const StoreProvider = ({ children }) => {
               merged.push(initR);
             }
           });
+          try {
+            localStorage.setItem('freshmart_riders_v3', JSON.stringify(merged));
+            localStorage.setItem('freshmart_riders', JSON.stringify(merged));
+          } catch (e) {}
           return merged;
         }
       }
@@ -3259,19 +3281,20 @@ export const StoreProvider = ({ children }) => {
   const addRider = async (riderData) => {
     const newId = `RDR-${Math.floor(100 + Math.random() * 900)}`;
     const coords = readCoordinates(riderData.coordinates, riderData);
-    const lat = coords?.lat ?? (riderData.latitude ? Number(riderData.latitude) : 31.5204);
-    const lng = coords?.lng ?? (riderData.longitude ? Number(riderData.longitude) : 74.3587);
-    const regionName = riderData.region || riderData.zone || 'Lahore - Gulberg / Main Hub';
+    const lat = coords?.lat ?? (riderData.latitude ? Number(riderData.latitude) : 31.4125);
+    const lng = coords?.lng ?? (riderData.longitude ? Number(riderData.longitude) : 73.0915);
+    const tenantName = riderData.tenantName || currentTenant?.name || 'Chase Up';
+    const regionName = riderData.region || riderData.zone || `${tenantName} (Faisalabad Flagship)`;
 
     const newRider = {
       id: newId,
       name: riderData.name,
       phone: riderData.phone,
       vehicleType: riderData.vehicleType || '🏍️ Honda 125',
-      vehicleNumber: riderData.vehicleNumber || `LEK-${Math.floor(1000 + Math.random() * 9000)}`,
+      vehicleNumber: riderData.vehicleNumber || `FSD-${Math.floor(1000 + Math.random() * 9000)}`,
       branchId: riderData.branchId || null,
       branchName: riderData.branchName || regionName,
-      city: riderData.city || '',
+      city: riderData.city || currentTenant?.city || 'Faisalabad',
       region: regionName,
       zone: regionName,
       latitude: lat,
@@ -3279,8 +3302,8 @@ export const StoreProvider = ({ children }) => {
       coordinates: { lat, lng },
       coverageRadiusKm: Number(riderData.coverageRadiusKm) || 15,
       status: riderData.status || 'On-Duty',
-      tenantId: riderData.tenantId || currentTenant?.id || 'tenant-alfatah',
-      tenantName: riderData.tenantName || currentTenant?.name || 'Al-Fatah Supermarket',
+      tenantId: riderData.tenantId || currentTenant?.id || 'tenant-chaseup',
+      tenantName: tenantName,
       cnic: riderData.cnic || '',
       username: (riderData.username || riderData.phone || riderData.name).toLowerCase().replace(/\s+/g, '_'),
       password: riderData.password || 'rider123',
@@ -3293,6 +3316,7 @@ export const StoreProvider = ({ children }) => {
       const updated = [newRider, ...prev];
       try {
         localStorage.setItem('freshmart_riders', JSON.stringify(updated));
+        localStorage.setItem('freshmart_riders_v3', JSON.stringify(updated));
       } catch (e) {}
       return updated;
     });
@@ -3389,12 +3413,12 @@ export const StoreProvider = ({ children }) => {
       return matchTenant && isAvailable;
     });
 
-    // Fallback: If no strict tenant riders found, include any riders assigned to this tenant or active in fleet
+    // Fallback: If no strict on-duty riders found, include any riders assigned to this tenant
     if (tenantRiders.length === 0) {
       tenantRiders = (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenantId));
     }
     if (tenantRiders.length === 0) {
-      tenantRiders = riders || [];
+      return [];
     }
 
     const orderBranchId = order?.branchId;

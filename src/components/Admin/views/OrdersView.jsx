@@ -440,7 +440,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       return oId === cleanId || String(o.id || '').toLowerCase() === String(orderId || '').toLowerCase() || String(o.orderId || '').toLowerCase() === String(orderId || '').toLowerCase();
     });
 
-    const eligible = (ord && getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : []) || riders || [];
+    const eligible = (ord && getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : []) || [];
     const firstEligibleId = eligible?.[0]?.id || eligible?.[0]?._id || eligible?.[0]?.riderId;
 
     const riderId =
@@ -453,7 +453,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       firstEligibleId;
 
     if (!riderId) {
-      addToast('Select a Rider 🛵', 'No courier available to assign. Please register a rider for this branch.', 'error');
+      addToast('Add Rider in Fleet View 🛵', 'No courier registered yet for this store. Please add a rider in the Delivery / Fleet tab first.', 'error');
       return;
     }
     if (assignRiderToOrder) {
@@ -1064,7 +1064,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                                     <button
                                       type="button"
                                       onClick={() => handleAssignRider(orderKey, currentChosenRider)}
-                                      disabled={!currentChosenRider && eligibleRiders.length === 0}
+                                      disabled={!currentChosenRider || eligibleRiders.length === 0}
                                       className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition cursor-pointer shadow-2xs shrink-0 disabled:opacity-40 flex items-center gap-1"
                                       title="Dispatch order to this rider"
                                     >
@@ -1150,6 +1150,10 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                                         selectedRiderMap[orderKey] ||
                                         selectedRiderMap[cleanOrderKey] ||
                                         defaultRiderId;
+                                      if (!riderToAssign) {
+                                        addToast('Add Rider in Fleet View 🛵', 'No courier registered yet for this store. Please add a rider in the Delivery / Fleet tab first.', 'error');
+                                        return;
+                                      }
                                       handleAssignRider(orderKey, riderToAssign);
                                     }}
                                     className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[10px] font-bold transition shadow-2xs cursor-pointer"

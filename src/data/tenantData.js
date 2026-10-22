@@ -15,6 +15,7 @@ export const INITIAL_TENANTS = [
     ownerName: 'Sheikh Tariq Al-Fatah',
     ownerEmail: 'admin@alfatah.pk',
     ownerPhone: '+92 300 8441122',
+    city: 'Faisalabad',
     status: 'Active',
     color: '#991b1b',
     theme: {
@@ -54,6 +55,7 @@ export const INITIAL_TENANTS = [
     ownerName: 'Farhan Case Value',
     ownerEmail: 'admin@chasevalue.pk',
     ownerPhone: '+92 321 9876543',
+    city: 'Faisalabad',
     status: 'Active',
     color: '#78350f',
     theme: {
@@ -61,7 +63,7 @@ export const INITIAL_TENANTS = [
       accentColor: '#d97706',
       bgGradient: 'from-[#451a03] via-[#78350f] to-[#b45309]'
     },
-    hubs: ['Shaheed-e-Millat Main Branch (Karachi)'],
+    hubs: ['D-Ground Hub (Faisalabad)', 'Peoples Colony Dark Store (Faisalabad)'],
     subscription: {
       plan: 'Professional',
       billingCycle: 'Monthly',
@@ -83,6 +85,7 @@ export const INITIAL_TENANTS = [
     tenantId: 'tenant-chaseup',
     name: 'Chase Up',
     slug: 'chase-up',
+    city: 'Faisalabad',
     tagline: 'One-Stop Family Shopping & Fresh Supermarket Chain',
     description: 'Extensive retail department chain serving hundreds of thousands of Pakistani families with high-turnover grocery essentials and household items.',
     logo: '🏪',
@@ -98,7 +101,7 @@ export const INITIAL_TENANTS = [
       accentColor: '#f97316',
       bgGradient: 'from-purple-900 via-purple-950 to-slate-950'
     },
-    hubs: ['Clifton Main Branch (Karachi)'],
+    hubs: ['Mall of Faisalabad Flagship (Faisalabad)', 'Clock Tower Hub (Faisalabad)'],
     subscription: {
       plan: 'Professional',
       billingCycle: 'Monthly',
@@ -122,6 +125,7 @@ export const INITIAL_TENANTS = [
     displayName: 'Unimaart (Market Store)',
     brandName: 'Unimaart',
     slug: 'freshmart',
+    city: 'Faisalabad',
     tagline: 'Fresh Food, Fair Prices, Fast Delivery',
     description: 'Fresh veggies full of vitamins for your health. Quality produce and daily market essentials delivered right to you in minutes.',
     logo: '🛒',
@@ -137,7 +141,7 @@ export const INITIAL_TENANTS = [
       accentColor: '#38bdf8',
       bgGradient: 'from-[#033659] via-[#0284c7] to-[#38bdf8]'
     },
-    hubs: ['Main Hub (Lahore)'],
+    hubs: ['D-Ground Commercial Center (Faisalabad)', 'Peoples Colony Dark Store (Faisalabad)'],
     subscription: {
       plan: 'Enterprise',
       billingCycle: 'Annual',
@@ -323,24 +327,6 @@ export const INITIAL_RIDERS = [
     branchName: 'Shaheed-e-Millat Main Branch (Karachi)',
     status: 'On-Duty',
     coordinates: { lat: 24.8716, lng: 67.0694 },
-    coverageRadiusKm: 25,
-    rating: 4.9
-  },
-  {
-    id: 'RDR-CHASEUP',
-    name: 'Usman Tariq (Chase Up)',
-    username: 'chaseup_rider',
-    phone: '03335556677',
-    password: 'rider123',
-    tenantId: 'tenant-chaseup',
-    tenantName: 'Chase Up',
-    branchId: 'branch_cu_fsd',
-    vehicleType: '🏍️ Yamaha YBR 125',
-    vehicleNumber: 'FSD-4102',
-    zone: 'Mall of Faisalabad & Clock Tower Hub',
-    branchName: 'Mall of Faisalabad Flagship',
-    status: 'On-Duty',
-    coordinates: { lat: 31.4125, lng: 73.0915 },
     coverageRadiusKm: 25,
     rating: 4.9
   },
