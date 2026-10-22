@@ -180,26 +180,34 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       rider.status === 'On-Duty'
   );
   const getAvailableRidersForOrder = (order) => {
-    const area = order.shippingAddress?.area || order.neighborhood || '';
+    const area =
+      order.shippingAddress?.area ||
+      order.shippingAddress?.neighborhood ||
+      order.shippingAddress?.address ||
+      order.address ||
+      order.neighborhood ||
+      '';
     return branchRiders
-      .filter(
-        (rider) =>
-          rider.coordinates &&
-          Number.isFinite(Number(rider.coordinates.lat)) &&
-          Number.isFinite(Number(rider.coordinates.lng)) &&
-          riderServesArea(rider.zone, area)
-      )
-      .map((rider) => ({
-        ...rider,
-        distanceKm: order.destinationCoords || order.shippingAddress?.coords
-          ? calculateDistanceKm(
-              (order.destinationCoords || order.shippingAddress.coords).lat,
-              (order.destinationCoords || order.shippingAddress.coords).lng,
-              rider.coordinates.lat,
-              rider.coordinates.lng
-            )
-          : null
-      }))
+      .filter((rider) => riderServesArea(rider.zone, area))
+      .map((rider) => {
+        const riderLat = Number(rider.coordinates?.lat);
+        const riderLng = Number(rider.coordinates?.lng);
+        const destination = order.destinationCoords || order.shippingAddress?.coords;
+        const destinationLat = Number(destination?.lat);
+        const destinationLng = Number(destination?.lng);
+        const hasCoordinates =
+          Number.isFinite(riderLat) &&
+          Number.isFinite(riderLng) &&
+          Number.isFinite(destinationLat) &&
+          Number.isFinite(destinationLng);
+
+        return {
+          ...rider,
+          distanceKm: hasCoordinates
+            ? calculateDistanceKm(destinationLat, destinationLng, riderLat, riderLng)
+            : null
+        };
+      })
       .sort((first, second) => {
         const destination = order.destinationCoords || order.shippingAddress?.coords;
         if (!destination || first.distanceKm === null || second.distanceKm === null) return 0;
@@ -625,10 +633,15 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                             </span>
                           ) : ord.status === 'Cancelled' ? (
                             <span className="text-[11px] font-bold text-rose-500">Cancelled</span>
+                          ) : ord.assignedRider ? (
+                            <span className="text-[11px] font-bold text-emerald-800">
+                              {ord.assignedRider.name || 'Rider assigned'}
+                              <span className="block text-[9px] font-medium text-slate-500">Assigned to delivery</span>
+                            </span>
                           ) : (
                             <div className="min-w-[160px]">
                               <select
-                                value={ord.assignedRider?.id || ''}
+                                value=""
                                 onChange={(e) => {
                                   const targetOrder = liveOrders.find((order) => order.id === ord.id);
                                   if (targetOrder?.status === 'Ready for Pickup') {
@@ -638,24 +651,22 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                                   }
                                 }}
                                 disabled={ord.status !== 'Ready for Pickup'}
-                                className={`w-full text-[11px] font-bold rounded-xl px-2.5 py-1.5 border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                                  ord.assignedRider
-                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                                    : 'bg-amber-50 border-amber-300 text-amber-900'
-                                }`}
+                                className="w-full rounded-xl border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-bold text-amber-900 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500"
                               >
-                                <option value="">-- 🛵 Assign Rider --</option>
+                                <option value="">-- 🛵 Assign Rider ({getAvailableRidersForOrder(ord).length} available) --</option>
                                 {getAvailableRidersForOrder(ord).map((r) => (
                                   <option key={r.id} value={r.id}>
                                     {r.name} ({r.zone || 'Hub'}{r.distanceKm !== null ? ` · ${r.distanceKm} km` : ''})
                                   </option>
                                 ))}
                               </select>
-                              {getAvailableRidersForOrder(ord).length === 0 && (
-                                <span className="text-[9px] text-rose-500 font-bold block mt-0.5">
-                                  No on-duty rider with GPS location covers this delivery area
-                                </span>
-                              )}
+                              <span className="text-[9px] text-slate-500 block mt-0.5">
+                                {ord.status !== 'Ready for Pickup'
+                                  ? 'Available once pickup staff marks the parcel ready.'
+                                  : getAvailableRidersForOrder(ord).length === 0
+                                    ? 'No on-duty rider from this branch covers the delivery area.'
+                                    : `${getAvailableRidersForOrder(ord).length} on-duty rider(s) available.`}
+                              </span>
                             </div>
                           )}
                         </td>
@@ -951,21 +962,35 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Assigned Delivery Courier
               </span>
-              <div className="flex items-center gap-2">
+              {selectedOrder.assignedRider ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
+                  {selectedOrder.assignedRider.name || 'Rider assigned'} · {selectedOrder.status}
+                </div>
+              ) : (
                 <select
-                  value={selectedOrder.assignedRider?.id || ''}
+                  value=""
                   onChange={(e) => handleAssignRider(selectedOrder.id, e.target.value)}
                   disabled={selectedOrder.status !== 'Ready for Pickup'}
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                  className="w-full cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed"
                 >
-                  <option value="">-- Assign Rider to Order --</option>
+                  <option value="">-- Assign Rider ({getAvailableRidersForOrder(selectedOrder).length} available) --</option>
                   {getAvailableRidersForOrder(selectedOrder).map((r) => (
                     <option key={r.id} value={r.id}>
-                      🛵 {r.name} ({r.zone || 'Lahore Hub'}{r.distanceKm !== null ? ` · ${r.distanceKm} km` : ''})
+                      🛵 {r.name} ({r.zone || 'Branch zone'}{r.distanceKm !== null ? ` · ${r.distanceKm.toFixed(1)} km` : ''})
                     </option>
                   ))}
                 </select>
-              </div>
+              )}
+              {!selectedOrder.assignedRider && selectedOrder.status !== 'Ready for Pickup' && (
+                <p className="text-[10px] text-slate-500">
+                  Rider selection unlocks after pickup staff marks this parcel ready.
+                </p>
+              )}
+              {!selectedOrder.assignedRider && selectedOrder.status === 'Ready for Pickup' && getAvailableRidersForOrder(selectedOrder).length === 0 && (
+                <p className="text-[10px] text-amber-700">
+                  No on-duty rider from this branch covers the delivery area. Check rider availability and service zones.
+                </p>
+              )}
             </div>
 
             {/* Quick Status Update Buttons */}

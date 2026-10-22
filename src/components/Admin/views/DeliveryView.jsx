@@ -51,7 +51,7 @@ export const DeliveryView = () => {
 
   const isAdmin = adminRole === 'admin' || adminRole === 'superadmin';
 
-  const [activeSubTab, setActiveSubTab] = useState('queue'); // 'queue' | 'fleet' | 'rider-app' | 'coverage'
+  const [activeSubTab, setActiveSubTab] = useState(adminRole === 'rider' ? 'rider-app' : 'fleet');
   const [searchRider, setSearchRider] = useState('');
   const [filterZone, setFilterZone] = useState('All');
   const [copiedId, setCopiedId] = useState(null);
@@ -80,6 +80,8 @@ export const DeliveryView = () => {
   // Selected rider for mobile app simulator
   const [simulatedRiderId, setSimulatedRiderId] = useState(riders[0]?.id || 'RDR-101');
 
+  const riderZones = [...new Set((riders || []).map((rider) => rider.zone).filter(Boolean))].sort();
+
   // Filter riders based on search and zone
   const filteredRiders = (riders || []).filter((r) => {
     const matchesSearch =
@@ -87,14 +89,9 @@ export const DeliveryView = () => {
       r.phone.includes(searchRider) ||
       (r.username && r.username.toLowerCase().includes(searchRider.toLowerCase())) ||
       (r.vehicleNumber && r.vehicleNumber.toLowerCase().includes(searchRider.toLowerCase()));
-    const matchesZone = filterZone === 'All' || r.zone.includes(filterZone);
+    const matchesZone = filterZone === 'All' || r.zone === filterZone;
     return matchesSearch && matchesZone;
   });
-
-  // KPI Metrics
-  const activeRidersCount = (riders || []).filter((r) => r.status === 'On-Duty' || r.status === 'Busy').length;
-  const totalDeliveries = (riders || []).reduce((sum, r) => sum + (r.deliveriesCount || 0), 0);
-  const pendingDispatches = (customerOrders || []).filter((o) => o.status !== 'Delivered');
 
   const handleCopyText = (text, label) => {
     navigator.clipboard.writeText(text);
@@ -211,7 +208,7 @@ export const DeliveryView = () => {
         <div className="relative z-10 space-y-2 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs font-bold tracking-wide">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            <span>Live Logistics & Courier Dispatch Control</span>
+            <span>{isAdmin ? 'Branch Rider Management' : 'Live Rider Dispatch'}</span>
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
@@ -223,7 +220,7 @@ export const DeliveryView = () => {
 
           <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-medium">
             {isAdmin
-              ? 'Verify customer addresses, assign active on-duty couriers, and track realtime doorstep fulfillment across Pakistan.'
+              ? 'Manage branch riders and availability here. Assign an available rider directly from the Orders page after pickup staff marks a parcel ready.'
               : 'Access your assigned grocery dispatches, update delivery milestones, and view customer route maps.'}
           </p>
         </div>
@@ -247,115 +244,17 @@ export const DeliveryView = () => {
               className="px-5 py-2.5 bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-slate-950 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg shadow-amber-950/30 hover:scale-105 transition-all cursor-pointer"
             >
               <UserPlus className="w-4 h-4 text-slate-950" />
-              <span>+ Register New Rider</span>
+              <span>Add Rider</span>
             </button>
           </div>
         )}
       </div>
 
-      {/* ===================================================================== */}
-      {/* 2. KEY FLEET KPI STATS (4 Vibrant Gradient Cards)                      */}
-      {/* ===================================================================== */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        {/* Card 1: Pending Orders */}
-        <div className="bg-gradient-to-br from-amber-500/10 via-amber-50/40 to-white rounded-3xl p-5 border border-amber-200/90 shadow-xs hover:shadow-md transition-all space-y-3 group hover:border-amber-400">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-amber-800">
-              Pending Queue
-            </span>
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-amber-500/20 group-hover:scale-110 transition-transform">
-              ⏳
-            </div>
-          </div>
-          <div>
-            <div className="text-3xl font-black text-amber-600 font-mono">
-              {pendingDispatches.length}
-            </div>
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">Orders Awaiting / Dispatched</p>
-          </div>
-          <div className="pt-2 border-t border-amber-200/60 flex items-center gap-1 text-[10px] font-bold text-amber-700">
-            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-            <span>Needs Courier Assignment</span>
-          </div>
-        </div>
-
-        {/* Card 2: Active On-Duty Riders */}
-        <div className="bg-gradient-to-br from-emerald-500/10 via-emerald-50/40 to-white rounded-3xl p-5 border border-emerald-200/90 shadow-xs hover:shadow-md transition-all space-y-3 group hover:border-emerald-400">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800">
-              Active Couriers
-            </span>
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-emerald-500/20 group-hover:scale-110 transition-transform">
-              🛵
-            </div>
-          </div>
-          <div>
-            <div className="text-3xl font-black text-slate-900 font-mono">
-              {activeRidersCount} <span className="text-sm font-bold text-slate-400">/ {riders.length}</span>
-            </div>
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">Fleet On-Duty & Available</p>
-          </div>
-          <div className="pt-2 border-t border-emerald-200/60 flex items-center gap-1 text-[10px] font-bold text-emerald-700">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>Instant Dispatch Ready</span>
-          </div>
-        </div>
-
-        {/* Card 3: Completed Deliveries */}
-        <div className="bg-gradient-to-br from-sky-500/10 via-sky-50/40 to-white rounded-3xl p-5 border border-sky-200/90 shadow-xs hover:shadow-md transition-all space-y-3 group hover:border-sky-400">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-sky-800">
-              Fulfilled Orders
-            </span>
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-sky-500/20 group-hover:scale-110 transition-transform">
-              📦
-            </div>
-          </div>
-          <div>
-            <div className="text-3xl font-black text-slate-900 font-mono">
-              {totalDeliveries}
-            </div>
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">Parcels Doorstep Verified</p>
-          </div>
-          <div className="pt-2 border-t border-sky-200/60 flex items-center gap-1 text-[10px] font-bold text-sky-700">
-            <ShieldCheck className="w-3 h-3 text-sky-600" />
-            <span>100% Verified Delivery</span>
-          </div>
-        </div>
-
-        {/* Card 4: Avg Speed SLA */}
-        <div className="bg-gradient-to-br from-purple-500/10 via-purple-50/40 to-white rounded-3xl p-5 border border-purple-200/90 shadow-xs hover:shadow-md transition-all space-y-3 group hover:border-purple-400">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-purple-800">
-              Avg Delivery Speed
-            </span>
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-purple-500/20 group-hover:scale-110 transition-transform">
-              ⚡
-            </div>
-          </div>
-          <div>
-            <div className="text-3xl font-black text-slate-900 font-mono">
-              18.5 <span className="text-sm font-bold text-slate-400">Mins</span>
-            </div>
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">Dark Store Express Dispatch</p>
-          </div>
-          <div className="pt-2 border-t border-purple-200/60 flex items-center gap-1 text-[10px] font-bold text-purple-700">
-            <Zap className="w-3 h-3 text-purple-600" />
-            <span>Guaranteed Express SLA</span>
-          </div>
-        </div>
-
-      </div>
-
-      {/* ===================================================================== */}
-      {/* 3. SUB-NAVIGATION TABS (Modern Sleek Pill Navigation Bar)              */}
-      {/* ===================================================================== */}
+      {/* Rider management is kept separate from order dispatch. */}
+      {adminRole === 'rider' && (
       <div className="bg-slate-900/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-800 shadow-md inline-flex flex-wrap items-center gap-1.5 text-xs font-bold">
         {[
-          { id: 'queue', label: 'Order Dispatch Queue', icon: Package, count: pendingDispatches.length },
-          { id: 'fleet', label: 'Riders Fleet Manager', icon: Bike, count: riders.length },
-          { id: 'rider-app', label: 'Rider App Simulator', icon: Smartphone },
+          { id: 'rider-app', label: 'My Deliveries', icon: Smartphone },
           { id: 'coverage', label: 'Hubs & Service Cities', icon: Building }
         ].map((t) => {
           const Icon = t.icon;
@@ -387,11 +286,12 @@ export const DeliveryView = () => {
           );
         })}
       </div>
+      )}
 
       {/* ===================================================================== */}
       {/* SUB-VIEW 1: ORDER DISPATCH QUEUE                                      */}
       {/* ===================================================================== */}
-      {activeSubTab === 'queue' && (
+      {adminRole === 'rider' && activeSubTab === 'queue' && (
         <div className="space-y-4">
           
           {/* Header Bar */}
@@ -631,7 +531,7 @@ export const DeliveryView = () => {
       {/* ===================================================================== */}
       {/* SUB-VIEW 2: RIDER FLEET MANAGEMENT                                    */}
       {/* ===================================================================== */}
-      {activeSubTab === 'fleet' && (
+      {(adminRole !== 'rider' || activeSubTab === 'fleet') && (
         <div className="space-y-5">
           
           {/* Search & Zone Filter Bar */}
@@ -654,12 +554,10 @@ export const DeliveryView = () => {
                 onChange={(e) => setFilterZone(e.target.value)}
                 className="bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2 font-bold text-xs focus:outline-none cursor-pointer"
               >
-                <option value="All">All Hub Zones (5 Cities)</option>
-                <option value="Gulberg">Gulberg Hub (Lahore)</option>
-                <option value="DHA">DHA Zone (Lahore / Karachi)</option>
-                <option value="Johar">Johar Town Area</option>
-                <option value="F-7">F-7 Hub (Islamabad)</option>
-                <option value="Model Town">Model Town Zone</option>
+                <option value="All">All service zones</option>
+                {riderZones.map((zone) => (
+                  <option key={zone} value={zone}>{zone}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -712,14 +610,15 @@ export const DeliveryView = () => {
 
                       <button
                         onClick={() => toggleRiderStatus(rider.id)}
+                        disabled={rider.status === 'Busy'}
                         className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full cursor-pointer transition-all flex items-center gap-1 ${
                           rider.status === 'On-Duty'
                             ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                             : rider.status === 'Busy'
                             ? 'bg-amber-100 text-amber-800 border border-amber-300'
                             : 'bg-slate-100 text-slate-500 border border-slate-200'
-                        }`}
-                        title="Click to toggle on-duty / off-duty status"
+                        } disabled:cursor-not-allowed disabled:opacity-80`}
+                        title={rider.status === 'Busy' ? 'Rider is assigned to an active delivery' : 'Click to toggle on-duty / off-duty status'}
                       >
                         <span className={`w-1.5 h-1.5 rounded-full ${rider.status === 'On-Duty' ? 'bg-emerald-600' : 'bg-slate-400'}`}></span>
                         <span>{rider.status}</span>
@@ -767,17 +666,6 @@ export const DeliveryView = () => {
                       <Phone className="w-3.5 h-3.5" />
                       <span>Call Courier</span>
                     </a>
-
-                    <button
-                      onClick={() => {
-                        setSimulatedRiderId(rider.id);
-                        setActiveSubTab('rider-app');
-                      }}
-                      className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer"
-                      title="View rider app simulator for this courier"
-                    >
-                      <Smartphone className="w-4 h-4" />
-                    </button>
 
                     {isAdmin && (
                       <button

@@ -1426,6 +1426,10 @@ export const StoreProvider = ({ children }) => {
   };
 
   const toggleRiderStatus = async (id) => {
+    if (riders.find((rider) => rider.id === id)?.status === 'Busy') {
+      addToast('Rider Currently Assigned', 'This rider becomes available automatically after completing the active delivery.', 'info');
+      return;
+    }
     setRiders((prev) => {
       const updated = prev.map((r) => {
         if (r.id === id) {
@@ -1477,6 +1481,9 @@ export const StoreProvider = ({ children }) => {
       }
     }
 
+    setRiders((prev) =>
+      prev.map((rider) => (rider.id === targetRider.id ? { ...rider, status: 'Busy' } : rider))
+    );
     setCustomerOrders((prev) =>
       prev.map((o) =>
         o.id === orderId

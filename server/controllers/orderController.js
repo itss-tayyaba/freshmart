@@ -750,9 +750,6 @@ export const assignRiderToOrder = async (req, res) => {
         if (!riderServesArea(targetRider?.zone, deliveryArea)) {
           return res.status(409).json({ success: false, message: 'Rider does not serve this delivery area' });
         }
-        if (req.user?.role === 'admin' && riderId && !riderCoords) {
-          return res.status(409).json({ success: false, message: 'Rider GPS location is unavailable; wait for the rider to sign in and share location' });
-        }
         riderCoords = riderCoords || order.branchCoords || fallbackRiderCoords;
         assignedInfo.coordinates = riderCoords;
         assignedInfo.currentLat = riderCoords.lat;
