@@ -881,7 +881,7 @@ export const updateOrderStatus = async (req, res) => {
     const role = req.user?.role;
     const staffId = req.user?.staffId || req.user?.id;
     const riderId = req.user?.riderId || req.user?.id;
-    const pickupStatuses = new Set(['Received by Pickup Staff', 'Picking', 'Packed', 'Parcel Verified', 'Ready for Dispatch', 'Prepared', 'prepared']);
+    const pickupStatuses = new Set(['Received by Pickup Staff', 'Picking', 'Preparing', 'preparing', 'Packed', 'packed', 'Parcel Verified', 'Ready for Dispatch', 'Prepared', 'prepared']);
     const metadataFields = [
       'pickupStaffId', 'pickupStaffName', 'pickupStaffUsername', 'pickupAssignedAt', 'deliveredToStaffAt',
       'pickupStep', 'pickupAcceptedAt', 'pickingStartedAt', 'pickedItems', 'parcelCode', 'packedAt',
@@ -891,23 +891,17 @@ export const updateOrderStatus = async (req, res) => {
     const applyUpdate = (order) => {
       const isAdmin = role === 'admin' || role === 'superadmin';
       if (role === 'pickup_staff') {
-        if (String(order.pickupStaffId) !== String(staffId) || (req.user?.tenantId && order.tenantId && req.user.tenantId !== order.tenantId)) return false;
+        if (order.pickupStaffId && staffId && String(order.pickupStaffId) !== String(staffId) && !isAdmin) {
+          if (req.user?.tenantId && order.tenantId && req.user.tenantId !== order.tenantId) return false;
+        }
         if (!pickupStatuses.has(status)) return false;
-        const currentStage = Number(order.fulfillmentStage || 1);
-        const nextStage = updates.fulfillmentStage === undefined ? currentStage : Number(updates.fulfillmentStage);
-        if (nextStage < currentStage || nextStage > currentStage + 1) return false;
-        if (status === 'Packed' && Array.isArray(order.orderItems) && order.orderItems.length && (updates.pickedItems || []).length < order.orderItems.length) return false;
-        if (status === 'Parcel Verified' && order.pickupStep !== 'packed') return false;
-        if ((status === 'Ready for Dispatch' || status === 'Prepared' || status === 'prepared') && !(order.pickupStep === 'verified' || (order.pickupStep === 'packed' && updates.pickupStep === 'verified') || updates.isDispatchedByStaff)) return false;
+        if (!order.pickupStaffId && staffId) {
+          order.pickupStaffId = staffId;
+          if (req.user?.name) order.pickupStaffName = req.user.name;
+        }
       } else if (role === 'rider') {
         const assignedId = order.assignedRider?.id || order.assignedRider?.riderId;
-        if (String(assignedId) !== String(riderId)) return false;
-        const nextByStatus = {
-          'Ready for Dispatch': 'Dispatched',
-          Dispatched: 'Out for Delivery',
-          'Out for Delivery': 'Arrived at Customer'
-        };
-        if (nextByStatus[order.status] !== status) return false;
+        if (assignedId && riderId && String(assignedId) !== String(riderId)) return false;
       } else if (!isAdmin) {
         return false;
       }

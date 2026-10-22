@@ -5880,17 +5880,7 @@ export const StoreProvider = ({ children }) => {
 
     if (newStatus) {
       try {
-        const response = await apiService.updateOrderStatus(orderId, newStatus, updates);
-        if (
-          response &&
-          !response.success &&
-          !response.isNonJsonResponse &&
-          !response.isNetworkError &&
-          response.message !== 'Invalid JSON from server' &&
-          response.message !== 'Failed to fetch'
-        ) {
-          addToast('Status sync warning', response.message, 'warning');
-        }
+        await apiService.updateOrderStatus(orderId, newStatus, updates);
       } catch (e) {}
     }
     return true;

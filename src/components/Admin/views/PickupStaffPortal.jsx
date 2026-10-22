@@ -48,7 +48,6 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     currentTenant,
     updateOrderFulfillment,
     adminLogout,
-    addToast,
     getProductSubstitutes,
     substituteOrderItem,
     currency
@@ -245,7 +244,6 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       prepEstimatedMinutes: 10,
       isDispatchedByStaff: false
     });
-    addToast('Order Preparing 🔥', `Started packing Order #${order.id}. Delivery rider can now see estimated packing time.`);
   };
 
   const handlePackItems = async (order, itemsCount) => {
@@ -266,7 +264,6 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       prepEstimatedMinutes: 2,
       isDispatchedByStaff: false
     });
-    addToast('Parcel Packed 📦', `Items verified and sealed in parcel ${parcelCode}`);
   };
 
   const handleMarkReadyForDispatch = async (order, itemsCount = 0) => {
@@ -290,7 +287,6 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       preparedAt: new Date().toISOString(),
       dispatchedAt: new Date().toISOString()
     });
-    addToast('Parcel Prepared & Staged ✅', `Order #${order.id} is staged! Admin can now assign a delivery rider.`);
   };
 
   return (

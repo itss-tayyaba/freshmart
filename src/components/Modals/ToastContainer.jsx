@@ -3,9 +3,22 @@ import { X, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 
 export const ToastContainer = () => {
-  const { toasts, removeToast } = useStore();
+  const { toasts, removeToast, currentPage } = useStore();
 
-  if (toasts.length === 0) return null;
+  // Strictly do not show toast popup messages on any dashboard (Admin, Pickup Staff, Rider, Customer Portal)
+  const isDashboard = [
+    'admin',
+    'vendor',
+    'vendor-portal',
+    'delivery-portal',
+    'rider-portal',
+    'pickup-staff',
+    'pickup-portal',
+    'staff-portal',
+    'customer-portal'
+  ].includes(currentPage);
+
+  if (isDashboard || toasts.length === 0) return null;
 
   return (
     <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">

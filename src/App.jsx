@@ -36,7 +36,6 @@ function FreshMartAppContent() {
     return (
       <div className="min-h-screen w-full bg-slate-100 font-sans">
         <AdminDashboard />
-        <ToastContainer />
       </div>
     );
   }
@@ -46,7 +45,6 @@ function FreshMartAppContent() {
     return (
       <div className="min-h-screen w-full bg-[#fbf9f4] font-sans">
         <DeliveryPortal />
-        <ToastContainer />
       </div>
     );
   }
@@ -56,7 +54,6 @@ function FreshMartAppContent() {
     return (
       <div className="min-h-screen w-full bg-[#f8fafc] font-sans">
         <PickupStaffPortal />
-        <ToastContainer />
       </div>
     );
   }
@@ -70,7 +67,6 @@ function FreshMartAppContent() {
         <FloatingCartPill />
         <WishlistDrawer />
         <LocationModal />
-        <ToastContainer />
       </div>
     );
   }
