@@ -30,7 +30,11 @@ import {
   CheckCircle,
   Layers,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Eye,
+  EyeOff,
+  Lock,
+  Key
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { PAKISTAN_CITIES } from '../../../data/pakistanLocations';
@@ -221,8 +225,20 @@ export const DeliveryView = () => {
     status: 'On-Duty',
     cnic: '',
     username: '',
-    password: ''
+    password: 'rider123'
   });
+
+  const [showRiderPassword, setShowRiderPassword] = useState(false);
+  const [editingRider, setEditingRider] = useState(null);
+  const [editRiderForm, setEditRiderForm] = useState({
+    id: '',
+    name: '',
+    phone: '',
+    password: '',
+    vehicleType: '🏍️ Honda 125',
+    vehicleNumber: ''
+  });
+  const [showEditRiderPassword, setShowEditRiderPassword] = useState(false);
 
   // Selected rider for mobile app simulator
   const [simulatedRiderId, setSimulatedRiderId] = useState(riders[0]?.id || '');
@@ -515,8 +531,23 @@ export const DeliveryView = () => {
       status: 'On-Duty',
       cnic: '',
       username: '',
-      password: ''
+      password: 'rider123'
     });
+  };
+
+  const handleEditRiderSubmit = (e) => {
+    e.preventDefault();
+    if (!editingRider) return;
+    const finalPassword = editRiderForm.password.trim() || 'rider123';
+    updateRider(editingRider.id, {
+      name: editRiderForm.name.trim(),
+      phone: editRiderForm.phone.trim(),
+      password: finalPassword,
+      vehicleType: editRiderForm.vehicleType || '🏍️ Honda 125',
+      vehicleNumber: editRiderForm.vehicleNumber.trim()
+    });
+    addToast('Credentials Updated 🔑', `${editRiderForm.name}'s login password is now "${finalPassword}".`);
+    setEditingRider(null);
   };
 
   const simulatedRider =
@@ -1229,11 +1260,18 @@ export const DeliveryView = () => {
 
                       {isAdmin && (
                         <div className="pt-2 border-t border-slate-200 flex flex-col gap-1 text-[11px]">
-                          <span className="text-slate-400 font-bold uppercase text-[9px]">Rider App Credentials:</span>
-                          <div className="font-mono text-emerald-800 font-bold bg-emerald-50 p-2 rounded-xl border border-emerald-200/80 flex items-center justify-between">
-                            <span>ID: {rider.username || rider.name.toLowerCase().replace(/\s+/g, '_')}</span>
+                          <span className="text-slate-400 font-bold uppercase text-[9px] flex items-center justify-between">
+                            <span>Rider App Login Credentials:</span>
+                            <span className="text-emerald-700 font-mono text-[9px]">Portal Active</span>
+                          </span>
+                          <div className="font-mono text-emerald-900 font-bold bg-emerald-50/80 p-2 rounded-xl border border-emerald-200/80 flex items-center justify-between text-xs">
+                            <span title="Login with Phone or Username">
+                              ID: <strong className="text-slate-800">{rider.phone || rider.username || rider.name}</strong>
+                            </span>
                             <span className="text-slate-400">•</span>
-                            <span>Pass: {rider.password || 'rider123'}</span>
+                            <span className="flex items-center gap-1">
+                              Pass: <strong className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-emerald-700">{rider.password || 'rider123'}</strong>
+                            </span>
                           </div>
                         </div>
                       )}
@@ -1260,6 +1298,26 @@ export const DeliveryView = () => {
                     >
                       <Smartphone className="w-4 h-4" />
                     </button>
+
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          setEditingRider(rider);
+                          setEditRiderForm({
+                            id: rider.id,
+                            name: rider.name || '',
+                            phone: rider.phone || '',
+                            password: rider.password || 'rider123',
+                            vehicleType: rider.vehicleType || '🏍️ Honda 125',
+                            vehicleNumber: rider.vehicleNumber || ''
+                          });
+                        }}
+                        className="p-2 bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 rounded-xl font-bold transition-colors cursor-pointer"
+                        title="Edit Rider & Change Password"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    )}
 
                     {isAdmin && (
                       <button
@@ -1619,6 +1677,49 @@ export const DeliveryView = () => {
                   </div>
                 </div>
 
+                {/* 3. Rider Login Password (Custom Credentials) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Rider Login Password <span className="text-rose-500">*</span></span>
+                    </label>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      Rider App Access Key
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showRiderPassword ? 'text' : 'password'}
+                      required
+                      placeholder="Set rider password (e.g. rider123 or custom)"
+                      value={newRiderForm.password}
+                      onChange={(e) => setNewRiderForm({ ...newRiderForm, password: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-3.5 pr-10 py-2.5 font-mono font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowRiderPassword(!showRiderPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-1 transition-colors"
+                      title={showRiderPassword ? "Hide password" : "Show password"}
+                    >
+                      {showRiderPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500">
+                    <span>
+                      Rider will log in with <strong>{newRiderForm.phone.trim() || 'mobile number'}</strong> & this password.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setNewRiderForm({ ...newRiderForm, password: 'rider' + Math.floor(100 + Math.random() * 900) })}
+                      className="text-emerald-700 hover:text-emerald-900 font-bold hover:underline cursor-pointer shrink-0 ml-2"
+                    >
+                      🎲 Generate
+                    </button>
+                  </div>
+                </div>
+
                 {/* 3. Assigned Branch & Delivery Area */}
                 <div>
                   <label className="font-bold text-slate-700 block mb-1 text-xs">
@@ -1774,11 +1875,11 @@ export const DeliveryView = () => {
                   )}
                 </div>
 
-                {/* Clean Login Notice */}
-                <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-[11px] text-slate-500 flex items-center gap-2">
+                {/* Login Credentials Confirmation Notice */}
+                <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-xl p-2.5 text-[11px] text-emerald-900 flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>
-                    Login credentials auto-created: Username is phone number, default password is <strong className="text-slate-700 font-mono">rider123</strong>.
+                    Login Credentials: Username is <strong className="font-mono text-emerald-950 font-bold">{newRiderForm.phone.trim() || 'mobile number'}</strong>, Password is <strong className="font-mono text-emerald-950 font-bold bg-white px-1.5 py-0.5 rounded border border-emerald-200">{newRiderForm.password.trim() || 'rider123'}</strong>.
                   </span>
                 </div>
 
@@ -1803,6 +1904,134 @@ export const DeliveryView = () => {
 
             </form>
 
+          </div>
+        </div>
+      )}
+
+      {/* ✏️ EDIT RIDER & CREDENTIALS MODAL */}
+      {editingRider && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-emerald-600 to-teal-700 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-lg">
+                  ✏️
+                </div>
+                <div>
+                  <h2 className="font-black text-base leading-tight">Edit Courier & Password</h2>
+                  <p className="text-[11px] text-emerald-100">Update credentials for {editingRider.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingRider(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleEditRiderSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1 text-xs">
+                  Rider Full Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editRiderForm.name}
+                  onChange={(e) => setEditRiderForm({ ...editRiderForm, name: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1 text-xs">
+                  Phone Number (Login ID) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={editRiderForm.phone}
+                  onChange={(e) => setEditRiderForm({ ...editRiderForm, phone: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-mono font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Rider Access Password <span className="text-rose-500">*</span></span>
+                  </label>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    Rider App Key
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showEditRiderPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Enter new password"
+                    value={editRiderForm.password}
+                    onChange={(e) => setEditRiderForm({ ...editRiderForm, password: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-3.5 pr-10 py-2.5 font-mono font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditRiderPassword(!showEditRiderPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-1"
+                    title={showEditRiderPassword ? "Hide password" : "Show password"}
+                  >
+                    {showEditRiderPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1 text-xs">Vehicle Type</label>
+                  <select
+                    value={editRiderForm.vehicleType}
+                    onChange={(e) => setEditRiderForm({ ...editRiderForm, vehicleType: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-800 text-xs focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+                  >
+                    <option value="🏍️ Honda 125">🏍️ Honda 125 Motorbike</option>
+                    <option value="🏍️ Yamaha YBR">🏍️ Yamaha YBR</option>
+                    <option value="🛵 Electric Scooter">🛵 Electric Scooter</option>
+                    <option value="🚗 Delivery Van">🚗 Delivery Van</option>
+                    <option value="🚲 Bicycle">🚲 Bicycle</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1 text-xs">Vehicle Plate</label>
+                  <input
+                    type="text"
+                    value={editRiderForm.vehicleNumber}
+                    onChange={(e) => setEditRiderForm({ ...editRiderForm, vehicleNumber: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono font-semibold text-slate-800 text-xs focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingRider(null)}
+                  className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl font-bold text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-900/20 cursor-pointer"
+                >
+                  Save Credentials
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

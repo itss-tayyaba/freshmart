@@ -3283,6 +3283,7 @@ export const StoreProvider = ({ children }) => {
       });
       try {
         localStorage.setItem('freshmart_riders', JSON.stringify(updated));
+        localStorage.setItem('freshmart_riders_v3', JSON.stringify(updated));
       } catch (e) {}
       return updated;
     });
@@ -3297,6 +3298,7 @@ export const StoreProvider = ({ children }) => {
       const updated = prev.filter((r) => r.id !== id);
       try {
         localStorage.setItem('freshmart_riders', JSON.stringify(updated));
+        localStorage.setItem('freshmart_riders_v3', JSON.stringify(updated));
       } catch (e) {}
       return updated;
     });
