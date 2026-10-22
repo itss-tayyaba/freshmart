@@ -1,17 +1,22 @@
 import mongoose from 'mongoose';
 
-const orderItemSchema = new mongoose.Schema({
-  product: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Product'
+const orderItemSchema = new mongoose.Schema(
+  {
+    product: { type: mongoose.Schema.Types.Mixed },
+    id: { type: String },
+    name: { type: String, required: true },
+    price: { type: Number, required: true },
+    quantity: { type: Number, required: true, default: 1 },
+    unit: { type: String, default: '1 Kg' },
+    image: { type: String },
+    vendorId: { type: String, default: 'VND-101' },
+    tenantId: { type: String },
+    branchId: { type: String },
+    isSubstituted: { type: Boolean, default: false },
+    originalProduct: { type: mongoose.Schema.Types.Mixed, default: null }
   },
-  name: { type: String, required: true },
-  price: { type: Number, required: true },
-  quantity: { type: Number, required: true, default: 1 },
-  unit: { type: String, default: '1 Kg' },
-  image: { type: String },
-  vendorId: { type: String, default: 'VND-101' }
-});
+  { _id: false }
+);
 
 const timelineStepSchema = new mongoose.Schema({
   title: { type: String, required: true },
@@ -76,8 +81,8 @@ const orderSchema = new mongoose.Schema(
       index: true
     },
     user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+      type: mongoose.Schema.Types.Mixed,
+      default: null
     },
     customerName: {
       type: String,
@@ -115,12 +120,10 @@ const orderSchema = new mongoose.Schema(
     orderItems: [orderItemSchema],
     paymentMethod: {
       type: String,
-      enum: ['Cash on Delivery', 'Credit / Debit Card', 'Easypaisa', 'JazzCash', 'Bank Transfer'],
       default: 'Cash on Delivery'
     },
     paymentStatus: {
       type: String,
-      enum: ['Pending', 'Paid', 'Refunded'],
       default: 'Pending'
     },
     itemsPrice: {
@@ -144,8 +147,7 @@ const orderSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Pending', 'Confirmed', 'Preparing', 'Received by Pickup Staff', 'Picking', 'Packed', 'Parcel Verified', 'Ready for Dispatch', 'Dispatched', 'Out for Delivery', 'Arrived at Customer', 'Delivered to Staff', 'Deliver to Staff', 'Delivered', 'Cancelled'],
-      default: 'Confirmed'
+      default: 'Pending'
     },
     pickupStaffId: { type: String, index: true },
     pickupStaffName: { type: String },

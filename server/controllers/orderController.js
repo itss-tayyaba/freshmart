@@ -1,9 +1,51 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { isDbOnline } from '../config/db.js';
 import { Order } from '../models/Order.js';
 import { Product } from '../models/Product.js';
 import { Rider } from '../models/ExtraModels.js';
 import { ADMIN_ORDERS_FULL } from '../../src/data/adminSuiteData.js';
 import { ORDERS, resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyData.js';
+
+const ORDERS_FILE_PATH = path.resolve(process.cwd(), 'server/data/orders_db.json');
+
+export const loadDiskOrders = () => {
+  try {
+    if (fs.existsSync(ORDERS_FILE_PATH)) {
+      const data = fs.readFileSync(ORDERS_FILE_PATH, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+};
+
+export const saveDiskOrder = (order) => {
+  try {
+    if (!order) return;
+    const cleanId = String(order.id || order.orderId || order._id || '').replace(/^#/, '').toLowerCase().trim();
+    if (!cleanId) return;
+    const list = loadDiskOrders();
+    const filtered = list.filter((o) => {
+      const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+      return oId !== cleanId;
+    });
+    filtered.unshift(order);
+    fs.writeFileSync(ORDERS_FILE_PATH, JSON.stringify(filtered, null, 2), 'utf-8');
+  } catch (e) {}
+};
+
+// Initialize in-memory cache with persisted disk orders on server boot
+try {
+  const diskOrders = loadDiskOrders();
+  if (diskOrders.length > 0) {
+    diskOrders.forEach((o) => {
+      const oKey = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+      const exists = ADMIN_ORDERS_FULL.some((m) => String(m.id || m.orderId || m._id || '').replace(/^#/, '').toLowerCase().trim() === oKey);
+      if (!exists) ADMIN_ORDERS_FULL.push(o);
+    });
+  }
+} catch (e) {}
 
 // Dark Store Hub coordinates for Pakistani fulfillment centers
 export const CITY_HUBS = {
@@ -318,6 +360,8 @@ export const createOrder = async (req, res) => {
         }
       }
 
+      saveDiskOrder(createdOrder.toObject ? createdOrder.toObject() : createdOrder);
+
       return res.status(201).json({
         success: true,
         message: 'Order created and product stock updated in MongoDB',
@@ -368,6 +412,7 @@ export const createOrder = async (req, res) => {
       timeline: initialOrderObj.timeline
     };
     ADMIN_ORDERS_FULL.unshift(newOrder);
+    saveDiskOrder(newOrder);
 
     return res.status(201).json({
       success: true,
@@ -417,12 +462,29 @@ export const getOrders = async (req, res) => {
 
     if (isDbOnline()) {
       const orders = await Order.find(filter).sort({ createdAt: -1 });
-      return res.json({ success: true, count: orders.length, orders });
+      const diskOrders = loadDiskOrders();
+      const combined = [...orders.map((o) => (o.toObject ? o.toObject() : o))];
+      const mongoIds = new Set(combined.map((o) => String(o.id || o.orderId || o._id).replace(/^#/, '').toLowerCase().trim()));
+      diskOrders.forEach((d) => {
+        const dKey = String(d.id || d.orderId || d._id).replace(/^#/, '').toLowerCase().trim();
+        if (!mongoIds.has(dKey)) combined.push(d);
+      });
+      return res.json({ success: true, count: combined.length, orders: combined });
     }
 
-    let orders = (ADMIN_ORDERS_FULL.length > 0 ? [...ADMIN_ORDERS_FULL] : [...ORDERS]).filter(
-      (o) => o.customer !== 'Hamza Tariq' && o.customerName !== 'Hamza Tariq' && o.customer !== 'Zainab Merchant' && o.customerName !== 'Zainab Merchant'
-    );
+    const diskOrders = loadDiskOrders();
+    let orders = [...ADMIN_ORDERS_FULL];
+    const existing = new Set(orders.map((o) => String(o.id || o.orderId || o._id).replace(/^#/, '').toLowerCase().trim()));
+    diskOrders.forEach((d) => {
+      const dKey = String(d.id || d.orderId || d._id).replace(/^#/, '').toLowerCase().trim();
+      if (!existing.has(dKey)) {
+        orders.push(d);
+        existing.add(dKey);
+      }
+    });
+    if (orders.length === 0) {
+      orders = [...ORDERS];
+    }
     if (role === 'pickup_staff') {
       orders = orders.filter((order) => {
         const matchesStaff = !staffId || String(order.pickupStaffId) === String(staffId);
@@ -491,6 +553,21 @@ export const trackOrder = async (req, res) => {
       );
       if (memOrder) {
         foundOrder = { ...memOrder };
+      }
+    }
+
+    if (!foundOrder) {
+      const diskOrder = loadDiskOrders().find(
+        (o) =>
+          o.id === orderId ||
+          o.id === formattedId ||
+          o.id === cleanId ||
+          o.orderId === orderId ||
+          o.orderId === formattedId ||
+          o.orderId === cleanId
+      );
+      if (diskOrder) {
+        foundOrder = { ...diskOrder };
       }
     }
 

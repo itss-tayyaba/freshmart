@@ -44,7 +44,7 @@ export const DashboardView = ({ onNavigateModule }) => {
   } = useStore();
 
   // Active Tenant Metrics & Branding
-  const tenantKey = user?.tenantId || currentTenant?.id || 'tenant-alfatah';
+  const tenantKey = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
   const tenantMetrics = branchMetrics || (getBranchMetrics && getBranchMetrics(tenantKey)) || BRANCH_METRICS[tenantKey] || BRANCH_METRICS['tenant-alfatah'];
 
   // Selected period: '7days' | 'today' | '30days' | 'year'

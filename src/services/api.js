@@ -48,7 +48,7 @@ const getAuthHeaders = (extraHeaders = {}) => {
       localStorage.getItem('freshmart_current_tenant_id') ||
       (() => {
         try {
-          const u = JSON.parse(localStorage.getItem('freshmart_admin_user') || '{}');
+          const u = JSON.parse(localStorage.getItem('freshmart_user') || localStorage.getItem('freshmart_admin_user') || '{}');
           return u.tenantId;
         } catch {
           return null;

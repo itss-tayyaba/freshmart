@@ -217,7 +217,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       }
     });
     const raw = Array.from(uniqueMap.values());
-    const targetTenantId = user?.tenantId || currentTenant?.id || 'tenant-alfatah';
+    const targetTenantId = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
     let list = raw;
     if (targetTenantId) {
       list = list.filter((o) => {

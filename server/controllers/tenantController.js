@@ -5,6 +5,8 @@ import { Product } from '../models/Product.js';
 import { isDbOnline } from '../config/db.js';
 import { INITIAL_TENANTS } from '../../src/data/tenantData.js';
 import { ADMIN_ORDERS_FULL } from '../../src/data/adminSuiteData.js';
+import { loadDiskOrders } from './orderController.js';
+import { resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyData.js';
 
 // In-memory tenant store synchronized with INITIAL_TENANTS
 let IN_MEMORY_TENANTS = JSON.parse(JSON.stringify(INITIAL_TENANTS));
@@ -463,6 +465,7 @@ export const updateSubscription = async (req, res) => {
 export const getTenantOrders = async (req, res) => {
   try {
     const targetTenantId = req.params.id;
+    const canonical = resolveTenantId(targetTenantId);
 
     let orders = [];
 
@@ -471,27 +474,39 @@ export const getTenantOrders = async (req, res) => {
         orders = await Order.find({
           $or: [
             { tenantId: targetTenantId },
-            { tenantId: targetTenantId.replace(/^tenant-/, '') }
+            { tenantId: targetTenantId.replace(/^tenant-/, '') },
+            ...(canonical ? [{ tenantId: canonical }, { companyId: canonical }] : []),
+            ...(isSameTenant(targetTenantId, 'tenant-chasevalue') ? [{ tenantId: 'company_003' }, { orderId: { $regex: /^#?cv/i } }] : []),
+            ...(isSameTenant(targetTenantId, 'tenant-chaseup') ? [{ tenantId: 'company_002' }, { orderId: { $regex: /^#?cu/i } }] : []),
+            ...(isSameTenant(targetTenantId, 'tenant-alfatah') ? [{ tenantId: 'company_001' }, { orderId: { $regex: /^(#?af|ord-701)/i } }] : []),
+            ...(isSameTenant(targetTenantId, 'tenant-freshmart') ? [{ tenantId: 'company_004' }, { orderId: { $regex: /^#?fm/i } }] : [])
           ]
         }).sort({ createdAt: -1 });
       } catch (e) {}
     }
 
-    if (!orders || orders.length === 0) {
-      // In-memory fallback
-      orders = (ADMIN_ORDERS_FULL || []).filter(
-        (o) =>
-          o.tenantId === targetTenantId ||
-          o.tenantId === targetTenantId.replace(/^tenant-/, '') ||
-          !o.tenantId // include demo orders if no specific tenant set
-      );
-    }
+    const diskOrders = loadDiskOrders();
+    const memOrders = [...ADMIN_ORDERS_FULL, ...diskOrders];
+    const matchingMemOrders = memOrders.filter((o) => {
+      const oTenant = o.tenantId || o.companyId;
+      return isSameTenant(oTenant, targetTenantId) || isSameTenant(o.tenantId, targetTenantId);
+    });
+
+    const combined = [...(orders || []).map((o) => (o.toObject ? o.toObject() : o))];
+    const seen = new Set(combined.map((o) => String(o.id || o.orderId || o._id).replace(/^#/, '').toLowerCase().trim()));
+    matchingMemOrders.forEach((m) => {
+      const mKey = String(m.id || m.orderId || m._id).replace(/^#/, '').toLowerCase().trim();
+      if (!seen.has(mKey)) {
+        combined.push(m);
+        seen.add(mKey);
+      }
+    });
 
     return res.json({
       success: true,
       tenantId: targetTenantId,
-      count: orders.length,
-      orders
+      count: combined.length,
+      orders: combined
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

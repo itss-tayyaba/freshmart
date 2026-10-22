@@ -94,7 +94,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     });
 
     const list = Array.from(uniqueMap.values());
-    const activeTenantId = user?.tenantId || currentTenant?.id;
+    const activeTenantId = currentTenant?.id || user?.tenantId;
 
     return list.filter((ord) => {
       if (!activeTenantId) return true;

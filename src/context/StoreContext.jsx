@@ -1853,19 +1853,14 @@ export const StoreProvider = ({ children }) => {
     };
   }, [isAdminLoggedIn, adminRole, user?.id, user?.staffId, user?.riderId, user?.tenantId]);
 
-  // Keep currentTenant aligned with the logged-in Store Admin's tenant
+  // Keep user.tenantId aligned with currentTenant being viewed
   useEffect(() => {
-    if (isAdminLoggedIn && adminRole !== 'superadmin' && user?.tenantId) {
-      if (!currentTenant?.id || !isSameTenant(currentTenant.id, user.tenantId)) {
-        const matchingTenant =
-          (tenants || []).find((t) => isSameTenant(t.id, user.tenantId)) ||
-          INITIAL_TENANTS.find((t) => isSameTenant(t.id, user.tenantId));
-        if (matchingTenant) {
-          setCurrentTenant(matchingTenant);
-        }
+    if (isAdminLoggedIn && adminRole !== 'superadmin' && currentTenant?.id) {
+      if (!user?.tenantId || !isSameTenant(user.tenantId, currentTenant.id)) {
+        setUser((prev) => prev ? { ...prev, tenantId: currentTenant.id, tenantName: currentTenant.displayName || currentTenant.name } : prev);
       }
     }
-  }, [isAdminLoggedIn, user?.tenantId, adminRole, tenants]);
+  }, [isAdminLoggedIn, currentTenant?.id, adminRole]);
 
   // Helper to resolve the correct store tenant based on preferred tenant ID, username, or store keywords
   const resolveStoreTenant = (candidateTenantId, userStr = '') => {
@@ -4790,9 +4785,24 @@ export const StoreProvider = ({ children }) => {
     }
 
     const finalConfirmedOrder = sanitizeOrder(confirmedOrder);
-    setCustomerOrders((prev) => [finalConfirmedOrder, ...prev]);
-    setAdminOrders((prev) => [finalConfirmedOrder, ...prev]);
+    setCustomerOrders((prev) => {
+      const next = [finalConfirmedOrder, ...(prev || []).filter((o) => (o.id || o.orderId) !== (finalConfirmedOrder.id || finalConfirmedOrder.orderId))];
+      try {
+        localStorage.setItem('freshmart_customer_orders', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+    setAdminOrders((prev) => {
+      const next = [finalConfirmedOrder, ...(prev || []).filter((o) => (o.id || o.orderId) !== (finalConfirmedOrder.id || finalConfirmedOrder.orderId))];
+      try {
+        localStorage.setItem('freshmart_admin_orders', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
     setActiveDeliveryOrder(finalConfirmedOrder);
+    try {
+      localStorage.setItem('freshmart_active_delivery', JSON.stringify(finalConfirmedOrder));
+    } catch (e) {}
 
     // Automatically record / update the customer in Customer Directory
     setCustomers((prev) => {
