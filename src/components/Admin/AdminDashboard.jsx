@@ -607,59 +607,7 @@ const StoreAdminConsole = () => {
             ) : null}
 
             {/* Seamless 1-Click Multi-Role Switcher (No sign-out required) */}
-            <div className="flex items-center gap-1.5 bg-slate-100/90 border border-slate-200/90 p-1 rounded-2xl shadow-2xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('Orders');
-                  if (typeof switchAdminPortal === 'function') {
-                    switchAdminPortal('admin', 'admin');
-                  }
-                }}
-                className="text-xs font-black px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer bg-white text-slate-900 shadow-xs border border-slate-200/80"
-                title="Store Admin Console"
-              >
-                <Shield className="w-3.5 h-3.5 text-blue-600" />
-                <span>Store Admin</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (typeof switchAdminPortal === 'function') {
-                    switchAdminPortal('pickup_staff', 'pickup-staff');
-                  } else {
-                    navigateTo('pickup-staff');
-                  }
-                }}
-                className="text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 px-2.5 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                title="Switch directly to Pickup Staff Packing Station - No sign out required!"
-              >
-                <Boxes className="w-3.5 h-3.5 text-amber-600" />
-                <span>Pickup Staff</span>
-                {pendingPickupStaffCount > 0 && (
-                  <span className="bg-amber-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full">
-                    {pendingPickupStaffCount}
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (typeof switchAdminPortal === 'function') {
-                    switchAdminPortal('rider', 'delivery-portal');
-                  } else {
-                    navigateTo('delivery-portal');
-                  }
-                }}
-                className="text-xs font-bold text-orange-900 bg-orange-50 hover:bg-orange-100 border border-orange-200/80 px-2.5 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                title="Switch directly to Rider Courier Dispatch - No sign out required!"
-              >
-                <Truck className="w-3.5 h-3.5 text-orange-600" />
-                <span>Rider Portal</span>
-              </button>
-
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => navigateTo('home')}

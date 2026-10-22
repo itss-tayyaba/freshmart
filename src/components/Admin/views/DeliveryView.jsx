@@ -722,16 +722,6 @@ export const DeliveryView = () => {
             </button>
           );
         })}
-
-        <button
-          type="button"
-          onClick={() => navigateTo && navigateTo('delivery-portal')}
-          className="px-4 py-2.5 rounded-xl flex items-center gap-2 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-bold text-xs transition cursor-pointer ml-auto"
-          title="Open Dedicated Courier Rider Portal Screen"
-        >
-          <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
-          <span>Launch Rider Portal ↗</span>
-        </button>
       </div>
 
       {/* ===================================================================== */}

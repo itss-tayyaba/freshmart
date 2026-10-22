@@ -328,30 +328,6 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Quick 1-Click Role Switchers (No sign out required) */}
-          <button
-            onClick={() => {
-              if (typeof onBackToAdmin === 'function') onBackToAdmin();
-              else if (typeof switchAdminPortal === 'function') switchAdminPortal('admin', 'admin');
-              else navigateTo('admin');
-            }}
-            className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-            title="Return directly to Store Admin Console"
-          >
-            <span>🏬 Store Admin</span>
-          </button>
-
-          <button
-            onClick={() => {
-              if (typeof switchAdminPortal === 'function') switchAdminPortal('rider', 'delivery-portal');
-              else navigateTo('delivery-portal');
-            }}
-            className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-            title="Open Rider Courier Dispatch"
-          >
-            <span>🛵 Rider Portal</span>
-          </button>
-
           <button
             onClick={() => navigateTo('home')}
             className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs hidden sm:flex"

@@ -880,26 +880,6 @@ export const DeliveryPortal = () => {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {
-              if (typeof switchAdminPortal === 'function') switchAdminPortal('admin', 'admin');
-              else navigateTo('admin');
-            }}
-            className="text-xs text-white font-bold px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 transition cursor-pointer shadow-xs flex items-center gap-1.5"
-            title="Switch directly to Store Admin Console - No sign out required"
-          >
-            <span>🏬 Admin</span>
-          </button>
-          <button
-            onClick={() => {
-              if (typeof switchAdminPortal === 'function') switchAdminPortal('pickup_staff', 'pickup-staff');
-              else navigateTo('pickup-staff');
-            }}
-            className="text-xs text-amber-950 font-bold px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 transition cursor-pointer shadow-xs flex items-center gap-1.5"
-            title="Switch directly to Pickup Staff Packing Desk - No sign out required"
-          >
-            <span>📦 Pickup Staff</span>
-          </button>
-          <button
             onClick={() => navigateTo('home')}
             className="text-xs text-slate-300 font-bold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 transition cursor-pointer hidden sm:flex items-center gap-1.5"
             title="Open Customer Store"
@@ -1033,30 +1013,6 @@ export const DeliveryPortal = () => {
           </div>
 
           <div className="space-y-1.5 pt-1">
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof switchAdminPortal === 'function') switchAdminPortal('admin', 'admin');
-                else navigateTo('admin');
-              }}
-              className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 border border-blue-500 rounded-xl text-xs font-bold text-white transition flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
-            >
-              <Store className="w-3.5 h-3.5 text-blue-200" />
-              <span>Store Admin Console</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof switchAdminPortal === 'function') switchAdminPortal('pickup_staff', 'pickup-staff');
-                else navigateTo('pickup-staff');
-              }}
-              className="w-full py-2 px-3 bg-amber-500 hover:bg-amber-600 border border-amber-400 rounded-xl text-xs font-bold text-amber-950 transition flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
-            >
-              <PackageCheck className="w-3.5 h-3.5 text-amber-950" />
-              <span>Pickup Staff Desk</span>
-            </button>
-
             <button
               type="button"
               onClick={() => {
