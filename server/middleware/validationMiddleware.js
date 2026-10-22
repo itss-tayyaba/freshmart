@@ -175,6 +175,15 @@ export const createRiderSchema = z
   })
   .passthrough();
 
+export const createPickupStaffSchema = z
+  .object({
+    name: z.string().min(2, 'Pickup staff name must be at least 2 characters long'),
+    email: z.string().email('A valid email address is required'),
+    password: z.string().min(8, 'Password must be at least 8 characters long'),
+    phone: z.string().optional().default('')
+  })
+  .passthrough();
+
 // --- COUPON VALIDATION SCHEMAS ---
 export const validateCouponSchema = z
   .object({

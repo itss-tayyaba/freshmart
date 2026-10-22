@@ -21,8 +21,10 @@ import {
   createOrder,
   getOrders,
   getRiderOrders,
+  getPickupStaffOrders,
   trackOrder,
   updateOrderStatus,
+  updatePickupStaffOrderStatus,
   assignPickupStaffToOrder,
   assignRiderToOrder,
   updateRiderLocation,
@@ -88,7 +90,8 @@ import {
   getTenantPerformance,
   getPlatformOverview
 } from '../controllers/tenantController.js';
-import { protect, adminOnly, branchAdminOnly, riderOnly, protectVendor } from '../middleware/authMiddleware.js';
+import { protect, adminOnly, branchAdminOnly, riderOnly, pickupStaffOnly, protectVendor } from '../middleware/authMiddleware.js';
+import { createPickupStaff, getPickupStaff } from '../controllers/pickupStaffController.js';
 import { authLimiter } from '../middleware/rateLimitMiddleware.js';
 import {
   validate,
@@ -103,6 +106,7 @@ import {
   restockSchema,
   createSupplierSchema,
   createRiderSchema,
+  createPickupStaffSchema,
   validateCouponSchema
 } from '../middleware/validationMiddleware.js';
 
@@ -135,6 +139,8 @@ router.delete('/categories/:id', protect, adminOnly, deleteCategory);
 router.post('/orders', validate(createOrderSchema), createOrder);
 router.get('/orders/track/:orderId', trackOrder);
 router.get('/orders/assigned-to-me', protect, riderOnly, getRiderOrders);
+router.get('/orders/pickup-assigned-to-me', protect, pickupStaffOnly, getPickupStaffOrders);
+router.put('/orders/:id/pickup-status', protect, pickupStaffOnly, validate(updateOrderStatusSchema), updatePickupStaffOrderStatus);
 // Admin & Fleet: Assign rider, update live GPS location, verify delivery OTP, and update order status
 router.put('/orders/:id/assign-pickup-staff', protect, branchAdminOnly, assignPickupStaffToOrder);
 router.put('/orders/:id/assign-rider', protect, branchAdminOnly, assignRiderToOrder);
@@ -142,6 +148,10 @@ router.put('/orders/:id/rider-location', protect, riderOnly, updateRiderLocation
 router.post('/orders/:id/verify-delivery-otp', protect, riderOnly, verifyDeliveryOtp);
 router.get('/orders', protect, branchAdminOnly, getOrders);
 router.put('/orders/:id/status', protect, branchAdminOnly, validate(updateOrderStatusSchema), updateOrderStatus);
+
+// --- Branch Pickup Staff Routes ---
+router.get('/pickup-staff', protect, branchAdminOnly, getPickupStaff);
+router.post('/pickup-staff', protect, branchAdminOnly, validate(createPickupStaffSchema), createPickupStaff);
 
 // --- Inventory Routes ---
 // Admin Locked & Validated: Viewing warehouse stocks and restocking items

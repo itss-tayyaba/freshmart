@@ -43,7 +43,6 @@ export const DeliveryView = () => {
     toggleRiderStatus,
     customerOrders = [],
     assignRiderToOrder,
-    updateDeliveryOrderStatus,
     verifyOrderDeliveryOtp,
     currency = 'PKR',
     addToast,
@@ -566,6 +565,7 @@ export const DeliveryView = () => {
                           <select
                             value={order.assignedRider?.id || ''}
                             onChange={(e) => assignRiderToOrder(order.id, e.target.value)}
+                            disabled={order.status !== 'Ready for Pickup'}
                             className="w-full bg-slate-800 hover:bg-slate-750 text-white border-2 border-emerald-500/60 rounded-xl px-3.5 py-2.5 font-bold text-xs focus:ring-2 focus:ring-emerald-400 focus:outline-none cursor-pointer transition-all shadow-inner"
                           >
                             <option value="">-- Choose Rider to Dispatch --</option>
@@ -600,50 +600,22 @@ export const DeliveryView = () => {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          onClick={() => updateDeliveryOrderStatus(order.id, 'Packed (Chilled Box)')}
-                          className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
-                            order.status === 'Packed (Chilled Box)'
-                              ? 'bg-teal-600 text-white shadow-md'
-                              : 'bg-slate-100 hover:bg-teal-50 hover:text-teal-900 text-slate-700'
-                          }`}
-                        >
-                          <span>🏬 Packed</span>
-                        </button>
-
-                        <button
-                          onClick={() => updateDeliveryOrderStatus(order.id, 'Out for Delivery')}
-                          className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
-                            order.status === 'Out for Delivery'
-                              ? 'bg-purple-600 text-white shadow-md'
-                              : 'bg-purple-50 hover:bg-purple-100 text-purple-900'
-                          }`}
-                        >
-                          <span>🛵 Out for Delivery</span>
-                        </button>
-
-                        <button
-                          onClick={() => updateDeliveryOrderStatus(order.id, 'Arrived at Customer')}
-                          className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
-                            order.status === 'Arrived at Customer'
-                              ? 'bg-blue-600 text-white shadow-md'
-                              : 'bg-blue-50 hover:bg-blue-100 text-blue-900'
-                          }`}
-                        >
-                          <span>📍 At Doorstep</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleOpenOtpModal(order)}
-                          className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
-                            order.status === 'Delivered'
-                              ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400'
-                              : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:scale-105'
-                          }`}
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>{order.status === 'Delivered' ? '✅ Delivered' : '🔐 Verify OTP & Deliver'}</span>
-                        </button>
+                        <span className="text-xs font-semibold text-slate-600">
+                          {order.status === 'Ready for Pickup'
+                            ? 'Pickup staff completed this parcel; it is ready for rider assignment.'
+                            : `Current order status: ${order.status}`}
+                        </span>
+                        {adminRole === 'rider' &&
+                          order.status === 'Out for Delivery' &&
+                          order.assignedRider?.id === user?.riderId && (
+                            <button
+                              onClick={() => handleOpenOtpModal(order)}
+                              className="px-3.5 py-1.5 rounded-xl font-black text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm cursor-pointer flex items-center gap-1.5"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Verify customer OTP</span>
+                            </button>
+                          )}
                       </div>
                     </div>
 

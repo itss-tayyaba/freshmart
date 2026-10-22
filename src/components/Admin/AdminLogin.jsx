@@ -21,10 +21,25 @@ import { STORE_LOCATIONS } from '../../data/freshMartData';
 
 export const AdminLogin = () => {
   const { adminLogin, navigateTo } = useStore();
+  const getInitialBranchId = () => {
+    try {
+      const deliveryLocation = JSON.parse(localStorage.getItem('freshmart_delivery_location') || '{}');
+      if (STORE_LOCATIONS.some((store) => store.id === deliveryLocation.storeId)) {
+        return deliveryLocation.storeId;
+      }
+      const lastAdminBranchId = localStorage.getItem('freshmart_admin_branch_id');
+      if (STORE_LOCATIONS.some((store) => store.id === lastAdminBranchId)) {
+        return lastAdminBranchId;
+      }
+    } catch (error) {
+      console.warn('Could not restore the previous branch selection:', error.message);
+    }
+    return STORE_LOCATIONS[0]?.id || '';
+  };
   const [selectedRole, setSelectedRole] = useState('superadmin'); // Default to Super Admin as requested
   const [username, setUsername] = useState('superadmin');
   const [password, setPassword] = useState('superadmin123');
-  const [selectedBranchId, setSelectedBranchId] = useState(STORE_LOCATIONS[0]?.id || '');
+  const [selectedBranchId, setSelectedBranchId] = useState(getInitialBranchId);
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -70,6 +85,16 @@ export const AdminLogin = () => {
       passPlaceholder: 'rider123',
       defaultUser: 'rider',
       defaultPass: 'rider123'
+    },
+    {
+      id: 'pickupstaff',
+      label: 'Pickup Staff',
+      icon: '📦',
+      sublabel: 'Order Packing',
+      userPlaceholder: 'staff@branch.com',
+      passPlaceholder: 'Staff password',
+      defaultUser: '',
+      defaultPass: ''
     }
   ];
 
@@ -140,7 +165,7 @@ export const AdminLogin = () => {
             </span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
             {roles.map((r) => {
               const isSelected = selectedRole === r.id;
               return (
@@ -183,7 +208,7 @@ export const AdminLogin = () => {
                 required
               >
                 {STORE_LOCATIONS.map((store) => (
-                  <option key={store.id} value={store.id}>{store.name}</option>
+                  <option key={store.id} value={store.id}>{store.name} ({store.id})</option>
                 ))}
               </select>
               <p className="text-[10px] text-[#6e7489] mt-1">

@@ -44,7 +44,6 @@ export const DeliveryPortal = () => {
     user,
     adminRole,
     assignRiderToOrder,
-    updateDeliveryOrderStatus,
     verifyOrderDeliveryOtp,
     activeDeliveryOrder,
     currency,
@@ -573,14 +572,6 @@ export const DeliveryPortal = () => {
 
                   {/* Status Progression Workflow Buttons */}
                   <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-end gap-2">
-                    {order.status === 'Preparing' && order.assignedPickupStaff?.id && (
-                      <button
-                        onClick={() => updateDeliveryOrderStatus(order.id, 'Ready for Pickup')}
-                        className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs transition-colors cursor-pointer"
-                      >
-                        ✅ Mark packed / Ready for Pickup
-                      </button>
-                    )}
                     {adminRole === 'rider' &&
                       order.status === 'Out for Delivery' &&
                       order.assignedRider?.id === user?.riderId && (

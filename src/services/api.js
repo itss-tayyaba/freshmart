@@ -21,8 +21,8 @@ const getAuthHeaders = (extraHeaders = {}) => {
   };
   try {
     const token =
-      localStorage.getItem('freshmart_vendor_token') ||
       localStorage.getItem('freshmart_admin_token') ||
+      localStorage.getItem('freshmart_vendor_token') ||
       localStorage.getItem('freshmart_token') ||
       localStorage.getItem('freshmart_jwt') ||
       localStorage.getItem('token');
@@ -226,6 +226,54 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/orders/assigned-to-me`, {
         headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getPickupStaffOrders() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/pickup-assigned-to-me`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updatePickupStaffOrderStatus(orderId, status) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/pickup-status`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status })
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getPickupStaff() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/pickup-staff`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async createPickupStaff(staffData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/pickup-staff`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(staffData)
       });
       return await handleResponse(res);
     } catch (e) {

@@ -17,6 +17,9 @@ export const protect = async (req, res, next) => {
           // Check User model
           const dbUser = await User.findById(decoded.id).select('-password');
           if (dbUser) {
+            if (dbUser.isActive === false) {
+              return res.status(403).json({ success: false, message: 'This staff account is inactive' });
+            }
             req.user = dbUser.toObject ? dbUser.toObject() : { ...dbUser };
             req.user.id = String(dbUser._id);
             req.user.vendorId = decoded.vendorId || dbUser.vendorId;
@@ -90,6 +93,11 @@ export const branchAdminOnly = (req, res, next) => {
 export const riderOnly = (req, res, next) => {
   if (req.user?.role === 'rider' && (req.user.riderId || req.user.id)) return next();
   return res.status(403).json({ success: false, message: 'Rider account required' });
+};
+
+export const pickupStaffOnly = (req, res, next) => {
+  if (req.user?.role === 'pickupstaff' && req.user.id && req.user.branchId) return next();
+  return res.status(403).json({ success: false, message: 'Active branch pickup staff account required' });
 };
 
 // Vendor Access & IDOR Protection Middleware

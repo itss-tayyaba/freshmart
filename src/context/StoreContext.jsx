@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   FRESHMART_PRODUCTS,
   FRESHMART_CATEGORIES,
@@ -345,6 +345,10 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
     return [];
   });
+  const adminOrdersRef = useRef(adminOrders);
+  useEffect(() => {
+    adminOrdersRef.current = adminOrders;
+  }, [adminOrders]);
   const [adminStats, setAdminStats] = useState(ADMIN_STATS);
 
   // Admin Promotions & Coupons State
@@ -522,6 +526,10 @@ export const StoreProvider = ({ children }) => {
     if (backendResponded && authRes && authRes.success && authRes.token) {
       const returnedRole = (authRes.role || targetRole).toLowerCase();
 
+      if (returnedRole === 'pickupstaff' && targetRole !== 'pickupstaff') {
+        return { success: false, error: 'Select Pickup Staff from the role tabs to use this account.' };
+      }
+
       // Case A: Super Admin
       if (targetRole === 'superadmin' || returnedRole === 'superadmin') {
         const superUser = {
@@ -555,6 +563,7 @@ export const StoreProvider = ({ children }) => {
           branchId: authRes.branchId || branchId
         };
         localStorage.setItem('freshmart_admin_token', authRes.token);
+        if (adminUser.branchId) localStorage.setItem('freshmart_admin_branch_id', adminUser.branchId);
         setAdminRole('admin');
         setIsAdminLoggedIn(true);
         setUser(adminUser);
@@ -612,6 +621,28 @@ export const StoreProvider = ({ children }) => {
         } catch (e) {}
         addToast('Delivery Rider Authenticated 🛵', `Welcome ${riderUser.name} to dispatch.`);
         return { success: true, role: 'rider', user: riderUser };
+      }
+
+      if (targetRole === 'pickupstaff' && returnedRole === 'pickupstaff') {
+        const pickupStaffUser = {
+          id: authRes._id || authRes.id,
+          name: authRes.name || 'Pickup Staff',
+          email: authRes.email || cleanUser,
+          role: 'pickupstaff',
+          branchId: authRes.branchId || '',
+          phone: authRes.phone || ''
+        };
+        localStorage.setItem('freshmart_admin_token', authRes.token);
+        setAdminRole('pickupstaff');
+        setIsAdminLoggedIn(true);
+        setUser(pickupStaffUser);
+        try {
+          localStorage.setItem('freshmart_admin_session', 'true');
+          localStorage.setItem('freshmart_admin_role', 'pickupstaff');
+          localStorage.setItem('freshmart_admin_user', JSON.stringify(pickupStaffUser));
+        } catch (e) {}
+        addToast('Pickup Staff Authenticated 📦', `Welcome ${pickupStaffUser.name}.`);
+        return { success: true, role: 'pickupstaff', user: pickupStaffUser };
       }
     }
 
@@ -691,6 +722,7 @@ export const StoreProvider = ({ children }) => {
 
       const fallbackToken = `mock-admin-token-${Date.now()}`;
       localStorage.setItem('freshmart_admin_token', fallbackToken);
+      if (branchId) localStorage.setItem('freshmart_admin_branch_id', branchId);
 
       setAdminRole('admin');
       setIsAdminLoggedIn(true);
@@ -813,6 +845,8 @@ export const StoreProvider = ({ children }) => {
 
   const adminLogout = () => {
     setIsAdminLoggedIn(false);
+    setAdminRole('admin');
+    setUser({ name: 'Store Admin', role: 'admin' });
     try {
       localStorage.removeItem('freshmart_admin_session');
       localStorage.removeItem('freshmart_admin_role');
@@ -1109,17 +1143,33 @@ export const StoreProvider = ({ children }) => {
   }, [adminRole, user?.riderId]);
 
   useEffect(() => {
-    if (adminRole !== 'admin' || !user?.branchId) return;
+    if (!isAdminLoggedIn || adminRole !== 'admin' || !user?.branchId) return;
     setAdminOrders((previous) => previous.filter((order) => order.branchId === user.branchId));
     if (localStorage.getItem('freshmart_admin_token')?.startsWith('mock-admin-token-')) return;
+    let active = true;
+    let emptyServerResponseReported = false;
+    let syncFailureReported = false;
     const syncBranchOrders = async () => {
       try {
         const res = await apiService.getOrders();
+        if (!active) return;
         if (!res?.success || !Array.isArray(res.orders)) {
-          addToast('Order Sync Failed', res?.message || res?.error || 'Could not load orders for this branch.', 'error');
+          if (!syncFailureReported) {
+            syncFailureReported = true;
+            addToast('Order Sync Failed', res?.message || res?.error || 'Could not load orders for this branch.', 'error');
+          }
           return;
         }
-        const branchOrders = res.orders.map((order) => ({
+        syncFailureReported = false;
+        const branchOrderData = res.orders.filter((order) => order.branchId === user.branchId);
+        if (branchOrderData.length !== res.orders.length) {
+          if (!emptyServerResponseReported) {
+            emptyServerResponseReported = true;
+            addToast('Order Branch Mismatch', 'The server returned orders outside this admin branch. The existing list was kept unchanged.', 'error');
+          }
+          return;
+        }
+        const branchOrders = branchOrderData.map((order) => ({
           ...order,
           id: order.orderId || order.id || String(order._id),
           customer: order.customerName || order.customer || 'Customer',
@@ -1129,15 +1179,34 @@ export const StoreProvider = ({ children }) => {
           totalAmount: Number(order.totalPrice || order.totalAmount || order.total || 0),
           payment: order.paymentMethod || order.payment || 'Cash on Delivery'
         }));
+        const cachedBranchOrders = adminOrdersRef.current.filter((order) => order.branchId === user.branchId);
+        if (branchOrders.length === 0 && cachedBranchOrders.length > 0) {
+          if (!emptyServerResponseReported) {
+            emptyServerResponseReported = true;
+            addToast(
+              'Order Sync Needs Attention',
+              'The server returned an empty list while this branch has cached orders. Existing orders were kept; verify the branch account and database connection.',
+              'error'
+            );
+          }
+          return;
+        }
+        emptyServerResponseReported = false;
         setAdminOrders(branchOrders);
       } catch (e) {
-        addToast('Order Sync Failed', e.message || 'Could not load orders for this branch.', 'error');
+        if (active && !syncFailureReported) {
+          syncFailureReported = true;
+          addToast('Order Sync Failed', e.message || 'Could not load orders for this branch.', 'error');
+        }
       }
     };
     syncBranchOrders();
     const refreshTimer = setInterval(syncBranchOrders, 15000);
-    return () => clearInterval(refreshTimer);
-  }, [adminRole, user?.branchId]);
+    return () => {
+      active = false;
+      clearInterval(refreshTimer);
+    };
+  }, [isAdminLoggedIn, adminRole, user?.branchId]);
 
   useEffect(() => {
     if (adminRole !== 'rider' || !user?.riderId) return;
@@ -1448,29 +1517,29 @@ export const StoreProvider = ({ children }) => {
     return { success: true, order: { assignedRider: assignedInfo, status: 'Out for Delivery' } };
   };
 
-  const assignPickupStaffToOrder = async (orderId, staffName) => {
-    const name = String(staffName || '').trim();
-    if (!name) {
-      addToast('Pickup Staff Required', 'Enter the name of the pickup staff member.', 'error');
+  const assignPickupStaffToOrder = async (orderId, pickupStaff) => {
+    const staffId = String(pickupStaff?.id || '').trim();
+    const name = String(pickupStaff?.name || '').trim();
+    if (!staffId || !name) {
+      addToast('Pickup Staff Required', 'Select a registered pickup staff account.', 'error');
       return { success: false };
     }
-    const assignedPickupStaff = {
-      id: name.toLowerCase().replace(/\s+/g, '-'),
-      name,
-      assignedAt: new Date().toISOString()
-    };
     const isDemoSession = localStorage.getItem('freshmart_admin_token')?.startsWith('mock-admin-token-');
-    let response = null;
-    if (!isDemoSession) {
-      response = await apiService.assignPickupStaffToOrder(orderId, assignedPickupStaff);
-      if (response?.success === false) {
-        addToast('Pickup Assignment Failed', response.message || response.error || 'Could not assign pickup staff.', 'error');
-        return { success: false, message: response.message || response.error };
-      }
+    if (isDemoSession) {
+      const message = 'Pickup assignment requires a connected branch admin account and registered staff roster.';
+      addToast('Pickup Assignment Failed', message, 'error');
+      return { success: false, message };
     }
+    const response = await apiService.assignPickupStaffToOrder(orderId, { id: staffId, name });
+    if (!response?.success || !response.order) {
+      const message = response?.message || response?.error || 'Could not assign pickup staff.';
+      addToast('Pickup Assignment Failed', message, 'error');
+      return { success: false, message };
+    }
+    const assignedPickupStaff = response.order.assignedPickupStaff;
     const updateOrder = (order) =>
       order.id === orderId || order.orderId === orderId
-        ? { ...order, assignedPickupStaff, status: 'Preparing' }
+        ? { ...order, ...response.order, assignedPickupStaff, status: response.order.status || order.status }
         : order;
 
     setCustomerOrders((prev) => prev.map(updateOrder));
@@ -1478,8 +1547,8 @@ export const StoreProvider = ({ children }) => {
     if (activeDeliveryOrder && (activeDeliveryOrder.id === orderId || activeDeliveryOrder.orderId === orderId)) {
       setActiveDeliveryOrder((prev) => ({ ...prev, assignedPickupStaff, status: 'Preparing' }));
     }
-    addToast('Pickup Staff Assigned 📦', `${name} is preparing order ${orderId}.`);
-    return { success: true, order: response?.order };
+    addToast('Pickup Staff Assigned 📦', `${name} received order ${orderId}.`);
+    return { success: true, order: response.order };
   };
 
   const updateRiderLiveLocation = async (orderId, coords) => {
@@ -1656,8 +1725,8 @@ export const StoreProvider = ({ children }) => {
   };
 
   const updateDeliveryOrderStatus = async (orderId, newStatus) => {
-    if (!['Preparing', 'Ready for Pickup', 'Cancelled'].includes(newStatus)) {
-      addToast('Invalid Status Change', 'Delivered status can only be set after the rider verifies the customer OTP.', 'error');
+    if (newStatus !== 'Cancelled') {
+      addToast('Status Controlled by Workflow', 'Pickup staff prepares parcels, and riders complete delivery using the customer OTP.', 'error');
       return { success: false };
     }
 
@@ -3081,6 +3150,10 @@ export const StoreProvider = ({ children }) => {
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
+    if (newStatus !== 'Cancelled') {
+      addToast('Status Controlled by Workflow', 'Pickup staff and riders update fulfillment status through their assigned workflows.', 'error');
+      return { success: false };
+    }
     setAdminOrders((prev) =>
       prev.map((order) => {
         if (order.id === orderId) {

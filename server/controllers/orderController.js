@@ -2,6 +2,7 @@ import { isDbOnline } from '../config/db.js';
 import { Order } from '../models/Order.js';
 import { Product } from '../models/Product.js';
 import { Rider } from '../models/ExtraModels.js';
+import { User } from '../models/User.js';
 import { ADMIN_ORDERS_FULL } from '../../src/data/adminSuiteData.js';
 import { riderServesArea } from '../../src/utils/storeRouting.js';
 import { STORE_LOCATIONS } from '../../src/data/freshMartData.js';
@@ -295,93 +296,49 @@ export const createOrder = async (req, res) => {
       deliveryPrice,
       discountPrice: discount,
       totalPrice,
-      status: req.body.status || 'Confirmed',
-      assignedRider: req.body.assignedRider || null,
+      status: 'Pending',
+      assignedRider: null,
       deliveryOtp
     };
 
     initialOrderObj.timeline = buildDynamicTimeline(initialOrderObj);
 
-    if (isDbOnline()) {
-      const order = new Order(initialOrderObj);
-      const createdOrder = await order.save();
-
-      // Deduct stock for all ordered products in MongoDB
-      for (const item of orderItems) {
-        const prodId = item.product || item.id;
-        const qty = Number(item.quantity) || 1;
-        const filter = {
-          $or: [
-            ...(prodId && typeof prodId === 'string' && prodId.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: prodId }] : []),
-            ...(prodId ? [{ id: String(prodId) }, { customId: String(prodId) }] : []),
-            ...(item.name ? [{ name: item.name }] : [])
-          ]
-        };
-
-        const prod = await Product.findOne(filter);
-        if (prod) {
-          prod.stock = Math.max(0, (prod.stock || 0) - qty);
-          prod.stockCount = prod.stock;
-          prod.status = prod.stock === 0 ? 'Out of Stock' : prod.stock < 15 ? 'Low Stock' : 'Active';
-          prod.inStock = prod.stock > 0;
-          await prod.save();
-        }
-      }
-
-      return res.status(201).json({
-        success: true,
-        message: 'Order created and product stock updated in MongoDB',
-        order: createdOrder
+    if (!isDbOnline()) {
+      return res.status(503).json({
+        success: false,
+        message: 'Orders cannot be confirmed until the database connection is available. Please retry checkout.'
       });
     }
 
-    const newOrder = {
-      id: orderId,
-      orderId,
-      tenantId: initialOrderObj.tenantId,
-      tenantName: initialOrderObj.tenantName,
-      branchId: initialOrderObj.branchId,
-      branchName: initialOrderObj.branchName,
-      branchCoords: initialOrderObj.branchCoords,
-      customer: custName,
-      customerName: custName,
-      customerPhone: custPhone,
-      address: shippingAddress.address,
-      city: shippingAddress.city,
-      deliverySlot: shippingAddress.deliverySlot,
-      shippingAddress,
-      destinationCoords,
-      hubCoords,
-      distanceKm,
-      eta: etaText,
-      etaMinutes,
-      orderItems,
-      rawItems: orderItems,
-      items: `${orderItems.length} Item${orderItems.length > 1 ? 's' : ''}`,
-      total: totalPrice,
-      totalPrice,
-      totalAmount: totalPrice,
-      subtotal: itemsPrice,
-      itemsPrice,
-      deliveryPrice,
-      deliveryCharges: deliveryPrice,
-      discountPrice: discount,
-      discountAmount: discount,
-      status: req.body.status || 'Confirmed',
-      statusClass: 'bg-emerald-100 text-emerald-800',
-      payment: paymentMethod,
-      paymentMethod,
-      time: 'Just now',
-      assignedRider: req.body.assignedRider || null,
-      deliveryOtp,
-      timeline: initialOrderObj.timeline
-    };
-    ADMIN_ORDERS_FULL.unshift(newOrder);
+    const order = new Order(initialOrderObj);
+    const createdOrder = await order.save();
+
+    // Deduct stock for all ordered products in MongoDB
+    for (const item of orderItems) {
+      const prodId = item.product || item.id;
+      const qty = Number(item.quantity) || 1;
+      const filter = {
+        $or: [
+          ...(prodId && typeof prodId === 'string' && prodId.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: prodId }] : []),
+          ...(prodId ? [{ id: String(prodId) }, { customId: String(prodId) }] : []),
+          ...(item.name ? [{ name: item.name }] : [])
+        ]
+      };
+
+      const prod = await Product.findOne(filter);
+      if (prod) {
+        prod.stock = Math.max(0, (prod.stock || 0) - qty);
+        prod.stockCount = prod.stock;
+        prod.status = prod.stock === 0 ? 'Out of Stock' : prod.stock < 15 ? 'Low Stock' : 'Active';
+        prod.inStock = prod.stock > 0;
+        await prod.save();
+      }
+    }
 
     return res.status(201).json({
       success: true,
-      message: 'Order created successfully',
-      order: newOrder
+      message: 'Order created and product stock updated in MongoDB',
+      order: createdOrder
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -391,16 +348,15 @@ export const createOrder = async (req, res) => {
 // @desc    Get all orders (Admin)
 // @route   GET /api/orders
 export const getOrders = async (req, res) => {
+  if (!isDbOnline()) {
+    return res.status(503).json({ success: false, message: 'Order records are unavailable until the database reconnects' });
+  }
+
   try {
     const branchId = req.user?.role === 'admin' ? req.user.branchId : '';
     const branchQuery = branchId ? { branchId } : {};
-    if (isDbOnline()) {
-      const orders = (await Order.find(branchQuery).sort({ createdAt: -1 })).map(serializeOrderWithoutOtp);
-      return res.json({ success: true, count: orders.length, orders });
-    }
-    const orders = (branchId ? ADMIN_ORDERS_FULL.filter((order) => order.branchId === branchId) : ADMIN_ORDERS_FULL)
-      .map(serializeOrderWithoutOtp);
-    res.json({ success: true, count: orders.length, orders });
+    const orders = (await Order.find(branchQuery).sort({ createdAt: -1 })).map(serializeOrderWithoutOtp);
+    return res.json({ success: true, count: orders.length, orders });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -426,6 +382,93 @@ export const getRiderOrders = async (req, res) => {
       (order) => order.assignedRider?.id === riderId || order.assignedRider?.riderId === riderId
     ).map(serializeOrderWithoutOtp);
     return res.json({ success: true, count: orders.length, orders });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getPickupStaffOrders = async (req, res) => {
+  if (req.user?.role !== 'pickupstaff') {
+    return res.status(403).json({ success: false, message: 'Pickup staff account required' });
+  }
+  if (!isDbOnline()) {
+    return res.status(503).json({ success: false, message: 'Pickup staff order queues require a database connection' });
+  }
+
+  try {
+    const staffId = String(req.user?.id || req.user?._id || '');
+    const branchId = String(req.user?.branchId || '');
+    if (!staffId || !branchId) {
+      return res.status(403).json({ success: false, message: 'Pickup staff identity and branch are required' });
+    }
+
+    const orders = (await Order.find({
+      branchId,
+      'assignedPickupStaff.id': staffId
+    }).sort({ updatedAt: -1 })).map(serializeOrderWithoutOtp);
+    return res.json({ success: true, count: orders.length, orders });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updatePickupStaffOrderStatus = async (req, res) => {
+  if (req.user?.role !== 'pickupstaff') {
+    return res.status(403).json({ success: false, message: 'Pickup staff account required' });
+  }
+  if (!isDbOnline()) {
+    return res.status(503).json({ success: false, message: 'Pickup order updates require a database connection' });
+  }
+
+  const status = req.body.status;
+  if (!['Preparing', 'Ready for Pickup'].includes(status)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Pickup staff can set status to Preparing or Ready for Pickup'
+    });
+  }
+
+  try {
+    const staffId = String(req.user?.id || req.user?._id || '');
+    const branchId = String(req.user?.branchId || '');
+    const orderId = req.params.id;
+    const clauses = [
+      { orderId },
+      { orderId: orderId.startsWith('#') ? orderId : `#${orderId}` },
+      { orderId: orderId.replace(/^#/, '') }
+    ];
+    if (orderId.match(/^[0-9a-fA-F]{24}$/)) clauses.push({ _id: orderId });
+
+    const order = await Order.findOne({
+      branchId,
+      'assignedPickupStaff.id': staffId,
+      $or: clauses
+    });
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Assigned order not found for this pickup staff account' });
+    }
+
+    const validTransition =
+      (status === 'Preparing' && ['Pending', 'Confirmed'].includes(order.status)) ||
+      (status === 'Ready for Pickup' && order.status === 'Preparing');
+    if (!validTransition) {
+      return res.status(409).json({
+        success: false,
+        message: `Cannot change order status from ${order.status} to ${status}`
+      });
+    }
+
+    order.status = status;
+    if (status === 'Ready for Pickup' && order.assignedPickupStaff) {
+      order.assignedPickupStaff.packedAt = new Date();
+    }
+    order.timeline = buildDynamicTimeline(order);
+    const updated = await order.save();
+    return res.json({
+      success: true,
+      message: `Order status updated to ${status}`,
+      order: serializeOrderWithoutOtp(updated)
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -534,57 +577,67 @@ export const trackOrder = async (req, res) => {
 // @desc    Assign an order to a pickup staff member
 // @route   PUT /api/orders/:id/assign-pickup-staff
 export const assignPickupStaffToOrder = async (req, res) => {
+  const staffId = String(req.body?.id || '').trim();
+  if (!staffId) {
+    return res.status(400).json({ success: false, message: 'Pickup staff account ID is required' });
+  }
+  if (!/^[a-f0-9]{24}$/i.test(staffId)) {
+    return res.status(400).json({ success: false, message: 'Pickup staff account ID is invalid' });
+  }
+  if (!isDbOnline()) {
+    return res.status(503).json({
+      success: false,
+      message: 'Assigning pickup staff requires a database connection and a registered branch staff account'
+    });
+  }
+
   try {
     const { id } = req.params;
-    const staffName = String(req.body.name || '').trim();
-    const staffId = String(req.body.id || staffName).trim();
-    if (!staffName || !staffId) {
-      return res.status(400).json({ success: false, message: 'Pickup staff name and ID are required' });
-    }
 
     const branchId = req.user?.role === 'admin' ? req.user.branchId : '';
     const branchFilter = branchId ? { branchId } : {};
-    let order = null;
-
-    if (isDbOnline()) {
-      const clauses = [
-        { orderId: id },
-        { orderId: id.startsWith('#') ? id : `#${id}` },
-        { orderId: id.replace(/^#/, '') }
-      ];
-      if (id.match(/^[0-9a-fA-F]{24}$/)) clauses.push({ _id: id });
-      order = await Order.findOne({ ...branchFilter, $or: clauses });
-    }
-
+    const clauses = [
+      { orderId: id },
+      { orderId: id.startsWith('#') ? id : `#${id}` },
+      { orderId: id.replace(/^#/, '') }
+    ];
+    if (id.match(/^[0-9a-fA-F]{24}$/)) clauses.push({ _id: id });
+    const order = await Order.findOne({ ...branchFilter, $or: clauses });
     if (!order) {
-      const ids = [id, `#${id.replace(/^#/, '')}`, id.replace(/^#/, '')];
-      order = ADMIN_ORDERS_FULL.find(
-        (item) => (!branchId || item.branchId === branchId) && [item.id, item.orderId].some((orderId) => ids.includes(orderId))
-      );
+      return res.status(404).json({ success: false, message: 'Order not found in this branch' });
     }
 
-    if (!order) return res.status(404).json({ success: false, message: 'Order not found in this branch' });
+    const staff = await User.findOne({
+      _id: staffId,
+      role: 'pickupstaff',
+      branchId: order.branchId,
+      isActive: true
+    }).select('name');
+    if (!staff) {
+      return res.status(404).json({
+        success: false,
+        message: 'Select an active pickup staff account from this order’s branch'
+      });
+    }
+
     if (!['Pending', 'Confirmed', 'Preparing'].includes(order.status)) {
       return res.status(409).json({
         success: false,
         message: `Pickup staff cannot be assigned while order is ${order.status}`
       });
     }
-
     order.assignedPickupStaff = {
-      id: staffId,
-      name: staffName,
+      id: String(staff._id),
+      name: staff.name,
       assignedAt: new Date(),
       packedAt: order.assignedPickupStaff?.packedAt
     };
-    order.status = 'Preparing';
-    if (order.branchId === undefined && branchId) order.branchId = branchId;
     order.timeline = buildDynamicTimeline(order);
-    if (typeof order.save === 'function') await order.save();
+    await order.save();
 
     return res.json({
       success: true,
-      message: `${staffName} assigned to order ${order.orderId || order.id}`,
+      message: `${staff.name} assigned to order ${order.orderId || order.id}`,
       order: serializeOrderWithoutOtp(order)
     });
   } catch (error) {
@@ -913,11 +966,11 @@ export const updateRiderLocation = async (req, res) => {
 export const updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const allowedStatuses = ['Preparing', 'Ready for Pickup', 'Cancelled'];
+    const allowedStatuses = ['Cancelled'];
     if (!allowedStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: 'Status must be Preparing, Ready for Pickup, or Cancelled. Rider assignment and OTP control later stages.'
+        message: 'Pickup staff controls preparation and ready-for-dispatch status. Admins can only cancel eligible orders.'
       });
     }
     if (isDbOnline()) {
@@ -936,11 +989,9 @@ export const updateOrderStatus = async (req, res) => {
         }
         const previousStatus = order.status;
         const validTransition =
-          (status === 'Preparing' && ['Pending', 'Confirmed'].includes(previousStatus)) ||
-          (status === 'Ready for Pickup' && previousStatus === 'Preparing' && Boolean(order.assignedPickupStaff?.id)) ||
-          (status === 'Cancelled' &&
-            !['Delivered', 'Cancelled'].includes(previousStatus) &&
-            !order.assignedRider);
+          status === 'Cancelled' &&
+          !['Delivered', 'Cancelled'].includes(previousStatus) &&
+          !order.assignedRider;
         if (!validTransition) {
           return res.status(409).json({
             success: false,
@@ -948,9 +999,6 @@ export const updateOrderStatus = async (req, res) => {
           });
         }
         order.status = status;
-        if (status === 'Ready for Pickup' && order.assignedPickupStaff) {
-          order.assignedPickupStaff.packedAt = new Date();
-        }
         order.timeline = buildDynamicTimeline(order);
         const updated = await order.save();
 
@@ -988,9 +1036,9 @@ export const updateOrderStatus = async (req, res) => {
       }
       const previousStatus = memOrder.status;
       const validTransition =
-        (status === 'Preparing' && ['Pending', 'Confirmed'].includes(previousStatus)) ||
-        (status === 'Ready for Pickup' && previousStatus === 'Preparing' && Boolean(memOrder.assignedPickupStaff?.id)) ||
-        (status === 'Cancelled' && !['Delivered', 'Cancelled'].includes(previousStatus) && !memOrder.assignedRider);
+        status === 'Cancelled' &&
+        !['Delivered', 'Cancelled'].includes(previousStatus) &&
+        !memOrder.assignedRider;
       if (!validTransition) {
         return res.status(409).json({
           success: false,
@@ -998,9 +1046,6 @@ export const updateOrderStatus = async (req, res) => {
         });
       }
       memOrder.status = status;
-      if (status === 'Ready for Pickup' && memOrder.assignedPickupStaff) {
-        memOrder.assignedPickupStaff.packedAt = new Date();
-      }
       memOrder.timeline = buildDynamicTimeline(memOrder);
       return res.json({ success: true, message: `Status updated to ${status}`, order: serializeOrderWithoutOtp(memOrder) });
     }

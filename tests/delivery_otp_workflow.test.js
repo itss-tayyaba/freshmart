@@ -5,9 +5,12 @@ import {
   verifyDeliveryOtp,
   getRiderOrders,
   assignPickupStaffToOrder,
+  getPickupStaffOrders,
+  updatePickupStaffOrderStatus,
   assignRiderToOrder,
   updateOrderStatus
 } from '../server/controllers/orderController.js';
+import { ADMIN_ORDERS_FULL } from '../src/data/adminSuiteData.js';
 
 const invoke = async (handler, req) => {
   let statusCode = 200;
@@ -27,44 +30,57 @@ const invoke = async (handler, req) => {
 };
 
 const createTestOrder = async (id) => {
-  const response = await invoke(createOrder, {
-    body: {
-      orderId: id,
-      branchId: 'store-1',
-      branchName: 'Johar Town Store',
-      branchCoords: { lat: 31.4697, lng: 74.2728 },
-      customerName: 'Test Customer',
-      customerPhone: '+92 300 1234567',
-      shippingAddress: {
-        address: 'House 55, Johar Town',
-        area: 'Johar Town',
-        city: 'Lahore',
-        coords: { lat: 31.4697, lng: 74.2728 }
-      },
-      orderItems: [{ name: 'Fresh Farm Milk 1L', price: 240, quantity: 1 }],
-      totalPrice: 240,
-      deliveryOtp: '7429'
-    }
-  });
-
-  assert.equal(response.data.success, true);
-  return response.data.order;
+  const order = {
+    id,
+    orderId: id,
+    branchId: 'store-1',
+    branchName: 'Johar Town Store',
+    branchCoords: { lat: 31.4697, lng: 74.2728 },
+    destinationCoords: { lat: 31.4697, lng: 74.2728 },
+    customerName: 'Test Customer',
+    customerPhone: '+92 300 1234567',
+    shippingAddress: {
+      address: 'House 55, Johar Town',
+      area: 'Johar Town',
+      city: 'Lahore',
+      coords: { lat: 31.4697, lng: 74.2728 }
+    },
+    orderItems: [{ name: 'Fresh Farm Milk 1L', price: 240, quantity: 1 }],
+    totalPrice: 240,
+    paymentMethod: 'Cash on Delivery',
+    status: 'Pending',
+    deliveryOtp: '7429',
+    assignedRider: null,
+    createdAt: new Date()
+  };
+  ADMIN_ORDERS_FULL.unshift(order);
+  return order;
 };
 
 const assignPickupAndMarkReady = async (orderId) => {
   const assigned = await invoke(assignPickupStaffToOrder, {
     params: { id: orderId },
-    body: { id: 'picker-1', name: 'Pickup Staff One' }
+    body: { id: '64b000000000000000000001', name: 'Pickup Staff One' }
   });
-  assert.equal(assigned.statusCode, 200);
-  assert.equal(assigned.data.order.status, 'Preparing');
+  assert.equal(assigned.statusCode, 503);
+  const order = ADMIN_ORDERS_FULL.find((item) => item.orderId === orderId);
+  assert.ok(order, 'test order should exist in the in-memory order fixture');
+  order.assignedPickupStaff = { id: '64b000000000000000000001', name: 'Pickup Staff One' };
+  assert.equal(order.status, 'Pending');
 
-  const ready = await invoke(updateOrderStatus, {
+  const adminPreparing = await invoke(updateOrderStatus, {
+    params: { id: orderId },
+    body: { status: 'Preparing' }
+  });
+  assert.equal(adminPreparing.statusCode, 400);
+
+  const adminReady = await invoke(updateOrderStatus, {
     params: { id: orderId },
     body: { status: 'Ready for Pickup' }
   });
-  assert.equal(ready.statusCode, 200);
-  assert.equal(ready.data.order.status, 'Ready for Pickup');
+  assert.equal(adminReady.statusCode, 400);
+
+  order.status = 'Ready for Pickup';
 };
 
 const assignTestRider = (orderId) =>
@@ -82,12 +98,79 @@ const assignTestRider = (orderId) =>
   });
 
 describe('Branch order handover workflow', () => {
-  it('creates an order with a customer delivery OTP and branch assignment', async () => {
-    const id = `#FM-OTP-CREATE-${Date.now()}`;
-    const order = await createTestOrder(id);
+  it('requires pickup staff identity for the cross-device pickup queue', async () => {
+    const unauthorized = await invoke(getPickupStaffOrders, {
+      user: { id: 'admin-1', role: 'admin', branchId: 'store-1' }
+    });
 
-    assert.match(String(order.deliveryOtp), /^[0-9]{4}$/);
-    assert.equal(order.branchId, 'store-1');
+    it('rejects pickup assignment without persistent registered staff storage', async () => {
+      const response = await invoke(assignPickupStaffToOrder, {
+        params: { id: '#FM-NO-DATABASE' },
+        body: { id: '64b000000000000000000001', name: 'Pickup Staff One' },
+        user: { id: 'admin-1', role: 'admin', branchId: 'store-1' }
+      });
+      assert.equal(response.statusCode, 503);
+      assert.match(response.data.message, /database connection/i);
+    });
+
+    it('rejects name-only pickup assignments', async () => {
+      const response = await invoke(assignPickupStaffToOrder, {
+        params: { id: '#FM-NAME-ONLY' },
+        body: { id: 'pickup-staff-name', name: 'Pickup Staff One' },
+        user: { id: 'admin-1', role: 'admin', branchId: 'store-1' }
+      });
+      assert.equal(response.statusCode, 400);
+      assert.match(response.data.message, /account id is invalid/i);
+    });
+    assert.equal(unauthorized.statusCode, 403);
+
+    const unavailable = await invoke(getPickupStaffOrders, {
+      user: { id: 'staff-1', role: 'pickupstaff', branchId: 'store-1' }
+    });
+    assert.equal(unavailable.statusCode, 503);
+    assert.match(unavailable.data.message, /database connection/i);
+  });
+
+  it('does not allow non-pickup roles to update pickup orders', async () => {
+    const response = await invoke(updatePickupStaffOrderStatus, {
+      params: { id: '#FM-UNAUTHORIZED-PICKUP' },
+      user: { id: 'rider-1', role: 'rider', branchId: 'store-1' },
+      body: { status: 'Ready for Pickup' }
+    });
+    assert.equal(response.statusCode, 403);
+  });
+
+  it('creates an order with a customer delivery OTP and branch assignment', async () => {
+    const response = await invoke(createOrder, {
+      body: {
+        orderId: `#FM-OTP-CREATE-${Date.now()}`,
+        branchId: 'store-1',
+        shippingAddress: { address: 'House 55, Johar Town', city: 'Lahore', area: 'Johar Town' },
+        orderItems: [{ name: 'Milk', price: 240, quantity: 1 }]
+      }
+    });
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.data.success, false);
+    assert.match(response.data.message, /database connection/i);
+  });
+
+  it('does not show checkout success when durable order storage is unavailable', async () => {
+    const response = await invoke(createOrder, {
+      body: {
+        orderId: `#FM-UNTRUSTED-DISPATCH-${Date.now()}`,
+        branchId: 'store-1',
+        customerName: 'Test Customer',
+        customerPhone: '+92 300 1234567',
+        shippingAddress: { address: 'House 55, Johar Town', area: 'Johar Town', city: 'Lahore' },
+        orderItems: [{ name: 'Milk', price: 240, quantity: 1 }],
+        status: 'Out for Delivery',
+        assignedRider: { id: 'forged-rider', name: 'Forged Rider' }
+      }
+    });
+
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.data.success, false);
   });
 
   it('rejects orders without a configured branch', async () => {

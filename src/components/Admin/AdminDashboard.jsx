@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 
-// 11 Views
+// Admin console views
 import { DashboardView } from './views/DashboardView';
 import { ProductsView } from './views/ProductsView';
 import { CategoriesView } from './views/CategoriesView';
@@ -38,14 +38,17 @@ import { PromotionsView } from './views/PromotionsView';
 import { DeliveryView } from './views/DeliveryView';
 import { ReportsView } from './views/ReportsView';
 import { SettingsView } from './views/SettingsView';
+import { PickupStaffView } from './views/PickupStaffView';
 
 import { AdminModals } from './modals/AdminModals';
 import { AdminLogin } from './AdminLogin';
 import { VendorPortal } from '../VendorPortal/VendorPortal';
 import { SuperAdminDashboard } from '../SuperAdmin/SuperAdminDashboard';
+import { PickupStaffDashboard } from '../PickupStaffPortal/PickupStaffDashboard';
+import { STORE_LOCATIONS } from '../../data/freshMartData';
 
 export const AdminDashboard = () => {
-  const { navigateTo, isAdminLoggedIn, adminLogout, adminRole, user, products, customerOrders, customers, currentTenant } = useStore();
+  const { navigateTo, isAdminLoggedIn, adminLogout, adminRole, user, products, adminOrders, customerOrders, customers, currentTenant } = useStore();
   const [superAdminImpersonateMode, setSuperAdminImpersonateMode] = useState(false);
   
   // Set initial activeTab based on logged-in role
@@ -88,15 +91,22 @@ export const AdminDashboard = () => {
     return <VendorPortal />;
   }
 
+  if (adminRole === 'pickupstaff') {
+    return <PickupStaffDashboard />;
+  }
+
   const roleMeta = {
     admin: { title: 'Store Admin', badge: '🛡️ Store Admin', tag: 'Full Control', iconBg: 'bg-emerald-600' },
     supplier: { title: 'Supplier Partner', badge: '📦 Supplier Portal', tag: 'Supply & Invoices', iconBg: 'bg-indigo-600' },
-    rider: { title: 'Delivery Fleet', badge: '🛵 Delivery Dispatch', tag: 'Rider Operations', iconBg: 'bg-rose-600' }
+    rider: { title: 'Delivery Fleet', badge: '🛵 Delivery Dispatch', tag: 'Rider Operations', iconBg: 'bg-rose-600' },
+    pickupstaff: { title: 'Pickup Staff', badge: '📦 Pickup Desk', tag: 'Order Preparation', iconBg: 'bg-amber-600' }
   };
 
   const currentRoleInfo = roleMeta[adminRole] || roleMeta.admin;
+  const adminBranch = STORE_LOCATIONS.find((branch) => branch.id === user?.branchId);
 
-  const pendingOrdersCount = (customerOrders || []).filter(
+  const roleOrders = adminRole === 'supplier' ? customerOrders : adminOrders;
+  const pendingOrdersCount = (roleOrders || []).filter(
     (o) => o.status === 'Processing' || o.status === 'Pending' || o.status === 'Packed'
   ).length;
 
@@ -128,6 +138,7 @@ export const AdminDashboard = () => {
       { label: 'Products', icon: Package, badge: totalProductsCount > 0 ? totalProductsCount : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { label: 'Categories', icon: Layers },
       { label: 'Orders', icon: ShoppingBag, badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-amber-500/20 text-amber-300' },
+      { label: 'Pickup Staff', icon: Users, customName: 'Pickup Staff Accounts' },
       { label: 'Customers', icon: Users },
       { label: 'Inventory', icon: Boxes, badge: lowStockCount > 0 ? lowStockCount : null, badgeColor: 'bg-rose-500/20 text-rose-300' },
       { label: 'Suppliers', icon: Building2 },
@@ -442,7 +453,9 @@ export const AdminDashboard = () => {
               </div>
               <div className="text-left hidden sm:block">
                 <span className="text-xs font-bold text-slate-900 block leading-tight">{currentRoleInfo.title}</span>
-                <span className="text-[10px] text-emerald-600 block font-bold">{currentRoleInfo.tag}</span>
+                <span className="text-[10px] text-emerald-600 block font-bold">
+                  {adminRole === 'admin' ? `${adminBranch?.name || 'Unassigned branch'} · ${user?.branchId || 'No branch ID'}` : currentRoleInfo.tag}
+                </span>
               </div>
             </div>
           </div>
@@ -462,6 +475,7 @@ export const AdminDashboard = () => {
           {activeTab === 'Orders' && (
             <OrdersView onNavigateToCustomers={() => setActiveTab('Customers')} />
           )}
+          {activeTab === 'Pickup Staff' && <PickupStaffView />}
           {activeTab === 'Customers' && (
             <CustomersView onOpenAddCustomerModal={() => setIsAddCustomerOpen(true)} />
           )}

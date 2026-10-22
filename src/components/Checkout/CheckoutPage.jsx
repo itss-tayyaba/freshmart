@@ -36,7 +36,6 @@ export const CheckoutPage = () => {
     deliveryCharges,
     discountAmount,
     cartTotal,
-    clearCart,
     navigateTo,
     deliveryLocation,
     setDeliveryLocation,
@@ -144,13 +143,12 @@ export const CheckoutPage = () => {
       createdAt: new Date().toISOString()
     };
 
-    let resultOrder = orderPayload;
-    if (placeCustomerOrder) {
-      resultOrder = await placeCustomerOrder(orderPayload);
-      if (resultOrder?.success === false || !resultOrder) return;
-    } else {
-      clearCart();
+    if (typeof placeCustomerOrder !== 'function') {
+      addToast('Checkout Unavailable', 'Order storage is unavailable. Your cart is unchanged; please try again shortly.', 'error');
+      return;
     }
+    const resultOrder = await placeCustomerOrder(orderPayload);
+    if (resultOrder?.success === false || !resultOrder) return;
 
     setPlacedOrderDetails(resultOrder);
     setIsOrderPlaced(true);
@@ -163,7 +161,7 @@ export const CheckoutPage = () => {
       });
     } catch (e) {}
 
-    addToast('Order Placed Successfully! 🎉', `Order ${resultOrder.id || orderId} confirmed for 10-minute dispatch.`);
+    addToast('Order Placed Successfully! 🎉', `Order ${resultOrder.id || orderId} was sent to the selected store branch.`);
   };
 
   return (
@@ -259,10 +257,10 @@ export const CheckoutPage = () => {
 
           <div className="space-y-2">
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-              Order Confirmed & In Transit! 🚀
+              Order Received by Your Store
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
-              Your grocery basket has been packed in temperature-controlled boxes and handed to our express rider.
+              Your order is confirmed and has been sent to the selected branch. We’ll notify you when it is packed and dispatched.
             </p>
           </div>
 
@@ -286,10 +284,10 @@ export const CheckoutPage = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
                 <Clock className="w-4 h-4 text-emerald-600 animate-spin" style={{ animationDuration: '6s' }} />
-                <span>Estimated Arrival: <strong className="text-emerald-700">10-14 Minutes</strong></span>
+                <span>Delivery estimate: <strong className="text-emerald-700">updated after dispatch</strong></span>
               </div>
               <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                Express Courier
+                Branch fulfillment
               </span>
             </div>
 

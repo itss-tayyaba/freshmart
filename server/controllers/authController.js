@@ -96,6 +96,10 @@ export const loginUser = async (req, res) => {
         const isMatch = await user.matchPassword(password);
         const isAdminFallback = user.role === 'admin' && (password === 'admin123' || password === 'adminpassword123');
 
+        if (user.isActive === false) {
+          return res.status(403).json({ success: false, message: 'This staff account is inactive' });
+        }
+
         if (isMatch || isAdminFallback) {
           if (user.role === 'admin' && !user.branchId) {
             return res.status(403).json({

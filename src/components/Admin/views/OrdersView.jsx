@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Calendar,
@@ -30,6 +30,7 @@ import {
 import { useStore } from '../../../context/StoreContext';
 import { calculateDistanceKm } from '../../../data/pakistanLocations';
 import { riderServesArea } from '../../../utils/storeRouting';
+import { apiService } from '../../../services/api';
 
 export const OrdersView = ({ onNavigateToCustomers }) => {
   const {
@@ -51,10 +52,33 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
 
   // Selected Order for Right Side Drawer
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [pickupStaffName, setPickupStaffName] = useState('');
+  const [pickupStaffId, setPickupStaffId] = useState('');
+  const [pickupStaff, setPickupStaff] = useState([]);
+  const [pickupStaffLoading, setPickupStaffLoading] = useState(false);
+  const [pickupStaffError, setPickupStaffError] = useState('');
 
   // Selected Customer for Customer Profile & History Modal
   const [selectedCustomerModal, setSelectedCustomerModal] = useState(null);
+
+  useEffect(() => {
+    if (adminRole !== 'admin' || !user?.branchId) return;
+    let isCurrent = true;
+    setPickupStaffLoading(true);
+    apiService.getPickupStaff().then((response) => {
+      if (!isCurrent) return;
+      if (!response?.success || !Array.isArray(response.staff)) {
+        setPickupStaffError(response?.message || response?.error || 'Could not load branch pickup staff.');
+        setPickupStaffLoading(false);
+        return;
+      }
+      setPickupStaff(response.staff.filter((member) => member.isActive));
+      setPickupStaffError('');
+      setPickupStaffLoading(false);
+    });
+    return () => {
+      isCurrent = false;
+    };
+  }, [adminRole, user?.branchId]);
 
   // Combine live orders
   const liveOrders = useMemo(() => {
@@ -67,6 +91,14 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     }
     return mergedOrders;
   }, [customerOrders, adminOrders, adminRole, user?.branchId]);
+
+  useEffect(() => {
+    if (!selectedOrder) return;
+    const latestOrder = liveOrders.find(
+      (order) => (order.id || order.orderId) === (selectedOrder.id || selectedOrder.orderId)
+    );
+    if (latestOrder && latestOrder !== selectedOrder) setSelectedOrder(latestOrder);
+  }, [liveOrders, selectedOrder]);
 
   // Statistics KPI counts
   const stats = useMemo(() => {
@@ -177,15 +209,20 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
 
   const handleAssignPickupStaff = async () => {
     if (!selectedOrder) return;
-    const result = await assignPickupStaffToOrder(selectedOrder.id, pickupStaffName);
+    const selectedStaff = pickupStaff.find((member) => member.id === pickupStaffId);
+    if (!selectedStaff) {
+      addToast('Pickup Staff Required', 'Select a registered pickup staff member for this branch.', 'error');
+      return;
+    }
+    const result = await assignPickupStaffToOrder(selectedOrder.id, selectedStaff);
     if (result?.success) {
-      const assignment = result.order?.assignedPickupStaff || {
-        id: pickupStaffName.trim().toLowerCase().replace(/\s+/g, '-'),
-        name: pickupStaffName.trim(),
-        assignedAt: new Date().toISOString()
-      };
-      setSelectedOrder((prev) => (prev ? { ...prev, assignedPickupStaff: assignment, status: 'Preparing' } : null));
-      setPickupStaffName('');
+      const assignment = result.order?.assignedPickupStaff || selectedStaff;
+      setSelectedOrder((prev) => (prev ? {
+        ...prev,
+        ...result.order,
+        assignedPickupStaff: assignment
+      } : null));
+      setPickupStaffId('');
     }
   };
 
@@ -243,6 +280,8 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
         return 'bg-slate-100 text-slate-800 border-slate-200';
     }
   };
+
+  const hasRegisteredPickupStaff = /^[a-f0-9]{24}$/i.test(String(selectedOrder?.assignedPickupStaff?.id || ''));
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -844,24 +883,46 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Pickup Staff & Parcel Readiness
               </span>
-              <div className="flex items-center gap-2">
-                <input
-                  value={pickupStaffName}
-                  onChange={(e) => setPickupStaffName(e.target.value)}
-                  placeholder={selectedOrder.assignedPickupStaff?.name || 'Pickup staff name'}
-                  disabled={Boolean(selectedOrder.assignedPickupStaff?.id)}
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800"
-                />
-                {!selectedOrder.assignedPickupStaff?.id && (
+              {hasRegisteredPickupStaff ? (
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
+                  Assigned to {selectedOrder.assignedPickupStaff.name} · {selectedOrder.assignedPickupStaff.id}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <select
+                    value={pickupStaffId}
+                    onChange={(event) => setPickupStaffId(event.target.value)}
+                    disabled={pickupStaffLoading || pickupStaff.length === 0}
+                    className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800"
+                  >
+                    <option value="">
+                      {pickupStaffLoading ? 'Loading pickup staff…' : '-- Select registered pickup staff --'}
+                    </option>
+                    {pickupStaff.map((member) => (
+                      <option key={member.id} value={member.id}>{member.name} · {member.email}</option>
+                    ))}
+                  </select>
                   <button
                     type="button"
                     onClick={handleAssignPickupStaff}
-                    className="px-3 py-2 bg-blue-600 text-white rounded-xl font-bold text-xs"
+                    disabled={!pickupStaffId || pickupStaffLoading}
+                    className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Assign & Prepare
+                    {selectedOrder.assignedPickupStaff?.id ? 'Replace Legacy Assignment' : 'Assign Order'}
                   </button>
-                )}
-              </div>
+                </div>
+              )}
+              {selectedOrder.assignedPickupStaff?.id && !hasRegisteredPickupStaff && (
+                <p className="mt-1 text-[10px] text-amber-700">
+                  This order has a previous name-only assignment. Reassign it to a registered account so pickup staff can access it.
+                </p>
+              )}
+              {pickupStaffError && (
+                <p className="mt-1 text-[10px] font-semibold text-rose-600" role="alert">{pickupStaffError}</p>
+              )}
+              {!hasRegisteredPickupStaff && !pickupStaffLoading && pickupStaff.length === 0 && !pickupStaffError && (
+                <p className="mt-1 text-[10px] text-slate-500">Create an account in the Pickup Staff Accounts section first.</p>
+              )}
               {selectedOrder.assignedPickupStaff?.name && (
                 <p className="text-[10px] text-slate-500">
                   {selectedOrder.assignedPickupStaff.name} currently handles{' '}
@@ -876,10 +937,12 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               <button
                 type="button"
                 onClick={() => handleStatusChange(selectedOrder.id, 'Ready for Pickup')}
-                disabled={selectedOrder.status !== 'Preparing' || !selectedOrder.assignedPickupStaff?.id}
+                disabled
                 className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed text-emerald-800 rounded-xl font-bold text-xs"
               >
-                ✅ Pickup staff: parcel packed and ready
+                {selectedOrder.status === 'Ready for Pickup'
+                  ? '✅ Pickup staff marked this parcel ready'
+                  : 'Waiting for pickup staff to mark parcel ready'}
               </button>
             </div>
 
@@ -910,17 +973,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Update Fulfillment Status
               </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => handleStatusChange(selectedOrder.id, 'Preparing')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    selectedOrder.status === 'Preparing'
-                      ? 'bg-blue-600 text-white shadow-2xs'
-                      : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                  }`}
-                >
-                  👨‍🍳 Preparing
-                </button>
+              <div className="grid grid-cols-1 gap-2">
                 <button
                   onClick={() => handleStatusChange(selectedOrder.id, 'Cancelled')}
                   className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
