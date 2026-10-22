@@ -40,6 +40,9 @@ export const FulfillmentView = () => {
     [...customerOrders, ...adminOrders].forEach((order) => {
       const id = String(order?.id || order?.orderId || order?._id || '');
       if (!id) return;
+      const bareKey = id.replace(/^#/, '').trim().toLowerCase();
+      const cust = String(order?.customer || order?.customerName || '').toLowerCase();
+      if (bareKey === 'cu5011' || cust.includes('danish qureshi') || cust.includes('hamza tariq') || cust.includes('zainab merchant')) return;
       if (activeTenantId) {
         const orderTenant =
           order.tenantId ||

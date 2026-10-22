@@ -527,78 +527,6 @@ export const StoreProvider = ({ children }) => {
       deliveryOtp: '4092',
       time: 'Just now',
       createdAt: new Date().toISOString()
-    },
-    {
-      id: '#CU5011',
-      orderId: '#CU5011',
-      tenantId: 'tenant-chaseup',
-      tenantName: 'Chase Up Supermarket',
-      branchId: 'branch_cu_fsd',
-      branchName: 'Mall of Faisalabad Flagship',
-      customer: 'Danish Qureshi',
-      customerName: 'Danish Qureshi',
-      customerPhone: '+923008765432',
-      phone: '+923008765432',
-      orderType: 'Delivery',
-      status: 'Pending',
-      fulfillmentStage: 1,
-      pickupStep: 'assigned',
-      total: 1250,
-      totalAmount: 1250,
-      totalPrice: 1250,
-      subtotal: 1250,
-      paymentMethod: 'Cash on Delivery',
-      payment: 'Cash on Delivery',
-      paymentStatus: 'Pending',
-      items: [
-        {
-          id: 'chaseup-rice-5kg',
-          productId: 'chaseup-rice-5kg',
-          name: 'Super Basmati Kainat Long Grain Rice (5kg)',
-          price: 1250,
-          quantity: 1,
-          unit: '5kg Pack',
-          image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80',
-          tenantId: 'tenant-chaseup',
-          branchId: 'branch_cu_fsd'
-        }
-      ],
-      rawItems: [
-        {
-          id: 'chaseup-rice-5kg',
-          productId: 'chaseup-rice-5kg',
-          name: 'Super Basmati Kainat Long Grain Rice (5kg)',
-          price: 1250,
-          quantity: 1,
-          unit: '5kg Pack',
-          image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80',
-          tenantId: 'tenant-chaseup',
-          branchId: 'branch_cu_fsd'
-        }
-      ],
-      orderItems: [
-        {
-          id: 'chaseup-rice-5kg',
-          productId: 'chaseup-rice-5kg',
-          name: 'Super Basmati Kainat Long Grain Rice (5kg)',
-          price: 1250,
-          quantity: 1,
-          unit: '5kg Pack',
-          image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80',
-          tenantId: 'tenant-chaseup',
-          branchId: 'branch_cu_fsd'
-        }
-      ],
-      shippingAddress: {
-        address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
-        city: 'Faisalabad'
-      },
-      address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
-      city: 'Faisalabad',
-      deliverySlot: '⚡ 25-35 Mins Express Delivery',
-      deliveryOtp: '5011',
-      time: 'Just now',
-      createdAt: new Date().toISOString()
     }
   ];
 
@@ -618,14 +546,16 @@ export const StoreProvider = ({ children }) => {
             return DEFAULT_INITIAL_ORDERS;
           }
           const filtered = parsed.filter(
-            (o) =>
-              !['#CU62901', 'ORD-CU-001', '#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
-                o.id || o.orderId
-              ) &&
-              o.customer !== 'Hamza Tariq' &&
-              o.customerName !== 'Hamza Tariq' &&
-              o.customer !== 'Zainab Merchant' &&
-              o.customerName !== 'Zainab Merchant'
+            (o) => {
+              const oId = String(o?.id || o?.orderId || '').toLowerCase().replace(/^#/, '');
+              const cust = String(o?.customer || o?.customerName || '').toLowerCase();
+              if (oId === 'cu5011' || cust.includes('danish qureshi')) return false;
+              if (cust.includes('hamza tariq') || cust.includes('zainab merchant')) return false;
+              if (
+                ['cu62901', 'ord-cu-001', '#cu5011', 'cu5011', 'af-1082', 'af-1081', 'cv-4091', 'cv-4088', 'fm-9482', 'af-8831', 'cv-4029', 'ord-9821', 'ord-9820', 'ord-9819', 'ord-9818', 'ord-9817'].includes(oId)
+              ) return false;
+              return true;
+            }
           );
           if (filtered.length > 0) {
             const sanitized = filtered.map(sanitizeOrder);
@@ -1627,14 +1557,16 @@ export const StoreProvider = ({ children }) => {
             return DEFAULT_INITIAL_ORDERS;
           }
           const filtered = parsed.filter(
-            (o) =>
-              !['#CU62901', 'ORD-CU-001', '#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
-                o.id || o.orderId
-              ) &&
-              o.customer !== 'Hamza Tariq' &&
-              o.customerName !== 'Hamza Tariq' &&
-              o.customer !== 'Zainab Merchant' &&
-              o.customerName !== 'Zainab Merchant'
+            (o) => {
+              const oId = String(o?.id || o?.orderId || '').toLowerCase().replace(/^#/, '');
+              const cust = String(o?.customer || o?.customerName || '').toLowerCase();
+              if (oId === 'cu5011' || cust.includes('danish qureshi')) return false;
+              if (cust.includes('hamza tariq') || cust.includes('zainab merchant')) return false;
+              if (
+                ['cu62901', 'ord-cu-001', '#cu5011', 'cu5011', 'af-1082', 'af-1081', 'cv-4091', 'cv-4088', 'fm-9482', 'af-8831', 'cv-4029', 'ord-9821', 'ord-9820', 'ord-9819', 'ord-9818', 'ord-9817'].includes(oId)
+              ) return false;
+              return true;
+            }
           );
           if (filtered.length > 0) {
             const sanitized = filtered.map(sanitizeOrder);
@@ -1661,14 +1593,16 @@ export const StoreProvider = ({ children }) => {
             return DEFAULT_INITIAL_ORDERS;
           }
           const filtered = parsed.filter(
-            (o) =>
-              !['#CU62901', 'ORD-CU-001', '#AF-1082', '#AF-1081', '#CV-4091', '#CV-4088', '#FM-9482', '#AF-8831', '#CV-4029', '#ORD-9821', '#ORD-9820', '#ORD-9819', '#ORD-9818', '#ORD-9817'].includes(
-                o.id || o.orderId
-              ) &&
-              o.customer !== 'Hamza Tariq' &&
-              o.customerName !== 'Hamza Tariq' &&
-              o.customer !== 'Zainab Merchant' &&
-              o.customerName !== 'Zainab Merchant'
+            (o) => {
+              const oId = String(o?.id || o?.orderId || '').toLowerCase().replace(/^#/, '');
+              const cust = String(o?.customer || o?.customerName || '').toLowerCase();
+              if (oId === 'cu5011' || cust.includes('danish qureshi')) return false;
+              if (cust.includes('hamza tariq') || cust.includes('zainab merchant')) return false;
+              if (
+                ['cu62901', 'ord-cu-001', '#cu5011', 'cu5011', 'af-1082', 'af-1081', 'cv-4091', 'cv-4088', 'fm-9482', 'af-8831', 'cv-4029', 'ord-9821', 'ord-9820', 'ord-9819', 'ord-9818', 'ord-9817'].includes(oId)
+              ) return false;
+              return true;
+            }
           );
           if (filtered.length > 0) {
             const sanitized = filtered.map(sanitizeOrder);

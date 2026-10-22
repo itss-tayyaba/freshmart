@@ -220,6 +220,8 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     combined.forEach((ord) => {
       if (ord && (ord.id || ord.orderId || ord._id)) {
         const bareKey = String(ord.id || ord.orderId || ord._id).replace(/^#/, '').trim().toLowerCase();
+        const cust = String(ord.customer || ord.customerName || '').toLowerCase();
+        if (bareKey === 'cu5011' || cust.includes('danish qureshi') || cust.includes('hamza tariq') || cust.includes('zainab merchant')) return;
         const existing = uniqueMap.get(bareKey);
         if (!existing) {
           uniqueMap.set(bareKey, ord);
