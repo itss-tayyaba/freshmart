@@ -13,18 +13,38 @@ import {
   ChevronDown,
   ChevronUp,
   LogOut,
-  RefreshCw,
   Sparkles,
   ArrowRight,
   Filter,
-  CheckSquare,
-  Square
+  LayoutGrid,
+  List,
+  CheckCheck,
+  AlertCircle,
+  Truck,
+  Copy,
+  ShoppingBag,
+  ExternalLink
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 
-// Helper component: Live Elapsed Timer (Ticks every second like in the screenshot)
-const ElapsedTimer = ({ createdAt, fallbackSeconds = 34 }) => {
+// Helper: category/grocery item icon
+const getItemIcon = (name = '') => {
+  const n = String(name || '').toLowerCase();
+  if (n.includes('milk') || n.includes('yogurt') || n.includes('cheese') || n.includes('butter') || n.includes('dairy') || n.includes('olper') || n.includes('dairy omung')) return '🥛';
+  if (n.includes('bread') || n.includes('bun') || n.includes('toast') || n.includes('croissant') || n.includes('rusk') || n.includes('dawn')) return '🍞';
+  if (n.includes('oil') || n.includes('ghee') || n.includes('dalda') || n.includes('banaspati') || n.includes('canola') || n.includes('cooking')) return '🧴';
+  if (n.includes('egg') || n.includes('anda')) return '🥚';
+  if (n.includes('rice') || n.includes('atta') || n.includes('flour') || n.includes('sugar') || n.includes('daal') || n.includes('pulse')) return '🌾';
+  if (n.includes('chip') || n.includes('lays') || n.includes('biscuit') || n.includes('cookie') || n.includes('snack') || n.includes('oreo') || n.includes('kurkure') || n.includes('chocol')) return '🍪';
+  if (n.includes('cappuccino') || n.includes('coffee') || n.includes('tea') || n.includes('chai') || n.includes('nescafe')) return '☕';
+  if (n.includes('coke') || n.includes('pepsi') || n.includes('juice') || n.includes('water') || n.includes('soda') || n.includes('drink')) return '🥤';
+  if (n.includes('soap') || n.includes('shampoo') || n.includes('surf') || n.includes('detergent') || n.includes('cleaner')) return '🧼';
+  return '📦';
+};
+
+// Helper: Live Elapsed Packing Timer
+const ElapsedTimer = ({ createdAt, fallbackSeconds = 42 }) => {
   const [elapsed, setElapsed] = useState(() => {
     if (!createdAt) return fallbackSeconds;
     const diff = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000);
@@ -42,13 +62,10 @@ const ElapsedTimer = ({ createdAt, fallbackSeconds = 34 }) => {
   const secs = String(elapsed % 60).padStart(2, '0');
 
   return (
-    <div className="bg-[#ecfdf5] border border-[#a7f3d0] px-3.5 py-1 text-center rounded-xl min-w-[76px] shadow-2xs">
-      <span className="font-mono font-black text-emerald-800 text-sm sm:text-base tracking-wider block leading-none">
-        {mins}:{secs}
-      </span>
-      <span className="text-[9px] font-black uppercase tracking-widest text-[#059669] block mt-0.5">
-        ELAPSED
-      </span>
+    <div className="inline-flex items-center gap-1.5 bg-slate-900/5 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200/80 font-mono text-xs font-bold shadow-2xs">
+      <Clock size={12} className="text-emerald-600 animate-pulse" />
+      <span>{mins}:{secs}</span>
+      <span className="text-[9px] uppercase font-semibold text-slate-400">elapsed</span>
     </div>
   );
 };
@@ -62,20 +79,18 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     updateOrderFulfillment,
     adminLogout,
     addToast,
-    adminRole,
-    setAdminRole,
-    switchAdminPortal,
     getProductSubstitutes,
     substituteOrderItem,
     resetToTestPickupOrder,
-    currency,
-    navigateTo
+    currency
   } = useStore();
 
   const [activeTab, setActiveTab] = useState('All'); // 'All' | 'Pending' | 'Preparing' | 'Ready' | 'Dispatched'
+  const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
   const [search, setSearch] = useState('');
   const [expandedOrders, setExpandedOrders] = useState({});
   const [pickedState, setPickedState] = useState({});
+  const [copiedId, setCopiedId] = useState(null);
 
   // Smart Product Substitution modal state for unavailable items
   const [substitutionModal, setSubstitutionModal] = useState(null); // { order, item, idx }
@@ -117,6 +132,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
         : Array.isArray(ord.items)
         ? ord.items
         : [];
+
       const hasCaseValue = rawItemList.some((it) => {
         const n = String(it?.name || it?.productName || '').toLowerCase();
         const b = String(it?.brand || '').toLowerCase();
@@ -206,6 +222,23 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     });
   };
 
+  const handlePickAll = (orderId, totalCount) => {
+    setPickedState((prev) => {
+      const current = prev[orderId] || [];
+      const isAll = current.length === totalCount;
+      return {
+        ...prev,
+        [orderId]: isAll ? [] : Array.from({ length: totalCount }, (_, i) => i)
+      };
+    });
+  };
+
+  const copyOrderId = (id) => {
+    navigator.clipboard?.writeText(id);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 1800);
+  };
+
   // Dynamically compute ranked smart substitutes for the selected unavailable item
   const modalSubstitutes = useMemo(() => {
     if (!substitutionModal?.item) return [];
@@ -232,17 +265,6 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     setSelectedAlternative(null);
   };
 
-  const handlePickAll = (orderId, totalCount) => {
-    setPickedState((prev) => {
-      const current = prev[orderId] || [];
-      const isAll = current.length === totalCount;
-      return {
-        ...prev,
-        [orderId]: isAll ? [] : Array.from({ length: totalCount }, (_, i) => i)
-      };
-    });
-  };
-
   // Stage Transitions
   const handleStartPreparing = async (order) => {
     await updateOrderFulfillment(order.id, {
@@ -254,11 +276,10 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       prepEstimatedMinutes: 10,
       isDispatchedByStaff: false
     });
-    addToast('Order Preparing 🔥', `Started preparing order #${order.id}. Delivery rider can now see estimated prep time.`);
+    addToast('Order Preparing 🔥', `Started packing Order #${order.id}. Delivery rider can now see estimated packing time.`);
   };
 
   const handlePackItems = async (order, itemsCount) => {
-    // If not all items are picked yet, pick all automatically
     setPickedState((prev) => ({
       ...prev,
       [order.id]: Array.from({ length: itemsCount }, (_, i) => i)
@@ -300,125 +321,195 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       preparedAt: new Date().toISOString(),
       dispatchedAt: new Date().toISOString()
     });
-    addToast('Parcel Prepared ✅', `Order #${order.id} is prepared! Admin can now assign a delivery rider on the Orders page.`);
+    addToast('Parcel Prepared & Staged ✅', `Order #${order.id} is staged! Admin can now assign a delivery rider.`);
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col font-sans">
-      {/* 1. TOP HEADER */}
-      <header className="bg-slate-950 text-white px-5 py-4 sm:px-8 flex items-center justify-between border-b border-slate-800 shadow-md sticky top-0 z-40">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#059669]/20 border border-[#059669]/40 flex items-center justify-center text-[#6ee7b7] shadow-inner font-bold">
-            <Boxes className="w-5 h-5" />
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+      {/* 1. TOP EXECUTIVE FULFILLMENT HEADER */}
+      <header className="bg-slate-900 text-white px-5 py-3.5 sm:px-8 flex items-center justify-between border-b border-slate-800 shadow-md sticky top-0 z-40">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner font-bold text-lg">
+            <PackageCheck className="w-5 h-5 text-emerald-400" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] uppercase tracking-widest text-emerald-300 font-extrabold bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                {currentTenant?.name || user?.tenantName || 'Store'} &bull; Pickup Desk
+              <span className="text-[10px] uppercase tracking-wider text-emerald-300 font-extrabold bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                {currentTenant?.name || user?.tenantName || 'Supermarket'} &bull; Packing Desk
               </span>
-              <span className="text-xs text-slate-400 font-mono">
-                @{user?.username || 'staff_desk'}
+              <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Live Station Active</span>
               </span>
             </div>
             <h1 className="text-base sm:text-lg font-black text-white mt-0.5 flex items-center gap-2">
               <span>{currentTenant?.logo || '🏬'}</span>
-              <span>{currentTenant?.name || user?.tenantName || 'Store'} Packing Station</span>
+              <span>{currentTenant?.name || user?.tenantName || 'Store'} Order Fulfillment Hub</span>
             </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-xs">
+            <span className="text-slate-400">Desk Operator:</span>
+            <span className="font-mono font-bold text-white">@{user?.username || 'staff_desk'}</span>
+          </div>
+
           <button
             onClick={adminLogout}
-            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer text-slate-300"
+            className="px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
             title="Sign out of staff session"
           >
             <LogOut size={14} />
-            <span className="hidden sm:inline">Sign out</span>
+            <span>Sign out</span>
           </button>
         </div>
       </header>
 
-      {/* 2. MAIN WORKSPACE */}
+      {/* 2. MAIN FULFILLMENT WORKSPACE */}
       <main className="max-w-7xl mx-auto p-4 sm:p-6 space-y-5 flex-1 w-full">
-        {/* TOP CONTROLS & FILTER BAR */}
-        <div className="bg-white rounded-2xl border border-[#d1d5db] p-4 sm:p-5 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {/* TOP KPI CARDS BANNER */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <span>Live Order Queue</span>
-                <span className="bg-[#ecfdf5] text-[#059669] border border-[#a7f3d0] text-[11px] font-black px-2.5 py-0.5 rounded-full">
-                  {allOrders.length} Orders
-                </span>
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Prepare customer orders row-by-row, pick items, and stage them as <b>Ready</b> for rider dispatch.
-              </p>
+              <span className="text-xs font-bold text-slate-500 block uppercase tracking-wider">Queue Total</span>
+              <span className="text-2xl font-black text-slate-900 mt-1 block font-mono">{counts.all}</span>
+              <span className="text-[11px] text-slate-400">All active orders</span>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
+              <Boxes size={20} />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border border-amber-200/80 shadow-2xs flex items-center justify-between">
+            <div>
+              <span className="text-xs font-bold text-amber-700 block uppercase tracking-wider">Awaiting Pick</span>
+              <span className="text-2xl font-black text-amber-900 mt-1 block font-mono">{counts.pending}</span>
+              <span className="text-[11px] text-amber-600">Ready to start</span>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center text-amber-700">
+              <Clock size={20} />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border border-blue-200/80 shadow-2xs flex items-center justify-between">
+            <div>
+              <span className="text-xs font-bold text-blue-700 block uppercase tracking-wider">Packing Now</span>
+              <span className="text-2xl font-black text-blue-900 mt-1 block font-mono">{counts.preparing}</span>
+              <span className="text-[11px] text-blue-600">Being picked &amp; sealed</span>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center text-blue-700">
+              <Flame size={20} />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border border-emerald-200/80 shadow-2xs flex items-center justify-between">
+            <div>
+              <span className="text-xs font-bold text-emerald-700 block uppercase tracking-wider">Staged &amp; Ready</span>
+              <span className="text-2xl font-black text-emerald-900 mt-1 block font-mono">{counts.ready}</span>
+              <span className="text-[11px] text-emerald-600">Awaiting courier pickup</span>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700">
+              <CheckCircle2 size={20} />
+            </div>
+          </div>
+        </div>
+
+        {/* CONTROLS & FILTER TOOLBAR */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Left: Stage Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+              {[
+                { id: 'All', label: 'All Orders', count: counts.all },
+                { id: 'Pending', label: 'To Pick', count: counts.pending },
+                { id: 'Preparing', label: 'Packing', count: counts.preparing },
+                { id: 'Ready', label: 'Staged & Ready', count: counts.ready },
+                { id: 'Dispatched', label: 'Dispatched', count: counts.dispatched }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`text-xs font-bold px-3 py-1.5 rounded-xl whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+                    activeTab === tab.id
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-md ${activeTab === tab.id ? 'bg-black/20 text-white' : 'bg-white text-slate-700'}`}>
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
             </div>
 
-            {/* Actions: Test Order Button + Quick Search */}
-            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+            {/* Right: View Toggle + Search + Test Button */}
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              {/* View mode toggle */}
+              <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-slate-600">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('cards')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
+                    viewMode === 'cards' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                  title="Fulfillment Cards View"
+                >
+                  <LayoutGrid size={14} />
+                  <span className="hidden md:inline">Cards</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('table')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
+                    viewMode === 'table' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                  title="Fulfillment Table View"
+                >
+                  <List size={14} />
+                  <span className="hidden md:inline">Manifest</span>
+                </button>
+              </div>
+
+              {/* Test Order Button */}
               {typeof resetToTestPickupOrder === 'function' && (
                 <button
                   type="button"
                   onClick={resetToTestPickupOrder}
-                  className="px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs shrink-0"
+                  className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs shrink-0"
                   title="Loads Order #ORD-701 with Dalda Ghee (Unavailable) and Olper's Milk (Available) to test picking and substitution"
                 >
-                  <Sparkles size={14} className="text-amber-600" />
-                  <span>🧪 Test Picking &amp; Substitution Order</span>
+                  <Sparkles size={13} className="text-amber-600" />
+                  <span className="hidden lg:inline">🧪 Test Picking Order</span>
+                  <span className="lg:hidden">Test Order</span>
                 </button>
               )}
 
-              <div className="relative flex-1 sm:w-64">
+              {/* Search Bar */}
+              <div className="relative flex-1 sm:w-56">
                 <input
                   type="text"
-                  placeholder="Search by #order ID, customer, phone..."
+                  placeholder="Search ID, customer, item..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full text-xs bg-[#f8fafc] border border-[#cbd5e1] rounded-xl pl-9 pr-3 py-2 text-slate-800 placeholder-slate-400 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-slate-800 placeholder-slate-400 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               </div>
             </div>
           </div>
-
-          {/* Status Tabs Pills */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
-            {[
-              { id: 'All', label: 'All Orders', count: counts.all },
-              { id: 'Pending', label: 'Pending', count: counts.pending },
-              { id: 'Preparing', label: 'Preparing', count: counts.preparing },
-              { id: 'Ready', label: 'Prepared (Ready)', count: counts.ready },
-              { id: 'Dispatched', label: 'In Transit / Delivered', count: counts.dispatched }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`text-xs font-bold px-3 py-1.5 rounded-xl whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
-                  activeTab === tab.id
-                    ? 'bg-[#059669] text-white shadow-xs'
-                    : 'bg-[#f8fafc] text-slate-600 hover:bg-[#d1fae5] border border-[#d1d5db]'
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-md ${activeTab === tab.id ? 'bg-black/20 text-white' : 'bg-slate-200/80 text-slate-700'}`}>
-                  {tab.count}
-                </span>
-              </button>
-            ))}
-          </div>
         </div>
 
-        {/* 3. ROW-WISE ORDERS LIST (Exact Image 1 Card Structure) */}
+        {/* 3. ORDER QUEUE WORKSPACE */}
         {filteredOrders.length === 0 ? (
-          <div className="bg-white rounded-3xl border border-[#d1d5db] p-12 text-center text-slate-500 space-y-3 shadow-xs">
-            <div className="w-14 h-14 rounded-2xl bg-[#f8fafc] border border-[#d1d5db] text-emerald-700 flex items-center justify-center mx-auto text-2xl">
-              📦
+          <div className="bg-white rounded-3xl border border-slate-200/90 p-12 text-center text-slate-500 space-y-3 shadow-2xs">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl shadow-inner">
+              <PackageCheck size={28} />
             </div>
-            <h3 className="font-bold text-slate-800 text-sm">No Orders in this Queue</h3>
+            <h3 className="font-bold text-slate-900 text-base">No Orders in this Queue</h3>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              Ready to test item picking and smart alternatives? Click below to load the test picking order with unavailable Dalda Ghee and in-stock Milk.
+              Ready to test item picking and smart product alternatives? Click below to load the live test picking order.
             </p>
             {typeof resetToTestPickupOrder === 'function' && (
               <button
@@ -431,152 +522,226 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               </button>
             )}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        ) : viewMode === 'cards' ? (
+          /* MODERN FULFILLMENT CARDS GRID */
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {filteredOrders.map((order) => {
               const orderId = order.id || order.orderId;
               const cleanId = String(orderId).replace(/^#/, '');
-              const customerName = order.customerName || order.customer || 'Tayyaba Batool';
-              const customerPhone = order.customerPhone || order.phone || '+923206551696';
-              const orderType = order.orderType || (order.table ? 'DINE-IN' : 'DELIVERY');
+              const customerName = order.customerName || order.customer || 'Customer';
+              const customerPhone = order.customerPhone || order.phone || '+92 300 0000000';
+              const orderType = order.orderType || (order.table ? 'DINE-IN' : 'EXPRESS DELIVERY');
               const items = Array.isArray(order.rawItems) && order.rawItems.length > 0
                 ? order.rawItems
                 : Array.isArray(order.items) && order.items.length > 0
                 ? order.items
                 : Array.isArray(order.orderItems) && order.orderItems.length > 0
                 ? order.orderItems
-                : [{ name: 'Cappuccino', quantity: 1, price: order.total || 810 }];
+                : [{ name: 'Order Item', quantity: 1, price: order.total || 810 }];
 
               const currentPicked = pickedState[orderId] || order.pickedItems || [];
               const isAllPicked = items.length > 0 && currentPicked.length === items.length;
               const isExpanded = Boolean(expandedOrders[orderId]);
               const statusRaw = (order.status || 'Pending').toLowerCase();
-              const isReady = ['ready', 'ready for dispatch', 'ready(dispatched)'].includes(statusRaw) || Boolean(order.isDispatchedByStaff);
+              const isReady = ['prepared', 'ready', 'ready for dispatch', 'ready(dispatched)'].includes(statusRaw) || Boolean(order.isDispatchedByStaff);
               const isPreparing = ['preparing', 'processing', 'picking', 'packed'].includes(statusRaw);
               const isPending = ['pending', 'pending_kitchen', 'order placed', 'received by pickup staff', 'deliver to staff', 'delivered to staff'].includes(statusRaw) || !order.status;
               const isDispatched = ['dispatched', 'out for delivery', 'delivered'].includes(statusRaw) || Boolean(order.isDispatched);
 
-              // Top badge status text (grocery supermarket parcels)
-              const statusBadgeText = isReady
-                ? 'READY FOR DISPATCH'
-                : isPreparing
-                ? (statusRaw === 'packed' ? 'PARCEL PACKED' : 'PACKING PARCEL')
-                : isDispatched
-                ? 'DISPATCHED'
-                : 'PARCEL QUEUED';
+              const pickPercent = items.length > 0 ? Math.round((currentPicked.length / items.length) * 100) : 100;
 
               return (
-              <article
+                <div
                   key={orderId}
-                  className="bg-white rounded-2xl sm:rounded-3xl border border-[#d1d5db] shadow-xs hover:shadow-md transition-all overflow-hidden border-t-4 border-t-[#059669]"
+                  className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col overflow-hidden group"
                 >
-                  <div className="p-5 sm:p-6 space-y-4">
-                    {/* TOP ROW: Order Code, Customer Info & Timer (Exact match to Image 1) */}
-                    <div className="flex items-start justify-between gap-4">
-                      {/* Left: Code, Dine-in/Delivery, Phone */}
+                  {/* CARD ACCENT TOP BANNER */}
+                  <div className={`px-5 py-2.5 text-xs font-bold flex items-center justify-between border-b ${
+                    isReady
+                      ? 'bg-emerald-50/90 border-emerald-100 text-emerald-800'
+                      : isPreparing
+                      ? 'bg-blue-50/90 border-blue-100 text-blue-800'
+                      : isDispatched
+                      ? 'bg-slate-100 border-slate-200 text-slate-700'
+                      : 'bg-amber-50/90 border-amber-100 text-amber-800'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${
+                        isReady ? 'bg-emerald-500 ring-2 ring-emerald-300' : isPreparing ? 'bg-blue-500 animate-pulse' : isDispatched ? 'bg-slate-400' : 'bg-amber-500'
+                      }`} />
+                      <span className="uppercase tracking-wider text-[11px] font-extrabold">
+                        {isReady
+                          ? 'Ready for Courier Pickup'
+                          : isPreparing
+                          ? (statusRaw === 'packed' ? 'Parcel Packed & Sealed' : 'Packing in Progress')
+                          : isDispatched
+                          ? 'Dispatched with Courier'
+                          : 'Awaiting Fulfillment'}
+                      </span>
+                    </div>
+
+                    <ElapsedTimer createdAt={order.createdAt} />
+                  </div>
+
+                  {/* CARD BODY */}
+                  <div className="p-5 flex-1 flex flex-col space-y-4">
+                    {/* ORDER ID & CUSTOMER BANNER */}
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 font-mono tracking-tight leading-none">
-                          #{cleanId}
-                        </h2>
-                        <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1.5 flex items-center gap-1.5">
-                          <span>{orderType}</span>
-                          <span>-</span>
-                          <span className="text-slate-800">{customerName}</span>
-                          {order.table && (
-                            <span className="bg-[#f8fafc] text-emerald-800 px-2 py-0.5 rounded border border-[#d1d5db] text-[10px]">
-                              {order.table}
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => copyOrderId(cleanId)}
+                            className="font-mono font-black text-slate-900 text-xl tracking-tight hover:text-emerald-700 transition flex items-center gap-1 group/btn"
+                            title="Click to copy Order ID"
+                          >
+                            <span>#{cleanId}</span>
+                            <Copy size={13} className="text-slate-400 group-hover/btn:text-emerald-600 transition" />
+                          </button>
+                          {copiedId === cleanId && (
+                            <span className="text-[10px] bg-slate-900 text-white px-1.5 py-0.5 rounded font-medium animate-in fade-in">
+                              Copied!
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-slate-400 font-mono mt-0.5">
-                          {customerPhone}
+
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs font-bold text-slate-800">{customerName}</span>
+                          <span className="text-slate-300">•</span>
+                          <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.2 rounded-full border border-emerald-200/60">
+                            {orderType}
+                          </span>
                         </div>
-                        {order.pickupStaffName && (
-                          <div className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200/90 px-2 py-0.5 rounded-md">
-                            <span>📦 Desk:</span>
-                            <span className="text-amber-950 font-black">{order.pickupStaffName}</span>
-                          </div>
-                        )}
+
+                        <a
+                          href={`tel:${customerPhone}`}
+                          className="text-xs text-slate-400 hover:text-slate-700 font-mono mt-0.5 inline-flex items-center gap-1 transition"
+                        >
+                          <Phone size={11} />
+                          <span>{customerPhone}</span>
+                        </a>
                       </div>
 
-                      {/* Right: Status Pill & Elapsed Timer Box */}
-                      <div className="flex flex-col items-end gap-1.5 shrink-0">
-                        <span className="text-[10px] uppercase tracking-wider font-black text-emerald-900 bg-[#ecfdf5] border border-[#a7f3d0] px-3 py-0.5 rounded-full">
-                          {statusBadgeText}
-                        </span>
+                      {order.pickupStaffName && (
+                        <div className="text-right shrink-0">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Assigned Desk</span>
+                          <span className="text-xs font-extrabold text-slate-800 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200 block mt-0.5">
+                            {order.pickupStaffName}
+                          </span>
+                        </div>
+                      )}
+                    </div>
 
-                        <ElapsedTimer createdAt={order.createdAt} />
+                    {/* LIVE PICKING PROGRESS BAR */}
+                    <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200/80 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs font-bold">
+                        <span className="text-slate-600 flex items-center gap-1.5">
+                          <span>Items Picked:</span>
+                          <span className="font-mono text-slate-900">
+                            {currentPicked.length} / {items.length}
+                          </span>
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[11px] font-mono font-black ${isAllPicked ? 'text-emerald-700' : 'text-slate-500'}`}>
+                            {pickPercent}%
+                          </span>
+                          {!isReady && !isDispatched && items.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handlePickAll(orderId, items.length)}
+                              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
+                            >
+                              {isAllPicked ? 'Uncheck All' : 'Check All'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="w-full bg-slate-200/90 h-2 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-300 rounded-full ${
+                            isAllPicked ? 'bg-emerald-500' : 'bg-emerald-600'
+                          }`}
+                          style={{ width: `${pickPercent}%` }}
+                        />
                       </div>
                     </div>
 
-                    {/* ITEMS ROW-WISE LIST (Exact match to Image 1) */}
-                    <div className="space-y-2 pt-1 border-t border-[#e2e8f0]">
-                      {items.map((item, idx) => {
-                        const isPicked = currentPicked.includes(idx);
-                        const qty = item.quantity || item.qty || 1;
-                        const name = item.name || item.productName || item.title || 'Cappuccino';
+                    {/* INTERACTIVE ITEM CHECKLIST */}
+                    <div className="space-y-2 flex-1">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block px-1">
+                        Picking Checklist ({items.length} Line Items)
+                      </span>
 
-                        return (
-                          <div
-                            key={idx}
-                            onClick={() => toggleItemPick(orderId, idx)}
-                            className="flex items-center justify-between py-1.5 px-1 rounded-lg hover:bg-[#f8fafc] transition cursor-pointer select-none group"
-                          >
-                            {/* Quantity and Name */}
-                            <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-900 min-w-0 flex-1">
-                              <span className="text-emerald-700 font-black min-w-[24px]">
-                                {qty}*
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <span className={`block truncate transition ${isPicked ? 'line-through text-slate-400' : 'text-slate-900'}`}>
-                                  {name}
+                      <div className="space-y-1.5">
+                        {items.map((item, idx) => {
+                          const isPicked = currentPicked.includes(idx);
+                          const qty = item.quantity || item.qty || 1;
+                          const name = item.name || item.productName || item.title || 'Item';
+                          const icon = getItemIcon(name);
+
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => toggleItemPick(orderId, idx)}
+                              className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 select-none ${
+                                isPicked
+                                  ? 'bg-emerald-50/50 border-emerald-200/80 text-slate-500'
+                                  : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60 text-slate-900'
+                              }`}
+                            >
+                              {/* Left: Icon, Qty Pill, Item Name */}
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <span className="text-base shrink-0 p-1 bg-slate-100 rounded-lg">{icon}</span>
+                                <span className={`text-xs font-mono font-black px-2 py-0.5 rounded-md shrink-0 ${
+                                  isPicked ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-900 text-white'
+                                }`}>
+                                  {qty}x
                                 </span>
-                                {item.isSubstituted && item.originalProduct && (
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded mt-0.5">
-                                    <span>🔄 Substituted</span>
-                                    <span className="text-slate-500">(Orig: {item.originalProduct.name})</span>
-                                  </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className={`text-xs font-bold truncate leading-tight ${isPicked ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                                    {name}
+                                  </p>
+                                  {item.isSubstituted && item.originalProduct && (
+                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded mt-0.5">
+                                      <span>🔄 Substituted</span>
+                                      <span className="text-slate-500">(Orig: {item.originalProduct.name})</span>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Right: Substitute Button & Modern Round Checkbox */}
+                              <div className="flex items-center gap-2 shrink-0">
+                                {!isPicked && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleOpenSubstitution(e, order, item, idx)}
+                                    className="px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold flex items-center gap-1 transition cursor-pointer"
+                                    title="Out of stock? Replace with smart in-store substitute"
+                                  >
+                                    <span>🔄 Sub</span>
+                                  </button>
                                 )}
+
+                                <div
+                                  className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+                                    isPicked
+                                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-2xs scale-105'
+                                      : 'border-slate-300 bg-white hover:border-emerald-500'
+                                  }`}
+                                >
+                                  {isPicked && <Check size={14} className="stroke-[3]" />}
+                                </div>
                               </div>
                             </div>
-
-                            {/* Actions: Substitute Button + Square Checkbox */}
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {!isPicked && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => handleOpenSubstitution(e, order, item, idx)}
-                                  className="px-2 py-0.5 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                                  title="Item out of stock? Select smart product alternative."
-                                >
-                                  <span>🔄 Substitute</span>
-                                </button>
-                              )}
-
-                              {/* Square Checkbox on right side */}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleItemPick(orderId, idx);
-                                }}
-                                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors cursor-pointer ${
-                                  isPicked
-                                    ? 'bg-[#059669] border-[#059669] text-white shadow-2xs'
-                                    : 'border-slate-300 bg-white hover:border-[#059669]'
-                                }`}
-                                aria-label={`Toggle pick for ${name}`}
-                              >
-                                {isPicked && <Check size={14} className="stroke-[3]" />}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    {/* EXPANDABLE DETAILS TOGGLE */}
-                    <div>
+                    {/* EXPANDABLE DETAILS DRAWER */}
+                    <div className="pt-1">
                       <button
                         type="button"
                         onClick={() => toggleExpanded(orderId)}
@@ -584,41 +749,42 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                       >
                         {isExpanded ? (
                           <>
-                            <ChevronUp size={14} />
-                            <span>Hide Details</span>
+                            <ChevronUp size={13} />
+                            <span>Hide Delivery Details</span>
                           </>
                         ) : (
                           <>
-                            <ChevronDown size={14} />
-                            <span>▼ Show Full Details</span>
+                            <ChevronDown size={13} />
+                            <span>Delivery Details &amp; Notes</span>
                           </>
                         )}
                       </button>
 
                       {isExpanded && (
-                        <div className="mt-3 p-3.5 rounded-xl bg-[#f8fafc] border border-[#d1d5db] space-y-2 text-xs animate-in fade-in duration-150">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-600">
-                            <div>
-                              <span className="font-bold text-slate-400 block text-[10px] uppercase">Destination</span>
-                              <span className="font-semibold text-slate-800">
-                                {order.address || order.shippingAddress?.address || 'Cafe Dine-In Hub'} • {order.city || 'Lahore'}
+                        <div className="mt-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs animate-in fade-in duration-150">
+                          <div className="grid grid-cols-2 gap-2 text-slate-600">
+                            <div className="col-span-2">
+                              <span className="font-bold text-slate-400 block text-[10px] uppercase">Destination Address</span>
+                              <span className="font-semibold text-slate-800 flex items-center gap-1 mt-0.5">
+                                <MapPin size={12} className="text-emerald-600 shrink-0" />
+                                <span>{order.address || order.shippingAddress?.address || 'Cafe Dine-In Hub'} &bull; {order.city || 'Faisalabad'}</span>
                               </span>
                             </div>
                             <div>
                               <span className="font-bold text-slate-400 block text-[10px] uppercase">Payment</span>
                               <span className="font-semibold text-slate-800">
-                                {order.paymentMethod || order.payment || 'Cash'} ({order.paymentStatus || 'Pending'})
+                                {order.paymentMethod || order.payment || 'Cash on Delivery'}
                               </span>
                             </div>
                             {order.parcelCode && (
                               <div>
-                                <span className="font-bold text-slate-400 block text-[10px] uppercase">Parcel ID</span>
+                                <span className="font-bold text-slate-400 block text-[10px] uppercase">Parcel Tracking Code</span>
                                 <span className="font-mono font-bold text-emerald-800">{order.parcelCode}</span>
                               </div>
                             )}
                             {order.notes && (
-                              <div className="sm:col-span-2">
-                                <span className="font-bold text-slate-400 block text-[10px] uppercase">Special Notes</span>
+                              <div className="col-span-2">
+                                <span className="font-bold text-slate-400 block text-[10px] uppercase">Customer Notes</span>
                                 <span className="text-slate-700 italic">"{order.notes}"</span>
                               </div>
                             )}
@@ -626,81 +792,207 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                         </div>
                       )}
                     </div>
+                  </div>
 
-                    {/* BOTTOM ROW: Price on Left, Action Button on Right (Exact match to Image 1) */}
-                    <div className="pt-3 border-t border-dashed border-[#cbd5e1] flex items-center justify-between gap-4">
-                      {/* Price */}
-                      <div className="font-mono font-black text-slate-900 text-lg sm:text-xl">
+                  {/* CARD ACTION FOOTER */}
+                  <div className="px-5 py-3.5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between gap-3">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 block uppercase">Order Value</span>
+                      <span className="font-mono font-black text-slate-900 text-base sm:text-lg">
                         {order.currency === 'USD' || String(order.id).startsWith('EB-') ? (
                           <span>${Number(order.total || order.totalAmount || 810).toLocaleString()}</span>
                         ) : (
-                          <span>Rs {Number(order.total || order.totalAmount || 810).toLocaleString()}</span>
+                          <span>Rs. {Number(order.total || order.totalAmount || 810).toLocaleString()}</span>
                         )}
-                      </div>
+                      </span>
+                    </div>
 
-                      {/* Action Button */}
-                      <div>
-                        {!isReady && !isDispatched ? (
-                          <div className="flex items-center gap-2 flex-wrap justify-end">
-                            {isPending && (
-                              <button
-                                type="button"
-                                onClick={() => handleStartPreparing(order)}
-                                className="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs sm:text-sm px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm transition cursor-pointer"
-                              >
-                                <Flame size={15} />
-                                <span>START PACKING</span>
-                              </button>
-                            )}
+                    {/* Stage transition actions */}
+                    <div>
+                      {!isReady && !isDispatched ? (
+                        <div className="flex items-center gap-2">
+                          {isPending && (
+                            <button
+                              type="button"
+                              onClick={() => handleStartPreparing(order)}
+                              className="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
+                            >
+                              <Flame size={14} />
+                              <span>Start Packing</span>
+                            </button>
+                          )}
 
-                            {isPreparing && statusRaw !== 'packed' && !isAllPicked && (
-                              <button
-                                type="button"
-                                onClick={() => handlePackItems(order, items.length)}
-                                className="bg-slate-700 hover:bg-slate-800 active:scale-95 text-white font-bold text-xs sm:text-sm px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm transition cursor-pointer"
-                              >
-                                <PackageCheck size={15} />
-                                <span>PACK ITEMS ({currentPicked.length}/{items.length})</span>
-                              </button>
-                            )}
+                          <button
+                            type="button"
+                            onClick={() => handleMarkReadyForDispatch(order, items.length)}
+                            className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                            title="Mark parcel prepared and notify admin to assign rider"
+                          >
+                            <CheckCircle2 size={15} />
+                            <span>Mark Prepared ✅</span>
+                          </button>
+                        </div>
+                      ) : isReady ? (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          <CheckCircle2 size={14} className="text-emerald-600" />
+                          <span>Staged &bull; Ready for Rider</span>
+                        </div>
+                      ) : isDispatched ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-200/80 text-slate-800 border border-slate-300">
+                          <Truck size={14} className="text-emerald-600" />
+                          <span>{order.assignedRider?.name ? `Courier: ${order.assignedRider.name}` : 'Dispatched'}</span>
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* HIGH-EFFICIENCY MANIFEST TABLE VIEW */
+          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-black uppercase tracking-wider text-slate-500">
+                  <tr>
+                    <th className="py-3.5 px-4">Order &amp; Time</th>
+                    <th className="py-3.5 px-4">Customer &amp; Area</th>
+                    <th className="py-3.5 px-4">Items Picking Checklist</th>
+                    <th className="py-3.5 px-4">Progress</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {filteredOrders.map((order) => {
+                    const orderId = order.id || order.orderId;
+                    const cleanId = String(orderId).replace(/^#/, '');
+                    const customerName = order.customerName || order.customer || 'Customer';
+                    const customerPhone = order.customerPhone || order.phone || '+92 300 0000000';
+                    const items = Array.isArray(order.rawItems) && order.rawItems.length > 0
+                      ? order.rawItems
+                      : Array.isArray(order.items) && order.items.length > 0
+                      ? order.items
+                      : Array.isArray(order.orderItems) && order.orderItems.length > 0
+                      ? order.orderItems
+                      : [{ name: 'Order Item', quantity: 1, price: order.total || 810 }];
 
+                    const currentPicked = pickedState[orderId] || order.pickedItems || [];
+                    const isAllPicked = items.length > 0 && currentPicked.length === items.length;
+                    const statusRaw = (order.status || 'Pending').toLowerCase();
+                    const isReady = ['prepared', 'ready', 'ready for dispatch', 'ready(dispatched)'].includes(statusRaw) || Boolean(order.isDispatchedByStaff);
+                    const isPreparing = ['preparing', 'processing', 'picking', 'packed'].includes(statusRaw);
+                    const isPending = ['pending', 'pending_kitchen', 'order placed', 'received by pickup staff', 'deliver to staff', 'delivered to staff'].includes(statusRaw) || !order.status;
+                    const isDispatched = ['dispatched', 'out for delivery', 'delivered'].includes(statusRaw) || Boolean(order.isDispatched);
+
+                    return (
+                      <tr key={orderId} className="hover:bg-slate-50/60 transition">
+                        {/* Order & Time */}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <span className="font-mono font-bold text-slate-900 block text-sm">#{cleanId}</span>
+                          <div className="mt-1">
+                            <ElapsedTimer createdAt={order.createdAt} />
+                          </div>
+                        </td>
+
+                        {/* Customer & Area */}
+                        <td className="py-3 px-4">
+                          <span className="font-bold text-slate-900 block">{customerName}</span>
+                          <span className="text-[11px] text-slate-400 font-mono block">{customerPhone}</span>
+                          <span className="text-[10px] text-slate-500 truncate max-w-[180px] block mt-0.5">
+                            {order.address || order.city || 'Express Delivery'}
+                          </span>
+                        </td>
+
+                        {/* Items Checklist */}
+                        <td className="py-3 px-4 max-w-sm">
+                          <div className="space-y-1">
+                            {items.map((item, idx) => {
+                              const isPicked = currentPicked.includes(idx);
+                              const qty = item.quantity || item.qty || 1;
+                              const name = item.name || item.productName || item.title || 'Item';
+
+                              return (
+                                <div
+                                  key={idx}
+                                  onClick={() => toggleItemPick(orderId, idx)}
+                                  className="flex items-center gap-2 cursor-pointer group select-none"
+                                >
+                                  <div className={`w-4 h-4 rounded border flex items-center justify-center transition ${
+                                    isPicked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 group-hover:border-emerald-500'
+                                  }`}>
+                                    {isPicked && <Check size={10} className="stroke-[3]" />}
+                                  </div>
+                                  <span className={`text-xs truncate ${isPicked ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                                    <span className="font-mono font-bold text-emerald-700">{qty}x</span> {name}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </td>
+
+                        {/* Progress */}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <span className="font-mono text-xs font-bold text-slate-800 block">
+                            {currentPicked.length}/{items.length} items
+                          </span>
+                          <div className="w-20 bg-slate-200 h-1.5 rounded-full overflow-hidden mt-1">
+                            <div
+                              className="bg-emerald-500 h-full rounded-full transition-all"
+                              style={{ width: `${items.length > 0 ? (currentPicked.length / items.length) * 100 : 100}%` }}
+                            />
+                          </div>
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold ${
+                            isReady
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                              : isPreparing
+                              ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                              : isDispatched
+                              ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                              : 'bg-amber-50 text-amber-800 border border-amber-200'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              isReady ? 'bg-emerald-500' : isPreparing ? 'bg-blue-500 animate-pulse' : isDispatched ? 'bg-slate-400' : 'bg-amber-500'
+                            }`} />
+                            <span>
+                              {isReady ? 'Ready' : isPreparing ? 'Packing' : isDispatched ? 'Dispatched' : 'Pending'}
+                            </span>
+                          </span>
+                        </td>
+
+                        {/* Action */}
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
+                          {!isReady && !isDispatched ? (
                             <button
                               type="button"
                               onClick={() => handleMarkReadyForDispatch(order, items.length)}
-                              className="bg-[#059669] hover:bg-[#047857] active:scale-95 text-white font-black text-xs sm:text-sm px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition cursor-pointer ring-2 ring-emerald-500/20"
-                              title="Mark parcel prepared and notify admin to assign rider"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl transition cursor-pointer shadow-2xs"
                             >
-                              <CheckCircle2 size={16} />
-                              <span>MARK AS PREPARED ✅</span>
+                              Mark Ready ✅
                             </button>
-                          </div>
-                        ) : isReady ? (
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#ecfdf5] text-[#047857] border border-[#a7f3d0]">
-                              <span className="w-2 h-2 rounded-full bg-[#059669]"></span>
-                              <span>Prepared (Ready for Rider)</span>
-                            </span>
-                            <span className="text-[11px] text-slate-500 hidden sm:inline">
-                              (Admin can assign rider)
-                            </span>
-                          </div>
-                        ) : isDispatched ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                            <CheckCircle2 size={14} className="text-emerald-600" />
-                            <span>{order.assignedRider?.name ? `Courier: ${order.assignedRider.name}` : 'Dispatched'}</span>
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+                          ) : isReady ? (
+                            <span className="text-emerald-700 font-bold text-xs">Staged for Courier</span>
+                          ) : (
+                            <span className="text-slate-400 text-xs">Completed</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </main>
 
-      {/* 🔄 SMART PRODUCT SUBSTITUTION MODAL FOR PICKUP STAFF */}
+      {/* 4. 🔄 SMART PRODUCT SUBSTITUTION MODAL FOR PICKUP STAFF */}
       {substitutionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 max-h-[90vh] flex flex-col">
@@ -715,7 +1007,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                     Smart Product Substitution
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Order #{String(substitutionModal.order.id || substitutionModal.order.orderId).replace(/^#/, '')} • Item Unavailable in Store
+                    Order #{String(substitutionModal.order.id || substitutionModal.order.orderId).replace(/^#/, '')} &bull; Item Unavailable in Store
                   </p>
                 </div>
               </div>
@@ -738,7 +1030,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                   {substitutionModal.item.name || substitutionModal.item.productName}
                 </h4>
                 <p className="text-xs text-slate-600 mt-0.5 font-mono">
-                  Qty: {substitutionModal.item.quantity || 1} • Unit Price: Rs. {substitutionModal.item.price}
+                  Qty: {substitutionModal.item.quantity || 1} &bull; Unit Price: Rs. {substitutionModal.item.price}
                 </p>
               </div>
               <span className="px-2.5 py-1 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0 shadow-2xs">
