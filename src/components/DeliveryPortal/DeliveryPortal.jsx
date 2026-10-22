@@ -880,13 +880,6 @@ export const DeliveryPortal = () => {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => navigateTo('home')}
-            className="text-xs text-slate-300 font-bold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 transition cursor-pointer hidden sm:flex items-center gap-1.5"
-            title="Open Customer Store"
-          >
-            <span>🛒 Store</span>
-          </button>
-          <button
             type="button"
             onClick={() => {
               if (typeof adminLogout === 'function') {
@@ -1027,15 +1020,6 @@ export const DeliveryPortal = () => {
             >
               <LogOut className="w-3.5 h-3.5 text-slate-400" />
               <span>Log out</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigateTo('home')}
-              className="w-full py-2 px-3 hover:bg-slate-900 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <ArrowLeft className="w-3 h-3" />
-              <span>Back to Supermarket</span>
             </button>
           </div>
         </div>

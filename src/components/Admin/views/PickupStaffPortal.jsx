@@ -329,14 +329,6 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => navigateTo('home')}
-            className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs hidden sm:flex"
-            title="Open Customer Storefront"
-          >
-            <span>🛒 Store</span>
-          </button>
-
-          <button
             onClick={adminLogout}
             className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer text-slate-300"
             title="Sign out of staff session"
