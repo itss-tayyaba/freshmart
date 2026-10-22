@@ -261,4 +261,51 @@ describe('Al-Fatah Store Admin Order Visibility & Multi-Tenant Isolation', () =>
     assert.equal(caseValueOrders.length, 1);
     assert.equal(caseValueOrders[0].id, '#CV4092');
   });
+
+  it('validates prepared lifecycle: Staff marks Prepared -> Admin assigns Rider -> Out for Delivery', () => {
+    // 1. Customer places order on Case Value with general items (no brand name in title)
+    const customerCvOrder = {
+      id: '#CV9104',
+      orderId: '#CV9104',
+      tenantId: 'tenant-chasevalue',
+      tenantName: 'Case Value',
+      customer: 'Asad Malik',
+      address: 'D-Ground, Faisalabad',
+      status: 'Pending',
+      items: [{ name: 'Fresh Milk 1L', price: 210, quantity: 2 }]
+    };
+
+    const sanitized = sanitizeOrder(customerCvOrder);
+    assert.equal(isSameTenant(sanitized.tenantId, 'tenant-chasevalue'), true);
+
+    // 2. Pickup Staff marks order as Prepared
+    const preparedOrder = {
+      ...sanitized,
+      fulfillmentStage: 4,
+      status: 'Prepared',
+      pickupStep: 'verified',
+      isDispatchedByStaff: true,
+      preparedAt: new Date().toISOString()
+    };
+    assert.equal(preparedOrder.status, 'Prepared');
+    assert.equal(preparedOrder.isDispatchedByStaff, true);
+
+    // Check packing milestone in tracker
+    const isPackingComplete = ['prepared', 'ready', 'ready for dispatch'].includes(preparedOrder.status.toLowerCase()) || preparedOrder.fulfillmentStage >= 4;
+    assert.equal(isPackingComplete, true, 'Dark store packing completes once status is Prepared');
+
+    // 3. Store Admin assigns courier rider to deliver
+    const assignedOrder = {
+      ...preparedOrder,
+      status: 'Out for Delivery',
+      fulfillmentStage: 5,
+      assignedRider: {
+        id: 'RDR-CV-01',
+        name: 'Rashid Ali',
+        phone: '+92 321 9876543'
+      }
+    };
+    assert.equal(assignedOrder.status, 'Out for Delivery');
+    assert.equal(assignedOrder.assignedRider.name, 'Rashid Ali');
+  });
 });

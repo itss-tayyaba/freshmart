@@ -92,7 +92,7 @@ export const OrderTrackerModal = () => {
     const fulfillmentStage = Number(rawOrder.fulfillmentStage || 0);
     const isDispatched = rawOrder.isDispatched === true || fulfillmentStage >= 5 || status.includes('dispatched');
     const isOutForDelivery = fulfillmentStage >= 6 || status.includes('out for delivery') || status.includes('picked up') || status.includes('transit') || (isAssigned && !isDelivered);
-    const isPackingComplete = fulfillmentStage >= 4 || isDispatched || isOutForDelivery || isDelivered || status.includes('ready') || status.includes('packed');
+    const isPackingComplete = fulfillmentStage >= 4 || isDispatched || isOutForDelivery || isDelivered || status.includes('ready') || status.includes('packed') || status.includes('prepared');
     const isPreparing = status.includes('preparing') || status.includes('processing') || status.includes('picking') || status.includes('staff') || status.includes('received') || fulfillmentStage >= 2;
 
     const shipping = rawOrder.shippingAddress || {};

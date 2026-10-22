@@ -5742,7 +5742,7 @@ export const StoreProvider = ({ children }) => {
     let statusColor;
     if (newStatus === 'Delivered') statusColor = 'bg-emerald-100 text-emerald-800';
     else if (newStatus === 'Out for Delivery') statusColor = 'bg-amber-100 text-amber-800';
-    else if (newStatus === 'Ready' || newStatus === 'Ready for Dispatch' || newStatus === 'Packed') statusColor = 'bg-blue-100 text-blue-800';
+    else if (newStatus === 'Prepared' || newStatus === 'Ready' || newStatus === 'Ready for Dispatch' || newStatus === 'Packed') statusColor = 'bg-emerald-100 text-emerald-800';
     else if (newStatus === 'Preparing' || newStatus === 'Processing' || newStatus === 'Packing') statusColor = 'bg-indigo-100 text-indigo-800';
     else if (newStatus === 'Cancelled') statusColor = 'bg-rose-100 text-rose-800';
 

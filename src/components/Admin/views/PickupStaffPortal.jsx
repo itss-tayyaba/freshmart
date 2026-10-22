@@ -147,7 +147,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
   const counts = useMemo(() => {
     const isPending = (o) => ['Pending', 'pending', 'Pending_Kitchen', 'pending_kitchen', 'Order Placed', 'Received by Pickup Staff', 'Deliver to Staff', 'Delivered to Staff'].includes(o.status) || (!o.status);
     const isPreparing = (o) => ['Preparing', 'preparing', 'Processing', 'Picking', 'Packed'].includes(o.status);
-    const isReady = (o) => ['Ready', 'ready', 'Ready for Dispatch', 'ready(dispatched)'].includes(o.status) || o.isDispatchedByStaff;
+    const isReady = (o) => ['Prepared', 'prepared', 'Ready', 'ready', 'Ready for Dispatch', 'ready(dispatched)'].includes(o.status) || o.isDispatchedByStaff;
     const isDispatched = (o) => ['Dispatched', 'dispatched', 'Out for Delivery', 'Delivered'].includes(o.status) || o.isDispatched;
 
     return {
@@ -170,7 +170,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       if (activeTab === 'Preparing' && !['preparing', 'processing', 'picking', 'packed'].includes(statusLower)) {
         return false;
       }
-      if (activeTab === 'Ready' && !['ready', 'ready for dispatch', 'ready(dispatched)'].includes(statusLower)) {
+      if ((activeTab === 'Ready' || activeTab === 'Prepared') && !['prepared', 'ready', 'ready for dispatch', 'ready(dispatched)'].includes(statusLower) && !ord.isDispatchedByStaff) {
         return false;
       }
       if (activeTab === 'Dispatched' && !['dispatched', 'out for delivery', 'delivered'].includes(statusLower) && !ord.isDispatched) {
@@ -287,7 +287,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     const parcelCode = order.parcelCode || `PRCL-${String(order.id).replace(/\W/g, '').slice(-6).toUpperCase()}`;
     await updateOrderFulfillment(order.id, {
       fulfillmentStage: 4,
-      status: 'Ready for Dispatch',
+      status: 'Prepared',
       pickupStep: 'verified',
       pickedItems: Array.from({ length: totalItems }, (_, i) => i),
       parcelCode,
@@ -295,9 +295,10 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       isDispatchedByStaff: true,
       parcelVerifiedAt: new Date().toISOString(),
       readyForDispatchAt: new Date().toISOString(),
+      preparedAt: new Date().toISOString(),
       dispatchedAt: new Date().toISOString()
     });
-    addToast('Parcel Ready to Dispatch ✅', `Order #${order.id} is ready! Admin can now assign a delivery rider on the Orders page.`);
+    addToast('Parcel Prepared ✅', `Order #${order.id} is prepared! Admin can now assign a delivery rider on the Orders page.`);
   };
 
   return (
@@ -392,7 +393,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               { id: 'All', label: 'All Orders', count: counts.all },
               { id: 'Pending', label: 'Pending', count: counts.pending },
               { id: 'Preparing', label: 'Preparing', count: counts.preparing },
-              { id: 'Ready', label: 'Ready (Dispatched)', count: counts.ready },
+              { id: 'Ready', label: 'Prepared (Ready)', count: counts.ready },
               { id: 'Dispatched', label: 'In Transit / Delivered', count: counts.dispatched }
             ].map((tab) => (
               <button
@@ -665,17 +666,17 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                               type="button"
                               onClick={() => handleMarkReadyForDispatch(order, items.length)}
                               className="bg-[#059669] hover:bg-[#047857] active:scale-95 text-white font-black text-xs sm:text-sm px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition cursor-pointer ring-2 ring-emerald-500/20"
-                              title="Mark parcel ready and notify admin to assign rider"
+                              title="Mark parcel prepared and notify admin to assign rider"
                             >
                               <CheckCircle2 size={16} />
-                              <span>READY TO DISPATCH</span>
+                              <span>MARK AS PREPARED ✅</span>
                             </button>
                           </div>
                         ) : isReady ? (
                           <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#e0f2fe] text-[#0369a1] border border-[#bae6fd]">
-                              <span className="w-2 h-2 rounded-full bg-[#0284c7]"></span>
-                              <span>Ready for Dispatch</span>
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#ecfdf5] text-[#047857] border border-[#a7f3d0]">
+                              <span className="w-2 h-2 rounded-full bg-[#059669]"></span>
+                              <span>Prepared (Ready for Rider)</span>
                             </span>
                             <span className="text-[11px] text-slate-500 hidden sm:inline">
                               (Admin can assign rider)

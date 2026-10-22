@@ -61,8 +61,11 @@ export const sanitizeOrder = (ord) => {
   // 1. Detect Case Value / Chase Value
   const isExplicitCaseValue =
     isSameTenant(ord.tenantId, 'tenant-chasevalue') ||
+    isSameTenant(ord.companyId, 'tenant-chasevalue') ||
     isSameTenant(ord.tenantId, 'company_003') ||
     (ord.tenantName && (String(ord.tenantName).toLowerCase().includes('case value') || String(ord.tenantName).toLowerCase().includes('chase value'))) ||
+    (ord.storeName && (String(ord.storeName).toLowerCase().includes('case value') || String(ord.storeName).toLowerCase().includes('chase value'))) ||
+    (ord.tenant && isSameTenant(ord.tenant, 'tenant-chasevalue')) ||
     hasCaseValueItem ||
     ((idStr.startsWith('#cv') || idStr.startsWith('cv-') || idStr.startsWith('ord-cv') || idStr.includes('-cv-')) && (!ord.tenantId || isSameTenant(ord.tenantId, 'tenant-chasevalue')));
 
@@ -83,6 +86,7 @@ export const sanitizeOrder = (ord) => {
   // 2. Detect Chase Up / Case Up
   const isExplicitChaseUp =
     isSameTenant(ord.tenantId, 'tenant-chaseup') ||
+    isSameTenant(ord.companyId, 'tenant-chaseup') ||
     isSameTenant(ord.tenantId, 'company_002') ||
     (ord.tenantName && (
       String(ord.tenantName).toLowerCase().includes('chase up') ||
@@ -90,6 +94,13 @@ export const sanitizeOrder = (ord) => {
       String(ord.tenantName).toLowerCase().includes('caseup') ||
       String(ord.tenantName).toLowerCase().includes('chaseup')
     )) ||
+    (ord.storeName && (
+      String(ord.storeName).toLowerCase().includes('chase up') ||
+      String(ord.storeName).toLowerCase().includes('case up') ||
+      String(ord.storeName).toLowerCase().includes('caseup') ||
+      String(ord.storeName).toLowerCase().includes('chaseup')
+    )) ||
+    (ord.tenant && isSameTenant(ord.tenant, 'tenant-chaseup')) ||
     hasChaseUpItem ||
     ((idStr.startsWith('#cu') || idStr.startsWith('cu-') || idStr.startsWith('cu') || idStr.startsWith('ord-cu') || idStr.includes('-cu-') || idStr.includes('caseup')) && (!ord.tenantId || isSameTenant(ord.tenantId, 'tenant-chaseup')));
 

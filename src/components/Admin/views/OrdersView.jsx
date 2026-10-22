@@ -91,11 +91,11 @@ const getCustomerDisplayName = (customerVal, fallback = 'Customer') => {
 // Helper: Render status pill badge matching Image 2
 const renderStatusBadge = (status) => {
   const s = String(status || 'Pending').toLowerCase();
-  if (s === 'ready' || s === 'ready for dispatch' || s === 'ready(dispatched)') {
+  if (s === 'prepared' || s === 'ready' || s === 'ready for dispatch' || s === 'ready(dispatched)') {
     return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#e0f2fe] text-[#0369a1] border border-[#bae6fd]">
-        <span className="w-2 h-2 rounded-full bg-[#0284c7]" />
-        <span>Ready</span>
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#ecfdf5] text-[#047857] border border-[#a7f3d0]">
+        <span className="w-2 h-2 rounded-full bg-[#059669]" />
+        <span>Prepared</span>
       </span>
     );
   }
@@ -221,6 +221,26 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     let list = raw;
     if (targetTenantId) {
       list = list.filter((o) => {
+        const idLower = String(o.id || o.orderId || o._id || '').toLowerCase();
+
+        // 1. Direct match on order ID prefix
+        if ((idLower.startsWith('#cu') || idLower.startsWith('cu-') || idLower.startsWith('ord-cu') || idLower.includes('-cu-') || idLower.includes('caseup')) && isSameTenant(targetTenantId, 'tenant-chaseup')) {
+          return true;
+        }
+        if ((idLower.startsWith('#cv') || idLower.startsWith('cv-') || idLower.startsWith('ord-cv') || idLower.includes('-cv-')) && isSameTenant(targetTenantId, 'tenant-chasevalue')) {
+          return true;
+        }
+        if ((idLower.includes('701') || idLower.startsWith('#af') || idLower.startsWith('af-')) && isSameTenant(targetTenantId, 'tenant-alfatah')) {
+          return true;
+        }
+        if ((idLower.includes('83459') || idLower.startsWith('#fm') || idLower.startsWith('fm-')) && isSameTenant(targetTenantId, 'tenant-freshmart')) {
+          return true;
+        }
+
+        // 2. Direct tenant property match
+        if (o.tenantId && isSameTenant(o.tenantId, targetTenantId)) return true;
+        if (o.companyId && isSameTenant(o.companyId, targetTenantId)) return true;
+
         const orderTenant =
           o.tenantId ||
           o.companyId ||
@@ -231,6 +251,10 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
           o.rawItems?.[0]?.tenantId ||
           o.orderItems?.[0]?.tenantId;
 
+        if (orderTenant && isSameTenant(orderTenant, targetTenantId)) {
+          return true;
+        }
+
         const rawItemList = Array.isArray(o.rawItems)
           ? o.rawItems
           : Array.isArray(o.orderItems)
@@ -238,13 +262,13 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
           : Array.isArray(o.items)
           ? o.items
           : [];
+
         const hasCaseValue = rawItemList.some((it) => {
           const n = String(it?.name || it?.productName || '').toLowerCase();
           const b = String(it?.brand || '').toLowerCase();
           return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
         });
         if (hasCaseValue && isSameTenant(targetTenantId, 'tenant-chasevalue')) return true;
-        if (hasCaseValue && !isSameTenant(targetTenantId, 'tenant-chasevalue')) return false;
 
         const hasChaseUp = rawItemList.some((it) => {
           const n = String(it?.name || it?.productName || '').toLowerCase();
@@ -252,15 +276,6 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
           return n.includes('chase up') || n.includes('case up') || n.includes('caseup') || b.includes('chase up') || b.includes('case up') || b.includes('caseup') || isSameTenant(it?.tenantId, 'tenant-chaseup');
         });
         if (hasChaseUp && isSameTenant(targetTenantId, 'tenant-chaseup')) return true;
-        if (hasChaseUp && !isSameTenant(targetTenantId, 'tenant-chaseup')) return false;
-
-        const idLower = String(o.id || o.orderId || o._id || '').toLowerCase();
-        if ((idLower.startsWith('#cu') || idLower.startsWith('cu-') || idLower.startsWith('ord-cu') || idLower.includes('-cu-') || idLower.includes('caseup')) && isSameTenant(targetTenantId, 'tenant-chaseup')) {
-          return true;
-        }
-        if ((idLower.startsWith('#cv') || idLower.startsWith('cv-') || idLower.startsWith('ord-cv') || idLower.includes('-cv-')) && isSameTenant(targetTenantId, 'tenant-chasevalue')) {
-          return true;
-        }
 
         if (!orderTenant) {
           const id = idLower;
@@ -271,7 +286,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
           return false;
         }
 
-        return isSameTenant(orderTenant, targetTenantId);
+        return false;
       });
     }
 
@@ -290,40 +305,50 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   // Statistics KPI counts
   const stats = useMemo(() => {
     const total = liveOrders.length;
-    const pending = liveOrders.filter((o) => o.status === 'Pending' || o.status === 'Confirmed').length;
-    const deliverToStaff = liveOrders.filter(
-      (o) => o.status === 'Deliver to Staff' || o.status === 'Delivered to Staff'
-    ).length;
-    const preparing = liveOrders.filter((o) => o.status === 'Preparing').length;
-    const outForDelivery = liveOrders.filter(
-      (o) => o.status === 'Out for Delivery' || o.status === 'Dispatched to Rider'
-    ).length;
-    const delivered = liveOrders.filter((o) => o.status === 'Delivered').length;
-    const cancelled = liveOrders.filter((o) => o.status === 'Cancelled').length;
+    const pending = liveOrders.filter((o) => {
+      const s = String(o.status || '').toLowerCase();
+      return ['pending', 'confirmed', 'order placed'].includes(s);
+    }).length;
+    const deliverToStaff = liveOrders.filter((o) => {
+      const s = String(o.status || '').toLowerCase();
+      return ['deliver to staff', 'delivered to staff', 'received by pickup staff'].includes(s);
+    }).length;
+    const preparing = liveOrders.filter((o) => {
+      const s = String(o.status || '').toLowerCase();
+      return ['preparing', 'processing', 'picking', 'packed'].includes(s);
+    }).length;
+    const prepared = liveOrders.filter((o) => {
+      const s = String(o.status || '').toLowerCase();
+      return ['prepared', 'ready', 'ready for dispatch', 'ready(dispatched)'].includes(s) || o.isDispatchedByStaff;
+    }).length;
+    const outForDelivery = liveOrders.filter((o) => {
+      const s = String(o.status || '').toLowerCase();
+      return ['out for delivery', 'dispatched to rider', 'dispatched', 'in transit'].includes(s);
+    }).length;
+    const delivered = liveOrders.filter((o) => {
+      const s = String(o.status || '').toLowerCase();
+      return s === 'delivered' || o.isDelivered;
+    }).length;
+    const cancelled = liveOrders.filter((o) => String(o.status || '').toLowerCase() === 'cancelled').length;
 
-    return { total, pending, deliverToStaff, preparing, outForDelivery, delivered, cancelled };
+    return { total, pending, deliverToStaff, preparing, prepared, outForDelivery, delivered, cancelled };
   }, [liveOrders]);
 
   // Filtered orders
   const filteredOrders = useMemo(() => {
     return liveOrders.filter((o) => {
+      const s = String(o.status || 'Pending').toLowerCase();
       // Tab filter
-      if (activeTab === 'Pending' && o.status !== 'Pending' && o.status !== 'Confirmed') return false;
-      if (
-        activeTab === 'Deliver to Staff' &&
-        o.status !== 'Deliver to Staff' &&
-        o.status !== 'Delivered to Staff'
-      )
-        return false;
-      if (activeTab === 'Preparing' && o.status !== 'Preparing') return false;
+      if (activeTab === 'Pending' && !['pending', 'confirmed', 'order placed', 'deliver to staff', 'delivered to staff'].includes(s)) return false;
+      if (activeTab === 'Preparing' && !['preparing', 'processing', 'picking', 'packed'].includes(s)) return false;
+      if (activeTab === 'Prepared' && !['prepared', 'ready', 'ready for dispatch', 'ready(dispatched)'].includes(s) && !o.isDispatchedByStaff) return false;
       if (
         activeTab === 'Out for Delivery' &&
-        o.status !== 'Out for Delivery' &&
-        o.status !== 'Dispatched to Rider'
+        !['out for delivery', 'dispatched to rider', 'dispatched', 'in transit'].includes(s)
       )
         return false;
-      if (activeTab === 'Delivered' && o.status !== 'Delivered') return false;
-      if (activeTab === 'Cancelled' && o.status !== 'Cancelled') return false;
+      if (activeTab === 'Delivered' && s !== 'delivered' && !o.isDelivered) return false;
+      if (activeTab === 'Cancelled' && s !== 'cancelled') return false;
 
       // Search filter
       if (search.trim()) {
@@ -451,6 +476,10 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   const getStatusBadgeClass = (status) => {
     switch (status) {
       case 'Delivered':
+        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      case 'Prepared':
+      case 'Ready for Dispatch':
+      case 'Ready':
         return 'bg-emerald-100 text-emerald-800 border-emerald-200';
       case 'Out for Delivery':
       case 'Dispatched to Rider':
@@ -715,8 +744,9 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
             {[
               { label: 'All', count: stats.total },
               { label: 'Pending', count: stats.pending, sub: 'Awaiting Processing' },
-              { label: 'Preparing', count: stats.preparing },
-              { label: 'Out for Delivery', count: stats.outForDelivery },
+              { label: 'Preparing', count: stats.preparing, sub: 'Staff Packing' },
+              { label: 'Prepared', count: stats.prepared, sub: 'Ready for Rider' },
+              { label: 'Out for Delivery', count: stats.outForDelivery, sub: 'With Courier' },
               { label: 'Delivered', count: stats.delivered },
               { label: 'Cancelled', count: stats.cancelled }
             ].map((tab) => (
@@ -844,8 +874,8 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                             {(() => {
                               const hasPickupStaff = Boolean(ord.pickupStaffId || ord.pickupStaffName || ord.pickupStaff);
                               const isDispatchedByStaff =
-                                ['ready for dispatch', 'ready', 'dispatched', 'out for delivery', 'delivered', 'dispatched to rider'].includes(String(ord.status || '').toLowerCase()) ||
-                                Boolean(ord.isDispatchedByStaff || ord.isDispatched || ord.readyForDispatchAt || ord.pickupStep === 'verified' || Number(ord.fulfillmentStage) >= 4);
+                                ['prepared', 'ready for dispatch', 'ready', 'dispatched', 'out for delivery', 'delivered', 'dispatched to rider'].includes(String(ord.status || '').toLowerCase()) ||
+                                Boolean(ord.isDispatchedByStaff || ord.isDispatched || ord.readyForDispatchAt || ord.preparedAt || ord.pickupStep === 'verified' || Number(ord.fulfillmentStage) >= 4);
 
                               // 1. Delivered state
                               if (ord.status === 'Delivered') {
@@ -862,7 +892,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                               }
 
                               // 2. In Transit with Rider
-                              if (ord.assignedRider && (ord.status === 'Out for Delivery' || ord.status === 'Dispatched to Rider' || ord.status === 'Ready for Dispatch')) {
+                              if (ord.assignedRider && (ord.status === 'Out for Delivery' || ord.status === 'Dispatched to Rider' || ord.status === 'Ready for Dispatch' || ord.status === 'Prepared')) {
                                 return (
                                   <div className="bg-sky-50 border border-sky-200/90 rounded-lg px-2 py-1 w-full shadow-2xs">
                                     <div className="text-[11px] font-bold text-sky-900 flex items-center gap-1 truncate">
@@ -891,7 +921,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                                         : 'text-amber-900 bg-amber-50 border border-amber-200'
                                     }`}>
                                       <span className="truncate">
-                                        {isDispatchedByStaff ? `✓ Dispatched: ${ord.pickupStaffName || 'Staff'}` : `⏳ Staff: ${ord.pickupStaffName || 'Staff'}`}
+                                        {isDispatchedByStaff ? `✓ Prepared: ${ord.pickupStaffName || 'Staff'}` : `⏳ Staff: ${ord.pickupStaffName || 'Staff'}`}
                                       </span>
                                       {!isDispatchedByStaff && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0 ml-1"></span>}
                                       {ord.deliveryOtp && isDispatchedByStaff && (
@@ -899,9 +929,15 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                                       )}
                                     </div>
                                   ) : (
-                                    <div className="text-[10px] text-slate-500 font-medium flex items-center gap-1 px-1">
-                                      <Package className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                      <span className="truncate">Staff: Unassigned</span>
+                                    <div className={`text-[10px] font-medium flex items-center justify-between px-1.5 py-0.5 rounded ${
+                                      isDispatchedByStaff
+                                        ? 'text-emerald-800 bg-emerald-50 border border-emerald-200 font-bold'
+                                        : 'text-slate-500 bg-slate-50'
+                                    }`}>
+                                      <div className="flex items-center gap-1 truncate">
+                                        <Package className={`w-2.5 h-2.5 ${isDispatchedByStaff ? 'text-emerald-600' : 'text-slate-400'} shrink-0`} />
+                                        <span className="truncate">{isDispatchedByStaff ? '✓ Prepared: Assign Rider' : 'Staff: Preparing...'}</span>
+                                      </div>
                                     </div>
                                   )}
 
@@ -969,6 +1005,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                               <option value="Pending">⏳ Pending</option>
                               <option value="Deliver to Staff">📦 Deliver to Staff</option>
                               <option value="Preparing">🍳 Preparing</option>
+                              <option value="Prepared">📦 Prepared (Ready for Rider)</option>
                               <option value="Ready for Dispatch">✨ Ready for Dispatch</option>
                               <option value="Out for Delivery">🛵 Out for Delivery</option>
                               <option value="Delivered">✅ Delivered</option>
@@ -1300,6 +1337,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                   <option value="Pending">⏳ Pending (Order Confirmed)</option>
                   <option value="Deliver to Staff">📦 Deliver to Staff</option>
                   <option value="Preparing">🍳 Preparing (Dark Store Packing)</option>
+                  <option value="Prepared">📦 Prepared (Ready for Rider)</option>
                   <option value="Ready for Dispatch">✨ Ready for Dispatch (Packed)</option>
                   <option value="Out for Delivery">🛵 Out for Delivery (Courier In Transit)</option>
                   <option value="Delivered">✅ Delivered (Handed to Customer)</option>

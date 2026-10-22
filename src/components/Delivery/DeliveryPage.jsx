@@ -375,7 +375,7 @@ export const DeliveryPage = () => {
   const isPackingDone =
     Boolean(
       activeStage >= 3 ||
-      (activeStage === 2 && ['ready', 'packed', 'ready for dispatch'].includes((currentOrder?.status || '').toLowerCase())) ||
+      (activeStage === 2 && ['prepared', 'ready', 'packed', 'ready for dispatch'].includes((currentOrder?.status || '').toLowerCase())) ||
       (isDelivered && (currentOrder?.assignedRider || currentOrder?.isDispatched))
     );
 

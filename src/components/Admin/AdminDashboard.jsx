@@ -78,6 +78,7 @@ const StoreAdminConsole = () => {
     adminLogout,
     adminRole,
     user,
+    setUser,
     products,
     customerOrders,
     adminOrders = [],
@@ -93,7 +94,7 @@ const StoreAdminConsole = () => {
   const allTenants = tenants;
 
   const tenantBranches = useMemo(() => {
-    const activeTenant = user?.tenantId || currentTenant?.id;
+    const activeTenant = currentTenant?.id || user?.tenantId;
     return (allBranches || []).filter((b) => isSameTenant(b.tenantId, activeTenant));
   }, [allBranches, currentTenant?.id, user?.tenantId]);
   
@@ -124,7 +125,7 @@ const StoreAdminConsole = () => {
     ? { title: 'Rider', badge: 'Rider', tag: 'Delivery Operations', iconBg: 'bg-rose-600' }
     : roleMeta[adminRole] || roleMeta.admin;
 
-  const activeTenantId = user?.tenantId || currentTenant?.id || 'tenant-alfatah';
+  const activeTenantId = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
 
   // Track locally completed delivered orders to ensure synced badge counts
   const deliveredOrderIds = useMemo(() => {
@@ -551,40 +552,30 @@ const StoreAdminConsole = () => {
               <div className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200/70 border border-slate-200 rounded-xl px-2.5 py-1.5 transition-colors">
                 <Store className="w-3.5 h-3.5 text-slate-600 shrink-0" />
                 <span className="text-[11px] font-bold text-slate-500 hidden xl:inline">Store:</span>
-                {adminRole === 'superadmin' || !user?.tenantId ? (
-                  <select
-                    value={activeTenantId || currentTenant?.id || 'tenant-alfatah'}
-                    onChange={(e) => {
-                      const found = allTenants.find((t) => t.id === e.target.value);
-                      if (found) {
-                        setCurrentTenant(found);
-                        setCurrentBranchFilter('all');
+                <select
+                  value={currentTenant?.id || activeTenantId || 'tenant-alfatah'}
+                  onChange={(e) => {
+                    const found = allTenants.find((t) => isSameTenant(t.id, e.target.value)) || allTenants.find((t) => t.id === e.target.value);
+                    if (found) {
+                      setCurrentTenant(found);
+                      setCurrentBranchFilter('all');
+                      if (user && typeof setUser === 'function') {
+                        const updatedUser = { ...user, tenantId: found.id, tenantName: found.displayName || found.name };
+                        setUser(updatedUser);
+                        try {
+                          localStorage.setItem('freshmart_user', JSON.stringify(updatedUser));
+                        } catch (err) {}
                       }
-                    }}
-                    className="text-xs font-black text-slate-800 bg-transparent border-none focus:outline-none cursor-pointer"
-                  >
-                    {allTenants.map((t) => (
-                      <option key={t.id} value={t.id} className="text-slate-900 bg-white font-bold">
-                        {t.logo || '🏬'} {t.displayName || t.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="flex items-center gap-1.5 text-xs font-black text-slate-800">
-                    <span>
-                      {(allTenants.find((t) => isSameTenant(t.id, activeTenantId)) || currentTenant)?.logo || '🏬'}
-                    </span>
-                    <span>
-                      {(allTenants.find((t) => isSameTenant(t.id, activeTenantId)) || currentTenant)?.displayName ||
-                       (allTenants.find((t) => isSameTenant(t.id, activeTenantId)) || currentTenant)?.name ||
-                       user?.tenantName ||
-                       'Store'}
-                    </span>
-                    <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold">
-                      Active
-                    </span>
-                  </div>
-                )}
+                    }
+                  }}
+                  className="text-xs font-black text-slate-800 bg-transparent border-none focus:outline-none cursor-pointer"
+                >
+                  {allTenants.map((t) => (
+                    <option key={t.id} value={t.id} className="text-slate-900 bg-white font-bold">
+                      {t.logo || '🏬'} {t.displayName || t.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
 
