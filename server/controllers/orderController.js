@@ -881,7 +881,7 @@ export const updateOrderStatus = async (req, res) => {
     const role = req.user?.role;
     const staffId = req.user?.staffId || req.user?.id;
     const riderId = req.user?.riderId || req.user?.id;
-    const pickupStatuses = new Set(['Received by Pickup Staff', 'Picking', 'Packed', 'Parcel Verified', 'Ready for Dispatch']);
+    const pickupStatuses = new Set(['Received by Pickup Staff', 'Picking', 'Packed', 'Parcel Verified', 'Ready for Dispatch', 'Prepared', 'prepared']);
     const metadataFields = [
       'pickupStaffId', 'pickupStaffName', 'pickupStaffUsername', 'pickupAssignedAt', 'deliveredToStaffAt',
       'pickupStep', 'pickupAcceptedAt', 'pickingStartedAt', 'pickedItems', 'parcelCode', 'packedAt',
@@ -898,7 +898,7 @@ export const updateOrderStatus = async (req, res) => {
         if (nextStage < currentStage || nextStage > currentStage + 1) return false;
         if (status === 'Packed' && Array.isArray(order.orderItems) && order.orderItems.length && (updates.pickedItems || []).length < order.orderItems.length) return false;
         if (status === 'Parcel Verified' && order.pickupStep !== 'packed') return false;
-        if (status === 'Ready for Dispatch' && !(order.pickupStep === 'verified' || (order.pickupStep === 'packed' && updates.pickupStep === 'verified'))) return false;
+        if ((status === 'Ready for Dispatch' || status === 'Prepared' || status === 'prepared') && !(order.pickupStep === 'verified' || (order.pickupStep === 'packed' && updates.pickupStep === 'verified') || updates.isDispatchedByStaff)) return false;
       } else if (role === 'rider') {
         const assignedId = order.assignedRider?.id || order.assignedRider?.riderId;
         if (String(assignedId) !== String(riderId)) return false;

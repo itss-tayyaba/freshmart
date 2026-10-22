@@ -2827,6 +2827,21 @@ export const StoreProvider = ({ children }) => {
                 coordinates: { lat: 31.4147, lng: 73.0872 }
               };
             }
+            if (
+              r.id === 'RDR-CHASEUP' ||
+              isSameTenant(r.tenantId, 'tenant-chaseup') ||
+              (r.name && r.name.toLowerCase().includes('chase up'))
+            ) {
+              return {
+                ...r,
+                branchId: r.branchId || 'branch_cu_fsd',
+                zone: 'Mall of Faisalabad & Clock Tower Hub',
+                branchName: 'Mall of Faisalabad Flagship',
+                vehicleNumber: 'FSD-4102',
+                status: 'On-Duty',
+                coordinates: { lat: 31.4125, lng: 73.0915 }
+              };
+            }
             return r;
           });
           (INITIAL_RIDERS || []).forEach((initR) => {
@@ -3435,30 +3450,35 @@ export const StoreProvider = ({ children }) => {
   };
 
   const assignRiderToOrder = async (orderId, riderId, statusOverride, allowDemo = false) => {
+    const cleanId = String(orderId || '').replace(/^#/, '').toLowerCase().trim();
+    const all = [...(customerOrders || []), ...(adminOrders || [])];
+    const sourceOrder = all.find((order) => {
+      if (!order) return false;
+      const oId = String(order.id || order.orderId || order._id || '').replace(/^#/, '').toLowerCase().trim();
+      return oId === cleanId || String(order.id || '').toLowerCase() === String(orderId || '').toLowerCase() || String(order.orderId || '').toLowerCase() === String(orderId || '').toLowerCase();
+    });
+
     const cleanRiderId = String(riderId || '').trim();
-    const targetRider = riders.find((r) =>
-      (r.id && String(r.id) === cleanRiderId) ||
-      (r._id && String(r._id) === cleanRiderId) ||
-      (r.riderId && String(r.riderId) === cleanRiderId) ||
-      (r.username && r.username.toLowerCase() === cleanRiderId.toLowerCase()) ||
-      (r.name && r.name.toLowerCase() === cleanRiderId.toLowerCase())
-    ) || (riders && riders[0]);
+    const eligibleRiders = getEligibleRidersForOrder(sourceOrder);
+    const targetRider =
+      (riders || []).find((r) =>
+        (r.id && String(r.id) === cleanRiderId) ||
+        (r._id && String(r._id) === cleanRiderId) ||
+        (r.riderId && String(r.riderId) === cleanRiderId) ||
+        (r.username && r.username.toLowerCase() === cleanRiderId.toLowerCase()) ||
+        (r.name && r.name.toLowerCase() === cleanRiderId.toLowerCase())
+      ) ||
+      eligibleRiders?.[0] ||
+      (riders && riders[0]);
 
     if (!targetRider) {
       addToast('Select a Rider', 'Please select a valid courier from the list.', 'error');
       return false;
     }
-    const cleanId = String(orderId || '').replace(/^#/, '').trim();
-    const all = [...(customerOrders || []), ...(adminOrders || [])];
-    const sourceOrder = all.find((order) => {
-      const oId = String(order.id || order.orderId || order._id || '').replace(/^#/, '').trim();
-      return oId === cleanId || order.id === orderId || order.orderId === orderId;
-    });
-    if (!['admin', 'superadmin', 'rider'].includes(adminRole) && !allowDemo) {
+    if (!['admin', 'superadmin', 'rider', 'pickup_staff'].includes(adminRole) && !allowDemo) {
       addToast('Rider assignment denied', 'Only store admins or couriers can assign riders.', 'error');
       return false;
     }
-    const eligibleRiders = getEligibleRidersForOrder(sourceOrder);
     const eligibleRider = eligibleRiders.find((rider) =>
       rider.id === targetRider.id || rider._id === targetRider._id || rider.riderId === targetRider.riderId
     ) || {
@@ -3502,12 +3522,13 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
 
     const orderMatches = (o) => {
-      const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').trim();
-      return oId === cleanId || o.id === orderId || o.orderId === orderId;
+      if (!o) return false;
+      const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+      return oId === cleanId || String(o.id || '').toLowerCase() === String(orderId || '').toLowerCase() || String(o.orderId || '').toLowerCase() === String(orderId || '').toLowerCase();
     };
 
-    setCustomerOrders((prev) =>
-      prev.map((o) =>
+    setCustomerOrders((prev) => {
+      const next = prev.map((o) =>
         orderMatches(o)
           ? {
               ...o,
@@ -3515,15 +3536,19 @@ export const StoreProvider = ({ children }) => {
               status: riderStatus,
               isDispatched: isDispatched,
               dispatchStatus: 'Out for Delivery',
-              fulfillmentStage: 3,
+              fulfillmentStage: 5,
               deliveryOtp: effectiveOtp,
               statusClass: 'bg-amber-100 text-amber-800'
             }
           : o
-      )
-    );
-    setAdminOrders((prev) =>
-      prev.map((o) =>
+      );
+      try {
+        localStorage.setItem('freshmart_customer_orders', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+    setAdminOrders((prev) => {
+      const next = prev.map((o) =>
         orderMatches(o)
           ? {
               ...o,
@@ -3531,13 +3556,17 @@ export const StoreProvider = ({ children }) => {
               status: riderStatus,
               isDispatched: isDispatched,
               dispatchStatus: 'Out for Delivery',
-              fulfillmentStage: 3,
+              fulfillmentStage: 5,
               deliveryOtp: effectiveOtp,
               statusClass: 'bg-amber-100 text-amber-800'
             }
           : o
-      )
-    );
+      );
+      try {
+        localStorage.setItem('freshmart_admin_orders', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
     if (activeDeliveryOrder && orderMatches(activeDeliveryOrder)) {
       setActiveDeliveryOrder((prev) => ({
         ...prev,
@@ -5705,18 +5734,19 @@ export const StoreProvider = ({ children }) => {
     const cleanId = String(orderId || '').replace(/^#/, '').toLowerCase().trim();
     const normalizedStatus =
       String(newStatus).toLowerCase() === 'ready' ? 'Ready' :
+      String(newStatus).toLowerCase() === 'prepared' ? 'Prepared' :
       String(newStatus).toLowerCase() === 'pending' ? 'Pending' :
       String(newStatus).toLowerCase() === 'preparing' ? 'Preparing' :
       String(newStatus).toLowerCase() === 'deliver to staff' ? 'Deliver to Staff' :
       String(newStatus).toLowerCase() === 'ready for dispatch' ? 'Ready for Dispatch' :
-      String(newStatus).toLowerCase() === 'out for delivery' ? 'Out for Delivery' :
+      String(newStatus).toLowerCase() === 'out for delivery' || String(newStatus).toLowerCase() === 'dispatch' || String(newStatus).toLowerCase() === 'dispatched to rider' ? 'Out for Delivery' :
       String(newStatus).toLowerCase() === 'dispatched' ? 'Dispatched' :
-      String(newStatus).toLowerCase() === 'delivered' ? 'Delivered' :
+      String(newStatus).toLowerCase() === 'delivered' || String(newStatus).toLowerCase() === 'completed' || String(newStatus).toLowerCase() === 'complete' ? 'Delivered' :
       String(newStatus).toLowerCase() === 'cancelled' ? 'Cancelled' : newStatus;
 
     const isNowDelivered = normalizedStatus === 'Delivered';
     const isNowOutForDelivery = normalizedStatus === 'Out for Delivery';
-    const isNowDispatched = ['Dispatched', 'Ready for Dispatch', 'Ready'].includes(normalizedStatus);
+    const isNowDispatched = ['Dispatched', 'Ready for Dispatch', 'Ready', 'Prepared'].includes(normalizedStatus);
     const isNowPreparing = ['Preparing', 'Packed', 'Picking', 'Processing'].includes(normalizedStatus);
     const isNowStaffAssigned = normalizedStatus === 'Deliver to Staff';
 
@@ -5724,7 +5754,7 @@ export const StoreProvider = ({ children }) => {
       isNowDelivered ? 7 :
       isNowOutForDelivery ? 6 :
       normalizedStatus === 'Dispatched' ? 5 :
-      ['Ready', 'Ready for Dispatch'].includes(normalizedStatus) ? 4 :
+      ['Ready', 'Ready for Dispatch', 'Prepared'].includes(normalizedStatus) ? 4 :
       isNowPreparing ? 3 :
       isNowStaffAssigned ? 2 :
       normalizedStatus === 'Pending' ? 1 : undefined;
@@ -5733,14 +5763,14 @@ export const StoreProvider = ({ children }) => {
     let statusClass = 'bg-slate-100 text-slate-800';
     if (isNowDelivered) statusClass = 'bg-emerald-100 text-emerald-800';
     else if (isNowOutForDelivery) statusClass = 'bg-amber-100 text-amber-800';
-    else if (normalizedStatus === 'Ready' || normalizedStatus === 'Ready for Dispatch') statusClass = 'bg-blue-100 text-blue-800';
+    else if (['Ready', 'Ready for Dispatch', 'Prepared'].includes(normalizedStatus)) statusClass = 'bg-emerald-100 text-emerald-800';
     else if (isNowPreparing) statusClass = 'bg-indigo-100 text-indigo-800';
     else if (normalizedStatus === 'Cancelled') statusClass = 'bg-rose-100 text-rose-800';
 
     const orderMatches = (o) => {
       if (!o) return false;
       const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
-      return oId === cleanId || o.id === orderId || o.orderId === orderId;
+      return oId === cleanId || String(o.id || '').toLowerCase() === String(orderId || '').toLowerCase() || String(o.orderId || '').toLowerCase() === String(orderId || '').toLowerCase();
     };
 
     const updateFields = {

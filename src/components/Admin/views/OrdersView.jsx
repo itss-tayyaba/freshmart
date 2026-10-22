@@ -27,7 +27,8 @@ import {
   DollarSign,
   Check,
   Ban,
-  Boxes
+  Boxes,
+  Rocket
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { DeliverToStaffModal } from '../modals/DeliverToStaffModal';
@@ -205,14 +206,42 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   const liveOrders = useMemo(() => {
     const combined = [...(customerOrders || []), ...(adminOrders || [])].map(sanitizeOrder);
     const uniqueMap = new Map();
+    const getStatusRank = (st) => {
+      const s = String(st || '').toLowerCase();
+      if (s === 'delivered') return 7;
+      if (s === 'out for delivery' || s === 'dispatched to rider' || s === 'dispatched') return 6;
+      if (s === 'ready for dispatch' || s === 'ready') return 5;
+      if (s === 'prepared') return 4;
+      if (s === 'packed' || s === 'picking' || s === 'preparing') return 3;
+      if (s === 'deliver to staff' || s === 'delivered to staff' || s === 'received by pickup staff') return 2;
+      return 1;
+    };
+
     combined.forEach((ord) => {
       if (ord && (ord.id || ord.orderId || ord._id)) {
         const bareKey = String(ord.id || ord.orderId || ord._id).replace(/^#/, '').trim().toLowerCase();
         const existing = uniqueMap.get(bareKey);
         if (!existing) {
           uniqueMap.set(bareKey, ord);
-        } else if (ord.status === 'Delivered' || ord.isDelivered || Number(ord.fulfillmentStage) >= 4) {
-          uniqueMap.set(bareKey, ord);
+        } else {
+          const rankExisting = getStatusRank(existing.status);
+          const rankOrd = getStatusRank(ord.status);
+          const preferOrd =
+            rankOrd >= rankExisting ||
+            (ord.isDispatchedByStaff && !existing.isDispatchedByStaff) ||
+            (ord.assignedRider && !existing.assignedRider) ||
+            (ord.pickupStaffId && !existing.pickupStaffId);
+
+          const base = preferOrd ? { ...existing, ...ord } : { ...ord, ...existing };
+          if (existing.pickupStaffName && !base.pickupStaffName) base.pickupStaffName = existing.pickupStaffName;
+          if (existing.pickupStaffId && !base.pickupStaffId) base.pickupStaffId = existing.pickupStaffId;
+          if (existing.assignedRider && !base.assignedRider) base.assignedRider = existing.assignedRider;
+          if (existing.isDispatchedByStaff || ord.isDispatchedByStaff) base.isDispatchedByStaff = true;
+          if (ord.pickupStep === 'verified' || existing.pickupStep === 'verified') base.pickupStep = 'verified';
+          if (base.isDispatchedByStaff && (!base.status || base.status === 'Pending')) {
+            base.status = 'Prepared';
+          }
+          uniqueMap.set(bareKey, base);
         }
       }
     });
@@ -370,32 +399,52 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   }, [liveOrders, activeTab, search]);
 
   const handleStatusChange = async (orderId, newStatus) => {
-    if (updateOrderStatus) {
-      await updateOrderStatus(orderId, newStatus);
-    } else if (updateDeliveryOrderStatus) {
-      await updateDeliveryOrderStatus(orderId, newStatus);
-    }
+    let resolvedStatus = newStatus;
+    if (newStatus === 'Completed' || newStatus === 'Complete') resolvedStatus = 'Delivered';
+    if (newStatus === 'Dispatched' || newStatus === 'Dispatch') resolvedStatus = 'Out for Delivery';
+
     const cleanTarget = String(orderId || '').replace(/^#/, '').toLowerCase().trim();
+    const ord = (liveOrders || []).find((o) => {
+      const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+      return oId === cleanTarget || String(o.id || '').toLowerCase() === String(orderId || '').toLowerCase() || String(o.orderId || '').toLowerCase() === String(orderId || '').toLowerCase();
+    });
+
+    if (resolvedStatus === 'Out for Delivery' && !ord?.assignedRider) {
+      await handleAssignRider(orderId);
+      return;
+    }
+
+    if (updateOrderStatus) {
+      await updateOrderStatus(orderId, resolvedStatus);
+    } else if (updateDeliveryOrderStatus) {
+      await updateDeliveryOrderStatus(orderId, resolvedStatus);
+    }
+
     if (selectedOrder) {
       const selId = String(selectedOrder.id || selectedOrder.orderId || '').replace(/^#/, '').toLowerCase().trim();
       if (selId === cleanTarget || selectedOrder.id === orderId) {
-        setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
+        setSelectedOrder((prev) => (prev ? { ...prev, status: resolvedStatus } : null));
       }
     }
+
+    addToast(
+      resolvedStatus === 'Delivered' ? 'Order Completed ✅' : 'Status Updated 📦',
+      `Order #${cleanTarget.toUpperCase()} status updated to ${resolvedStatus}.`
+    );
   };
 
   const handleAssignRider = async (orderId, explicitRiderId) => {
-    const cleanId = String(orderId || '').replace(/^#/, '').trim();
+    const cleanId = String(orderId || '').replace(/^#/, '').toLowerCase().trim();
     const ord = (liveOrders || []).find((o) => {
-      const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').trim();
-      return oId === cleanId || o.id === orderId || o.orderId === orderId;
+      const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+      return oId === cleanId || String(o.id || '').toLowerCase() === String(orderId || '').toLowerCase() || String(o.orderId || '').toLowerCase() === String(orderId || '').toLowerCase();
     });
 
     const eligible = (ord && getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : []) || riders || [];
     const firstEligibleId = eligible?.[0]?.id || eligible?.[0]?._id || eligible?.[0]?.riderId;
 
     const riderId =
-      explicitRiderId ||
+      (explicitRiderId && explicitRiderId !== 'undefined' ? explicitRiderId : '') ||
       selectedRiderMap[orderId] ||
       selectedRiderMap[cleanId] ||
       selectedRiderMap[`#${cleanId}`] ||
@@ -404,16 +453,16 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       firstEligibleId;
 
     if (!riderId) {
-      addToast('Select a Rider 🛵', 'Please select a rider from the dropdown first.', 'error');
+      addToast('Select a Rider 🛵', 'No courier available to assign. Please register a rider for this branch.', 'error');
       return;
     }
     if (assignRiderToOrder) {
-      await assignRiderToOrder(orderId, riderId, 'Out for Delivery');
+      await assignRiderToOrder(orderId, riderId, 'Out for Delivery', true);
       const targetRider = (riders || []).find((r) =>
         r.id === riderId || r._id === riderId || r.riderId === riderId || r.name === riderId
       ) || (eligible && eligible[0]);
 
-      if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderId === orderId || String(selectedOrder.id).replace(/^#/, '') === cleanId)) {
+      if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderId === orderId || String(selectedOrder.id).replace(/^#/, '').toLowerCase().trim() === cleanId)) {
         if (targetRider) {
           setSelectedOrder((prev) => ({
             ...prev,
@@ -427,6 +476,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
           }));
         }
       }
+      addToast('Dispatched to Rider 🚀', `Order #${cleanId.toUpperCase()} assigned to ${targetRider?.name || 'Rider'} and is Out for Delivery.`);
     }
   };
 
@@ -534,7 +584,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       </div>
 
       {/* 2. Top KPI Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
         
         {/* All Orders */}
         <div
@@ -555,7 +605,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
           <span className="text-[10px] text-slate-400 mt-0.5 block">Total volume</span>
         </div>
 
-        {/* Pending (Awaiting Rider) */}
+        {/* Pending (Awaiting Processing) */}
         <div
           onClick={() => setActiveTab('Pending')}
           className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
@@ -571,7 +621,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
             </div>
           </div>
           <div className="text-xl font-black text-amber-900">{stats.pending}</div>
-          <span className="text-[10px] text-amber-600 font-medium mt-0.5 block">Awaiting Processing</span>
+          <span className="text-[10px] text-amber-600 font-medium mt-0.5 block">Awaiting Staff</span>
         </div>
 
         {/* Deliver to Staff */}
@@ -584,13 +634,13 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
           }`}
         >
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold text-indigo-700">Deliver to Staff</span>
+            <span className="text-[11px] font-bold text-indigo-700">Staff Desk</span>
             <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs">
               <Boxes className="w-3 h-3" />
             </div>
           </div>
           <div className="text-xl font-black text-indigo-950">{stats.deliverToStaff}</div>
-          <span className="text-[10px] text-indigo-600 font-medium mt-0.5 block">Packing Desk</span>
+          <span className="text-[10px] text-indigo-600 font-medium mt-0.5 block">At Packing Desk</span>
         </div>
 
         {/* Preparing */}
@@ -610,6 +660,25 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
           </div>
           <div className="text-xl font-black text-slate-900">{stats.preparing}</div>
           <span className="text-[10px] text-blue-600 font-medium mt-0.5 block">In Packing</span>
+        </div>
+
+        {/* Prepared (Ready for Dispatch) */}
+        <div
+          onClick={() => setActiveTab('Prepared')}
+          className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
+            activeTab === 'Prepared'
+              ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
+              : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-2xs'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-bold text-emerald-700">Prepared</span>
+            <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs">
+              <CheckCircle2 className="w-3 h-3" />
+            </div>
+          </div>
+          <div className="text-xl font-black text-emerald-950">{stats.prepared}</div>
+          <span className="text-[10px] text-emerald-600 font-medium mt-0.5 block">Ready to Dispatch</span>
         </div>
 
         {/* Out for Delivery */}
@@ -868,23 +937,29 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                           </div>
                         </td>
 
-                        {/* 7. Fulfillment & Rider Column: Sharp, compact & locked card */}
+                        {/* 6. Fulfillment & Rider Column */}
                         <td className="py-3" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex flex-col items-start gap-1 min-w-[135px] max-w-[155px]">
+                          <div className="flex flex-col items-start gap-1.5 min-w-[170px] max-w-[220px]">
                             {(() => {
                               const hasPickupStaff = Boolean(ord.pickupStaffId || ord.pickupStaffName || ord.pickupStaff);
                               const isDispatchedByStaff =
                                 ['prepared', 'ready for dispatch', 'ready', 'dispatched', 'out for delivery', 'delivered', 'dispatched to rider'].includes(String(ord.status || '').toLowerCase()) ||
                                 Boolean(ord.isDispatchedByStaff || ord.isDispatched || ord.readyForDispatchAt || ord.preparedAt || ord.pickupStep === 'verified' || Number(ord.fulfillmentStage) >= 4);
 
+                              const isDeliveredState = ord.status === 'Delivered' || ord.isDelivered;
+                              const isInTransitState = !isDeliveredState && (ord.assignedRider || ['out for delivery', 'dispatched to rider', 'dispatched', 'in transit'].includes(String(ord.status || '').toLowerCase()));
+
                               // 1. Delivered state
-                              if (ord.status === 'Delivered') {
+                              if (isDeliveredState) {
                                 return (
-                                  <div className="text-[11px] text-emerald-700 font-bold whitespace-nowrap flex items-center gap-1">
-                                    <span>✓ Verified</span>
+                                  <div className="flex flex-col gap-1 w-full">
+                                    <div className="text-[11px] text-emerald-800 font-bold whitespace-nowrap flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg">
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                      <span>Delivered & Verified</span>
+                                    </div>
                                     {ord.assignedRider && (
-                                      <span className="text-[10px] text-slate-500 font-normal">
-                                        ({ord.assignedRider.name})
+                                      <span className="text-[10px] text-slate-500 font-medium pl-1 truncate">
+                                        🛵 {ord.assignedRider.name}
                                       </span>
                                     )}
                                   </div>
@@ -892,125 +967,202 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                               }
 
                               // 2. In Transit with Rider
-                              if (ord.assignedRider && (ord.status === 'Out for Delivery' || ord.status === 'Dispatched to Rider' || ord.status === 'Ready for Dispatch' || ord.status === 'Prepared')) {
+                              if (isInTransitState) {
+                                const riderName = ord.assignedRider?.name || 'Assigned Courier';
                                 return (
-                                  <div className="bg-sky-50 border border-sky-200/90 rounded-lg px-2 py-1 w-full shadow-2xs">
-                                    <div className="text-[11px] font-bold text-sky-900 flex items-center gap-1 truncate">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse shrink-0"></span>
-                                      <span className="truncate">🛵 {ord.assignedRider.name}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-[10px] text-sky-700 font-medium mt-0.5">
-                                      <span>In Transit</span>
+                                  <div className="bg-sky-50 border border-sky-200/90 rounded-lg p-2 w-full shadow-2xs space-y-1.5">
+                                    <div className="text-[11px] font-bold text-sky-900 flex items-center justify-between gap-1">
+                                      <span className="truncate flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse shrink-0"></span>
+                                        🛵 {riderName}
+                                      </span>
                                       {ord.deliveryOtp && (
                                         <span className="font-mono font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1 rounded text-[9px]">
                                           #{ord.deliveryOtp}
                                         </span>
                                       )}
                                     </div>
+                                    <div className="flex items-center justify-between text-[10px] text-sky-700 font-medium">
+                                      <span>In Transit</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleStatusChange(ord.id || ord.orderId, 'Delivered')}
+                                        className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold transition cursor-pointer shadow-2xs flex items-center gap-1"
+                                        title="Mark order Completed"
+                                      >
+                                        <CheckCircle2 className="w-2.5 h-2.5" />
+                                        <span>Complete</span>
+                                      </button>
+                                    </div>
                                   </div>
                                 );
                               }
 
-                              // 3. Unassigned Rider - Show staff preparation badge & Rider Assignment controls
+                              // 3. Prepared or Unassigned Rider
+                              const orderKey = ord.id || ord.orderId || ord._id;
+                              const cleanOrderKey = String(orderKey).replace(/^#/, '').trim();
+                              const defaultRiderId = eligibleRiders?.[0]?.id || eligibleRiders?.[0]?._id || eligibleRiders?.[0]?.riderId || '';
+                              const currentChosenRider =
+                                selectedRiderMap[orderKey] ||
+                                selectedRiderMap[cleanOrderKey] ||
+                                selectedRiderMap[`#${cleanOrderKey}`] ||
+                                ord.assignedRider?.id ||
+                                ord.assignedRider?._id ||
+                                defaultRiderId;
+
                               return (
-                                <div className="flex flex-col gap-1 w-full">
-                                  {hasPickupStaff ? (
-                                    <div className={`flex items-center justify-between text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                      isDispatchedByStaff
-                                        ? 'text-emerald-800 bg-emerald-50 border border-emerald-200'
-                                        : 'text-amber-900 bg-amber-50 border border-amber-200'
-                                    }`}>
-                                      <span className="truncate">
-                                        {isDispatchedByStaff ? `✓ Prepared: ${ord.pickupStaffName || 'Staff'}` : `⏳ Staff: ${ord.pickupStaffName || 'Staff'}`}
+                                <div className="flex flex-col gap-1.5 w-full">
+                                  {isDispatchedByStaff || ord.status === 'Prepared' ? (
+                                    <div className="flex items-center justify-between text-[10px] font-bold px-2 py-0.5 rounded-lg text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-2xs">
+                                      <span className="truncate flex items-center gap-1">
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                        <span>Ready for Dispatch</span>
                                       </span>
-                                      {!isDispatchedByStaff && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0 ml-1"></span>}
-                                      {ord.deliveryOtp && isDispatchedByStaff && (
-                                        <span className="font-mono text-[9px] text-emerald-900">#{ord.deliveryOtp}</span>
+                                      {ord.deliveryOtp && (
+                                        <span className="font-mono text-[9px] text-emerald-900 font-bold">#{ord.deliveryOtp}</span>
                                       )}
                                     </div>
+                                  ) : hasPickupStaff ? (
+                                    <div className="flex items-center justify-between text-[10px] font-bold px-2 py-0.5 rounded-lg text-amber-900 bg-amber-50 border border-amber-200">
+                                      <span className="truncate">⏳ Staff: {ord.pickupStaffName || 'Preparing...'}</span>
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0 ml-1"></span>
+                                    </div>
                                   ) : (
-                                    <div className={`text-[10px] font-medium flex items-center justify-between px-1.5 py-0.5 rounded ${
-                                      isDispatchedByStaff
-                                        ? 'text-emerald-800 bg-emerald-50 border border-emerald-200 font-bold'
-                                        : 'text-slate-500 bg-slate-50'
-                                    }`}>
+                                    <div className="text-[10px] font-medium flex items-center justify-between px-2 py-0.5 rounded-lg text-slate-500 bg-slate-50 border border-slate-200">
                                       <div className="flex items-center gap-1 truncate">
-                                        <Package className={`w-2.5 h-2.5 ${isDispatchedByStaff ? 'text-emerald-600' : 'text-slate-400'} shrink-0`} />
-                                        <span className="truncate">{isDispatchedByStaff ? '✓ Prepared: Assign Rider' : 'Staff: Preparing...'}</span>
+                                        <Package className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                        <span className="truncate">Awaiting Staff</span>
                                       </div>
                                     </div>
                                   )}
 
-                                  {(() => {
-                                    const orderKey = ord.id || ord.orderId || ord._id;
-                                    const cleanOrderKey = String(orderKey).replace(/^#/, '').trim();
-                                    const currentChosenRider =
-                                      selectedRiderMap[orderKey] ||
-                                      selectedRiderMap[cleanOrderKey] ||
-                                      selectedRiderMap[`#${cleanOrderKey}`] ||
-                                      ord.assignedRider?.id ||
-                                      ord.assignedRider?._id ||
-                                      '';
-
-                                    return (
-                                      <div className="flex items-center gap-1 w-full">
-                                        <select
-                                          value={currentChosenRider}
-                                          onChange={(e) => {
-                                            const val = e.target.value;
-                                            setSelectedRiderMap((prev) => ({
-                                              ...prev,
-                                              [orderKey]: val,
-                                              [cleanOrderKey]: val,
-                                              [`#${cleanOrderKey}`]: val
-                                            }));
-                                          }}
-                                          disabled={eligibleRiders.length === 0}
-                                          className="bg-[#f5efe6] hover:bg-[#ede5d8] border border-[#ded5c5] rounded-lg px-1.5 py-1 text-[11px] font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer flex-1 min-w-0"
-                                        >
-                                          <option value="">Choose rider...</option>
-                                          {eligibleRiders.map((r) => {
-                                            const rId = r.id || r._id || r.riderId;
-                                            return (
-                                              <option key={rId} value={rId}>
-                                                🛵 {r.name} {r.distanceKm > 0 ? `· ${r.distanceKm.toFixed(1)}km` : ''}
-                                              </option>
-                                            );
-                                          })}
-                                        </select>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleAssignRider(orderKey, currentChosenRider)}
-                                          disabled={!currentChosenRider && eligibleRiders.length === 0}
-                                          className="px-2 py-1 bg-[#059669] hover:bg-[#047857] text-white rounded-lg text-[11px] font-bold transition cursor-pointer shadow-2xs shrink-0 disabled:opacity-40"
-                                        >
-                                          Assign
-                                        </button>
-                                      </div>
-                                    );
-                                  })()}
+                                  <div className="flex items-center gap-1 w-full">
+                                    <select
+                                      value={currentChosenRider}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setSelectedRiderMap((prev) => ({
+                                          ...prev,
+                                          [orderKey]: val,
+                                          [cleanOrderKey]: val,
+                                          [`#${cleanOrderKey}`]: val
+                                        }));
+                                      }}
+                                      disabled={eligibleRiders.length === 0}
+                                      className="bg-white hover:bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer flex-1 min-w-0"
+                                    >
+                                      {eligibleRiders.length === 0 && <option value="">No riders available</option>}
+                                      {eligibleRiders.map((r) => {
+                                        const rId = r.id || r._id || r.riderId;
+                                        return (
+                                          <option key={rId} value={rId}>
+                                            🛵 {r.name}
+                                          </option>
+                                        );
+                                      })}
+                                    </select>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAssignRider(orderKey, currentChosenRider)}
+                                      disabled={!currentChosenRider && eligibleRiders.length === 0}
+                                      className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition cursor-pointer shadow-2xs shrink-0 disabled:opacity-40 flex items-center gap-1"
+                                      title="Dispatch order to this rider"
+                                    >
+                                      <Rocket className="w-2.5 h-2.5" />
+                                      <span>Dispatch</span>
+                                    </button>
+                                  </div>
                                 </div>
                               );
                             })()}
                           </div>
                         </td>
+
+                        {/* 7. Status Column */}
                         <td className="py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center gap-1.5">
-                            <select
-                              value={ord.status || 'Pending'}
-                              onChange={(e) => handleStatusChange(ord.id || ord.orderId, e.target.value)}
-                              className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs font-bold py-1 px-2.5 rounded-full shadow-2xs focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer transition"
-                              title="Change Order Status"
-                            >
-                              <option value="Pending">⏳ Pending</option>
-                              <option value="Deliver to Staff">📦 Deliver to Staff</option>
-                              <option value="Preparing">🍳 Preparing</option>
-                              <option value="Prepared">📦 Prepared (Ready for Rider)</option>
-                              <option value="Ready for Dispatch">✨ Ready for Dispatch</option>
-                              <option value="Out for Delivery">🛵 Out for Delivery</option>
-                              <option value="Delivered">✅ Delivered</option>
-                              <option value="Cancelled">❌ Cancelled</option>
-                            </select>
+                          <div className="flex flex-col items-start gap-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <select
+                                value={
+                                  ['out for delivery', 'dispatched to rider', 'dispatched'].includes(String(ord.status || '').toLowerCase())
+                                    ? 'Out for Delivery'
+                                    : ['delivered', 'completed'].includes(String(ord.status || '').toLowerCase()) || ord.isDelivered
+                                    ? 'Delivered'
+                                    : ['prepared', 'ready for dispatch', 'ready'].includes(String(ord.status || '').toLowerCase()) || ord.isDispatchedByStaff
+                                    ? 'Prepared'
+                                    : ord.status || 'Pending'
+                                }
+                                onChange={(e) => handleStatusChange(ord.id || ord.orderId, e.target.value)}
+                                className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs font-bold py-1 px-2.5 rounded-xl shadow-2xs focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer transition"
+                                title="Change Order Status"
+                              >
+                                <option value="Pending">⏳ Pending</option>
+                                <option value="Deliver to Staff">📦 Deliver to Staff</option>
+                                <option value="Preparing">🍳 Preparing</option>
+                                <option value="Prepared">📦 Prepared (Ready for Dispatch)</option>
+                                <option value="Ready for Dispatch">✨ Ready for Dispatch</option>
+                                <option value="Out for Delivery">🚀 Dispatch to Rider (Out for Delivery)</option>
+                                <option value="Dispatched">🚀 Dispatched</option>
+                                <option value="Delivered">✅ Completed (Delivered)</option>
+                                <option value="Cancelled">❌ Cancelled</option>
+                              </select>
+                            </div>
+
+                            {/* 1-Click Quick Action Buttons */}
+                            {(() => {
+                              const s = String(ord.status || '').toLowerCase();
+                              const isPrepared = s === 'prepared' || s === 'ready for dispatch' || ord.isDispatchedByStaff;
+                              const isDispatched = s === 'out for delivery' || s === 'dispatched' || s === 'dispatched to rider' || Boolean(ord.assignedRider);
+                              const isCompleted = s === 'delivered' || ord.isDelivered;
+
+                              if (isCompleted) {
+                                return (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-[10px] font-bold">
+                                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                                    <span>Completed</span>
+                                  </span>
+                                );
+                              }
+
+                              if (isDispatched) {
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStatusChange(ord.id || ord.orderId, 'Delivered')}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[10px] font-bold transition shadow-2xs cursor-pointer"
+                                    title="Mark completed"
+                                  >
+                                    <CheckCircle2 className="w-2.5 h-2.5" />
+                                    <span>Mark Completed</span>
+                                  </button>
+                                );
+                              }
+
+                              if (isPrepared) {
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const orderKey = ord.id || ord.orderId || ord._id;
+                                      const cleanOrderKey = String(orderKey).replace(/^#/, '').trim();
+                                      const defaultRiderId = eligibleRiders?.[0]?.id || eligibleRiders?.[0]?._id || eligibleRiders?.[0]?.riderId || '';
+                                      const riderToAssign =
+                                        selectedRiderMap[orderKey] ||
+                                        selectedRiderMap[cleanOrderKey] ||
+                                        defaultRiderId;
+                                      handleAssignRider(orderKey, riderToAssign);
+                                    }}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[10px] font-bold transition shadow-2xs cursor-pointer"
+                                    title="Dispatch to Rider now"
+                                  >
+                                    <Rocket className="w-2.5 h-2.5" />
+                                    <span>Dispatch to Rider</span>
+                                  </button>
+                                );
+                              }
+
+                              return null;
+                            })()}
                           </div>
                         </td>
                       </tr>
@@ -1274,12 +1426,13 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                 ) : (() => {
                   const drawerKey = selectedOrder.id || selectedOrder.orderId || selectedOrder._id;
                   const cleanDrawerKey = String(drawerKey).replace(/^#/, '').trim();
+                  const eligibleList = (getEligibleRidersForOrder ? getEligibleRidersForOrder(selectedOrder) : []) || riders || [];
+                  const defaultDrawerRiderId = eligibleList[0]?.id || eligibleList[0]?._id || eligibleList[0]?.riderId || '';
                   const currentDrawerRider =
                     selectedRiderMap[drawerKey] ||
                     selectedRiderMap[cleanDrawerKey] ||
                     selectedRiderMap[`#${cleanDrawerKey}`] ||
-                    '';
-                  const eligibleList = (getEligibleRidersForOrder ? getEligibleRidersForOrder(selectedOrder) : []) || riders || [];
+                    defaultDrawerRiderId;
 
                   return (
                     <div className="space-y-2">
@@ -1294,9 +1447,9 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                             [`#${cleanDrawerKey}`]: val
                           }));
                         }}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
                       >
-                        <option value="">Select rider to assign...</option>
+                        {eligibleList.length === 0 && <option value="">No riders available</option>}
                         {eligibleList.map((r) => {
                           const rId = r.id || r._id || r.riderId;
                           return (
@@ -1312,8 +1465,8 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                         disabled={!currentDrawerRider && eligibleList.length === 0}
                         className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
                       >
-                        <Truck className="w-3.5 h-3.5" />
-                        <span>Assign Rider to Order</span>
+                        <Rocket className="w-3.5 h-3.5" />
+                        <span>Dispatch to Rider</span>
                       </button>
                     </div>
                   );
@@ -1330,40 +1483,69 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-slate-700 block">Change Status:</label>
                 <select
-                  value={selectedOrder.status || 'Pending'}
+                  value={
+                    ['out for delivery', 'dispatched to rider', 'dispatched'].includes(String(selectedOrder.status || '').toLowerCase())
+                      ? 'Out for Delivery'
+                      : ['delivered', 'completed'].includes(String(selectedOrder.status || '').toLowerCase()) || selectedOrder.isDelivered
+                      ? 'Delivered'
+                      : ['prepared', 'ready for dispatch', 'ready'].includes(String(selectedOrder.status || '').toLowerCase()) || selectedOrder.isDispatchedByStaff
+                      ? 'Prepared'
+                      : selectedOrder.status || 'Pending'
+                  }
                   onChange={(e) => handleStatusChange(selectedOrder.id || selectedOrder.orderId, e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs"
                 >
                   <option value="Pending">⏳ Pending (Order Confirmed)</option>
                   <option value="Deliver to Staff">📦 Deliver to Staff</option>
                   <option value="Preparing">🍳 Preparing (Dark Store Packing)</option>
-                  <option value="Prepared">📦 Prepared (Ready for Rider)</option>
+                  <option value="Prepared">📦 Prepared (Ready for Dispatch)</option>
                   <option value="Ready for Dispatch">✨ Ready for Dispatch (Packed)</option>
-                  <option value="Out for Delivery">🛵 Out for Delivery (Courier In Transit)</option>
-                  <option value="Delivered">✅ Delivered (Handed to Customer)</option>
+                  <option value="Out for Delivery">🚀 Dispatch to Rider (Out for Delivery)</option>
+                  <option value="Dispatched">🚀 Dispatched</option>
+                  <option value="Delivered">✅ Completed (Delivered)</option>
                   <option value="Cancelled">❌ Cancelled</option>
                 </select>
               </div>
 
-              <div className="flex gap-2">
-                {selectedOrder.status !== 'Delivered' && (
+              <div className="flex flex-col gap-2">
+                {(!selectedOrder.assignedRider || ['prepared', 'ready for dispatch', 'ready'].includes(String(selectedOrder.status || '').toLowerCase()) || selectedOrder.isDispatchedByStaff) && selectedOrder.status !== 'Delivered' && !selectedOrder.isDelivered && (
                   <button
                     type="button"
-                    onClick={() => handleStatusChange(selectedOrder.id || selectedOrder.orderId, 'Delivered')}
-                    className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 shadow-2xs transition cursor-pointer"
+                    onClick={() => {
+                      const drawerKey = selectedOrder.id || selectedOrder.orderId || selectedOrder._id;
+                      const eligibleList = (getEligibleRidersForOrder ? getEligibleRidersForOrder(selectedOrder) : []) || riders || [];
+                      const defaultDrawerRiderId = eligibleList[0]?.id || eligibleList[0]?._id || eligibleList[0]?.riderId || '';
+                      const riderToAssign = selectedRiderMap[drawerKey] || defaultDrawerRiderId;
+                      handleAssignRider(drawerKey, riderToAssign);
+                    }}
+                    className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs py-2.5 shadow-2xs transition cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    ✓ Mark Delivered
+                    <Rocket className="w-3.5 h-3.5" />
+                    <span>🚀 Dispatch Order to Rider</span>
                   </button>
                 )}
-                {selectedOrder.status !== 'Cancelled' && (
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange(selectedOrder.id || selectedOrder.orderId, 'Cancelled')}
-                    className="rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 px-3 py-2 text-xs font-bold text-rose-700 transition cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                )}
+
+                <div className="flex gap-2">
+                  {selectedOrder.status !== 'Delivered' && !selectedOrder.isDelivered && (
+                    <button
+                      type="button"
+                      onClick={() => handleStatusChange(selectedOrder.id || selectedOrder.orderId, 'Delivered')}
+                      className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 shadow-2xs transition cursor-pointer flex items-center justify-center gap-1"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Complete Order</span>
+                    </button>
+                  )}
+                  {selectedOrder.status !== 'Cancelled' && (
+                    <button
+                      type="button"
+                      onClick={() => handleStatusChange(selectedOrder.id || selectedOrder.orderId, 'Cancelled')}
+                      className="rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 px-3 py-2 text-xs font-bold text-rose-700 transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </aside>

@@ -6,7 +6,9 @@ import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyDat
 const getItems = (order) => [order.rawItems, order.items, order.orderItems].find(Array.isArray) || [];
 const getOrderLabel = (order) => String(order.orderId || order.id || order._id || 'Order').replace(/^#/, '#');
 const getStaffActivity = (order) => {
-  if (order.status === 'Ready for Dispatch') return 'Ready for Dispatch';
+  if (order.status === 'Ready for Dispatch' || order.status === 'Prepared' || order.isDispatchedByStaff || order.pickupStep === 'verified') return 'Parcel Prepared (Ready for Rider)';
+  if (order.status === 'Out for Delivery' || order.isDispatched) return 'Out for Delivery';
+  if (order.status === 'Delivered' || order.isDelivered) return 'Delivered to Customer';
   if (order.status === 'Packed' || order.pickupStep === 'packed') return 'Parcel packed';
   if (order.status === 'Picking' || order.pickupStep === 'picking') return 'Picking items';
   if (order.pickupStaffId) return 'Order received by staff';
@@ -221,7 +223,7 @@ export const FulfillmentView = () => {
                         <span className="text-xs font-semibold text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="px-5 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${order.status === 'Ready for Dispatch' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>{getStaffActivity(order)}</span><span className="mt-1 block text-[11px] text-slate-500">{order.status || 'Order placed'}</span></td>
+                    <td className="px-5 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${order.status === 'Delivered' ? 'bg-emerald-100 text-emerald-800' : order.status === 'Out for Delivery' ? 'bg-amber-100 text-amber-800' : (order.status === 'Ready for Dispatch' || order.status === 'Prepared' || order.isDispatchedByStaff) ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>{getStaffActivity(order)}</span><span className="mt-1 block text-[11px] text-slate-500">{order.status === 'Prepared' ? 'Prepared (Ready for Rider)' : (order.status || 'Order placed')}</span></td>
                     <td className="px-5 py-4 text-xs text-slate-500">{activityAt ? <span className="inline-flex items-center gap-1"><Clock size={12} />{new Date(activityAt).toLocaleString()}</span> : '?'}</td>
                   </tr>
                 );

@@ -316,13 +316,14 @@ export const INITIAL_RIDERS = [
     password: 'rider123',
     tenantId: 'tenant-chasevalue',
     tenantName: 'Chase Value',
+    branchId: 'branch_cv_fsd',
     vehicleType: '🏍️ Super Power 70',
     vehicleNumber: 'KHI-9921',
-    zone: 'Shaheed-e-Millat (Karachi)',
+    zone: 'Shaheed-e-Millat (Karachi) & Peoples Colony',
     branchName: 'Shaheed-e-Millat Main Branch (Karachi)',
     status: 'On-Duty',
     coordinates: { lat: 24.8716, lng: 67.0694 },
-    coverageRadiusKm: 15,
+    coverageRadiusKm: 25,
     rating: 4.9
   },
   {
@@ -333,14 +334,15 @@ export const INITIAL_RIDERS = [
     password: 'rider123',
     tenantId: 'tenant-chaseup',
     tenantName: 'Chase Up',
+    branchId: 'branch_cu_fsd',
     vehicleType: '🏍️ Yamaha YBR 125',
-    vehicleNumber: 'KHI-4102',
-    zone: 'North Nazimabad (Karachi)',
-    branchName: 'North Nazimabad Branch (Karachi)',
+    vehicleNumber: 'FSD-4102',
+    zone: 'Mall of Faisalabad & Clock Tower Hub',
+    branchName: 'Mall of Faisalabad Flagship',
     status: 'On-Duty',
-    coordinates: { lat: 24.9333, lng: 67.0333 },
-    coverageRadiusKm: 15,
-    rating: 4.8
+    coordinates: { lat: 31.4125, lng: 73.0915 },
+    coverageRadiusKm: 25,
+    rating: 4.9
   },
   {
     id: 'RDR-UNIMAART',
@@ -350,13 +352,14 @@ export const INITIAL_RIDERS = [
     password: 'rider123',
     tenantId: 'tenant-freshmart',
     tenantName: 'Unimaart',
+    branchId: 'branch_um_fsd',
     vehicleType: '🏍️ Honda CD 70',
     vehicleNumber: 'FSD-7712',
     zone: 'Peoples Colony (Faisalabad)',
     branchName: 'D-Ground Main Branch (Faisalabad)',
     status: 'On-Duty',
     coordinates: { lat: 31.4125, lng: 73.0995 },
-    coverageRadiusKm: 15,
+    coverageRadiusKm: 25,
     rating: 5.0
   }
 ];
