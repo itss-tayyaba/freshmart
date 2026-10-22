@@ -929,7 +929,7 @@ export const AdminLogin = () => {
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-slate-800">🛵 Ahmad Khan (Fleet Courier)</span>
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-800">Quick Test</span>
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-800">Fleet Courier</span>
                       </div>
                       <div className="font-mono text-[10px] text-slate-600 mt-0.5">ahmad / rider123 (or 0300-1234567)</div>
                       <p className="text-[9px] text-slate-400 mt-1">To register custom fleet couriers, add them via Store Admin &rarr; Delivery Fleet.</p>

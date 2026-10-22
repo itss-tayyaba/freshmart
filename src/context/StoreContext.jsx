@@ -6130,20 +6130,6 @@ export const StoreProvider = ({ children }) => {
     addToast('Alternative Selected ✨', `Replaced with ${replacementProduct.name}.`, 'success');
   };
 
-  const resetToTestPickupOrder = () => {
-    setCustomerOrders(DEFAULT_INITIAL_ORDERS);
-    setAdminOrders(DEFAULT_INITIAL_ORDERS);
-    try {
-      localStorage.setItem('freshmart_customer_orders', JSON.stringify(DEFAULT_INITIAL_ORDERS));
-      localStorage.setItem('freshmart_admin_orders', JSON.stringify(DEFAULT_INITIAL_ORDERS));
-    } catch (e) {}
-    addToast(
-      'Test Order Loaded 🧪',
-      'Order #ORD-701 loaded: Dalda Ghee 1kg (Out of Stock to test substitution) & Olper\'s Milk 1L (In Stock to test picking).',
-      'success'
-    );
-  };
-
   return (
     <StoreContext.Provider
       value={{
@@ -6372,7 +6358,6 @@ export const StoreProvider = ({ children }) => {
         getProductSubstitutes,
         substituteOrderItem,
         substituteCartItem,
-        resetToTestPickupOrder,
         sanitizeOrder,
         DEFAULT_INITIAL_ORDERS
       }}

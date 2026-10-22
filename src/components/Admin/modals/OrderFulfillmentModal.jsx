@@ -245,7 +245,7 @@ export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
           <div className="flex items-center gap-2">
             <button
               onClick={handleFastForwardComplete}
-              title="Fast-forward test run to mark Delivered in 1-click"
+              title="Quick mark Delivered in 1-click"
               className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold border border-amber-400/40 flex items-center gap-1.5 transition cursor-pointer"
             >
               <Zap className="w-3.5 h-3.5 fill-amber-300" />

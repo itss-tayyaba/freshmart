@@ -81,7 +81,6 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     addToast,
     getProductSubstitutes,
     substituteOrderItem,
-    resetToTestPickupOrder,
     currency
   } = useStore();
 
@@ -472,20 +471,6 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                 </button>
               </div>
 
-              {/* Test Order Button */}
-              {typeof resetToTestPickupOrder === 'function' && (
-                <button
-                  type="button"
-                  onClick={resetToTestPickupOrder}
-                  className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs shrink-0"
-                  title="Loads Order #ORD-701 with Dalda Ghee (Unavailable) and Olper's Milk (Available) to test picking and substitution"
-                >
-                  <Sparkles size={13} className="text-amber-600" />
-                  <span className="hidden lg:inline">🧪 Test Picking Order</span>
-                  <span className="lg:hidden">Test Order</span>
-                </button>
-              )}
-
               {/* Search Bar */}
               <div className="relative flex-1 sm:w-56">
                 <input
@@ -507,20 +492,10 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl shadow-inner">
               <PackageCheck size={28} />
             </div>
-            <h3 className="font-bold text-slate-900 text-base">No Orders in this Queue</h3>
+            <h3 className="font-bold text-slate-900 text-base">No Orders in Packing Queue</h3>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              Ready to test item picking and smart product alternatives? Click below to load the live test picking order.
+              New customer orders placed for this store branch will appear here in real-time for item picking, packing, and courier staging.
             </p>
-            {typeof resetToTestPickupOrder === 'function' && (
-              <button
-                type="button"
-                onClick={resetToTestPickupOrder}
-                className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-xs inline-flex items-center gap-2"
-              >
-                <Sparkles size={14} />
-                <span>🧪 Load Test Picking Order (Dalda Ghee + Milk)</span>
-              </button>
-            )}
           </div>
         ) : viewMode === 'cards' ? (
           /* MODERN FULFILLMENT CARDS GRID */
