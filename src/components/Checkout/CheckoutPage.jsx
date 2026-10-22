@@ -45,6 +45,7 @@ export const CheckoutPage = () => {
     removeCouponCode,
     promotions,
     customerUser,
+    setCustomerUser,
     addToast,
     placeCustomerOrder,
     currentTenant,
@@ -185,13 +186,38 @@ export const CheckoutPage = () => {
     return [];
   }, [placedOrderDetails]);
 
-  const [addressData, setAddressData] = useState({
-    recipientName: customerUser?.name || '',
-    phone: customerUser?.phone || '',
-    address: deliveryLocation.address || 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
-    city: deliveryLocation.city || 'Faisalabad, Pakistan',
-    notes: ''
+  const [addressData, setAddressData] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_checkout_address');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            recipientName: parsed.recipientName || customerUser?.name || '',
+            phone: parsed.phone || customerUser?.phone || '',
+            address: parsed.address || deliveryLocation.address || 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+            city: parsed.city || deliveryLocation.city || 'Faisalabad, Pakistan',
+            notes: parsed.notes || ''
+          };
+        }
+      }
+    } catch (e) {}
+    return {
+      recipientName: customerUser?.name || '',
+      phone: customerUser?.phone || '',
+      address: deliveryLocation.address || 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+      city: deliveryLocation.city || 'Faisalabad, Pakistan',
+      notes: ''
+    };
   });
+
+  useEffect(() => {
+    try {
+      if (addressData.recipientName || addressData.phone || addressData.address) {
+        localStorage.setItem('freshmart_checkout_address', JSON.stringify(addressData));
+      }
+    } catch (e) {}
+  }, [addressData]);
 
   useEffect(() => {
     if (deliveryLocation?.address) {
@@ -330,6 +356,23 @@ export const CheckoutPage = () => {
 
     setPlacedOrderDetails(resultOrder);
     setIsOrderPlaced(true);
+
+    try {
+      localStorage.setItem('freshmart_checkout_address', JSON.stringify(addressData));
+      if (!customerUser && addressData.recipientName) {
+        const guestUser = {
+          id: 'CUST-' + Math.floor(10000 + Math.random() * 90000),
+          name: addressData.recipientName,
+          phone: addressData.phone,
+          city: addressData.city,
+          address: addressData.address,
+          email: `${addressData.recipientName.toLowerCase().replace(/\s+/g, '')}@gmail.com`,
+          role: 'customer'
+        };
+        if (setCustomerUser) setCustomerUser(guestUser);
+        localStorage.setItem('freshmart_customer_user', JSON.stringify(guestUser));
+      }
+    } catch (e) {}
 
     try {
       confetti({

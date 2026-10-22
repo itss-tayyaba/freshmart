@@ -23,7 +23,7 @@ export const FulfillmentView = () => {
   const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', phone: '' });
   const [search, setSearch] = useState('');
 
-  const activeTenantId = user?.tenantId || currentTenant?.id || 'tenant-freshmart';
+  const activeTenantId = currentTenant?.id || user?.tenantId || 'tenant-freshmart';
 
   const tenantStaff = useMemo(
     () => pickupStaff.filter((staff) => {

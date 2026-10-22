@@ -261,7 +261,7 @@ export const DeliveryView = () => {
       }
     });
     const list = Array.from(uniqueMap.values());
-    const targetTenantId = user?.tenantId || currentTenant?.id || 'tenant-alfatah';
+    const targetTenantId = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
     if (!targetTenantId) return list;
     return list.filter((ord) => {
       const orderTenant =

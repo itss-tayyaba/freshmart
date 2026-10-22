@@ -168,7 +168,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   const [selectedCustomerModal, setSelectedCustomerModal] = useState(null);
 
   const tenantStaff = useMemo(() => {
-    const activeTenant = user?.tenantId || currentTenant?.id || 'tenant-alfatah';
+    const activeTenant = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
     return (pickupStaff || []).filter(
       (s) => isSameTenant(s.tenantId || s.companyId, activeTenant) && (s.status === 'Active' || !s.status)
     );
@@ -197,7 +197,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   };
 
   const tenantBranches = useMemo(() => {
-    const activeTenant = user?.tenantId || currentTenant?.id;
+    const activeTenant = currentTenant?.id || user?.tenantId;
     return (allBranches || []).filter((b) => isSameTenant(b.tenantId, activeTenant));
   }, [allBranches, currentTenant?.id, user?.tenantId]);
 

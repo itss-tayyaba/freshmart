@@ -63,6 +63,8 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     adminLogout,
     addToast,
     adminRole,
+    setAdminRole,
+    switchAdminPortal,
     getProductSubstitutes,
     substituteOrderItem,
     resetToTestPickupOrder,
@@ -325,19 +327,45 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {/* Quick 1-Click Role Switchers (No sign out required) */}
           <button
-            onClick={() => (onBackToAdmin ? onBackToAdmin() : navigateTo ? navigateTo('admin') : window.location.assign('/admin'))}
-            className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition cursor-pointer"
+            onClick={() => {
+              if (typeof onBackToAdmin === 'function') onBackToAdmin();
+              else if (typeof switchAdminPortal === 'function') switchAdminPortal('admin', 'admin');
+              else navigateTo('admin');
+            }}
+            className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            title="Return directly to Store Admin Console"
           >
-            ← Store Admin
+            <span>🏬 Store Admin</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (typeof switchAdminPortal === 'function') switchAdminPortal('rider', 'delivery-portal');
+              else navigateTo('delivery-portal');
+            }}
+            className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            title="Open Rider Courier Dispatch"
+          >
+            <span>🛵 Rider Portal</span>
+          </button>
+
+          <button
+            onClick={() => navigateTo('home')}
+            className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs hidden sm:flex"
+            title="Open Customer Storefront"
+          >
+            <span>🛒 Store</span>
           </button>
 
           <button
             onClick={adminLogout}
-            className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold flex items-center gap-2 transition cursor-pointer"
+            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer text-slate-300"
+            title="Sign out of staff session"
           >
-            <LogOut size={15} />
+            <LogOut size={14} />
             <span className="hidden sm:inline">Sign out</span>
           </button>
         </div>
@@ -495,6 +523,12 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                         <div className="text-xs text-slate-400 font-mono mt-0.5">
                           {customerPhone}
                         </div>
+                        {order.pickupStaffName && (
+                          <div className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200/90 px-2 py-0.5 rounded-md">
+                            <span>📦 Desk:</span>
+                            <span className="text-amber-950 font-black">{order.pickupStaffName}</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Right: Status Pill & Elapsed Timer Box */}

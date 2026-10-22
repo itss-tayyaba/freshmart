@@ -527,6 +527,78 @@ export const StoreProvider = ({ children }) => {
       deliveryOtp: '4092',
       time: 'Just now',
       createdAt: new Date().toISOString()
+    },
+    {
+      id: '#CU5011',
+      orderId: '#CU5011',
+      tenantId: 'tenant-chaseup',
+      tenantName: 'Chase Up Supermarket',
+      branchId: 'branch_cu_fsd',
+      branchName: 'Mall of Faisalabad Flagship',
+      customer: 'Danish Qureshi',
+      customerName: 'Danish Qureshi',
+      customerPhone: '+923008765432',
+      phone: '+923008765432',
+      orderType: 'Delivery',
+      status: 'Pending',
+      fulfillmentStage: 1,
+      pickupStep: 'assigned',
+      total: 1250,
+      totalAmount: 1250,
+      totalPrice: 1250,
+      subtotal: 1250,
+      paymentMethod: 'Cash on Delivery',
+      payment: 'Cash on Delivery',
+      paymentStatus: 'Pending',
+      items: [
+        {
+          id: 'chaseup-rice-5kg',
+          productId: 'chaseup-rice-5kg',
+          name: 'Super Basmati Kainat Long Grain Rice (5kg)',
+          price: 1250,
+          quantity: 1,
+          unit: '5kg Pack',
+          image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-chaseup',
+          branchId: 'branch_cu_fsd'
+        }
+      ],
+      rawItems: [
+        {
+          id: 'chaseup-rice-5kg',
+          productId: 'chaseup-rice-5kg',
+          name: 'Super Basmati Kainat Long Grain Rice (5kg)',
+          price: 1250,
+          quantity: 1,
+          unit: '5kg Pack',
+          image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-chaseup',
+          branchId: 'branch_cu_fsd'
+        }
+      ],
+      orderItems: [
+        {
+          id: 'chaseup-rice-5kg',
+          productId: 'chaseup-rice-5kg',
+          name: 'Super Basmati Kainat Long Grain Rice (5kg)',
+          price: 1250,
+          quantity: 1,
+          unit: '5kg Pack',
+          image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-chaseup',
+          branchId: 'branch_cu_fsd'
+        }
+      ],
+      shippingAddress: {
+        address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+        city: 'Faisalabad'
+      },
+      address: 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad',
+      city: 'Faisalabad',
+      deliverySlot: '⚡ 25-35 Mins Express Delivery',
+      deliveryOtp: '5011',
+      time: 'Just now',
+      createdAt: new Date().toISOString()
     }
   ];
 
@@ -2544,6 +2616,18 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
     addToast('Signed Out', 'You have been logged out of the staff portal.', 'info');
     navigateTo('home');
+  };
+
+  const switchAdminPortal = (newRole, targetPage = 'admin') => {
+    const validRole = newRole || 'admin';
+    setAdminRole(validRole);
+    try {
+      localStorage.setItem('freshmart_admin_role', validRole);
+      sessionStorage.setItem('freshmart_tab_role', validRole);
+    } catch (e) {}
+    if (targetPage) {
+      navigateTo(targetPage);
+    }
   };
 
 
@@ -5874,10 +5958,6 @@ export const StoreProvider = ({ children }) => {
     };
     const current = [...(customerOrders || []), ...(adminOrders || [])].find(orderMatches);
     if (!current || (current.tenantId && !isSameTenant(current.tenantId, currentTenant?.id || user?.tenantId))) return false;
-    if (current.pickupStaffId || current.pickupStaffName) {
-      addToast('Pickup Staff Locked 🔒', `This order is already assigned to ${current.pickupStaffName || 'pickup staff'} and cannot be changed.`, 'error');
-      return false;
-    }
     const assignment = {
       pickupStaffId: staff.id,
       pickupStaffName: staff.name,
@@ -5885,7 +5965,7 @@ export const StoreProvider = ({ children }) => {
       status: 'Deliver to Staff',
       fulfillmentStage: 2,
       pickupStep: 'received',
-      pickupAssignedAt: new Date().toISOString(),
+      pickupAssignedAt: current?.pickupAssignedAt || new Date().toISOString(),
       deliveredToStaffAt: new Date().toISOString()
     };
     setCustomerOrders((previous) => {
@@ -6223,6 +6303,7 @@ export const StoreProvider = ({ children }) => {
         setIsAdminLoggedIn,
         adminRole,
         setAdminRole,
+        switchAdminPortal,
         adminLogin,
         adminLogout,
         logoutAdmin: adminLogout,
