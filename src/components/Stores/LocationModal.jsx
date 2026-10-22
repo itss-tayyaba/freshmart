@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, MapPin, Search, Check, Zap, Building, Compass, Navigation, ChevronRight, ShieldCheck } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { PAKISTAN_CITIES, findNearestCity, calculateDistanceKm } from '../../data/pakistanLocations';
-import { STORE_LOCATIONS } from '../../data/freshMartData';
+import { findNearestStore } from '../../utils/storeRouting';
 
 export const LocationModal = () => {
   const {
@@ -26,28 +26,44 @@ export const LocationModal = () => {
   const handleSelectCity = (cityObj) => {
     setSelectedCityId(cityObj.id);
     const defaultN = cityObj.neighborhoods[0];
+    const nearestStore = findNearestStore(defaultN.coords, cityObj.city);
     setDeliveryLocation({
       city: cityObj.city,
       address: defaultN.defaultAddress,
       neighborhood: defaultN.name,
       coords: defaultN.coords,
       hubName: cityObj.hubName,
+      storeId: nearestStore?.id || '',
+      storeName: nearestStore?.name || '',
+      storeCoords: nearestStore?.coords || null,
+      storeDistanceKm: nearestStore?.distanceKm,
       label: 'Home'
     });
     addToast('City Selected 📍', `Switched delivery hub to ${cityObj.city}`);
   };
 
   const handleSelectNeighborhood = (cityObj, neighborhood) => {
+    const coords = neighborhood.coords;
+    const nearestStore = findNearestStore(coords, cityObj.city);
     setDeliveryLocation({
       city: cityObj.city,
       address: neighborhood.defaultAddress,
       neighborhood: neighborhood.name,
-      coords: neighborhood.coords,
+      coords,
       hubName: cityObj.hubName,
+      storeId: nearestStore?.id || '',
+      storeName: nearestStore?.name || '',
+      storeCoords: nearestStore?.coords || null,
+      storeDistanceKm: nearestStore?.distanceKm,
       label: 'Home'
     });
     setIsLocationModalOpen(false);
-    addToast('Delivery Pin Set 📍', `Delivering to ${neighborhood.name}, ${cityObj.city}`);
+    addToast(
+      'Delivery Pin Set 📍',
+      nearestStore
+        ? `${nearestStore.name} is your nearest store (${nearestStore.distanceKm.toFixed(1)} km away).`
+        : `Delivering to ${neighborhood.name}, ${cityObj.city}`
+    );
   };
 
   const handleAutoDetectGPS = () => {
@@ -62,6 +78,7 @@ export const LocationModal = () => {
       (pos) => {
         const { latitude, longitude } = pos.coords;
         const { city, distanceKm } = findNearestCity(latitude, longitude);
+        const nearestStore = findNearestStore({ lat: latitude, lng: longitude }, city.city);
 
         // Find closest neighborhood in that city
         let closestNeighborhood = city.neighborhoods[0];
@@ -81,11 +98,20 @@ export const LocationModal = () => {
           neighborhood: closestNeighborhood.name,
           coords: { lat: latitude, lng: longitude },
           hubName: city.hubName,
+          storeId: nearestStore?.id || '',
+          storeName: nearestStore?.name || '',
+          storeCoords: nearestStore?.coords || null,
+          storeDistanceKm: nearestStore?.distanceKm,
           label: 'Current GPS Location'
         });
         setIsLocating(false);
         setIsLocationModalOpen(false);
-        addToast('Exact GPS Location Locked 🎯', `Connected to ${city.hubName} (${distanceKm} km away)`);
+        addToast(
+          'Exact GPS Location Locked 🎯',
+          nearestStore
+            ? `${nearestStore.name} is your nearest store (${nearestStore.distanceKm.toFixed(1)} km away).`
+            : `Connected to ${city.hubName} (${distanceKm} km away). No branch is configured in this city.`
+        );
       },
       (err) => {
         setIsLocating(false);
@@ -247,6 +273,14 @@ export const LocationModal = () => {
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Selected Drop-off Pin:</span>
                 <span className="font-bold text-slate-900 line-clamp-1">{deliveryLocation.address}</span>
                 <span className="text-[11px] text-emerald-700 font-semibold">{deliveryLocation.city}</span>
+                {deliveryLocation.storeName && (
+                  <span className="text-[11px] text-slate-600 font-semibold block">
+                    Nearest store: {deliveryLocation.storeName}
+                    {Number.isFinite(deliveryLocation.storeDistanceKm)
+                      ? ` (${deliveryLocation.storeDistanceKm.toFixed(1)} km)`
+                      : ''}
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => setIsLocationModalOpen(false)}
@@ -263,4 +297,3 @@ export const LocationModal = () => {
     </div>
   );
 };
-

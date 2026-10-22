@@ -39,10 +39,11 @@ const seedDatabase = async () => {
     // 1. Seed Admin & Registered Customers (Hafsa & Aimen) - bcrypt pre-save hash
     await User.create([
       {
-        name: 'Super Admin',
+        name: 'Johar Town Store Admin',
         email: 'admin@freshmart.com',
         password: 'adminpassword123',
-        role: 'admin'
+        role: 'admin',
+        branchId: 'store-1'
       },
       {
         name: 'Hafsa',
@@ -122,8 +123,10 @@ const seedDatabase = async () => {
         phone: '0301-1234567',
         vehicleType: '🏍️ Honda 125',
         vehicleNumber: 'LEK-4589',
-        zone: 'Lahore Hub',
+        zone: 'Johar Town / Model Town',
         status: 'On-Duty',
+        branchId: 'store-1',
+        coordinates: { lat: 31.4697, lng: 74.2728 },
         username: 'rider',
         password: 'rider123',
         cnic: '35202-1234567-1',

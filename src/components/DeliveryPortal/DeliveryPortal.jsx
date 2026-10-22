@@ -33,13 +33,16 @@ import { PAKISTAN_CITIES } from '../../data/pakistanLocations';
 
 export const DeliveryPortal = () => {
   const {
-    riders,
+    riders: allRiders,
     addRider,
     updateRider,
     deleteRider,
     clearAllRiders,
     toggleRiderStatus,
-    customerOrders = [],
+    customerOrders: rawCustomerOrders = [],
+    adminOrders = [],
+    user,
+    adminRole,
     assignRiderToOrder,
     updateDeliveryOrderStatus,
     verifyOrderDeliveryOtp,
@@ -48,6 +51,23 @@ export const DeliveryPortal = () => {
     addToast,
     navigateTo
   } = useStore();
+  const riders =
+    adminRole === 'admin' && user?.branchId
+      ? allRiders.filter((rider) => rider.branchId === user.branchId)
+      : allRiders;
+  const allOrdersById = new Map();
+  [...rawCustomerOrders, ...adminOrders].forEach((order) => allOrdersById.set(order.id || order.orderId, order));
+  const allCustomerOrders = [...allOrdersById.values()];
+  const customerOrders =
+    adminRole === 'admin' && user?.branchId
+      ? allCustomerOrders.filter((order) => order.branchId === user.branchId)
+      : adminRole === 'rider'
+      ? allCustomerOrders.filter(
+          (order) =>
+            order.assignedRider?.id === user?.riderId ||
+            order.assignedRider?.riderId === user?.riderId
+        )
+      : allCustomerOrders;
 
   const [activeTab, setActiveTab] = useState('riders'); // 'riders' | 'dispatches' | 'radar' | 'simulator'
   const [searchRider, setSearchRider] = useState('');
@@ -90,7 +110,7 @@ export const DeliveryPortal = () => {
   // Metrics
   const activeRidersCount = riders.filter((r) => r.status === 'On-Duty' || r.status === 'Busy').length;
   const totalDeliveries = riders.reduce((sum, r) => sum + (r.deliveriesCount || 0), 0);
-  const pendingDispatches = customerOrders.filter((o) => o.status !== 'Delivered');
+  const pendingDispatches = customerOrders.filter((o) => !['Delivered', 'Cancelled'].includes(o.status));
 
   const handleAddRiderSubmit = (e) => {
     e.preventDefault();
@@ -125,7 +145,53 @@ export const DeliveryPortal = () => {
     });
   };
 
-  const simulatedRider = riders.find((r) => r.id === simulatedRiderId) || riders[0];
+  const simulatedRider = riders.find((r) => r.id === simulatedRiderId) || riders[0] || {
+    id: '',
+    name: 'No rider selected',
+    vehicleType: '',
+    vehicleNumber: '',
+    status: 'Off-Duty',
+    deliveriesCount: 0,
+    rating: 5
+  };
+  const riderId = adminRole === 'rider' ? user?.riderId : simulatedRider?.id;
+  const activeRiderOrder =
+    customerOrders.find(
+      (order) =>
+        order.assignedRider?.id === riderId ||
+        order.assignedRider?.riderId === riderId
+    ) || null;
+
+  const handleOpenOtpModal = (order) => {
+    if (adminRole === 'rider' && order.assignedRider?.id !== user?.riderId) {
+      addToast('Order Not Assigned', 'Only the rider assigned to this order can confirm delivery.', 'error');
+      return;
+    }
+    setTargetOtpOrder(order);
+    setEnteredOtp('');
+    setOtpError('');
+    setIsOtpModalOpen(true);
+  };
+
+  const handleVerifyOtpSubmit = async (event) => {
+    event.preventDefault();
+    if (!targetOtpOrder) return;
+    setIsVerifyingOtp(true);
+    setOtpError('');
+    const result = await verifyOrderDeliveryOtp(
+      targetOtpOrder.id || targetOtpOrder.orderId,
+      enteredOtp,
+      targetOtpOrder.assignedRider?.id
+    );
+    setIsVerifyingOtp(false);
+    if (result?.success) {
+      setIsOtpModalOpen(false);
+      setTargetOtpOrder(null);
+      setEnteredOtp('');
+      return;
+    }
+    setOtpError(result?.message || 'OTP verification failed. Please check the customer’s code.');
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
@@ -487,10 +553,11 @@ export const DeliveryPortal = () => {
                         <select
                           value={order.assignedRider?.id || ''}
                           onChange={(e) => assignRiderToOrder(order.id, e.target.value)}
+                          disabled={!['Ready for Pickup', 'Out for Delivery'].includes(order.status)}
                           className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 font-bold text-slate-800 text-xs focus:outline-none"
                         >
                           <option value="">-- Assign a Rider --</option>
-                          {riders.map((r) => (
+                          {riders.filter((r) => r.status === 'On-Duty').map((r) => (
                             <option key={r.id} value={r.id}>
                               {r.name} ({r.vehicleNumber} - {r.zone})
                             </option>
@@ -506,30 +573,24 @@ export const DeliveryPortal = () => {
 
                   {/* Status Progression Workflow Buttons */}
                   <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-end gap-2">
-                    <button
-                      onClick={() => updateDeliveryOrderStatus(order.id, 'Picked Up from Dark Store')}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-colors cursor-pointer"
-                    >
-                      🏬 Mark Picked Up
-                    </button>
-                    <button
-                      onClick={() => updateDeliveryOrderStatus(order.id, 'Out for Delivery')}
-                      className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl font-bold text-xs transition-colors cursor-pointer"
-                    >
-                      🛵 Out for Delivery
-                    </button>
-                    <button
-                      onClick={() => updateDeliveryOrderStatus(order.id, 'Arrived at Customer')}
-                      className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-xl font-bold text-xs transition-colors cursor-pointer"
-                    >
-                      📍 Arrived at Doorstep
-                    </button>
-                    <button
-                      onClick={() => handleOpenOtpModal(order)}
-                      className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
-                    >
-                      <span>🔐 Verify OTP & Deliver</span>
-                    </button>
+                    {order.status === 'Preparing' && order.assignedPickupStaff?.id && (
+                      <button
+                        onClick={() => updateDeliveryOrderStatus(order.id, 'Ready for Pickup')}
+                        className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+                      >
+                        ✅ Mark packed / Ready for Pickup
+                      </button>
+                    )}
+                    {adminRole === 'rider' &&
+                      order.status === 'Out for Delivery' &&
+                      order.assignedRider?.id === user?.riderId && (
+                      <button
+                        onClick={() => handleOpenOtpModal(order)}
+                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
+                      >
+                        <span>🔐 Verify OTP & Deliver</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -634,7 +695,7 @@ export const DeliveryPortal = () => {
                   </a>
                 </div>
 
-                {activeRiderOrder.status !== 'Delivered' ? (
+                {adminRole === 'rider' && activeRiderOrder.status !== 'Delivered' ? (
                   <button
                     onClick={() => handleOpenOtpModal(activeRiderOrder)}
                     className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-600 hover:to-teal-500 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg cursor-pointer transition-all hover:scale-105"
@@ -642,11 +703,11 @@ export const DeliveryPortal = () => {
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Confirm Parcel Delivered & Collect Cash</span>
                   </button>
-                ) : (
+                ) : activeRiderOrder.status === 'Delivered' ? (
                   <div className="bg-emerald-500/20 border border-emerald-500/40 rounded-xl p-2.5 text-center text-xs font-bold text-emerald-300">
                     ✅ Parcel Delivered & Verified via Customer OTP
                   </div>
-                )}
+                ) : null}
               </div>
             ) : (
               <div className="bg-slate-800/60 border border-slate-700 rounded-3xl p-6 text-center space-y-2">
@@ -693,18 +754,6 @@ export const DeliveryPortal = () => {
                 <p className="text-amber-800 text-[11px]">
                   Ask customer <strong>{targetOtpOrder?.customerName || targetOtpOrder?.customer || 'Recipient'}</strong> for the 4-digit Handover PIN displayed on their app.
                 </p>
-                {targetOtpOrder?.deliveryOtp && (
-                  <div className="pt-1 flex items-center justify-between text-[10px] text-amber-700">
-                    <span>Customer PIN:</span>
-                    <button
-                      type="button"
-                      onClick={() => setEnteredOtp(targetOtpOrder.deliveryOtp)}
-                      className="font-mono font-bold underline cursor-pointer hover:text-amber-950"
-                    >
-                      Fill: {targetOtpOrder.deliveryOtp}
-                    </button>
-                  </div>
-                )}
               </div>
 
               <div className="space-y-1.5 text-center">
@@ -722,7 +771,6 @@ export const DeliveryPortal = () => {
                   }}
                   className="w-full text-center tracking-[0.5em] font-mono text-2xl font-black p-3 bg-slate-50 border-2 border-slate-300 rounded-2xl focus:border-emerald-500 focus:bg-white focus:outline-none"
                 />
-                <span className="text-[10px] text-slate-400 block font-mono">Master Bypass Code: 9999 (For Demo & Testing)</span>
               </div>
 
               {otpError && (

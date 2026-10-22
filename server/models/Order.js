@@ -47,6 +47,16 @@ const assignedRiderSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const assignedPickupStaffSchema = new mongoose.Schema(
+  {
+    id: { type: String },
+    name: { type: String },
+    assignedAt: { type: Date, default: Date.now },
+    packedAt: { type: Date }
+  },
+  { _id: false }
+);
+
 const orderSchema = new mongoose.Schema(
   {
     orderId: {
@@ -59,6 +69,23 @@ const orderSchema = new mongoose.Schema(
       type: String,
       index: true,
       default: 'tenant-freshmart'
+    },
+    branchId: {
+      type: String,
+      index: true,
+      default: ''
+    },
+    branchName: {
+      type: String,
+      default: ''
+    },
+    branchCoords: {
+      lat: { type: Number },
+      lng: { type: Number }
+    },
+    tenantName: {
+      type: String,
+      default: ''
     },
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -129,11 +156,15 @@ const orderSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Pending', 'Confirmed', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'],
+      enum: ['Pending', 'Confirmed', 'Preparing', 'Ready for Pickup', 'Out for Delivery', 'Delivered', 'Cancelled'],
       default: 'Confirmed'
     },
     assignedRider: {
       type: assignedRiderSchema,
+      default: null
+    },
+    assignedPickupStaff: {
+      type: assignedPickupStaffSchema,
       default: null
     },
     deliveryOtp: {
@@ -152,4 +183,3 @@ const orderSchema = new mongoose.Schema(
 );
 
 export const Order = mongoose.model('Order', orderSchema);
-

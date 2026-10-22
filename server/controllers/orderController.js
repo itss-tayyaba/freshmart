@@ -3,6 +3,14 @@ import { Order } from '../models/Order.js';
 import { Product } from '../models/Product.js';
 import { Rider } from '../models/ExtraModels.js';
 import { ADMIN_ORDERS_FULL } from '../../src/data/adminSuiteData.js';
+import { riderServesArea } from '../../src/utils/storeRouting.js';
+import { STORE_LOCATIONS } from '../../src/data/freshMartData.js';
+
+const serializeOrderWithoutOtp = (order) => {
+  const serialized = order?.toObject ? order.toObject() : { ...order };
+  delete serialized.deliveryOtp;
+  return serialized;
+};
 
 // Dark Store Hub coordinates for Pakistani fulfillment centers
 export const CITY_HUBS = {
@@ -82,7 +90,13 @@ export const buildDynamicTimeline = (order) => {
   const status = (order.status || 'Pending').toLowerCase();
   const isDelivered = status === 'delivered' || status === 'completed';
   const isOut = status.includes('out') || status.includes('transit') || status.includes('picked up') || (order.assignedRider && !isDelivered);
-  const isPreparing = isOut || isDelivered || status.includes('prep') || status.includes('pack') || status.includes('process');
+  const isPreparing =
+    isOut ||
+    isDelivered ||
+    status.includes('prep') ||
+    status.includes('pack') ||
+    status.includes('process') ||
+    status.includes('ready for pickup');
 
   const createdDate = order.createdAt ? new Date(order.createdAt) : new Date();
   const formatTime = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -187,8 +201,38 @@ export const createOrder = async (req, res) => {
       shippingAddress = {
         address: shippingAddress.address || req.body.address || '123 Main Street, Gulberg, Lahore',
         city: shippingAddress.city || req.body.city || 'Lahore, Pakistan',
+        area: shippingAddress.area || '',
+        coords: shippingAddress.coords || null,
         deliverySlot: shippingAddress.deliverySlot || req.body.deliverySlot || '⚡ 15-25 Mins Express Delivery'
       };
+    }
+
+    const selectedBranch = STORE_LOCATIONS.find((store) => store.id === req.body.branchId);
+    const branchCity = selectedBranch?.city.split(',')[0].trim().toLowerCase();
+    const deliveryCity = String(shippingAddress.city || '').split(',')[0].trim().toLowerCase();
+    if (!selectedBranch || branchCity !== deliveryCity) {
+      return res.status(400).json({
+        success: false,
+        message: 'Select a configured store branch that serves the delivery city before placing this order'
+      });
+    }
+    const destinationCoords = resolveDestinationCoords(shippingAddress);
+    const nearestBranch = STORE_LOCATIONS.filter((store) => store.city === selectedBranch.city)
+      .map((store) => ({
+        store,
+        distanceKm: calculateDistanceKm(
+          destinationCoords.lat,
+          destinationCoords.lng,
+          store.coords.lat,
+          store.coords.lng
+        )
+      }))
+      .sort((first, second) => first.distanceKm - second.distanceKm)[0]?.store;
+    if (!nearestBranch || nearestBranch.id !== selectedBranch.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'The selected branch is not the nearest configured store for this delivery location'
+      });
     }
 
     const paymentMethod = req.body.paymentMethod || req.body.payment || 'Cash on Delivery';
@@ -222,9 +266,8 @@ export const createOrder = async (req, res) => {
     const orderId = req.body.orderId || req.body.id || ('#FM' + Math.floor(10000 + Math.random() * 90000));
 
     // Calculate real destination and hub coordinates
-    const destinationCoords = resolveDestinationCoords(shippingAddress);
-    const hubHub = resolveHubCoords(shippingAddress.city);
-    const hubCoords = { lat: hubHub.lat, lng: hubHub.lng };
+    const branchCoords = selectedBranch.coords;
+    const hubCoords = { lat: Number(branchCoords.lat), lng: Number(branchCoords.lng) };
     const distanceKm = calculateDistanceKm(hubCoords.lat, hubCoords.lng, destinationCoords.lat, destinationCoords.lng);
     const etaMinutes = calculateEtaMinutes(distanceKm);
     const etaText = `${etaMinutes} mins (Upon dispatch)`;
@@ -232,6 +275,11 @@ export const createOrder = async (req, res) => {
 
     const initialOrderObj = {
       orderId,
+      tenantId: req.body.tenantId || 'tenant-freshmart',
+      tenantName: req.body.tenantName || '',
+      branchId: selectedBranch.id,
+      branchName: selectedBranch.name,
+      branchCoords,
       user: req.user?._id,
       customerName: custName,
       customerPhone: custPhone,
@@ -290,6 +338,11 @@ export const createOrder = async (req, res) => {
     const newOrder = {
       id: orderId,
       orderId,
+      tenantId: initialOrderObj.tenantId,
+      tenantName: initialOrderObj.tenantName,
+      branchId: initialOrderObj.branchId,
+      branchName: initialOrderObj.branchName,
+      branchCoords: initialOrderObj.branchCoords,
       customer: custName,
       customerName: custName,
       customerPhone: custPhone,
@@ -339,15 +392,42 @@ export const createOrder = async (req, res) => {
 // @route   GET /api/orders
 export const getOrders = async (req, res) => {
   try {
+    const branchId = req.user?.role === 'admin' ? req.user.branchId : '';
+    const branchQuery = branchId ? { branchId } : {};
     if (isDbOnline()) {
-      const orders = await Order.find({}).sort({ createdAt: -1 });
-      if (orders && orders.length > 0) {
-        return res.json({ success: true, count: orders.length, orders });
-      }
+      const orders = (await Order.find(branchQuery).sort({ createdAt: -1 })).map(serializeOrderWithoutOtp);
+      return res.json({ success: true, count: orders.length, orders });
     }
-    res.json({ success: true, count: ADMIN_ORDERS_FULL.length, orders: ADMIN_ORDERS_FULL });
+    const orders = (branchId ? ADMIN_ORDERS_FULL.filter((order) => order.branchId === branchId) : ADMIN_ORDERS_FULL)
+      .map(serializeOrderWithoutOtp);
+    res.json({ success: true, count: orders.length, orders });
   } catch (error) {
-    res.json({ success: true, count: ADMIN_ORDERS_FULL.length, orders: ADMIN_ORDERS_FULL });
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get orders assigned to the authenticated rider
+// @route   GET /api/orders/assigned-to-me
+export const getRiderOrders = async (req, res) => {
+  try {
+    const riderId = req.user?.riderId;
+    if (!riderId) {
+      return res.status(403).json({ success: false, message: 'Rider identity is required to load assigned orders' });
+    }
+
+    if (isDbOnline()) {
+      const orders = (await Order.find({
+        $or: [{ 'assignedRider.id': riderId }, { 'assignedRider.riderId': riderId }]
+      }).sort({ updatedAt: -1 })).map(serializeOrderWithoutOtp);
+      return res.json({ success: true, count: orders.length, orders });
+    }
+
+    const orders = ADMIN_ORDERS_FULL.filter(
+      (order) => order.assignedRider?.id === riderId || order.assignedRider?.riderId === riderId
+    ).map(serializeOrderWithoutOtp);
+    return res.json({ success: true, count: orders.length, orders });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -444,7 +524,68 @@ export const trackOrder = async (req, res) => {
 
     return res.json({
       success: true,
-      order: foundOrder
+      order: serializeOrderWithoutOtp(foundOrder)
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Assign an order to a pickup staff member
+// @route   PUT /api/orders/:id/assign-pickup-staff
+export const assignPickupStaffToOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const staffName = String(req.body.name || '').trim();
+    const staffId = String(req.body.id || staffName).trim();
+    if (!staffName || !staffId) {
+      return res.status(400).json({ success: false, message: 'Pickup staff name and ID are required' });
+    }
+
+    const branchId = req.user?.role === 'admin' ? req.user.branchId : '';
+    const branchFilter = branchId ? { branchId } : {};
+    let order = null;
+
+    if (isDbOnline()) {
+      const clauses = [
+        { orderId: id },
+        { orderId: id.startsWith('#') ? id : `#${id}` },
+        { orderId: id.replace(/^#/, '') }
+      ];
+      if (id.match(/^[0-9a-fA-F]{24}$/)) clauses.push({ _id: id });
+      order = await Order.findOne({ ...branchFilter, $or: clauses });
+    }
+
+    if (!order) {
+      const ids = [id, `#${id.replace(/^#/, '')}`, id.replace(/^#/, '')];
+      order = ADMIN_ORDERS_FULL.find(
+        (item) => (!branchId || item.branchId === branchId) && [item.id, item.orderId].some((orderId) => ids.includes(orderId))
+      );
+    }
+
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found in this branch' });
+    if (!['Pending', 'Confirmed', 'Preparing'].includes(order.status)) {
+      return res.status(409).json({
+        success: false,
+        message: `Pickup staff cannot be assigned while order is ${order.status}`
+      });
+    }
+
+    order.assignedPickupStaff = {
+      id: staffId,
+      name: staffName,
+      assignedAt: new Date(),
+      packedAt: order.assignedPickupStaff?.packedAt
+    };
+    order.status = 'Preparing';
+    if (order.branchId === undefined && branchId) order.branchId = branchId;
+    order.timeline = buildDynamicTimeline(order);
+    if (typeof order.save === 'function') await order.save();
+
+    return res.json({
+      success: true,
+      message: `${staffName} assigned to order ${order.orderId || order.id}`,
+      order: serializeOrderWithoutOtp(order)
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -456,10 +597,32 @@ export const trackOrder = async (req, res) => {
 export const assignRiderToOrder = async (req, res) => {
   try {
     const { id } = req.params;
-    const { riderId, rider, status } = req.body;
+    const { riderId, rider } = req.body;
 
     let targetRider = rider;
-    if (!targetRider && isDbOnline() && riderId) {
+    if (req.user?.role === 'admin' && isDbOnline() && riderId) {
+      const dbRider = await Rider.findOne({ id: riderId, branchId: req.user.branchId });
+      if (!dbRider) {
+        return res.status(404).json({ success: false, message: 'Rider is not assigned to this branch' });
+      }
+      if (dbRider.status !== 'On-Duty') {
+        return res.status(409).json({ success: false, message: 'Rider is not currently available' });
+      }
+      targetRider = {
+        id: dbRider.id,
+        name: dbRider.name,
+        phone: dbRider.phone,
+        vehicle: dbRider.vehicleNumber || dbRider.vehicleType,
+        vehicleType: dbRider.vehicleType,
+        zone: dbRider.zone,
+        rating: dbRider.rating || 5.0,
+        coordinates:
+          dbRider.coordinates ||
+          (Number.isFinite(dbRider.currentLat) && Number.isFinite(dbRider.currentLng)
+            ? { lat: dbRider.currentLat, lng: dbRider.currentLng }
+            : null)
+      };
+    } else if (!targetRider && isDbOnline() && riderId) {
       const dbRider = await Rider.findOne({ $or: [{ id: riderId }, { _id: riderId }] });
       if (dbRider) {
         targetRider = {
@@ -470,7 +633,11 @@ export const assignRiderToOrder = async (req, res) => {
           vehicleType: dbRider.vehicleType,
           zone: dbRider.zone,
           rating: dbRider.rating || 5.0,
-          coordinates: dbRider.coordinates || { lat: 31.5150, lng: 74.3450 }
+          coordinates:
+            dbRider.coordinates ||
+            (Number.isFinite(dbRider.currentLat) && Number.isFinite(dbRider.currentLng)
+              ? { lat: dbRider.currentLat, lng: dbRider.currentLng }
+              : null)
         };
       }
     }
@@ -480,7 +647,9 @@ export const assignRiderToOrder = async (req, res) => {
     }
 
     const defaultHub = CITY_HUBS.lahore;
-    const riderCoords = targetRider?.coordinates || { lat: defaultHub.lat, lng: defaultHub.lng };
+    let riderCoords = targetRider?.coordinates || null;
+    const fallbackRiderCoords = { lat: defaultHub.lat, lng: defaultHub.lng };
+    const initialRiderCoords = riderCoords || fallbackRiderCoords;
 
     const assignedInfo = {
       id: targetRider?.id || riderId,
@@ -492,16 +661,16 @@ export const assignRiderToOrder = async (req, res) => {
       vehicleNumber: targetRider?.vehicleNumber || 'LEK-0000',
       zone: targetRider?.zone || 'Lahore Hub',
       rating: targetRider?.rating || 5.0,
-      coordinates: riderCoords,
-      currentLat: riderCoords.lat,
-      currentLng: riderCoords.lng,
+      coordinates: initialRiderCoords,
+      currentLat: initialRiderCoords.lat,
+      currentLng: initialRiderCoords.lng,
       assignedAt: new Date(),
       status: 'On-Duty',
       eta: '12-18 mins',
       etaMinutes: 15
     };
 
-    const newStatus = status || 'Out for Delivery';
+    const newStatus = 'Out for Delivery';
 
     if (isDbOnline()) {
       const order = await Order.findOne({
@@ -514,6 +683,38 @@ export const assignRiderToOrder = async (req, res) => {
       });
 
       if (order) {
+        if (req.user?.role === 'admin' && order.branchId !== req.user.branchId) {
+          return res.status(404).json({ success: false, message: 'Order not found in this branch' });
+        }
+        if (order.status !== 'Ready for Pickup') {
+          return res.status(409).json({
+            success: false,
+            message: 'Order must be marked Ready for Pickup before assigning a rider'
+          });
+        }
+        const deliveryArea =
+          order.shippingAddress?.area || order.shippingAddress?.neighborhood || order.shippingAddress?.address;
+        if (!riderServesArea(targetRider?.zone, deliveryArea)) {
+          return res.status(409).json({ success: false, message: 'Rider does not serve this delivery area' });
+        }
+        if (req.user?.role === 'admin' && riderId && !riderCoords) {
+          return res.status(409).json({ success: false, message: 'Rider GPS location is unavailable; wait for the rider to sign in and share location' });
+        }
+        riderCoords = riderCoords || order.branchCoords || fallbackRiderCoords;
+        assignedInfo.coordinates = riderCoords;
+        assignedInfo.currentLat = riderCoords.lat;
+        assignedInfo.currentLng = riderCoords.lng;
+        const reservedRider =
+          req.user?.role === 'admin' && riderId
+            ? await Rider.findOneAndUpdate(
+                { id: assignedInfo.id, branchId: req.user.branchId, status: 'On-Duty' },
+                { $set: { status: 'Busy' }, $addToSet: { activeOrders: order.orderId } },
+                { new: true }
+              )
+            : null;
+        if (req.user?.role === 'admin' && riderId && !reservedRider) {
+          return res.status(409).json({ success: false, message: 'Rider is no longer available for assignment' });
+        }
         const destCoords = order.destinationCoords || resolveDestinationCoords(order.shippingAddress);
         const distanceKm = calculateDistanceKm(riderCoords.lat, riderCoords.lng, destCoords.lat, destCoords.lng);
         const etaMinutes = calculateEtaMinutes(distanceKm);
@@ -530,11 +731,22 @@ export const assignRiderToOrder = async (req, res) => {
         order.etaMinutes = etaMinutes;
         order.timeline = buildDynamicTimeline(order);
 
-        const updated = await order.save();
+        let updated;
+        try {
+          updated = await order.save();
+        } catch (error) {
+          if (reservedRider) {
+            await Rider.updateOne(
+              { id: reservedRider.id, branchId: req.user.branchId },
+              { $set: { status: 'On-Duty' }, $pull: { activeOrders: order.orderId } }
+            );
+          }
+          throw error;
+        }
         return res.json({
           success: true,
           message: `Rider ${assignedInfo.name} assigned to order ${order.orderId}`,
-          order: updated
+          order: serializeOrderWithoutOtp(updated)
         });
       }
     }
@@ -544,6 +756,28 @@ export const assignRiderToOrder = async (req, res) => {
       (o) => o.id === id || o.orderId === id || o.id === `#${id}` || o.id === id.replace(/^#/, '')
     );
     if (memOrder) {
+      if (req.user?.role === 'admin' && memOrder.branchId !== req.user.branchId) {
+        return res.status(404).json({ success: false, message: 'Order not found in this branch' });
+      }
+      if (memOrder.status !== 'Ready for Pickup') {
+        return res.status(409).json({
+          success: false,
+          message: 'Order must be marked Ready for Pickup before assigning a rider'
+        });
+      }
+      const deliveryArea =
+        memOrder.shippingAddress?.area ||
+        memOrder.shippingAddress?.neighborhood ||
+        memOrder.neighborhood ||
+        memOrder.shippingAddress?.address ||
+        memOrder.address;
+      if (!riderServesArea(targetRider?.zone, deliveryArea)) {
+        return res.status(409).json({ success: false, message: 'Rider does not serve this delivery area' });
+      }
+      riderCoords = riderCoords || memOrder.branchCoords || fallbackRiderCoords;
+      assignedInfo.coordinates = riderCoords;
+      assignedInfo.currentLat = riderCoords.lat;
+      assignedInfo.currentLng = riderCoords.lng;
       const destCoords = resolveDestinationCoords(memOrder.shippingAddress || { address: memOrder.address, city: memOrder.city });
       const distanceKm = calculateDistanceKm(riderCoords.lat, riderCoords.lng, destCoords.lat, destCoords.lng);
       const etaMinutes = calculateEtaMinutes(distanceKm);
@@ -564,7 +798,7 @@ export const assignRiderToOrder = async (req, res) => {
       return res.json({
         success: true,
         message: `Rider ${assignedInfo.name} assigned to order ${memOrder.id}`,
-        order: memOrder
+        order: serializeOrderWithoutOtp(memOrder)
       });
     }
 
@@ -602,6 +836,11 @@ export const updateRiderLocation = async (req, res) => {
         if (!order.assignedRider) {
           return res.status(400).json({ success: false, message: 'Order has no assigned rider to update coordinates' });
         }
+        const assignedRiderId = order.assignedRider.id || order.assignedRider.riderId;
+        const requestRiderId = req.user?.riderId || req.user?.id;
+        if (req.user?.role === 'rider' && requestRiderId !== assignedRiderId) {
+          return res.status(403).json({ success: false, message: 'This order is assigned to a different rider' });
+        }
 
         order.assignedRider.coordinates = { lat: numLat, lng: numLng };
         order.assignedRider.currentLat = numLat;
@@ -622,10 +861,16 @@ export const updateRiderLocation = async (req, res) => {
         order.timeline = buildDynamicTimeline(order);
 
         const updated = await order.save();
+        if (assignedRiderId) {
+          await Rider.updateOne(
+            { id: assignedRiderId, ...(req.user?.branchId ? { branchId: req.user.branchId } : {}) },
+            { $set: { coordinates: { lat: numLat, lng: numLng }, currentLat: numLat, currentLng: numLng } }
+          );
+        }
         return res.json({
           success: true,
           message: 'Rider coordinates and ETA updated in real-time',
-          order: updated
+          order: serializeOrderWithoutOtp(updated)
         });
       }
     }
@@ -633,6 +878,11 @@ export const updateRiderLocation = async (req, res) => {
     // In-memory fallback
     const memOrder = ADMIN_ORDERS_FULL.find((o) => o.id === id || o.orderId === id);
     if (memOrder && memOrder.assignedRider) {
+      const assignedRiderId = memOrder.assignedRider.id || memOrder.assignedRider.riderId;
+      const requestRiderId = req.user?.riderId || req.user?.id;
+      if (req.user?.role === 'rider' && requestRiderId !== assignedRiderId) {
+        return res.status(403).json({ success: false, message: 'This order is assigned to a different rider' });
+      }
       memOrder.assignedRider.coordinates = { lat: numLat, lng: numLng };
       memOrder.assignedRider.currentLat = numLat;
       memOrder.assignedRider.currentLng = numLng;
@@ -648,7 +898,7 @@ export const updateRiderLocation = async (req, res) => {
       return res.json({
         success: true,
         message: 'Rider coordinates and ETA updated in memory',
-        order: memOrder
+        order: serializeOrderWithoutOtp(memOrder)
       });
     }
 
@@ -663,6 +913,13 @@ export const updateRiderLocation = async (req, res) => {
 export const updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
+    const allowedStatuses = ['Preparing', 'Ready for Pickup', 'Cancelled'];
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status must be Preparing, Ready for Pickup, or Cancelled. Rider assignment and OTP control later stages.'
+      });
+    }
     if (isDbOnline()) {
       const order = await Order.findOne({
         $or: [
@@ -674,8 +931,26 @@ export const updateOrderStatus = async (req, res) => {
         ]
       });
       if (order) {
+        if (req.user?.role === 'admin' && order.branchId !== req.user.branchId) {
+          return res.status(404).json({ success: false, message: 'Order not found in this branch' });
+        }
         const previousStatus = order.status;
+        const validTransition =
+          (status === 'Preparing' && ['Pending', 'Confirmed'].includes(previousStatus)) ||
+          (status === 'Ready for Pickup' && previousStatus === 'Preparing' && Boolean(order.assignedPickupStaff?.id)) ||
+          (status === 'Cancelled' &&
+            !['Delivered', 'Cancelled'].includes(previousStatus) &&
+            !order.assignedRider);
+        if (!validTransition) {
+          return res.status(409).json({
+            success: false,
+            message: `Cannot change order status from ${previousStatus} to ${status}`
+          });
+        }
         order.status = status;
+        if (status === 'Ready for Pickup' && order.assignedPickupStaff) {
+          order.assignedPickupStaff.packedAt = new Date();
+        }
         order.timeline = buildDynamicTimeline(order);
         const updated = await order.save();
 
@@ -702,18 +977,35 @@ export const updateOrderStatus = async (req, res) => {
           }
         }
 
-        return res.json({ success: true, order: updated });
+        return res.json({ success: true, order: serializeOrderWithoutOtp(updated) });
       }
     }
 
     const memOrder = ADMIN_ORDERS_FULL.find((o) => o.id === req.params.id || o.orderId === req.params.id);
     if (memOrder) {
+      if (req.user?.role === 'admin' && memOrder.branchId !== req.user.branchId) {
+        return res.status(404).json({ success: false, message: 'Order not found in this branch' });
+      }
+      const previousStatus = memOrder.status;
+      const validTransition =
+        (status === 'Preparing' && ['Pending', 'Confirmed'].includes(previousStatus)) ||
+        (status === 'Ready for Pickup' && previousStatus === 'Preparing' && Boolean(memOrder.assignedPickupStaff?.id)) ||
+        (status === 'Cancelled' && !['Delivered', 'Cancelled'].includes(previousStatus) && !memOrder.assignedRider);
+      if (!validTransition) {
+        return res.status(409).json({
+          success: false,
+          message: `Cannot change order status from ${previousStatus} to ${status}`
+        });
+      }
       memOrder.status = status;
+      if (status === 'Ready for Pickup' && memOrder.assignedPickupStaff) {
+        memOrder.assignedPickupStaff.packedAt = new Date();
+      }
       memOrder.timeline = buildDynamicTimeline(memOrder);
-      return res.json({ success: true, message: `Status updated to ${status}`, order: memOrder });
+      return res.json({ success: true, message: `Status updated to ${status}`, order: serializeOrderWithoutOtp(memOrder) });
     }
 
-    res.json({ success: true, message: `Status updated to ${status}` });
+    return res.status(404).json({ success: false, message: 'Order not found' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -758,13 +1050,25 @@ export const verifyDeliveryOtp = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Order not found for OTP verification' });
     }
 
+    const assignedRiderId = foundOrder.assignedRider?.id || foundOrder.assignedRider?.riderId;
+    const requestRiderId = req.user?.riderId || req.user?.id;
+    if (req.user?.role === 'rider' && (!assignedRiderId || requestRiderId !== assignedRiderId)) {
+      return res.status(403).json({ success: false, message: 'This order is assigned to a different rider' });
+    }
+
     if (foundOrder.status === 'Delivered') {
       return res.status(400).json({ success: false, message: 'This order has already been marked as Delivered' });
     }
+    if (foundOrder.status !== 'Out for Delivery' && foundOrder.status !== 'Arrived at Customer') {
+      return res.status(409).json({
+        success: false,
+        message: 'Delivery OTP can only be verified after the rider has the order'
+      });
+    }
 
-    // Verify OTP against stored OTP (or demo master bypass 9999)
+    // Verify the customer's one-time delivery code.
     const expectedOtp = foundOrder.deliveryOtp || '1234';
-    const isOtpValid = cleanOtp === String(expectedOtp).trim() || cleanOtp === '9999';
+    const isOtpValid = cleanOtp === String(expectedOtp).trim();
 
     if (!isOtpValid) {
       return res.status(400).json({
@@ -786,7 +1090,10 @@ export const verifyDeliveryOtp = async (req, res) => {
     }
 
     // Increment Rider Deliveries Count (+1)
-    const effectiveRiderId = riderId || foundOrder.assignedRider?.id || foundOrder.assignedRider?.riderId;
+    const effectiveRiderId =
+      req.user?.role === 'rider'
+        ? requestRiderId
+        : foundOrder.assignedRider?.id || foundOrder.assignedRider?.riderId || riderId;
     let newDeliveriesCount = 1;
 
     if (effectiveRiderId) {
@@ -794,6 +1101,8 @@ export const verifyDeliveryOtp = async (req, res) => {
         const dbRider = await Rider.findOne({ $or: [{ id: effectiveRiderId }, { _id: effectiveRiderId }] });
         if (dbRider) {
           dbRider.deliveriesCount = (dbRider.deliveriesCount || 0) + 1;
+          dbRider.status = 'On-Duty';
+          dbRider.activeOrders = (dbRider.activeOrders || []).filter((orderId) => orderId !== foundOrder.orderId);
           newDeliveriesCount = dbRider.deliveriesCount;
           await dbRider.save();
         }
@@ -815,7 +1124,7 @@ export const verifyDeliveryOtp = async (req, res) => {
     return res.json({
       success: true,
       message: 'OTP verified successfully! Order marked Delivered and Cash Collected.',
-      order: foundOrder,
+      order: serializeOrderWithoutOtp(foundOrder),
       riderDeliveriesCount: newDeliveriesCount,
       collectedAmount: foundOrder.totalPrice || foundOrder.totalAmount,
       deliveredAt: deliveryTimestamp
@@ -824,5 +1133,3 @@ export const verifyDeliveryOtp = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
-
-

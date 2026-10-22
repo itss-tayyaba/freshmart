@@ -113,10 +113,17 @@ describe('Production Real Order Tracking & GPS Telemetry Pipeline', () => {
     ADMIN_ORDERS_FULL.unshift({
       id: testOrderId,
       orderId: testOrderId,
+      branchId: 'store-1',
       customerName: 'Sana Malik',
       address: 'House 18, Block G, Johar Town, Lahore',
       city: 'Lahore, Pakistan',
-      status: 'Confirmed',
+      shippingAddress: {
+        address: 'House 18, Block G, Johar Town, Lahore',
+        area: 'Johar Town',
+        city: 'Lahore, Pakistan'
+      },
+      assignedPickupStaff: { id: 'picker-test', name: 'Test Picker' },
+      status: 'Ready for Pickup',
       assignedRider: null
     });
 
@@ -129,7 +136,7 @@ describe('Production Real Order Tracking & GPS Telemetry Pipeline', () => {
           name: 'Hamza Farooq',
           phone: '+92 302 9876543',
           vehicle: 'Yamaha YBR 125',
-          zone: 'Lahore Hub',
+          zone: 'Johar Town / Model Town',
           coordinates: { lat: 31.5150, lng: 74.3450 }
         }
       }

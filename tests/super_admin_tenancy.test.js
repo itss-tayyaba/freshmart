@@ -295,7 +295,7 @@ describe('Super Grocery Multi-Tenant Platform Architecture', () => {
 
     it('authenticates Store Admin with admin@alfatah.pk / admin123', async () => {
       const { loginUser } = await import('../server/controllers/authController.js');
-      const req = { body: { email: 'admin@alfatah.pk', password: 'admin123' } };
+      const req = { body: { email: 'admin@alfatah.pk', password: 'admin123', branchId: 'store-1' } };
       const res = createMockRes();
 
       await loginUser(req, res);

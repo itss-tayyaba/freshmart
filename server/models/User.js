@@ -38,6 +38,11 @@ const userSchema = new mongoose.Schema(
       index: true,
       default: 'tenant-freshmart'
     },
+    branchId: {
+      type: String,
+      index: true,
+      default: ''
+    },
     totalOrders: {
       type: Number,
       default: 0

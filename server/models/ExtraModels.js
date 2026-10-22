@@ -57,7 +57,8 @@ const riderSchema = new mongoose.Schema(
     currentLat: { type: Number },
     currentLng: { type: Number },
     activeOrders: [{ type: String }],
-    tenantId: { type: String, index: true, default: 'tenant-freshmart' }
+    tenantId: { type: String, index: true, default: 'tenant-freshmart' },
+    branchId: { type: String, index: true, default: '' }
   },
   { timestamps: true, bufferCommands: false }
 );

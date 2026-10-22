@@ -3,165 +3,185 @@ import assert from 'node:assert/strict';
 import {
   createOrder,
   verifyDeliveryOtp,
-  assignRiderToOrder
+  getRiderOrders,
+  assignPickupStaffToOrder,
+  assignRiderToOrder,
+  updateOrderStatus
 } from '../server/controllers/orderController.js';
 
-describe('Rider Delivery Handover OTP Verification & Workflow Pipeline', () => {
-  it('generates a 4-digit deliveryOtp upon order creation', async () => {
-    let responseData = null;
-    const req = {
-      body: {
-        orderId: '#FM-OTP-1001',
-        customerName: 'Fatima Noor',
-        customerPhone: '+92 300 9988776',
-        shippingAddress: {
-          address: 'House 55, Street 8, Sector Y, DHA Phase 3',
-          city: 'Lahore, Pakistan',
-          deliverySlot: '⚡ 10-Min Flash Express'
-        },
-        orderItems: [
-          { name: 'Fresh Farm Milk 1L', price: 240, quantity: 2 },
-          { name: 'Organic Farm Eggs (12-pack)', price: 340, quantity: 1 }
-        ],
-        totalPrice: 820,
-        paymentMethod: 'Cash on Delivery'
-      }
-    };
-    const res = {
-      status(code) {
-        this.statusCode = code;
-        return this;
+const invoke = async (handler, req) => {
+  let statusCode = 200;
+  let data = null;
+  const res = {
+    status(code) {
+      statusCode = code;
+      return this;
+    },
+    json(response) {
+      data = response;
+      return response;
+    }
+  };
+  await handler(req, res);
+  return { statusCode, data };
+};
+
+const createTestOrder = async (id) => {
+  const response = await invoke(createOrder, {
+    body: {
+      orderId: id,
+      branchId: 'store-1',
+      branchName: 'Johar Town Store',
+      branchCoords: { lat: 31.4697, lng: 74.2728 },
+      customerName: 'Test Customer',
+      customerPhone: '+92 300 1234567',
+      shippingAddress: {
+        address: 'House 55, Johar Town',
+        area: 'Johar Town',
+        city: 'Lahore',
+        coords: { lat: 31.4697, lng: 74.2728 }
       },
-      json(data) {
-        responseData = data;
-        return data;
-      }
-    };
-
-    await createOrder(req, res);
-
-    assert.ok(responseData, 'Should return order response');
-    assert.equal(responseData.success, true);
-    assert.ok(responseData.order, 'Order object should be returned');
-    assert.ok(responseData.order.deliveryOtp, 'Order should have a deliveryOtp');
-    assert.match(String(responseData.order.deliveryOtp), /^[0-9]{4}$/, 'deliveryOtp should be a 4-digit string');
+      orderItems: [{ name: 'Fresh Farm Milk 1L', price: 240, quantity: 1 }],
+      totalPrice: 240,
+      deliveryOtp: '7429'
+    }
   });
 
-  it('rejects verification when invalid OTP is provided (400 Bad Request)', async () => {
-    let responseData = null;
-    let statusCode = 200;
+  assert.equal(response.data.success, true);
+  return response.data.order;
+};
 
-    const verifyReq = {
-      params: { id: 'FM-OTP-1001' },
-      body: { otp: '0000', riderId: 'RDR-101' }
-    };
-    const verifyRes = {
-      status(code) {
-        statusCode = code;
-        return this;
-      },
-      json(data) {
-        responseData = data;
-        return data;
+const assignPickupAndMarkReady = async (orderId) => {
+  const assigned = await invoke(assignPickupStaffToOrder, {
+    params: { id: orderId },
+    body: { id: 'picker-1', name: 'Pickup Staff One' }
+  });
+  assert.equal(assigned.statusCode, 200);
+  assert.equal(assigned.data.order.status, 'Preparing');
+
+  const ready = await invoke(updateOrderStatus, {
+    params: { id: orderId },
+    body: { status: 'Ready for Pickup' }
+  });
+  assert.equal(ready.statusCode, 200);
+  assert.equal(ready.data.order.status, 'Ready for Pickup');
+};
+
+const assignTestRider = (orderId) =>
+  invoke(assignRiderToOrder, {
+    params: { id: orderId },
+    body: {
+      riderId: 'RDR-TEST',
+      rider: {
+        id: 'RDR-TEST',
+        name: 'Test Rider',
+        zone: 'Johar Town / Model Town',
+        coordinates: { lat: 31.47, lng: 74.27 }
       }
-    };
-
-    await verifyDeliveryOtp(verifyReq, verifyRes);
-
-    assert.equal(statusCode, 400, 'Invalid OTP should return 400 Bad Request');
-    assert.equal(responseData.success, false);
-    assert.match(responseData.message, /invalid otp/i);
+    }
   });
 
-  it('verifies order handover with correct OTP and transitions order to Delivered', async () => {
-    let createData = null;
-    const testOrderId = '#FM-OTP-TEST-' + Math.floor(1000 + Math.random() * 9000);
-    const orderReq = {
+describe('Branch order handover workflow', () => {
+  it('creates an order with a customer delivery OTP and branch assignment', async () => {
+    const id = `#FM-OTP-CREATE-${Date.now()}`;
+    const order = await createTestOrder(id);
+
+    assert.match(String(order.deliveryOtp), /^[0-9]{4}$/);
+    assert.equal(order.branchId, 'store-1');
+  });
+
+  it('rejects orders without a configured branch', async () => {
+    const response = await invoke(createOrder, {
       body: {
-        orderId: testOrderId,
-        customerName: 'Zainab Tariq',
-        customerPhone: '+92 321 1122334',
+        orderId: `#FM-OTP-NOBRANCH-${Date.now()}`,
+        shippingAddress: { address: 'House 55', city: 'Lahore' },
+        orderItems: [{ name: 'Milk', price: 240, quantity: 1 }]
+      }
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.data.success, false);
+  });
+
+  it('rejects a branch that is not nearest to the delivery coordinates', async () => {
+    const response = await invoke(createOrder, {
+      body: {
+        orderId: `#FM-OTP-WRONG-BRANCH-${Date.now()}`,
+        branchId: 'store-2',
         shippingAddress: {
-          address: 'Apartment 3A, Gulberg Heights',
-          city: 'Lahore, Pakistan'
+          address: 'House 55, Johar Town',
+          area: 'Johar Town',
+          city: 'Lahore',
+          coords: { lat: 31.4697, lng: 74.2728 }
         },
-        orderItems: [{ name: 'Red Apples 1kg', price: 299, quantity: 1 }],
-        totalPrice: 299,
-        deliveryOtp: '7429',
-        paymentMethod: 'Cash on Delivery'
+        orderItems: [{ name: 'Milk', price: 240, quantity: 1 }]
       }
-    };
-    const orderRes = {
-      status() { return this; },
-      json(d) { createData = d; return d; }
-    };
-    await createOrder(orderReq, orderRes);
+    });
 
-    const actualOtp = createData.order.deliveryOtp || '7429';
-
-    const assignReq = {
-      params: { id: testOrderId },
-      body: {
-        riderId: 'RDR-101',
-        rider: { id: 'RDR-101', name: 'Ali Khan', phone: '+92 300 1122334' }
-      }
-    };
-    const assignRes = {
-      status() { return this; },
-      json(d) { return d; }
-    };
-    await assignRiderToOrder(assignReq, assignRes);
-
-    let verifyData = null;
-    let verifyCode = 200;
-    const verifyReq = {
-      params: { id: testOrderId },
-      body: { otp: actualOtp, riderId: 'RDR-101' }
-    };
-    const verifyRes = {
-      status(code) { verifyCode = code; return this; },
-      json(d) { verifyData = d; return d; }
-    };
-    await verifyDeliveryOtp(verifyReq, verifyRes);
-
-    assert.equal(verifyCode, 200, 'Valid OTP should return 200 OK');
-    assert.equal(verifyData.success, true);
-    assert.equal(verifyData.order.status, 'Delivered');
-    assert.equal(verifyData.order.paymentStatus, 'Paid');
-    assert.ok(verifyData.deliveredAt, 'deliveredAt should be stamped');
+    assert.equal(response.statusCode, 400);
+    assert.match(response.data.message, /nearest configured store/i);
   });
 
-  it('supports master bypass OTP code 9999 for rapid demo testing', async () => {
-    const testOrderId = '#FM-OTP-DEMO-' + Math.floor(1000 + Math.random() * 9000);
-    const orderReq = {
+  it('requires pickup readiness before rider dispatch and the actual OTP for delivery', async () => {
+    const id = `#FM-OTP-FLOW-${Date.now()}`;
+    await createTestOrder(id);
+
+    const prematureAssignment = await assignTestRider(id);
+    assert.equal(prematureAssignment.statusCode, 409);
+
+    await assignPickupAndMarkReady(id);
+    const assignment = await assignTestRider(id);
+    assert.equal(assignment.statusCode, 200);
+    assert.equal(assignment.data.order.status, 'Out for Delivery');
+    assert.equal(Object.hasOwn(assignment.data.order, 'deliveryOtp'), false);
+
+    const riderOrders = await invoke(getRiderOrders, {
+      user: { role: 'rider', riderId: 'RDR-TEST' }
+    });
+    assert.equal(riderOrders.statusCode, 200);
+    assert.equal(riderOrders.data.orders.some((order) => order.orderId === id), true);
+    assert.equal(Object.hasOwn(riderOrders.data.orders.find((order) => order.orderId === id), 'deliveryOtp'), false);
+
+    const wrongRider = await invoke(verifyDeliveryOtp, {
+      params: { id },
+      user: { role: 'rider', riderId: 'RDR-OTHER' },
+      body: { otp: '7429', riderId: 'RDR-TEST' }
+    });
+    assert.equal(wrongRider.statusCode, 403);
+
+    const wrongOtp = await invoke(verifyDeliveryOtp, {
+      params: { id },
+      body: { otp: '9999', riderId: 'RDR-TEST' }
+    });
+    assert.equal(wrongOtp.statusCode, 400);
+    assert.equal(wrongOtp.data.success, false);
+    assert.match(wrongOtp.data.message, /invalid otp/i);
+
+    const correctOtp = await invoke(verifyDeliveryOtp, {
+      params: { id },
+      body: { otp: '7429', riderId: 'RDR-TEST' }
+    });
+    assert.equal(correctOtp.statusCode, 200);
+    assert.equal(correctOtp.data.success, true);
+    assert.equal(correctOtp.data.order.status, 'Delivered');
+    assert.equal(correctOtp.data.order.paymentStatus, 'Paid');
+    assert.ok(correctOtp.data.deliveredAt);
+  });
+
+  it('rejects a rider whose service zone does not cover the delivery area', async () => {
+    const id = `#FM-OTP-ZONE-${Date.now()}`;
+    await createTestOrder(id);
+    await assignPickupAndMarkReady(id);
+
+    const response = await invoke(assignRiderToOrder, {
+      params: { id },
       body: {
-        orderId: testOrderId,
-        customerName: 'Bilal Ahmed',
-        customerPhone: '+92 333 4455667',
-        shippingAddress: { address: 'House 19, Model Town', city: 'Lahore, Pakistan' },
-        orderItems: [{ name: 'Lays Masala 65g', price: 100, quantity: 2 }],
-        totalPrice: 200,
-        deliveryOtp: '3819'
+        riderId: 'RDR-OTHER-ZONE',
+        rider: { id: 'RDR-OTHER-ZONE', name: 'Other Zone Rider', zone: 'Gulberg / Main Hub' }
       }
-    };
-    const orderRes = {
-      status() { return this; },
-      json(d) { return d; }
-    };
-    await createOrder(orderReq, orderRes);
+    });
 
-    let verifyData = null;
-    const verifyReq = {
-      params: { id: testOrderId },
-      body: { otp: '9999', riderId: 'RDR-102' }
-    };
-    const verifyRes = {
-      status() { return this; },
-      json(d) { verifyData = d; return d; }
-    };
-    await verifyDeliveryOtp(verifyReq, verifyRes);
-
-    assert.equal(verifyData.success, true);
-    assert.equal(verifyData.order.status, 'Delivered');
+    assert.equal(response.statusCode, 409);
+    assert.match(response.data.message, /does not serve/i);
   });
 });

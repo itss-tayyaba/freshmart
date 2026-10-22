@@ -44,12 +44,12 @@ const handleResponse = async (res) => {
 
 export const apiService = {
   // Auth API
-  async login(email, password) {
+  async login(email, password, branchId = '') {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, branchId })
       });
       return await handleResponse(res);
     } catch (e) {
@@ -222,6 +222,17 @@ export const apiService = {
     }
   },
 
+  async getAssignedRiderOrders() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/assigned-to-me`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
   async trackOrder(orderId) {
     try {
       const res = await fetch(`${API_BASE_URL}/orders/track/${encodeURIComponent(orderId)}`);
@@ -233,7 +244,7 @@ export const apiService = {
 
   async updateOrderStatus(id, status) {
     try {
-      const res = await fetch(`${API_BASE_URL}/orders/${id}/status`, {
+      const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(id)}/status`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({ status })
@@ -248,8 +259,21 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/assign-rider`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(typeof riderData === 'string' ? { riderId: riderData } : riderData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async assignPickupStaffToOrder(orderId, staffData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/assign-pickup-staff`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(staffData)
       });
       return await handleResponse(res);
     } catch (e) {
@@ -261,7 +285,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/rider-location`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(coords)
       });
       return await handleResponse(res);
@@ -274,7 +298,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/verify-delivery-otp`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(typeof payload === 'string' ? { otp: payload } : payload)
       });
       return await handleResponse(res);
@@ -418,12 +442,12 @@ export const apiService = {
   },
 
   // Auth API
-  async login(email, password) {
+  async login(email, password, branchId = '') {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, branchId })
       });
       return await handleResponse(res);
     } catch (e) {
@@ -511,6 +535,19 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/riders`, {
         headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateMyRiderLocation(coords) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/riders/me/location`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(coords)
       });
       return await handleResponse(res);
     } catch (e) {

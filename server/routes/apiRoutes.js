@@ -20,8 +20,10 @@ import {
 import {
   createOrder,
   getOrders,
+  getRiderOrders,
   trackOrder,
   updateOrderStatus,
+  assignPickupStaffToOrder,
   assignRiderToOrder,
   updateRiderLocation,
   verifyDeliveryOtp
@@ -35,6 +37,7 @@ import {
   addSupplier,
   deleteSupplier,
   getRiders,
+  updateRiderOwnLocation,
   addRider,
   deleteRider,
   clearAllRiders,
@@ -85,7 +88,7 @@ import {
   getTenantPerformance,
   getPlatformOverview
 } from '../controllers/tenantController.js';
-import { protect, adminOnly, protectVendor } from '../middleware/authMiddleware.js';
+import { protect, adminOnly, branchAdminOnly, riderOnly, protectVendor } from '../middleware/authMiddleware.js';
 import { authLimiter } from '../middleware/rateLimitMiddleware.js';
 import {
   validate,
@@ -131,12 +134,14 @@ router.delete('/categories/:id', protect, adminOnly, deleteCategory);
 // Public: Shoppers place orders (validated) and track delivery status
 router.post('/orders', validate(createOrderSchema), createOrder);
 router.get('/orders/track/:orderId', trackOrder);
+router.get('/orders/assigned-to-me', protect, riderOnly, getRiderOrders);
 // Admin & Fleet: Assign rider, update live GPS location, verify delivery OTP, and update order status
-router.put('/orders/:id/assign-rider', assignRiderToOrder);
-router.put('/orders/:id/rider-location', updateRiderLocation);
-router.post('/orders/:id/verify-delivery-otp', verifyDeliveryOtp);
-router.get('/orders', protect, adminOnly, getOrders);
-router.put('/orders/:id/status', protect, adminOnly, validate(updateOrderStatusSchema), updateOrderStatus);
+router.put('/orders/:id/assign-pickup-staff', protect, branchAdminOnly, assignPickupStaffToOrder);
+router.put('/orders/:id/assign-rider', protect, branchAdminOnly, assignRiderToOrder);
+router.put('/orders/:id/rider-location', protect, riderOnly, updateRiderLocation);
+router.post('/orders/:id/verify-delivery-otp', protect, riderOnly, verifyDeliveryOtp);
+router.get('/orders', protect, branchAdminOnly, getOrders);
+router.put('/orders/:id/status', protect, branchAdminOnly, validate(updateOrderStatusSchema), updateOrderStatus);
 
 // --- Inventory Routes ---
 // Admin Locked & Validated: Viewing warehouse stocks and restocking items
@@ -157,10 +162,11 @@ router.delete('/suppliers/:id', protect, adminOnly, deleteSupplier);
 
 // --- Riders Routes ---
 // Admin Locked & Validated: Delivery fleet management
-router.get('/riders', protect, adminOnly, getRiders);
-router.post('/riders', protect, adminOnly, validate(createRiderSchema), addRider);
-router.delete('/riders/:id', protect, adminOnly, deleteRider);
-router.delete('/riders', protect, adminOnly, clearAllRiders);
+router.get('/riders', protect, branchAdminOnly, getRiders);
+router.put('/riders/me/location', protect, riderOnly, updateRiderOwnLocation);
+router.post('/riders', protect, branchAdminOnly, validate(createRiderSchema), addRider);
+router.delete('/riders/:id', protect, branchAdminOnly, deleteRider);
+router.delete('/riders', protect, branchAdminOnly, clearAllRiders);
 
 // --- Promotions & Coupons Routes ---
 // Public: Active coupons and checkout promo validation

@@ -20,6 +20,7 @@ export const protect = async (req, res, next) => {
             req.user = dbUser.toObject ? dbUser.toObject() : { ...dbUser };
             req.user.id = String(dbUser._id);
             req.user.vendorId = decoded.vendorId || dbUser.vendorId;
+            req.user.branchId = dbUser.branchId || decoded.branchId || '';
             return next();
           }
 
@@ -55,6 +56,9 @@ export const protect = async (req, res, next) => {
           name: decoded.name || 'Store User',
           email: decoded.email || 'user@freshmart.com',
           role: decoded.role || (decoded.id === 'admin-root' ? 'admin' : 'customer'),
+          tenantId: decoded.tenantId || '',
+          branchId: decoded.branchId || '',
+          riderId: decoded.riderId || '',
           vendorId: decoded.vendorId || (decoded.role === 'vendor' || decoded.role === 'supplier' ? (decoded.id || 'VND-101') : undefined)
         };
         return next();
@@ -75,6 +79,17 @@ export const adminOnly = (req, res, next) => {
     return next();
   }
   return res.status(403).json({ success: false, message: 'Access denied: Admin privileges required' });
+};
+
+export const branchAdminOnly = (req, res, next) => {
+  if (req.user?.role === 'superadmin') return next();
+  if (req.user?.role === 'admin' && req.user.branchId) return next();
+  return res.status(403).json({ success: false, message: 'A branch-assigned admin account is required' });
+};
+
+export const riderOnly = (req, res, next) => {
+  if (req.user?.role === 'rider' && (req.user.riderId || req.user.id)) return next();
+  return res.status(403).json({ success: false, message: 'Rider account required' });
 };
 
 // Vendor Access & IDOR Protection Middleware
@@ -109,4 +124,3 @@ export const protectVendor = (req, res, next) => {
   req.user.vendorId = userVendorId;
   return next();
 };
-

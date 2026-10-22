@@ -40,6 +40,7 @@ export const CheckoutPage = () => {
     navigateTo,
     deliveryLocation,
     setDeliveryLocation,
+    setIsLocationModalOpen,
     currency,
     appliedCoupon,
     applyCouponCode,
@@ -90,6 +91,11 @@ export const CheckoutPage = () => {
       addToast('Cart is Empty', 'Please add grocery items before checkout.', 'error');
       return;
     }
+    if (!deliveryLocation.storeId) {
+      addToast('Store Not Available', 'Choose a delivery location served by a configured store branch before placing your order.', 'error');
+      setIsLocationModalOpen(true);
+      return;
+    }
 
     const orderId = '#FM' + Math.floor(10000 + Math.random() * 90000);
     const orderItems = cart.map((i) => ({
@@ -121,6 +127,8 @@ export const CheckoutPage = () => {
       shippingAddress: {
         address: addressData.address,
         city: addressData.city,
+        area: deliveryLocation.neighborhood || '',
+        coords: deliveryLocation.coords || null,
         deliverySlot: selectedSlot
       },
       address: `${addressData.address}, ${addressData.city}`,
@@ -130,12 +138,16 @@ export const CheckoutPage = () => {
       customerPhone: addressData.phone,
       phone: addressData.phone,
       status: 'Pending',
+      branchId: deliveryLocation.storeId || '',
+      branchName: deliveryLocation.storeName || '',
+      branchCoords: deliveryLocation.storeCoords || null,
       createdAt: new Date().toISOString()
     };
 
     let resultOrder = orderPayload;
     if (placeCustomerOrder) {
-      resultOrder = (await placeCustomerOrder(orderPayload)) || orderPayload;
+      resultOrder = await placeCustomerOrder(orderPayload);
+      if (resultOrder?.success === false || !resultOrder) return;
     } else {
       clearCart();
     }

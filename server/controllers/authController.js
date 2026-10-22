@@ -3,9 +3,17 @@ import { User } from '../models/User.js';
 import { Supplier, Rider } from '../models/ExtraModels.js';
 import { isDbOnline } from '../config/db.js';
 
-const generateToken = (id, role = 'customer', email = '', name = '', vendorId = undefined) => {
+const generateToken = (id, role = 'customer', email = '', name = '', vendorId = undefined, branchId = '', riderId = '') => {
   return jwt.sign(
-    { id, role, email, name, ...(vendorId ? { vendorId } : {}) },
+    {
+      id,
+      role,
+      email,
+      name,
+      ...(vendorId ? { vendorId } : {}),
+      ...(branchId ? { branchId } : {}),
+      ...(riderId ? { riderId } : {})
+    },
     process.env.JWT_SECRET || 'freshmart_secret_key_2026',
     { expiresIn: '30d' }
   );
@@ -89,15 +97,23 @@ export const loginUser = async (req, res) => {
         const isAdminFallback = user.role === 'admin' && (password === 'admin123' || password === 'adminpassword123');
 
         if (isMatch || isAdminFallback) {
+          if (user.role === 'admin' && !user.branchId) {
+            return res.status(403).json({
+              success: false,
+              message: 'This admin account is not assigned to a store branch.'
+            });
+          }
           return res.json({
             success: true,
             _id: user._id,
             name: user.name,
             email: user.email,
             role: user.role,
+            tenantId: user.tenantId,
+            branchId: user.branchId || '',
             address: user.address,
             phone: user.phone,
-            token: generateToken(user._id, user.role, user.email, user.name)
+            token: generateToken(user._id, user.role, user.email, user.name, undefined, user.branchId)
           });
         }
       }
@@ -153,7 +169,7 @@ export const loginUser = async (req, res) => {
             name: rider.name,
             phone: rider.phone,
             role: 'rider',
-            token: generateToken(rider._id, 'rider', `${rider.username || 'rider'}@freshmart.pk`, rider.name)
+            token: generateToken(rider._id, 'rider', `${rider.username || 'rider'}@freshmart.pk`, rider.name, undefined, '', rider.id)
           });
         }
       }
@@ -191,6 +207,10 @@ export const loginUser = async (req, res) => {
         'admin@chaseup.pk': { id: 'tenant-chaseup', name: 'Chase Up' }
       };
       const t = tenantMap[cleanInput] || { id: 'tenant-freshmart', name: 'FreshMart Direct' };
+      const branchId = req.body.branchId || '';
+      if (!branchId) {
+        return res.status(400).json({ success: false, message: 'Store branch is required for admin login.' });
+      }
       return res.json({
         success: true,
         _id: `admin-${t.id}`,
@@ -199,7 +219,8 @@ export const loginUser = async (req, res) => {
         role: 'admin',
         tenantId: t.id,
         tenantName: t.name,
-        token: generateToken(`admin-${t.id}`, 'admin', cleanInput, `${t.name} Admin`)
+        branchId,
+        token: generateToken(`admin-${branchId}`, 'admin', cleanInput, `${t.name} Admin`, undefined, branchId)
       });
     }
 
@@ -232,7 +253,7 @@ export const loginUser = async (req, res) => {
         name: 'Rider Ali',
         role: 'rider',
         phone: '0301-1234567',
-        token: generateToken('rdr-root', 'rider', 'rider@freshmart.pk', 'Rider Ali')
+        token: generateToken('rdr-root', 'rider', 'rider@freshmart.pk', 'Rider Ali', undefined, '', 'RDR-101')
       });
     }
 
