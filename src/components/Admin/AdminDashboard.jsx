@@ -45,6 +45,7 @@ import { AdminLogin } from './AdminLogin';
 import { VendorPortal } from '../VendorPortal/VendorPortal';
 import { SuperAdminDashboard } from '../SuperAdmin/SuperAdminDashboard';
 import { PickupStaffDashboard } from '../PickupStaffPortal/PickupStaffDashboard';
+import { RiderDashboard } from '../DeliveryPortal/RiderDashboard';
 import { STORE_LOCATIONS } from '../../data/freshMartData';
 
 export const AdminDashboard = () => {
@@ -93,6 +94,10 @@ export const AdminDashboard = () => {
 
   if (adminRole === 'pickupstaff') {
     return <PickupStaffDashboard />;
+  }
+
+  if (adminRole === 'rider') {
+    return <RiderDashboard />;
   }
 
   const roleMeta = {

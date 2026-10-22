@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, Clock3, Loader2, LogOut, MapPin, Package, Phone, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Clock3, Loader2, LogOut, MapPin, Package, Phone, RefreshCw, Search } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { apiService } from '../../services/api';
 
@@ -20,6 +20,8 @@ export const PickupStaffDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [updatingId, setUpdatingId] = useState('');
   const [error, setError] = useState('');
+  const [activeFilter, setActiveFilter] = useState('All orders');
+  const [search, setSearch] = useState('');
 
   const loadOrders = useCallback(async ({ showSpinner = false } = {}) => {
     if (showSpinner) setIsLoading(true);
@@ -64,6 +66,20 @@ export const PickupStaffDashboard = () => {
   const activeCount = orders.filter((order) => ['Pending', 'Confirmed', 'Preparing'].includes(order.status)).length;
   const preparingCount = orders.filter((order) => order.status === 'Preparing').length;
   const readyCount = orders.filter((order) => order.status === 'Ready for Pickup').length;
+  const filters = [
+    { label: 'All orders', count: orders.length, matches: () => true },
+    { label: 'Waiting', count: orders.filter((order) => ['Pending', 'Confirmed'].includes(order.status)).length, matches: (order) => ['Pending', 'Confirmed'].includes(order.status) },
+    { label: 'Preparing', count: preparingCount, matches: (order) => order.status === 'Preparing' },
+    { label: 'Ready', count: readyCount, matches: (order) => order.status === 'Ready for Pickup' },
+    { label: 'Dispatched', count: orders.filter((order) => ['Out for Delivery', 'Delivered'].includes(order.status)).length, matches: (order) => ['Out for Delivery', 'Delivered'].includes(order.status) }
+  ];
+  const visibleOrders = orders.filter((order) => {
+    const currentFilter = filters.find((filter) => filter.label === activeFilter);
+    const query = search.trim().toLowerCase();
+    const matchesSearch = !query || [order.id, order.customer, order.phone, order.address, order.city]
+      .some((value) => String(value || '').toLowerCase().includes(query));
+    return currentFilter.matches(order) && matchesSearch;
+  });
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -138,6 +154,44 @@ export const PickupStaffDashboard = () => {
           ))}
         </section>
 
+        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div>
+              <h2 className="text-base font-black text-slate-900">Live order queue</h2>
+              <p className="mt-1 text-xs text-slate-500">Orders assigned to your account update automatically.</p>
+            </div>
+            <label className="relative block w-full sm:max-w-xs">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Find an order or customer"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-xs font-medium text-slate-800 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+              />
+            </label>
+          </div>
+          <div className="flex gap-2 overflow-x-auto border-t border-slate-100 px-4 py-3 sm:px-5">
+            {filters.map((filter) => (
+              <button
+                key={filter.label}
+                type="button"
+                onClick={() => setActiveFilter(filter.label)}
+                className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                  activeFilter === filter.label
+                    ? 'border-emerald-700 bg-emerald-700 text-white'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                {filter.label}
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === filter.label ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                  {filter.count}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+
         {error && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert">
             <span>{error}</span>
@@ -158,8 +212,15 @@ export const PickupStaffDashboard = () => {
             <p className="mt-1 text-sm text-slate-500">New orders assigned to your account will appear here automatically.</p>
           </div>
         ) : (
+          visibleOrders.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center shadow-sm">
+              <Search className="mx-auto h-9 w-9 text-slate-400" />
+              <h3 className="mt-3 font-black text-slate-900">No matching orders</h3>
+              <p className="mt-1 text-sm text-slate-500">Try another status filter or search term.</p>
+            </div>
+          ) : (
           <div className="grid gap-5 xl:grid-cols-2">
-            {orders.map((order) => {
+            {visibleOrders.map((order) => {
               const canStart = ['Pending', 'Confirmed'].includes(order.status);
               const canFinish = order.status === 'Preparing';
               return (
@@ -248,6 +309,7 @@ export const PickupStaffDashboard = () => {
               );
             })}
           </div>
+          )
         )}
       </main>
     </div>
