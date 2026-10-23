@@ -127,7 +127,7 @@ const StoreAdminConsole = () => {
     ? { title: 'Rider', badge: 'Rider', tag: 'Delivery Operations', iconBg: 'bg-rose-600' }
     : roleMeta[adminRole] || roleMeta.admin;
 
-  const activeTenantId = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
+  const activeTenantId = user?.tenantId || currentTenant?.id || 'tenant-alfatah';
 
   // Track locally completed delivered orders to ensure synced badge counts
   const deliveredOrderIds = useMemo(() => {

@@ -18,7 +18,6 @@ import {
   Search,
   Check,
   X,
-  Smartphone,
   Sparkles,
   RefreshCw,
   Building,
@@ -180,7 +179,7 @@ export const DeliveryView = () => {
     ];
   }, [allBranches, currentTenant]);
 
-  const [activeSubTab, setActiveSubTab] = useState('queue'); // 'queue' | 'fleet' | 'rider-app' | 'coverage'
+  const [activeSubTab, setActiveSubTab] = useState('queue'); // 'queue' | 'fleet'
   const [searchRider, setSearchRider] = useState('');
   const [filterZone, setFilterZone] = useState('All');
   const [copiedId, setCopiedId] = useState(null);
@@ -283,7 +282,8 @@ export const DeliveryView = () => {
       }
     });
     const list = Array.from(uniqueMap.values());
-    const targetTenantId = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
+    const isSuperAdmin = user?.role === 'superadmin' || adminRole === 'superadmin' || user?.isSuperAdmin;
+    const targetTenantId = isSuperAdmin ? null : (user?.tenantId || currentTenant?.id);
     if (!targetTenantId) return list;
     return list.filter((ord) => {
       const orderTenant =
@@ -324,7 +324,7 @@ export const DeliveryView = () => {
         if (id.includes('701') || id.includes('af')) return isSameTenant('tenant-alfatah', targetTenantId);
         if (id.includes('fm') || id.includes('83459')) return isSameTenant('tenant-freshmart', targetTenantId);
         if (id.includes('cv')) return isSameTenant('tenant-chasevalue', targetTenantId);
-        if (id.includes('cu') || id.includes('caseup')) return isSameTenant('tenant-chaseup', targetTenantId);
+        if (id.startsWith('#cu') || id.startsWith('cu-') || id.startsWith('ord-cu') || id.includes('-cu-') || id.includes('caseup')) return isSameTenant('tenant-chaseup', targetTenantId);
         return false;
       }
       return isSameTenant(orderTenant, targetTenantId);
@@ -559,7 +559,7 @@ export const DeliveryView = () => {
     setIsVerifyingOtp(true);
     setOtpError('');
 
-    const res = await verifyOrderDeliveryOtp(orderIdToVerify, enteredOtp.trim(), simulatedRider?.id);
+    const res = await verifyOrderDeliveryOtp(orderIdToVerify, enteredOtp.trim(), targetOtpOrder?.assignedRider?.id || user?.id || simulatedRider?.id);
     setIsVerifyingOtp(false);
 
     if (res && res.success) {
@@ -587,17 +587,6 @@ export const DeliveryView = () => {
 
         {isAdmin && (
           <div className="flex items-center gap-2">
-            {riders.length > 0 && (
-              <button
-                type="button"
-                onClick={clearAllRiders}
-                className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                title="Remove all riders from fleet"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Clear Fleet</span>
-              </button>
-            )}
             <button
               onClick={handleOpenAddRiderModal}
               className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm transition-all cursor-pointer hover:shadow-md hover:scale-[1.02]"
@@ -690,9 +679,7 @@ export const DeliveryView = () => {
           { id: 'queue', label: 'My Deliveries', icon: Package, count: pendingDispatches.length }
         ] : [
           { id: 'queue', label: 'Order Dispatch Queue', icon: Package, count: pendingDispatches.length },
-          { id: 'fleet', label: 'Riders Fleet Manager', icon: Bike, count: riders.length },
-          { id: 'rider-app', label: 'Rider App Simulator', icon: Smartphone },
-          { id: 'coverage', label: 'Hubs & Service Cities', icon: Building }
+          { id: 'fleet', label: 'Riders Fleet Manager', icon: Bike, count: riders.length }
         ]).map((t) => {
           const Icon = t.icon;
           const isActive = activeSubTab === t.id;
@@ -1091,17 +1078,6 @@ export const DeliveryView = () => {
 
               {isAdmin && (
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {riders.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={clearAllRiders}
-                      className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
-                      title="Remove all couriers from fleet"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Clear All ({riders.length})</span>
-                    </button>
-                  )}
                   <button
                     onClick={handleOpenAddRiderModal}
                     className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer shrink-0"
@@ -1249,17 +1225,6 @@ export const DeliveryView = () => {
                       <span>Call Courier</span>
                     </a>
 
-                    <button
-                      onClick={() => {
-                        setSimulatedRiderId(rider.id);
-                        setActiveSubTab('rider-app');
-                      }}
-                      className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer"
-                      title="View rider app simulator for this courier"
-                    >
-                      <Smartphone className="w-4 h-4" />
-                    </button>
-
                     {isAdmin && (
                       <button
                         onClick={() => {
@@ -1299,126 +1264,8 @@ export const DeliveryView = () => {
       )}
 
       {/* ===================================================================== */}
-      {/* SUB-VIEW 3: RIDER MOBILE APP SIMULATOR                                */}
+      {/* MODAL: CUSTOMER HANDOVER OTP VERIFICATION                             */}
       {/* ===================================================================== */}
-      {activeSubTab === 'rider-app' && (
-        <div className="max-w-md mx-auto space-y-4">
-          {!simulatedRider ? (
-            <div className="bg-slate-900 rounded-[44px] p-8 sm:p-10 border-4 border-slate-800 shadow-2xl text-center text-white space-y-3">
-              <div className="w-16 h-16 rounded-2xl bg-slate-800 text-3xl flex items-center justify-center mx-auto">🛵</div>
-              <h3 className="font-bold text-white text-base">No Couriers Registered</h3>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
-                Your delivery fleet is currently empty. Use the <strong>+ Add Rider</strong> button to register couriers before simulating the mobile app.
-              </p>
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={handleOpenAddRiderModal}
-                  className="mt-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-md"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  <span>+ Add First Rider</span>
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="bg-slate-900 rounded-[44px] p-5 border-4 border-slate-800 shadow-2xl text-white space-y-4">
-              
-              {/* Simulator Header */}
-              <div className="flex items-center justify-between px-2 pt-2 border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-slate-950 font-black text-xs flex items-center justify-center shadow-md">
-                    FM
-                  </div>
-                  <div>
-                    <span className="font-black text-xs block">Rider App Preview</span>
-                    <span className="text-[10px] text-emerald-400 font-bold">● Live Simulator</span>
-                  </div>
-                </div>
-
-                <select
-                  value={simulatedRider.id}
-                  onChange={(e) => setSimulatedRiderId(e.target.value)}
-                  className="bg-slate-800 text-emerald-300 text-[11px] font-bold rounded-xl px-3 py-1.5 border border-slate-700 focus:outline-none cursor-pointer"
-                >
-                  {riders.map((r) => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Courier Profile Tile */}
-              <div className="bg-slate-800/90 rounded-2xl p-4 space-y-2 border border-slate-700 text-xs">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-black text-sm text-white">{simulatedRider.name}</h3>
-                    <span className="text-[11px] text-slate-400 font-mono">{simulatedRider.vehicleType} • {simulatedRider.vehicleNumber}</span>
-                  </div>
-                  <span className="text-xs bg-emerald-500/20 text-emerald-300 font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                    {simulatedRider.status}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs text-slate-400 pt-1 border-t border-slate-700/60">
-                  <span>Completed Deliveries: <strong className="text-emerald-400 font-mono font-bold">{simulatedRider.deliveriesCount || 0}</strong></span>
-                  <span>Rating: <strong className="text-amber-400">⭐ {simulatedRider.rating || 5.0}</strong></span>
-                </div>
-              </div>
-
-              {/* Active Delivery Parcel Task */}
-              {activeRiderOrder ? (
-                <div className="bg-gradient-to-br from-[#07382c] to-[#0f4d3c] border border-emerald-500/40 rounded-3xl p-5 space-y-3.5 shadow-lg">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black text-slate-950 uppercase tracking-wider bg-amber-400 px-2.5 py-0.5 rounded-full shadow-xs">
-                      {activeRiderOrder.status === 'Delivered' ? 'Delivered Order' : 'Active Dispatch Task'}
-                    </span>
-                    <span className="text-xs font-mono font-bold text-emerald-300">
-                      {activeRiderOrder.id || activeRiderOrder.orderId}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1 text-xs">
-                    <span className="text-emerald-200/80 text-[11px] font-semibold">Drop-off Destination:</span>
-                    <p className="font-bold text-white text-xs leading-snug">
-                      {activeRiderOrder.shippingAddress?.address || activeRiderOrder.address || 'Standard Delivery Address'}
-                    </p>
-                    <p className="text-emerald-300 text-[11px]">
-                      Customer: {activeRiderOrder.customerName || activeRiderOrder.customer || 'Valued Customer'} ({activeRiderOrder.customerPhone || '0300-1234567'})
-                    </p>
-                  </div>
-
-                  <div className="flex justify-between items-center bg-slate-950/80 p-3 rounded-2xl text-xs font-mono border border-white/10">
-                    <span className="text-slate-400">Cash to Collect:</span>
-                    <span className={`font-black text-sm ${activeRiderOrder.status === 'Delivered' ? 'text-emerald-300' : 'text-amber-400'}`}>
-                      PKR {activeRiderOrder.totalPrice || activeRiderOrder.totalAmount || activeRiderOrder.total || 0} ({activeRiderOrder.status === 'Delivered' ? 'PAID' : (activeRiderOrder.paymentMethod || 'COD')})
-                    </span>
-                  </div>
-
-                  {activeRiderOrder.status !== 'Delivered' ? (
-                    <button
-                      onClick={() => handleOpenOtpModal(activeRiderOrder)}
-                      className="w-full py-3 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-slate-950 font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 cursor-pointer transition-all hover:scale-105"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Confirm Parcel Delivered & Collect Cash</span>
-                    </button>
-                  ) : (
-                    <div className="bg-emerald-500/20 border border-emerald-500/40 rounded-xl p-2.5 text-center text-xs font-bold text-emerald-300">
-                      ✅ Parcel Delivered & Verified via Customer OTP
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="bg-slate-800/60 border border-slate-700 rounded-3xl p-6 text-center space-y-2">
-                  <span className="text-3xl">🛵</span>
-                  <p className="text-xs font-bold text-slate-300">No active dispatch orders</p>
-                  <p className="text-[11px] text-slate-500">Rider {simulatedRider.name} is on standby waiting for dispatch.</p>
-                </div>
-              )}
-
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ===================================================================== */}
       {/* MODAL: CUSTOMER HANDOVER OTP VERIFICATION                             */}
@@ -1523,50 +1370,6 @@ export const DeliveryView = () => {
               </div>
             </form>
 
-          </div>
-        </div>
-      )}
-
-      {/* ===================================================================== */}
-      {/* SUB-VIEW 4: LOGISTICS HUBS & SERVICE CITIES                           */}
-      {/* ===================================================================== */}
-      {activeSubTab === 'coverage' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-100 shadow-xs space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
-            <div>
-              <h3 className="font-black text-lg text-slate-900">Logistics Hubs & Pakistan City Coverage</h3>
-              <p className="text-xs text-slate-500">Centrally managed Dark Store fulfillment centers across 5 major Pakistani metropolises</p>
-            </div>
-            <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3.5 py-1.5 rounded-full self-start sm:self-auto">
-              ● All 5 Logistics Hubs Operational
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {PAKISTAN_CITIES.map((c) => (
-              <div key={c.id} className="p-5 rounded-3xl bg-gradient-to-br from-slate-50 to-white border border-slate-200/90 space-y-2.5 shadow-2xs hover:shadow-md hover:border-emerald-300 transition-all">
-                <div className="flex items-center justify-between">
-                  <span className="font-black text-sm text-slate-900">{c.city}</span>
-                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full">
-                    Active Hub
-                  </span>
-                </div>
-                <p className="text-xs text-emerald-700 font-bold flex items-center gap-1.5">
-                  <Building className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{c.hubName}</span>
-                </p>
-                <div className="text-[11px] text-slate-500 space-y-1 pt-2 border-t border-slate-200/60">
-                  <span className="block font-bold text-slate-700">Covered Neighborhoods:</span>
-                  <div className="flex flex-wrap gap-1">
-                    {c.neighborhoods.map((n, idx) => (
-                      <span key={idx} className="bg-white border border-slate-200 px-2 py-0.5 rounded-md text-[10px] font-semibold text-slate-700">
-                        {n.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       )}

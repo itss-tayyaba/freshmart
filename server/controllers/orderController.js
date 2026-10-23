@@ -23,15 +23,27 @@ export const loadDiskOrders = () => {
 export const saveDiskOrder = (order) => {
   try {
     if (!order) return;
-    const cleanId = String(order.id || order.orderId || order._id || '').replace(/^#/, '').toLowerCase().trim();
+    const plain = order.toObject ? order.toObject() : { ...order };
+    const cleanId = String(plain.id || plain.orderId || plain._id || '').replace(/^#/, '').toLowerCase().trim();
     if (!cleanId) return;
     const list = loadDiskOrders();
     const filtered = list.filter((o) => {
       const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
       return oId !== cleanId;
     });
-    filtered.unshift(order);
+    filtered.unshift(plain);
     fs.writeFileSync(ORDERS_FILE_PATH, JSON.stringify(filtered, null, 2), 'utf-8');
+
+    // Keep ADMIN_ORDERS_FULL in sync
+    const memIdx = ADMIN_ORDERS_FULL.findIndex((m) => {
+      const mId = String(m.id || m.orderId || m._id || '').replace(/^#/, '').toLowerCase().trim();
+      return mId === cleanId;
+    });
+    if (memIdx >= 0) {
+      ADMIN_ORDERS_FULL[memIdx] = plain;
+    } else {
+      ADMIN_ORDERS_FULL.unshift(plain);
+    }
   } catch (e) {}
 };
 
@@ -473,15 +485,18 @@ export const getOrders = async (req, res) => {
     }
 
     const diskOrders = loadDiskOrders();
-    let orders = [...ADMIN_ORDERS_FULL];
-    const existing = new Set(orders.map((o) => String(o.id || o.orderId || o._id).replace(/^#/, '').toLowerCase().trim()));
+    const diskMap = new Map();
     diskOrders.forEach((d) => {
       const dKey = String(d.id || d.orderId || d._id).replace(/^#/, '').toLowerCase().trim();
-      if (!existing.has(dKey)) {
-        orders.push(d);
-        existing.add(dKey);
+      if (dKey) diskMap.set(dKey, d);
+    });
+    ADMIN_ORDERS_FULL.forEach((m) => {
+      const mKey = String(m.id || m.orderId || m._id).replace(/^#/, '').toLowerCase().trim();
+      if (mKey && !diskMap.has(mKey)) {
+        diskMap.set(mKey, m);
       }
     });
+    let orders = Array.from(diskMap.values());
     if (orders.length === 0) {
       orders = [...ORDERS];
     }
@@ -730,6 +745,7 @@ export const assignRiderToOrder = async (req, res) => {
         order.timeline = buildDynamicTimeline(order);
 
         const updated = await order.save();
+        saveDiskOrder(updated);
         return res.json({
           success: true,
           message: `Rider ${assignedInfo.name} assigned. Handover OTP: ${order.deliveryOtp}`,
@@ -775,6 +791,7 @@ export const assignRiderToOrder = async (req, res) => {
       memOrder.etaMinutes = etaMinutes;
       memOrder.timeline = buildDynamicTimeline(memOrder);
 
+      saveDiskOrder(memOrder);
       return res.json({
         success: true,
         message: `Rider ${assignedInfo.name} assigned. Handover OTP: ${memOrder.deliveryOtp}`,
@@ -836,6 +853,7 @@ export const updateRiderLocation = async (req, res) => {
         order.timeline = buildDynamicTimeline(order);
 
         const updated = await order.save();
+        saveDiskOrder(updated);
         return res.json({
           success: true,
           message: 'Rider coordinates and ETA updated in real-time',
@@ -859,6 +877,7 @@ export const updateRiderLocation = async (req, res) => {
       memOrder.eta = etaText;
       memOrder.timeline = buildDynamicTimeline(memOrder);
 
+      saveDiskOrder(memOrder);
       return res.json({
         success: true,
         message: 'Rider coordinates and ETA updated in memory',
@@ -931,6 +950,7 @@ export const updateOrderStatus = async (req, res) => {
           return res.status(403).json({ success: false, message: 'You cannot update this order or skip its fulfillment steps.' });
         }
         const updated = await order.save();
+        saveDiskOrder(updated);
 
         // If order was cancelled, restore inventory
         if (status === 'Cancelled' && previousStatus !== 'Cancelled' && Array.isArray(order.orderItems)) {
@@ -965,6 +985,7 @@ export const updateOrderStatus = async (req, res) => {
       if (!applyUpdate(memOrder)) {
         return res.status(403).json({ success: false, message: 'You cannot update this order or skip its fulfillment steps.' });
       }
+      saveDiskOrder(memOrder);
       return res.json({ success: true, message: `Status updated to ${status}`, order: memOrder });
     }
 
@@ -1075,6 +1096,7 @@ export const verifyDeliveryOtp = async (req, res) => {
     if (isDbOnline() && typeof foundOrder.save === 'function') {
       await foundOrder.save();
     }
+    saveDiskOrder(foundOrder);
 
     // Increment Rider Deliveries Count (+1)
     const effectiveRiderId = riderId || foundOrder.assignedRider?.id || foundOrder.assignedRider?.riderId;

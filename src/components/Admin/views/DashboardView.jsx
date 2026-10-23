@@ -40,12 +40,14 @@ export const DashboardView = ({ onNavigateModule }) => {
     branchMetrics,
     getBranchMetrics,
     allBranches = [],
-    user
+    user,
+    adminRole
   } = useStore();
 
   // Active Tenant Metrics & Branding
-  const tenantKey = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
-  const tenantMetrics = branchMetrics || (getBranchMetrics && getBranchMetrics(tenantKey)) || BRANCH_METRICS[tenantKey] || BRANCH_METRICS['tenant-alfatah'];
+  const isSuperAdmin = user?.role === 'superadmin' || adminRole === 'superadmin' || user?.isSuperAdmin;
+  const tenantKey = isSuperAdmin ? null : (user?.tenantId || currentTenant?.id);
+  const tenantMetrics = branchMetrics || (getBranchMetrics && getBranchMetrics(tenantKey || 'tenant-alfatah')) || BRANCH_METRICS[tenantKey || 'tenant-alfatah'] || BRANCH_METRICS['tenant-alfatah'];
 
   // Selected period: '7days' | 'today' | '30days' | 'year'
   const [period, setPeriod] = useState('7days');
@@ -70,6 +72,7 @@ export const DashboardView = ({ onNavigateModule }) => {
       }
     });
     const all = Array.from(uniqueMap.values());
+    if (!tenantKey) return all;
     return all.filter((order) => {
       const orderTenant =
         order.tenantId ||

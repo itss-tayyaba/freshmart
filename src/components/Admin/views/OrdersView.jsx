@@ -152,6 +152,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     updateDeliveryOrderStatus,
     updateOrderStatus,
     addToast,
+    adminRole,
     currentTenant,
     user,
     allBranches = [],
@@ -248,7 +249,8 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       }
     });
     const raw = Array.from(uniqueMap.values());
-    const targetTenantId = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
+    const isSuperAdmin = user?.role === 'superadmin' || adminRole === 'superadmin' || user?.isSuperAdmin;
+    const targetTenantId = isSuperAdmin ? null : (user?.tenantId || currentTenant?.id);
     let list = raw;
     if (targetTenantId) {
       list = list.filter((o) => {

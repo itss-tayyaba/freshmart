@@ -112,17 +112,24 @@ const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
   });
 
   const rawTenant = remoteOrder.tenantId || localOrder.tenantId || itemTenantId;
+  const isChaseUpId = idStr.startsWith('#cu') || idStr.startsWith('cu-') || idStr.startsWith('ord-cu') || idStr.includes('-cu-') || idStr.includes('caseup');
+  const isChaseValueId = idStr.startsWith('#cv') || idStr.startsWith('cv-') || idStr.startsWith('ord-cv') || idStr.includes('-cv-');
+  const isAlFatahId = idStr.includes('701') || idStr.startsWith('#af') || idStr.startsWith('af-');
+  const isFreshMartId = idStr.includes('83459') || idStr.startsWith('#fm') || idStr.startsWith('fm-');
+
   let tenantId;
-  if (isSameTenant(rawTenant, 'tenant-chasevalue') || (hasCvItem && !hasCuItem) || idStr.startsWith('#cv') || idStr.startsWith('cv-')) {
+  if (rawTenant && rawTenant !== 'all') {
+    tenantId = rawTenant;
+  } else if (isSameTenant(rawTenant, 'tenant-chasevalue') || (hasCvItem && !hasCuItem) || isChaseValueId) {
     tenantId = 'tenant-chasevalue';
-  } else if (isSameTenant(rawTenant, 'tenant-chaseup') || hasCuItem || idStr.startsWith('#cu') || idStr.startsWith('cu-') || idStr.includes('cu') || idStr.includes('caseup')) {
+  } else if (isSameTenant(rawTenant, 'tenant-chaseup') || hasCuItem || isChaseUpId) {
     tenantId = 'tenant-chaseup';
-  } else if (isSameTenant(rawTenant, 'tenant-alfatah') || idStr.includes('701') || idStr.startsWith('#af') || idStr.startsWith('af-')) {
+  } else if (isSameTenant(rawTenant, 'tenant-alfatah') || isAlFatahId) {
     tenantId = 'tenant-alfatah';
-  } else if (isSameTenant(rawTenant, 'tenant-freshmart') || idStr.includes('83459') || idStr.startsWith('#fm')) {
+  } else if (isSameTenant(rawTenant, 'tenant-freshmart') || isFreshMartId) {
     tenantId = 'tenant-freshmart';
   } else {
-    tenantId = rawTenant || (idStr.includes('cu') ? 'tenant-chaseup' : 'tenant-freshmart');
+    tenantId = rawTenant || (isChaseUpId ? 'tenant-chaseup' : 'tenant-freshmart');
   }
 
   const tenantName = remoteOrder.tenantName || localOrder.tenantName || (
@@ -2555,6 +2562,7 @@ export const StoreProvider = ({ children }) => {
     setIsAdminLoggedIn(false);
     setUser(null);
     setAdminRole(null);
+    setCurrentTenant(null);
     try {
       sessionStorage.removeItem('freshmart_tab_session');
       sessionStorage.removeItem('freshmart_tab_role');
@@ -2565,6 +2573,8 @@ export const StoreProvider = ({ children }) => {
       localStorage.removeItem('freshmart_admin_token');
       localStorage.removeItem('freshmart_vendor_token');
       localStorage.removeItem('freshmart_rider_live_telemetry');
+      localStorage.removeItem('freshmart_current_tenant_id');
+      localStorage.removeItem('freshmart_current_tenant');
     } catch (e) {}
     addToast('Signed Out', 'You have been logged out of the staff portal.', 'info');
     navigateTo('home');
