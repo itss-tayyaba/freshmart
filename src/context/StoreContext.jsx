@@ -1906,15 +1906,33 @@ export const StoreProvider = ({ children }) => {
     if (!isAdminLoggedIn || !['admin', 'superadmin', 'pickup_staff', 'rider'].includes(adminRole)) return undefined;
     let active = true;
     const refreshOrders = async () => {
-      const response = await apiService.getOrders();
-      if (!active || !response?.success || !Array.isArray(response.orders)) return;
-      setAdminOrders((current) => mergeApiOrders(response.orders, current, adminRole, user));
-      setCustomerOrders((current) => mergeApiOrders(response.orders, current, adminRole, user));
+      try {
+        const response = await apiService.getOrders();
+        if (!active || !response?.success || !Array.isArray(response.orders)) return;
+        // Only merge if the API actually returned orders — never allow an empty response to wipe local data
+        if (response.orders.length === 0) return;
+        setAdminOrders((current) => {
+          const merged = mergeApiOrders(response.orders, current, adminRole, user);
+          // Bail out (no re-render) if nothing meaningful changed
+          if (merged.length === current.length && JSON.stringify(merged.map(o => o.id + o.status)) === JSON.stringify(current.map(o => o.id + o.status))) return current;
+          return merged;
+        });
+        setCustomerOrders((current) => {
+          const merged = mergeApiOrders(response.orders, current, adminRole, user);
+          if (merged.length === current.length && JSON.stringify(merged.map(o => o.id + o.status)) === JSON.stringify(current.map(o => o.id + o.status))) return current;
+          return merged;
+        });
+      } catch (e) {
+        // Network error — silently skip, keep existing local state intact
+      }
     };
-    refreshOrders();
-    const intervalId = window.setInterval(refreshOrders, 5000);
+    // Initial fetch after a short delay so the UI renders first
+    const initTimer = setTimeout(refreshOrders, 2000);
+    // Poll every 30s instead of 5s to prevent flickering
+    const intervalId = window.setInterval(refreshOrders, 30000);
     return () => {
       active = false;
+      clearTimeout(initTimer);
       window.clearInterval(intervalId);
     };
   }, [isAdminLoggedIn, adminRole, user?.id, user?.staffId, user?.riderId, user?.tenantId]);
@@ -2680,11 +2698,25 @@ export const StoreProvider = ({ children }) => {
           }
           return;
         }
+        // Only sync from storage events fired by OTHER tabs (event.storageArea is localStorage and newValue differs from what we wrote)
         const orders = event.newValue ? JSON.parse(event.newValue) : [];
-        if (!Array.isArray(orders)) return;
+        if (!Array.isArray(orders) || orders.length === 0) return;
         const sanitized = orders.map(sanitizeOrder);
-        if (event.key === 'freshmart_customer_orders') setCustomerOrders(sanitized);
-        if (event.key === 'freshmart_admin_orders') setAdminOrders(sanitized);
+        // Use functional update + equality check to avoid unnecessary re-renders
+        if (event.key === 'freshmart_customer_orders') {
+          setCustomerOrders((prev) => {
+            const prevIds = prev.map((o) => o.id + o.status).join(',');
+            const nextIds = sanitized.map((o) => o.id + o.status).join(',');
+            return prevIds === nextIds ? prev : sanitized;
+          });
+        }
+        if (event.key === 'freshmart_admin_orders') {
+          setAdminOrders((prev) => {
+            const prevIds = prev.map((o) => o.id + o.status).join(',');
+            const nextIds = sanitized.map((o) => o.id + o.status).join(',');
+            return prevIds === nextIds ? prev : sanitized;
+          });
+        }
       } catch (e) {}
     };
 
