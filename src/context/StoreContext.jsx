@@ -3166,13 +3166,14 @@ export const StoreProvider = ({ children }) => {
     const coords = readCoordinates(riderData.coordinates, riderData);
     const lat = coords?.lat ?? (riderData.latitude ? Number(riderData.latitude) : 31.4125);
     const lng = coords?.lng ?? (riderData.longitude ? Number(riderData.longitude) : 73.0915);
-    const tenantName = riderData.tenantName || currentTenant?.name || 'Chase Up';
-    const regionName = riderData.region || riderData.zone || `${tenantName} (Faisalabad Flagship)`;
+    const tenantName = riderData.tenantName || currentTenant?.name || 'Al-Fatah';
+    const regionName = riderData.region || riderData.zone || 'Samanabad';
 
     const newRider = {
       id: newId,
+      riderId: newId,
       name: riderData.name,
-      phone: riderData.phone,
+      phone: riderData.phone || 'Not set',
       vehicleType: riderData.vehicleType || '🏍️ Honda 125',
       vehicleNumber: riderData.vehicleNumber || `FSD-${Math.floor(1000 + Math.random() * 9000)}`,
       branchId: riderData.branchId || null,
@@ -3184,11 +3185,11 @@ export const StoreProvider = ({ children }) => {
       longitude: lng,
       coordinates: { lat, lng },
       coverageRadiusKm: Number(riderData.coverageRadiusKm) || 15,
-      status: riderData.status || 'On-Duty',
-      tenantId: riderData.tenantId || currentTenant?.id || 'tenant-chaseup',
+      status: riderData.status || 'Active',
+      tenantId: riderData.tenantId || currentTenant?.id || 'tenant-alfatah',
       tenantName: tenantName,
       cnic: riderData.cnic || '',
-      username: (riderData.username || riderData.phone || riderData.name).toLowerCase().replace(/\s+/g, '_'),
+      username: (riderData.username || riderData.name).toLowerCase().replace(/\s+/g, '_'),
       password: riderData.password || 'rider123',
       deliveriesCount: 0,
       rating: 5.0,
@@ -3204,7 +3205,7 @@ export const StoreProvider = ({ children }) => {
       return updated;
     });
 
-    addToast('Rider Registered 🛵', `${newRider.name} registered for ${newRider.branchName || newRider.region} (GPS: ${lat}, ${lng}).`);
+    addToast('Rider Registered 🛵', `${newRider.name} registered for ${newRider.region || newRider.zone || 'Coverage Zone'}.`);
 
     try {
       await apiService.createRider(newRider);
@@ -3273,14 +3274,16 @@ export const StoreProvider = ({ children }) => {
   const toggleRiderStatus = async (id) => {
     setRiders((prev) => {
       const updated = prev.map((r) => {
-        if (r.id === id) {
-          const nextStatus = r.status === 'On-Duty' ? 'Off-Duty' : 'On-Duty';
+        if (r.id === id || r.riderId === id) {
+          const isActive = r.status === 'Active' || r.status === 'On-Duty';
+          const nextStatus = isActive ? 'Inactive' : 'Active';
           return { ...r, status: nextStatus };
         }
         return r;
       });
       try {
         localStorage.setItem('freshmart_riders', JSON.stringify(updated));
+        localStorage.setItem('freshmart_riders_v3', JSON.stringify(updated));
       } catch (e) {}
       return updated;
     });

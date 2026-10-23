@@ -179,7 +179,7 @@ export const DeliveryView = () => {
     ];
   }, [allBranches, currentTenant]);
 
-  const [activeSubTab, setActiveSubTab] = useState('queue'); // 'queue' | 'fleet'
+  const [activeSubTab, setActiveSubTab] = useState('fleet'); // 'fleet' | 'queue' | 'delivered'
   const [searchRider, setSearchRider] = useState('');
   const [filterZone, setFilterZone] = useState('All');
   const [copiedId, setCopiedId] = useState(null);
@@ -213,13 +213,13 @@ export const DeliveryView = () => {
     vehicleNumber: '',
     branchId: initialBranch.id || initialBranch._id || '',
     branchName: initialBranch.name,
-    region: `${initialBranch.name} (${initialBranch.city || 'Faisalabad'})`,
-    zone: initialBranch.name,
+    region: 'Samanabad',
+    zone: 'Samanabad',
     city: initialBranch.city || 'Faisalabad',
     latitude: String(initialBranch.latitude || 31.4125),
     longitude: String(initialBranch.longitude || 73.0915),
     coverageRadiusKm: String(initialBranch.deliveryRadius || initialBranch.coverageRadiusKm || 15),
-    status: 'On-Duty',
+    status: 'Active',
     cnic: '',
     username: '',
     password: 'rider123'
@@ -230,7 +230,9 @@ export const DeliveryView = () => {
   const [editRiderForm, setEditRiderForm] = useState({
     id: '',
     name: '',
+    username: '',
     phone: '',
+    region: '',
     password: '',
     vehicleType: '🏍️ Honda 125',
     vehicleNumber: ''
@@ -240,20 +242,21 @@ export const DeliveryView = () => {
   // Selected rider for mobile app simulator
   const [simulatedRiderId, setSimulatedRiderId] = useState(riders[0]?.id || '');
 
-  // Filter riders belonging strictly to active store tenant
+  // Filter riders belonging strictly to active store tenant (preserves added riders)
   const storeRiders = useMemo(() => {
-    const tId = currentTenant?.id;
-    if (!tId) return riders || [];
-    return (riders || []).filter((r) => isSameTenant(r.tenantId, tId));
-  }, [riders, currentTenant?.id]);
+    const tId = currentTenant?.id || user?.tenantId;
+    if (!tId || adminRole === 'superadmin') return riders || [];
+    return (riders || []).filter((r) => !r.tenantId || isSameTenant(r.tenantId, tId) || r.isGlobal);
+  }, [riders, currentTenant?.id, user?.tenantId, adminRole]);
 
   // Filter riders based on search and branch/zone
   const filteredRiders = storeRiders.filter((r) => {
-    const query = searchRider.toLowerCase();
+    const query = searchRider.toLowerCase().trim();
+    if (!query) return true;
     const riderRegion = String(r.branchName || r.region || r.zone || '').toLowerCase();
     const matchesSearch =
-      r.name.toLowerCase().includes(query) ||
-      r.phone.includes(searchRider) ||
+      (r.name && r.name.toLowerCase().includes(query)) ||
+      (r.phone && r.phone.includes(query)) ||
       (r.username && r.username.toLowerCase().includes(query)) ||
       (r.vehicleNumber && r.vehicleNumber.toLowerCase().includes(query)) ||
       riderRegion.includes(query);
@@ -497,9 +500,9 @@ export const DeliveryView = () => {
       longitude: lng,
       coordinates: { lat, lng },
       coverageRadiusKm: Number(newRiderForm.coverageRadiusKm || selectedBranch?.deliveryRadius || 15),
-      status: newRiderForm.status || 'On-Duty',
-      tenantId: currentTenant?.id || 'tenant-chaseup',
-      tenantName: currentTenant?.name || 'Chase Up',
+      status: 'Active',
+      tenantId: currentTenant?.id || user?.tenantId || 'tenant-alfatah',
+      tenantName: currentTenant?.name || user?.tenantName || 'Al-Fatah',
       cnic: newRiderForm.cnic ? newRiderForm.cnic.trim() : '',
       username: generatedUsername,
       password: generatedPassword,
@@ -519,13 +522,13 @@ export const DeliveryView = () => {
       vehicleNumber: '',
       branchId: nextBr.id || nextBr._id || '',
       branchName: nextBr.name || 'Main Hub',
-      region: nextBr.name ? `${nextBr.name} (${nextBr.city || 'Store Area'})` : 'Main Hub',
-      zone: nextBr.name || 'Main Hub',
+      region: 'Samanabad',
+      zone: 'Samanabad',
       city: nextBr.city || '',
       latitude: String(nextBr.latitude || 31.5204),
       longitude: String(nextBr.longitude || 74.3587),
       coverageRadiusKm: String(nextBr.deliveryRadius || 15),
-      status: 'On-Duty',
+      status: 'Active',
       cnic: '',
       username: '',
       password: 'rider123'
@@ -535,15 +538,18 @@ export const DeliveryView = () => {
   const handleEditRiderSubmit = (e) => {
     e.preventDefault();
     if (!editingRider) return;
-    const finalPassword = editRiderForm.password.trim() || 'rider123';
+    const finalPassword = editRiderForm.password?.trim() || 'rider123';
     updateRider(editingRider.id, {
       name: editRiderForm.name.trim(),
+      username: editRiderForm.username ? editRiderForm.username.trim() : editingRider.username,
       phone: editRiderForm.phone.trim(),
+      region: editRiderForm.region ? editRiderForm.region.trim() : editingRider.region,
+      zone: editRiderForm.region ? editRiderForm.region.trim() : editingRider.zone,
       password: finalPassword,
       vehicleType: editRiderForm.vehicleType || '🏍️ Honda 125',
-      vehicleNumber: editRiderForm.vehicleNumber.trim()
+      vehicleNumber: editRiderForm.vehicleNumber ? editRiderForm.vehicleNumber.trim() : (editingRider.vehicleNumber || '')
     });
-    addToast('Credentials Updated 🔑', `${editRiderForm.name}'s login password is now "${finalPassword}".`);
+    addToast('Credentials Updated 🔑', `${editRiderForm.name}'s details updated successfully.`);
     setEditingRider(null);
   };
 
@@ -1225,226 +1231,205 @@ export const DeliveryView = () => {
       )}
 
       {/* ===================================================================== */}
-      {/* SUB-VIEW 3: RIDER FLEET MANAGEMENT                                    */}
+      {/* SUB-VIEW 3: RIDER FLEET MANAGEMENT (Matching Screenshot Layout)       */}
       {/* ===================================================================== */}
       {activeSubTab === 'fleet' && (
-        <div className="space-y-5">
+        <div className="space-y-6">
           
-          {/* Search & Zone Filter Bar */}
-          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-100 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <div className="relative w-full sm:w-80">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          {/* Top Bar matching screenshot */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <h1 className="font-serif text-2xl font-bold text-stone-900 tracking-tight">
+              Delivery Riders
+            </h1>
+
+            <div className="relative w-full sm:w-96">
+              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search by rider name, phone, plate number, username, region..."
+                placeholder="Search orders or dishes..."
                 value={searchRider}
                 onChange={(e) => setSearchRider(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-3.5 py-2.5 font-medium text-xs focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                className="w-full bg-white border border-stone-200 rounded-full pl-10 pr-4 py-2 font-medium text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-2xs"
               />
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
-              <span className="text-slate-400 font-bold shrink-0">Branch / Area:</span>
-              <select
-                value={filterZone}
-                onChange={(e) => setFilterZone(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2 font-bold text-xs focus:outline-none cursor-pointer"
-              >
-                <option value="All">All Branches & Areas</option>
-                {availableBranches.map((b) => {
-                  const key = b.id || b._id || b.name;
-                  return (
-                    <option key={key} value={b.name}>
-                      🏪 {b.name} ({b.city})
-                    </option>
-                  );
-                })}
-              </select>
-
-              {isAdmin && (
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    onClick={handleOpenAddRiderModal}
-                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer shrink-0"
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    <span>+ Add Rider</span>
-                  </button>
-                </div>
-              )}
+            <div className="bg-white/90 border border-stone-200/90 rounded-full px-4 py-1.5 text-xs font-medium text-stone-600 shadow-2xs shrink-0 hidden sm:block">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </div>
           </div>
 
-          {/* Empty State vs Riders Grid */}
-          {(!riders || riders.length === 0) ? (
-            <div className="text-center py-16 px-4 bg-white rounded-3xl border-2 border-dashed border-slate-200 shadow-xs space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-3xl shadow-xs">
-                🛵
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-black text-slate-900">No Delivery Riders Registered</h3>
-                <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  Click '+ Add Rider' to register couriers for your active store branches and operational areas.
-                </p>
-              </div>
+          {/* Section Heading & + Add Rider button */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+            <div>
+              <h2 className="font-serif text-xl font-bold text-stone-900">
+                Delivery Riders
+              </h2>
+              <p className="text-xs text-stone-500 font-medium mt-0.5">
+                {filteredRiders.length} riders · max 5 active orders each
+              </p>
+            </div>
+
+            {isAdmin && (
               <button
                 onClick={handleOpenAddRiderModal}
-                className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-xs font-black inline-flex items-center gap-2 cursor-pointer shadow-md hover:scale-105 transition-all"
+                className="px-5 py-2.5 bg-[#ca8a04] hover:bg-[#b47b04] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer hover:shadow-md hover:scale-[1.02] shrink-0"
               >
-                <UserPlus className="w-4 h-4" />
-                <span>+ Add First Delivery Rider</span>
+                <span>+ Add Rider</span>
               </button>
-            </div>
-          ) : filteredRiders.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-3xl border border-slate-100 text-slate-400 text-xs">
-              No riders matching your search query "{searchRider}".
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredRiders.map((rider) => (
-                <div
-                  key={rider.id}
-                  className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs hover:shadow-card hover:border-emerald-200 transition-all space-y-4 flex flex-col justify-between group"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-black text-sm shadow-md shadow-emerald-900/20 group-hover:scale-105 transition-transform">
-                          {rider.name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <h3 className="font-black text-sm text-slate-900">{rider.name}</h3>
-                            <span className="text-[10px] font-mono text-slate-400 font-bold">({rider.id})</span>
-                          </div>
-                          <span className="text-xs text-slate-500 font-mono">{rider.phone}</span>
-                        </div>
-                      </div>
+            )}
+          </div>
 
-                      <button
-                        onClick={() => toggleRiderStatus(rider.id)}
-                        className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full cursor-pointer transition-all flex items-center gap-1 ${
-                          rider.status === 'On-Duty'
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                            : rider.status === 'Busy'
-                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                            : 'bg-slate-100 text-slate-500 border border-slate-200'
-                        }`}
-                        title="Click to toggle on-duty / off-duty status"
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${rider.status === 'On-Duty' ? 'bg-emerald-600' : 'bg-slate-400'}`}></span>
-                        <span>{rider.status}</span>
-                      </button>
-                    </div>
+          {/* Clean Delivery Riders Table */}
+          <div className="bg-white rounded-3xl border border-stone-200/90 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-stone-100 bg-white">
+                    <th className="py-4 px-6 text-[11px] font-black uppercase tracking-wider text-stone-400">NAME</th>
+                    <th className="py-4 px-4 text-[11px] font-black uppercase tracking-wider text-stone-400">USERNAME</th>
+                    <th className="py-4 px-4 text-[11px] font-black uppercase tracking-wider text-stone-400">PHONE</th>
+                    <th className="py-4 px-4 text-[11px] font-black uppercase tracking-wider text-stone-400">REGION</th>
+                    <th className="py-4 px-4 text-[11px] font-black uppercase tracking-wider text-stone-400 text-center">ACTIVE ORDERS</th>
+                    <th className="py-4 px-4 text-[11px] font-black uppercase tracking-wider text-stone-400">STATUS</th>
+                    <th className="py-4 px-6 text-[11px] font-black uppercase tracking-wider text-stone-400">ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100 text-xs">
+                  {filteredRiders.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12 text-stone-400">
+                        No delivery riders found matching "{searchRider}". Click "+ Add Rider" to add one.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRiders.map((rider) => {
+                      // Calculate real in-progress orders assigned to this rider
+                      const rId = String(rider.id || rider.riderId || '').toLowerCase().trim();
+                      const rName = String(rider.name || '').toLowerCase().trim();
+                      const rUser = String(rider.username || '').toLowerCase().trim();
 
-                    {/* Rider details card */}
-                    <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/70 text-xs space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400 font-semibold">Vehicle:</span>
-                        <span className="text-slate-800 font-bold">{rider.vehicleType} ({rider.vehicleNumber})</span>
-                      </div>
-                      <div className="flex justify-between items-start">
-                        <span className="text-slate-400 font-semibold shrink-0">Assigned Region:</span>
-                        <span className="text-emerald-700 font-bold text-right flex items-center gap-1 justify-end">
-                          <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
-                          <span>{rider.region || rider.zone || 'Gulberg Hub'}</span>
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center bg-white/70 p-2 rounded-xl border border-slate-200/50">
-                        <span className="text-slate-400 font-semibold text-[11px]">GPS Coordinates:</span>
-                        <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                          <span className="text-slate-800 font-bold">
-                            {rider.latitude ?? rider.coordinates?.lat ?? '31.5204'}° N, {rider.longitude ?? rider.coordinates?.lng ?? '74.3587'}° E
-                          </span>
-                          <a
-                            href={`https://www.google.com/maps?q=${rider.latitude ?? rider.coordinates?.lat ?? '31.5204'},${rider.longitude ?? rider.coordinates?.lng ?? '74.3587'}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-emerald-600 hover:text-emerald-800 p-0.5 rounded cursor-pointer"
-                            title="Open in Google Maps"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </div>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400 font-semibold">Coverage Radius:</span>
-                        <span className="font-bold text-slate-700">{rider.coverageRadiusKm || 15} km radius</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400 font-semibold">Completed Parcels:</span>
-                        <span className="font-mono font-bold text-slate-900">{rider.deliveriesCount || 0} Delivered</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400 font-semibold">Customer Rating:</span>
-                        <span className="font-black text-amber-600">★ {rider.rating || 5.0} / 5.0</span>
-                      </div>
+                      const activeOrdersForRider = (allOrdersList || []).filter((o) => {
+                        const s = String(o.status || '').toLowerCase();
+                        const isDelivered = s === 'delivered' || s === 'completed' || o.isDelivered || Number(o.fulfillmentStage) >= 4;
+                        if (isDelivered) return false;
 
-                      {isAdmin && (
-                        <div className="pt-2 border-t border-slate-200 flex flex-col gap-1 text-[11px]">
-                          <span className="text-slate-400 font-bold uppercase text-[9px] flex items-center justify-between">
-                            <span>Rider App Login Credentials:</span>
-                            <span className="text-emerald-700 font-mono text-[9px]">Portal Active</span>
-                          </span>
-                          <div className="font-mono text-emerald-900 font-bold bg-emerald-50/80 p-2 rounded-xl border border-emerald-200/80 flex items-center justify-between text-xs">
-                            <span title="Login with Phone or Username">
-                              ID: <strong className="text-slate-800">{rider.phone || rider.username || rider.name}</strong>
+                        const assigned = o.assignedRider;
+                        const assignedId = typeof assigned === 'object'
+                          ? String(assigned?.id || assigned?._id || assigned?.riderId || '').toLowerCase().trim()
+                          : String(assigned || '').toLowerCase().trim();
+                        const assignedName = (typeof assigned === 'object'
+                          ? String(assigned?.name || '')
+                          : String(o.assignedRiderName || o.riderName || '')).toLowerCase().trim();
+
+                        return (
+                          (rId && assignedId && (assignedId === rId || assignedId.includes(rId) || rId.includes(assignedId))) ||
+                          (rName && assignedName && (assignedName === rName || assignedName.includes(rName))) ||
+                          (rUser && assignedName && (assignedName === rUser || assignedName.includes(rUser)))
+                        );
+                      });
+
+                      const activeCount = activeOrdersForRider.length;
+                      const isActive = rider.status === 'Active' || rider.status === 'On-Duty';
+
+                      return (
+                        <tr key={rider.id} className="hover:bg-stone-50/60 transition-colors">
+                          {/* NAME */}
+                          <td className="py-4 px-6 font-semibold text-stone-900 text-xs">
+                            {rider.name}
+                          </td>
+
+                          {/* USERNAME */}
+                          <td className="py-4 px-4 font-mono text-stone-500 text-xs">
+                            {rider.username || rider.name.toLowerCase().replace(/\s+/g, '_')}
+                          </td>
+
+                          {/* PHONE */}
+                          <td className="py-4 px-4 font-mono font-medium text-stone-800 text-xs">
+                            {rider.phone || 'Not set'}
+                          </td>
+
+                          {/* REGION */}
+                          <td className="py-4 px-4 text-stone-700 text-xs font-medium">
+                            {rider.region || rider.zone || rider.branchName || 'Samanabad'}
+                          </td>
+
+                          {/* ACTIVE ORDERS */}
+                          <td className="py-4 px-4 font-mono font-bold text-stone-800 text-xs text-center">
+                            {activeCount}/5
+                          </td>
+
+                          {/* STATUS */}
+                          <td className="py-4 px-4">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                                isActive
+                                  ? 'bg-[#e2ede2] text-[#366838] border border-[#ceead6]'
+                                  : 'bg-slate-100 text-slate-600 border border-slate-200'
+                              }`}
+                            >
+                              <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-[#2e7d32]' : 'bg-slate-400'}`}></span>
+                              <span>{isActive ? 'Active' : 'Inactive'}</span>
                             </span>
-                            <span className="text-slate-400">•</span>
-                            <span className="flex items-center gap-1">
-                              Pass: <strong className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-emerald-700">{rider.password || 'rider123'}</strong>
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                          </td>
 
-                  {/* Actions */}
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <a
-                      href={`tel:${rider.phone}`}
-                      className="flex-1 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <Phone className="w-3.5 h-3.5" />
-                      <span>Call Courier</span>
-                    </a>
+                          {/* ACTIONS */}
+                          <td className="py-4 px-6">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingRider(rider);
+                                    setEditRiderForm({
+                                      id: rider.id,
+                                      name: rider.name || '',
+                                      username: rider.username || rider.name.toLowerCase().replace(/\s+/g, '_'),
+                                      phone: rider.phone || '',
+                                      region: rider.region || rider.zone || 'Samanabad',
+                                      password: rider.password || 'rider123',
+                                      vehicleType: rider.vehicleType || '🏍️ Honda 125',
+                                      vehicleNumber: rider.vehicleNumber || ''
+                                    });
+                                  }}
+                                  className="px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                                >
+                                  Edit Rider
+                                </button>
+                              )}
 
-                    {isAdmin && (
-                      <button
-                        onClick={() => {
-                          setEditingRider(rider);
-                          setEditRiderForm({
-                            id: rider.id,
-                            name: rider.name || '',
-                            phone: rider.phone || '',
-                            password: rider.password || 'rider123',
-                            vehicleType: rider.vehicleType || '🏍️ Honda 125',
-                            vehicleNumber: rider.vehicleNumber || ''
-                          });
-                        }}
-                        className="p-2 bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 rounded-xl font-bold transition-colors cursor-pointer"
-                        title="Edit Rider & Change Password"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                    )}
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleRiderStatus(rider.id)}
+                                  className="px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                                >
+                                  {isActive ? 'Deactivate' : 'Activate'}
+                                </button>
+                              )}
 
-                    {isAdmin && (
-                      <button
-                        onClick={() => deleteRider(rider.id)}
-                        className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                        title="Delete Rider from Fleet"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-
-                </div>
-              ))}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSimulatedRiderId(rider.id);
+                                  if (typeof navigateTo === 'function') {
+                                    navigateTo('delivery-portal');
+                                  }
+                                }}
+                                className="px-3 py-1 bg-[#fdf8ee] hover:bg-[#faedd4] text-[#855318] border border-[#faedd4] rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>View Dashboard</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -1605,6 +1590,20 @@ export const DeliveryView = () => {
                     value={newRiderForm.name}
                     onChange={(e) => setNewRiderForm({ ...newRiderForm, name: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all"
+                  />
+                </div>
+
+                {/* Rider Username */}
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1 text-xs">
+                    Username / Handle <span className="text-slate-400 font-normal">(Optional, e.g. hamza)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. hamza or ahmad"
+                    value={newRiderForm.username}
+                    onChange={(e) => setNewRiderForm({ ...newRiderForm, username: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-mono font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all"
                   />
                 </div>
 
@@ -1797,6 +1796,19 @@ export const DeliveryView = () => {
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1 text-xs">
+                  Username <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editRiderForm.username}
+                  onChange={(e) => setEditRiderForm({ ...editRiderForm, username: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-mono font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1 text-xs">
                   Phone Number (Login ID) <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -1805,6 +1817,19 @@ export const DeliveryView = () => {
                   value={editRiderForm.phone}
                   onChange={(e) => setEditRiderForm({ ...editRiderForm, phone: e.target.value })}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-mono font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1 text-xs">
+                  Region / Delivery Area <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editRiderForm.region}
+                  onChange={(e) => setEditRiderForm({ ...editRiderForm, region: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
               </div>
 
