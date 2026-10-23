@@ -186,6 +186,11 @@ export const DeliveryView = () => {
   const [selectedRiderMap, setSelectedRiderMap] = useState({});
   const [expandedOrders, setExpandedOrders] = useState({});
 
+  // Order Assignment Sidebar
+  const [sidebarOrder, setSidebarOrder] = useState(null);
+  const [sidebarRiderId, setSidebarRiderId] = useState('');
+  const [sidebarAssigning, setSidebarAssigning] = useState(false);
+
   // OTP Verification Modal State
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [targetOtpOrder, setTargetOtpOrder] = useState(null);
@@ -389,6 +394,20 @@ export const DeliveryView = () => {
     }
     assignRiderToOrder(orderId, rId);
     setSelectedRiderMap((prev) => ({ ...prev, [orderId]: '' }));
+  };
+
+  // Sidebar assign handler
+  const handleSidebarAssign = async () => {
+    if (!sidebarOrder || !sidebarRiderId) {
+      addToast('Select Rider', 'Please choose a rider first.', 'error');
+      return;
+    }
+    setSidebarAssigning(true);
+    await assignRiderToOrder(sidebarOrder.id || sidebarOrder.orderId, sidebarRiderId);
+    setSidebarAssigning(false);
+    setSidebarOrder(null);
+    setSidebarRiderId('');
+    addToast('Rider Assigned 🛵', 'Courier has been dispatched to the order.');
   };
 
   const handleCopyText = (text, label) => {
@@ -750,376 +769,364 @@ export const DeliveryView = () => {
       </div>
 
       {/* ===================================================================== */}
-      {/* SUB-VIEW 1: ORDER DISPATCH QUEUE                                      */}
+      {/* SUB-VIEW 1: ORDER DISPATCH QUEUE (Table + Sidebar)                    */}
       {/* ===================================================================== */}
       {activeSubTab === 'queue' && (
         <div className="space-y-4">
-          
-          {/* Header Bar */}
-          <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="font-black text-base text-slate-900 tracking-tight flex items-center gap-2">
-                <span>Active Customer Orders Dispatch Queue</span>
-                <span className="text-xs bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-bold">
-                  Live Feed
-                </span>
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Review verified customer delivery addresses and assign an available on-duty courier from your fleet.
-              </p>
-            </div>
+
+          {/* Top Bar matching fleet style */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <h1 className="font-serif text-2xl font-bold text-stone-900 tracking-tight">
+              Order Dispatch Queue
+            </h1>
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setQueueFilter('active')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  queueFilter === 'active'
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                Ready for Courier ({pendingDispatches.length})
+              <button type="button" onClick={() => setQueueFilter('active')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${queueFilter === 'active' ? 'bg-stone-900 text-white border-stone-900' : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'}`}>
+                Active ({pendingDispatches.length})
               </button>
-              <button
-                type="button"
-                onClick={() => setQueueFilter('delivered')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  queueFilter === 'delivered'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                Delivered Records ({completedDeliveries.length})
+              <button type="button" onClick={() => setQueueFilter('delivered')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${queueFilter === 'delivered' ? 'bg-emerald-700 text-white border-emerald-700' : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'}`}>
+                Delivered ({completedDeliveries.length})
               </button>
-              <button
-                type="button"
-                onClick={() => setQueueFilter('all')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  queueFilter === 'all'
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
+              <button type="button" onClick={() => setQueueFilter('all')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${queueFilter === 'all' ? 'bg-stone-900 text-white border-stone-900' : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'}`}>
                 All ({allOrdersList.length})
               </button>
             </div>
           </div>
 
-          {queueOrders.length === 0 ? (
-            <div className="bg-gradient-to-b from-white to-slate-50 rounded-3xl p-12 text-center border-2 border-dashed border-slate-200 shadow-xs space-y-3">
-              <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-3xl shadow-xs">
-                📦
-              </div>
-              <div className="space-y-1">
-                <h4 className="font-black text-base text-slate-900">
-                  {queueFilter === 'delivered' ? 'No Delivered Records in this View' : 'No Orders in Dispatch Queue'}
-                </h4>
-                <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  {queueFilter === 'active' && completedDeliveries.length > 0 ? (
-                    <span>All active dispatches are completed! You can view past fulfilled orders in Delivered Records.</span>
-                  ) : (
-                    <span>When customers place orders at checkout, they will immediately appear here for address verification and rider assignment.</span>
+          {/* Main layout: Order Table + Sidebar */}
+          <div className={`flex gap-5 items-start transition-all ${sidebarOrder ? 'flex-col lg:flex-row' : ''}`}>
+
+            {/* ── ORDER TABLE ── */}
+            <div className={`flex-1 min-w-0 bg-white rounded-3xl border border-stone-200/90 shadow-xs overflow-hidden ${sidebarOrder ? 'lg:max-w-[calc(100%-380px)]' : 'w-full'}`}>
+              {queueOrders.length === 0 ? (
+                <div className="p-12 text-center space-y-3">
+                  <div className="w-14 h-14 rounded-2xl bg-stone-100 flex items-center justify-center mx-auto text-3xl">📦</div>
+                  <h4 className="font-bold text-base text-stone-800">
+                    {queueFilter === 'delivered' ? 'No delivered orders yet' : 'No orders in queue'}
+                  </h4>
+                  <p className="text-xs text-stone-400 max-w-xs mx-auto">
+                    {queueFilter === 'active' && completedDeliveries.length > 0
+                      ? 'All dispatches complete. View past records below.'
+                      : 'Orders placed by customers will appear here for rider assignment.'}
+                  </p>
+                  {completedDeliveries.length > 0 && queueFilter === 'active' && (
+                    <button type="button" onClick={() => setQueueFilter('delivered')}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-xs">
+                      <CheckCircle2 className="w-4 h-4" />
+                      View Delivered Orders ({completedDeliveries.length}) →
+                    </button>
                   )}
-                </p>
-                {completedDeliveries.length > 0 && queueFilter === 'active' && (
-                  <button
-                    type="button"
-                    onClick={() => setQueueFilter('delivered')}
-                    className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-xs"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>View Delivered Orders ({completedDeliveries.length}) →</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {queueOrders.map((order) => {
-                const orderId = order.id || order.orderId;
-                const cleanId = String(orderId).replace(/^#/, '');
-                const customerName = order.customerName || order.customer || 'Valued Customer';
-                const customerPhone = order.customerPhone || order.phone || '+92 300 1234567';
-                const orderType = order.orderType || (order.table ? 'DINE-IN' : 'DELIVERY');
-                const items = Array.isArray(order.rawItems) && order.rawItems.length > 0
-                  ? order.rawItems
-                  : Array.isArray(order.items) && order.items.length > 0
-                  ? order.items
-                  : Array.isArray(order.orderItems) && order.orderItems.length > 0
-                  ? order.orderItems
-                  : [{ name: 'Grocery Package', quantity: 1, price: order.totalAmount || order.totalPrice || order.total || 810 }];
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-stone-100 bg-white">
+                        <th className="py-4 px-6 text-[11px] font-black uppercase tracking-wider text-stone-400">ORDER</th>
+                        <th className="py-4 px-4 text-[11px] font-black uppercase tracking-wider text-stone-400">CUSTOMER</th>
+                        <th className="py-4 px-4 text-[11px] font-black uppercase tracking-wider text-stone-400 hidden md:table-cell">ADDRESS</th>
+                        <th className="py-4 px-4 text-[11px] font-black uppercase tracking-wider text-stone-400 text-center">AMOUNT</th>
+                        <th className="py-4 px-4 text-[11px] font-black uppercase tracking-wider text-stone-400">STATUS</th>
+                        <th className="py-4 px-6 text-[11px] font-black uppercase tracking-wider text-stone-400">RIDER / ACTION</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100 text-xs">
+                      {queueOrders.map((order) => {
+                        const orderId = order.id || order.orderId;
+                        const cleanId = String(orderId).replace(/^#/, '');
+                        const customerName = order.customerName || order.customer || 'Customer';
+                        const customerPhone = order.customerPhone || order.phone || '—';
+                        const address = order.address || order.shippingAddress?.address || '—';
+                        const city = order.city || order.shippingAddress?.city || '';
+                        const amount = Number(order.totalAmount || order.totalPrice || order.total || 0);
+                        const statusRaw = (order.status || 'Pending').toLowerCase();
+                        const isDelivered = statusRaw === 'delivered';
+                        const isDispatched = ['dispatched', 'out for delivery', 'arrived at customer'].includes(statusRaw);
+                        const isReady = ['ready', 'ready for dispatch'].includes(statusRaw);
+                        const isSelected = sidebarOrder && (sidebarOrder.id || sidebarOrder.orderId) === orderId;
 
-                const eligibleRiders = getEligibleRidersForOrder ? getEligibleRidersForOrder(order) : [];
+                        const statusLabel = isDelivered ? 'Delivered'
+                          : statusRaw === 'out for delivery' ? 'In Transit'
+                          : statusRaw === 'arrived at customer' ? 'Arrived'
+                          : isDispatched ? 'Dispatched'
+                          : isReady ? 'Ready'
+                          : 'Pending';
 
-                // Match order branch / area from available store branches
-                const orderBranch = availableBranches.find(
-                  (b) => (b.id || b._id) === order.branchId || b.name === order.branchName
-                ) || availableBranches.find((b) => b.city?.toLowerCase() === order.city?.toLowerCase()) || currentBranch || availableBranches[0];
+                        const statusClass = isDelivered
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                          : isDispatched
+                          ? 'bg-sky-100 text-sky-800 border-sky-200'
+                          : isReady
+                          ? 'bg-amber-100 text-amber-800 border-amber-200'
+                          : 'bg-stone-100 text-stone-600 border-stone-200';
 
-                // Filter riders by order's added & available branch / area
-                const branchMatchedRiders = eligibleRiders.filter((r) => {
-                  if (order.branchId && r.branchId === order.branchId) return true;
-                  if (orderBranch?.name && (
-                    (r.branchName && r.branchName.toLowerCase() === orderBranch.name.toLowerCase()) ||
-                    (r.zone && r.zone.toLowerCase() === orderBranch.name.toLowerCase()) ||
-                    (r.region && r.region.toLowerCase().includes(orderBranch.name.toLowerCase()))
-                  )) return true;
-                  return false;
-                });
-
-                const ridersToChoose = branchMatchedRiders.length > 0 ? branchMatchedRiders : eligibleRiders;
-                const isUnassigned = !order.assignedRider;
-                const statusRaw = (order.status || 'Ready for Dispatch').toLowerCase();
-                const isReady = ['ready', 'ready for dispatch', 'ready(dispatched)'].includes(statusRaw);
-                const isDispatched = ['dispatched', 'out for delivery', 'delivered'].includes(statusRaw);
-
-                // Status badge text
-                const statusBadgeText = isReady
-                  ? 'READY'
-                  : statusRaw === 'out for delivery'
-                  ? 'IN TRANSIT'
-                  : statusRaw === 'arrived at customer'
-                  ? 'ARRIVED'
-                  : isDispatched
-                  ? 'DISPATCHED'
-                  : 'PENDING';
-
-                return (
-                  <article
-                    key={orderId}
-                    className="bg-white rounded-2xl sm:rounded-3xl border border-[#d1d5db] shadow-xs hover:shadow-md transition-all overflow-hidden border-t-4 border-t-[#059669] flex flex-col justify-between"
-                  >
-                    <div className="p-4 sm:p-5 space-y-3">
-                      {/* TOP ROW: Order Code, Customer Info & Timer / Status Pill */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 font-mono tracking-tight leading-none">
-                            #{cleanId}
-                          </h2>
-                          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1.5 flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[#059669] font-black">{orderType}</span>
-                            <span>-</span>
-                            <span className="text-slate-800">{customerName}</span>
-                          </div>
-                          <div className="text-xs text-slate-400 font-mono mt-0.5 flex items-center gap-1">
-                            <Phone className="w-3 h-3 text-slate-400 shrink-0" />
-                            <span>{customerPhone}</span>
-                          </div>
-                        </div>
-
-                        {/* Right: Status Pill & Elapsed Timer Box */}
-                        <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          <span className={`text-[10px] uppercase tracking-wider font-black px-2.5 py-0.5 rounded-full border ${
-                            isReady
-                              ? 'text-emerald-900 bg-[#ecfdf5] border-[#a7f3d0]'
-                              : isDispatched
-                              ? 'text-sky-900 bg-sky-50 border-sky-200'
-                              : 'text-amber-900 bg-amber-50 border-amber-200'
-                          }`}>
-                            {statusBadgeText}
-                          </span>
-                          <ElapsedTimer createdAt={order.createdAt} />
-                        </div>
-                      </div>
-
-                      {/* ITEMS ROW-WISE LIST (Exact like Pickup Staff) */}
-                      <div className="space-y-1.5 pt-1.5 border-t border-[#e2e8f0]">
-                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
-                          <span className="flex items-center gap-1">
-                            <Package className="w-3.5 h-3.5 text-[#059669]" />
-                            <span>Package Items ({items.length})</span>
-                          </span>
-                          <span className="text-[#059669] font-mono text-[10px] font-semibold">
-                            {order.deliverySlot || 'Express 10-15m'}
-                          </span>
-                        </div>
-
-                        <div className="space-y-1 max-h-24 overflow-y-auto no-scrollbar bg-[#f8fafc] p-2 rounded-xl border border-[#e2e8f0]">
-                          {items.map((item, idx) => {
-                            const qty = item.quantity || item.qty || 1;
-                            const name = item.name || item.productName || item.title || 'Grocery Item';
-                            return (
-                              <div key={idx} className="flex items-center justify-between text-xs py-0.5">
-                                <span className="font-bold text-slate-800 truncate">
-                                  <span className="text-[#059669] font-black mr-1.5">{qty}*</span>
-                                  <span>{name}</span>
-                                </span>
-                                <span className="text-slate-400 font-mono text-[11px] shrink-0 ml-2">
-                                  PKR {item.price || 0}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* DESTINATION ADDRESS (Compact) */}
-                      <div className="bg-[#f8fafc] p-2.5 rounded-xl border border-[#e2e8f0] text-xs space-y-1">
-                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-[#059669] shrink-0" />
-                            <span>Destination • <strong className="text-slate-700">{order.city || 'Lahore'}</strong></span>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyText(order.address || 'Standard Address', 'Address')}
-                            className="text-[#059669] hover:underline flex items-center gap-0.5 cursor-pointer font-bold text-[10px]"
+                        return (
+                          <tr
+                            key={orderId}
+                            onClick={() => {
+                              if (isDelivered) return;
+                              setSidebarOrder(isSelected ? null : order);
+                              setSidebarRiderId(order.assignedRider?.id || '');
+                            }}
+                            className={`transition-colors cursor-pointer ${isSelected ? 'bg-amber-50 border-l-4 border-l-amber-500' : 'hover:bg-stone-50/60'}`}
                           >
-                            <Copy className="w-2.5 h-2.5" />
-                            <span>Copy</span>
-                          </button>
-                        </div>
-                        <p className="text-xs font-semibold text-slate-800 line-clamp-1 leading-tight">
-                          {order.address || order.shippingAddress?.address || 'Customer Delivery Address, Pakistan'}
-                        </p>
-                      </div>
-
-                      {/* RIDER ASSIGNMENT SECTION */}
-                      <div className="pt-1.5 border-t border-[#e2e8f0] space-y-1.5">
-                        {order.assignedRider ? (
-                          <div className="bg-[#ecfdf5] border border-[#a7f3d0] rounded-xl p-2.5 flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-base shrink-0">🛵</span>
-                              <div className="min-w-0">
-                                <span className="text-[9px] text-[#059669] font-black uppercase block leading-none">Assigned Courier</span>
-                                <span className="font-bold text-slate-900 text-xs truncate block">{order.assignedRider.name}</span>
-                              </div>
-                            </div>
-                            <a
-                              href={`tel:${order.assignedRider.phone}`}
-                              className="px-2.5 py-1 bg-white hover:bg-[#d1fae5] text-[#059669] border border-[#a7f3d0] rounded-lg text-[10px] font-bold flex items-center gap-1 transition shrink-0"
-                            >
-                              <Phone className="w-2.5 h-2.5" />
-                              <span>Call</span>
-                            </a>
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
-                              <span>Assign Fleet Courier:</span>
-                              <span className="text-[#059669]">
-                                {branchMatchedRiders.length > 0
-                                  ? `${branchMatchedRiders.length} in ${orderBranch?.name || 'branch'}`
-                                  : `${eligibleRiders.length} available`}
+                            {/* ORDER ID */}
+                            <td className="py-4 px-6">
+                              <span className="font-mono font-black text-stone-900 block text-sm">#{cleanId}</span>
+                              <span className="text-[10px] text-stone-400 font-medium">
+                                {order.createdAt ? new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
                               </span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <select
-                                value={selectedRiderMap[orderId] || ''}
-                                onChange={(e) => setSelectedRiderMap((prev) => ({ ...prev, [orderId]: e.target.value }))}
-                                disabled={order.status === 'Delivered'}
-                                className="flex-1 bg-white border border-[#cbd5e1] rounded-xl px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
-                              >
-                                <option value="">
-                                  {branchMatchedRiders.length > 0
-                                    ? `Choose rider (${orderBranch?.name || 'Branch'})...`
-                                    : 'Choose rider...'}
-                                </option>
-                                {ridersToChoose.map((r) => {
-                                  const isExact = branchMatchedRiders.some((bm) => bm.id === r.id);
-                                  return (
-                                    <option key={r.id} value={r.id}>
-                                      {isExact ? '🟢 ' : '📍 '}
-                                      {r.name} ({r.vehicleType || '🏍️'} • {r.branchName || r.zone || r.region || 'Courier'})
-                                    </option>
-                                  );
-                                })}
-                              </select>
-                              <button
-                                type="button"
-                                onClick={() => handleAssignRiderToOrder(orderId)}
-                                disabled={!selectedRiderMap[orderId] || order.status === 'Delivered'}
-                                className="px-3.5 py-1.5 bg-[#059669] hover:bg-[#047857] disabled:opacity-40 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-2xs shrink-0"
-                              >
-                                Assign
-                              </button>
-                            </div>
+                            </td>
+
+                            {/* CUSTOMER */}
+                            <td className="py-4 px-4">
+                              <span className="font-semibold text-stone-900 block">{customerName}</span>
+                              <span className="text-[10px] text-stone-400 font-mono">{customerPhone}</span>
+                            </td>
+
+                            {/* ADDRESS */}
+                            <td className="py-4 px-4 hidden md:table-cell max-w-[200px]">
+                              <span className="text-stone-700 block truncate" title={address}>{address}</span>
+                              {city && <span className="text-[10px] text-stone-400 block">{city}</span>}
+                            </td>
+
+                            {/* AMOUNT */}
+                            <td className="py-4 px-4 text-center">
+                              <span className="font-black text-stone-900 font-mono block">Rs. {amount.toLocaleString()}</span>
+                              <span className="text-[10px] text-stone-400">COD</span>
+                            </td>
+
+                            {/* STATUS */}
+                            <td className="py-4 px-4">
+                              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${statusClass}`}>
+                                <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                                {statusLabel}
+                              </span>
+                            </td>
+
+                            {/* RIDER / ACTION */}
+                            <td className="py-4 px-6">
+                              {order.assignedRider ? (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-base">🛵</span>
+                                  <div>
+                                    <span className="font-semibold text-stone-900 block">{order.assignedRider.name}</span>
+                                    {isDelivered
+                                      ? <span className="text-[10px] text-emerald-700 font-bold">✓ Delivered</span>
+                                      : <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); setSidebarOrder(order); setSidebarRiderId(order.assignedRider?.id || ''); }}
+                                          className="text-[10px] text-amber-700 font-bold hover:underline cursor-pointer"
+                                        >Reassign →</button>
+                                    }
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setSidebarOrder(order); setSidebarRiderId(''); }}
+                                  className="px-3 py-1.5 bg-[#ca8a04] hover:bg-[#b47b04] text-white rounded-lg text-[11px] font-bold cursor-pointer transition shadow-xs flex items-center gap-1"
+                                >
+                                  <span>Assign Rider</span>
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* ── ORDER ASSIGNMENT SIDEBAR ── */}
+            {sidebarOrder && (() => {
+              const o = sidebarOrder;
+              const oId = o.id || o.orderId;
+              const items = Array.isArray(o.rawItems) && o.rawItems.length > 0 ? o.rawItems
+                : Array.isArray(o.items) && o.items.length > 0 ? o.items
+                : Array.isArray(o.orderItems) && o.orderItems.length > 0 ? o.orderItems
+                : [];
+              const amount = Number(o.totalAmount || o.totalPrice || o.total || 0);
+              const eligibleRiders = getEligibleRidersForOrder ? getEligibleRidersForOrder(o) : [];
+              const allAvailable = eligibleRiders.length > 0 ? eligibleRiders : storeRiders;
+
+              return (
+                <aside className="w-full lg:w-[360px] shrink-0 bg-white rounded-3xl border border-stone-200/90 shadow-xs overflow-hidden flex flex-col animate-in slide-in-from-right duration-200">
+
+                  {/* Sidebar Header */}
+                  <div className="px-5 py-4 bg-stone-900 text-white flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Assign Rider</p>
+                      <h3 className="font-black text-base tracking-tight">Order #{String(oId).replace(/^#/, '')}</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSidebarOrder(null)}
+                      className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center cursor-pointer transition"
+                      aria-label="Close"
+                    >
+                      <X className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-5 space-y-5">
+
+                    {/* Customer Info */}
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">Customer</p>
+                      <div className="bg-stone-50 rounded-2xl p-3 border border-stone-100 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-xl bg-stone-200 flex items-center justify-center text-sm font-black text-stone-600">
+                            {(o.customerName || o.customer || 'C')[0].toUpperCase()}
                           </div>
+                          <div>
+                            <p className="font-bold text-stone-900 text-sm">{o.customerName || o.customer || 'Customer'}</p>
+                            <p className="text-[11px] text-stone-400 font-mono">{o.customerPhone || o.phone || '—'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-1.5 pt-1 border-t border-stone-100">
+                          <MapPin className="w-3.5 h-3.5 text-stone-400 mt-0.5 shrink-0" />
+                          <p className="text-xs text-stone-700 leading-snug">
+                            {o.address || o.shippingAddress?.address || 'Address not set'}
+                            {(o.city || o.shippingAddress?.city) && <span className="text-stone-400">, {o.city || o.shippingAddress?.city}</span>}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Order Items */}
+                    {items.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">Items ({items.length})</p>
+                        <div className="bg-stone-50 rounded-2xl border border-stone-100 divide-y divide-stone-100 overflow-hidden max-h-36 overflow-y-auto">
+                          {items.map((it, idx) => (
+                            <div key={idx} className="flex items-center justify-between px-3 py-2 text-xs">
+                              <span className="font-semibold text-stone-800 truncate">
+                                <span className="text-amber-700 font-black mr-1">{it.quantity || it.qty || 1}×</span>
+                                {it.name || it.productName || 'Item'}
+                              </span>
+                              <span className="text-stone-400 font-mono shrink-0 ml-2">Rs. {it.price || 0}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Total */}
+                    <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+                      <span className="text-xs font-bold text-amber-800">Order Total</span>
+                      <span className="font-black text-amber-900 font-mono">Rs. {amount.toLocaleString()}</span>
+                    </div>
+
+                    {/* Current Rider */}
+                    {o.assignedRider && (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3 flex items-center gap-2">
+                        <span className="text-lg">🛵</span>
+                        <div>
+                          <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Currently Assigned</p>
+                          <p className="font-bold text-emerald-900 text-sm">{o.assignedRider.name}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Rider Selection */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">
+                        {o.assignedRider ? 'Reassign Rider' : 'Select Rider'}
+                        <span className="ml-2 text-emerald-700 normal-case font-bold">{allAvailable.length} available</span>
+                      </p>
+
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {allAvailable.length === 0 ? (
+                          <p className="text-xs text-stone-400 italic p-3 bg-stone-50 rounded-xl">No riders available right now.</p>
+                        ) : (
+                          allAvailable.map((r) => {
+                            const rActive = r.status === 'Active' || r.status === 'On-Duty';
+                            const isChosen = sidebarRiderId === r.id;
+                            const activeOrders = (allOrdersList || []).filter((ord) => {
+                              const s = String(ord.status || '').toLowerCase();
+                              if (s === 'delivered' || s === 'completed') return false;
+                              const ar = ord.assignedRider;
+                              return ar && (ar.id === r.id || ar.name === r.name);
+                            }).length;
+
+                            return (
+                              <button
+                                key={r.id}
+                                type="button"
+                                onClick={() => setSidebarRiderId(r.id)}
+                                className={`w-full text-left px-3.5 py-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                                  isChosen
+                                    ? 'bg-stone-900 border-stone-900 text-white'
+                                    : 'bg-white border-stone-200 hover:border-stone-400 text-stone-800'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0 ${isChosen ? 'bg-white/20' : 'bg-stone-100'}`}>
+                                    🛵
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className={`font-bold text-sm truncate ${isChosen ? 'text-white' : 'text-stone-900'}`}>{r.name}</p>
+                                    <p className={`text-[10px] truncate ${isChosen ? 'text-stone-300' : 'text-stone-400'}`}>{r.region || r.zone || 'General'}</p>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className={`text-[10px] font-black ${isChosen ? 'text-stone-300' : 'text-stone-500'}`}>{activeOrders}/5</p>
+                                  <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                    isChosen ? 'bg-white/20 text-white' : rActive ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500'
+                                  }`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${rActive ? 'bg-emerald-500' : 'bg-stone-400'}`}></span>
+                                    {rActive ? 'Active' : 'Inactive'}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })
                         )}
                       </div>
                     </div>
+                  </div>
 
-                    {/* BOTTOM ROW: Price on Left, Action Button on Right (Exact match to Pickup Staff) */}
-                    <div className="p-3.5 sm:p-4 bg-[#f8fafc] border-t border-[#e2e8f0] flex items-center justify-between gap-3">
-                      <div>
-                        <div className="font-mono font-black text-slate-900 text-base sm:text-lg leading-tight">
-                          PKR {Number(order.totalAmount || order.totalPrice || order.total || 810).toLocaleString()}
-                        </div>
-                        <span className="text-[10px] font-semibold text-slate-500 block">
-                          {order.payment === 'Cash on Delivery' || !order.payment ? '💵 COD' : `💳 ${order.payment}`}
-                        </span>
-                      </div>
-
-                      {adminRole === 'rider' ? (
-                        <div className="flex items-center gap-1.5">
-                          {order.status === 'Ready for Dispatch' && (
-                            <button
-                              type="button"
-                              onClick={() => updateDeliveryOrderStatus(orderId, 'Dispatched')}
-                              className="bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs px-3.5 py-1.5 rounded-xl transition cursor-pointer shadow-2xs"
-                            >
-                              Pick Up Parcel
-                            </button>
-                          )}
-                          {order.status === 'Dispatched' && (
-                            <button
-                              type="button"
-                              onClick={() => updateDeliveryOrderStatus(orderId, 'Out for Delivery')}
-                              className="bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs px-3.5 py-1.5 rounded-xl transition cursor-pointer shadow-2xs"
-                            >
-                              Start Delivery
-                            </button>
-                          )}
-                          {order.status === 'Out for Delivery' && (
-                            <button
-                              type="button"
-                              onClick={() => updateDeliveryOrderStatus(orderId, 'Arrived at Customer')}
-                              className="bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl transition cursor-pointer shadow-2xs"
-                            >
-                              Arrived
-                            </button>
-                          )}
-                          {order.status === 'Arrived at Customer' && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenOtpModal(order)}
-                              className="bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs px-3.5 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 shadow-2xs"
-                            >
-                              <CheckCircle2 size={14} />
-                              <span>Verify OTP</span>
-                            </button>
-                          )}
-                        </div>
+                  {/* Sidebar Footer */}
+                  <div className="px-5 py-4 border-t border-stone-100 bg-stone-50 space-y-2">
+                    <button
+                      type="button"
+                      onClick={handleSidebarAssign}
+                      disabled={!sidebarRiderId || sidebarAssigning}
+                      className="w-full py-3 bg-[#ca8a04] hover:bg-[#b47b04] disabled:opacity-40 text-white rounded-2xl font-black text-sm cursor-pointer transition shadow-sm flex items-center justify-center gap-2"
+                    >
+                      {sidebarAssigning ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          <span>Assigning…</span>
+                        </>
                       ) : (
-                        <div className="flex items-center gap-1.5">
-                          {(order.status === 'Out for Delivery' || order.status === 'Arrived at Customer') && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenOtpModal(order)}
-                              className="bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 shadow-2xs"
-                            >
-                              <CheckCircle2 size={13} />
-                              <span>Verify OTP</span>
-                            </button>
-                          )}
-                          {order.status !== 'Out for Delivery' && order.status !== 'Arrived at Customer' && (
-                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border ${
-                              order.assignedRider
-                                ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]'
-                                : 'bg-white text-slate-500 border-[#d1d5db]'
-                            }`}>
-                              {order.assignedRider ? '● Rider Assigned' : '○ Awaiting Rider'}
-                            </span>
-                          )}
-                        </div>
+                        <>
+                          <span>🛵</span>
+                          <span>{o.assignedRider ? 'Reassign Rider' : 'Assign Rider to Order'}</span>
+                        </>
                       )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
+                    </button>
+                    {(o.status === 'Out for Delivery' || o.status === 'Arrived at Customer') && (
+                      <button
+                        type="button"
+                        onClick={() => { handleOpenOtpModal(o); setSidebarOrder(null); }}
+                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-sm cursor-pointer transition flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Verify OTP — Mark Delivered
+                      </button>
+                    )}
+                  </div>
+                </aside>
+              );
+            })()}
 
+          </div>{/* end main layout */}
         </div>
       )}
 
