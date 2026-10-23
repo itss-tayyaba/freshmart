@@ -157,6 +157,16 @@ const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
 
   const branchId = remoteOrder.branchId || localOrder.branchId || defaultBranchId;
   const branchName = remoteOrder.branchName || localOrder.branchName || defaultBranchName;
+  const isDelivered =
+    remoteOrder.status === 'Delivered' ||
+    localOrder.status === 'Delivered' ||
+    Boolean(remoteOrder.isDelivered) ||
+    Boolean(localOrder.isDelivered) ||
+    Number(remoteOrder.fulfillmentStage) >= 4 ||
+    Number(localOrder.fulfillmentStage) >= 4;
+
+  const resolvedStatus = isDelivered ? 'Delivered' : (remoteOrder.status || localOrder.status || 'Pending');
+
   return sanitizeOrder({
     ...localOrder,
     ...remoteOrder,
@@ -175,24 +185,46 @@ const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
     tenantName,
     branchId,
     branchName,
-    status: remoteOrder.status || localOrder.status || 'Pending',
+    status: resolvedStatus,
+    isDelivered,
+    fulfillmentStage: isDelivered ? 4 : (remoteOrder.fulfillmentStage || localOrder.fulfillmentStage || 1),
+    deliveredAt: remoteOrder.deliveredAt || localOrder.deliveredAt || (isDelivered ? new Date().toISOString() : null),
+    isPaid: isDelivered ? true : (remoteOrder.isPaid || localOrder.isPaid || false),
+    paymentStatus: isDelivered ? 'Paid' : (remoteOrder.paymentStatus || localOrder.paymentStatus || 'Pending'),
+    assignedRider: remoteOrder.assignedRider || localOrder.assignedRider || null,
+    pickupStaffId: remoteOrder.pickupStaffId || localOrder.pickupStaffId || null,
+    pickupStaffName: remoteOrder.pickupStaffName || localOrder.pickupStaffName || null,
     createdAt: remoteOrder.createdAt || localOrder.createdAt || new Date().toISOString()
   });
 };
 
 const mergeApiOrders = (remoteOrders, localOrders, role, user) => {
-  const localById = new Map((localOrders || []).map((order) => [String(order.id || order.orderId || order._id), order]));
+  const localById = new Map();
+  (localOrders || []).forEach((order) => {
+    if (!order) return;
+    const rawId = String(order.id || order.orderId || order._id || '').trim();
+    const bareId = rawId.replace(/^#/, '').toLowerCase().trim();
+    if (bareId) localById.set(bareId, order);
+    if (rawId) localById.set(rawId, order);
+  });
+
   const remoteIds = new Set();
   const mergedRemote = (remoteOrders || []).map((order) => {
-    const id = String(order.orderId || order.id || order._id);
-    remoteIds.add(id);
-    return sanitizeOrder(normalizeApiOrder(order, localById.get(id)));
+    const rawId = String(order.orderId || order.id || order._id || '').trim();
+    const bareId = rawId.replace(/^#/, '').toLowerCase().trim();
+    remoteIds.add(rawId);
+    remoteIds.add(bareId);
+    const localMatch = localById.get(bareId) || localById.get(rawId) || {};
+    return sanitizeOrder(normalizeApiOrder(order, localMatch));
   });
+
   const remainingLocal = (localOrders || []).filter((order) => {
-    const id = String(order.id || order.orderId || order._id);
-    if (!id || remoteIds.has(id)) return false;
+    const rawId = String(order.id || order.orderId || order._id || '').trim();
+    const bareId = rawId.replace(/^#/, '').toLowerCase().trim();
+    if (!rawId || remoteIds.has(rawId) || remoteIds.has(bareId)) return false;
     return true;
   }).map(sanitizeOrder);
+
   return [...mergedRemote, ...remainingLocal];
 };
 

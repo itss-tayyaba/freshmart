@@ -332,7 +332,11 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       list = list.filter((o) => !o.branchId || o.branchId === user.branchId);
     }
 
-    return list;
+    return list.sort((a, b) => {
+      const timeA = new Date(a.deliveredAt || a.fulfillmentUpdatedAt || a.createdAt || 0).getTime();
+      const timeB = new Date(b.deliveredAt || b.fulfillmentUpdatedAt || b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
   }, [customerOrders, adminOrders, currentTenant, user?.tenantId, user?.branchId, user?.role, currentBranchFilter, tenantBranches]);
 
   // Statistics KPI counts
@@ -1121,10 +1125,17 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
 
                               if (isCompleted) {
                                 return (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-[10px] font-bold">
-                                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
-                                    <span>Completed</span>
-                                  </span>
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-md text-[10px] font-black shadow-2xs">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                                      <span>Delivered & Saved</span>
+                                    </span>
+                                    {ord.deliveredAt && (
+                                      <span className="text-[9px] text-emerald-700 font-semibold pl-1 font-mono">
+                                        {new Date(ord.deliveredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                    )}
+                                  </div>
                                 );
                               }
 

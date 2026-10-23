@@ -61,19 +61,22 @@ export const DashboardView = ({ onNavigateModule }) => {
 
   // Use only live records for operational figures; absent data stays at zero.
   const tenantOrders = useMemo(() => {
-    const combined = [...(customerOrders || []), ...(adminOrders || [])].map(sanitizeOrder);
+    const combined = [...(adminOrders || []), ...(customerOrders || [])].map(sanitizeOrder);
     const uniqueMap = new Map();
     combined.forEach((ord) => {
       if (ord && (ord.id || ord.orderId || ord._id)) {
         const bareKey = String(ord.id || ord.orderId || ord._id).replace(/^#/, '').trim().toLowerCase();
-        if (!uniqueMap.has(bareKey)) {
-          uniqueMap.set(bareKey, ord);
+        const isDelivered = ord.status === 'Delivered' || ord.isDelivered || Number(ord.fulfillmentStage) >= 4;
+        const existing = uniqueMap.get(bareKey);
+        if (!existing) {
+          uniqueMap.set(bareKey, isDelivered ? { ...ord, status: 'Delivered', isDelivered: true, fulfillmentStage: 4 } : ord);
+        } else if (isDelivered) {
+          uniqueMap.set(bareKey, { ...existing, ...ord, status: 'Delivered', isDelivered: true, fulfillmentStage: 4 });
         }
       }
     });
     const all = Array.from(uniqueMap.values());
-    if (!tenantKey) return all;
-    return all.filter((order) => {
+    const list = !tenantKey ? all : all.filter((order) => {
       const orderTenant =
         order.tenantId ||
         order.companyId ||
@@ -125,6 +128,12 @@ export const DashboardView = ({ onNavigateModule }) => {
       }
 
       return isSameTenant(orderTenant, tenantKey);
+    });
+
+    return list.sort((a, b) => {
+      const timeA = new Date(a.deliveredAt || a.fulfillmentUpdatedAt || a.createdAt || 0).getTime();
+      const timeB = new Date(b.deliveredAt || b.fulfillmentUpdatedAt || b.createdAt || 0).getTime();
+      return timeB - timeA;
     });
   }, [customerOrders, adminOrders, tenantKey]);
   const tenantCustomers = useMemo(
@@ -897,12 +906,15 @@ export const DashboardView = ({ onNavigateModule }) => {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {tenantOrders.length > 0 ? (
-                  tenantOrders.slice(0, 5).map((ord) => {
+                  tenantOrders.slice(0, 8).map((ord) => {
+                    const isDelivered = ord.status === 'Delivered' || ord.isDelivered;
                     const statusColor =
-                      ord.status === 'Delivered'
-                        ? 'bg-emerald-100 text-emerald-800'
+                      isDelivered
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                         : ord.status === 'Processing' || ord.status === 'Packed'
                         ? 'bg-blue-100 text-blue-800'
+                        : ord.status === 'Out for Delivery'
+                        ? 'bg-purple-100 text-purple-800'
                         : 'bg-amber-100 text-amber-800';
 
                     return (
@@ -916,13 +928,13 @@ export const DashboardView = ({ onNavigateModule }) => {
                           {Number(ord.total || 0).toLocaleString()}
                         </td>
                         <td className="py-3 text-slate-500 font-medium">
-                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[10px] font-bold">
-                            {ord.paymentMethod || 'Cash on Delivery'}
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${isDelivered ? 'bg-emerald-50 text-emerald-700 font-black' : 'bg-slate-100 text-slate-700'}`}>
+                            {isDelivered ? 'PAID · ' : ''}{ord.paymentMethod || 'Cash on Delivery'}
                           </span>
                         </td>
                         <td className="py-3 text-right">
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${statusColor}`}>
-                            {ord.status || 'Pending'}
+                            {isDelivered ? 'Delivered ✅' : (ord.status || 'Pending')}
                           </span>
                         </td>
                       </tr>

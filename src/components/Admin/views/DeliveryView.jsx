@@ -348,6 +348,32 @@ export const DeliveryView = () => {
     });
   }, [allOrdersList, adminRole, user]);
 
+  const completedDeliveries = useMemo(() => {
+    return allOrdersList.filter((o) => {
+      const s = String(o.status || '').toLowerCase();
+      const isDel = s === 'delivered' || o.isDelivered || Number(o.fulfillmentStage) >= 4;
+      if (adminRole === 'rider') {
+        const assignedRiderId = o.assignedRider?.id || o.assignedRider?.riderId;
+        return (
+          assignedRiderId === (user?.riderId || user?.id) && isDel
+        );
+      }
+      return isDel;
+    }).sort((a, b) => {
+      const timeA = new Date(a.deliveredAt || a.fulfillmentUpdatedAt || a.createdAt || 0).getTime();
+      const timeB = new Date(b.deliveredAt || b.fulfillmentUpdatedAt || b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
+  }, [allOrdersList, adminRole, user]);
+
+  const [queueFilter, setQueueFilter] = useState('active'); // 'active' | 'delivered' | 'all'
+
+  const queueOrders = useMemo(() => {
+    if (queueFilter === 'delivered') return completedDeliveries;
+    if (queueFilter === 'all') return allOrdersList;
+    return pendingDispatches;
+  }, [queueFilter, completedDeliveries, allOrdersList, pendingDispatches]);
+
   const handleAssignRiderToOrder = (orderId, riderId) => {
     const rId = riderId || selectedRiderMap[orderId];
     if (!rId) {
@@ -676,10 +702,12 @@ export const DeliveryView = () => {
       {/* ===================================================================== */}
       <div className="bg-slate-900/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-800 shadow-md inline-flex flex-wrap items-center gap-1.5 text-xs font-bold">
         {(adminRole === 'rider' ? [
-          { id: 'queue', label: 'My Deliveries', icon: Package, count: pendingDispatches.length }
+          { id: 'queue', label: 'My Deliveries', icon: Package, count: pendingDispatches.length },
+          { id: 'delivered', label: 'Delivered Records', icon: CheckCircle2, count: completedDeliveries.length }
         ] : [
           { id: 'queue', label: 'Order Dispatch Queue', icon: Package, count: pendingDispatches.length },
-          { id: 'fleet', label: 'Riders Fleet Manager', icon: Bike, count: riders.length }
+          { id: 'delivered', label: 'Delivered / Completed Records', icon: CheckCircle2, count: completedDeliveries.length },
+          { id: 'fleet', label: 'Riders Fleet Manager', icon: Bike, count: storeRiders.length }
         ]).map((t) => {
           const Icon = t.icon;
           const isActive = activeSubTab === t.id;
@@ -730,28 +758,74 @@ export const DeliveryView = () => {
                 Review verified customer delivery addresses and assign an available on-duty courier from your fleet.
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-slate-700 bg-slate-100 px-3.5 py-1.5 rounded-xl">
-                Total: <strong className="text-emerald-700 font-mono">{pendingDispatches.length}</strong> Ready / Active Parcels
-              </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setQueueFilter('active')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  queueFilter === 'active'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Ready for Courier ({pendingDispatches.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setQueueFilter('delivered')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  queueFilter === 'delivered'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Delivered Records ({completedDeliveries.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setQueueFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  queueFilter === 'all'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                All ({allOrdersList.length})
+              </button>
             </div>
           </div>
 
-          {pendingDispatches.length === 0 ? (
+          {queueOrders.length === 0 ? (
             <div className="bg-gradient-to-b from-white to-slate-50 rounded-3xl p-12 text-center border-2 border-dashed border-slate-200 shadow-xs space-y-3">
               <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-3xl shadow-xs">
                 📦
               </div>
               <div className="space-y-1">
-                <h4 className="font-black text-base text-slate-900">No Orders in Dispatch Queue</h4>
+                <h4 className="font-black text-base text-slate-900">
+                  {queueFilter === 'delivered' ? 'No Delivered Records in this View' : 'No Orders in Dispatch Queue'}
+                </h4>
                 <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  When customers place orders at checkout, they will immediately appear here for address verification and rider assignment.
+                  {queueFilter === 'active' && completedDeliveries.length > 0 ? (
+                    <span>All active dispatches are completed! You can view past fulfilled orders in Delivered Records.</span>
+                  ) : (
+                    <span>When customers place orders at checkout, they will immediately appear here for address verification and rider assignment.</span>
+                  )}
                 </p>
+                {completedDeliveries.length > 0 && queueFilter === 'active' && (
+                  <button
+                    type="button"
+                    onClick={() => setQueueFilter('delivered')}
+                    className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-xs"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>View Delivered Orders ({completedDeliveries.length}) →</span>
+                  </button>
+                )}
               </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {pendingDispatches.map((order) => {
+              {queueOrders.map((order) => {
                 const orderId = order.id || order.orderId;
                 const cleanId = String(orderId).replace(/^#/, '');
                 const customerName = order.customerName || order.customer || 'Valued Customer';
@@ -1040,7 +1114,118 @@ export const DeliveryView = () => {
       )}
 
       {/* ===================================================================== */}
-      {/* SUB-VIEW 2: RIDER FLEET MANAGEMENT                                    */}
+      {/* SUB-VIEW 2: DELIVERED & COMPLETED ORDERS ARCHIVE                      */}
+      {/* ===================================================================== */}
+      {activeSubTab === 'delivered' && (
+        <div className="space-y-4">
+          <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="font-black text-base text-slate-900 tracking-tight flex items-center gap-2">
+                <span>Completed & Verified Deliveries Archive</span>
+                <span className="text-xs bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-bold">
+                  Permanent Store Records
+                </span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Full delivery logs for orders completed, verified via Customer Doorstep OTP, and collected.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-emerald-800 bg-emerald-50 border border-emerald-200 px-3.5 py-1.5 rounded-xl">
+                Total Delivered: <strong>{completedDeliveries.length}</strong> Orders
+              </span>
+            </div>
+          </div>
+
+          {completedDeliveries.length === 0 ? (
+            <div className="bg-white rounded-3xl p-12 text-center border-2 border-dashed border-slate-200 shadow-xs space-y-2">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl">
+                ✅
+              </div>
+              <h4 className="font-black text-base text-slate-900">No Delivered Orders Yet</h4>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                When riders verify customer delivery PINs or admins mark deliveries complete, the permanent audit records will remain archived here.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50/80 border-b border-slate-100 text-[10px] uppercase font-bold text-slate-400">
+                    <tr>
+                      <th className="py-3.5 pl-5">Order ID & Date</th>
+                      <th className="py-3.5">Customer & Phone</th>
+                      <th className="py-3.5">Delivery Address</th>
+                      <th className="py-3.5">Courier</th>
+                      <th className="py-3.5">Amount & Payment</th>
+                      <th className="py-3.5 pr-5 text-right">Verification Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {completedDeliveries.map((ord) => {
+                      const id = ord.id || ord.orderId;
+                      const customerName = ord.customerName || ord.customer || 'Customer';
+                      const customerPhone = ord.customerPhone || ord.phone || '—';
+                      const address = ord.address || ord.shippingAddress?.address || '—';
+                      const city = ord.city || ord.shippingAddress?.city || '';
+                      const riderName = ord.assignedRider?.name || 'Assigned Courier';
+                      const amount = Number(ord.total || ord.totalAmount || 0);
+
+                      return (
+                        <tr key={id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-4 pl-5">
+                            <span className="font-mono font-bold text-slate-900 block">#{String(id).replace(/^#/, '')}</span>
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              {ord.deliveredAt ? new Date(ord.deliveredAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Verified Delivery'}
+                            </span>
+                          </td>
+                          <td className="py-4">
+                            <span className="font-bold text-slate-900 block">{customerName}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">{customerPhone}</span>
+                          </td>
+                          <td className="py-4 max-w-[240px]">
+                            <span className="text-slate-700 block truncate" title={address}>{address}</span>
+                            {city && <span className="text-[10px] text-slate-400 block">{city}</span>}
+                          </td>
+                          <td className="py-4">
+                            <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                              <span>🛵</span>
+                              <span>{riderName}</span>
+                            </div>
+                            {ord.assignedRider?.vehicleNumber && (
+                              <span className="text-[10px] text-slate-400 font-mono block pl-5">{ord.assignedRider.vehicleNumber}</span>
+                            )}
+                          </td>
+                          <td className="py-4">
+                            <span className="font-black text-slate-900 block">Rs. {amount.toLocaleString()}</span>
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              PAID · {ord.paymentMethod || 'Cash on Delivery'}
+                            </span>
+                          </td>
+                          <td className="py-4 pr-5 text-right">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-300 font-black text-[11px] shadow-2xs">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                              <span>Delivered & Verified</span>
+                            </span>
+                            {ord.deliveryOtp && (
+                              <span className="text-[9px] text-emerald-800 font-mono block mt-1 font-bold">
+                                OTP: #{ord.deliveryOtp}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* SUB-VIEW 3: RIDER FLEET MANAGEMENT                                    */}
       {/* ===================================================================== */}
       {activeSubTab === 'fleet' && (
         <div className="space-y-5">

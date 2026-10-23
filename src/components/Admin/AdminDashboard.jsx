@@ -288,7 +288,7 @@ const StoreAdminConsole = () => {
       { label: 'Dashboard', icon: LayoutDashboard },
       { label: 'Products', icon: Package, badge: totalProductsCount > 0 ? totalProductsCount : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { label: 'Categories', icon: Layers },
-      { label: 'Orders', icon: ShoppingBag, badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-amber-500/20 text-amber-300' },
+      { label: 'Orders', icon: ShoppingBag, badge: pendingOrdersCount > 0 ? pendingOrdersCount : (unifiedTenantOrders.length > 0 ? `${unifiedTenantOrders.length}` : null), badgeColor: pendingOrdersCount > 0 ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300' },
       { label: 'Pickup Staff', icon: Boxes, badge: pendingPickupStaffCount > 0 ? pendingPickupStaffCount : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { label: 'Riders', icon: Truck, customName: 'Rider Fleet & Assignments' },
       { label: 'Customers', icon: Users },
