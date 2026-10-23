@@ -2753,11 +2753,16 @@ export const StoreProvider = ({ children }) => {
               merged.push(initR);
             }
           });
+          // Patch isGlobal flag onto stored seed riders so they show in all store dashboards
+          const seedIds = new Set((INITIAL_RIDERS || []).map((r) => r.id));
+          const mergedWithGlobal = merged.map((r) =>
+            seedIds.has(r.id) ? { ...r, isGlobal: true } : r
+          );
           try {
-            localStorage.setItem('freshmart_riders_v3', JSON.stringify(merged));
-            localStorage.setItem('freshmart_riders', JSON.stringify(merged));
+            localStorage.setItem('freshmart_riders_v3', JSON.stringify(mergedWithGlobal));
+            localStorage.setItem('freshmart_riders', JSON.stringify(mergedWithGlobal));
           } catch (e) {}
-          return merged;
+          return mergedWithGlobal;
         }
       }
     } catch (e) {}

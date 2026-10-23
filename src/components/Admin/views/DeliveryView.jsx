@@ -242,11 +242,15 @@ export const DeliveryView = () => {
   // Selected rider for mobile app simulator
   const [simulatedRiderId, setSimulatedRiderId] = useState(riders[0]?.id || '');
 
-  // Filter riders belonging strictly to active store tenant (preserves added riders)
+  // Filter riders - show all riders if no riders match the active tenant (fallback to all)
   const storeRiders = useMemo(() => {
     const tId = currentTenant?.id || user?.tenantId;
     if (!tId || adminRole === 'superadmin') return riders || [];
-    return (riders || []).filter((r) => !r.tenantId || isSameTenant(r.tenantId, tId) || r.isGlobal);
+    const tenantMatched = (riders || []).filter(
+      (r) => !r.tenantId || isSameTenant(r.tenantId, tId) || r.isGlobal
+    );
+    // Fallback: if no riders match this store's tenant, show all riders so fleet is never empty
+    return tenantMatched.length > 0 ? tenantMatched : (riders || []);
   }, [riders, currentTenant?.id, user?.tenantId, adminRole]);
 
   // Filter riders based on search and branch/zone
@@ -711,9 +715,9 @@ export const DeliveryView = () => {
           { id: 'queue', label: 'My Deliveries', icon: Package, count: pendingDispatches.length },
           { id: 'delivered', label: 'Delivered Records', icon: CheckCircle2, count: completedDeliveries.length }
         ] : [
+          { id: 'fleet', label: 'Riders Fleet Manager', icon: Bike, count: storeRiders.length },
           { id: 'queue', label: 'Order Dispatch Queue', icon: Package, count: pendingDispatches.length },
           { id: 'delivered', label: 'Delivered / Completed Records', icon: CheckCircle2, count: completedDeliveries.length },
-          { id: 'fleet', label: 'Riders Fleet Manager', icon: Bike, count: storeRiders.length }
         ]).map((t) => {
           const Icon = t.icon;
           const isActive = activeSubTab === t.id;

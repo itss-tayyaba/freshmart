@@ -293,6 +293,7 @@ export const INITIAL_PICKUP_STAFF = [
 ];
 
 // Initial Riders for each supermarket chain (Matching active fleet)
+// isGlobal: true allows these seed riders to appear in any store's fleet view
 export const INITIAL_RIDERS = [
   {
     id: 'RDR-HAMZA',
@@ -303,6 +304,7 @@ export const INITIAL_RIDERS = [
     password: 'rider123',
     tenantId: 'tenant-alfatah',
     tenantName: 'Al-Fatah Supermarket',
+    isGlobal: true,
     branchId: 'branch_af_fsd',
     branchName: 'Samanabad Hub',
     region: 'Samanabad',
@@ -323,6 +325,7 @@ export const INITIAL_RIDERS = [
     password: 'rider123',
     tenantId: 'tenant-alfatah',
     tenantName: 'Al-Fatah Supermarket',
+    isGlobal: true,
     branchId: 'branch_af_fsd',
     branchName: 'D-Ground Flagship Hub',
     region: 'Peoples Colony',
@@ -343,6 +346,7 @@ export const INITIAL_RIDERS = [
     password: 'rider123',
     tenantId: 'tenant-alfatah',
     tenantName: 'Al-Fatah Supermarket',
+    isGlobal: true,
     branchId: 'branch_af_fsd',
     branchName: 'Gulberg Branch',
     region: 'Gulberg',
