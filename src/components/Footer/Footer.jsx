@@ -161,6 +161,7 @@ export const Footer = () => {
               <li><a href="#flash-deals-section" className={`transition-colors ${isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'}`}>Daily Deals & Coupons</a></li>
               <li><a href="#" onClick={(e) => { e.preventDefault(); navigateTo('track-order'); }} className={`transition-colors ${isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'}`}>Order Tracking</a></li>
               <li><a href="#" className={`transition-colors ${isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'}`}>FAQ & Support</a></li>
+              <li><button type="button" onClick={() => navigateTo('login')} className={`transition-colors cursor-pointer text-left ${isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'}`}>Staff & Courier Console</button></li>
             </ul>
           </div>
 

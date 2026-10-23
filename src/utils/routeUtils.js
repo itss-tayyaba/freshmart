@@ -5,6 +5,22 @@ export const parseRouteFromUrl = (productsList = []) => {
   const search = window.location.search || '';
   const searchParams = new URLSearchParams(search);
 
+  // 0. Dedicated Login Route (Staff, Rider, Admin, Super Admin Login Console)
+  if (
+    path === '/login' ||
+    path.startsWith('/login') ||
+    path.startsWith('/signin') ||
+    path.startsWith('/staff-login') ||
+    path.startsWith('/portal-login') ||
+    hash === '#login' ||
+    hash === '#signin' ||
+    searchParams.get('page') === 'login' ||
+    searchParams.get('portal') === 'login'
+  ) {
+    const roleParam = searchParams.get('role') || searchParams.get('portal') || null;
+    return { page: 'login', role: roleParam, product: null, category: null };
+  }
+
   // 0. Dedicated Pickup Staff Portal Route (Can open directly in another tab)
   if (
     path.startsWith('/pickup-staff') ||
@@ -115,6 +131,16 @@ export const getSeoMetadata = (page, product = null, category = null) => {
     case 'checkout':
       title = 'Secure Checkout & Payment | FreshMart';
       description = 'Fast, secure checkout with multiple payment options and express delivery scheduling.';
+      break;
+    case 'login':
+      title = 'Staff & Admin Portal Login | FreshMart';
+      description = 'Secure login console for FreshMart Super Admin, Store Admins, Delivery Couriers, and Pickup Staff.';
+      break;
+    case 'pickup-staff':
+      title = 'Pickup Staff Packing Station | FreshMart';
+      break;
+    case 'delivery-portal':
+      title = 'Rider Delivery Portal | FreshMart';
       break;
     case 'admin':
       title = 'FreshMart Operations & Store Admin Suite';

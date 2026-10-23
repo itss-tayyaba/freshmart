@@ -24,6 +24,9 @@ import { resolveTenantId } from '../../data/companyHierarchyData';
 export const AdminLogin = () => {
   const {
     adminLogin,
+    adminLogout,
+    user,
+    adminRole,
     navigateTo,
     tenants,
     storeAdmins,
@@ -273,8 +276,17 @@ export const AdminLogin = () => {
       );
       if (!result || !result.success) {
         setErrorMessage(result?.error || 'Invalid credentials. Please verify your login details.');
-      } else if (selectedRole === 'rider') {
-        navigateTo('delivery-portal');
+      } else {
+        const effectiveRole = result.role || selectedRole;
+        if (effectiveRole === 'rider') {
+          navigateTo('delivery-portal');
+        } else if (effectiveRole === 'pickup_staff') {
+          navigateTo('pickup-staff');
+        } else if (effectiveRole === 'supplier' || effectiveRole === 'vendor') {
+          navigateTo('vendor');
+        } else {
+          navigateTo('admin');
+        }
       }
     } catch (err) {
       setErrorMessage(err.message || 'Login failed. Please check your credentials and try again.');
@@ -322,6 +334,48 @@ export const AdminLogin = () => {
         {/* Main Login Card */}
         <div className="w-full bg-white rounded-3xl p-5 sm:p-7 shadow-xl shadow-slate-200/50 border border-slate-200/90 space-y-5">
           
+          {/* Active Session Info (Allows direct dashboard access or switching without manual logout) */}
+          {user && (
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 sm:p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 text-left">
+                  <p className="text-xs font-bold text-slate-800 truncate">
+                    Signed in: <span className="text-slate-900 font-extrabold">{user.name || user.username || user.email}</span>
+                  </p>
+                  <p className="text-[11px] text-slate-500 capitalize">
+                    Role: <span className="font-semibold text-slate-700">{user.role || adminRole}</span>
+                    {user.tenantName ? ` • ${user.tenantName}` : ''}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const eff = user.role || adminRole;
+                    if (eff === 'rider') navigateTo('delivery-portal');
+                    else if (eff === 'pickup_staff') navigateTo('pickup-staff');
+                    else if (eff === 'supplier' || eff === 'vendor') navigateTo('vendor');
+                    else navigateTo('admin');
+                  }}
+                  className="flex-1 sm:flex-none text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Go to Dashboard →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => adminLogout()}
+                  className="text-xs font-semibold px-2.5 py-1.5 rounded-lg text-rose-600 hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Role Selector Tabs (Grid of 4) */}
           <div>
             <div className="flex items-center justify-between mb-2">

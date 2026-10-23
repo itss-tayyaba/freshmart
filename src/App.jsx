@@ -8,6 +8,7 @@ import { DeliveryPage } from './components/Delivery/DeliveryPage';
 import { ProductDetailPage } from './components/ProductDetail/ProductDetailPage';
 import { CheckoutPage } from './components/Checkout/CheckoutPage';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
+import { AdminLogin } from './components/Admin/AdminLogin';
 import { RecipesPage } from './components/Recipes/RecipesPage';
 import { CustomerPortal } from './components/CustomerPortal/CustomerPortal';
 import { DeliveryPortal } from './components/DeliveryPortal/DeliveryPortal';
@@ -30,6 +31,15 @@ import { ToastContainer } from './components/Modals/ToastContainer';
 
 function FreshMartAppContent() {
   const { currentPage, isVendorRegisterOpen, setIsVendorRegisterOpen } = useStore();
+
+  // If in dedicated Login view, render the multi-role staff/rider/admin login console
+  if (currentPage === 'login' || currentPage === 'signin') {
+    return (
+      <div className="min-h-screen w-full bg-[#f8fafc] font-sans">
+        <AdminLogin />
+      </div>
+    );
+  }
 
   // If in Admin / Vendor Dashboard view, render the dedicated full-screen admin/vendor experience
   if (currentPage === 'admin' || currentPage === 'vendor' || currentPage === 'vendor-portal') {

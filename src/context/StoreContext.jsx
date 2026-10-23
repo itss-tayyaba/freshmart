@@ -268,15 +268,16 @@ export const StoreProvider = ({ children }) => {
   // Admin Role State ('admin' | 'superadmin' | 'supplier' | 'rider' | 'pickup_staff')
   const [adminRole, setAdminRole] = useState(() => {
     try {
+      if (initialRoute?.page === 'login') return null;
       if (initialRoute?.role) {
         sessionStorage.setItem('freshmart_tab_role', initialRoute.role);
         return initialRoute.role;
       }
       const tabRole = sessionStorage.getItem('freshmart_tab_role');
       if (tabRole) return tabRole;
-      return localStorage.getItem('freshmart_admin_role') || 'admin';
+      return localStorage.getItem('freshmart_admin_role') || null;
     } catch (e) {
-      return 'admin';
+      return null;
     }
   });
 
@@ -1807,6 +1808,9 @@ export const StoreProvider = ({ children }) => {
   // Admin Profile & Authentication (Gated by strict authentication, isolated per browser tab)
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
     try {
+      if (initialRoute?.page === 'login') {
+        return false;
+      }
       if (initialRoute?.role === 'pickup_staff' || initialRoute?.role === 'rider') {
         sessionStorage.setItem('freshmart_tab_session', 'true');
         return true;
@@ -1823,6 +1827,9 @@ export const StoreProvider = ({ children }) => {
 
   const [user, setUser] = useState(() => {
     try {
+      if (initialRoute?.page === 'login') {
+        return null;
+      }
       if (initialRoute?.role === 'pickup_staff') {
         const tabUser = sessionStorage.getItem('freshmart_tab_user');
         if (tabUser) return JSON.parse(tabUser);
@@ -1858,11 +1865,7 @@ export const StoreProvider = ({ children }) => {
       const savedUser = localStorage.getItem('freshmart_admin_user');
       if (savedUser) return JSON.parse(savedUser);
     } catch (e) {}
-    return {
-      name: 'Super Admin',
-      email: 'admin@freshmart.com',
-      role: 'admin'
-    };
+    return null;
   });
 
   // Orders are shared through the API so staff updates appear in the admin
@@ -1920,6 +1923,45 @@ export const StoreProvider = ({ children }) => {
     return currentTenant || INITIAL_TENANTS[0];
   };
 
+  const clearAuthSession = () => {
+    try {
+      sessionStorage.removeItem('freshmart_tab_session');
+      sessionStorage.removeItem('freshmart_tab_role');
+      sessionStorage.removeItem('freshmart_tab_user');
+      localStorage.removeItem('freshmart_admin_session');
+      localStorage.removeItem('freshmart_admin_role');
+      localStorage.removeItem('freshmart_admin_user');
+      localStorage.removeItem('freshmart_admin_token');
+      localStorage.removeItem('freshmart_vendor_token');
+      localStorage.removeItem('freshmart_rider_live_telemetry');
+      localStorage.removeItem('freshmart_current_tenant_id');
+      localStorage.removeItem('freshmart_current_tenant');
+    } catch (e) {}
+  };
+
+  const applyAuthSession = (role, newUser, token = null) => {
+    clearAuthSession();
+    const effectiveToken = token || `mock-token-${role}-${Date.now()}`;
+    try {
+      sessionStorage.setItem('freshmart_tab_session', 'true');
+      sessionStorage.setItem('freshmart_tab_role', role);
+      sessionStorage.setItem('freshmart_tab_user', JSON.stringify(newUser));
+      localStorage.setItem('freshmart_admin_session', 'true');
+      localStorage.setItem('freshmart_admin_role', role);
+      localStorage.setItem('freshmart_admin_user', JSON.stringify(newUser));
+      localStorage.setItem('freshmart_admin_token', effectiveToken);
+      if (role === 'supplier' || role === 'vendor') {
+        localStorage.setItem('freshmart_vendor_token', effectiveToken);
+      }
+      if (newUser?.tenantId) {
+        localStorage.setItem('freshmart_current_tenant_id', newUser.tenantId);
+      }
+    } catch (e) {}
+    setIsAdminLoggedIn(true);
+    setAdminRole(role);
+    setUser(newUser);
+  };
+
   const adminLogin = async (username, password, role = 'admin', preferredTenantId = null, preferredBranchId = null) => {
     const targetRole = (role || 'admin').toLowerCase();
     const cleanUser = (username || '').trim().toLowerCase();
@@ -1970,15 +2012,7 @@ export const StoreProvider = ({ children }) => {
           role: 'superadmin',
           isSuperAdmin: true
         };
-        localStorage.setItem('freshmart_admin_token', authRes.token);
-        setAdminRole('superadmin');
-        setIsAdminLoggedIn(true);
-        setUser(superUser);
-        try {
-          localStorage.setItem('freshmart_admin_session', 'true');
-          localStorage.setItem('freshmart_admin_role', 'superadmin');
-          localStorage.setItem('freshmart_admin_user', JSON.stringify(superUser));
-        } catch (e) {}
+        applyAuthSession('superadmin', superUser, authRes.token);
         addToast('Super Admin Authenticated 👑', 'Welcome to the Super Grocery Platform Command Center.');
         return { success: true, role: 'superadmin', user: superUser };
       }
@@ -2012,15 +2046,7 @@ export const StoreProvider = ({ children }) => {
         } else {
           setCurrentBranchFilter('all');
         }
-        localStorage.setItem('freshmart_admin_token', authRes.token);
-        setAdminRole('admin');
-        setIsAdminLoggedIn(true);
-        setUser(adminUser);
-        try {
-          localStorage.setItem('freshmart_admin_session', 'true');
-          localStorage.setItem('freshmart_admin_role', 'admin');
-          localStorage.setItem('freshmart_admin_user', JSON.stringify(adminUser));
-        } catch (e) {}
+        applyAuthSession('admin', adminUser, authRes.token);
         addToast(`Store Admin Authenticated 🏬`, `Welcome to ${adminUser.tenantName} (${adminUser.branchName}) management.`);
         return { success: true, role: 'admin', user: adminUser };
       }
@@ -2040,15 +2066,7 @@ export const StoreProvider = ({ children }) => {
           tenantId: staffTenant ? staffTenant.id : 'tenant-freshmart',
           tenantName: staffTenant ? staffTenant.name : 'FreshMart Direct'
         };
-        localStorage.setItem('freshmart_admin_token', authRes.token);
-        setAdminRole('pickup_staff');
-        setIsAdminLoggedIn(true);
-        setUser(staffUser);
-        try {
-          localStorage.setItem('freshmart_admin_session', 'true');
-          localStorage.setItem('freshmart_admin_role', 'pickup_staff');
-          localStorage.setItem('freshmart_admin_user', JSON.stringify(staffUser));
-        } catch (e) {}
+        applyAuthSession('pickup_staff', staffUser, authRes.token);
         addToast('Pickup Staff Authenticated 📦', `Welcome ${staffUser.name} to the packing desk.`);
         return { success: true, role: 'pickup_staff', user: staffUser };
       }
@@ -2063,16 +2081,7 @@ export const StoreProvider = ({ children }) => {
           vendorId: authRes.vendorId || authRes.id || 'VND-101',
           supplierId: authRes.supplierId || authRes.id || 'SUP-101'
         };
-        localStorage.setItem('freshmart_admin_token', authRes.token);
-        localStorage.setItem('freshmart_vendor_token', authRes.token);
-        setAdminRole('supplier');
-        setIsAdminLoggedIn(true);
-        setUser(supplierUser);
-        try {
-          localStorage.setItem('freshmart_admin_session', 'true');
-          localStorage.setItem('freshmart_admin_role', 'supplier');
-          localStorage.setItem('freshmart_admin_user', JSON.stringify(supplierUser));
-        } catch (e) {}
+        applyAuthSession('supplier', supplierUser, authRes.token);
         addToast('Vendor Partner Authenticated 📦', `Welcome ${supplierUser.name} to the portal.`);
         return { success: true, role: 'supplier', user: supplierUser };
       }
@@ -2093,15 +2102,7 @@ export const StoreProvider = ({ children }) => {
           tenantId: riderTenant ? riderTenant.id : 'tenant-alfatah',
           tenantName: riderTenant ? riderTenant.name : 'Al-Fatah Supermarket'
         };
-        localStorage.setItem('freshmart_admin_token', authRes.token);
-        setAdminRole('rider');
-        setIsAdminLoggedIn(true);
-        setUser(riderUser);
-        try {
-          localStorage.setItem('freshmart_admin_session', 'true');
-          localStorage.setItem('freshmart_admin_role', 'rider');
-          localStorage.setItem('freshmart_admin_user', JSON.stringify(riderUser));
-        } catch (e) {}
+        applyAuthSession('rider', riderUser, authRes.token);
         addToast('Delivery Rider Authenticated 🛵', `Welcome ${riderUser.name} to dispatch.`);
         return { success: true, role: 'rider', user: riderUser };
       }
@@ -2154,18 +2155,7 @@ export const StoreProvider = ({ children }) => {
         }
 
         const fallbackToken = `mock-pickup-token-${Date.now()}`;
-        localStorage.setItem('freshmart_admin_token', fallbackToken);
-
-        setAdminRole('pickup_staff');
-        setIsAdminLoggedIn(true);
-        setUser(staffUser);
-
-        try {
-          localStorage.setItem('freshmart_admin_session', 'true');
-          localStorage.setItem('freshmart_admin_role', 'pickup_staff');
-          localStorage.setItem('freshmart_admin_user', JSON.stringify(staffUser));
-        } catch (e) {}
-
+        applyAuthSession('pickup_staff', staffUser, fallbackToken);
         addToast('Pickup Staff Authenticated 📦', `Welcome ${staffUser.name} to the packing desk.`);
         return { success: true, role: 'pickup_staff', user: staffUser };
       }
@@ -2198,18 +2188,7 @@ export const StoreProvider = ({ children }) => {
       };
 
       const fallbackToken = `mock-superadmin-token-${Date.now()}`;
-      localStorage.setItem('freshmart_admin_token', fallbackToken);
-
-      setAdminRole('superadmin');
-      setIsAdminLoggedIn(true);
-      setUser(superUser);
-
-      try {
-        localStorage.setItem('freshmart_admin_session', 'true');
-        localStorage.setItem('freshmart_admin_role', 'superadmin');
-        localStorage.setItem('freshmart_admin_user', JSON.stringify(superUser));
-      } catch (e) {}
-
+      applyAuthSession('superadmin', superUser, fallbackToken);
       addToast('Super Admin Authenticated 👑', 'Welcome to the Super Grocery Platform Command Center.');
       return { success: true, role: 'superadmin', user: superUser };
     }
@@ -2287,18 +2266,7 @@ export const StoreProvider = ({ children }) => {
         }
 
         const fallbackToken = `mock-admin-token-${Date.now()}`;
-        localStorage.setItem('freshmart_admin_token', fallbackToken);
-
-        setAdminRole('admin');
-        setIsAdminLoggedIn(true);
-        setUser(adminUser);
-
-        try {
-          localStorage.setItem('freshmart_admin_session', 'true');
-          localStorage.setItem('freshmart_admin_role', 'admin');
-          localStorage.setItem('freshmart_admin_user', JSON.stringify(adminUser));
-        } catch (e) {}
-
+        applyAuthSession('admin', adminUser, fallbackToken);
         addToast(`Store Admin Authenticated 🏬`, `Welcome to ${adminUser.tenantName} (${adminUser.branchName}) management.`);
         return { success: true, role: 'admin', user: adminUser };
       }
@@ -2364,18 +2332,7 @@ export const StoreProvider = ({ children }) => {
       }
 
       const fallbackToken = `mock-admin-token-${Date.now()}`;
-      localStorage.setItem('freshmart_admin_token', fallbackToken);
-
-      setAdminRole('admin');
-      setIsAdminLoggedIn(true);
-      setUser(adminUser);
-
-      try {
-        localStorage.setItem('freshmart_admin_session', 'true');
-        localStorage.setItem('freshmart_admin_role', 'admin');
-        localStorage.setItem('freshmart_admin_user', JSON.stringify(adminUser));
-      } catch (e) {}
-
+      applyAuthSession('admin', adminUser, fallbackToken);
       addToast(`Store Admin Authenticated 🏬`, `Welcome to ${adminUser.tenantName} (${adminUser.branchName}) management.`);
       return { success: true, role: 'admin', user: adminUser };
     }
@@ -2418,19 +2375,7 @@ export const StoreProvider = ({ children }) => {
       };
 
       const fallbackToken = `mock-vendor-token-${Date.now()}`;
-      localStorage.setItem('freshmart_admin_token', fallbackToken);
-      localStorage.setItem('freshmart_vendor_token', fallbackToken);
-
-      setAdminRole('supplier');
-      setIsAdminLoggedIn(true);
-      setUser(supplierUser);
-
-      try {
-        localStorage.setItem('freshmart_admin_session', 'true');
-        localStorage.setItem('freshmart_admin_role', 'supplier');
-        localStorage.setItem('freshmart_admin_user', JSON.stringify(supplierUser));
-      } catch (e) {}
-
+      applyAuthSession('supplier', supplierUser, fallbackToken);
       addToast('Vendor Partner Authenticated 📦', `Welcome ${supplierUser.name} to the portal.`);
       return { success: true, role: 'supplier', user: supplierUser };
     }
@@ -2458,15 +2403,8 @@ export const StoreProvider = ({ children }) => {
         tenantId: staffTenant ? staffTenant.id : staff.tenantId,
         tenantName: staffTenant ? staffTenant.name : 'Store'
       };
-      setAdminRole('pickup_staff');
-      setIsAdminLoggedIn(true);
-      setUser(staffUser);
-      try {
-        localStorage.setItem('freshmart_admin_session', 'true');
-        localStorage.setItem('freshmart_admin_role', 'pickup_staff');
-        localStorage.setItem('freshmart_admin_user', JSON.stringify(staffUser));
-        localStorage.setItem('freshmart_admin_token', `mock-pickup-${Date.now()}`);
-      } catch (e) {}
+      const fallbackToken = `mock-pickup-${Date.now()}`;
+      applyAuthSession('pickup_staff', staffUser, fallbackToken);
       addToast('Pickup staff signed in', `Welcome, ${staff.name}.`);
       return { success: true, role: 'pickup_staff', user: staffUser };
     }
@@ -2498,15 +2436,7 @@ export const StoreProvider = ({ children }) => {
             tenantName: riderTenant ? riderTenant.name : 'Al-Fatah Supermarket'
           };
           const fallbackToken = `mock-rider-token-${Date.now()}`;
-          localStorage.setItem('freshmart_admin_token', fallbackToken);
-          setAdminRole('rider');
-          setIsAdminLoggedIn(true);
-          setUser(demoRiderUser);
-          try {
-            localStorage.setItem('freshmart_admin_session', 'true');
-            localStorage.setItem('freshmart_admin_role', 'rider');
-            localStorage.setItem('freshmart_admin_user', JSON.stringify(demoRiderUser));
-          } catch (e) {}
+          applyAuthSession('rider', demoRiderUser, fallbackToken);
           addToast('Delivery Rider Authenticated 🛵', `Welcome ${demoRiderUser.name} to dispatch.`);
           return { success: true, role: 'rider', user: demoRiderUser };
         }
@@ -2539,18 +2469,7 @@ export const StoreProvider = ({ children }) => {
       };
 
       const fallbackToken = `mock-rider-token-${Date.now()}`;
-      localStorage.setItem('freshmart_admin_token', fallbackToken);
-
-      setAdminRole('rider');
-      setIsAdminLoggedIn(true);
-      setUser(riderUser);
-
-      try {
-        localStorage.setItem('freshmart_admin_session', 'true');
-        localStorage.setItem('freshmart_admin_role', 'rider');
-        localStorage.setItem('freshmart_admin_user', JSON.stringify(riderUser));
-      } catch (e) {}
-
+      applyAuthSession('rider', riderUser, fallbackToken);
       addToast('Delivery Rider Authenticated 🛵', `Welcome ${riderUser.name} to dispatch.`);
       return { success: true, role: 'rider', user: riderUser };
     }
@@ -2563,19 +2482,7 @@ export const StoreProvider = ({ children }) => {
     setUser(null);
     setAdminRole(null);
     setCurrentTenant(null);
-    try {
-      sessionStorage.removeItem('freshmart_tab_session');
-      sessionStorage.removeItem('freshmart_tab_role');
-      sessionStorage.removeItem('freshmart_tab_user');
-      localStorage.removeItem('freshmart_admin_session');
-      localStorage.removeItem('freshmart_admin_role');
-      localStorage.removeItem('freshmart_admin_user');
-      localStorage.removeItem('freshmart_admin_token');
-      localStorage.removeItem('freshmart_vendor_token');
-      localStorage.removeItem('freshmart_rider_live_telemetry');
-      localStorage.removeItem('freshmart_current_tenant_id');
-      localStorage.removeItem('freshmart_current_tenant');
-    } catch (e) {}
+    clearAuthSession();
     addToast('Signed Out', 'You have been logged out of the staff portal.', 'info');
     navigateTo('home');
   };
@@ -5333,8 +5240,10 @@ export const StoreProvider = ({ children }) => {
     try {
       let targetPath = '/';
       if (page === 'admin') targetPath = '/admin';
+      else if (page === 'login' || page === 'signin') targetPath = '/login';
       else if (page === 'vendor' || page === 'vendor-portal') targetPath = '/vendor';
-      else if (page === 'delivery-portal') targetPath = '/delivery-portal';
+      else if (page === 'delivery-portal' || page === 'rider-portal') targetPath = '/delivery-portal';
+      else if (page === 'pickup-staff' || page === 'pickup-portal' || page === 'staff-portal') targetPath = '/pickup-staff';
       else if (page === 'customer-portal') targetPath = '/customer-portal';
       else if (page === 'delivery') targetPath = '/delivery';
       else if (page === 'shop') {
