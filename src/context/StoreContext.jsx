@@ -5911,6 +5911,40 @@ export const StoreProvider = ({ children }) => {
     return true;
   };
 
+  // --- 🤖 Auto-assign to staff with fewest active tasks (load balancing) ---
+  const autoAssignPickupStaff = (orderId) => {
+    if (!['admin', 'superadmin'].includes(adminRole)) {
+      addToast('Assignment denied', 'Only a store admin can auto-assign pickup staff.', 'error');
+      return false;
+    }
+    const activeTenantId = currentTenant?.id || user?.tenantId;
+    const tenantStaff = (pickupStaff || []).filter(
+      (s) => isSameTenant(s.tenantId, activeTenantId) && (s.status === 'Active' || !s.status)
+    );
+    if (tenantStaff.length === 0) {
+      addToast('No Pickup Staff', 'Add at least one pickup staff account before auto-assigning.', 'error');
+      return false;
+    }
+    // Count active (non-dispatched) tasks per staff member
+    const allActiveOrders = [...(customerOrders || []), ...(adminOrders || [])].filter((o) => {
+      const s = (o.status || '').toLowerCase();
+      return !['dispatched', 'out for delivery', 'delivered', 'cancelled'].includes(s);
+    });
+    const taskCounts = {};
+    tenantStaff.forEach((s) => { taskCounts[s.id] = 0; });
+    allActiveOrders.forEach((o) => {
+      if (o.pickupStaffId && taskCounts[o.pickupStaffId] !== undefined) {
+        taskCounts[o.pickupStaffId]++;
+      }
+    });
+    // Pick staff with the fewest tasks (first alphabetically on tie)
+    const leastBusy = tenantStaff.sort((a, b) => {
+      const diff = (taskCounts[a.id] || 0) - (taskCounts[b.id] || 0);
+      return diff !== 0 ? diff : (a.name || '').localeCompare(b.name || '');
+    })[0];
+    return assignPickupStaffToOrder(orderId, leastBusy.id);
+  };
+
   const assignPickupStaffToOrder = (orderId, staffId) => {
     if (!['admin', 'superadmin'].includes(adminRole)) {
       addToast('Assignment denied', 'Only a store admin can assign pickup staff.', 'error');
@@ -6315,6 +6349,7 @@ export const StoreProvider = ({ children }) => {
         updateOrderFulfillment,
         verifyOrderDeposit,
         assignPickupStaffToOrder,
+        autoAssignPickupStaff,
         currentBranch,
         setCurrentBranch,
         currentBranchFilter,

@@ -338,6 +338,27 @@ export const INITIAL_RIDERS = [
     rating: 5.0
   },
   {
+    id: 'RDR-ALFATAH',
+    riderId: 'RDR-ALFATAH',
+    name: 'Al-Fatah Express Courier',
+    username: 'alfatah_rider',
+    phone: '03206551696',
+    password: 'rider123',
+    tenantId: 'tenant-alfatah',
+    tenantName: 'Al-Fatah Supermarket',
+    isGlobal: true,
+    branchId: 'branch_af_fsd',
+    branchName: 'D-Ground Flagship Hub',
+    region: 'Peoples Colony',
+    zone: 'Peoples Colony (Faisalabad)',
+    vehicleType: '🏍️ Honda 125',
+    vehicleNumber: 'FSD-7711',
+    status: 'Active',
+    coordinates: { lat: 31.4147, lng: 73.0872 },
+    coverageRadiusKm: 15,
+    rating: 5.0
+  },
+  {
     id: 'RDR-DELIVERY',
     riderId: 'RDR-DELIVERY',
     name: 'Delivery Rider',
