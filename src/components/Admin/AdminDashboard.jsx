@@ -561,10 +561,14 @@ const StoreAdminConsole = () => {
                     if (found) {
                       setCurrentTenant(found);
                       setCurrentBranchFilter('all');
+                      try {
+                        localStorage.setItem('freshmart_current_tenant_id', found.id);
+                      } catch (err) {}
                       if (user && typeof setUser === 'function') {
-                        const updatedUser = { ...user, tenantId: found.id, tenantName: found.displayName || found.name };
+                        const updatedUser = { ...user, tenantId: found.id, tenantName: found.displayName || found.name, branchId: null, branchName: 'All Branches' };
                         setUser(updatedUser);
                         try {
+                          localStorage.setItem('freshmart_admin_user', JSON.stringify(updatedUser));
                           localStorage.setItem('freshmart_user', JSON.stringify(updatedUser));
                         } catch (err) {}
                       }

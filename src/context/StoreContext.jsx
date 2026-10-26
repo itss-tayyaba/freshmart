@@ -1070,15 +1070,7 @@ export const StoreProvider = ({ children }) => {
       const saved = localStorage.getItem('freshmart_customer_orders');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const hasLegacy = parsed.some((o) => {
-            const list = o.items || o.rawItems || [];
-            return list.some((it) => it?.name === 'Cappuccino' || it?.name === 'Truffle Angus Burger');
-          });
-          if (hasLegacy) {
-            localStorage.setItem('freshmart_customer_orders', JSON.stringify(DEFAULT_INITIAL_ORDERS));
-            return DEFAULT_INITIAL_ORDERS;
-          }
+        if (Array.isArray(parsed) && parsed.length > 0) {
           const filtered = parsed.filter(
             (o) => {
               const oId = String(o?.id || o?.orderId || '').toLowerCase().replace(/^#/, '');
@@ -1106,6 +1098,12 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
     return DEFAULT_INITIAL_ORDERS;
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('freshmart_customer_orders', JSON.stringify(customerOrders));
+    } catch (e) {}
+  }, [customerOrders]);
 
   // Active in-transit delivery order (null if no active order)
   const [activeDeliveryOrder, setActiveDeliveryOrder] = useState(() => {
@@ -2167,14 +2165,6 @@ export const StoreProvider = ({ children }) => {
       if (savedAdmin) {
         const parsed = JSON.parse(savedAdmin);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const hasLegacy = parsed.some((o) => {
-            const list = o.items || o.rawItems || [];
-            return list.some((it) => it?.name === 'Cappuccino' || it?.name === 'Truffle Angus Burger');
-          });
-          if (hasLegacy) {
-            localStorage.setItem('freshmart_admin_orders', JSON.stringify(DEFAULT_INITIAL_ORDERS));
-            return DEFAULT_INITIAL_ORDERS;
-          }
           const filtered = parsed.filter(
             (o) => {
               const oId = String(o?.id || o?.orderId || '').toLowerCase().replace(/^#/, '');
@@ -2203,14 +2193,6 @@ export const StoreProvider = ({ children }) => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const hasLegacy = parsed.some((o) => {
-            const list = o.items || o.rawItems || [];
-            return list.some((it) => it?.name === 'Cappuccino' || it?.name === 'Truffle Angus Burger');
-          });
-          if (hasLegacy) {
-            localStorage.setItem('freshmart_customer_orders', JSON.stringify(DEFAULT_INITIAL_ORDERS));
-            return DEFAULT_INITIAL_ORDERS;
-          }
           const filtered = parsed.filter(
             (o) => {
               const oId = String(o?.id || o?.orderId || '').toLowerCase().replace(/^#/, '');

@@ -28,7 +28,8 @@ import {
   Check,
   Ban,
   Boxes,
-  Rocket
+  Rocket,
+  Copy
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { DeliverToStaffModal } from '../modals/DeliverToStaffModal';
@@ -256,7 +257,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     });
     const raw = Array.from(uniqueMap.values());
     const isSuperAdmin = user?.role === 'superadmin' || adminRole === 'superadmin' || user?.isSuperAdmin;
-    const targetTenantId = isSuperAdmin ? null : (user?.tenantId || currentTenant?.id);
+    const targetTenantId = isSuperAdmin ? null : (currentTenant?.id || user?.tenantId);
     let list = raw;
     if (targetTenantId) {
       list = list.filter((o) => {
@@ -952,17 +953,17 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
               No orders found matching "{search}" in {activeTab}.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            <div className="overflow-x-auto rounded-2xl border border-slate-200/90 shadow-2xs bg-white">
+              <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase tracking-wider text-[10px]">
-                    <th className="pb-3.5 pl-2">Customer</th>
-                    <th className="pb-3.5">Branch</th>
-                    <th className="pb-3.5">Type</th>
-                    <th className="pb-3.5">Items</th>
-                    <th className="pb-3.5">Total & Payment</th>
-                    <th className="pb-3.5">Fulfillment & Rider</th>
-                    <th className="pb-3.5 pr-2">Status</th>
+                  <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                    <th className="py-3.5 pl-4 pr-3">Order & Customer</th>
+                    <th className="py-3.5 px-3">Branch Hub</th>
+                    <th className="py-3.5 px-3">Items & Basket</th>
+                    <th className="py-3.5 px-3">Total & Payment</th>
+                    <th className="py-3.5 px-3">Fulfillment & Rider</th>
+                    <th className="py-3.5 px-3 min-w-[190px]">Status & Quick Action</th>
+                    <th className="py-3.5 pr-4 pl-2 text-right">Details</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -970,96 +971,129 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                     const customerName = getCustomerDisplayName(ord.customerName || ord.customer || ord.recipientName || ord.shippingAddress?.recipientName);
                     const customerPhone = typeof ord.customerPhone === 'string' ? ord.customerPhone : (ord.customer?.phone || ord.phone || '+92 300 0000000');
                     const orderType = ord.orderType || (ord.table ? 'Dine-In' : 'Delivery');
-                    const tableRef = ord.table || '—';
                     const itemsLine = formatDetailedItemsLine(ord);
-                    const paymentBadgeLabel = `${ord.paymentMethod || 'JAZZCASH'} · ${ord.paymentStatus || 'PENDING'}`.toUpperCase();
+                    const itemsList = getOrderItemsList(ord);
+                    const itemsCount = itemsList.length > 0 ? itemsList.length : (parseInt(ord.items) || 1);
+                    const isPaid = ord.paymentStatus === 'Paid' || ord.paymentStatus === 'Verified' || ord.isPaymentVerified || ord.isPaid || ord.status === 'Delivered';
+                    const paymentMethod = ord.paymentMethod || ord.payment || 'Cash on Delivery';
                     const eligibleRiders = getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : [];
-                    const orderIsReady = Number(ord.fulfillmentStage || 0) >= 4 || ord.status === 'Ready for Dispatch';
+                    const s = String(ord.status || 'Pending').toLowerCase();
+                    const isDeliveredState = s === 'delivered' || ord.isDelivered;
+                    const isInTransitState = !isDeliveredState && (ord.assignedRider || ['out for delivery', 'dispatched to rider', 'dispatched', 'in transit'].includes(s));
+                    const isPreparedState = !isDeliveredState && !isInTransitState && (['prepared', 'ready for dispatch', 'ready'].includes(s) || ord.isDispatchedByStaff);
+                    const hasStaff = Boolean(ord.pickupStaffId || ord.pickupStaffName);
+
+                    const orderKey = ord.id || ord.orderId || ord._id;
+                    const cleanOrderKey = String(orderKey).replace(/^#/, '').trim();
+                    const defaultRiderId = eligibleRiders?.[0]?.id || eligibleRiders?.[0]?._id || eligibleRiders?.[0]?.riderId || '';
+                    const currentChosenRider =
+                      selectedRiderMap[orderKey] ||
+                      selectedRiderMap[cleanOrderKey] ||
+                      selectedRiderMap[`#${cleanOrderKey}`] ||
+                      ord.assignedRider?.id ||
+                      ord.assignedRider?._id ||
+                      defaultRiderId;
 
                     return (
                       <tr
                         key={ord.id}
                         className="transition-colors group hover:bg-slate-50/70"
                       >
-                        {/* 1. Customer Column */}
-                        <td className="py-4 pl-2 min-w-[140px]">
-                          <div>
-                            <span className="font-bold text-slate-900 block group-hover:text-amber-800 transition-colors">
-                              {customerName}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-mono block">
-                              {customerPhone}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-mono font-bold block mt-0.5">
-                              #{String(ord.id).replace(/^#/, '')}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* Branch Column */}
-                        <td className="py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-sky-50 text-sky-800 border border-sky-200 shadow-2xs">
-                            <MapPin className="w-3 h-3 text-sky-600" />
-                            <span>{ord.branchName || (ord.branchId === 'branch_um_fsd' ? 'Peoples Colony' : 'Main Branch')}</span>
-                          </span>
-                        </td>
-
-                        {/* 2. Type Column (Delivery / Dine-in with optional table) */}
-                        <td className="py-3 text-slate-700 font-medium whitespace-nowrap">
-                          <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-bold">
-                            {orderType}{ord.table ? ` • #${ord.table}` : ''}
-                          </span>
-                        </td>
-
-                        {/* 4. Items Column (1× Truffle Angus Burger, 1× Cold Brew Coffee) */}
-                        <td className="py-4 max-w-[240px]">
-                          <p className="text-slate-800 text-xs font-semibold leading-relaxed line-clamp-2">
-                            {itemsLine}
-                          </p>
-                        </td>
-
-                        {/* 5. Total & Payment Column (Rs 1,620.00, JAZZCASH · PENDING, 🔍 Verify Deposit) */}
-                        <td className="py-4 font-mono min-w-[150px]">
-                          <div>
-                            <span className="font-black text-slate-900 text-xs block">
-                              Rs {Number(ord.total || ord.totalAmount || 0).toLocaleString()}
-                            </span>
-                            <div className="mt-1">
-                              <span
-                                className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider inline-block ${
-                                  ord.paymentStatus === 'Verified' || ord.isPaymentVerified
-                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                    : 'bg-[#fef3c7] text-[#92400e] border border-[#fde68a]'
-                                }`}
-                              >
-                                {paymentBadgeLabel}
+                        {/* 1. Order & Customer Column */}
+                        <td className="py-3.5 pl-4 pr-3">
+                          <div className="flex items-start gap-2.5">
+                            <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs mt-0.5">
+                              {customerName ? customerName.charAt(0).toUpperCase() : 'C'}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-extrabold text-slate-900 text-xs">
+                                  {customerName}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard?.writeText(ord.id);
+                                    addToast('Order ID Copied 📋', `Copied ${ord.id} to clipboard.`);
+                                  }}
+                                  className="inline-flex items-center gap-1 font-mono font-bold text-[10px] text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/90 px-1.5 py-0.2 rounded transition cursor-pointer"
+                                  title="Click to copy Order ID"
+                                >
+                                  <span>#{cleanOrderKey}</span>
+                                  <Copy className="w-2.5 h-2.5 opacity-60" />
+                                </button>
+                              </div>
+                              <span className="text-[11px] text-slate-500 font-mono block mt-0.5 flex items-center gap-1">
+                                <Phone className="w-2.5 h-2.5 text-slate-400" />
+                                {customerPhone}
+                              </span>
+                              <span className="text-[10px] text-slate-400 block mt-0.5">
+                                {ord.dateFormatted || ord.time || 'Recent order'}
                               </span>
                             </div>
                           </div>
                         </td>
 
-                        {/* 6. Fulfillment & Rider Column */}
-                        <td className="py-3" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex flex-col items-start gap-1.5 min-w-[170px] max-w-[220px]">
+                        {/* 2. Branch Column */}
+                        <td className="py-3.5 px-3 whitespace-nowrap">
+                          <div className="flex flex-col items-start gap-1">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-sky-50 text-sky-800 border border-sky-200/90 shadow-2xs">
+                              <MapPin className="w-3 h-3 text-sky-600 shrink-0" />
+                              <span className="truncate max-w-[130px] sm:max-w-none">{ord.branchName || 'Main Flagship'}</span>
+                            </span>
+                            <span className="text-[10px] font-semibold text-slate-400 pl-1">
+                              {ord.city || (ord.shippingAddress?.city) || 'Faisalabad'}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* 3. Items & Basket Column */}
+                        <td className="py-3.5 px-3 max-w-[210px]">
+                          <div className="space-y-1">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                              <Package className="w-3 h-3 text-slate-500" />
+                              <span>{itemsCount} {itemsCount === 1 ? 'Item' : 'Items'} ({orderType})</span>
+                            </span>
+                            <p className="text-slate-700 text-xs font-medium leading-snug line-clamp-2" title={itemsLine}>
+                              {itemsLine}
+                            </p>
+                          </div>
+                        </td>
+
+                        {/* 4. Total & Payment Column */}
+                        <td className="py-3.5 px-3 font-mono whitespace-nowrap">
+                          <div>
+                            <span className="font-black text-slate-900 text-sm block">
+                              Rs {Number(ord.total || ord.totalAmount || 0).toLocaleString()}
+                            </span>
+                            <div className="mt-1">
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 ${
+                                  isPaid
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                    : 'bg-amber-100 text-amber-900 border border-amber-300'
+                                }`}
+                              >
+                                <span>{isPaid ? 'PAID' : 'PENDING'}</span>
+                                <span className="opacity-70">({paymentMethod})</span>
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* 5. Fulfillment & Rider Column */}
+                        <td className="py-3.5 px-3 min-w-[170px] max-w-[220px]" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex flex-col items-start gap-1.5 w-full">
                             {(() => {
-                              const hasPickupStaff = Boolean(ord.pickupStaffId || ord.pickupStaffName || ord.pickupStaff);
-                              const isDispatchedByStaff =
-                                ['prepared', 'ready for dispatch', 'ready', 'dispatched', 'out for delivery', 'delivered', 'dispatched to rider'].includes(String(ord.status || '').toLowerCase()) ||
-                                Boolean(ord.isDispatchedByStaff || ord.isDispatched || ord.readyForDispatchAt || ord.preparedAt || ord.pickupStep === 'verified' || Number(ord.fulfillmentStage) >= 4);
-
-                              const isDeliveredState = ord.status === 'Delivered' || ord.isDelivered;
-                              const isInTransitState = !isDeliveredState && (ord.assignedRider || ['out for delivery', 'dispatched to rider', 'dispatched', 'in transit'].includes(String(ord.status || '').toLowerCase()));
-
-                              // 1. Delivered state
                               if (isDeliveredState) {
                                 return (
                                   <div className="flex flex-col gap-1 w-full">
-                                    <div className="text-[11px] text-emerald-800 font-bold whitespace-nowrap flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg">
+                                    <div className="text-[11px] text-emerald-800 font-bold whitespace-nowrap flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl shadow-2xs">
                                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                                       <span>Delivered & Verified</span>
                                     </div>
                                     {ord.assignedRider && (
-                                      <span className="text-[10px] text-slate-500 font-medium pl-1 truncate">
+                                      <span className="text-[10px] text-slate-600 font-semibold pl-1 truncate">
                                         🛵 {ord.assignedRider.name}
                                       </span>
                                     )}
@@ -1067,215 +1101,210 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                                 );
                               }
 
-                              // 2. In Transit with Rider
                               if (isInTransitState) {
                                 const riderName = ord.assignedRider?.name || 'Assigned Courier';
                                 return (
-                                  <div className="bg-sky-50 border border-sky-200/90 rounded-lg p-2 w-full shadow-2xs space-y-1.5">
+                                  <div className="bg-sky-50 border border-sky-200 rounded-xl p-2 w-full shadow-2xs space-y-1">
                                     <div className="text-[11px] font-bold text-sky-900 flex items-center justify-between gap-1">
                                       <span className="truncate flex items-center gap-1">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse shrink-0"></span>
+                                        <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse shrink-0" />
                                         🛵 {riderName}
                                       </span>
                                       {ord.deliveryOtp && (
-                                        <span className="font-mono font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1 rounded text-[9px]">
-                                          #{ord.deliveryOtp}
+                                        <span className="font-mono font-black text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.2 rounded text-[10px]">
+                                          PIN: {ord.deliveryOtp}
                                         </span>
                                       )}
                                     </div>
-                                    <div className="flex items-center justify-between text-[10px] text-sky-700 font-medium">
-                                      <span>In Transit</span>
+                                    <div className="text-[10px] text-sky-700 font-semibold flex items-center gap-1">
+                                      <Truck className="w-3 h-3" />
+                                      <span>On Delivery Route</span>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              if (isPreparedState) {
+                                return (
+                                  <div className="space-y-1.5 w-full">
+                                    <div className="flex items-center justify-between text-[10px] font-bold px-2 py-0.5 rounded-lg text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-2xs">
+                                      <span className="truncate flex items-center gap-1">
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                        <span>Packed & Ready</span>
+                                      </span>
+                                      {ord.deliveryOtp && (
+                                        <span className="font-mono text-[9px] text-emerald-900 font-bold">#{ord.deliveryOtp}</span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1 w-full">
+                                      <select
+                                        value={currentChosenRider}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setSelectedRiderMap((prev) => ({
+                                            ...prev,
+                                            [orderKey]: val,
+                                            [cleanOrderKey]: val,
+                                            [`#${cleanOrderKey}`]: val
+                                          }));
+                                        }}
+                                        disabled={eligibleRiders.length === 0}
+                                        className="bg-white hover:bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer flex-1 min-w-0"
+                                      >
+                                        {eligibleRiders.length === 0 && <option value="">No riders available</option>}
+                                        {eligibleRiders.map((r) => {
+                                          const rId = r.id || r._id || r.riderId;
+                                          return (
+                                            <option key={rId} value={rId}>
+                                              🛵 {r.name}
+                                            </option>
+                                          );
+                                        })}
+                                      </select>
                                       <button
                                         type="button"
-                                        onClick={() => handleStatusChange(ord.id || ord.orderId, 'Delivered')}
-                                        className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold transition cursor-pointer shadow-2xs flex items-center gap-1"
-                                        title="Mark order Completed"
+                                        onClick={() => handleAssignRider(orderKey, currentChosenRider)}
+                                        disabled={!currentChosenRider || eligibleRiders.length === 0}
+                                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition cursor-pointer shadow-2xs shrink-0 disabled:opacity-40 flex items-center gap-1"
+                                        title="Dispatch order to this rider"
                                       >
-                                        <CheckCircle2 className="w-2.5 h-2.5" />
-                                        <span>Complete</span>
+                                        <Rocket className="w-3 h-3" />
+                                        <span>Dispatch</span>
                                       </button>
                                     </div>
                                   </div>
                                 );
                               }
 
-                              // 3. Prepared or Unassigned Rider
-                              const orderKey = ord.id || ord.orderId || ord._id;
-                              const cleanOrderKey = String(orderKey).replace(/^#/, '').trim();
-                              const defaultRiderId = eligibleRiders?.[0]?.id || eligibleRiders?.[0]?._id || eligibleRiders?.[0]?.riderId || '';
-                              const currentChosenRider =
-                                selectedRiderMap[orderKey] ||
-                                selectedRiderMap[cleanOrderKey] ||
-                                selectedRiderMap[`#${cleanOrderKey}`] ||
-                                ord.assignedRider?.id ||
-                                ord.assignedRider?._id ||
-                                defaultRiderId;
-
+                              // Pending or Staff packing state
                               return (
-                                <div className="flex flex-col gap-1.5 w-full">
-                                  {isDispatchedByStaff || ord.status === 'Prepared' ? (
-                                    <div className="flex items-center justify-between text-[10px] font-bold px-2 py-0.5 rounded-lg text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-2xs">
-                                      <span className="truncate flex items-center gap-1">
-                                        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                                        <span>Ready for Dispatch</span>
-                                      </span>
-                                      {ord.deliveryOtp && (
-                                        <span className="font-mono text-[9px] text-emerald-900 font-bold">#{ord.deliveryOtp}</span>
-                                      )}
-                                    </div>
-                                  ) : hasPickupStaff ? (
-                                    <div className="flex items-center justify-between text-[10px] font-bold px-2 py-0.5 rounded-lg text-amber-900 bg-amber-50 border border-amber-200">
-                                      <span className="truncate">⏳ Staff: {ord.pickupStaffName || 'Preparing...'}</span>
+                                <div className="space-y-1 w-full">
+                                  {hasStaff ? (
+                                    <div className="flex items-center justify-between text-[10px] font-bold px-2 py-1 rounded-lg text-amber-900 bg-amber-50 border border-amber-200">
+                                      <span className="truncate">Staff: {ord.pickupStaffName || 'Assigned'}</span>
                                       <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0 ml-1"></span>
                                     </div>
                                   ) : (
-                                    <div className="text-[10px] font-medium flex items-center justify-between px-2 py-0.5 rounded-lg text-slate-500 bg-slate-50 border border-slate-200">
-                                      <div className="flex items-center gap-1 truncate">
-                                        <Package className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                        <span className="truncate">Awaiting Staff</span>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  <div className="flex items-center gap-1 w-full">
-                                    <select
-                                      value={currentChosenRider}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        setSelectedRiderMap((prev) => ({
-                                          ...prev,
-                                          [orderKey]: val,
-                                          [cleanOrderKey]: val,
-                                          [`#${cleanOrderKey}`]: val
-                                        }));
-                                      }}
-                                      disabled={eligibleRiders.length === 0}
-                                      className="bg-white hover:bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer flex-1 min-w-0"
-                                    >
-                                      {eligibleRiders.length === 0 && <option value="">No riders available</option>}
-                                      {eligibleRiders.map((r) => {
-                                        const rId = r.id || r._id || r.riderId;
-                                        return (
-                                          <option key={rId} value={rId}>
-                                            🛵 {r.name}
-                                          </option>
-                                        );
-                                      })}
-                                    </select>
                                     <button
                                       type="button"
-                                      onClick={() => handleAssignRider(orderKey, currentChosenRider)}
-                                      disabled={!currentChosenRider || eligibleRiders.length === 0}
-                                      className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition cursor-pointer shadow-2xs shrink-0 disabled:opacity-40 flex items-center gap-1"
-                                      title="Dispatch order to this rider"
+                                      onClick={() => setDeliverToStaffOrder(ord)}
+                                      className="w-full text-left flex items-center justify-between px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300 transition cursor-pointer shadow-2xs"
                                     >
-                                      <Rocket className="w-2.5 h-2.5" />
-                                      <span>Dispatch</span>
+                                      <div className="flex items-center gap-1 truncate">
+                                        <Package className="w-3 h-3 text-amber-600 shrink-0" />
+                                        <span>Assign Packing Staff</span>
+                                      </div>
+                                      <ArrowRight className="w-3 h-3 text-amber-600 shrink-0" />
                                     </button>
-                                  </div>
+                                  )}
                                 </div>
                               );
                             })()}
                           </div>
                         </td>
 
-                        {/* 7. Status Column */}
-                        <td className="py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        {/* 6. Status & Quick Action Column */}
+                        <td className="py-3.5 px-3 min-w-[190px]" onClick={(e) => e.stopPropagation()}>
                           <div className="flex flex-col items-start gap-1.5">
-                            <div className="flex items-center gap-1.5">
+                            {/* Professional Status Select Dropdown */}
+                            <div className="relative w-full">
                               <select
                                 value={
-                                  ['out for delivery', 'dispatched to rider', 'dispatched'].includes(String(ord.status || '').toLowerCase())
+                                  ['out for delivery', 'dispatched to rider', 'dispatched'].includes(s)
                                     ? 'Out for Delivery'
-                                    : ['delivered', 'completed'].includes(String(ord.status || '').toLowerCase()) || ord.isDelivered
+                                    : isDeliveredState
                                     ? 'Delivered'
-                                    : ['prepared', 'ready for dispatch', 'ready'].includes(String(ord.status || '').toLowerCase()) || ord.isDispatchedByStaff
+                                    : isPreparedState
                                     ? 'Prepared'
+                                    : s === 'preparing'
+                                    ? 'Preparing'
+                                    : s === 'deliver to staff'
+                                    ? 'Deliver to Staff'
                                     : ord.status || 'Pending'
                                 }
                                 onChange={(e) => handleStatusChange(ord.id || ord.orderId, e.target.value)}
-                                className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs font-bold py-1 px-2.5 rounded-xl shadow-2xs focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer transition"
-                                title="Change Order Status"
+                                className={`w-full appearance-none pl-3 pr-7 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer shadow-2xs focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                                  isDeliveredState
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                    : isInTransitState
+                                    ? 'bg-sky-50 text-sky-900 border-sky-300'
+                                    : isPreparedState
+                                    ? 'bg-teal-50 text-teal-900 border-teal-300'
+                                    : s === 'preparing'
+                                    ? 'bg-blue-50 text-blue-900 border-blue-300'
+                                    : 'bg-amber-50 text-amber-900 border-amber-300'
+                                }`}
+                                title="Change Order Lifecycle Status"
                               >
-                                <option value="Pending">⏳ Pending</option>
+                                <option value="Pending">⏳ Pending (Order Confirmed)</option>
                                 <option value="Deliver to Staff">📦 Deliver to Staff</option>
-                                <option value="Preparing">🍳 Preparing</option>
-                                <option value="Prepared">📦 Prepared (Ready for Dispatch)</option>
+                                <option value="Preparing">🍳 Preparing (Shelf Picking)</option>
+                                <option value="Prepared">📦 Prepared (Packed)</option>
                                 <option value="Ready for Dispatch">✨ Ready for Dispatch</option>
-                                <option value="Out for Delivery">🚀 Dispatch to Rider (Out for Delivery)</option>
-                                <option value="Dispatched">🚀 Dispatched</option>
-                                <option value="Delivered">✅ Completed (Delivered)</option>
+                                <option value="Out for Delivery">🚀 Dispatch to Rider</option>
+                                <option value="Delivered">✅ Completed (Delivered via OTP)</option>
                                 <option value="Cancelled">❌ Cancelled</option>
                               </select>
+                              <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                             </div>
 
-                            {/* 1-Click Quick Action Buttons */}
-                            {(() => {
-                              const s = String(ord.status || '').toLowerCase();
-                              const isPrepared = s === 'prepared' || s === 'ready for dispatch' || ord.isDispatchedByStaff;
-                              const isDispatched = s === 'out for delivery' || s === 'dispatched' || s === 'dispatched to rider' || Boolean(ord.assignedRider);
-                              const isCompleted = s === 'delivered' || ord.isDelivered;
-
-                              if (isCompleted) {
-                                return (
-                                  <div className="flex flex-col gap-0.5">
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-md text-[10px] font-black shadow-2xs">
-                                      <CheckCircle2 className="w-3 h-3 text-emerald-700" />
-                                      <span>Delivered & Saved</span>
-                                    </span>
-                                    {ord.deliveredAt && (
-                                      <span className="text-[9px] text-emerald-700 font-semibold pl-1 font-mono">
-                                        {new Date(ord.deliveredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              }
-
-                              if (isDispatched) {
-                                return (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleStatusChange(ord.id || ord.orderId, 'Delivered')}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[10px] font-bold transition shadow-2xs cursor-pointer"
-                                    title="Mark completed"
-                                  >
-                                    <CheckCircle2 className="w-2.5 h-2.5" />
-                                    <span>Mark Completed</span>
-                                  </button>
-                                );
-                              }
-
-                              if (isPrepared) {
-                                return (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const orderKey = ord.id || ord.orderId || ord._id;
-                                      const cleanOrderKey = String(orderKey).replace(/^#/, '').trim();
-                                      const defaultRiderId = eligibleRiders?.[0]?.id || eligibleRiders?.[0]?._id || eligibleRiders?.[0]?.riderId || '';
-                                      const riderToAssign =
-                                        selectedRiderMap[orderKey] ||
-                                        selectedRiderMap[cleanOrderKey] ||
-                                        defaultRiderId;
-                                      if (!riderToAssign) {
-                                        addToast('Add Rider in Fleet View 🛵', 'No courier registered yet for this store. Please add a rider in the Delivery / Fleet tab first.', 'error');
-                                        return;
-                                      }
-                                      handleAssignRider(orderKey, riderToAssign);
-                                    }}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[10px] font-bold transition shadow-2xs cursor-pointer"
-                                    title="Dispatch to Rider now"
-                                  >
-                                    <Rocket className="w-2.5 h-2.5" />
-                                    <span>Dispatch to Rider</span>
-                                  </button>
-                                );
-                              }
-
-                              return null;
-                            })()}
+                            {/* Targeted Professional Status Action Button */}
+                            {isInTransitState ? (
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(ord.id || ord.orderId, 'Delivered')}
+                                className="w-full px-2.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs font-bold transition shadow-sm hover:shadow flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+                                title="Verify customer OTP and complete order"
+                              >
+                                <Lock className="w-3.5 h-3.5" />
+                                <span>Verify OTP & Complete</span>
+                              </button>
+                            ) : isPreparedState ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!currentChosenRider) {
+                                    addToast('Select Rider 🛵', 'Please select an available rider from the courier dropdown first.', 'error');
+                                    return;
+                                  }
+                                  handleAssignRider(orderKey, currentChosenRider);
+                                }}
+                                className="w-full px-2.5 py-1.5 bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-700 hover:to-blue-800 text-white rounded-xl text-xs font-bold transition shadow-sm hover:shadow flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+                                title="Assign courier and mark Out for Delivery"
+                              >
+                                <Rocket className="w-3.5 h-3.5" />
+                                <span>Dispatch Courier</span>
+                              </button>
+                            ) : s === 'pending' && !hasStaff ? (
+                              <button
+                                type="button"
+                                onClick={() => setDeliverToStaffOrder(ord)}
+                                className="w-full px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl text-xs font-bold transition shadow-sm hover:shadow flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+                                title="Send parcel to pickup staff for packing"
+                              >
+                                <Boxes className="w-3.5 h-3.5" />
+                                <span>Send to Packing Staff</span>
+                              </button>
+                            ) : isDeliveredState ? (
+                              <div className="w-full flex items-center justify-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-[10px] font-bold">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>Verified Handover</span>
+                              </div>
+                            ) : null}
                           </div>
+                        </td>
+
+                        {/* 7. Details / Drawer Column */}
+                        <td className="py-3.5 pr-4 pl-2 text-right whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedOrder(ord)}
+                            className="p-2 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 transition-colors cursor-pointer shadow-2xs inline-flex items-center gap-1 font-bold text-xs"
+                            title="Inspect full receipt drawer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Inspect</span>
+                          </button>
                         </td>
                       </tr>
                     );
