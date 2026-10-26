@@ -35,11 +35,11 @@ const branchSchema = new mongoose.Schema(
     },
     latitude: {
       type: Number,
-      default: 31.4125
+      required: true
     },
     longitude: {
       type: Number,
-      default: 73.0995
+      required: true
     },
     address: {
       type: String,

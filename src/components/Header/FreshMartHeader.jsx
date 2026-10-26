@@ -49,8 +49,23 @@ export const FreshMartHeader = () => {
     currentTenant,
     setCurrentTenant,
     setActiveCategory,
-    categories
+    categories,
+    getNearbyStores,
+    selectStoreAndBranch,
+    allBranches,
+    deliveryLocation
   } = useStore();
+
+  const nearbyStoreOptions = useMemo(() => {
+    const list = getNearbyStores ? getNearbyStores() : [];
+    if (list && list.length > 0) return list;
+    return (tenants || []).map((t) => ({
+      id: t.id,
+      tenant: t,
+      displayName: t.displayName || t.name,
+      distanceFormatted: ''
+    }));
+  }, [getNearbyStores, deliveryLocation, tenants, allBranches]);
 
   const categoriesList = (categories && categories.length > 0) ? categories : FRESHMART_CATEGORIES;
 
@@ -309,27 +324,38 @@ export const FreshMartHeader = () => {
           </div>
         </div>
 
-        {/* 🏬 Multi-Tenant Supermarket Switcher */}
-        <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100 transition shrink-0">
-          <div style={{ backgroundColor: tenantThemeColor }} className="w-7 h-7 rounded-lg text-white flex items-center justify-center text-xs shadow-xs shrink-0">
+        {/* 🏬 Multi-Tenant Supermarket Switcher with Nearness & Distance */}
+        <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100 transition shrink-0">
+          <div style={{ backgroundColor: tenantThemeColor }} className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg text-white flex items-center justify-center text-xs shadow-xs shrink-0">
             {tenantLogo}
           </div>
           <div className="text-left leading-tight">
-            <span className="text-[10px] font-bold text-slate-500 block uppercase">
+            <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 block uppercase">
               Supermarket
             </span>
             <div className="flex items-center">
               <select
                 value={currentTenant?.id || 'tenant-freshmart'}
                 onChange={(e) => {
-                  const target = (tenants || []).find((t) => t.id === e.target.value);
-                  if (target) setCurrentTenant(target);
+                  const targetId = e.target.value;
+                  const chosen = nearbyStoreOptions.find((s) => s.id === targetId);
+                  if (chosen?.tenant) {
+                    if (selectStoreAndBranch) {
+                      selectStoreAndBranch(chosen.tenant, chosen.nearestBranch);
+                    } else {
+                      setCurrentTenant(chosen.tenant);
+                    }
+                  } else {
+                    const fallback = (tenants || []).find((t) => t.id === targetId);
+                    if (fallback) setCurrentTenant(fallback);
+                  }
                 }}
-                className="text-xs font-bold text-slate-900 bg-transparent focus:outline-none cursor-pointer"
+                className="text-xs font-bold text-slate-900 bg-transparent focus:outline-none cursor-pointer max-w-[130px] sm:max-w-[190px] truncate"
               >
-                {(tenants || []).map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.displayName || t.name}
+                {nearbyStoreOptions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.displayName || s.tenant?.displayName || s.tenant?.name || s.name}
+                    {s.distanceFormatted ? ` (${s.distanceFormatted})` : ''}
                   </option>
                 ))}
               </select>
@@ -689,16 +715,27 @@ export const FreshMartHeader = () => {
             <select
               value={currentTenant?.id || 'tenant-freshmart'}
               onChange={(e) => {
-                const target = (tenants || []).find((t) => t.id === e.target.value);
-                if (target) setCurrentTenant(target);
+                const targetId = e.target.value;
+                const chosen = nearbyStoreOptions.find((s) => s.id === targetId);
+                if (chosen?.tenant) {
+                  if (selectStoreAndBranch) {
+                    selectStoreAndBranch(chosen.tenant, chosen.nearestBranch);
+                  } else {
+                    setCurrentTenant(chosen.tenant);
+                  }
+                } else {
+                  const fallback = (tenants || []).find((t) => t.id === targetId);
+                  if (fallback) setCurrentTenant(fallback);
+                }
                 setMobileMenuOpen(false);
               }}
               style={{ color: tenantThemeColor }}
-              className="text-xs font-bold bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 focus:outline-none cursor-pointer"
+              className="text-xs font-bold bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 focus:outline-none cursor-pointer max-w-[210px] truncate"
             >
-              {(tenants || []).map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.displayName || t.name}
+              {nearbyStoreOptions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.displayName || s.tenant?.displayName || s.tenant?.name || s.name}
+                  {s.distanceFormatted ? ` (${s.distanceFormatted})` : ''}
                 </option>
               ))}
             </select>

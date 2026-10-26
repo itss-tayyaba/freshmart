@@ -58,6 +58,7 @@ import {
 import { useStore } from '../../context/StoreContext';
 import { SUBSCRIPTION_PLANS } from '../../data/tenantData';
 import { BRANCHES } from '../../data/companyHierarchyData';
+import { LeafletLocationPicker } from '../Common/LeafletLocationPicker';
 
 export const SuperAdminDashboard = () => {
   const {
@@ -346,7 +347,9 @@ export const SuperAdminDashboard = () => {
     phone: '+92 41 8712345',
     operatingHours: '08:00 AM - 11:00 PM',
     deliveryRadius: 15,
-    status: 'active'
+    status: 'active',
+    latitude: null,
+    longitude: null
   });
 
   const [broadcastForm, setBroadcastForm] = useState({
@@ -2772,7 +2775,7 @@ export const SuperAdminDashboard = () => {
       {/* --- C. ADD BRANCH MODAL --- */}
       {isAddBranchOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[92vh] overflow-y-auto p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-black text-slate-900 leading-tight">Add New Branch Hub</h3>
@@ -2786,6 +2789,10 @@ export const SuperAdminDashboard = () => {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                if (newBranchForm.latitude == null || newBranchForm.longitude == null) {
+                  addToast('Pin required 📍', 'Please drop the branch pin on the map.', 'info');
+                  return;
+                }
                 addBranch({
                   tenantId: newBranchForm.tenantId,
                   name: newBranchForm.name,
@@ -2796,6 +2803,8 @@ export const SuperAdminDashboard = () => {
                   phone: newBranchForm.phone || '+92 41 8712345',
                   operatingHours: newBranchForm.operatingHours || '08:00 AM - 11:00 PM',
                   deliveryRadius: Number(newBranchForm.deliveryRadius || 15),
+                  latitude: Number(newBranchForm.latitude),
+                  longitude: Number(newBranchForm.longitude),
                   status: 'active'
                 });
                 setIsAddBranchOpen(false);
@@ -2809,7 +2818,9 @@ export const SuperAdminDashboard = () => {
                   phone: '+92 41 8712345',
                   operatingHours: '08:00 AM - 11:00 PM',
                   deliveryRadius: 15,
-                  status: 'active'
+                  status: 'active',
+                  latitude: null,
+                  longitude: null
                 });
               }}
               className="space-y-3 text-xs"
@@ -2879,6 +2890,29 @@ export const SuperAdminDashboard = () => {
                   onChange={(e) => setNewBranchForm({ ...newBranchForm, address: e.target.value })}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
                 />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Pin Branch Location on Map *
+                </label>
+                <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-inner">
+                  <LeafletLocationPicker
+                    coords={
+                      newBranchForm.latitude != null && newBranchForm.longitude != null
+                        ? { lat: newBranchForm.latitude, lng: newBranchForm.longitude }
+                        : { lat: 31.4125, lng: 73.0995 }
+                    }
+                    onCoordsChange={({ lat, lng }) =>
+                      setNewBranchForm((f) => ({ ...f, latitude: lat, longitude: lng }))
+                    }
+                  />
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1 font-medium">
+                  {newBranchForm.latitude != null
+                    ? `📍 Pinned: ${Number(newBranchForm.latitude).toFixed(4)}, ${Number(newBranchForm.longitude).toFixed(4)}`
+                    : 'Click the map or drag the pin to the exact store location.'}
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-2">

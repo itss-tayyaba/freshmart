@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   COMPANIES,
   BRANCHES,
@@ -16,6 +18,35 @@ import { Inventory } from '../models/Inventory.js';
 import { Company } from '../models/Company.js';
 import { Order } from '../models/Order.js';
 import { isDbOnline } from '../config/db.js';
+
+const BRANCHES_FILE_PATH = path.resolve(process.cwd(), 'server/data/branches_db.json');
+
+export const loadDiskBranches = () => {
+  try {
+    if (fs.existsSync(BRANCHES_FILE_PATH)) {
+      const data = fs.readFileSync(BRANCHES_FILE_PATH, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+};
+
+export const saveDiskBranch = (branch) => {
+  try {
+    if (!branch) return;
+    const plain = branch.toObject ? branch.toObject() : { ...branch };
+    const bId = String(plain._id || plain.id || '').toLowerCase().trim();
+    if (!bId) return;
+    const list = loadDiskBranches();
+    const filtered = list.filter((b) => {
+      const existingId = String(b._id || b.id || '').toLowerCase().trim();
+      return existingId !== bId;
+    });
+    filtered.unshift(plain);
+    fs.writeFileSync(BRANCHES_FILE_PATH, JSON.stringify(filtered, null, 2), 'utf-8');
+  } catch (e) {}
+};
 
 // @desc    Get all companies (Super Admin & Platform)
 // @route   GET /api/companies
@@ -256,23 +287,35 @@ export const createBranchOrder = async (req, res) => {
 // @route   GET /api/branches
 export const getAllBranches = async (req, res) => {
   try {
+    let branchList = [];
     if (isDbOnline()) {
       try {
         const dbBranches = await Branch.find({}).sort({ createdAt: -1 });
-        return res.json({
-          success: true,
-          count: dbBranches.length,
-          branches: dbBranches
-        });
+        if (dbBranches && dbBranches.length > 0) {
+          branchList = dbBranches.map((b) => (b.toObject ? b.toObject() : b));
+        }
       } catch (e) {
         console.warn('Branch DB lookup error:', e.message);
       }
     }
 
+    // Merge with disk-saved branches and base platform BRANCHES
+    const diskBranches = loadDiskBranches();
+    const combined = [...branchList, ...diskBranches];
+    const seenIds = new Set(combined.map((b) => String(b._id || b.id || '').toLowerCase().trim()));
+
+    BRANCHES.forEach((baseB) => {
+      const key = String(baseB._id || baseB.id || '').toLowerCase().trim();
+      if (!seenIds.has(key)) {
+        combined.push(baseB);
+        seenIds.add(key);
+      }
+    });
+
     return res.json({
       success: true,
-      count: BRANCHES.length,
-      branches: BRANCHES
+      count: combined.length,
+      branches: combined
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -305,6 +348,10 @@ export const createBranch = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Branch name and parent store are required' });
     }
 
+    if (latitude == null || longitude == null || isNaN(Number(latitude)) || isNaN(Number(longitude))) {
+      return res.status(400).json({ success: false, message: 'Valid latitude and longitude coordinates are required for the branch location' });
+    }
+
     const branchId = _id || id || `branch_${Date.now()}`;
     const newBranch = {
       _id: branchId,
@@ -319,10 +366,12 @@ export const createBranch = async (req, res) => {
       phone: phone || '',
       operatingHours: operatingHours || '08:00 AM - 11:00 PM',
       deliveryRadius: Number(deliveryRadius || 15),
-      latitude: Number(latitude || 31.4125),
-      longitude: Number(longitude || 73.0995),
+      latitude: Number(latitude),
+      longitude: Number(longitude),
       status: status || 'active'
     };
+
+    saveDiskBranch(newBranch);
 
     if (isDbOnline()) {
       try {

@@ -1301,21 +1301,15 @@ export const StoreProvider = ({ children }) => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Permanently purge any of the 15 seeded dummy branches
-          const clean = parsed.filter((b) => {
-            const bId = String(b._id || b.id || '').toLowerCase();
-            return (
-              !bId.startsWith('branch_0') &&
-              !bId.startsWith('branch_af') &&
-              !bId.startsWith('branch_cv') &&
-              !bId.startsWith('branch_um')
-            );
-          });
-          return clean;
+          const savedIds = new Set(parsed.map((b) => String(b._id || b.id || '').toLowerCase()));
+          const missingBase = (BRANCHES || []).filter(
+            (b) => !savedIds.has(String(b._id || b.id || '').toLowerCase())
+          );
+          return [...parsed, ...missingBase];
         }
       }
     } catch (e) {}
-    return [];
+    return BRANCHES || [];
   });
 
   useEffect(() => {
@@ -1329,18 +1323,36 @@ export const StoreProvider = ({ children }) => {
     const fetchDbBranches = async () => {
       try {
         const res = await apiService.getBranches();
-        if (res && res.success && Array.isArray(res.branches)) {
-          const clean = res.branches.filter((b) => {
-            const bId = String(b._id || b.id || '').toLowerCase();
-            return (
-              !bId.startsWith('branch_0') &&
-              !bId.startsWith('branch_af') &&
-              !bId.startsWith('branch_cv') &&
-              !bId.startsWith('branch_um')
-            );
+        if (res && res.success && Array.isArray(res.branches) && res.branches.length > 0) {
+          setAllBranches((prev) => {
+            const seen = new Set();
+            const merged = [];
+            res.branches.forEach((b) => {
+              const k = String(b._id || b.id || '').toLowerCase();
+              if (k && !seen.has(k)) {
+                seen.add(k);
+                merged.push(b);
+              }
+            });
+            (prev || []).forEach((b) => {
+              const k = String(b._id || b.id || '').toLowerCase();
+              if (k && !seen.has(k)) {
+                seen.add(k);
+                merged.push(b);
+              }
+            });
+            (BRANCHES || []).forEach((b) => {
+              const k = String(b._id || b.id || '').toLowerCase();
+              if (k && !seen.has(k)) {
+                seen.add(k);
+                merged.push(b);
+              }
+            });
+            try {
+              localStorage.setItem('freshmart_branches', JSON.stringify(merged));
+            } catch (err) {}
+            return merged;
           });
-          setAllBranches(clean);
-          localStorage.setItem('freshmart_branches', JSON.stringify(clean));
         }
       } catch (e) {
         console.warn('Could not sync branches from backend database:', e.message);
@@ -1360,8 +1372,8 @@ export const StoreProvider = ({ children }) => {
       companyId: branchData.companyId || (branchData.tenantId === 'tenant-alfatah' ? 'company_001' : branchData.tenantId === 'tenant-chaseup' ? 'company_002' : branchData.tenantId === 'tenant-chasevalue' ? 'company_003' : 'company_004'),
       city: branchData.city || 'Faisalabad',
       address: branchData.address || '',
-      latitude: Number(branchData.latitude || 31.4125),
-      longitude: Number(branchData.longitude || 73.0995),
+      latitude: Number(branchData.latitude),
+      longitude: Number(branchData.longitude),
       phone: branchData.phone || '+92 41 8712345',
       manager: branchData.manager || 'Store Manager',
       status: branchData.status || 'active',
@@ -1455,19 +1467,23 @@ export const StoreProvider = ({ children }) => {
   // Keep branch dynamically set to corresponding tenant branch nearest to customer delivery location
   useEffect(() => {
     const canonical = resolveTenantId(currentTenant?.id);
-    const tenantBranches = allBranches.filter((b) => b.tenantId === canonical);
+    const tenantBranches = (allBranches || BRANCHES).filter(
+      (b) => isSameTenant(b.tenantId, currentTenant?.id) || b.tenantId === canonical
+    );
     if (tenantBranches.length > 0) {
       const uLat = Number(deliveryLocation?.lat || deliveryLocation?.coords?.lat || 31.4125);
       const uLng = Number(deliveryLocation?.lng || deliveryLocation?.coords?.lng || 73.0995);
       let closest = tenantBranches[0];
       let minD = Infinity;
       for (const b of tenantBranches) {
-        const bLat = Number(b.latitude || 31.4125);
-        const bLng = Number(b.longitude || 73.0995);
-        const d = calculateDistanceKm(uLat, uLng, bLat, bLng);
-        if (d < minD) {
-          minD = d;
-          closest = b;
+        const bLat = Number(b.latitude ?? b.coordinates?.lat);
+        const bLng = Number(b.longitude ?? b.coordinates?.lng);
+        if (!isNaN(bLat) && !isNaN(bLng)) {
+          const d = calculateDistanceKm(uLat, uLng, bLat, bLng);
+          if (d < minD) {
+            minD = d;
+            closest = b;
+          }
         }
       }
       setCurrentBranch(closest);
@@ -1501,20 +1517,26 @@ export const StoreProvider = ({ children }) => {
 
     const storeList = INITIAL_TENANTS.map((tenant) => {
       const tenantCanonicalId = resolveTenantId(tenant.id);
-      const tenantBranches = allBranches.filter(
-        (b) => b.tenantId === tenantCanonicalId || (tenant.slug && b.slug === tenant.slug)
+      const tenantBranches = (allBranches || BRANCHES).filter(
+        (b) =>
+          isSameTenant(b.tenantId, tenant.id) ||
+          b.tenantId === tenantCanonicalId ||
+          (b.companyId && resolveTenantId(b.companyId) === tenantCanonicalId) ||
+          (tenant.slug && b.slug === tenant.slug)
       );
 
       let nearestBranch = tenantBranches[0] || null;
       let minDistance = Infinity;
 
       for (const branch of tenantBranches) {
-        const bLat = Number(branch.latitude || branch.coordinates?.lat || 31.4125);
-        const bLng = Number(branch.longitude || branch.coordinates?.lng || 73.0995);
-        const dist = calculateDistanceKm(userLat, userLng, bLat, bLng);
-        if (dist < minDistance) {
-          minDistance = dist;
-          nearestBranch = branch;
+        const bLat = Number(branch.latitude ?? branch.coordinates?.lat);
+        const bLng = Number(branch.longitude ?? branch.coordinates?.lng);
+        if (!isNaN(bLat) && !isNaN(bLng)) {
+          const dist = calculateDistanceKm(userLat, userLng, bLat, bLng);
+          if (dist < minDistance) {
+            minDistance = dist;
+            nearestBranch = branch;
+          }
         }
       }
 
@@ -1554,11 +1576,17 @@ export const StoreProvider = ({ children }) => {
       };
     });
 
-    // Only expose branches that can serve this address. The nearest branch may
-    // be geographically close while still being outside the delivery radius.
-    return storeList
+    const deliverableStores = storeList
       .filter((store) => store.isDeliverable && store.nearestBranch)
-      .sort((a, b) => a.distanceKm - b.distanceKm);
+      .sort((a, b) => (a.distanceKm || Infinity) - (b.distanceKm || Infinity));
+
+    if (deliverableStores.length > 0) {
+      return deliverableStores;
+    }
+
+    return storeList
+      .filter((store) => store.nearestBranch)
+      .sort((a, b) => (a.distanceKm || Infinity) - (b.distanceKm || Infinity));
   };
 
   // Switch store and auto-select its closest branch
