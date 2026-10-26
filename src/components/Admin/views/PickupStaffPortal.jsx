@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
+import { isOrderAssignedToPickupStaff } from '../../../utils/pickupStaffAssignment';
 
 // Helper: category/grocery item icon
 const getItemIcon = (name = '') => {
@@ -126,8 +127,8 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
         return false;
       }
       return isSameTenant(tId, activeTenantId);
-    }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-  }, [customerOrders, adminOrders, user?.tenantId, currentTenant?.id]);
+    }).filter((ord) => isOrderAssignedToPickupStaff(ord, user)).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  }, [customerOrders, adminOrders, user, currentTenant?.id]);
 
   // Tab counts
   const counts = useMemo(() => {
@@ -454,7 +455,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             </div>
             <h3 className="font-bold text-slate-900 text-sm">No Orders in Packing Queue</h3>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              New customer orders placed for this store branch will appear here in real-time for item picking, packing, and courier staging.
+              Parcels appear here only after the store admin assigns them to you. Unassigned orders stay on the admin Pickup Staff page.
             </p>
           </div>
         ) : viewMode === 'cards' ? (

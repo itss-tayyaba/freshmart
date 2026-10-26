@@ -479,7 +479,11 @@ export const getOrders = async (req, res) => {
       const mongoIds = new Set(combined.map((o) => String(o.id || o.orderId || o._id).replace(/^#/, '').toLowerCase().trim()));
       diskOrders.forEach((d) => {
         const dKey = String(d.id || d.orderId || d._id).replace(/^#/, '').toLowerCase().trim();
-        if (!mongoIds.has(dKey)) combined.push(d);
+        if (mongoIds.has(dKey)) return;
+        if (role === 'pickup_staff') {
+          if (!d.pickupStaffId || String(d.pickupStaffId) !== String(staffId)) return;
+        }
+        combined.push(d);
       });
       return res.json({ success: true, count: combined.length, orders: combined });
     }
@@ -502,11 +506,11 @@ export const getOrders = async (req, res) => {
     }
     if (role === 'pickup_staff') {
       orders = orders.filter((order) => {
-        const matchesStaff = !staffId || String(order.pickupStaffId) === String(staffId);
+        if (!order.pickupStaffId || !staffId || String(order.pickupStaffId) !== String(staffId)) return false;
         const orderTenant = order.tenantId || order.companyId;
         const matchesTenant = !userTenantId || isSameTenant(orderTenant, userTenantId);
         const matchesBranch = !userBranchId || order.branchId === userBranchId;
-        return matchesStaff && matchesTenant && matchesBranch;
+        return matchesTenant && matchesBranch;
       });
     }
     if (role === 'rider') {
@@ -910,14 +914,8 @@ export const updateOrderStatus = async (req, res) => {
     const applyUpdate = (order) => {
       const isAdmin = role === 'admin' || role === 'superadmin';
       if (role === 'pickup_staff') {
-        if (order.pickupStaffId && staffId && String(order.pickupStaffId) !== String(staffId) && !isAdmin) {
-          if (req.user?.tenantId && order.tenantId && req.user.tenantId !== order.tenantId) return false;
-        }
+        if (!order.pickupStaffId || (staffId && String(order.pickupStaffId) !== String(staffId))) return false;
         if (!pickupStatuses.has(status)) return false;
-        if (!order.pickupStaffId && staffId) {
-          order.pickupStaffId = staffId;
-          if (req.user?.name) order.pickupStaffName = req.user.name;
-        }
       } else if (role === 'rider') {
         const assignedId = order.assignedRider?.id || order.assignedRider?.riderId;
         if (assignedId && riderId && String(assignedId) !== String(riderId)) return false;

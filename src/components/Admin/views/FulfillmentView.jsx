@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Boxes, UserPlus, Trash2, X, Eye, EyeOff, Clock, MapPin, PackageCheck, Lock } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
+import { countPickupStaffTasks } from '../../../utils/pickupStaffAssignment';
 
 const getItems = (order) => [order.rawItems, order.items, order.orderItems].find(Array.isArray) || [];
 const getOrderLabel = (order) => String(order.orderId || order.id || order._id || 'Order').replace(/^#/, '#');
@@ -18,7 +19,7 @@ const getStaffActivity = (order) => {
 export const FulfillmentView = () => {
   const {
     adminOrders = [], customerOrders = [], currentTenant, user, pickupStaff = [],
-    addPickupStaff, deletePickupStaff, assignPickupStaffToOrder
+    addPickupStaff, deletePickupStaff, assignPickupStaffToOrder, autoAssignPickupStaff
   } = useStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -123,7 +124,12 @@ export const FulfillmentView = () => {
 
   const assignStaff = (order, staffId) => {
     if (!staffId) return;
-    assignPickupStaffToOrder(order.id || order.orderId || order._id, staffId);
+    const orderId = order.id || order.orderId || order._id;
+    if (staffId === '__auto__') {
+      autoAssignPickupStaff?.(orderId);
+      return;
+    }
+    assignPickupStaffToOrder(orderId, staffId);
   };
 
   return (
@@ -201,9 +207,12 @@ export const FulfillmentView = () => {
                           className="w-48 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs hover:border-slate-400"
                         >
                           <option value="">Assign pickup staff</option>
+                          {tenantStaff.length > 1 && (
+                            <option value="__auto__">⚡ Auto-assign (fewest tasks)</option>
+                          )}
                           {tenantStaff.map((staff) => (
                             <option key={staff.id} value={staff.id}>
-                              📦 {staff.name}
+                              📦 {staff.name} ({countPickupStaffTasks(staff.id, orders)} open)
                             </option>
                           ))}
                         </select>

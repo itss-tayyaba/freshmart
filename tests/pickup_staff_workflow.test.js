@@ -421,4 +421,34 @@ test('Pickup Staff Management & "Deliver to Staff" Workflow', async (t) => {
       'Al-Fatah tenant hubs must be in Faisalabad'
     );
   });
+
+  await t.test('11. Pickup staff queue hides parcels until admin assigns them', async () => {
+    const { isOrderAssignedToPickupStaff } = await import('../src/utils/pickupStaffAssignment.js');
+    const staffUser = { id: 'PCK-CASEUP', username: 'chaseup_staff' };
+    const unassigned = { id: '#CU52556', tenantId: 'tenant-chaseup', customer: 'fatima', pickupStaffId: null };
+    const assignedToOther = { id: '#CU52557', pickupStaffId: 'PCK-OTHER', pickupStaffUsername: 'other_staff' };
+    const assignedToMe = { id: '#CU52558', pickupStaffId: 'PCK-CASEUP', pickupStaffUsername: 'chaseup_staff' };
+
+    assert.equal(isOrderAssignedToPickupStaff(unassigned, staffUser), false);
+    assert.equal(isOrderAssignedToPickupStaff(assignedToOther, staffUser), false);
+    assert.equal(isOrderAssignedToPickupStaff(assignedToMe, staffUser), true);
+  });
+
+  await t.test('12. Auto-assign sends the next parcel to the staff with fewest open tasks', async () => {
+    const { pickLeastBusyPickupStaff, countPickupStaffTasks } = await import('../src/utils/pickupStaffAssignment.js');
+    const staff = [
+      { id: 'PCK-ASAD', name: 'Asad' },
+      { id: 'PCK-HAFSA', name: 'Hafsa' }
+    ];
+    const orders = [
+      { pickupStaffId: 'PCK-ASAD', status: 'Preparing' },
+      { pickupStaffId: 'PCK-ASAD', status: 'Pending' },
+      { pickupStaffId: 'PCK-HAFSA', status: 'Preparing' },
+      { pickupStaffId: 'PCK-HAFSA', status: 'Delivered' }
+    ];
+
+    assert.equal(countPickupStaffTasks('PCK-ASAD', orders), 2);
+    assert.equal(countPickupStaffTasks('PCK-HAFSA', orders), 1);
+    assert.equal(pickLeastBusyPickupStaff(staff, orders).id, 'PCK-HAFSA');
+  });
 });

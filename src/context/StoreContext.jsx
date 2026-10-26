@@ -89,6 +89,11 @@ export const useStore = () => {
 };
 
 import { sanitizeOrder } from '../utils/orderSanitizer.js';
+import {
+  isOrderAssignedToPickupStaff,
+  pickLeastBusyPickupStaff,
+  buildPickupStaffAssignment
+} from '../utils/pickupStaffAssignment.js';
 export { sanitizeOrder };
 
 const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
@@ -225,7 +230,11 @@ const mergeApiOrders = (remoteOrders, localOrders, role, user) => {
     return true;
   }).map(sanitizeOrder);
 
-  return [...mergedRemote, ...remainingLocal];
+  const merged = [...mergedRemote, ...remainingLocal];
+  if (role === 'pickup_staff' && user) {
+    return merged.filter((order) => isOrderAssignedToPickupStaff(order, user));
+  }
+  return merged;
 };
 
 const readCoordinates = (...values) => {
@@ -4846,7 +4855,34 @@ export const StoreProvider = ({ children }) => {
       console.error('Backend order creation sync error:', e);
     }
 
-    const finalConfirmedOrder = sanitizeOrder(confirmedOrder);
+    let finalConfirmedOrder = sanitizeOrder(confirmedOrder);
+    const tenantPickupStaff = (pickupStaff || []).filter(
+      (person) => isSameTenant(person.tenantId, resolvedTenantId) && (person.status === 'Active' || !person.status)
+    );
+    // With 2+ pickup staff, send the parcel to whoever currently has the fewest open tasks.
+    if (tenantPickupStaff.length > 1) {
+      const uniqueOrders = new Map();
+      [...(customerOrders || []), ...(adminOrders || []), finalConfirmedOrder].forEach((order) => {
+        const key = String(order?.id || order?.orderId || order?._id || '').replace(/^#/, '').toLowerCase();
+        if (key) uniqueOrders.set(key, order);
+      });
+      const leastBusy = pickLeastBusyPickupStaff(tenantPickupStaff, [...uniqueOrders.values()]);
+      if (leastBusy) {
+        finalConfirmedOrder = sanitizeOrder({
+          ...finalConfirmedOrder,
+          ...buildPickupStaffAssignment(leastBusy)
+        });
+        apiService.updateOrderStatus(finalConfirmedOrder.id, 'Received by Pickup Staff', {
+          pickupStaffId: leastBusy.id,
+          pickupStaffName: leastBusy.name,
+          pickupStaffUsername: leastBusy.username,
+          pickupAssignedAt: finalConfirmedOrder.pickupAssignedAt,
+          deliveredToStaffAt: finalConfirmedOrder.deliveredToStaffAt,
+          fulfillmentStage: 2,
+          pickupStep: 'received'
+        }).catch(() => {});
+      }
+    }
     setCustomerOrders((prev) => {
       const next = [finalConfirmedOrder, ...(prev || []).filter((o) => (o.id || o.orderId) !== (finalConfirmedOrder.id || finalConfirmedOrder.orderId))];
       try {
@@ -4928,7 +4964,7 @@ export const StoreProvider = ({ children }) => {
     });
 
     clearCart();
-    return confirmedOrder;
+    return finalConfirmedOrder;
   };
 
   // --- Inventory & Stock Management ---
@@ -5798,6 +5834,11 @@ export const StoreProvider = ({ children }) => {
       const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
       return oId === cleanId || o.id === orderId || o.orderId === orderId;
     };
+    const sourceOrder = [...(adminOrders || []), ...(customerOrders || [])].find(orderMatches);
+    if (isStaff && !isOrderAssignedToPickupStaff(sourceOrder, user)) {
+      addToast('Not assigned', 'This parcel is not assigned to you yet. Wait for store admin to assign it.', 'error');
+      return false;
+    }
 
     const stageStatusMap = {
       1: 'Pending',
@@ -5827,10 +5868,6 @@ export const StoreProvider = ({ children }) => {
           const merged = { ...order, ...updates };
           if (newStatus) merged.status = newStatus;
           if (statusColor) merged.statusColor = statusColor;
-          if (!merged.pickupStaffId && user?.id) {
-            merged.pickupStaffId = user.id;
-            merged.pickupStaffName = user.name || 'Staff';
-          }
           return merged;
         }
         return order;
@@ -5847,10 +5884,6 @@ export const StoreProvider = ({ children }) => {
           const merged = { ...order, ...updates };
           if (newStatus) merged.status = newStatus;
           if (statusColor) merged.statusColor = statusColor;
-          if (!merged.pickupStaffId && user?.id) {
-            merged.pickupStaffId = user.id;
-            merged.pickupStaffName = user.name || 'Staff';
-          }
           return merged;
         }
         return order;
@@ -5925,23 +5958,13 @@ export const StoreProvider = ({ children }) => {
       addToast('No Pickup Staff', 'Add at least one pickup staff account before auto-assigning.', 'error');
       return false;
     }
-    // Count active (non-dispatched) tasks per staff member
-    const allActiveOrders = [...(customerOrders || []), ...(adminOrders || [])].filter((o) => {
-      const s = (o.status || '').toLowerCase();
-      return !['dispatched', 'out for delivery', 'delivered', 'cancelled'].includes(s);
+    const uniqueOrders = new Map();
+    [...(customerOrders || []), ...(adminOrders || [])].forEach((order) => {
+      const key = String(order?.id || order?.orderId || order?._id || '').replace(/^#/, '').toLowerCase();
+      if (key) uniqueOrders.set(key, order);
     });
-    const taskCounts = {};
-    tenantStaff.forEach((s) => { taskCounts[s.id] = 0; });
-    allActiveOrders.forEach((o) => {
-      if (o.pickupStaffId && taskCounts[o.pickupStaffId] !== undefined) {
-        taskCounts[o.pickupStaffId]++;
-      }
-    });
-    // Pick staff with the fewest tasks (first alphabetically on tie)
-    const leastBusy = tenantStaff.sort((a, b) => {
-      const diff = (taskCounts[a.id] || 0) - (taskCounts[b.id] || 0);
-      return diff !== 0 ? diff : (a.name || '').localeCompare(b.name || '');
-    })[0];
+    const leastBusy = pickLeastBusyPickupStaff(tenantStaff, [...uniqueOrders.values()]);
+    if (!leastBusy) return false;
     return assignPickupStaffToOrder(orderId, leastBusy.id);
   };
 
@@ -6039,6 +6062,16 @@ export const StoreProvider = ({ children }) => {
   const substituteOrderItem = async (orderId, itemIndexOrId, replacementProduct, reason = 'Out of Stock - Customer approved substitution') => {
     const isStaff = adminRole === 'pickup_staff';
     const staffName = user?.name || (isStaff ? 'Pickup Staff' : 'Store Admin');
+    if (isStaff) {
+      const sourceOrder = [...(adminOrders || []), ...(customerOrders || [])].find((order) => {
+        const oId = String(order.id || order.orderId || order._id || '');
+        return oId === String(orderId);
+      });
+      if (!isOrderAssignedToPickupStaff(sourceOrder, user)) {
+        addToast('Not assigned', 'This parcel is not assigned to you yet.', 'error');
+        return false;
+      }
+    }
 
     const updateOrderList = (orderList) => {
       return orderList.map((order) => {
