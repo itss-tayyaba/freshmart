@@ -52,8 +52,7 @@ export const FreshMartHeader = () => {
     categories,
     getNearbyStores,
     selectStoreAndBranch,
-    allBranches,
-    deliveryLocation
+    allBranches
   } = useStore();
 
   const nearbyStoreOptions = useMemo(() => {
