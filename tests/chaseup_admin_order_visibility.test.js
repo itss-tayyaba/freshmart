@@ -192,4 +192,100 @@ describe('Chase Up / Case Up Store Admin Order Visibility & Multi-Tenant Isolati
     assert.equal(chaseUpOrders[0].id, '#CU99123');
     assert.equal(chaseUpOrders[0].customer, 'Online Customer');
   });
+
+  it('guarantees newly placed pending order #CU39015 for fatii displays at the top ahead of delivered order #CU25815 areeba', () => {
+    const orderFatii = sanitizeOrder({
+      id: '#CU39015',
+      orderId: '#CU39015',
+      tenantId: 'tenant-chaseup',
+      tenantName: 'Chase Up',
+      customer: 'fatii',
+      customerName: 'fatii',
+      recipientName: 'fatii',
+      customerPhone: '+923001234567',
+      address: 'Peoples Colony No. 01, Faisalabad',
+      city: 'Faisalabad',
+      status: 'Pending',
+      total: 671,
+      createdAt: '2026-10-26T08:05:48.000Z',
+      items: [{ name: 'Colgate Total Advanced Health Toothpaste Twin Pack (150g x 2)', price: 690, quantity: 1 }]
+    });
+
+    const orderAreeba = sanitizeOrder({
+      id: '#CU25815',
+      orderId: '#CU25815',
+      tenantId: 'tenant-chaseup',
+      tenantName: 'Chase Up',
+      customer: 'areeba',
+      customerName: 'areeba',
+      customerPhone: '03206551696',
+      address: 'Mall of Faisalabad Flagship (Faisalabad)',
+      city: 'Faisalabad',
+      status: 'Delivered',
+      isDelivered: true,
+      deliveredAt: '2026-10-26T08:00:00.000Z',
+      createdAt: '2026-10-26T07:30:00.000Z',
+      total: 1665,
+      items: [{ name: "1x K&N's Combo...", price: 1665, quantity: 1 }]
+    });
+
+    const targetTenantId = 'tenant-chaseup';
+    const rawList = [orderAreeba, orderFatii]; // delivered order was listed first in raw list
+
+    // OrdersView tenant filtering
+    const filtered = rawList.filter((o) => {
+      const idLower = String(o.id || o.orderId || o._id || '').toLowerCase();
+      const bareId = idLower.replace(/^#/, '').trim();
+      if ((bareId.startsWith('cu') || bareId.startsWith('ord-cu') || bareId.includes('-cu-') || bareId.includes('caseup')) && isSameTenant(targetTenantId, 'tenant-chaseup')) {
+        return true;
+      }
+      return isSameTenant(o.tenantId, targetTenantId);
+    });
+
+    assert.equal(filtered.length, 2);
+
+    // OrdersView sort logic: Active pending orders must sort to the top, newest first
+    const sorted = [...filtered].sort((a, b) => {
+      const isCompleteA = ['delivered', 'cancelled'].includes(String(a.status || '').toLowerCase()) || a.isDelivered;
+      const isCompleteB = ['delivered', 'cancelled'].includes(String(b.status || '').toLowerCase()) || b.isDelivered;
+      if (!isCompleteA && isCompleteB) return -1;
+      if (isCompleteA && !isCompleteB) return 1;
+
+      if (isCompleteA && isCompleteB) {
+        const timeDelA = new Date(a.deliveredAt || a.fulfillmentUpdatedAt || a.createdAt || 0).getTime();
+        const timeDelB = new Date(b.deliveredAt || b.fulfillmentUpdatedAt || b.createdAt || 0).getTime();
+        if (timeDelA !== timeDelB) return timeDelB - timeDelA;
+      }
+
+      const timeA = new Date(a.createdAt || a.fulfillmentUpdatedAt || a.time || 0).getTime();
+      const timeB = new Date(b.createdAt || b.fulfillmentUpdatedAt || b.time || 0).getTime();
+      return timeB - timeA;
+    });
+
+    // #CU39015 (fatii) MUST be row 1
+    assert.equal(sorted[0].id, '#CU39015');
+    assert.equal(sorted[0].customerName, 'fatii');
+    assert.equal(sorted[0].status, 'Pending');
+
+    // #CU25815 (areeba) comes after active orders
+    assert.equal(sorted[1].id, '#CU25815');
+    assert.equal(sorted[1].customerName, 'areeba');
+    assert.equal(sorted[1].status, 'Delivered');
+  });
+
+  it('matches Chase Up order IDs even without leading "#" symbol (e.g. cu39015, CU39015)', () => {
+    const rawOrderWithoutHash = {
+      id: 'cu39015',
+      orderId: 'cu39015',
+      customer: 'fatii',
+      status: 'Pending'
+    };
+
+    const targetTenantId = 'tenant-chaseup';
+    const idLower = String(rawOrderWithoutHash.id).toLowerCase();
+    const bareId = idLower.replace(/^#/, '').trim();
+
+    const matches = (bareId.startsWith('cu') || bareId.startsWith('ord-cu') || bareId.includes('-cu-') || bareId.includes('caseup')) && isSameTenant(targetTenantId, 'tenant-chaseup');
+    assert.equal(matches, true);
+  });
 });

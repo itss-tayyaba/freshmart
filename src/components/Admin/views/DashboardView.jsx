@@ -131,8 +131,19 @@ export const DashboardView = ({ onNavigateModule }) => {
     });
 
     return list.sort((a, b) => {
-      const timeA = new Date(a.deliveredAt || a.fulfillmentUpdatedAt || a.createdAt || 0).getTime();
-      const timeB = new Date(b.deliveredAt || b.fulfillmentUpdatedAt || b.createdAt || 0).getTime();
+      const isCompleteA = ['delivered', 'cancelled'].includes(String(a.status || '').toLowerCase()) || a.isDelivered;
+      const isCompleteB = ['delivered', 'cancelled'].includes(String(b.status || '').toLowerCase()) || b.isDelivered;
+      if (!isCompleteA && isCompleteB) return -1;
+      if (isCompleteA && !isCompleteB) return 1;
+
+      if (isCompleteA && isCompleteB) {
+        const timeDelA = new Date(a.deliveredAt || a.fulfillmentUpdatedAt || a.createdAt || 0).getTime();
+        const timeDelB = new Date(b.deliveredAt || b.fulfillmentUpdatedAt || b.createdAt || 0).getTime();
+        if (timeDelA !== timeDelB) return timeDelB - timeDelA;
+      }
+
+      const timeA = new Date(a.createdAt || a.fulfillmentUpdatedAt || a.time || 0).getTime();
+      const timeB = new Date(b.createdAt || b.fulfillmentUpdatedAt || b.time || 0).getTime();
       return timeB - timeA;
     });
   }, [customerOrders, adminOrders, tenantKey]);

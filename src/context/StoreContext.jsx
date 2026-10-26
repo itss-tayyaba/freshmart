@@ -194,7 +194,7 @@ const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
     status: resolvedStatus,
     isDelivered,
     fulfillmentStage: isDelivered ? 4 : (remoteOrder.fulfillmentStage || localOrder.fulfillmentStage || 1),
-    deliveredAt: remoteOrder.deliveredAt || localOrder.deliveredAt || (isDelivered ? new Date().toISOString() : null),
+    deliveredAt: remoteOrder.deliveredAt || localOrder.deliveredAt || (isDelivered ? (remoteOrder.updatedAt || localOrder.updatedAt || remoteOrder.createdAt || localOrder.createdAt || new Date().toISOString()) : null),
     isPaid: isDelivered ? true : (remoteOrder.isPaid || localOrder.isPaid || false),
     paymentStatus: isDelivered ? 'Paid' : (remoteOrder.paymentStatus || localOrder.paymentStatus || 'Pending'),
     assignedRider: remoteOrder.assignedRider || localOrder.assignedRider || null,

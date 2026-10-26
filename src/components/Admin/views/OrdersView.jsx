@@ -255,18 +255,31 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     if (targetTenantId) {
       list = list.filter((o) => {
         const idLower = String(o.id || o.orderId || o._id || '').toLowerCase();
+        const bareId = idLower.replace(/^#/, '').trim();
 
-        // 1. Direct match on order ID prefix
-        if ((idLower.startsWith('#cu') || idLower.startsWith('cu-') || idLower.startsWith('ord-cu') || idLower.includes('-cu-') || idLower.includes('caseup')) && isSameTenant(targetTenantId, 'tenant-chaseup')) {
+        // 1. Direct match on order ID prefix (with or without #)
+        if (
+          (bareId.startsWith('cu') || bareId.startsWith('ord-cu') || bareId.includes('-cu-') || bareId.includes('caseup')) &&
+          isSameTenant(targetTenantId, 'tenant-chaseup')
+        ) {
           return true;
         }
-        if ((idLower.startsWith('#cv') || idLower.startsWith('cv-') || idLower.startsWith('ord-cv') || idLower.includes('-cv-')) && isSameTenant(targetTenantId, 'tenant-chasevalue')) {
+        if (
+          (bareId.startsWith('cv') || bareId.startsWith('ord-cv') || bareId.includes('-cv-')) &&
+          isSameTenant(targetTenantId, 'tenant-chasevalue')
+        ) {
           return true;
         }
-        if ((idLower.includes('701') || idLower.startsWith('#af') || idLower.startsWith('af-')) && isSameTenant(targetTenantId, 'tenant-alfatah')) {
+        if (
+          (bareId.includes('701') || bareId.startsWith('af') || bareId.startsWith('ord-af') || bareId.includes('-af-')) &&
+          isSameTenant(targetTenantId, 'tenant-alfatah')
+        ) {
           return true;
         }
-        if ((idLower.includes('83459') || idLower.startsWith('#fm') || idLower.startsWith('fm-')) && isSameTenant(targetTenantId, 'tenant-freshmart')) {
+        if (
+          (bareId.includes('83459') || bareId.startsWith('fm') || bareId.startsWith('ord-fm') || bareId.includes('-fm-')) &&
+          isSameTenant(targetTenantId, 'tenant-freshmart')
+        ) {
           return true;
         }
 
@@ -311,7 +324,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
         if (hasChaseUp && isSameTenant(targetTenantId, 'tenant-chaseup')) return true;
 
         if (!orderTenant) {
-          const id = idLower;
+          const id = bareId;
           if (id.includes('701') || id.includes('af')) return isSameTenant('tenant-alfatah', targetTenantId);
           if (id.includes('fm') || id.includes('83459')) return isSameTenant('tenant-freshmart', targetTenantId);
           if (id.includes('cv')) return isSameTenant('tenant-chasevalue', targetTenantId);
@@ -333,8 +346,23 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     }
 
     return list.sort((a, b) => {
-      const timeA = new Date(a.deliveredAt || a.fulfillmentUpdatedAt || a.createdAt || 0).getTime();
-      const timeB = new Date(b.deliveredAt || b.fulfillmentUpdatedAt || b.createdAt || 0).getTime();
+      // 1. Prioritize active orders (Pending, Staff Desk, Preparing, Prepared, Out for Delivery)
+      // over finished orders (Delivered, Cancelled) so new customer orders are prominently displayed
+      const isCompleteA = ['delivered', 'cancelled'].includes(String(a.status || '').toLowerCase()) || a.isDelivered;
+      const isCompleteB = ['delivered', 'cancelled'].includes(String(b.status || '').toLowerCase()) || b.isDelivered;
+      if (!isCompleteA && isCompleteB) return -1;
+      if (isCompleteA && !isCompleteB) return 1;
+
+      // 2. For completed orders, sort newest delivery first
+      if (isCompleteA && isCompleteB) {
+        const timeDelA = new Date(a.deliveredAt || a.fulfillmentUpdatedAt || a.createdAt || 0).getTime();
+        const timeDelB = new Date(b.deliveredAt || b.fulfillmentUpdatedAt || b.createdAt || 0).getTime();
+        if (timeDelA !== timeDelB) return timeDelB - timeDelA;
+      }
+
+      // 3. For active orders (or general list), sort newest created order first
+      const timeA = new Date(a.createdAt || a.fulfillmentUpdatedAt || a.time || 0).getTime();
+      const timeB = new Date(b.createdAt || b.fulfillmentUpdatedAt || b.time || 0).getTime();
       return timeB - timeA;
     });
   }, [customerOrders, adminOrders, currentTenant, user?.tenantId, user?.branchId, user?.role, currentBranchFilter, tenantBranches]);
@@ -391,7 +419,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       if (search.trim()) {
         const q = search.toLowerCase().trim();
         const matchesId = o.id && String(o.id).toLowerCase().includes(q);
-        const custNameStr = getCustomerDisplayName(o.customer || o.customerName, '');
+        const custNameStr = getCustomerDisplayName(o.customerName || o.customer || o.recipientName || o.shippingAddress?.recipientName, '');
         const matchesCustomer = custNameStr && custNameStr.toLowerCase().includes(q);
         const matchesEmail = typeof o.customerEmail === 'string' && o.customerEmail.toLowerCase().includes(q);
         const matchesPhone = typeof o.customerPhone === 'string' && o.customerPhone.toLowerCase().includes(q);
@@ -874,7 +902,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredOrders.map((ord) => {
-                    const customerName = getCustomerDisplayName(ord.customer || ord.customerName);
+                    const customerName = getCustomerDisplayName(ord.customerName || ord.customer || ord.recipientName || ord.shippingAddress?.recipientName);
                     const customerPhone = typeof ord.customerPhone === 'string' ? ord.customerPhone : (ord.customer?.phone || ord.phone || '+92 300 0000000');
                     const orderType = ord.orderType || (ord.table ? 'Dine-In' : 'Delivery');
                     const tableRef = ord.table || '—';
