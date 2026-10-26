@@ -505,16 +505,30 @@ export const getOrders = async (req, res) => {
       orders = [...ORDERS];
     }
     if (role === 'pickup_staff') {
-      orders = orders.filter((order) => {
-        if (!order.pickupStaffId || !staffId || String(order.pickupStaffId) !== String(staffId)) return false;
-        const orderTenant = order.tenantId || order.companyId;
-        const matchesTenant = !userTenantId || isSameTenant(orderTenant, userTenantId);
-        const matchesBranch = !userBranchId || order.branchId === userBranchId;
-        return matchesTenant && matchesBranch;
-      });
+      if (req.query?.assignedOnly === 'true') {
+        orders = orders.filter((order) => {
+          if (!order.pickupStaffId || !staffId || String(order.pickupStaffId) !== String(staffId)) return false;
+          const orderTenant = order.tenantId || order.companyId;
+          const matchesTenant = !userTenantId || isSameTenant(orderTenant, userTenantId);
+          const matchesBranch = !userBranchId || order.branchId === userBranchId;
+          return matchesTenant && matchesBranch;
+        });
+      } else if (userTenantId) {
+        orders = orders.filter((order) => {
+          const orderTenant = order.tenantId || order.companyId;
+          return !orderTenant || isSameTenant(orderTenant, userTenantId);
+        });
+      }
     }
     if (role === 'rider') {
-      orders = orders.filter((order) => String(order.assignedRider?.id || order.assignedRider?.riderId) === String(riderId));
+      if (req.query?.assignedOnly === 'true') {
+        orders = orders.filter((order) => String(order.assignedRider?.id || order.assignedRider?.riderId) === String(riderId));
+      } else if (userTenantId) {
+        orders = orders.filter((order) => {
+          const orderTenant = order.tenantId || order.companyId;
+          return !orderTenant || isSameTenant(orderTenant, userTenantId);
+        });
+      }
     }
     if (role === 'admin' && userTenantId && role !== 'superadmin') {
       orders = orders.filter((order) => {
@@ -679,8 +693,8 @@ export const assignRiderToOrder = async (req, res) => {
 
     const defaultHub = CITY_HUBS.lahore;
     const riderCoords = resolveRiderCoords(targetRider) || { lat: defaultHub.lat, lng: defaultHub.lng };
-    const coverageRadiusKm = Number(targetRider?.coverageRadiusKm) || 15;
-    if (targetRider?.status && !['available', 'on-duty'].includes(String(targetRider.status).toLowerCase())) {
+    const coverageRadiusKm = Number(targetRider?.coverageRadiusKm) || 25;
+    if (targetRider?.status && !['available', 'on-duty', 'active'].includes(String(targetRider.status).toLowerCase())) {
       return res.status(400).json({ success: false, message: 'Rider is not currently available for assignment.' });
     }
 
@@ -719,9 +733,6 @@ export const assignRiderToOrder = async (req, res) => {
       if (order) {
         const destCoords = order.destinationCoords || resolveDestinationCoords(order.shippingAddress);
         const distanceKm = calculateDistanceKm(riderCoords.lat, riderCoords.lng, destCoords.lat, destCoords.lng);
-        if (distanceKm > coverageRadiusKm) {
-          return res.status(400).json({ success: false, message: `Rider is outside the customer's delivery area (${distanceKm} km away; coverage is ${coverageRadiusKm} km).` });
-        }
         const etaMinutes = calculateEtaMinutes(distanceKm);
         const etaText = distanceKm <= 0.2 ? 'Arriving now (1-2 mins)' : `${etaMinutes} mins`;
 
@@ -765,9 +776,6 @@ export const assignRiderToOrder = async (req, res) => {
     if (memOrder) {
       const destCoords = resolveDestinationCoords(memOrder.shippingAddress || { address: memOrder.address, city: memOrder.city });
       const distanceKm = calculateDistanceKm(riderCoords.lat, riderCoords.lng, destCoords.lat, destCoords.lng);
-      if (distanceKm > coverageRadiusKm) {
-        return res.status(400).json({ success: false, message: `Rider is outside the customer's delivery area (${distanceKm} km away; coverage is ${coverageRadiusKm} km).` });
-      }
       const etaMinutes = calculateEtaMinutes(distanceKm);
       const etaText = distanceKm <= 0.2 ? 'Arriving now (1-2 mins)' : `${etaMinutes} mins`;
 

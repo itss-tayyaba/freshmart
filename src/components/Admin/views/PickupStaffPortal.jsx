@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
-import { isOrderAssignedToPickupStaff } from '../../../utils/pickupStaffAssignment';
+import { isOrderAssignedToPickupStaff, isPickupOrderAssigned } from '../../../utils/pickupStaffAssignment';
 
 // Helper: category/grocery item icon
 const getItemIcon = (name = '') => {
@@ -127,7 +127,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
         return false;
       }
       return isSameTenant(tId, activeTenantId);
-    }).filter((ord) => isOrderAssignedToPickupStaff(ord, user)).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    }).filter((ord) => isOrderAssignedToPickupStaff(ord, user) || !isPickupOrderAssigned(ord)).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }, [customerOrders, adminOrders, user, currentTenant?.id]);
 
   // Tab counts

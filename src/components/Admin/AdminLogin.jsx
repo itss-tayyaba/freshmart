@@ -143,10 +143,10 @@ export const AdminLogin = () => {
       icon: '🛵',
       sublabel: 'Delivery Fleet',
       badge: 'Live Courier',
-      userPlaceholder: 'rider phone or username (e.g. ahmad or 03001234567)',
+      userPlaceholder: 'rider phone or username (e.g. ali or ahmad)',
       passPlaceholder: 'rider password (e.g. rider123)',
-      defaultUser: riders && riders.length > 0 ? (riders[0].phone || riders[0].username || riders[0].name) : 'ahmad',
-      defaultPass: riders && riders.length > 0 ? (riders[0].password || 'rider123') : 'rider123'
+      defaultUser: (riders && riders.length > 0) ? (riders[0].username || riders[0].phone || 'ali') : 'ali',
+      defaultPass: 'rider123'
     },
     {
       id: 'pickup_staff',
@@ -181,18 +181,21 @@ export const AdminLogin = () => {
         showFeedback(`Loaded ${martConfig.shortName} Admin credentials`);
       }
     } else if (role === 'rider') {
-      const martRider = (riders || []).find(
+      const activeRiders = (riders && riders.length > 0) ? riders : [
+        { id: 'RDR-ALI', name: 'Ali Khan', username: 'ali', phone: '03001122334', password: 'rider123' },
+        { id: 'RDR-AHMAD', name: 'Ahmad Khan', username: 'ahmad', phone: '03206551696', password: 'rider123' }
+      ];
+      const martRider = activeRiders.find(
         (r) => r.tenantId === martId || (r.username && r.username.includes(martId.replace('tenant-', '')))
-      );
+      ) || activeRiders.find((r) => r.isGlobal) || activeRiders[0];
       if (martRider) {
         setUsername(martRider.username || martRider.phone || martRider.name);
         setPassword(martRider.password || 'rider123');
         showFeedback(`Loaded ${martRider.name} credentials`);
       } else {
-        const slug = martId.replace('tenant-', '');
-        setUsername(`${slug}_rider`);
+        setUsername('ali');
         setPassword('rider123');
-        showFeedback(`Loaded ${martConfig?.shortName || 'Store'} Rider credentials`);
+        showFeedback('Loaded Ali Khan credentials');
       }
     } else if (role === 'pickup_staff') {
       if (martId === 'tenant-alfatah') {
@@ -975,18 +978,31 @@ export const AdminLogin = () => {
                       ))}
                     </div>
                   ) : (
-                    <div
-                      onClick={() => autoFillCredentials('rider', 'ahmad', 'rider123', null, 'Ahmad Khan (Fleet Courier)')}
-                      className={`p-2.5 rounded-xl border cursor-pointer transition ${
-                        selectedRole === 'rider' ? 'bg-orange-50 border-orange-500 shadow-2xs' : 'bg-white border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800">🛵 Ahmad Khan (Fleet Courier)</span>
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-800">Fleet Courier</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div
+                        onClick={() => autoFillCredentials('rider', 'ali', 'rider123', null, 'Ali Khan (Fleet Courier)')}
+                        className={`p-2 rounded-xl border cursor-pointer transition ${
+                          selectedRole === 'rider' && username === 'ali' ? 'bg-orange-50 border-orange-500 shadow-2xs' : 'bg-white border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-800">🛵 Ali Khan</span>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Active</span>
+                        </div>
+                        <div className="font-mono text-[10px] text-slate-600 mt-0.5">ali / rider123 (03001122334)</div>
                       </div>
-                      <div className="font-mono text-[10px] text-slate-600 mt-0.5">ahmad / rider123 (or 0300-1234567)</div>
-                      <p className="text-[9px] text-slate-400 mt-1">To register custom fleet couriers, add them via Store Admin &rarr; Delivery Fleet.</p>
+                      <div
+                        onClick={() => autoFillCredentials('rider', 'ahmad', 'rider123', null, 'Ahmad Khan (Fleet Courier)')}
+                        className={`p-2 rounded-xl border cursor-pointer transition ${
+                          selectedRole === 'rider' && username === 'ahmad' ? 'bg-orange-50 border-orange-500 shadow-2xs' : 'bg-white border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-800">🛵 Ahmad Khan</span>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Active</span>
+                        </div>
+                        <div className="font-mono text-[10px] text-slate-600 mt-0.5">ahmad / rider123 (03206551696)</div>
+                      </div>
                     </div>
                   )}
                 </div>

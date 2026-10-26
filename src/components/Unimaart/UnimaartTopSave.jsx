@@ -66,10 +66,10 @@ export const UnimaartTopSave = ({ activeCategory: propActiveCategory, onSelectCa
 
   const format2 = (val) => String(val).padStart(2, '0');
 
-  // Live items strictly matching active store catalog (5 demo items + any newly added admin items)
+  // Live items strictly matching active store catalog (curated items + any newly added admin items)
   const filteredItems = useMemo(() => {
     if (!products || products.length === 0) return get5ItemsForCategory(selectedCategory);
-    if (!selectedCategory || selectedCategory === 'all') return products.slice(0, 5);
+    if (!selectedCategory || selectedCategory === 'all') return products;
     const matched = products.filter(
       (p) =>
         p.category === selectedCategory ||
@@ -77,8 +77,8 @@ export const UnimaartTopSave = ({ activeCategory: propActiveCategory, onSelectCa
         (p.category && selectedCategory.includes(p.category)) ||
         (p.categoryLabel && p.categoryLabel.toLowerCase().includes(selectedCategory.toLowerCase()))
     );
-    if (matched.length > 0) return matched.slice(0, 5);
-    return products.slice(0, 5);
+    if (matched.length > 0) return matched;
+    return products;
   }, [products, selectedCategory]);
 
   const sideCategories = [

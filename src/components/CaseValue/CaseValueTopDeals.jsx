@@ -67,7 +67,7 @@ export const CASE_VALUE_TOP_DEALS = [
 
 export const CaseValueTopDeals = () => {
   const { navigateTo, addToCart, cart, updateCartQuantity, currency, products } = useStore();
-  const deals = (products && products.length > 0 ? products : CASE_VALUE_TOP_DEALS).slice(0, 5);
+  const deals = products && products.length > 0 ? products : CASE_VALUE_TOP_DEALS;
 
   return (
     <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto pt-4 space-y-4">

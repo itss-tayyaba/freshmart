@@ -139,96 +139,49 @@ export const DeliveryPortal = () => {
   const currentRider = useMemo(() => {
     // 1. If currently signed in as a rider
     if (user && (user.role === 'rider' || adminRole === 'rider')) {
-      const matched = (riders || []).find((r) => r.id === user.riderId || r.name === user.name);
+      const matched = (riders || []).find((r) => r.id === user.riderId || r.username === user.username || r.name === user.name);
       if (matched) {
-        return {
-          ...matched,
-          zone: matched.zone && !matched.zone.toLowerCase().includes('gulberg') && !matched.zone.toLowerCase().includes('lahore')
-            ? matched.zone
-            : 'Peoples Colony No. 1 (Faisalabad)',
-          branchName: matched.branchName && !matched.branchName.toLowerCase().includes('gulberg') && !matched.branchName.toLowerCase().includes('lahore')
-            ? matched.branchName
-            : 'D-Ground Flagship Hub (Faisalabad)',
-          vehicleNumber: matched.vehicleNumber && !matched.vehicleNumber.startsWith('LEK')
-            ? matched.vehicleNumber
-            : 'FSD-4821'
-        };
+        return matched;
       }
       return {
-        id: user.riderId || 'RDR-ALFATAH',
-        name: user.name || 'Ahmad Khan (Al-Fatah)',
-        zone: 'Peoples Colony No. 1 (Faisalabad)',
-        branchName: 'D-Ground Flagship Hub (Faisalabad)',
-        phone: user.phone || '+92 300 1234567',
+        id: user.riderId || user.id || 'RDR-ALI',
+        name: user.name || 'Ali Khan',
+        zone: 'D-Ground Commercial (Faisalabad)',
+        branchName: 'D-Ground Flagship Hub',
+        phone: user.phone || '03001122334',
         vehicleType: '🏍️ Honda 125',
-        vehicleNumber: 'FSD-4821',
-        rating: 4.9,
-        status: 'On-Duty'
+        vehicleNumber: 'LEK-2301',
+        rating: 5.0,
+        status: 'Active'
       };
     }
 
-    // 2. If riders exist in database / state, match tenant rider first
+    // 2. If riders exist in database / state, match tenant or return first active rider
     if (riders && riders.length > 0) {
       const tenantMatch = riders.find((r) => isSameTenant(r.tenantId, currentTenant?.id || user?.tenantId));
       if (tenantMatch) {
-        return {
-          ...tenantMatch,
-          zone: tenantMatch.zone && !tenantMatch.zone.toLowerCase().includes('gulberg') && !tenantMatch.zone.toLowerCase().includes('lahore')
-            ? tenantMatch.zone
-            : 'Peoples Colony No. 1 (Faisalabad)',
-          branchName: tenantMatch.branchName && !tenantMatch.branchName.toLowerCase().includes('gulberg') && !tenantMatch.branchName.toLowerCase().includes('lahore')
-            ? tenantMatch.branchName
-            : 'D-Ground Flagship Hub (Faisalabad)',
-          vehicleNumber: tenantMatch.vehicleNumber && !tenantMatch.vehicleNumber.startsWith('LEK')
-            ? tenantMatch.vehicleNumber
-            : 'FSD-4821'
-        };
+        return tenantMatch;
       }
       return riders[0];
     }
 
-    // 3. Fallback default: 'Ahmad Khan' in 'Peoples Colony No. 1 (Faisalabad)'
+    // 3. Fallback default: 'Ali Khan'
     return {
-      id: 'RDR-ALFATAH',
-      name: 'Ahmad Khan (Al-Fatah)',
-      zone: 'Peoples Colony No. 1 (Faisalabad)',
-      branchName: 'D-Ground Flagship Hub (Faisalabad)',
-      phone: '+92 300 1234567',
+      id: 'RDR-ALI',
+      name: 'Ali Khan',
+      zone: 'D-Ground Commercial (Faisalabad)',
+      branchName: 'D-Ground Flagship Hub',
+      phone: '03001122334',
       vehicleType: '🏍️ Honda 125',
-      vehicleNumber: 'FSD-4821',
-      rating: 4.9,
-      status: 'On-Duty'
+      vehicleNumber: 'LEK-2301',
+      rating: 5.0,
+      status: 'Active'
     };
   }, [user, adminRole, riders, currentTenant]);
 
   // Active courier is the authenticated/assigned rider profile
   const activeRider = currentRider;
 
-  // Automatically purge legacy test demo parcels on mount so active parcels count is accurate
-  useEffect(() => {
-    const isDemoOrder = (o) => o && o.branchId === 'branch_demo';
-
-    try {
-      if (typeof setCustomerOrders === 'function') {
-        setCustomerOrders((prev) => (Array.isArray(prev) ? prev.filter((o) => !isDemoOrder(o)) : prev));
-      }
-      if (typeof setAdminOrders === 'function') {
-        setAdminOrders((prev) => (Array.isArray(prev) ? prev.filter((o) => !isDemoOrder(o)) : prev));
-      }
-      ['freshmart_customer_orders', 'freshmart_admin_orders'].forEach((storageKey) => {
-        const raw = localStorage.getItem(storageKey);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            const cleaned = parsed.filter((o) => !isDemoOrder(o));
-            if (cleaned.length !== parsed.length) {
-              localStorage.setItem(storageKey, JSON.stringify(cleaned));
-            }
-          }
-        }
-      });
-    } catch (e) {}
-  }, [setCustomerOrders, setAdminOrders]);
 
   // Locally tracked completed orders to ensure immediate instant transition (persisted in localStorage)
   const [locallyCompletedOrders, setLocallyCompletedOrders] = useState(() => {

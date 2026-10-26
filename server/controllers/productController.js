@@ -1,16 +1,91 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import mongoose from 'mongoose';
 import { isDbOnline } from '../config/db.js';
 import { Product } from '../models/Product.js';
-import { FRESHMART_PRODUCTS } from '../../src/data/freshMartData.js';
 import { ALL_BRANCH_PRODUCTS } from '../../src/data/branchCatalogData.js';
 import { resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyData.js';
 import { getDepartmentById } from '../../src/data/departmentData.js';
 
-// Composite multi-tenant master catalog for in-memory fallbacks
-const MASTER_IN_MEMORY_CATALOG = [
-  ...ALL_BRANCH_PRODUCTS,
-  ...FRESHMART_PRODUCTS.filter((fp) => !ALL_BRANCH_PRODUCTS.some((abp) => abp.id === fp.id))
-];
+const PRODUCTS_FILE_PATH = path.resolve(process.cwd(), 'server/data/products_db.json');
+
+export const loadDiskProducts = () => {
+  try {
+    if (fs.existsSync(PRODUCTS_FILE_PATH)) {
+      const data = fs.readFileSync(PRODUCTS_FILE_PATH, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+};
+
+export const saveDiskProduct = (product) => {
+  try {
+    if (!product) return;
+    const plain = product.toObject ? product.toObject() : { ...product };
+    const pId = String(plain.id || plain.customId || plain._id || '').toLowerCase().trim();
+    if (!pId) return;
+    const list = loadDiskProducts();
+    const filtered = list.filter((p) => {
+      const existingId = String(p.id || p.customId || p._id || '').toLowerCase().trim();
+      return existingId !== pId;
+    });
+    filtered.unshift(plain);
+    fs.writeFileSync(PRODUCTS_FILE_PATH, JSON.stringify(filtered, null, 2), 'utf-8');
+
+    // Keep MASTER_IN_MEMORY_CATALOG synchronized
+    const memIdx = MASTER_IN_MEMORY_CATALOG.findIndex((m) => {
+      const mId = String(m.id || m.customId || m._id || '').toLowerCase().trim();
+      return mId === pId;
+    });
+    if (memIdx >= 0) {
+      MASTER_IN_MEMORY_CATALOG[memIdx] = plain;
+    } else {
+      MASTER_IN_MEMORY_CATALOG.unshift(plain);
+    }
+  } catch (e) {}
+};
+
+export const removeDiskProduct = (productId) => {
+  try {
+    const pId = String(productId || '').toLowerCase().trim();
+    if (!pId) return;
+    const list = loadDiskProducts();
+    const filtered = list.filter((p) => {
+      const existingId = String(p.id || p.customId || p._id || '').toLowerCase().trim();
+      return existingId !== pId;
+    });
+    fs.writeFileSync(PRODUCTS_FILE_PATH, JSON.stringify(filtered, null, 2), 'utf-8');
+
+    const memIdx = MASTER_IN_MEMORY_CATALOG.findIndex((m) => {
+      const mId = String(m.id || m.customId || m._id || '').toLowerCase().trim();
+      return mId === pId;
+    });
+    if (memIdx >= 0) {
+      MASTER_IN_MEMORY_CATALOG.splice(memIdx, 1);
+    }
+  } catch (e) {}
+};
+
+// Composite multi-tenant master catalog seeded with only few items (5 per brand) + disk-saved products
+const MASTER_IN_MEMORY_CATALOG = [...ALL_BRANCH_PRODUCTS];
+
+// Load any disk-persisted products on initialization
+try {
+  const diskProducts = loadDiskProducts();
+  if (diskProducts.length > 0) {
+    diskProducts.forEach((dp) => {
+      const dpKey = String(dp.id || dp.customId || dp._id || '').toLowerCase().trim();
+      const exists = MASTER_IN_MEMORY_CATALOG.some(
+        (m) => String(m.id || m.customId || m._id || '').toLowerCase().trim() === dpKey
+      );
+      if (!exists) {
+        MASTER_IN_MEMORY_CATALOG.unshift(dp);
+      }
+    });
+  }
+} catch (e) {}
 
 // Helper to resolve department info for a product
 const enrichDepartmentInfo = (item) => {
@@ -116,12 +191,27 @@ export const getProducts = async (req, res) => {
           });
         });
 
+        const diskItems = loadDiskProducts().filter((p) => {
+          if (rawTenantId && rawTenantId !== 'all') {
+            return isSameTenant(p.tenantId, rawTenantId) || (!p.tenantId && rawTenantId === 'tenant-freshmart');
+          }
+          return true;
+        });
+        const mappedIds = new Set(mappedProducts.map((p) => String(p.id || p.customId || p._id).toLowerCase().trim()));
+        diskItems.forEach((dp) => {
+          const dpKey = String(dp.id || dp.customId || dp._id || '').toLowerCase().trim();
+          if (!mappedIds.has(dpKey)) {
+            mappedProducts.unshift(enrichDepartmentInfo(dp));
+            mappedIds.add(dpKey);
+          }
+        });
+
         return res.json({
           success: true,
           page,
           limit,
-          total,
-          totalPages,
+          total: mappedProducts.length,
+          totalPages: Math.ceil(mappedProducts.length / limit) || 1,
           count: mappedProducts.length,
           tenantId: rawTenantId || 'all',
           products: mappedProducts
@@ -316,12 +406,11 @@ export const createProduct = async (req, res) => {
     if (isDbOnline()) {
       const product = new Product(newProdPayload);
       const created = await product.save();
+      saveDiskProduct(created);
       return res.status(201).json({ success: true, product: created });
     }
 
-    MASTER_IN_MEMORY_CATALOG.unshift(newProdPayload);
-    FRESHMART_PRODUCTS.unshift(newProdPayload);
-
+    saveDiskProduct(newProdPayload);
     return res.status(201).json({ success: true, product: newProdPayload });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -371,14 +460,17 @@ export const updateProduct = async (req, res) => {
         if (updateData.status !== undefined) product.status = updateData.status;
 
         const updated = await product.save();
+        saveDiskProduct(updated);
         return res.json({ success: true, product: updated });
       }
     }
 
-    // In-memory catalog update
+    // In-memory catalog update & disk persistence
     const idx = MASTER_IN_MEMORY_CATALOG.findIndex((p) => p.id === id || p.customId === id);
     if (idx !== -1) {
       MASTER_IN_MEMORY_CATALOG[idx] = { ...MASTER_IN_MEMORY_CATALOG[idx], ...updateData };
+      saveDiskProduct(MASTER_IN_MEMORY_CATALOG[idx]);
+      return res.json({ success: true, message: 'Product updated', product: MASTER_IN_MEMORY_CATALOG[idx] });
     }
 
     return res.json({ success: true, message: 'Product updated', product: updateData });
@@ -400,11 +492,7 @@ export const deleteProduct = async (req, res) => {
       await Product.deleteOne({ $or: [{ customId: id }, { id: id }] });
     }
 
-    const idx = MASTER_IN_MEMORY_CATALOG.findIndex((p) => p.id === id || p.customId === id);
-    if (idx !== -1) {
-      MASTER_IN_MEMORY_CATALOG.splice(idx, 1);
-    }
-
+    removeDiskProduct(id);
     return res.json({ success: true, message: 'Product removed successfully' });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

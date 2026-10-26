@@ -442,7 +442,7 @@ export const FreshMartHome = () => {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-5">
-              {(products || []).slice(0, 5).map((item) => {
+              {(products || []).map((item) => {
                 const prodId = item.id || item._id;
                 const isFav = isInWishlist(prodId);
 
@@ -590,7 +590,7 @@ export const FreshMartHome = () => {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-5">
-              {(products || []).slice(0, 5).map((item) => {
+              {(products || []).map((item) => {
                 const prodId = item.id || item._id;
                 const isFav = isInWishlist(prodId);
 

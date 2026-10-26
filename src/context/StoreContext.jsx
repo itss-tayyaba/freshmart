@@ -91,6 +91,7 @@ export const useStore = () => {
 import { sanitizeOrder } from '../utils/orderSanitizer.js';
 import {
   isOrderAssignedToPickupStaff,
+  isPickupOrderAssigned,
   pickLeastBusyPickupStaff,
   buildPickupStaffAssignment
 } from '../utils/pickupStaffAssignment.js';
@@ -230,11 +231,7 @@ const mergeApiOrders = (remoteOrders, localOrders, role, user) => {
     return true;
   }).map(sanitizeOrder);
 
-  const merged = [...mergedRemote, ...remainingLocal];
-  if (role === 'pickup_staff' && user) {
-    return merged.filter((order) => isOrderAssignedToPickupStaff(order, user));
-  }
-  return merged;
+  return [...mergedRemote, ...remainingLocal];
 };
 
 const readCoordinates = (...values) => {
@@ -576,6 +573,494 @@ export const StoreProvider = ({ children }) => {
       deliveryOtp: '4092',
       time: 'Just now',
       createdAt: new Date().toISOString()
+    },
+    {
+      id: '#AF-TEST-9002',
+      orderId: '#AF-TEST-9002',
+      tenantId: 'tenant-alfatah',
+      tenantName: 'Al-Fatah Supermarket',
+      branchId: 'branch_af_fsd',
+      branchName: 'D-Ground Flagship Hub',
+      customer: 'Zainab Bibi',
+      customerName: 'Zainab Bibi',
+      customerPhone: '+92 300 7788990',
+      phone: '+92 300 7788990',
+      address: 'Sector Y, Phase 3, DHA Lahore',
+      city: 'Lahore',
+      shippingAddress: {
+        address: 'Sector Y, Phase 3, DHA Lahore',
+        city: 'Lahore'
+      },
+      orderType: 'Delivery',
+      status: 'Pending',
+      fulfillmentStage: 1,
+      total: 2950,
+      totalAmount: 2950,
+      totalPrice: 2950,
+      subtotal: 2950,
+      paymentMethod: 'Credit / Debit Card',
+      payment: 'Credit / Debit Card',
+      paymentStatus: 'Paid',
+      items: [
+        {
+          id: 'prod-borges-oil-1l',
+          name: 'Borges Extra Virgin Olive Oil 1L',
+          price: 2950,
+          quantity: 1,
+          unit: '1 Litre Glass Bottle',
+          image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-alfatah',
+          branchId: 'branch_af_fsd'
+        }
+      ],
+      rawItems: [
+        {
+          id: 'prod-borges-oil-1l',
+          name: 'Borges Extra Virgin Olive Oil 1L',
+          price: 2950,
+          quantity: 1,
+          unit: '1 Litre Glass Bottle',
+          image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-alfatah',
+          branchId: 'branch_af_fsd'
+        }
+      ],
+      deliveryOtp: '5857',
+      time: '12 mins ago',
+      createdAt: new Date(Date.now() - 12 * 60000).toISOString()
+    },
+    {
+      id: 'ORD-AF-001',
+      orderId: 'ORD-AF-001',
+      tenantId: 'tenant-alfatah',
+      tenantName: 'Al-Fatah Supermarket',
+      branchId: 'branch_af_fsd',
+      branchName: 'D-Ground Flagship Hub',
+      customer: 'Hafsa Farooq',
+      customerName: 'Hafsa Farooq',
+      customerPhone: '+92 300 1234567',
+      phone: '+92 300 1234567',
+      address: 'Main Boulevard, Gulberg, Lahore',
+      city: 'Lahore',
+      shippingAddress: {
+        address: 'Main Boulevard, Gulberg, Lahore',
+        city: 'Lahore'
+      },
+      orderType: 'Delivery',
+      status: 'Preparing',
+      fulfillmentStage: 2,
+      total: 1400,
+      totalAmount: 1400,
+      totalPrice: 1400,
+      subtotal: 1400,
+      paymentMethod: 'Cash on Delivery',
+      payment: 'Cash on Delivery',
+      paymentStatus: 'Pending',
+      items: [
+        {
+          id: 'prod-nestle-milk-1l',
+          name: 'Nestle Milkpak 1L',
+          price: 350,
+          quantity: 4,
+          unit: '1 Litre Pack',
+          image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-alfatah',
+          branchId: 'branch_af_fsd'
+        }
+      ],
+      rawItems: [
+        {
+          id: 'prod-nestle-milk-1l',
+          name: 'Nestle Milkpak 1L',
+          price: 350,
+          quantity: 4,
+          unit: '1 Litre Pack',
+          image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-alfatah',
+          branchId: 'branch_af_fsd'
+        }
+      ],
+      deliveryOtp: '1400',
+      time: '25 mins ago',
+      createdAt: new Date(Date.now() - 25 * 60000).toISOString()
+    },
+    {
+      id: 'ORD-AF-002',
+      orderId: 'ORD-AF-002',
+      tenantId: 'tenant-alfatah',
+      tenantName: 'Al-Fatah Supermarket',
+      branchId: 'branch_af_fsd',
+      branchName: 'D-Ground Flagship Hub',
+      customer: 'Bilal Chaudhry',
+      customerName: 'Bilal Chaudhry',
+      customerPhone: '+92 321 9876543',
+      phone: '+92 321 9876543',
+      address: 'Phase 5 DHA, Lahore',
+      city: 'Lahore',
+      shippingAddress: {
+        address: 'Phase 5 DHA, Lahore',
+        city: 'Lahore'
+      },
+      orderType: 'Delivery',
+      status: 'Dispatched',
+      fulfillmentStage: 3,
+      isDispatched: true,
+      total: 6300,
+      totalAmount: 6300,
+      totalPrice: 6300,
+      subtotal: 6300,
+      paymentMethod: 'Credit / Debit Card',
+      payment: 'Credit / Debit Card',
+      paymentStatus: 'Paid',
+      assignedRider: {
+        id: 'RDR-ALI',
+        name: 'Ali Khan',
+        phone: '03001122334',
+        vehicle: '🏍️ Honda 125'
+      },
+      items: [
+        {
+          id: 'prod-guard-rice-5kg',
+          name: 'Guard Supreme Super Basmati Rice (5kg)',
+          price: 2450,
+          quantity: 1,
+          unit: '5kg Bag',
+          image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-alfatah',
+          branchId: 'branch_af_fsd'
+        },
+        {
+          id: 'prod-borges-oil-1l',
+          name: 'Borges Extra Virgin Olive Oil 1L',
+          price: 3850,
+          quantity: 1,
+          unit: '1 Litre Glass Bottle',
+          image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-alfatah',
+          branchId: 'branch_af_fsd'
+        }
+      ],
+      rawItems: [
+        {
+          id: 'prod-guard-rice-5kg',
+          name: 'Guard Supreme Super Basmati Rice (5kg)',
+          price: 2450,
+          quantity: 1,
+          unit: '5kg Bag',
+          image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-alfatah',
+          branchId: 'branch_af_fsd'
+        },
+        {
+          id: 'prod-borges-oil-1l',
+          name: 'Borges Extra Virgin Olive Oil 1L',
+          price: 3850,
+          quantity: 1,
+          unit: '1 Litre Glass Bottle',
+          image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-alfatah',
+          branchId: 'branch_af_fsd'
+        }
+      ],
+      deliveryOtp: '6300',
+      time: '35 mins ago',
+      createdAt: new Date(Date.now() - 35 * 60000).toISOString()
+    },
+    {
+      id: 'ORD-CV-001',
+      orderId: 'ORD-CV-001',
+      tenantId: 'tenant-chasevalue',
+      tenantName: 'Case Value (Local Grocery)',
+      branchId: 'branch_cv_fsd',
+      branchName: 'Wholesale Express Hub',
+      customer: 'Tariq Wholesale Traders',
+      customerName: 'Tariq Wholesale Traders',
+      customerPhone: '+92 345 8899001',
+      phone: '+92 345 8899001',
+      address: 'Shaheed-e-Millat Road, Karachi',
+      city: 'Karachi',
+      shippingAddress: {
+        address: 'Shaheed-e-Millat Road, Karachi',
+        city: 'Karachi'
+      },
+      orderType: 'Delivery',
+      status: 'Preparing',
+      fulfillmentStage: 2,
+      total: 12400,
+      totalAmount: 12400,
+      totalPrice: 12400,
+      subtotal: 12400,
+      paymentMethod: 'Cash on Delivery',
+      payment: 'Cash on Delivery',
+      paymentStatus: 'Pending',
+      items: [
+        {
+          id: 'chasevalue-atta-10kg',
+          name: 'Sunridge Whole Wheat Chakki Atta (10kg)',
+          price: 1380,
+          quantity: 5,
+          unit: '10kg Sack',
+          image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-chasevalue',
+          branchId: 'branch_cv_fsd'
+        }
+      ],
+      rawItems: [
+        {
+          id: 'chasevalue-atta-10kg',
+          name: 'Sunridge Whole Wheat Chakki Atta (10kg)',
+          price: 1380,
+          quantity: 5,
+          unit: '10kg Sack',
+          image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-chasevalue',
+          branchId: 'branch_cv_fsd'
+        }
+      ],
+      deliveryOtp: '1240',
+      time: '50 mins ago',
+      createdAt: new Date(Date.now() - 50 * 60000).toISOString()
+    },
+    {
+      id: 'ORD-UM-001',
+      orderId: 'ORD-UM-001',
+      tenantId: 'tenant-freshmart',
+      tenantName: 'Unimaart (Market Store)',
+      branchId: 'branch_um_fsd',
+      branchName: 'Peoples Colony Dark Store',
+      customer: 'Aimen Yasin',
+      customerName: 'Aimen Yasin',
+      customerPhone: '+92 300 4567890',
+      phone: '+92 300 4567890',
+      address: 'Gulberg Heights, Lahore',
+      city: 'Lahore',
+      shippingAddress: {
+        address: 'Gulberg Heights, Lahore',
+        city: 'Lahore'
+      },
+      orderType: 'Delivery',
+      status: 'Preparing',
+      fulfillmentStage: 2,
+      total: 2130,
+      totalAmount: 2130,
+      totalPrice: 2130,
+      subtotal: 2130,
+      paymentMethod: 'Cash on Delivery',
+      payment: 'Cash on Delivery',
+      paymentStatus: 'Pending',
+      items: [
+        {
+          id: 'prod-eggs-12',
+          name: 'Fresh Farm Golden Desi Eggs (12 Pcs Box)',
+          price: 420,
+          quantity: 2,
+          unit: '12 Pcs Pack',
+          image: 'https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-freshmart',
+          branchId: 'branch_um_fsd'
+        }
+      ],
+      rawItems: [
+        {
+          id: 'prod-eggs-12',
+          name: 'Fresh Farm Golden Desi Eggs (12 Pcs Box)',
+          price: 420,
+          quantity: 2,
+          unit: '12 Pcs Pack',
+          image: 'https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-freshmart',
+          branchId: 'branch_um_fsd'
+        }
+      ],
+      deliveryOtp: '2130',
+      time: '1 hour ago',
+      createdAt: new Date(Date.now() - 60 * 60000).toISOString()
+    },
+    {
+      id: '#FM-ADMIN-SYNC-7761',
+      orderId: '#FM-ADMIN-SYNC-7761',
+      tenantId: 'tenant-freshmart',
+      tenantName: 'Unimaart (Market Store)',
+      branchId: 'branch_um_fsd',
+      branchName: 'Peoples Colony Dark Store',
+      customer: 'Fatima Noor',
+      customerName: 'Fatima Noor',
+      customerPhone: '+92 333 1122334',
+      phone: '+92 333 1122334',
+      address: 'Model Town Block C, Lahore',
+      city: 'Lahore',
+      shippingAddress: {
+        address: 'Model Town Block C, Lahore',
+        city: 'Lahore'
+      },
+      orderType: 'Delivery',
+      status: 'Out for Delivery',
+      fulfillmentStage: 3,
+      isDispatched: true,
+      total: 1850,
+      totalAmount: 1850,
+      totalPrice: 1850,
+      subtotal: 1850,
+      paymentMethod: 'Cash on Delivery',
+      payment: 'Cash on Delivery',
+      paymentStatus: 'Pending',
+      assignedRider: {
+        id: 'RDR-AHMAD',
+        name: 'Ahmad Khan',
+        phone: '03206551696',
+        vehicle: '🏍️ Honda 125'
+      },
+      items: [
+        {
+          id: 'prod-milk-pack-4',
+          name: "Olper's Full Cream Milk 1L",
+          price: 210,
+          quantity: 4,
+          unit: '1 Litre Pack',
+          image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-freshmart',
+          branchId: 'branch_um_fsd'
+        }
+      ],
+      rawItems: [
+        {
+          id: 'prod-milk-pack-4',
+          name: "Olper's Full Cream Milk 1L",
+          price: 210,
+          quantity: 4,
+          unit: '1 Litre Pack',
+          image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-freshmart',
+          branchId: 'branch_um_fsd'
+        }
+      ],
+      deliveryOtp: '7761',
+      time: '1.5 hours ago',
+      createdAt: new Date(Date.now() - 90 * 60000).toISOString()
+    },
+    {
+      id: '#FM-OTP-DEMO-8741',
+      orderId: '#FM-OTP-DEMO-8741',
+      tenantId: 'tenant-freshmart',
+      tenantName: 'Unimaart (Market Store)',
+      branchId: 'branch_um_fsd',
+      branchName: 'Peoples Colony Dark Store',
+      customer: 'Hamza Farooq',
+      customerName: 'Hamza Farooq',
+      customerPhone: '+92 302 9876543',
+      phone: '+92 302 9876543',
+      address: 'House 19, Model Town, Lahore',
+      city: 'Lahore',
+      shippingAddress: {
+        address: 'House 19, Model Town, Lahore',
+        city: 'Lahore'
+      },
+      orderType: 'Delivery',
+      status: 'Out for Delivery',
+      fulfillmentStage: 3,
+      isDispatched: true,
+      total: 2400,
+      totalAmount: 2400,
+      totalPrice: 2400,
+      subtotal: 2400,
+      paymentMethod: 'Cash on Delivery',
+      payment: 'Cash on Delivery',
+      paymentStatus: 'Pending',
+      assignedRider: {
+        id: 'RDR-ALI',
+        name: 'Ali Khan',
+        phone: '03001122334',
+        vehicle: '🏍️ Honda 125'
+      },
+      items: [
+        {
+          id: 'prod-atta-5kg',
+          name: 'Sunridge Whole Wheat Atta 5kg',
+          price: 690,
+          quantity: 2,
+          unit: '5kg Pack',
+          image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-freshmart',
+          branchId: 'branch_um_fsd'
+        }
+      ],
+      rawItems: [
+        {
+          id: 'prod-atta-5kg',
+          name: 'Sunridge Whole Wheat Atta 5kg',
+          price: 690,
+          quantity: 2,
+          unit: '5kg Pack',
+          image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-freshmart',
+          branchId: 'branch_um_fsd'
+        }
+      ],
+      deliveryOtp: '9999',
+      time: '2 hours ago',
+      createdAt: new Date(Date.now() - 120 * 60000).toISOString()
+    },
+    {
+      id: 'FM-LIVE-6800',
+      orderId: 'FM-LIVE-6800',
+      tenantId: 'tenant-freshmart',
+      tenantName: 'Unimaart (Market Store)',
+      branchId: 'branch_um_fsd',
+      branchName: 'Peoples Colony Dark Store',
+      customer: 'Sana Malik',
+      customerName: 'Sana Malik',
+      customerPhone: '+92 312 3456789',
+      phone: '+92 312 3456789',
+      address: 'House 18, Block G, Johar Town, Lahore',
+      city: 'Lahore',
+      shippingAddress: {
+        address: 'House 18, Block G, Johar Town, Lahore',
+        city: 'Lahore'
+      },
+      orderType: 'Delivery',
+      status: 'Delivered',
+      fulfillmentStage: 4,
+      isDelivered: true,
+      total: 1950,
+      totalAmount: 1950,
+      totalPrice: 1950,
+      subtotal: 1950,
+      paymentMethod: 'Cash on Delivery',
+      payment: 'Cash on Delivery',
+      paymentStatus: 'Paid',
+      assignedRider: {
+        id: 'RDR-AHMAD',
+        name: 'Ahmad Khan',
+        phone: '03206551696',
+        vehicle: '🏍️ Honda 125'
+      },
+      items: [
+        {
+          id: 'prod-cooking-oil-1l',
+          name: 'Dalda Cooking Oil 1L',
+          price: 450,
+          quantity: 3,
+          unit: '1 Litre Pouch',
+          image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-freshmart',
+          branchId: 'branch_um_fsd'
+        }
+      ],
+      rawItems: [
+        {
+          id: 'prod-cooking-oil-1l',
+          name: 'Dalda Cooking Oil 1L',
+          price: 450,
+          quantity: 3,
+          unit: '1 Litre Pouch',
+          image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=600&q=80',
+          tenantId: 'tenant-freshmart',
+          branchId: 'branch_um_fsd'
+        }
+      ],
+      deliveryOtp: '4896',
+      time: '3 hours ago',
+      createdAt: new Date(Date.now() - 180 * 60000).toISOString()
     }
   ];
 
@@ -1186,16 +1671,16 @@ export const StoreProvider = ({ children }) => {
       if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const baseBranchCatalogIds = new Set((ALL_BRANCH_PRODUCTS || []).map((p) => p.id));
+          const baseBranchCatalogIds = new Set((ALL_BRANCH_PRODUCTS || []).map((p) => String(p.id).toLowerCase()));
           const adminCreated = parsed.filter(
             (p) =>
-              !baseBranchCatalogIds.has(p.id) &&
-              !p.id.startsWith('alfatah-') &&
-              !p.id.startsWith('chasevalue-') &&
-              !p.id.startsWith('chaseup-') &&
-              !p.id.startsWith('freshmart-')
+              !baseBranchCatalogIds.has(String(p.id).toLowerCase()) &&
+              !String(p.id).startsWith('alfatah-') &&
+              !String(p.id).startsWith('chasevalue-') &&
+              !String(p.id).startsWith('chaseup-') &&
+              !String(p.id).startsWith('freshmart-')
           );
-          return [...(ALL_BRANCH_PRODUCTS || []), ...adminCreated];
+          return [...adminCreated, ...(ALL_BRANCH_PRODUCTS || [])];
         }
       }
     } catch (e) {}
@@ -1208,6 +1693,63 @@ export const StoreProvider = ({ children }) => {
       localStorage.setItem('freshmart_all_products', JSON.stringify(allProducts));
     } catch (e) {}
   }, [allProducts]);
+
+  // Synchronize products from database on mount so admin items are always preserved and visible
+  useEffect(() => {
+    let active = true;
+    const syncProductsFromDb = async () => {
+      try {
+        const res = await apiService.getProducts({ limit: 100 });
+        if (!active || !res?.success || !Array.isArray(res.products)) return;
+        if (res.products.length === 0) return;
+
+        setAllProducts((prev) => {
+          const baseBranchCatalogIds = new Set(
+            (ALL_BRANCH_PRODUCTS || []).map((p) => String(p.id).toLowerCase().trim())
+          );
+          const prevMap = new Map();
+          (prev || []).forEach((p) => {
+            const key = String(p.id || p.customId || p._id || '').toLowerCase().trim();
+            if (key) prevMap.set(key, p);
+          });
+
+          const remoteAdminCreated = [];
+          res.products.forEach((rp) => {
+            const key = String(rp.id || rp.customId || rp._id || '').toLowerCase().trim();
+            if (!baseBranchCatalogIds.has(key)) {
+              remoteAdminCreated.push({
+                ...(prevMap.get(key) || {}),
+                ...rp,
+                id: rp.id || rp.customId || String(rp._id),
+                _id: String(rp._id || rp.id)
+              });
+            }
+          });
+
+          const localAdminCreated = (prev || []).filter((p) => {
+            const key = String(p.id || p.customId || p._id || '').toLowerCase().trim();
+            return (
+              !baseBranchCatalogIds.has(key) &&
+              !remoteAdminCreated.some(
+                (rp) => String(rp.id || rp.customId || rp._id || '').toLowerCase().trim() === key
+              )
+            );
+          });
+
+          const merged = [...remoteAdminCreated, ...localAdminCreated, ...(ALL_BRANCH_PRODUCTS || [])];
+          try {
+            localStorage.setItem('freshmart_all_products', JSON.stringify(merged));
+          } catch (e) {}
+          return merged;
+        });
+      } catch (e) {}
+    };
+
+    syncProductsFromDb();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Reactive products list strictly scoped to currentTenant with robust fallback
   const products = useMemo(() => {
@@ -1890,10 +2432,10 @@ export const StoreProvider = ({ children }) => {
         const tabUser = sessionStorage.getItem('freshmart_tab_user');
         if (tabUser) return JSON.parse(tabUser);
         const defaultRider = {
-          id: 'RDR-ALFATAH',
-          riderId: 'RDR-ALFATAH',
-          name: 'Ahmad Khan (Al-Fatah Courier)',
-          username: 'ahmad',
+          id: 'RDR-ALI',
+          riderId: 'RDR-ALI',
+          name: 'Ali Khan',
+          username: 'ali',
           role: 'rider',
           tenantId: 'tenant-alfatah',
           tenantName: 'Al-Fatah Supermarket'
@@ -2752,14 +3294,18 @@ export const StoreProvider = ({ children }) => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Permanently purge Usman Tariq / RDR-CHASEUP / chaseup_rider
+          // Permanently purge Usman Tariq, Hamza, Delivery rider and ensure official fleet
           const withoutUsman = parsed.filter((r) => {
             const rName = (r.name || '').toLowerCase();
             const rId = (r.id || '').toUpperCase();
             const rUser = (r.username || '').toLowerCase();
             if (
               rId === 'RDR-CHASEUP' ||
+              rId === 'RDR-HAMZA' ||
+              rId === 'RDR-DELIVERY' ||
               rUser === 'chaseup_rider' ||
+              rUser === 'delivery' ||
+              rUser === 'hamza' ||
               (rName.includes('usman') && isSameTenant(r.tenantId, 'tenant-chaseup'))
             ) {
               return false;
@@ -3340,16 +3886,22 @@ export const StoreProvider = ({ children }) => {
     const destination = orderDeliveryCoordinates(order);
     const orderTenantId = order?.tenantId || (order?.items?.[0]?.tenantId) || currentTenant?.id || 'tenant-freshmart';
 
-    // Strictly filter riders matching the order's supermarket chain & available/on-duty
-    let tenantRiders = (riders || []).filter((rider) => {
-      const matchTenant = isSameTenant(rider.tenantId, orderTenantId);
+    const allRidersPool = (riders && riders.length > 0) ? riders : (INITIAL_RIDERS || []);
+
+    // Filter riders matching tenant or global fleet couriers (Ali Khan, Ahmad Khan) & active/available
+    let tenantRiders = allRidersPool.filter((rider) => {
+      const matchTenant = rider.isGlobal || isSameTenant(rider.tenantId, orderTenantId);
       const isAvailable = ['available', 'on-duty', 'active'].includes(String(rider.status || '').toLowerCase());
       return matchTenant && isAvailable;
     });
 
-    // Fallback: If no strict on-duty riders found, include any riders assigned to this tenant
+    // Fallback 1: If no strict on-duty riders found, include any global or tenant riders
     if (tenantRiders.length === 0) {
-      tenantRiders = (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenantId));
+      tenantRiders = allRidersPool.filter((r) => r.isGlobal || isSameTenant(r.tenantId, orderTenantId));
+    }
+    // Fallback 2: If still none, include all available fleet couriers so parcel assignment never fails
+    if (tenantRiders.length === 0) {
+      tenantRiders = allRidersPool;
     }
     if (tenantRiders.length === 0) {
       return [];
@@ -5052,13 +5604,19 @@ export const StoreProvider = ({ children }) => {
       ...newProduct
     };
 
-    setAllProducts((prev) => [fullProduct, ...prev]);
+    setAllProducts((prev) => {
+      const next = [fullProduct, ...prev.filter((p) => String(p.id || p.customId || p._id) !== String(fullProduct.id))];
+      try {
+        localStorage.setItem('freshmart_all_products', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
     try {
       const res = await apiService.createProduct(fullProduct);
       if (res && res.success && res.product) {
         const dbProduct = res.product;
-        setAllProducts((prev) =>
-          prev.map((p) =>
+        setAllProducts((prev) => {
+          const updated = prev.map((p) =>
             p.id === fullProduct.id
               ? {
                   ...p,
@@ -5067,8 +5625,12 @@ export const StoreProvider = ({ children }) => {
                   customId: dbProduct.customId || p.customId
                 }
               : p
-          )
-        );
+          );
+          try {
+            localStorage.setItem('freshmart_all_products', JSON.stringify(updated));
+          } catch (e) {}
+          return updated;
+        });
       }
     } catch (e) {
       console.warn('Backend createProduct error:', e);
@@ -5081,8 +5643,8 @@ export const StoreProvider = ({ children }) => {
     const targetId = String(updatedProduct.id || updatedProduct._id || updatedProduct.customId || '');
     const targetName = updatedProduct.name?.trim();
 
-    setAllProducts((prev) =>
-      prev.map((p) => {
+    setAllProducts((prev) => {
+      const next = prev.map((p) => {
         const pId = String(p.id || p._id || p.customId || '');
         const isMatch = (targetId && pId && pId === targetId) || (targetName && p.name && p.name.trim() === targetName);
 
@@ -5090,8 +5652,12 @@ export const StoreProvider = ({ children }) => {
           return { ...p, ...updatedProduct, id: p.id || targetId };
         }
         return p;
-      })
-    );
+      });
+      try {
+        localStorage.setItem('freshmart_all_products', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
     try {
       if (targetId) {
         await apiService.updateProduct(targetId, updatedProduct);
@@ -5107,14 +5673,18 @@ export const StoreProvider = ({ children }) => {
     const targetName = productName?.trim();
     if (!targetId && !targetName) return;
 
-    setAllProducts((prev) =>
-      prev.filter((p) => {
+    setAllProducts((prev) => {
+      const next = prev.filter((p) => {
         const pId = String(p.id || p._id || p.customId || '');
         if (targetId && pId && pId === targetId) return false;
         if (targetName && p.name && p.name.trim() === targetName) return false;
         return true;
-      })
-    );
+      });
+      try {
+        localStorage.setItem('freshmart_all_products', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
     try {
       if (targetId) {
         await apiService.deleteProduct(targetId);
@@ -5835,9 +6405,14 @@ export const StoreProvider = ({ children }) => {
       return oId === cleanId || o.id === orderId || o.orderId === orderId;
     };
     const sourceOrder = [...(adminOrders || []), ...(customerOrders || [])].find(orderMatches);
-    if (isStaff && !isOrderAssignedToPickupStaff(sourceOrder, user)) {
-      addToast('Not assigned', 'This parcel is not assigned to you yet. Wait for store admin to assign it.', 'error');
+    if (isStaff && isPickupOrderAssigned(sourceOrder) && !isOrderAssignedToPickupStaff(sourceOrder, user)) {
+      addToast('Not assigned', 'This parcel is assigned to another pickup staff member.', 'error');
       return false;
+    }
+    if (isStaff && !isPickupOrderAssigned(sourceOrder)) {
+      updates.pickupStaffId = updates.pickupStaffId || user?.id || user?.staffId;
+      updates.pickupStaffName = updates.pickupStaffName || user?.name || user?.username;
+      updates.pickupStaffUsername = updates.pickupStaffUsername || user?.username;
     }
 
     const stageStatusMap = {
@@ -6067,8 +6642,8 @@ export const StoreProvider = ({ children }) => {
         const oId = String(order.id || order.orderId || order._id || '');
         return oId === String(orderId);
       });
-      if (!isOrderAssignedToPickupStaff(sourceOrder, user)) {
-        addToast('Not assigned', 'This parcel is not assigned to you yet.', 'error');
+      if (isPickupOrderAssigned(sourceOrder) && !isOrderAssignedToPickupStaff(sourceOrder, user)) {
+        addToast('Not assigned', 'This parcel is assigned to another pickup staff member.', 'error');
         return false;
       }
     }
