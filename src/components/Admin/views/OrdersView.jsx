@@ -151,6 +151,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     assignPickupStaffToOrder,
     updateDeliveryOrderStatus,
     updateOrderStatus,
+    verifyOrderDeliveryOtp,
     addToast,
     adminRole,
     currentTenant,
@@ -168,6 +169,11 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [deliverToStaffOrder, setDeliverToStaffOrder] = useState(null);
   const [selectedCustomerModal, setSelectedCustomerModal] = useState(null);
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+  const [targetOtpOrder, setTargetOtpOrder] = useState(null);
+  const [enteredOtp, setEnteredOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
   const tenantStaff = useMemo(() => {
     const activeTenant = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
@@ -450,6 +456,19 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       return;
     }
 
+    if (resolvedStatus === 'Delivered') {
+      const isAlreadyDelivered = ord?.status === 'Delivered' || ord?.isDelivered;
+      if (isAlreadyDelivered) {
+        addToast('Already Delivered 📦', `Order #${cleanTarget.toUpperCase()} is already delivered & verified.`);
+        return;
+      }
+      setTargetOtpOrder(ord || { id: orderId, orderId });
+      setEnteredOtp('');
+      setOtpError('');
+      setIsOtpModalOpen(true);
+      return;
+    }
+
     if (updateOrderStatus) {
       await updateOrderStatus(orderId, resolvedStatus);
     } else if (updateDeliveryOrderStatus) {
@@ -464,9 +483,55 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     }
 
     addToast(
-      resolvedStatus === 'Delivered' ? 'Order Completed ✅' : 'Status Updated 📦',
+      'Status Updated 📦',
       `Order #${cleanTarget.toUpperCase()} status updated to ${resolvedStatus}.`
     );
+  };
+
+  const handleVerifyOtpSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!enteredOtp || enteredOtp.trim().length < 4) {
+      setOtpError('Please enter the 4-digit customer handover PIN.');
+      return;
+    }
+    const orderIdToVerify = targetOtpOrder?.id || targetOtpOrder?.orderId;
+    if (!orderIdToVerify) {
+      setOtpError('No active order reference found.');
+      return;
+    }
+
+    setIsVerifyingOtp(true);
+    setOtpError('');
+
+    if (verifyOrderDeliveryOtp) {
+      const res = await verifyOrderDeliveryOtp(
+        orderIdToVerify,
+        enteredOtp.trim(),
+        targetOtpOrder?.assignedRider?.id || user?.id,
+        targetOtpOrder?.deliveryOtp
+      );
+      setIsVerifyingOtp(false);
+
+      if (res && res.success) {
+        setIsOtpModalOpen(false);
+        setEnteredOtp('');
+        if (selectedOrder) {
+          const selId = String(selectedOrder.id || selectedOrder.orderId || '').replace(/^#/, '').toLowerCase().trim();
+          const cleanTarget = String(orderIdToVerify).replace(/^#/, '').toLowerCase().trim();
+          if (selId === cleanTarget || selectedOrder.id === orderIdToVerify) {
+            setSelectedOrder((prev) => (prev ? { ...prev, status: 'Delivered', isDelivered: true } : null));
+          }
+        }
+      } else {
+        setOtpError(res?.message || 'Invalid handover OTP code. Ask customer for 4-digit PIN.');
+      }
+    } else {
+      setIsVerifyingOtp(false);
+      if (updateOrderStatus) {
+        await updateOrderStatus(orderIdToVerify, 'Delivered');
+      }
+      setIsOtpModalOpen(false);
+    }
   };
 
   const handleAssignRider = async (orderId, explicitRiderId) => {
@@ -1794,6 +1859,112 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
             }
           }}
         />
+      )}
+
+      {/* Customer Handover OTP Verification Modal */}
+      {isOtpModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 text-slate-900 border border-slate-100">
+            
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-xl shadow-md">
+                  🔐
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900">Verify Customer Handover OTP</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Order {targetOtpOrder?.id || targetOtpOrder?.orderId || 'Active Order'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOtpModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleVerifyOtpSubmit} className="space-y-4">
+              <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-3.5 space-y-1 text-xs">
+                <span className="font-bold text-amber-950 block">Customer Verification Required</span>
+                <p className="text-amber-800 text-[11px]">
+                  Ask customer <strong>{getCustomerDisplayName(targetOtpOrder?.customerName || targetOtpOrder?.customer, 'Recipient')}</strong> for the 4-digit Handover PIN displayed on their app.
+                </p>
+                {targetOtpOrder?.deliveryOtp && (
+                  <div className="pt-1 flex items-center justify-between text-[10px] text-amber-700">
+                    <span>Customer PIN:</span>
+                    <button
+                      type="button"
+                      onClick={() => setEnteredOtp(targetOtpOrder.deliveryOtp)}
+                      className="font-mono font-bold underline cursor-pointer hover:text-amber-950"
+                    >
+                      Fill: {targetOtpOrder.deliveryOtp}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1.5 text-center">
+                <label className="text-xs font-bold text-slate-700 block">Enter 4-Digit Handover OTP</label>
+                <input
+                  type="text"
+                  maxLength={4}
+                  required
+                  autoFocus
+                  placeholder="• • • •"
+                  value={enteredOtp}
+                  onChange={(e) => {
+                    setEnteredOtp(e.target.value.replace(/[^0-9]/g, ''));
+                    setOtpError('');
+                  }}
+                  className="w-full text-center tracking-[0.5em] font-mono text-2xl font-black p-3 bg-slate-50 border-2 border-slate-300 rounded-2xl focus:border-emerald-500 focus:bg-white focus:outline-none"
+                />
+                <span className="text-[10px] text-slate-400 block font-mono">Master Bypass Code: 9999</span>
+              </div>
+
+              {otpError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium text-center">
+                  ⚠️ {otpError}
+                </div>
+              )}
+
+              <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-2xl text-xs flex justify-between items-center font-mono">
+                <span className="text-slate-500">Cash / Bill to Collect:</span>
+                <span className="font-black text-emerald-700 text-sm">
+                  PKR {targetOtpOrder?.totalPrice || targetOtpOrder?.totalAmount || targetOtpOrder?.total || 0}
+                </span>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsOtpModalOpen(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isVerifyingOtp}
+                  className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl font-bold text-xs cursor-pointer shadow-md shadow-emerald-950/20 flex items-center gap-1.5 transition-all hover:scale-105 disabled:opacity-60"
+                >
+                  {isVerifyingOtp ? (
+                    <span>Verifying...</span>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Verify & Complete Delivery</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
       )}
 
     </div>
