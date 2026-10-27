@@ -229,6 +229,9 @@ export const AdminLogin = () => {
       setPassword(roleItem.defaultPass);
       showFeedback(`Loaded ${roleItem.label} credentials`);
     } else {
+      if ((roleItem.id === 'rider' || roleItem.id === 'pickup_staff') && selectedBranchId === 'all' && availableBranchesForMart.length > 0) {
+        setSelectedBranchId(availableBranchesForMart[0]._id || availableBranchesForMart[0].id);
+      }
       handleSelectMart(selectedMartId, roleItem.id);
     }
   };
@@ -483,16 +486,18 @@ export const AdminLogin = () => {
                 })}
               </div>
 
-              {/* Branch Scope Selector for Store Admin */}
-              {selectedRole === 'admin' && availableBranchesForMart.length > 0 && (
+              {/* Branch Scope Selector for Store Admin, Rider, and Pickup Staff */}
+              {(selectedRole === 'admin' || selectedRole === 'rider' || selectedRole === 'pickup_staff') && availableBranchesForMart.length > 0 && (
                 <div className="pt-2.5 border-t border-slate-200/80">
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wider">
                       <MapPin className="w-3.5 h-3.5 text-sky-600" />
-                      <span>Branch Scope / Assignment:</span>
+                      <span>{selectedRole === 'admin' ? 'Branch Scope / Assignment:' : 'Assigned Operating Branch:'}</span>
                     </span>
                     <span className="text-[10px] text-slate-500 font-medium">
-                      {selectedBranchId === 'all' ? 'All Branches (Store Admin)' : 'Branch Admin Mode'}
+                      {selectedRole === 'admin'
+                        ? (selectedBranchId === 'all' ? 'All Branches (Store Admin)' : 'Branch Admin Mode')
+                        : 'Branch Assignment'}
                     </span>
                   </div>
                   <select
@@ -500,7 +505,9 @@ export const AdminLogin = () => {
                     onChange={(e) => setSelectedBranchId(e.target.value)}
                     className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer"
                   >
-                    <option value="all">🏢 All Branches (Store Admin Access)</option>
+                    {selectedRole === 'admin' && (
+                      <option value="all">🏢 All Branches (Store Admin Access)</option>
+                    )}
                     {availableBranchesForMart.map((b) => (
                       <option key={b._id || b.id} value={b._id || b.id}>
                         📍 {b.name} ({b.city})

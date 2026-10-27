@@ -5,7 +5,8 @@ import { Order } from '../models/Order.js';
 import { Product } from '../models/Product.js';
 import { Rider } from '../models/ExtraModels.js';
 import { ADMIN_ORDERS_FULL } from '../../src/data/adminSuiteData.js';
-import { ORDERS, resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyData.js';
+import { ORDERS, BRANCHES, resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyData.js';
+import { resolveOrderRouting, normalizeOrderTenantId } from '../../src/utils/orderScope.js';
 
 const ORDERS_FILE_PATH = path.resolve(process.cwd(), 'server/data/orders_db.json');
 
@@ -292,16 +293,21 @@ export const createOrder = async (req, res) => {
 
     const orderId = req.body.orderId || req.body.id || ('#FM' + Math.floor(10000 + Math.random() * 90000));
 
-    // Calculate real destination and hub coordinates
+    // Calculate destination coordinates and resolve store branch routing
     const destinationCoords = resolveDestinationCoords(shippingAddress);
-    const hubHub = resolveHubCoords(shippingAddress.city);
-    const hubCoords = { lat: hubHub.lat, lng: hubHub.lng };
-    const distanceKm = calculateDistanceKm(hubCoords.lat, hubCoords.lng, destinationCoords.lat, destinationCoords.lng);
-    const etaMinutes = calculateEtaMinutes(distanceKm);
-    const etaText = `${etaMinutes} mins (Upon dispatch)`;
-    const deliveryOtp = req.body.deliveryOtp || String(Math.floor(1000 + Math.random() * 9000));
+    const rawTenantId = req.body.tenantId || req.body.tenant || req.user?.tenantId || 'tenant-freshmart';
+    const rawBranchId = req.body.branchId || req.body.branch || req.user?.branchId;
 
-    const tenantId = req.body.tenantId || req.body.tenant || req.user?.tenantId || 'tenant-freshmart';
+    const routing = resolveOrderRouting({
+      tenantId: rawTenantId,
+      branchId: rawBranchId,
+      shippingAddress,
+      destinationCoords,
+      availableBranches: BRANCHES
+    });
+
+    const tenantId = req.body.tenantId || req.body.tenant || (routing.tenantId === 'company_004' ? 'tenant-freshmart' : routing.tenantId);
+    const companyId = routing.tenantId || resolveTenantId(tenantId);
     const tenantName =
       req.body.tenantName ||
       req.body.storeName ||
@@ -312,13 +318,21 @@ export const createOrder = async (req, res) => {
         : isSameTenant(tenantId, 'tenant-alfatah')
         ? 'Al-Fatah Supermarket'
         : 'Unimaart');
-    const branchId = req.body.branchId || req.body.branch || req.user?.branchId || 'branch_001';
-    const branchName = req.body.branchName || req.body.branchTitle || 'Main Branch';
+    const branchId = routing.branchId;
+    const branchName = req.body.branchName || routing.branchName || 'Main Branch';
     const customerId = req.body.customerId || req.user?._id || req.user?.id || 'CUST-GUEST';
+
+    const hubHub = resolveHubCoords(shippingAddress.city);
+    const hubCoords = routing.branchCoords?.lat ? routing.branchCoords : { lat: hubHub.lat, lng: hubHub.lng };
+    const distanceKm = routing.distanceKm || calculateDistanceKm(hubCoords.lat, hubCoords.lng, destinationCoords.lat, destinationCoords.lng);
+    const etaMinutes = routing.etaMinutes || calculateEtaMinutes(distanceKm);
+    const etaText = `${etaMinutes} mins (Upon dispatch)`;
+    const deliveryOtp = req.body.deliveryOtp || String(Math.floor(1000 + Math.random() * 9000));
 
     const initialOrderObj = {
       orderId,
       tenantId,
+      companyId,
       tenantName,
       branchId,
       branchName,
@@ -440,20 +454,22 @@ export const createOrder = async (req, res) => {
 // @route   GET /api/orders
 export const getOrders = async (req, res) => {
   try {
-    const role = req.user?.role;
-    const isAdmin = role === 'admin' || role === 'superadmin';
+    const role = (req.user?.role || '').toLowerCase();
+    const isAdmin = role === 'admin' || role === 'superadmin' || role === 'store admin';
     const staffId = req.user?.staffId || req.user?.id;
     const riderId = req.user?.riderId || req.user?.id;
-    const userTenantId = req.headers?.['x-tenant-id'] || req.query?.tenantId || req.user?.tenantId;
-    const userBranchId = req.query?.branchId; // Explicit branch filter from query param only
+    const userTenantId = req.user?.role === 'superadmin'
+      ? (req.headers?.['x-tenant-id'] || req.query?.tenantId || req.user?.tenantId)
+      : req.user?.tenantId;
+    const userBranchId = req.query?.branchId || (req.user?.branchId !== 'all' ? req.user?.branchId : null);
 
-    if (!isAdmin && role !== 'pickup_staff' && role !== 'rider') {
+    if (!isAdmin && role !== 'pickup_staff' && role !== 'rider' && role !== 'staff') {
       return res.status(403).json({ success: false, message: 'Access denied: staff or admin account required.' });
     }
 
     const filter = {};
-    if (role === 'pickup_staff') {
-      if (staffId) filter.pickupStaffId = staffId;
+    if (role === 'pickup_staff' || role === 'staff') {
+      if (staffId && req.query?.assignedOnly === 'true') filter.pickupStaffId = staffId;
       if (userTenantId && role !== 'superadmin') {
         const canonical = resolveTenantId(userTenantId);
         filter.$or = [
@@ -461,16 +477,27 @@ export const getOrders = async (req, res) => {
           ...(canonical ? [{ tenantId: canonical }, { companyId: canonical }] : [])
         ];
       }
+      if (userBranchId) filter.branchId = userBranchId;
     }
-    if (role === 'rider') filter['assignedRider.id'] = riderId;
-    if (role === 'admin' && userTenantId && role !== 'superadmin') {
+    if (role === 'rider') {
+      if (riderId && req.query?.assignedOnly === 'true') filter['assignedRider.id'] = riderId;
+      if (userTenantId && role !== 'superadmin') {
+        const canonical = resolveTenantId(userTenantId);
+        filter.$or = [
+          { tenantId: userTenantId },
+          ...(canonical ? [{ tenantId: canonical }, { companyId: canonical }] : [])
+        ];
+      }
+      if (userBranchId) filter.branchId = userBranchId;
+    }
+    if (isAdmin && userTenantId && role !== 'superadmin') {
       const canonical = resolveTenantId(userTenantId);
       filter.$or = [
         { tenantId: userTenantId },
         ...(canonical ? [{ tenantId: canonical }, { companyId: canonical }] : [])
       ];
+      if (userBranchId) filter.branchId = userBranchId;
     }
-    if (userBranchId && role !== 'superadmin') filter.branchId = userBranchId;
 
     if (isDbOnline()) {
       const orders = await Order.find(filter).sort({ createdAt: -1 });
@@ -480,8 +507,14 @@ export const getOrders = async (req, res) => {
       diskOrders.forEach((d) => {
         const dKey = String(d.id || d.orderId || d._id).replace(/^#/, '').toLowerCase().trim();
         if (mongoIds.has(dKey)) return;
-        if (role === 'pickup_staff') {
-          if (!d.pickupStaffId || String(d.pickupStaffId) !== String(staffId)) return;
+        if (role === 'pickup_staff' || role === 'staff') {
+          if (userBranchId && d.branchId && d.branchId !== userBranchId) return;
+          if (req.query?.assignedOnly === 'true' && (!d.pickupStaffId || String(d.pickupStaffId) !== String(staffId))) return;
+        }
+        if (role === 'rider') {
+          if (userBranchId && d.branchId && d.branchId !== userBranchId) return;
+          const rId = d.assignedRider?.id || d.assignedRider?.riderId;
+          if (req.query?.assignedOnly === 'true' && (!rId || String(rId) !== String(riderId))) return;
         }
         combined.push(d);
       });
@@ -504,44 +537,43 @@ export const getOrders = async (req, res) => {
     if (orders.length === 0) {
       orders = [...ORDERS];
     }
-    if (role === 'pickup_staff') {
-      if (req.query?.assignedOnly === 'true') {
-        orders = orders.filter((order) => {
-          if (!order.pickupStaffId || !staffId || String(order.pickupStaffId) !== String(staffId)) return false;
-          const orderTenant = order.tenantId || order.companyId;
-          const matchesTenant = !userTenantId || isSameTenant(orderTenant, userTenantId);
-          const matchesBranch = !userBranchId || order.branchId === userBranchId;
-          return matchesTenant && matchesBranch;
-        });
-      } else if (userTenantId) {
-        orders = orders.filter((order) => {
-          const orderTenant = order.tenantId || order.companyId;
-          return !orderTenant || isSameTenant(orderTenant, userTenantId);
-        });
-      }
-    }
-    if (role === 'rider') {
-      if (req.query?.assignedOnly === 'true') {
-        orders = orders.filter((order) => String(order.assignedRider?.id || order.assignedRider?.riderId) === String(riderId));
-      } else if (userTenantId) {
-        orders = orders.filter((order) => {
-          const orderTenant = order.tenantId || order.companyId;
-          return !orderTenant || isSameTenant(orderTenant, userTenantId);
-        });
-      }
-    }
-    if (role === 'admin' && userTenantId && role !== 'superadmin') {
+    if (role === 'pickup_staff' || role === 'staff') {
       orders = orders.filter((order) => {
         const orderTenant = order.tenantId || order.companyId;
-        return isSameTenant(orderTenant, userTenantId);
+        const matchTenant = !userTenantId || isSameTenant(orderTenant, userTenantId);
+        const matchBranch = !userBranchId || !order.branchId || order.branchId === userBranchId;
+        if (!matchTenant || !matchBranch) return false;
+        if (req.query?.assignedOnly === 'true') {
+          return order.pickupStaffId && staffId && String(order.pickupStaffId) === String(staffId);
+        }
+        return !order.pickupStaffId || String(order.pickupStaffId) === String(staffId);
       });
-      if (userBranchId) {
-        orders = orders.filter((order) => !order.branchId || order.branchId === userBranchId);
-      }
+    }
+    if (role === 'rider') {
+      orders = orders.filter((order) => {
+        const orderTenant = order.tenantId || order.companyId;
+        const matchTenant = !userTenantId || isSameTenant(orderTenant, userTenantId);
+        const matchBranch = !userBranchId || !order.branchId || order.branchId === userBranchId;
+        if (!matchTenant || !matchBranch) return false;
+        const rId = order.assignedRider?.id || order.assignedRider?.riderId;
+        if (req.query?.assignedOnly === 'true') {
+          return rId && riderId && String(rId) === String(riderId);
+        }
+        return !rId || String(rId) === String(riderId);
+      });
+    }
+    if (isAdmin && userTenantId && role !== 'superadmin') {
+      orders = orders.filter((order) => {
+        const orderTenant = order.tenantId || order.companyId;
+        const matchTenant = isSameTenant(orderTenant, userTenantId);
+        const matchBranch = !userBranchId || !order.branchId || order.branchId === userBranchId;
+        return matchTenant && matchBranch;
+      });
     }
     return res.json({ success: true, count: orders.length, orders });
   } catch (error) {
-    res.json({ success: true, count: 0, orders: [] });
+    console.error('getOrders error:', error);
+    return res.status(500).json({ success: false, message: error.message, orders: [] });
   }
 };
 
@@ -731,6 +763,22 @@ export const assignRiderToOrder = async (req, res) => {
       });
 
       if (order) {
+        // Enforce store and branch isolation: Reject cross-store or cross-branch assignment
+        const orderTenant = normalizeOrderTenantId(order);
+        const riderTenant = resolveTenantId(targetRider?.tenantId);
+        if (orderTenant && riderTenant && !isSameTenant(orderTenant, riderTenant)) {
+          return res.status(400).json({
+            success: false,
+            message: `Cross-store assignment denied: Rider belongs to [${targetRider.tenantId}] but order is for [${order.tenantId}]`
+          });
+        }
+        if (order.branchId && targetRider?.branchId && order.branchId !== targetRider.branchId) {
+          return res.status(400).json({
+            success: false,
+            message: `Cross-branch assignment denied: Rider belongs to branch [${targetRider.branchName || targetRider.branchId}] but order is in branch [${order.branchName || order.branchId}]`
+          });
+        }
+
         const destCoords = order.destinationCoords || resolveDestinationCoords(order.shippingAddress);
         const distanceKm = calculateDistanceKm(riderCoords.lat, riderCoords.lng, destCoords.lat, destCoords.lng);
         const etaMinutes = calculateEtaMinutes(distanceKm);
@@ -774,6 +822,22 @@ export const assignRiderToOrder = async (req, res) => {
       (o) => o.id === id || o.orderId === id || o.id === `#${id}` || o.id === id.replace(/^#/, '')
     );
     if (memOrder) {
+      // Enforce store and branch isolation: Reject cross-store or cross-branch assignment
+      const orderTenant = normalizeOrderTenantId(memOrder);
+      const riderTenant = resolveTenantId(targetRider?.tenantId);
+      if (orderTenant && riderTenant && !isSameTenant(orderTenant, riderTenant)) {
+        return res.status(400).json({
+          success: false,
+          message: `Cross-store assignment denied: Rider belongs to [${targetRider.tenantId}] but order is for [${memOrder.tenantId}]`
+        });
+      }
+      if (memOrder.branchId && targetRider?.branchId && memOrder.branchId !== targetRider.branchId) {
+        return res.status(400).json({
+          success: false,
+          message: `Cross-branch assignment denied: Rider belongs to branch [${targetRider.branchName || targetRider.branchId}] but order is in branch [${memOrder.branchName || memOrder.branchId}]`
+        });
+      }
+
       const destCoords = resolveDestinationCoords(memOrder.shippingAddress || { address: memOrder.address, city: memOrder.city });
       const distanceKm = calculateDistanceKm(riderCoords.lat, riderCoords.lng, destCoords.lat, destCoords.lng);
       const etaMinutes = calculateEtaMinutes(distanceKm);

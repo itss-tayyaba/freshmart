@@ -108,6 +108,9 @@ export const loginUser = async (req, res) => {
           };
           const resolvedTenantName = tenantNames[resolvedTenantId] || 'FreshMart Direct';
 
+          const resolvedBranchId = req.body.branchId || user.branchId || 'branch_001';
+          const resolvedBranchName = user.branchName || 'Main Branch';
+
           return res.json({
             success: true,
             _id: user._id,
@@ -119,9 +122,12 @@ export const loginUser = async (req, res) => {
             staffId: user.staffId,
             tenantId: resolvedTenantId,
             tenantName: resolvedTenantName,
+            branchId: resolvedBranchId,
+            branchName: resolvedBranchName,
             token: generateToken(user.staffId || user._id, user.role, user.email, user.name, undefined, {
               ...(user.staffId ? { staffId: user.staffId } : {}),
-              ...(resolvedTenantId ? { tenantId: resolvedTenantId } : {})
+              ...(resolvedTenantId ? { tenantId: resolvedTenantId } : {}),
+              ...(resolvedBranchId ? { branchId: resolvedBranchId, branchName: resolvedBranchName } : {})
             })
           });
         }
@@ -171,14 +177,26 @@ export const loginUser = async (req, res) => {
         const isDefaultRiderFallback = password === 'rider123';
 
         if (isMatch || isDefaultRiderFallback) {
+          const riderTenantId = rider.tenantId || req.body.tenantId || 'tenant-alfatah';
+          const resolvedBranchId = req.body.branchId || rider.branchId || 'branch_001';
+          const resolvedBranchName = rider.branchName || 'Main Branch';
           return res.json({
             success: true,
             _id: rider._id,
             id: rider.id,
+            riderId: rider.id,
             name: rider.name,
             phone: rider.phone,
             role: 'rider',
-            token: generateToken(rider._id, 'rider', `${rider.username || 'rider'}@freshmart.pk`, rider.name)
+            tenantId: riderTenantId,
+            branchId: resolvedBranchId,
+            branchName: resolvedBranchName,
+            token: generateToken(rider._id, 'rider', `${rider.username || 'rider'}@freshmart.pk`, rider.name, undefined, {
+              riderId: rider.id,
+              tenantId: riderTenantId,
+              branchId: resolvedBranchId,
+              branchName: resolvedBranchName
+            })
           });
         }
       }
@@ -352,6 +370,8 @@ export const createPickupStaff = async (req, res) => {
     const password = String(req.body.password || '').trim();
     const phone = String(req.body.phone || '').trim();
     const tenantId = String(req.body.tenantId || req.user?.tenantId || 'tenant-alfatah');
+    const branchId = String(req.body.branchId || req.user?.branchId || 'branch_001');
+    const branchName = String(req.body.branchName || 'Main Branch');
     const staffId = String(req.body.staffId || `PCK-${Date.now().toString(36).toUpperCase()}`);
     if (!name || !rawUsername || password.length < 4) {
       return res.status(400).json({ success: false, message: 'Name, username, and a password of at least 4 characters are required.' });
@@ -377,6 +397,8 @@ export const createPickupStaff = async (req, res) => {
         staff.password = password; // bcrypt pre-save hook will hash it
         staff.phone = phone || staff.phone;
         staff.tenantId = tenantId;
+        staff.branchId = branchId;
+        staff.branchName = branchName;
         staff.role = 'pickup_staff';
         staff.staffId = staff.staffId || staffId;
         await staff.save();
@@ -390,13 +412,15 @@ export const createPickupStaff = async (req, res) => {
             email: staff.email,
             phone: staff.phone,
             tenantId,
+            branchId,
+            branchName,
             role: staff.role,
             status: 'Active'
           }
         });
       }
 
-      staff = await User.create({ name, email, password, phone, role: 'pickup_staff', staffId, tenantId });
+      staff = await User.create({ name, email, password, phone, role: 'pickup_staff', staffId, tenantId, branchId, branchName });
       return res.status(201).json({
         success: true,
         staff: {
@@ -407,6 +431,8 @@ export const createPickupStaff = async (req, res) => {
           email: staff.email,
           phone: staff.phone,
           tenantId,
+          branchId,
+          branchName,
           role: staff.role,
           status: 'Active'
         }
@@ -416,7 +442,7 @@ export const createPickupStaff = async (req, res) => {
     // Local / In-memory fallback
     return res.status(201).json({
       success: true,
-      staff: { id: staffId, staffId, name, username: cleanUsername, email, phone, tenantId, role: 'pickup_staff', status: 'Active' }
+      staff: { id: staffId, staffId, name, username: cleanUsername, email, phone, tenantId, branchId, branchName, role: 'pickup_staff', status: 'Active' }
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -437,6 +463,8 @@ export const getPickupStaff = async (req, res) => {
           email: 'hafsa@alfatah.pk',
           phone: '+92 300 1112233',
           tenantId: 'tenant-alfatah',
+          branchId: 'branch_001',
+          branchName: 'DHA Lahore',
           role: 'pickup_staff',
           status: 'Active'
         },
@@ -448,15 +476,27 @@ export const getPickupStaff = async (req, res) => {
           email: 'staff@alfatah.pk',
           phone: '+92 300 1112234',
           tenantId: 'tenant-alfatah',
+          branchId: 'branch_001',
+          branchName: 'DHA Lahore',
           role: 'pickup_staff',
           status: 'Active'
         }
       ];
-      return res.json({ success: true, staff: defaultStaff });
+      const targetTenant = req.query.tenantId || req.user?.tenantId;
+      const targetBranch = req.query.branchId || (req.user?.branchId !== 'all' ? req.user?.branchId : null);
+      let list = defaultStaff;
+      if (targetTenant) list = list.filter((s) => s.tenantId === targetTenant);
+      if (targetBranch) list = list.filter((s) => s.branchId === targetBranch);
+      return res.json({ success: true, staff: list });
     }
     const query = { role: 'pickup_staff' };
-    if (req.query.tenantId) {
-      query.tenantId = req.query.tenantId;
+    const targetTenant = req.query.tenantId || req.user?.tenantId;
+    const targetBranch = req.query.branchId || (req.user?.branchId !== 'all' ? req.user?.branchId : null);
+    if (targetTenant) {
+      query.tenantId = targetTenant;
+    }
+    if (targetBranch) {
+      query.branchId = targetBranch;
     }
     const staffList = await User.find(query).select('-password').sort({ createdAt: -1 });
     const formatted = staffList.map((s) => ({
@@ -469,6 +509,8 @@ export const getPickupStaff = async (req, res) => {
       email: s.email,
       phone: s.phone || '',
       tenantId: s.tenantId || 'tenant-alfatah',
+      branchId: s.branchId || 'branch_001',
+      branchName: s.branchName || 'Main Branch',
       role: s.role,
       status: 'Active',
       createdAt: s.createdAt

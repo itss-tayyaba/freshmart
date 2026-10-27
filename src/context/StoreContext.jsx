@@ -34,6 +34,7 @@ import {
 import { apiService } from '../services/api';
 import { parseRouteFromUrl, getSeoMetadata } from '../utils/routeUtils';
 import { calculateDistanceKm, findNearestCity, PAKISTAN_CITIES } from '../data/pakistanLocations';
+import { resolveOrderRouting, isOrderVisibleToUser, canAssignRiderToOrder, canAssignStaffToOrder, getStrictEligibleRiders } from '../utils/orderScope';
 import {
   findProductSubstitutes,
   isProductOutOfStock,
@@ -144,25 +145,13 @@ const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
     isSameTenant(tenantId, 'tenant-chaseup') ? 'Chase Up' : 'Unimaart'
   );
   const total = Number(remoteOrder.totalAmount ?? remoteOrder.total ?? remoteOrder.totalPrice ?? localOrder.totalAmount ?? localOrder.total ?? localOrder.totalPrice ?? 0);
-  const cityOrAddr = `${address} ${city}`.toLowerCase();
-  const isFsd = cityOrAddr.includes('faisalabad') || cityOrAddr.includes('peoples colony') || cityOrAddr.includes('fsd');
-  const defaultBranchId = isSameTenant(tenantId, 'tenant-alfatah')
-    ? (isFsd ? 'branch_af_fsd' : 'branch_002')
-    : isSameTenant(tenantId, 'tenant-freshmart')
-    ? (isFsd ? 'branch_um_fsd' : 'branch_010')
-    : isSameTenant(tenantId, 'tenant-chasevalue')
-    ? (isFsd ? 'branch_cv_fsd' : 'branch_007')
-    : (isFsd ? 'branch_006' : 'branch_004');
-  const defaultBranchName = isSameTenant(tenantId, 'tenant-alfatah')
-    ? (isFsd ? 'D-Ground Flagship Hub' : 'Gulberg Mall')
-    : isSameTenant(tenantId, 'tenant-freshmart')
-    ? (isFsd ? 'Peoples Colony Dark Store' : 'Gulberg SuperHub')
-    : isSameTenant(tenantId, 'tenant-chasevalue')
-    ? (isFsd ? 'Wholesale Express Hub' : 'Shaheed-e-Millat Karachi')
-    : (isFsd ? 'Faisalabad Clock Tower Hub' : 'Clifton Karachi');
-
-  const branchId = remoteOrder.branchId || localOrder.branchId || defaultBranchId;
-  const branchName = remoteOrder.branchName || localOrder.branchName || defaultBranchName;
+  const routing = resolveOrderRouting({
+    tenantId,
+    branchId: remoteOrder.branchId || localOrder.branchId,
+    shippingAddress: { address, city }
+  });
+  const branchId = routing.branchId;
+  const branchName = routing.branchName;
   const isDelivered =
     remoteOrder.status === 'Delivered' ||
     localOrder.status === 'Delivered' ||
@@ -307,10 +296,6 @@ export const StoreProvider = ({ children }) => {
   const [adminRole, setAdminRole] = useState(() => {
     try {
       if (initialRoute?.page === 'login') return null;
-      if (initialRoute?.role) {
-        sessionStorage.setItem('freshmart_tab_role', initialRoute.role);
-        return initialRoute.role;
-      }
       const tabRole = sessionStorage.getItem('freshmart_tab_role');
       if (tabRole) return tabRole;
       return localStorage.getItem('freshmart_admin_role') || null;
@@ -1074,9 +1059,6 @@ export const StoreProvider = ({ children }) => {
           const filtered = parsed.filter(
             (o) => {
               const oId = String(o?.id || o?.orderId || '').toLowerCase().replace(/^#/, '');
-              const cust = String(o?.customer || o?.customerName || '').toLowerCase();
-              if (oId === 'cu5011' || cust.includes('danish qureshi')) return false;
-              if (cust.includes('hamza tariq') || cust.includes('zainab merchant')) return false;
               if (
                 ['cu62901', 'ord-cu-001', '#cu5011', 'cu5011', 'af-1082', 'af-1081', 'cv-4091', 'cv-4088', 'fm-9482', 'af-8831', 'cv-4029', 'ord-9821', 'ord-9820', 'ord-9819', 'ord-9818', 'ord-9817'].includes(oId)
               ) return false;
@@ -2168,9 +2150,6 @@ export const StoreProvider = ({ children }) => {
           const filtered = parsed.filter(
             (o) => {
               const oId = String(o?.id || o?.orderId || '').toLowerCase().replace(/^#/, '');
-              const cust = String(o?.customer || o?.customerName || '').toLowerCase();
-              if (oId === 'cu5011' || cust.includes('danish qureshi')) return false;
-              if (cust.includes('hamza tariq') || cust.includes('zainab merchant')) return false;
               if (
                 ['cu62901', 'ord-cu-001', '#cu5011', 'cu5011', 'af-1082', 'af-1081', 'cv-4091', 'cv-4088', 'fm-9482', 'af-8831', 'cv-4029', 'ord-9821', 'ord-9820', 'ord-9819', 'ord-9818', 'ord-9817'].includes(oId)
               ) return false;
@@ -2196,9 +2175,6 @@ export const StoreProvider = ({ children }) => {
           const filtered = parsed.filter(
             (o) => {
               const oId = String(o?.id || o?.orderId || '').toLowerCase().replace(/^#/, '');
-              const cust = String(o?.customer || o?.customerName || '').toLowerCase();
-              if (oId === 'cu5011' || cust.includes('danish qureshi')) return false;
-              if (cust.includes('hamza tariq') || cust.includes('zainab merchant')) return false;
               if (
                 ['cu62901', 'ord-cu-001', '#cu5011', 'cu5011', 'af-1082', 'af-1081', 'cv-4091', 'cv-4088', 'fm-9482', 'af-8831', 'cv-4029', 'ord-9821', 'ord-9820', 'ord-9819', 'ord-9818', 'ord-9817'].includes(oId)
               ) return false;
@@ -2404,12 +2380,9 @@ export const StoreProvider = ({ children }) => {
       if (initialRoute?.page === 'login') {
         return false;
       }
-      if (initialRoute?.role === 'pickup_staff' || initialRoute?.role === 'rider') {
-        sessionStorage.setItem('freshmart_tab_session', 'true');
-        return true;
-      }
       const tabSession = sessionStorage.getItem('freshmart_tab_session');
-      if (tabSession === 'true') return true;
+      const tabToken = sessionStorage.getItem('freshmart_admin_token') || localStorage.getItem('freshmart_admin_token');
+      if (tabSession === 'true' && tabToken) return true;
       const isSession = localStorage.getItem('freshmart_admin_session') === 'true';
       const hasToken = Boolean(localStorage.getItem('freshmart_admin_token'));
       return isSession && hasToken;
@@ -2422,36 +2395,6 @@ export const StoreProvider = ({ children }) => {
     try {
       if (initialRoute?.page === 'login') {
         return null;
-      }
-      if (initialRoute?.role === 'pickup_staff') {
-        const tabUser = sessionStorage.getItem('freshmart_tab_user');
-        if (tabUser) return JSON.parse(tabUser);
-        const defaultStaff = {
-          id: 'PCK-ALFATAH-HAFSA',
-          staffId: 'PCK-ALFATAH-HAFSA',
-          name: 'Hafsa (Al-Fatah Packing Desk)',
-          username: 'hafsa',
-          role: 'pickup_staff',
-          tenantId: 'tenant-alfatah',
-          tenantName: 'Al-Fatah Supermarket'
-        };
-        sessionStorage.setItem('freshmart_tab_user', JSON.stringify(defaultStaff));
-        return defaultStaff;
-      }
-      if (initialRoute?.role === 'rider') {
-        const tabUser = sessionStorage.getItem('freshmart_tab_user');
-        if (tabUser) return JSON.parse(tabUser);
-        const defaultRider = {
-          id: 'RDR-ALI',
-          riderId: 'RDR-ALI',
-          name: 'Ali Khan',
-          username: 'ali',
-          role: 'rider',
-          tenantId: 'tenant-alfatah',
-          tenantName: 'Al-Fatah Supermarket'
-        };
-        sessionStorage.setItem('freshmart_tab_user', JSON.stringify(defaultRider));
-        return defaultRider;
       }
       const tabUser = sessionStorage.getItem('freshmart_tab_user');
       if (tabUser) return JSON.parse(tabUser);
@@ -2667,6 +2610,12 @@ export const StoreProvider = ({ children }) => {
         if (staffTenant) {
           setCurrentTenant(staffTenant);
         }
+        const assignedBranchId = preferredBranchId || authRes.branchId || null;
+        let assignedBranchName = authRes.branchName;
+        if (!assignedBranchName && assignedBranchId) {
+          const foundB = (allBranches || BRANCHES).find((b) => b._id === assignedBranchId || b.id === assignedBranchId);
+          assignedBranchName = foundB?.name || 'Branch';
+        }
         const staffUser = {
           id: authRes.staffId || authRes.id || authRes._id,
           staffId: authRes.staffId || authRes.id || authRes._id,
@@ -2675,8 +2624,13 @@ export const StoreProvider = ({ children }) => {
           email: authRes.email || `${cleanUser.split('@')[0]}@pickup.freshmart.pk`,
           role: 'pickup_staff',
           tenantId: staffTenant ? staffTenant.id : 'tenant-freshmart',
-          tenantName: staffTenant ? staffTenant.name : 'FreshMart Direct'
+          tenantName: staffTenant ? staffTenant.name : 'FreshMart Direct',
+          branchId: assignedBranchId,
+          branchName: assignedBranchName || 'Branch'
         };
+        if (assignedBranchId) {
+          setCurrentBranchFilter(assignedBranchId);
+        }
         applyAuthSession('pickup_staff', staffUser, authRes.token);
         addToast('Pickup Staff Authenticated 📦', `Welcome ${staffUser.name} to the packing desk.`);
         return { success: true, role: 'pickup_staff', user: staffUser };
@@ -2703,6 +2657,12 @@ export const StoreProvider = ({ children }) => {
         if (riderTenant) {
           setCurrentTenant(riderTenant);
         }
+        const assignedBranchId = preferredBranchId || authRes.branchId || null;
+        let assignedBranchName = authRes.branchName;
+        if (!assignedBranchName && assignedBranchId) {
+          const foundB = (allBranches || BRANCHES).find((b) => b._id === assignedBranchId || b.id === assignedBranchId);
+          assignedBranchName = foundB?.name || 'Branch';
+        }
         const riderUser = {
           id: authRes._id || authRes.id || `usr-${Date.now()}`,
           name: authRes.name || `${riderTenant?.name || 'Store'} Delivery Rider`,
@@ -2711,8 +2671,13 @@ export const StoreProvider = ({ children }) => {
           riderId: authRes.id || authRes.riderId || 'RDR-101',
           phone: authRes.phone || cleanUser,
           tenantId: riderTenant ? riderTenant.id : 'tenant-alfatah',
-          tenantName: riderTenant ? riderTenant.name : 'Al-Fatah Supermarket'
+          tenantName: riderTenant ? riderTenant.name : 'Al-Fatah Supermarket',
+          branchId: assignedBranchId,
+          branchName: assignedBranchName || 'Branch'
         };
+        if (assignedBranchId) {
+          setCurrentBranchFilter(assignedBranchId);
+        }
         applyAuthSession('rider', riderUser, authRes.token);
         addToast('Delivery Rider Authenticated 🛵', `Welcome ${riderUser.name} to dispatch.`);
         return { success: true, role: 'rider', user: riderUser };
@@ -2752,17 +2717,28 @@ export const StoreProvider = ({ children }) => {
       if (matchedPickupStaff) {
         const staffTenant = resolveStoreTenant(matchedPickupStaff.tenantId || preferredTenantId || 'tenant-alfatah', cleanUser);
 
+        const staffBranchId = matchedPickupStaff.branchId || preferredBranchId || null;
+        let staffBranchName = matchedPickupStaff.branchName;
+        if (!staffBranchName && staffBranchId) {
+          const foundB = (allBranches || BRANCHES).find((b) => b._id === staffBranchId || b.id === staffBranchId);
+          staffBranchName = foundB?.name || 'Branch';
+        }
         const staffUser = {
           id: matchedPickupStaff.id,
           name: matchedPickupStaff.name,
           username: matchedPickupStaff.username,
           role: 'pickup_staff',
           tenantId: staffTenant ? staffTenant.id : (matchedPickupStaff.tenantId || 'tenant-alfatah'),
-          tenantName: staffTenant ? staffTenant.name : 'Store'
+          tenantName: staffTenant ? staffTenant.name : 'Store',
+          branchId: staffBranchId,
+          branchName: staffBranchName || 'Branch'
         };
 
         if (staffTenant) {
           setCurrentTenant(staffTenant);
+        }
+        if (staffBranchId) {
+          setCurrentBranchFilter(staffBranchId);
         }
 
         const fallbackToken = `mock-pickup-token-${Date.now()}`;
@@ -3068,6 +3044,13 @@ export const StoreProvider = ({ children }) => {
         setCurrentTenant(riderTenant);
       }
 
+      const riderBranchId = foundRider.branchId || preferredBranchId || null;
+      let riderBranchName = foundRider.branchName;
+      if (!riderBranchName && riderBranchId) {
+        const foundB = (allBranches || BRANCHES).find((b) => b._id === riderBranchId || b.id === riderBranchId);
+        riderBranchName = foundB?.name || 'Branch';
+      }
+
       const riderUser = {
         name: foundRider.name,
         email: `${foundRider.name.toLowerCase().replace(/\s+/g, '')}@rider.freshmart.pk`,
@@ -3076,8 +3059,14 @@ export const StoreProvider = ({ children }) => {
         phone: foundRider.phone,
         zone: foundRider.zone || 'Main Hub',
         tenantId: riderTenant ? riderTenant.id : (foundRider.tenantId || 'tenant-alfatah'),
-        tenantName: riderTenant ? riderTenant.name : (foundRider.tenantName || 'Al-Fatah Supermarket')
+        tenantName: riderTenant ? riderTenant.name : (foundRider.tenantName || 'Al-Fatah Supermarket'),
+        branchId: riderBranchId,
+        branchName: riderBranchName || 'Branch'
       };
+
+      if (riderBranchId) {
+        setCurrentBranchFilter(riderBranchId);
+      }
 
       const fallbackToken = `mock-rider-token-${Date.now()}`;
       applyAuthSession('rider', riderUser, fallbackToken);
@@ -3422,6 +3411,12 @@ export const StoreProvider = ({ children }) => {
 
     const tId = staffData?.tenantId || currentTenant?.id || user?.tenantId || 'tenant-freshmart';
     const tName = staffData?.tenantName || currentTenant?.name || currentTenant?.displayName || user?.tenantName || 'Supermarket';
+    const bId = staffData?.branchId || user?.branchId || currentBranch?._id || currentBranch?.id || null;
+    let bName = staffData?.branchName;
+    if (!bName && bId) {
+      const foundB = (allBranches || BRANCHES).find((b) => b._id === bId || b.id === bId);
+      bName = foundB?.name || 'Branch';
+    }
 
     let staff = {
       id: `PCK-${Date.now().toString(36).toUpperCase()}`,
@@ -3431,13 +3426,15 @@ export const StoreProvider = ({ children }) => {
       phone,
       tenantId: tId,
       tenantName: tName,
+      branchId: bId,
+      branchName: bName,
       status: 'Active',
       createdAt: new Date().toISOString()
     };
 
     let sharedAccountCreated = false;
     try {
-      const response = await apiService.createPickupStaff({ name, username, password, phone, tenantId: tId, staffId: staff.id });
+      const response = await apiService.createPickupStaff({ name, username, password, phone, tenantId: tId, tenantName: tName, branchId: bId, branchName: bName, staffId: staff.id });
       if (response?.success && response.staff) {
         staff = { ...staff, ...response.staff, password };
         sharedAccountCreated = true;
@@ -3583,11 +3580,7 @@ export const StoreProvider = ({ children }) => {
         const res = await apiService.getRiders();
         if (res && res.success && Array.isArray(res.riders)) {
           const cleanRiders = res.riders.filter(
-            (r) =>
-              r &&
-              r.id &&
-              !['RDR-101', 'RDR-102', 'RDR-103', 'RDR-104', 'RDR-000'].includes(r.id) &&
-              !['Ali Raza', 'Usman Tariq', 'Bilal Ahmed', 'Hamza Malik', 'Usman Farooq', 'Zubair Ahmed', 'Hamza Tariq', 'Rider Demo', 'Rider Ali'].includes(r.name)
+            (r) => r && (r.id || r._id)
           );
           setRiders(cleanRiders);
           localStorage.setItem('freshmart_riders_v3', JSON.stringify(cleanRiders));
@@ -3893,80 +3886,8 @@ export const StoreProvider = ({ children }) => {
 
   const getEligibleRidersForOrder = (order) => {
     if (!order) return [];
-    const destination = orderDeliveryCoordinates(order);
-    const orderTenantId = order?.tenantId || (order?.items?.[0]?.tenantId) || currentTenant?.id || 'tenant-freshmart';
-
     const allRidersPool = (riders && riders.length > 0) ? riders : (INITIAL_RIDERS || []);
-
-    // Filter riders matching tenant or global fleet couriers (Ali Khan, Ahmad Khan) & active/available
-    let tenantRiders = allRidersPool.filter((rider) => {
-      const matchTenant = rider.isGlobal || isSameTenant(rider.tenantId, orderTenantId);
-      const isAvailable = ['available', 'on-duty', 'active'].includes(String(rider.status || '').toLowerCase());
-      return matchTenant && isAvailable;
-    });
-
-    // Fallback 1: If no strict on-duty riders found, include any global or tenant riders
-    if (tenantRiders.length === 0) {
-      tenantRiders = allRidersPool.filter((r) => r.isGlobal || isSameTenant(r.tenantId, orderTenantId));
-    }
-    // Fallback 2: If still none, include all available fleet couriers so parcel assignment never fails
-    if (tenantRiders.length === 0) {
-      tenantRiders = allRidersPool;
-    }
-    if (tenantRiders.length === 0) {
-      return [];
-    }
-
-    const orderBranchId = order?.branchId;
-    const orderBranchName = (order?.branchName || order?.branch || '').toLowerCase();
-    const orderCity = (order?.city || order?.shippingAddress?.city || '').toLowerCase();
-
-    const enriched = tenantRiders.map((rider) => {
-      const coordinates = riderBaseCoordinates(rider);
-      const distanceKm = destination && coordinates
-        ? calculateDistanceKm(destination.lat, destination.lng, coordinates.lat, coordinates.lng)
-        : 0;
-      const coverageRadiusKm = Number(rider.coverageRadiusKm) || 15;
-
-      const isBranchMatch = Boolean(
-        (orderBranchId && rider.branchId === orderBranchId) ||
-        (orderBranchName && (
-          (rider.branchName && (
-            rider.branchName.toLowerCase() === orderBranchName ||
-            rider.branchName.toLowerCase().includes(orderBranchName) ||
-            orderBranchName.includes(rider.branchName.toLowerCase())
-          )) ||
-          (rider.zone && (
-            rider.zone.toLowerCase() === orderBranchName ||
-            rider.zone.toLowerCase().includes(orderBranchName) ||
-            orderBranchName.includes(rider.zone.toLowerCase())
-          )) ||
-          (rider.region && (
-            rider.region.toLowerCase().includes(orderBranchName) ||
-            orderBranchName.includes(rider.region.toLowerCase())
-          ))
-        )) ||
-        (orderCity && (
-          (rider.city && rider.city.toLowerCase() === orderCity) ||
-          (rider.region && rider.region.toLowerCase().includes(orderCity))
-        ))
-      );
-
-      return {
-        ...rider,
-        coordinates,
-        distanceKm: Number.isFinite(distanceKm) ? distanceKm : 0,
-        coverageRadiusKm,
-        isBranchMatch
-      };
-    });
-
-    // Prioritize branch matches first, then sort by distance, keeping all available riders selectable
-    return enriched.sort((a, b) => {
-      if (a.isBranchMatch && !b.isBranchMatch) return -1;
-      if (!a.isBranchMatch && b.isBranchMatch) return 1;
-      return a.distanceKm - b.distanceKm;
-    });
+    return getStrictEligibleRiders(order, allRidersPool);
   };
 
   const assignRiderToOrder = async (orderId, riderId, statusOverride, allowDemo = false) => {
@@ -3980,19 +3901,28 @@ export const StoreProvider = ({ children }) => {
 
     const cleanRiderId = String(riderId || '').trim();
     const eligibleRiders = getEligibleRidersForOrder(sourceOrder);
-    const targetRider =
-      (riders || []).find((r) =>
+    let targetRider = null;
+    if (cleanRiderId) {
+      targetRider = (riders || []).find((r) =>
         (r.id && String(r.id) === cleanRiderId) ||
         (r._id && String(r._id) === cleanRiderId) ||
         (r.riderId && String(r.riderId) === cleanRiderId) ||
         (r.username && r.username.toLowerCase() === cleanRiderId.toLowerCase()) ||
         (r.name && r.name.toLowerCase() === cleanRiderId.toLowerCase())
-      ) ||
-      eligibleRiders?.[0] ||
-      (riders && riders[0]);
+      );
+    }
+    if (!targetRider && eligibleRiders.length > 0 && !cleanRiderId) {
+      targetRider = eligibleRiders[0];
+    }
 
     if (!targetRider) {
-      addToast('Select a Rider', 'Please select a valid courier from the list.', 'error');
+      addToast('Select a Rider', 'Please select an eligible courier for this branch from the list.', 'error');
+      return false;
+    }
+
+    const check = canAssignRiderToOrder(sourceOrder, targetRider);
+    if (!check.allowed) {
+      addToast('Assignment Rejected ❌', check.reason || 'Rider cannot be assigned across stores or branches.', 'error');
       return false;
     }
     if (!['admin', 'superadmin', 'rider', 'pickup_staff'].includes(adminRole) && !allowDemo) {
@@ -5252,47 +5182,21 @@ export const StoreProvider = ({ children }) => {
        isSameTenant(resolvedTenantId, 'tenant-chasevalue') ? 'Chase Value' :
        isSameTenant(resolvedTenantId, 'tenant-chaseup') ? 'Chase Up' : 'Unimaart');
 
-    const canonicalTenant = resolveTenantId(resolvedTenantId);
-    const validTenantBranches = (allBranches || BRANCHES).filter((b) => b.tenantId === canonicalTenant);
-    let resolvedBranch = validTenantBranches.find((b) => b._id === orderData.branchId || b.id === orderData.branchId);
+    const routing = resolveOrderRouting(
+      {
+        tenantId: resolvedTenantId,
+        branchId: orderData.branchId || (currentBranch && isSameTenant(currentBranch.tenantId, resolvedTenantId) ? (currentBranch.id || currentBranch._id) : null),
+        destinationCoords: orderData.destinationCoords || orderData.shippingAddress?.coordinates || deliveryLocation?.coords,
+        shippingAddress: {
+          address: orderData.address || orderData.shippingAddress?.address || deliveryLocation?.address,
+          city: orderData.city || orderData.shippingAddress?.city || deliveryLocation?.city
+        }
+      },
+      (allBranches && allBranches.length > 0) ? allBranches : undefined
+    );
 
-    const fullLocString = `${orderData.shippingAddress?.address || ''} ${orderData.shippingAddress?.city || ''} ${orderData.address || ''} ${orderData.city || ''} ${deliveryLocation?.address || ''} ${deliveryLocation?.city || ''}`.toLowerCase();
-    const isFsd = fullLocString.includes('faisalabad') || fullLocString.includes('peoples colony') || fullLocString.includes('fsd');
-
-    if (!resolvedBranch && isFsd) {
-      resolvedBranch = validTenantBranches.find((b) =>
-        (b.city && b.city.toLowerCase().includes('faisalabad')) ||
-        (b.name && b.name.toLowerCase().includes('peoples colony')) ||
-        b._id === 'branch_um_fsd' || b.id === 'branch_um_fsd' ||
-        b._id === 'branch_af_fsd' || b.id === 'branch_af_fsd' ||
-        b._id === 'branch_cv_fsd' || b.id === 'branch_cv_fsd'
-      );
-    }
-
-    if (!resolvedBranch && currentBranch && (currentBranch.tenantId === canonicalTenant || isSameTenant(currentBranch.tenantId, resolvedTenantId))) {
-      resolvedBranch = currentBranch;
-    }
-    if (!resolvedBranch && validTenantBranches.length > 0) {
-      resolvedBranch = validTenantBranches[0];
-    }
-
-    const defaultBranchId = isSameTenant(resolvedTenantId, 'tenant-alfatah')
-      ? (isFsd ? 'branch_af_fsd' : 'branch_002')
-      : isSameTenant(resolvedTenantId, 'tenant-freshmart')
-      ? (isFsd ? 'branch_um_fsd' : 'branch_010')
-      : isSameTenant(resolvedTenantId, 'tenant-chasevalue')
-      ? (isFsd ? 'branch_cv_fsd' : 'branch_007')
-      : (isFsd ? 'branch_006' : 'branch_004');
-    const defaultBranchName = isSameTenant(resolvedTenantId, 'tenant-alfatah')
-      ? (isFsd ? 'D-Ground Flagship Hub' : 'Gulberg Mall')
-      : isSameTenant(resolvedTenantId, 'tenant-freshmart')
-      ? (isFsd ? 'Peoples Colony Dark Store' : 'Gulberg SuperHub')
-      : isSameTenant(resolvedTenantId, 'tenant-chasevalue')
-      ? (isFsd ? 'Wholesale Express Hub' : 'Shaheed-e-Millat Karachi')
-      : (isFsd ? 'Faisalabad Clock Tower Hub' : 'Clifton Karachi');
-
-    const resolvedBranchId = resolvedBranch?._id || resolvedBranch?.id || orderData.branchId || defaultBranchId;
-    const resolvedBranchName = resolvedBranch?.name || orderData.branchName || defaultBranchName;
+    const resolvedBranchId = routing.branchId;
+    const resolvedBranchName = routing.branchName;
 
     const orderItems = rawItemsList.map((i) => {
       const p = i.product && typeof i.product === 'object' ? i.product : i;
@@ -6571,6 +6475,12 @@ export const StoreProvider = ({ children }) => {
     };
     const current = [...(customerOrders || []), ...(adminOrders || [])].find(orderMatches);
     if (!current || (current.tenantId && !isSameTenant(current.tenantId, currentTenant?.id || user?.tenantId))) return false;
+
+    const staffCheck = canAssignStaffToOrder(current, staff);
+    if (!staffCheck.allowed) {
+      addToast('Staff Assignment Denied ❌', staffCheck.reason || 'Staff must belong to the same branch and store as the order.', 'error');
+      return false;
+    }
     const assignment = {
       pickupStaffId: staff.id,
       pickupStaffName: staff.name,

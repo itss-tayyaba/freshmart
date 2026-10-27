@@ -6,7 +6,12 @@ import { isSameTenant } from '../../../data/companyHierarchyData';
 export const DeliverToStaffModal = ({ order, isOpen, onClose, onSuccess }) => {
   const { pickupStaff = [], assignPickupStaffToOrder, currentTenant, user, addToast } = useStore();
   const tenantId = order?.tenantId || currentTenant?.id || user?.tenantId || 'tenant-freshmart';
-  const staff = useMemo(() => pickupStaff.filter((member) => isSameTenant(member.tenantId || member.companyId, tenantId) && (member.status === 'Active' || !member.status)), [pickupStaff, tenantId]);
+  const staff = useMemo(() => pickupStaff.filter((member) => {
+    if (!isSameTenant(member.tenantId || member.companyId, tenantId)) return false;
+    if (member.status && member.status !== 'Active') return false;
+    if (order?.branchId && member.branchId && order.branchId !== member.branchId) return false;
+    return true;
+  }), [pickupStaff, tenantId, order?.branchId]);
   const [selectedStaffId, setSelectedStaffId] = useState(order?.pickupStaffId || '');
   useEffect(() => setSelectedStaffId(order?.pickupStaffId || ''), [order?.id, order?.pickupStaffId]);
 

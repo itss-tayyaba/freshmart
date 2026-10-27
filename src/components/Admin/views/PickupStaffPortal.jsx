@@ -25,6 +25,7 @@ import {
 import { useStore } from '../../../context/StoreContext';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 import { isOrderAssignedToPickupStaff, isPickupOrderAssigned } from '../../../utils/pickupStaffAssignment';
+import { isOrderVisibleToUser } from '../../../utils/orderScope';
 
 // Helper: category/grocery item icon
 const getItemIcon = (name = '') => {
@@ -82,52 +83,9 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     const list = Array.from(uniqueMap.values());
     const activeTenantId = currentTenant?.id || user?.tenantId;
 
-    return list.filter((ord) => {
-      if (!activeTenantId) return true;
-      const tId =
-        ord.tenantId ||
-        ord.companyId ||
-        ord.tenantName ||
-        ord.storeName ||
-        ord.tenant ||
-        ord.items?.[0]?.tenantId ||
-        ord.rawItems?.[0]?.tenantId ||
-        ord.orderItems?.[0]?.tenantId;
-
-      const rawItemList = Array.isArray(ord.rawItems)
-        ? ord.rawItems
-        : Array.isArray(ord.orderItems)
-        ? ord.orderItems
-        : Array.isArray(ord.items)
-        ? ord.items
-        : [];
-
-      const hasCaseValue = rawItemList.some((it) => {
-        const n = String(it?.name || it?.productName || '').toLowerCase();
-        const b = String(it?.brand || '').toLowerCase();
-        return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
-      });
-      if (hasCaseValue && isSameTenant(activeTenantId, 'tenant-chasevalue')) return true;
-      if (hasCaseValue && !isSameTenant(activeTenantId, 'tenant-chasevalue')) return false;
-
-      const hasChaseUp = rawItemList.some((it) => {
-        const n = String(it?.name || it?.productName || '').toLowerCase();
-        const b = String(it?.brand || '').toLowerCase();
-        return n.includes('chase up') || n.includes('case up') || n.includes('caseup') || b.includes('chase up') || b.includes('case up') || b.includes('caseup') || isSameTenant(it?.tenantId, 'tenant-chaseup');
-      });
-      if (hasChaseUp && isSameTenant(activeTenantId, 'tenant-chaseup')) return true;
-      if (hasChaseUp && !isSameTenant(activeTenantId, 'tenant-chaseup')) return false;
-
-      if (!tId) {
-        const idLower = String(ord.id || ord.orderId || '').toLowerCase();
-        if (idLower.includes('701') || idLower.includes('af')) return isSameTenant('tenant-alfatah', activeTenantId);
-        if (idLower.includes('fm') || idLower.includes('83459')) return isSameTenant('tenant-freshmart', activeTenantId);
-        if (idLower.includes('cv')) return isSameTenant('tenant-chasevalue', activeTenantId);
-        if (idLower.includes('cu') || idLower.includes('caseup')) return isSameTenant('tenant-chaseup', activeTenantId);
-        return false;
-      }
-      return isSameTenant(tId, activeTenantId);
-    }).filter((ord) => isOrderAssignedToPickupStaff(ord, user) || !isPickupOrderAssigned(ord)).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    return list
+      .filter((ord) => isOrderVisibleToUser(ord, user, activeTenantId))
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }, [customerOrders, adminOrders, user, currentTenant?.id]);
 
   // Tab counts

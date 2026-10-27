@@ -27,6 +27,7 @@ import {
 import { useStore } from '../../context/StoreContext';
 import { isSameTenant, resolveTenantId } from '../../data/companyHierarchyData';
 import { sanitizeOrder } from '../../utils/orderSanitizer';
+import { isOrderVisibleToUser } from '../../utils/orderScope';
 
 // 11 Views
 import { DashboardView } from './views/DashboardView';
@@ -151,67 +152,9 @@ const StoreAdminConsole = () => {
       if (!o) return;
       const bare = String(o.id || o.orderId || o._id || '').replace(/^#/, '').trim().toLowerCase();
       if (!bare) return;
-      const orderTenant =
-        o.tenantId ||
-        o.companyId ||
-        o.tenantName ||
-        o.items?.[0]?.tenantId ||
-        o.rawItems?.[0]?.tenantId;
 
-      const rawItemList = Array.isArray(o.rawItems)
-        ? o.rawItems
-        : Array.isArray(o.orderItems)
-        ? o.orderItems
-        : Array.isArray(o.items)
-        ? o.items
-        : [];
-
-      const hasCaseValue = rawItemList.some((it) => {
-        const n = String(it?.name || it?.productName || '').toLowerCase();
-        const b = String(it?.brand || '').toLowerCase();
-        return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
-      });
-      if (hasCaseValue && isSameTenant(activeTenantId, 'tenant-chasevalue')) {
-        // belongs to Case Value
-      } else if (hasCaseValue && !isSameTenant(activeTenantId, 'tenant-chasevalue')) {
+      if (activeTenantId && !isOrderVisibleToUser(o, user, activeTenantId)) {
         return;
-      }
-
-      const hasChaseUp = rawItemList.some((it) => {
-        const n = String(it?.name || it?.productName || '').toLowerCase();
-        const b = String(it?.brand || '').toLowerCase();
-        return n.includes('chase up') || n.includes('case up') || n.includes('caseup') || b.includes('chase up') || b.includes('case up') || b.includes('caseup') || isSameTenant(it?.tenantId, 'tenant-chaseup');
-      });
-      if (hasChaseUp && isSameTenant(activeTenantId, 'tenant-chaseup')) {
-        // belongs to Chase Up
-      } else if (hasChaseUp && !isSameTenant(activeTenantId, 'tenant-chaseup')) {
-        return;
-      }
-
-      if (bare.startsWith('cu') || bare.startsWith('ord-cu') || bare.includes('-cu-') || bare.includes('caseup')) {
-        if (!isSameTenant('tenant-chaseup', activeTenantId)) return;
-      }
-      if (bare.startsWith('cv') || bare.startsWith('ord-cv') || bare.includes('-cv-')) {
-        if (!isSameTenant('tenant-chasevalue', activeTenantId)) return;
-      }
-
-      if (activeTenantId) {
-        if (!orderTenant) {
-          const id = bare;
-          if (id.includes('701') || id.includes('af')) {
-            if (!isSameTenant('tenant-alfatah', activeTenantId)) return;
-          } else if (id.includes('fm') || id.includes('83459')) {
-            if (!isSameTenant('tenant-freshmart', activeTenantId)) return;
-          } else if (id.includes('cv')) {
-            if (!isSameTenant('tenant-chasevalue', activeTenantId)) return;
-          } else if (id.includes('cu') || id.includes('caseup')) {
-            if (!isSameTenant('tenant-chaseup', activeTenantId)) return;
-          } else {
-            return;
-          }
-        } else if (!isSameTenant(orderTenant, activeTenantId)) {
-          return;
-        }
       }
 
       const isDelivered =
@@ -549,8 +492,8 @@ const StoreAdminConsole = () => {
           </div>
 
           <div className="flex items-center gap-3 ml-auto">
-            {/* Supermarket Branch Switcher Dropdown */}
-            {allTenants && allTenants.length > 0 && (
+            {/* Supermarket Branch Switcher Dropdown (Super Admin Only) */}
+            {(user?.role === 'superadmin' || user?.isSuperAdmin) && allTenants && allTenants.length > 0 ? (
               <div className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200/70 border border-slate-200 rounded-xl px-2.5 py-1.5 transition-colors">
                 <Store className="w-3.5 h-3.5 text-slate-600 shrink-0" />
                 <span className="text-[11px] font-bold text-slate-500 hidden xl:inline">Store:</span>
@@ -582,6 +525,13 @@ const StoreAdminConsole = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
+                <Store className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                <span className="text-xs font-bold text-slate-800">
+                  {currentTenant?.logo || '🏬'} {currentTenant?.displayName || currentTenant?.name || user?.tenantName || 'Store'}
+                </span>
               </div>
             )}
 

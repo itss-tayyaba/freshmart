@@ -35,6 +35,7 @@ import { useStore } from '../../../context/StoreContext';
 import { DeliverToStaffModal } from '../modals/DeliverToStaffModal';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 import { sanitizeOrder } from '../../../utils/orderSanitizer';
+import { normalizeOrderTenantId } from '../../../utils/orderScope';
 
 // Helper: Extract human-readable order items count/summary safely (never returns an object/array)
 const formatOrderItemsSummary = (ord) => {
@@ -228,8 +229,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     combined.forEach((ord) => {
       if (ord && (ord.id || ord.orderId || ord._id)) {
         const bareKey = String(ord.id || ord.orderId || ord._id).replace(/^#/, '').trim().toLowerCase();
-        const cust = String(ord.customer || ord.customerName || '').toLowerCase();
-        if (bareKey === 'cu5011' || cust.includes('danish qureshi') || cust.includes('hamza tariq') || cust.includes('zainab merchant')) return;
+        if (bareKey === 'cu5011') return;
         const existing = uniqueMap.get(bareKey);
         if (!existing) {
           uniqueMap.set(bareKey, ord);
@@ -261,94 +261,24 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     let list = raw;
     if (targetTenantId) {
       list = list.filter((o) => {
-        const idLower = String(o.id || o.orderId || o._id || '').toLowerCase();
-        const bareId = idLower.replace(/^#/, '').trim();
-
-        // 1. Direct match on order ID prefix (with or without #)
-        if (
-          (bareId.startsWith('cu') || bareId.startsWith('ord-cu') || bareId.includes('-cu-') || bareId.includes('caseup')) &&
-          isSameTenant(targetTenantId, 'tenant-chaseup')
-        ) {
-          return true;
+        const orderTenant = normalizeOrderTenantId(o);
+        if (orderTenant) {
+          return isSameTenant(orderTenant, targetTenantId);
         }
-        if (
-          (bareId.startsWith('cv') || bareId.startsWith('ord-cv') || bareId.includes('-cv-')) &&
-          isSameTenant(targetTenantId, 'tenant-chasevalue')
-        ) {
-          return true;
-        }
-        if (
-          (bareId.includes('701') || bareId.startsWith('af') || bareId.startsWith('ord-af') || bareId.includes('-af-')) &&
-          isSameTenant(targetTenantId, 'tenant-alfatah')
-        ) {
-          return true;
-        }
-        if (
-          (bareId.includes('83459') || bareId.startsWith('fm') || bareId.startsWith('ord-fm') || bareId.includes('-fm-')) &&
-          isSameTenant(targetTenantId, 'tenant-freshmart')
-        ) {
-          return true;
-        }
-
-        // 2. Direct tenant property match
-        if (o.tenantId && isSameTenant(o.tenantId, targetTenantId)) return true;
-        if (o.companyId && isSameTenant(o.companyId, targetTenantId)) return true;
-
-        const orderTenant =
-          o.tenantId ||
-          o.companyId ||
-          o.tenantName ||
-          o.storeName ||
-          o.tenant ||
-          o.items?.[0]?.tenantId ||
-          o.rawItems?.[0]?.tenantId ||
-          o.orderItems?.[0]?.tenantId;
-
-        if (orderTenant && isSameTenant(orderTenant, targetTenantId)) {
-          return true;
-        }
-
-        const rawItemList = Array.isArray(o.rawItems)
-          ? o.rawItems
-          : Array.isArray(o.orderItems)
-          ? o.orderItems
-          : Array.isArray(o.items)
-          ? o.items
-          : [];
-
-        const hasCaseValue = rawItemList.some((it) => {
-          const n = String(it?.name || it?.productName || '').toLowerCase();
-          const b = String(it?.brand || '').toLowerCase();
-          return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
-        });
-        if (hasCaseValue && isSameTenant(targetTenantId, 'tenant-chasevalue')) return true;
-
-        const hasChaseUp = rawItemList.some((it) => {
-          const n = String(it?.name || it?.productName || '').toLowerCase();
-          const b = String(it?.brand || '').toLowerCase();
-          return n.includes('chase up') || n.includes('case up') || n.includes('caseup') || b.includes('chase up') || b.includes('case up') || b.includes('caseup') || isSameTenant(it?.tenantId, 'tenant-chaseup');
-        });
-        if (hasChaseUp && isSameTenant(targetTenantId, 'tenant-chaseup')) return true;
-
-        if (!orderTenant) {
-          const id = bareId;
-          if (id.includes('701') || id.includes('af')) return isSameTenant('tenant-alfatah', targetTenantId);
-          if (id.includes('fm') || id.includes('83459')) return isSameTenant('tenant-freshmart', targetTenantId);
-          if (id.includes('cv')) return isSameTenant('tenant-chasevalue', targetTenantId);
-          if (id.includes('cu') || id.includes('caseup')) return isSameTenant('tenant-chaseup', targetTenantId);
-          return false;
-        }
-
+        const idLower = String(o.id || o.orderId || o._id || '').toLowerCase().replace(/^#/, '').trim();
+        if ((idLower.startsWith('cu') || idLower.includes('-cu-') || idLower.includes('caseup')) && isSameTenant(targetTenantId, 'tenant-chaseup')) return true;
+        if ((idLower.startsWith('cv') || idLower.includes('-cv-')) && isSameTenant(targetTenantId, 'tenant-chasevalue')) return true;
+        if ((idLower.includes('701') || idLower.startsWith('af') || idLower.includes('-af-')) && isSameTenant(targetTenantId, 'tenant-alfatah')) return true;
+        if ((idLower.includes('83459') || idLower.startsWith('fm') || idLower.includes('-fm-')) && isSameTenant(targetTenantId, 'tenant-freshmart')) return true;
         return false;
       });
     }
 
     // Branch scoping:
-    // If a specific branch is selected in the store admin dropdown, filter by that branch if it belongs to this tenant
-    const isFilterBelongToTenant = tenantBranches.some((b) => (b._id || b.id) === currentBranchFilter);
-    if (currentBranchFilter && currentBranchFilter !== 'all' && isFilterBelongToTenant) {
+    // If a specific branch is selected in the store admin dropdown or user is branch-scoped
+    if (currentBranchFilter && currentBranchFilter !== 'all') {
       list = list.filter((o) => o.branchId === currentBranchFilter);
-    } else if (user?.branchId && user?.role !== 'admin' && user?.role !== 'store_admin') {
+    } else if (user?.branchId && user.branchId !== 'all') {
       list = list.filter((o) => !o.branchId || o.branchId === user.branchId);
     }
 

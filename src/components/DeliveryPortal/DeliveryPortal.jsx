@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { isSameTenant } from '../../data/companyHierarchyData';
+import { isOrderVisibleToUser } from '../../utils/orderScope';
 
 // Custom Leaflet SVG Markers for reliable Vite asset rendering
 const createPickupPin = (label = 'Store') =>
@@ -144,39 +145,31 @@ export const DeliveryPortal = () => {
         return matched;
       }
       return {
-        id: user.riderId || user.id || 'RDR-ALI',
-        name: user.name || 'Ali Khan',
-        zone: 'D-Ground Commercial (Faisalabad)',
-        branchName: 'D-Ground Flagship Hub',
-        phone: user.phone || '03001122334',
+        id: user.riderId || user.id || 'RDR-CURRENT',
+        name: user.name || 'Delivery Courier',
+        zone: user.branchName || 'Local Delivery Zone',
+        branchId: user.branchId,
+        branchName: user.branchName || 'Main Hub',
+        phone: user.phone || '',
         vehicleType: '🏍️ Honda 125',
         vehicleNumber: 'LEK-2301',
         rating: 5.0,
-        status: 'Active'
+        status: 'Active',
+        tenantId: user.tenantId
       };
     }
 
-    // 2. If riders exist in database / state, match tenant or return first active rider
+    // 2. If viewing as admin / superadmin, match a rider for the active tenant
+    const targetTenant = currentTenant?.id || user?.tenantId;
     if (riders && riders.length > 0) {
-      const tenantMatch = riders.find((r) => isSameTenant(r.tenantId, currentTenant?.id || user?.tenantId));
+      const tenantMatch = riders.find((r) => isSameTenant(r.tenantId, targetTenant));
       if (tenantMatch) {
         return tenantMatch;
       }
       return riders[0];
     }
 
-    // 3. Fallback default: 'Ali Khan'
-    return {
-      id: 'RDR-ALI',
-      name: 'Ali Khan',
-      zone: 'D-Ground Commercial (Faisalabad)',
-      branchName: 'D-Ground Flagship Hub',
-      phone: '03001122334',
-      vehicleType: '🏍️ Honda 125',
-      vehicleNumber: 'LEK-2301',
-      rating: 5.0,
-      status: 'Active'
-    };
+    return null;
   }, [user, adminRole, riders, currentTenant]);
 
   // Active courier is the authenticated/assigned rider profile
@@ -254,51 +247,7 @@ export const DeliveryPortal = () => {
 
     return rawList.filter((o) => {
       if (o.branchId === 'branch_demo') return false;
-
-      // Robust tenant matching matching OrdersView
-      const orderTenant =
-        o.tenantId ||
-        o.companyId ||
-        o.tenantName ||
-        o.storeName ||
-        o.tenant ||
-        o.items?.[0]?.tenantId ||
-        o.rawItems?.[0]?.tenantId ||
-        o.orderItems?.[0]?.tenantId;
-
-      const rawItemList = Array.isArray(o.rawItems)
-        ? o.rawItems
-        : Array.isArray(o.orderItems)
-        ? o.orderItems
-        : Array.isArray(o.items)
-        ? o.items
-        : [];
-      const hasCaseValue = rawItemList.some((it) => {
-        const n = String(it?.name || it?.productName || '').toLowerCase();
-        const b = String(it?.brand || '').toLowerCase();
-        return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
-      });
-      if (hasCaseValue && isSameTenant(activeTenantId, 'tenant-chasevalue')) return true;
-      if (hasCaseValue && !isSameTenant(activeTenantId, 'tenant-chasevalue')) return false;
-
-      const hasChaseUp = rawItemList.some((it) => {
-        const n = String(it?.name || it?.productName || '').toLowerCase();
-        const b = String(it?.brand || '').toLowerCase();
-        return n.includes('chase up') || n.includes('case up') || n.includes('caseup') || b.includes('chase up') || b.includes('case up') || b.includes('caseup') || isSameTenant(it?.tenantId, 'tenant-chaseup');
-      });
-      if (hasChaseUp && isSameTenant(activeTenantId, 'tenant-chaseup')) return true;
-      if (hasChaseUp && !isSameTenant(activeTenantId, 'tenant-chaseup')) return false;
-
-      if (!orderTenant) {
-        const id = String(o.id || o.orderId || '').toLowerCase();
-        if (id.includes('701') || id.includes('af')) return isSameTenant('tenant-alfatah', activeTenantId);
-        if (id.includes('fm') || id.includes('83459')) return isSameTenant('tenant-freshmart', activeTenantId);
-        if (id.includes('cv')) return isSameTenant('tenant-chasevalue', activeTenantId);
-        if (id.includes('cu') || id.includes('caseup')) return isSameTenant('tenant-chaseup', activeTenantId);
-        return true;
-      }
-
-      return isSameTenant(orderTenant, activeTenantId);
+      return isOrderVisibleToUser(o, user || activeRider, activeTenantId);
     });
   }, [customerOrders, adminOrders, user?.tenantId, currentTenant?.id, locallyCompletedOrders]);
 

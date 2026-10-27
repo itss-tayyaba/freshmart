@@ -244,6 +244,8 @@ export const INITIAL_PICKUP_STAFF = [
     phone: '+92 300 1112233',
     tenantId: 'tenant-alfatah',
     tenantName: 'Al-Fatah Supermarket',
+    branchId: 'branch_af_fsd',
+    branchName: 'D-Ground Flagship Hub',
     status: 'Active'
   },
   {
@@ -255,6 +257,8 @@ export const INITIAL_PICKUP_STAFF = [
     phone: '+92 300 1112234',
     tenantId: 'tenant-alfatah',
     tenantName: 'Al-Fatah Supermarket',
+    branchId: 'branch_af_fsd',
+    branchName: 'D-Ground Flagship Hub',
     status: 'Active'
   },
   {
@@ -266,6 +270,8 @@ export const INITIAL_PICKUP_STAFF = [
     phone: '+92 321 2223344',
     tenantId: 'tenant-chasevalue',
     tenantName: 'Chase Value',
+    branchId: 'branch_cv_fsd',
+    branchName: 'Wholesale Express Hub',
     status: 'Active'
   },
   {
@@ -277,6 +283,8 @@ export const INITIAL_PICKUP_STAFF = [
     phone: '+92 333 3334455',
     tenantId: 'tenant-chaseup',
     tenantName: 'Chase Up',
+    branchId: 'branch_006',
+    branchName: 'Faisalabad Clock Tower Hub',
     status: 'Active'
   },
   {
@@ -288,12 +296,13 @@ export const INITIAL_PICKUP_STAFF = [
     phone: '+92 345 4445566',
     tenantId: 'tenant-freshmart',
     tenantName: 'Unimaart',
+    branchId: 'branch_um_fsd',
+    branchName: 'Peoples Colony Dark Store',
     status: 'Active'
   }
 ];
 
-// Initial Riders for each supermarket chain (Matching active fleet)
-// isGlobal: true allows these seed riders to appear in any store's fleet view
+// Initial Riders for each supermarket chain (Strictly scoped by store and branch)
 export const INITIAL_RIDERS = [
   {
     id: 'RDR-ALI',
@@ -304,7 +313,7 @@ export const INITIAL_RIDERS = [
     password: 'rider123',
     tenantId: 'tenant-alfatah',
     tenantName: 'Al-Fatah Supermarket',
-    isGlobal: true,
+    isGlobal: false,
     branchId: 'branch_af_fsd',
     branchName: 'D-Ground Flagship Hub',
     region: 'D-Ground Commercial',
@@ -326,7 +335,7 @@ export const INITIAL_RIDERS = [
     password: 'rider123',
     tenantId: 'tenant-alfatah',
     tenantName: 'Al-Fatah Supermarket',
-    isGlobal: true,
+    isGlobal: false,
     branchId: 'branch_af_fsd',
     branchName: 'D-Ground Flagship Hub',
     region: 'Peoples Colony',
@@ -348,7 +357,7 @@ export const INITIAL_RIDERS = [
     password: 'rider123',
     tenantId: 'tenant-alfatah',
     tenantName: 'Al-Fatah Supermarket',
-    isGlobal: true,
+    isGlobal: false,
     branchId: 'branch_af_fsd',
     branchName: 'D-Ground Flagship Hub',
     region: 'Peoples Colony',
@@ -360,5 +369,71 @@ export const INITIAL_RIDERS = [
     coordinates: { lat: 31.4147, lng: 73.0872 },
     coverageRadiusKm: 25,
     rating: 5.0
+  },
+  {
+    id: 'RDR-UNIMART',
+    riderId: 'RDR-UNIMART',
+    name: 'Usman Tariq',
+    username: 'usman',
+    phone: '03112233445',
+    password: 'rider123',
+    tenantId: 'tenant-freshmart',
+    tenantName: 'Unimaart (Market Store)',
+    isGlobal: false,
+    branchId: 'branch_um_fsd',
+    branchName: 'Peoples Colony Dark Store',
+    region: 'Peoples Colony',
+    zone: 'Peoples Colony Dark Store (Faisalabad)',
+    city: 'Faisalabad',
+    vehicleType: '🏍️ Yamaha YBR',
+    vehicleNumber: 'FSD-9921',
+    status: 'Active',
+    coordinates: { lat: 31.4125, lng: 73.0995 },
+    coverageRadiusKm: 25,
+    rating: 4.9
+  },
+  {
+    id: 'RDR-CHASEVALUE',
+    riderId: 'RDR-CHASEVALUE',
+    name: 'Bilal Ahmed',
+    username: 'bilal_cv',
+    phone: '03223344556',
+    password: 'rider123',
+    tenantId: 'tenant-chasevalue',
+    tenantName: 'Chase Value',
+    isGlobal: false,
+    branchId: 'branch_cv_fsd',
+    branchName: 'Wholesale Express Hub',
+    region: 'Civil Lines',
+    zone: 'Civil Lines Hub (Faisalabad)',
+    city: 'Faisalabad',
+    vehicleType: '🏍️ Honda CG 125',
+    vehicleNumber: 'FSD-3382',
+    status: 'Active',
+    coordinates: { lat: 31.4180, lng: 73.0780 },
+    coverageRadiusKm: 25,
+    rating: 4.8
+  },
+  {
+    id: 'RDR-CHASEUP',
+    riderId: 'RDR-CHASEUP',
+    name: 'Kamran Shah',
+    username: 'kamran_cu',
+    phone: '03334455667',
+    password: 'rider123',
+    tenantId: 'tenant-chaseup',
+    tenantName: 'Chase Up',
+    isGlobal: false,
+    branchId: 'branch_006',
+    branchName: 'Faisalabad Clock Tower Hub',
+    region: 'Clock Tower Bazaar',
+    zone: 'Clock Tower Hub (Faisalabad)',
+    city: 'Faisalabad',
+    vehicleType: '🏍️ Suzuki GD 110',
+    vehicleNumber: 'FSD-1194',
+    status: 'Active',
+    coordinates: { lat: 31.4150, lng: 73.0820 },
+    coverageRadiusKm: 25,
+    rating: 4.9
   }
 ];

@@ -3,18 +3,25 @@ import { isDbOnline } from '../config/db.js';
 import { User } from '../models/User.js';
 import { Vendor } from '../models/Vendor.js';
 import { Supplier } from '../models/ExtraModels.js';
+import { resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyData.js';
+
+const isDemoAllowed = () => {
+  return process.env.ALLOW_DEMO_AUTH === 'true' || process.env.NODE_ENV === 'test';
+};
 
 export const protect = async (req, res, next) => {
   let token;
-
   const tenantHeader = (req?.headers && req.headers['x-tenant-id']) || null;
 
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
       token = req.headers.authorization.split(' ')[1];
 
-      // Support development / demo session tokens
+      // Support development / demo session tokens only when ALLOW_DEMO_AUTH=true or test environment
       if (token && (token.startsWith('mock-') || token === 'mock-token')) {
+        if (!isDemoAllowed()) {
+          return res.status(401).json({ success: false, message: 'Mock authentication tokens are disabled in production' });
+        }
         const isSuper = token.includes('superadmin');
         const isPickup = token.includes('pickup');
         req.user = {
@@ -23,7 +30,9 @@ export const protect = async (req, res, next) => {
           name: isSuper ? 'Platform Super Admin' : (isPickup ? 'Pickup Staff' : 'Store Admin'),
           email: isSuper ? 'superadmin@supergrocery.pk' : 'admin@freshmart.pk',
           role: isSuper ? 'superadmin' : (isPickup ? 'pickup_staff' : 'admin'),
-          tenantId: tenantHeader || (token.includes('chasevalue') ? 'tenant-chasevalue' : token.includes('chaseup') ? 'tenant-chaseup' : 'tenant-alfatah')
+          tenantId: tenantHeader || (token.includes('chasevalue') ? 'tenant-chasevalue' : token.includes('chaseup') ? 'tenant-chaseup' : 'tenant-alfatah'),
+          branchId: 'branch_001',
+          branchName: 'Main Branch'
         };
         return next();
       }
@@ -32,16 +41,22 @@ export const protect = async (req, res, next) => {
 
       if (isDbOnline() && decoded.id && typeof decoded.id === 'string' && decoded.id.match(/^[0-9a-fA-F]{24}$/)) {
         try {
-          // Check User model
+          // Check User model (Database role beats token role)
           const dbUser = await User.findById(decoded.id).select('-password');
           if (dbUser) {
             req.user = dbUser.toObject ? dbUser.toObject() : { ...dbUser };
             req.user.id = String(dbUser._id);
             req.user.vendorId = decoded.vendorId || dbUser.vendorId;
-            req.user.tenantId = tenantHeader || dbUser.tenantId || decoded.tenantId;
-            if (decoded.role && ['admin', 'superadmin', 'pickup_staff', 'store admin'].includes(decoded.role.toLowerCase())) {
-              req.user.role = decoded.role.toLowerCase() === 'superadmin' ? 'superadmin' : 'admin';
+            // Database role is authoritative
+            req.user.role = dbUser.role || decoded.role || 'customer';
+            // Only superadmin can override tenant via header
+            if (req.user.role === 'superadmin') {
+              req.user.tenantId = tenantHeader || dbUser.tenantId || decoded.tenantId;
+            } else {
+              req.user.tenantId = dbUser.tenantId || decoded.tenantId;
             }
+            req.user.branchId = dbUser.branchId || decoded.branchId || 'branch_001';
+            req.user.branchName = dbUser.branchName || decoded.branchName || 'Main Branch';
             return next();
           }
 
@@ -69,8 +84,9 @@ export const protect = async (req, res, next) => {
         }
       }
 
-      // If DB is offline or user was encoded with role
+      // If DB is offline or user was encoded with signed JWT payload
       if (decoded.role || decoded.id) {
+        const isSuper = (decoded.role || '').toLowerCase() === 'superadmin';
         req.user = {
           _id: decoded.id || 'admin-root',
           id: decoded.id || 'admin-root',
@@ -79,7 +95,9 @@ export const protect = async (req, res, next) => {
           role: decoded.role || (decoded.id === 'admin-root' ? 'admin' : 'customer'),
           staffId: decoded.staffId,
           riderId: decoded.riderId,
-          tenantId: tenantHeader || decoded.tenantId,
+          tenantId: isSuper ? (tenantHeader || decoded.tenantId) : decoded.tenantId,
+          branchId: decoded.branchId || 'branch_001',
+          branchName: decoded.branchName || 'Main Branch',
           vendorId: decoded.vendorId || (decoded.role === 'vendor' || decoded.role === 'supplier' ? (decoded.id || 'VND-101') : undefined)
         };
         return next();
@@ -92,9 +110,9 @@ export const protect = async (req, res, next) => {
     }
   }
 
-  // Fallback direct admin role header support
+  // Fallback direct admin role header support (only permitted when demo/test auth is active)
   const adminRoleHeader = req?.headers ? req.headers['x-admin-role'] : null;
-  if (adminRoleHeader && ['admin', 'superadmin', 'pickup_staff', 'store admin'].includes(adminRoleHeader.toLowerCase())) {
+  if (isDemoAllowed() && adminRoleHeader && ['admin', 'superadmin', 'pickup_staff', 'store admin'].includes(adminRoleHeader.toLowerCase())) {
     const isSuper = adminRoleHeader.toLowerCase() === 'superadmin';
     const isPickup = adminRoleHeader.toLowerCase() === 'pickup_staff';
     req.user = {
@@ -103,7 +121,9 @@ export const protect = async (req, res, next) => {
       name: isSuper ? 'Platform Super Admin' : (isPickup ? 'Pickup Staff' : 'Store Admin'),
       email: isSuper ? 'superadmin@supergrocery.pk' : 'admin@freshmart.pk',
       role: isSuper ? 'superadmin' : (isPickup ? 'pickup_staff' : 'admin'),
-      tenantId: tenantHeader || 'tenant-alfatah'
+      tenantId: tenantHeader || 'tenant-alfatah',
+      branchId: 'branch_001',
+      branchName: 'Main Branch'
     };
     return next();
   }
@@ -111,30 +131,89 @@ export const protect = async (req, res, next) => {
   return res.status(401).json({ success: false, message: 'Not authorized, no token provided' });
 };
 
+// Admin Only Guard: Admits only Store Admin and Platform Super Admin (Pickup Staff is NOT admitted)
 export const adminOnly = (req, res, next) => {
-  const userRole = (req?.user?.role || '').toLowerCase();
-  const headerRole = (req?.headers && req.headers['x-admin-role'] ? req.headers['x-admin-role'] : '').toLowerCase();
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: 'Not authorized: No session' });
+  }
 
-  const isAuthorized =
-    userRole === 'admin' ||
-    userRole === 'superadmin' ||
-    userRole === 'store admin' ||
-    userRole === 'pickup_staff' ||
-    headerRole === 'admin' ||
-    headerRole === 'superadmin' ||
-    headerRole === 'pickup_staff';
-
-  if (isAuthorized) {
-    if (!req.user) {
-      req.user = {
-        role: headerRole === 'superadmin' ? 'superadmin' : 'admin',
-        name: 'Store Admin',
-        id: 'admin-root'
-      };
-    }
+  const userRole = (req.user.role || '').toLowerCase();
+  if (userRole === 'admin' || userRole === 'superadmin' || userRole === 'store admin') {
     return next();
   }
+
   return res.status(403).json({ success: false, message: 'Access denied: Admin privileges required' });
+};
+
+// Super Admin Only Guard: Admits only Platform Super Admin
+export const superAdminOnly = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: 'Not authorized: No session' });
+  }
+
+  const userRole = (req.user.role || '').toLowerCase();
+  if (userRole === 'superadmin' || req.user.isSuperAdmin) {
+    return next();
+  }
+
+  return res.status(403).json({ success: false, message: 'Access denied: Super Admin privileges required' });
+};
+
+// Staff or Admin Guard: Admits Store Admin, Super Admin, Pickup Staff, and Field Staff
+export const staffOrAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: 'Not authorized: No session' });
+  }
+
+  const userRole = (req.user.role || '').toLowerCase();
+  if (['admin', 'superadmin', 'store admin', 'pickup_staff', 'staff'].includes(userRole)) {
+    return next();
+  }
+
+  return res.status(403).json({ success: false, message: 'Access denied: Staff or Admin privileges required' });
+};
+
+// Custom Role Guard Factory
+export const requireRoles = (...roles) => (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: 'Not authorized: No session' });
+  }
+
+  const userRole = (req.user.role || '').toLowerCase();
+  const allowed = roles.map((r) => r.toLowerCase());
+  if (allowed.includes(userRole)) {
+    return next();
+  }
+
+  return res.status(403).json({
+    success: false,
+    message: `Access denied: Requires one of [${roles.join(', ')}]`
+  });
+};
+
+// Tenant Access Guard: Ensures non-superadmin users only access their own store resources
+export const requireTenantAccess = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: 'Not authorized' });
+  }
+
+  if (req.user.role === 'superadmin' || req.user.isSuperAdmin) {
+    return next();
+  }
+
+  const requestedTenant = resolveTenantId(
+    req.params.tenantId || req.params.id || req.body?.tenantId || req.query?.tenantId || req.headers['x-tenant-id']
+  );
+  const userTenant = resolveTenantId(req.user.tenantId);
+
+  if (!requestedTenant || isSameTenant(requestedTenant, userTenant)) {
+    return next();
+  }
+
+  return res.status(403).json({
+    success: false,
+    message: `Access denied: Cross-tenant access violation. Store [${userTenant}] cannot access [${requestedTenant}]`
+  });
 };
 
 // Vendor Access & IDOR Protection Middleware
@@ -149,12 +228,10 @@ export const protectVendor = (req, res, next) => {
     return res.status(403).json({ success: false, message: 'Access denied: Vendor or Admin privileges required' });
   }
 
-  // If Admin / Superadmin, full marketplace access is permitted
   if (role === 'admin' || role === 'superadmin') {
     return next();
   }
 
-  // For Vendors / Suppliers: Enforce IDOR protection
   const userVendorId = req.user.vendorId || req.user.id || 'VND-101';
   const targetVendorId = req.query.vendorId || req.body?.vendorId || req.params?.vendorId;
 
@@ -165,7 +242,6 @@ export const protectVendor = (req, res, next) => {
     });
   }
 
-  // Attach verified vendorId to req.user for downstream controllers
   req.user.vendorId = userVendorId;
   return next();
 };

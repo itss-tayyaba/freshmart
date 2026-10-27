@@ -94,7 +94,7 @@ import {
   getTenantPerformance,
   getPlatformOverview
 } from '../controllers/tenantController.js';
-import { protect, adminOnly, protectVendor } from '../middleware/authMiddleware.js';
+import { protect, adminOnly, protectVendor, superAdminOnly, staffOrAdmin } from '../middleware/authMiddleware.js';
 import { authLimiter } from '../middleware/rateLimitMiddleware.js';
 import {
   validate,
@@ -117,12 +117,12 @@ const router = express.Router();
 // --- Auth Routes (Rate Limited & Validated) ---
 router.post('/auth/register', authLimiter, validate(registerSchema), registerUser);
 router.post('/auth/login', authLimiter, validate(loginSchema), loginUser);
-router.post('/auth/pickup-staff', createPickupStaff);
-router.get('/auth/pickup-staff', getPickupStaff);
-router.delete('/auth/pickup-staff/:id', deletePickupStaff);
-router.post('/auth/store-admin', saveStoreAdmin);
-router.get('/auth/store-admins', getStoreAdmins);
-router.delete('/auth/store-admin/:id', deleteStoreAdmin);
+router.post('/auth/pickup-staff', protect, adminOnly, createPickupStaff);
+router.get('/auth/pickup-staff', protect, adminOnly, getPickupStaff);
+router.delete('/auth/pickup-staff/:id', protect, adminOnly, deletePickupStaff);
+router.post('/auth/store-admin', protect, superAdminOnly, saveStoreAdmin);
+router.get('/auth/store-admins', protect, superAdminOnly, getStoreAdmins);
+router.delete('/auth/store-admin/:id', protect, superAdminOnly, deleteStoreAdmin);
 router.get('/auth/profile', protect, getUserProfile);
 
 // --- Products Routes ---
@@ -147,7 +147,7 @@ router.delete('/categories/:id', protect, adminOnly, deleteCategory);
 router.post('/orders', validate(createOrderSchema), createOrder);
 router.get('/orders/track/:orderId', trackOrder);
 // Admin & Fleet: Assign rider, update live GPS location, verify delivery OTP, and update order status
-router.put('/orders/:id/assign-rider', protect, adminOnly, assignRiderToOrder);
+router.put('/orders/:id/assign-rider', protect, staffOrAdmin, assignRiderToOrder);
 router.put('/orders/:id/rider-location', updateRiderLocation);
 router.post('/orders/:id/verify-delivery-otp', verifyDeliveryOtp);
 router.get('/orders', protect, getOrders);
@@ -179,7 +179,7 @@ router.delete('/suppliers/:id', protect, adminOnly, deleteSupplier);
 router.get('/riders', protect, adminOnly, getRiders);
 router.post('/riders', protect, adminOnly, validate(createRiderSchema), addRider);
 router.delete('/riders/:id', protect, adminOnly, deleteRider);
-router.delete('/riders', protect, adminOnly, clearAllRiders);
+router.delete('/riders', protect, superAdminOnly, clearAllRiders);
 
 // --- Promotions & Coupons Routes ---
 // Public: Active coupons and checkout promo validation
@@ -246,17 +246,17 @@ router.put('/admin/vendors/:id/payouts/:payoutId', protect, adminOnly, adminProc
 
 // --- Super Grocery Platform: Multi-Tenant Architecture Routes ---
 router.get('/tenants', getTenants);
-router.post('/tenants', createTenant);
-router.post('/tenants/invite', inviteTenant);
-router.get('/tenants/platform/overview', getPlatformOverview);
+router.post('/tenants', protect, superAdminOnly, createTenant);
+router.post('/tenants/invite', protect, superAdminOnly, inviteTenant);
+router.get('/tenants/platform/overview', protect, superAdminOnly, getPlatformOverview);
 router.get('/tenants/:id', getTenantById);
-router.post('/tenants/:id/approve', approveTenant);
-router.post('/tenants/:id/suspend', suspendTenant);
-router.post('/tenants/:id/activate', activateTenant);
-router.delete('/tenants/:id', deleteTenant);
-router.put('/tenants/:id/subscription', updateSubscription);
-router.get('/tenants/:id/orders', getTenantOrders);
-router.get('/tenants/:id/performance', getTenantPerformance);
+router.post('/tenants/:id/approve', protect, superAdminOnly, approveTenant);
+router.post('/tenants/:id/suspend', protect, superAdminOnly, suspendTenant);
+router.post('/tenants/:id/activate', protect, superAdminOnly, activateTenant);
+router.delete('/tenants/:id', protect, superAdminOnly, deleteTenant);
+router.put('/tenants/:id/subscription', protect, superAdminOnly, updateSubscription);
+router.get('/tenants/:id/orders', protect, adminOnly, getTenantOrders);
+router.get('/tenants/:id/performance', protect, adminOnly, getTenantPerformance);
 
 // --- 🏬 Multi-Company & Branch Architecture Routes (User → Tenant → Branch → Data) ---
 import {
@@ -275,9 +275,9 @@ import { enforceTenantBranchScope } from '../middleware/tenantBranchMiddleware.j
 
 router.get('/companies', getCompanies);
 router.get('/branches', getAllBranches);
-router.post('/branches', createBranch);
-router.put('/branches/:id', updateBranch);
-router.delete('/branches/:id', deleteBranch);
+router.post('/branches', protect, adminOnly, createBranch);
+router.put('/branches/:id', protect, adminOnly, updateBranch);
+router.delete('/branches/:id', protect, adminOnly, deleteBranch);
 router.get('/companies/:tenantId/branches', getCompanyBranches);
 router.get('/branches/:branchId/inventory', getBranchInventory);
 router.put('/branches/:branchId/inventory/:productId', updateBranchInventory);

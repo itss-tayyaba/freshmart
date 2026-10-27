@@ -241,8 +241,21 @@ export const deleteSupplier = async (req, res) => {
 // --- RIDERS CONTROLLER ---
 export const getRiders = async (req, res) => {
   try {
+    const callerTenant = req.user?.role === 'superadmin'
+      ? (req.query.tenantId || req.headers['x-tenant-id'])
+      : req.user?.tenantId;
+    const callerBranch = req.query.branchId || (req.user?.branchId !== 'all' ? req.user?.branchId : null);
+
+    const filter = {};
+    if (callerTenant) {
+      filter.tenantId = callerTenant;
+    }
+    if (callerBranch) {
+      filter.branchId = callerBranch;
+    }
+
     if (isDbOnline()) {
-      const riders = await Rider.find({}).sort({ createdAt: -1 });
+      const riders = await Rider.find(filter).sort({ createdAt: -1 });
       const mapped = (riders || []).map((r) => {
         const lat = r.latitude ?? r.coordinates?.lat;
         const lng = r.longitude ?? r.coordinates?.lng;
@@ -261,20 +274,31 @@ export const getRiders = async (req, res) => {
           status: r.status,
           username: r.username,
           deliveriesCount: r.deliveriesCount || 0,
-          rating: r.rating || 5.0
+          rating: r.rating || 5.0,
+          tenantId: r.tenantId,
+          branchId: r.branchId,
+          branchName: r.branchName
         };
       });
       return res.json({ success: true, riders: mapped });
     }
-    res.json({ success: true, riders: memoryRiders });
+
+    let list = memoryRiders;
+    if (callerTenant) {
+      list = list.filter((r) => !r.tenantId || r.tenantId === callerTenant);
+    }
+    if (callerBranch) {
+      list = list.filter((r) => !r.branchId || r.branchId === callerBranch);
+    }
+    res.json({ success: true, riders: list });
   } catch (error) {
-    res.json({ success: true, riders: memoryRiders });
+    res.status(500).json({ success: false, message: error.message, riders: [] });
   }
 };
 
 export const addRider = async (req, res) => {
   try {
-    const { id, name, phone, vehicleType, vehicleNumber, zone, region, latitude, longitude, status, username, password, cnic, coordinates, coverageRadiusKm } = req.body;
+    const { id, name, phone, vehicleType, vehicleNumber, zone, region, latitude, longitude, status, username, password, cnic, coordinates, coverageRadiusKm, branchId: rawBranchId, branchName: rawBranchName, tenantId: rawTenantId } = req.body;
     const riderId = id || 'RDR-' + Math.floor(100 + Math.random() * 900);
     const resolvedRegion = region || zone || 'Lahore Hub';
     const lat = latitude !== undefined && latitude !== null && latitude !== '' ? Number(latitude) : (coordinates?.lat !== undefined ? Number(coordinates.lat) : undefined);
@@ -282,6 +306,10 @@ export const addRider = async (req, res) => {
     const resolvedCoordinates = (Number.isFinite(lat) && Number.isFinite(lng))
       ? { lat, lng }
       : (coordinates && Number.isFinite(Number(coordinates.lat)) && Number.isFinite(Number(coordinates.lng)) ? { lat: Number(coordinates.lat), lng: Number(coordinates.lng) } : undefined);
+
+    const tenantId = rawTenantId || req.user?.tenantId || 'tenant-alfatah';
+    const branchId = rawBranchId || req.user?.branchId || 'branch_001';
+    const branchName = rawBranchName || 'Main Branch';
 
     const newRider = {
       id: riderId,
@@ -300,7 +328,10 @@ export const addRider = async (req, res) => {
       coordinates: resolvedCoordinates,
       coverageRadiusKm: Number(coverageRadiusKm) || 15,
       deliveriesCount: 0,
-      rating: 5.0
+      rating: 5.0,
+      tenantId,
+      branchId,
+      branchName
     };
 
     if (isDbOnline()) {
@@ -322,7 +353,10 @@ export const addRider = async (req, res) => {
           status: createdRider.status,
           username: createdRider.username,
           deliveriesCount: createdRider.deliveriesCount,
-          rating: createdRider.rating
+          rating: createdRider.rating,
+          tenantId: createdRider.tenantId,
+          branchId: createdRider.branchId,
+          branchName: createdRider.branchName
         }
       });
     }
@@ -349,11 +383,22 @@ export const deleteRider = async (req, res) => {
 
 export const clearAllRiders = async (req, res) => {
   try {
-    if (isDbOnline()) {
-      await Rider.deleteMany({});
+    const userRole = (req.user?.role || '').toLowerCase();
+    const userTenant = req.user?.tenantId;
+
+    if (userRole === 'superadmin' || !userTenant) {
+      if (isDbOnline()) {
+        await Rider.deleteMany({});
+      }
+      memoryRiders = [];
+    } else {
+      // Store Admin can only clear their store's riders
+      if (isDbOnline()) {
+        await Rider.deleteMany({ tenantId: userTenant });
+      }
+      memoryRiders = memoryRiders.filter((r) => r.tenantId !== userTenant);
     }
-    memoryRiders = [];
-    res.json({ success: true, message: 'All riders cleared' });
+    res.json({ success: true, message: 'Riders cleared successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

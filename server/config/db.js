@@ -34,8 +34,8 @@ export const getDbStatus = () => {
   };
 };
 
-const DEFAULT_ATLAS_URI =
-  'mongodb+srv://hamzatabi654_db_user:fG8Ie2r7NgwE2DNN@cluster0.xhltzke.mongodb.net/freshmart?retryWrites=true&w=majority';
+// In production/local, configure connection string via MONGO_URI or MONGODB_URI env vars
+const DEFAULT_ATLAS_URI = process.env.MONGO_URI || process.env.MONGODB_URI || '';
 
 // Register connection state listeners for high resilience
 mongoose.connection.on('connected', () => {

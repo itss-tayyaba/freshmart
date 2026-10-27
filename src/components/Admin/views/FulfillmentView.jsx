@@ -18,23 +18,30 @@ const getStaffActivity = (order) => {
 
 export const FulfillmentView = () => {
   const {
-    adminOrders = [], customerOrders = [], currentTenant, user, pickupStaff = [],
+    adminOrders = [], customerOrders = [], currentTenant, user, pickupStaff = [], allBranches = [],
     addPickupStaff, deletePickupStaff, assignPickupStaffToOrder, autoAssignPickupStaff
   } = useStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', phone: '' });
+  const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', phone: '', branchId: '' });
   const [search, setSearch] = useState('');
 
   const activeTenantId = currentTenant?.id || user?.tenantId || 'tenant-freshmart';
 
+  const availableBranches = useMemo(() => {
+    return (allBranches || []).filter((b) => isSameTenant(b.tenantId, activeTenantId));
+  }, [allBranches, activeTenantId]);
+
   const tenantStaff = useMemo(
     () => pickupStaff.filter((staff) => {
       const sTenant = staff?.tenantId || staff?.companyId;
-      if (!sTenant) return false;
-      return isSameTenant(sTenant, activeTenantId);
+      if (!sTenant || !isSameTenant(sTenant, activeTenantId)) return false;
+      if (user?.branchId && staff.branchId && user.branchId !== staff.branchId) {
+        return false;
+      }
+      return true;
     }),
-    [pickupStaff, activeTenantId]
+    [pickupStaff, activeTenantId, user?.branchId]
   );
   const orders = useMemo(() => {
     const unique = new Map();
@@ -42,8 +49,7 @@ export const FulfillmentView = () => {
       const id = String(order?.id || order?.orderId || order?._id || '');
       if (!id) return;
       const bareKey = id.replace(/^#/, '').trim().toLowerCase();
-      const cust = String(order?.customer || order?.customerName || '').toLowerCase();
-      if (bareKey === 'cu5011' || cust.includes('danish qureshi') || cust.includes('hamza tariq') || cust.includes('zainab merchant')) return;
+      if (bareKey === 'cu5011') return;
       if (activeTenantId) {
         const orderTenant =
           order.tenantId ||
@@ -112,13 +118,16 @@ export const FulfillmentView = () => {
 
   const submitStaff = async (event) => {
     event.preventDefault();
+    const chosenBranch = availableBranches.find((b) => b._id === staffForm.branchId || b.id === staffForm.branchId) || availableBranches[0];
     const created = await addPickupStaff({
       ...staffForm,
+      branchId: chosenBranch?._id || chosenBranch?.id || staffForm.branchId || null,
+      branchName: chosenBranch?.name || null,
       tenantId: activeTenantId,
       tenantName: currentTenant?.name || currentTenant?.displayName || user?.tenantName || 'Supermarket'
     });
     if (!created) return;
-    setStaffForm({ name: '', username: '', password: '', phone: '' });
+    setStaffForm({ name: '', username: '', password: '', phone: '', branchId: '' });
     setIsAddOpen(false);
   };
 
@@ -254,6 +263,20 @@ export const FulfillmentView = () => {
             <input required value={staffForm.username} onChange={(event) => setStaffForm({ ...staffForm, username: event.target.value })} placeholder="Sign-in username" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
             <div className="relative"><input required type={showPassword ? 'text' : 'password'} value={staffForm.password} onChange={(event) => setStaffForm({ ...staffForm, password: event.target.value })} placeholder="Password" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 pr-11 text-sm" /><button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div>
             <input value={staffForm.phone} onChange={(event) => setStaffForm({ ...staffForm, phone: event.target.value })} placeholder="Phone (optional)" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+            {availableBranches.length > 0 && (
+              <select
+                value={staffForm.branchId}
+                onChange={(e) => setStaffForm({ ...staffForm, branchId: e.target.value })}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm bg-white cursor-pointer font-medium text-slate-700"
+              >
+                <option value="">Select Operating Branch...</option>
+                {availableBranches.map((b) => (
+                  <option key={b._id || b.id} value={b._id || b.id}>
+                    📍 {b.name} ({b.city})
+                  </option>
+                ))}
+              </select>
+            )}
             <div className="flex justify-end gap-2 pt-2"><button type="button" onClick={() => setIsAddOpen(false)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600">Cancel</button><button type="submit" className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700">Create staff account</button></div>
           </form>
         </div>

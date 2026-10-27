@@ -30,7 +30,7 @@ import { ToastContainer } from './components/Modals/ToastContainer';
 
 
 function FreshMartAppContent() {
-  const { currentPage, isVendorRegisterOpen, setIsVendorRegisterOpen } = useStore();
+  const { currentPage, isVendorRegisterOpen, setIsVendorRegisterOpen, user, adminRole, isAdminLoggedIn } = useStore();
 
   // If in dedicated Login view, render the multi-role staff/rider/admin login console
   if (currentPage === 'login' || currentPage === 'signin') {
@@ -52,6 +52,14 @@ function FreshMartAppContent() {
 
   // If in Delivery / Rider Portal view, render the dedicated courier dashboard experience
   if (currentPage === 'delivery-portal' || currentPage === 'rider-portal') {
+    const isRiderAuthorized = isAdminLoggedIn && user && ['rider', 'admin', 'superadmin'].includes((user.role || adminRole || '').toLowerCase());
+    if (!isRiderAuthorized) {
+      return (
+        <div className="min-h-screen w-full bg-[#f8fafc] font-sans">
+          <AdminLogin />
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen w-full bg-[#fbf9f4] font-sans">
         <DeliveryPortal />
@@ -61,6 +69,14 @@ function FreshMartAppContent() {
 
   // If in Pickup Staff Portal view, render the dedicated packing station experience
   if (currentPage === 'pickup-staff' || currentPage === 'pickup-portal' || currentPage === 'staff-portal') {
+    const isStaffAuthorized = isAdminLoggedIn && user && ['pickup_staff', 'admin', 'superadmin'].includes((user.role || adminRole || '').toLowerCase());
+    if (!isStaffAuthorized) {
+      return (
+        <div className="min-h-screen w-full bg-[#f8fafc] font-sans">
+          <AdminLogin />
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen w-full bg-[#f8fafc] font-sans">
         <PickupStaffPortal />
