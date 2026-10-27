@@ -415,6 +415,24 @@ export const FreshMartHeader = () => {
         {/* Right Header Navigation Icons matching screenshot */}
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           
+          {/* 🌙 / ☀️ Dark & Light Mode Toggle (Immediately before Offers) */}
+          <button
+            type="button"
+            onClick={toggleDarkMode}
+            className="flex flex-col items-center text-slate-600 hover:text-amber-500 dark:text-amber-400 dark:hover:text-amber-300 transition-colors p-1.5 focus:outline-none cursor-pointer group shrink-0"
+            title={isDarkMode ? "Switch to Light Mode ☀️" : "Switch to Dark Mode 🌙"}
+            aria-label={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {isDarkMode ? (
+              <Sun className="w-5 h-5 text-amber-400 group-hover:rotate-45 transition-transform" />
+            ) : (
+              <Moon className="w-5 h-5 text-slate-700 dark:text-slate-300 group-hover:-rotate-12 transition-transform" />
+            )}
+            <span className="text-[10px] font-semibold hidden md:inline">
+              {isDarkMode ? 'Light' : 'Dark'}
+            </span>
+          </button>
+
           {/* Offers */}
           <button
             onClick={() => setIsOffersOpen(true)}
@@ -519,26 +537,6 @@ export const FreshMartHeader = () => {
                 {currency.symbol}{cartTotal}
               </span>
             </div>
-          </button>
-
-          {/* Light / Dark Mode Toggle */}
-          <button
-            type="button"
-            onClick={toggleDarkMode}
-            className="flex flex-col items-center justify-center p-1.5 text-slate-600 hover:text-amber-500 transition-colors focus:outline-none cursor-pointer group"
-            title={isDarkMode ? "Switch to Light Mode ☀️" : "Switch to Dark Mode 🌙"}
-            aria-label={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          >
-            <div className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center transition-all group-hover:scale-110 shadow-2xs border border-slate-200/80 dark:border-slate-700">
-              {isDarkMode ? (
-                <Sun className="w-4 h-4 text-amber-400" />
-              ) : (
-                <Moon className="w-4 h-4 text-slate-700 dark:text-slate-300" />
-              )}
-            </div>
-            <span className="text-[10px] font-semibold hidden md:inline mt-0.5">
-              {isDarkMode ? 'Light' : 'Dark'}
-            </span>
           </button>
 
         </div>
