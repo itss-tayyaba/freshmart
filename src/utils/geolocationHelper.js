@@ -1,4 +1,4 @@
-import { findNearestCity, calculateDistanceKm, PAKISTAN_CITIES } from '../data/pakistanLocations';
+import { findNearestCity, calculateDistanceKm, PAKISTAN_CITIES } from '../data/pakistanLocations.js';
 
 /**
  * Robust Multi-Stage Geolocation Detector
@@ -193,9 +193,14 @@ async function getIPCoordinates() {
 }
 
 /**
- * Reverse geocodes latitude & longitude into a readable address using OpenStreetMap Nominatim
+ * Reverse geocodes latitude & longitude into an exact readable address using OpenStreetMap Nominatim
+ * with comprehensive Pakistani administrative hierarchy resolution (street, village, tehsil, city, district)
+ * and intelligent local fallback (never outputs just 'Pakistan').
  */
 export async function reverseGeocodeAddress(lat, lng) {
+  const nearest = findNearestCity(lat, lng);
+  const nearestCityName = nearest?.city?.city ? nearest.city.city.split(',')[0].trim() : 'Faisalabad';
+
   try {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), 4000);
@@ -206,7 +211,8 @@ export async function reverseGeocodeAddress(lat, lng) {
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'Accept-Language': 'en'
+        'Accept-Language': 'en',
+        'User-Agent': 'FreshMartApp/1.0'
       }
     });
     clearTimeout(id);
@@ -215,32 +221,117 @@ export async function reverseGeocodeAddress(lat, lng) {
       const data = await res.json();
       if (data && data.address) {
         const addr = data.address;
-        const street = addr.road || addr.street || addr.pedestrian || addr.footway || '';
-        const houseNum = addr.house_number || '';
-        const suburb = addr.suburb || addr.neighbourhood || addr.residential || addr.subdivision || '';
-        const city = addr.city || addr.town || addr.municipality || addr.county || 'Pakistan';
-        const state = addr.state || '';
+        const street =
+          addr.road ||
+          addr.street ||
+          addr.pedestrian ||
+          addr.footway ||
+          addr.path ||
+          addr.highway ||
+          addr.amenity ||
+          addr.shop ||
+          '';
+        const houseNum = addr.house_number || addr.building || '';
+        const locality =
+          addr.suburb ||
+          addr.neighbourhood ||
+          addr.residential ||
+          addr.village ||
+          addr.hamlet ||
+          addr.locality ||
+          addr.subdivision ||
+          addr.quarter ||
+          addr.commercial ||
+          addr.industrial ||
+          '';
+        const tehsil = addr.subdistrict || addr.city_district || addr.county || '';
+        const cityCandidate = addr.city || addr.town || addr.municipality || addr.district || nearestCityName;
+        const cleanCity = cityCandidate.toLowerCase().includes('pakistan')
+          ? cityCandidate.replace(/,\s*Pakistan/i, '').trim()
+          : cityCandidate;
 
         const parts = [];
         if (houseNum && street) parts.push(`${houseNum}, ${street}`);
         else if (street) parts.push(street);
 
-        if (suburb) parts.push(suburb);
-        if (city) parts.push(city);
+        if (locality && !parts.some((p) => p.toLowerCase() === locality.toLowerCase())) {
+          parts.push(locality);
+        }
+        if (
+          tehsil &&
+          !parts.some((p) => p.toLowerCase().includes(tehsil.toLowerCase())) &&
+          !tehsil.toLowerCase().includes(cleanCity.toLowerCase())
+        ) {
+          parts.push(tehsil);
+        }
+        if (cleanCity && !parts.some((p) => p.toLowerCase().includes(cleanCity.toLowerCase()))) {
+          parts.push(cleanCity);
+        }
 
-        const formatted = parts.length > 0 ? parts.join(', ') : data.display_name?.split(',').slice(0, 3).join(',');
+        // Filter out any naked 'Pakistan'
+        const cleanParts = parts.filter((p) => p.trim().toLowerCase() !== 'pakistan');
 
-        return {
-          formatted: formatted || data.display_name,
-          area: suburb || street || 'Local Area',
-          city: city.includes('Pakistan') ? city : `${city}, Pakistan`,
-          state
-        };
+        if (cleanParts.length > 0) {
+          return {
+            formatted: `${cleanParts.join(', ')}, ${cleanCity}`,
+            area: locality || street || tehsil || 'Local Area',
+            city: `${cleanCity}, Pakistan`,
+            state: addr.state || nearest.city.province || 'Punjab'
+          };
+        }
+      }
+
+      // If address object didn't yield clean parts, try cleaning data.display_name
+      if (data && data.display_name) {
+        const nameParts = data.display_name
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.toLowerCase() !== 'pakistan' && !/^\d{4,6}$/.test(s));
+        if (nameParts.length > 0) {
+          return {
+            formatted: nameParts.slice(0, 3).join(', '),
+            area: nameParts[0] || 'Local Area',
+            city: `${nearestCityName}, Pakistan`,
+            state: nearest.city.province || 'Punjab'
+          };
+        }
       }
     }
   } catch (e) {
-    // Ignore reverse geocode failures
+    // Ignore reverse geocode network failures and proceed to local geographic resolution
   }
 
-  return null;
+  // Fallback to local Pakistan geography & distance resolution (never outputs just 'Pakistan')
+  let closestNeigh = null;
+  let minD = Infinity;
+  for (const n of nearest.city.neighborhoods || []) {
+    const d = calculateDistanceKm(lat, lng, n.coords.lat, n.coords.lng);
+    if (d < minD) {
+      minD = d;
+      closestNeigh = n;
+    }
+  }
+
+  if (closestNeigh && minD <= 2.5) {
+    return {
+      formatted: closestNeigh.defaultAddress || `${closestNeigh.name}, ${nearestCityName}`,
+      area: closestNeigh.name,
+      city: `${nearestCityName}, Pakistan`,
+      state: nearest.city.province || 'Punjab'
+    };
+  } else if (closestNeigh && minD <= 8) {
+    return {
+      formatted: `Near ${closestNeigh.name}, ${nearestCityName}`,
+      area: closestNeigh.name,
+      city: `${nearestCityName}, Pakistan`,
+      state: nearest.city.province || 'Punjab'
+    };
+  } else {
+    return {
+      formatted: `${nearestCityName} Outskirts (~${nearest.distanceKm.toFixed(1)} km from ${nearestCityName} Center)`,
+      area: `${nearestCityName} Outskirts`,
+      city: `${nearestCityName}, Pakistan`,
+      state: nearest.city.province || 'Punjab'
+    };
+  }
 }

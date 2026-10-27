@@ -8,10 +8,11 @@ import {
   ShieldCheck,
   ChevronDown,
   Compass,
-  Store
+  Store,
+  AlertTriangle
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
-import { PAKISTAN_CITIES } from '../../data/pakistanLocations';
+import { PAKISTAN_CITIES, findNearestCity } from '../../data/pakistanLocations';
 import { detectUserLocation, reverseGeocodeAddress } from '../../utils/geolocationHelper';
 import { apiService } from '../../services/api';
 
@@ -116,6 +117,9 @@ const LocationModalContent = () => {
     return [];
   }, [getNearbyStores, currentCoords]);
 
+  const closestStore = nearbyStores && nearbyStores.length > 0 ? nearbyStores[0] : null;
+  const isOutsideDeliveryZone = closestStore ? closestStore.distanceKm > 35 : false;
+
   // Sync internal state when deliveryLocation changes
   useEffect(() => {
     if (deliveryLocation) {
@@ -170,13 +174,20 @@ const LocationModalContent = () => {
       </div>
     `);
 
-    // Helper to update coordinates and reverse-geocode address
+    // Helper to update coordinates, sync city, and reverse-geocode address
     const handleUpdateCoords = async (lat, lng) => {
       const fixedLat = Number(lat.toFixed(5));
       const fixedLng = Number(lng.toFixed(5));
       setCurrentCoords({ lat: fixedLat, lng: fixedLng });
       userMarker.setLatLng([fixedLat, fixedLng]);
 
+      // 1. Automatically sync nearest city so city dropdown and neighborhood pills track the dragged pin
+      const nearest = findNearestCity(fixedLat, fixedLng);
+      if (nearest && nearest.city && nearest.city.id) {
+        setSelectedCityId(nearest.city.id);
+      }
+
+      // 2. Reverse geocode to exact street, neighborhood, or outskirts
       try {
         const rev = await reverseGeocodeAddress(fixedLat, fixedLng);
         if (rev && rev.formatted) {
@@ -333,16 +344,21 @@ const LocationModalContent = () => {
     if (e) e.preventDefault();
     setIsSaving(true);
 
+    const nearest = findNearestCity(currentCoords.lat, currentCoords.lng);
+    const resolvedCity = currentCityObj?.city || nearest?.city?.city || 'Faisalabad, Pakistan';
+    const cleanArea = addressInput.split(',')[0].trim();
+
     const locObj = {
-      city: currentCityObj.city,
+      city: resolvedCity,
       address: addressInput.trim() || currentCityObj.hubAddress || 'Main Commercial Area',
-      neighborhood: currentCityObj.neighborhoods[0]?.name || 'Central',
-      area: currentCityObj.neighborhoods[0]?.area || 'Hub Zone',
+      neighborhood: cleanArea || currentCityObj.neighborhoods[0]?.name || 'Central',
+      area: cleanArea || currentCityObj.neighborhoods[0]?.area || 'Hub Zone',
       lat: currentCoords.lat,
       lng: currentCoords.lng,
       coords: currentCoords,
-      hubName: currentCityObj.hubName,
-      orderType: 'Delivery'
+      hubName: currentCityObj.hubName || nearest?.city?.hubName || 'Local Fulfillment Hub',
+      orderType: 'Delivery',
+      isDeliverable: !isOutsideDeliveryZone
     };
 
     // 1. Store in the store context & localStorage
@@ -530,9 +546,9 @@ const LocationModalContent = () => {
             <div ref={mapContainerRef} className="w-full h-48 sm:h-56 z-0" />
 
             {/* Live Coordinate Badge at bottom-left */}
-            <div className="absolute bottom-2 left-2 z-[1000] bg-slate-900/85 backdrop-blur-md text-white text-[9px] font-mono px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1.5 pointer-events-none">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>{currentCoords.lat.toFixed(4)}°, {currentCoords.lng.toFixed(4)}°</span>
+            <div className="absolute bottom-2 left-2 z-[1000] bg-slate-900/90 backdrop-blur-md text-white text-[9px] font-mono px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1.5 pointer-events-none max-w-[70%]">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span className="truncate">{addressInput ? addressInput.split(',')[0] : `${currentCoords.lat.toFixed(4)}°, ${currentCoords.lng.toFixed(4)}°`}</span>
             </div>
 
             {/* Helper Hint at bottom-right */}
@@ -540,6 +556,19 @@ const LocationModalContent = () => {
               👆 Drag pin or click map
             </div>
           </div>
+
+          {/* Delivery Zone Notice for Far Locations */}
+          {isOutsideDeliveryZone && (
+            <div className="mt-2.5 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2 text-left animate-in fade-in">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold block text-[11px]">Notice: Location is Outside Standard 35 km Delivery Zone</span>
+                <span className="text-[10px] text-amber-800 leading-tight block mt-0.5">
+                  Your pin is {closestStore?.distanceKm} km from the nearest store. Standard express delivery operates within 35 km.
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 🏬 4. NEARBY GROCERY STORES & DISTANCE FROM CURRENT LOCATION */}
