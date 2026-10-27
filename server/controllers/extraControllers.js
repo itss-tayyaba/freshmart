@@ -4,6 +4,7 @@ import { Product } from '../models/Product.js';
 import { User } from '../models/User.js';
 import { Order } from '../models/Order.js';
 import { Supplier, Promotion, Delivery, Rider, CustomerLocation } from '../models/ExtraModels.js';
+import { isSameTenant, resolveTenantId } from '../../src/data/companyHierarchyData.js';
 import {
   ADMIN_STATS,
   ADMIN_TOP_PRODUCTS,
@@ -307,9 +308,18 @@ export const addRider = async (req, res) => {
       ? { lat, lng }
       : (coordinates && Number.isFinite(Number(coordinates.lat)) && Number.isFinite(Number(coordinates.lng)) ? { lat: Number(coordinates.lat), lng: Number(coordinates.lng) } : undefined);
 
-    const tenantId = rawTenantId || req.user?.tenantId || 'tenant-alfatah';
-    const branchId = rawBranchId || req.user?.branchId || 'branch_001';
-    const branchName = rawBranchName || 'Main Branch';
+    const tenantId = rawTenantId || req.user?.tenantId || 'tenant-freshmart';
+    let branchId = rawBranchId || req.user?.branchId;
+    if (!branchId || branchId === 'all') {
+      branchId = isSameTenant(tenantId, 'tenant-freshmart')
+        ? 'branch_um_fsd'
+        : isSameTenant(tenantId, 'tenant-chasevalue')
+        ? 'branch_cv_fsd'
+        : isSameTenant(tenantId, 'tenant-chaseup')
+        ? 'branch_006'
+        : 'branch_af_fsd';
+    }
+    const branchName = rawBranchName || (branchId === 'branch_um_fsd' ? 'Peoples Colony Dark Store' : 'Main Branch');
 
     const newRider = {
       id: riderId,

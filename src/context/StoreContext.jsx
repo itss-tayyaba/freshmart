@@ -2867,9 +2867,18 @@ export const StoreProvider = ({ children }) => {
           const cleanRiders = res.riders.filter(
             (r) => r && (r.id || r._id)
           );
-          setRiders(cleanRiders);
-          localStorage.setItem('freshmart_riders_v3', JSON.stringify(cleanRiders));
-          localStorage.setItem('freshmart_riders', JSON.stringify(cleanRiders));
+          setRiders((prev) => {
+            const map = new Map();
+            (INITIAL_RIDERS || []).forEach((r) => map.set(String(r.id || r.riderId || r._id).toLowerCase(), r));
+            (prev || []).forEach((r) => map.set(String(r.id || r.riderId || r._id).toLowerCase(), r));
+            cleanRiders.forEach((r) => map.set(String(r.id || r.riderId || r._id).toLowerCase(), r));
+            const merged = Array.from(map.values());
+            try {
+              localStorage.setItem('freshmart_riders_v3', JSON.stringify(merged));
+              localStorage.setItem('freshmart_riders', JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
         }
       } catch (e) {}
     };

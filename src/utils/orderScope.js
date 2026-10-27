@@ -238,7 +238,58 @@ export const canAssignRiderToOrder = (order, rider) => {
     };
   }
 
-  // Enforce same branch if both have branchId specified
+  // 1. Same branch explicitly matches
+  if (order.branchId && rider.branchId && String(order.branchId).toLowerCase() === String(rider.branchId).toLowerCase()) {
+    return { allowed: true };
+  }
+
+  // 2. Either entity has branch unassigned or 'all'
+  if (!order.branchId || !rider.branchId || order.branchId === 'all' || rider.branchId === 'all') {
+    return { allowed: true };
+  }
+
+  // 3. Resolve geographic area / city for order and rider
+  const getArea = (entity = {}) => {
+    const s = [
+      entity.city,
+      entity.zone,
+      entity.region,
+      entity.branchName,
+      entity.branchId,
+      entity.address,
+      entity.shippingAddress?.city,
+      entity.shippingAddress?.address
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    if (s.includes('faisalabad') || s.includes('fsd') || s.includes('peoples colony') || s.includes('d-ground') || s.includes('jaranwala') || s.includes('clock tower')) return 'faisalabad';
+    if (s.includes('lahore') || s.includes('lhr') || s.includes('gulberg') || s.includes('johar') || s.includes('dha phase') || s.includes('dha lahore')) return 'lahore';
+    if (s.includes('karachi') || s.includes('khi') || s.includes('clifton') || s.includes('hassan square') || s.includes('nazimabad') || s.includes('shaheed')) return 'karachi';
+    if (s.includes('islamabad') || s.includes('isb') || s.includes('centaurus') || s.includes('blue area')) return 'islamabad';
+    if (s.includes('rawalpindi') || s.includes('rwp')) return 'rawalpindi';
+    if (s.includes('multan')) return 'multan';
+    return null;
+  };
+
+  const orderArea = getArea(order);
+  const riderArea = getArea(rider);
+
+  // If both entities have resolved area and they match (e.g. both in Faisalabad or both in Lahore):
+  if (orderArea && riderArea && orderArea === riderArea) {
+    return { allowed: true };
+  }
+
+  // Reject cross-city / cross-region assignment (e.g. rider in Karachi, order in Faisalabad)
+  if (orderArea && riderArea && orderArea !== riderArea) {
+    return {
+      allowed: false,
+      reason: `Rider is based in [${rider.zone || rider.region || riderArea}] but order is in [${order.branchName || orderArea}]`
+    };
+  }
+
+  // Strict branch mismatch fallback
   if (order.branchId && rider.branchId && order.branchId !== rider.branchId) {
     return {
       allowed: false,

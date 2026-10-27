@@ -895,8 +895,11 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                     const itemsList = getOrderItemsList(ord);
                     const itemsCount = itemsList.length > 0 ? itemsList.length : (parseInt(ord.items) || 1);
                     const isPaid = ord.paymentStatus === 'Paid' || ord.paymentStatus === 'Verified' || ord.isPaymentVerified || ord.isPaid || ord.status === 'Delivered';
-                    const paymentMethod = ord.paymentMethod || ord.payment || 'Cash on Delivery';
-                    const eligibleRiders = getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : [];
+                    const rawEligible = getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : [];
+                    const orderTenant = normalizeOrderTenantId(ord);
+                    const eligibleRiders = (rawEligible && rawEligible.length > 0)
+                      ? rawEligible
+                      : (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
                     const s = String(ord.status || 'Pending').toLowerCase();
                     const isDeliveredState = s === 'delivered' || ord.isDelivered;
                     const isInTransitState = !isDeliveredState && (ord.assignedRider || ['out for delivery', 'dispatched to rider', 'dispatched', 'in transit'].includes(s));
