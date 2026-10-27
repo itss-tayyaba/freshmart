@@ -128,7 +128,7 @@ const StoreAdminConsole = () => {
     ? { title: 'Rider', badge: 'Rider', tag: 'Delivery Operations', iconBg: 'bg-rose-600' }
     : roleMeta[adminRole] || roleMeta.admin;
 
-  const activeTenantId = user?.tenantId || currentTenant?.id || 'tenant-alfatah';
+  const activeTenantId = user?.tenantId || currentTenant?.id || 'tenant-freshmart';
 
   // Track locally completed delivered orders to ensure synced badge counts
   const deliveredOrderIds = useMemo(() => {
@@ -384,7 +384,7 @@ const StoreAdminConsole = () => {
               {!isSidebarCollapsed && (
                 <div className="min-w-0 flex-1 truncate">
                   <h2 className="text-sm font-black text-white leading-tight truncate">
-                    {currentTenant?.displayName || currentTenant?.name || 'Store Admin'}
+                    {user?.tenantName || currentTenant?.displayName || currentTenant?.name || 'Store Admin'}
                   </h2>
                   <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block truncate mt-0.5">
                     {currentRoleInfo.title}

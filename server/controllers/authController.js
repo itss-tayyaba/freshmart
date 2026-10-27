@@ -92,14 +92,18 @@ export const loginUser = async (req, res) => {
         const isAdminFallback = user.role === 'admin' && (password === 'admin123' || password === 'adminpassword123');
 
         if (isMatch || isAdminFallback) {
-          let resolvedTenantId = user.tenantId || req.body.tenantId;
-          if (!resolvedTenantId) {
+          let resolvedTenantId = req.body.tenantId || user.tenantId;
+          if (!resolvedTenantId || resolvedTenantId === 'all') {
             if (cleanInput.includes('chasevalue')) resolvedTenantId = 'tenant-chasevalue';
             else if (cleanInput.includes('chaseup')) resolvedTenantId = 'tenant-chaseup';
             else if (cleanInput.includes('alfatah')) resolvedTenantId = 'tenant-alfatah';
             else if (cleanInput.includes('unimart') || cleanInput.includes('freshmart')) resolvedTenantId = 'tenant-freshmart';
-            else resolvedTenantId = 'tenant-alfatah';
+            else resolvedTenantId = user.tenantId || 'tenant-freshmart';
           }
+          if (resolvedTenantId === 'company_004') resolvedTenantId = 'tenant-freshmart';
+          if (resolvedTenantId === 'company_001') resolvedTenantId = 'tenant-alfatah';
+          if (resolvedTenantId === 'company_002') resolvedTenantId = 'tenant-chaseup';
+          if (resolvedTenantId === 'company_003') resolvedTenantId = 'tenant-chasevalue';
           const tenantNames = {
             'tenant-alfatah': 'Al-Fatah Supermarket',
             'tenant-chasevalue': 'Chase Value',
@@ -235,20 +239,29 @@ export const loginUser = async (req, res) => {
         'admin@chasevalue.pk': { id: 'tenant-chasevalue', name: 'Chase Value' },
         'admin@chaseup.pk': { id: 'tenant-chaseup', name: 'Chase Up' },
         'admin@unimart.pk': { id: 'tenant-freshmart', name: 'Unimaart' },
-        'admin@freshmart.pk': { id: 'tenant-freshmart', name: 'Unimaart' }
+        'admin@freshmart.pk': { id: 'tenant-freshmart', name: 'Unimaart' },
+        'admin@freshmart.com': { id: 'tenant-freshmart', name: 'Unimaart' },
+        'support@unimaart.com': { id: 'tenant-freshmart', name: 'Unimaart' },
+        'admin@unimaart.com': { id: 'tenant-freshmart', name: 'Unimaart' }
       };
-      let t = tenantMap[cleanInput];
-      if (!t && req.body.tenantId) {
-        if (req.body.tenantId === 'tenant-chasevalue') t = { id: 'tenant-chasevalue', name: 'Chase Value' };
-        else if (req.body.tenantId === 'tenant-chaseup') t = { id: 'tenant-chaseup', name: 'Chase Up' };
-        else if (req.body.tenantId === 'tenant-alfatah') t = { id: 'tenant-alfatah', name: 'Al-Fatah Supermarket' };
-        else if (req.body.tenantId === 'tenant-freshmart') t = { id: 'tenant-freshmart', name: 'Unimaart' };
+
+      let t = null;
+      if (req.body.tenantId && req.body.tenantId !== 'all') {
+        const tid = String(req.body.tenantId).toLowerCase();
+        if (tid === 'tenant-chasevalue' || tid === 'company_003' || tid.includes('chasevalue')) t = { id: 'tenant-chasevalue', name: 'Chase Value' };
+        else if (tid === 'tenant-chaseup' || tid === 'company_002' || tid.includes('chaseup')) t = { id: 'tenant-chaseup', name: 'Chase Up' };
+        else if (tid === 'tenant-freshmart' || tid === 'company_004' || tid.includes('freshmart') || tid.includes('unimart')) t = { id: 'tenant-freshmart', name: 'Unimaart' };
+        else if (tid === 'tenant-alfatah' || tid === 'company_001' || tid.includes('alfatah')) t = { id: 'tenant-alfatah', name: 'Al-Fatah Supermarket' };
+      }
+      if (!t) {
+        t = tenantMap[cleanInput];
       }
       if (!t) {
         if (cleanInput.includes('chasevalue')) t = { id: 'tenant-chasevalue', name: 'Chase Value' };
         else if (cleanInput.includes('chaseup')) t = { id: 'tenant-chaseup', name: 'Chase Up' };
+        else if (cleanInput.includes('freshmart') || cleanInput.includes('unimart') || cleanInput.includes('unimaart')) t = { id: 'tenant-freshmart', name: 'Unimaart' };
         else if (cleanInput.includes('alfatah')) t = { id: 'tenant-alfatah', name: 'Al-Fatah Supermarket' };
-        else t = { id: 'tenant-alfatah', name: 'Al-Fatah Supermarket' };
+        else t = { id: 'tenant-freshmart', name: 'Unimaart' };
       }
       return res.json({
         success: true,

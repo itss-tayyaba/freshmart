@@ -2478,21 +2478,29 @@ export const StoreProvider = ({ children }) => {
     };
   }, [isAdminLoggedIn, adminRole, user?.id, user?.staffId, user?.riderId, user?.tenantId]);
 
-  // Keep user.tenantId aligned with currentTenant being viewed
+  // Keep currentTenant aligned with the logged-in Store Admin's assigned tenant
   useEffect(() => {
-    if (isAdminLoggedIn && adminRole !== 'superadmin' && currentTenant?.id) {
-      if (!user?.tenantId || !isSameTenant(user.tenantId, currentTenant.id)) {
-        setUser((prev) => prev ? { ...prev, tenantId: currentTenant.id, tenantName: currentTenant.displayName || currentTenant.name } : prev);
+    if (isAdminLoggedIn && adminRole === 'admin' && user?.tenantId) {
+      if (!currentTenant || !isSameTenant(currentTenant.id, user.tenantId)) {
+        const matchingTenant = (tenants || []).find((t) => isSameTenant(t.id, user.tenantId)) ||
+          INITIAL_TENANTS.find((t) => isSameTenant(t.id, user.tenantId));
+        if (matchingTenant) {
+          setCurrentTenantState(matchingTenant);
+          try {
+            localStorage.setItem('freshmart_current_tenant_id', matchingTenant.id);
+            localStorage.setItem('freshmart_current_tenant', JSON.stringify(matchingTenant));
+          } catch (e) {}
+        }
       }
     }
-  }, [isAdminLoggedIn, currentTenant?.id, adminRole]);
+  }, [isAdminLoggedIn, adminRole, user?.tenantId]);
 
   // Helper to resolve the correct store tenant based on preferred tenant ID, username, or store keywords
   const resolveStoreTenant = (candidateTenantId, userStr = '') => {
     const allTenantsList = (tenants && tenants.length > 0) ? tenants : INITIAL_TENANTS;
     const search = String(candidateTenantId || userStr || '').toLowerCase();
-    if (candidateTenantId) {
-      const byId = allTenantsList.find((t) => t.id === candidateTenantId || t.tenantId === candidateTenantId);
+    if (candidateTenantId && candidateTenantId !== 'all') {
+      const byId = allTenantsList.find((t) => isSameTenant(t.id, candidateTenantId) || isSameTenant(t.tenantId, candidateTenantId));
       if (byId) return byId;
     }
     if (search.includes('chasevalue') || search.includes('chase-value') || search.includes('case value') || search.includes('casevalue')) {
@@ -2501,17 +2509,17 @@ export const StoreProvider = ({ children }) => {
     if (search.includes('chaseup') || search.includes('chase-up') || search.includes('chase up') || search.includes('caseup') || search.includes('case up')) {
       return allTenantsList.find((t) => t.id === 'tenant-chaseup') || INITIAL_TENANTS[2];
     }
-    if (search.includes('unimart') || search.includes('freshmart')) {
-      return allTenantsList.find((t) => t.id === 'tenant-freshmart') || INITIAL_TENANTS[3];
+    if (search.includes('unimart') || search.includes('unimaart') || search.includes('freshmart')) {
+      return allTenantsList.find((t) => t.id === 'tenant-freshmart') || INITIAL_TENANTS.find((t) => t.id === 'tenant-freshmart');
     }
     if (search.includes('alfatah') || search.includes('al-fatah')) {
       return allTenantsList.find((t) => t.id === 'tenant-alfatah') || INITIAL_TENANTS[0];
     }
-    if (candidateTenantId) {
+    if (candidateTenantId && candidateTenantId !== 'all') {
       const bySlug = allTenantsList.find((t) => t.slug === candidateTenantId || (t.name && t.name.toLowerCase().includes(search)));
       if (bySlug) return bySlug;
     }
-    return currentTenant || INITIAL_TENANTS[0];
+    return allTenantsList.find((t) => t.id === 'tenant-freshmart') || currentTenant || INITIAL_TENANTS[0];
   };
 
   const clearAuthSession = () => {
@@ -2610,9 +2618,13 @@ export const StoreProvider = ({ children }) => {
 
       // Case B: Store Admin
       if (targetRole === 'admin') {
-        const storeTenant = resolveStoreTenant(authRes.tenantId || preferredTenantId, cleanUser);
+        const storeTenant = resolveStoreTenant(preferredTenantId || authRes.tenantId, cleanUser);
         if (storeTenant) {
           setCurrentTenant(storeTenant);
+          try {
+            localStorage.setItem('freshmart_current_tenant_id', storeTenant.id);
+            localStorage.setItem('freshmart_current_tenant', JSON.stringify(storeTenant));
+          } catch (e) {}
         }
         const assignedBranchId = preferredBranchId || authRes.branchId || null;
         let assignedBranchName = authRes.branchName;
@@ -2625,8 +2637,8 @@ export const StoreProvider = ({ children }) => {
           name: authRes.name || `${storeTenant?.name || 'Store'} Admin`,
           email: authRes.email || `${cleanUser}@freshmart.com`,
           role: 'admin',
-          tenantId: storeTenant ? storeTenant.id : 'tenant-freshmart',
-          tenantName: storeTenant ? storeTenant.name : 'FreshMart Direct',
+          tenantId: storeTenant ? storeTenant.id : (preferredTenantId || 'tenant-freshmart'),
+          tenantName: storeTenant ? (storeTenant.displayName || storeTenant.name) : 'Unimaart (Market Store)',
           branchId: assignedBranchId,
           branchName: assignedBranchName || 'All Branches'
         };
@@ -2923,9 +2935,13 @@ export const StoreProvider = ({ children }) => {
         return { success: false, error: 'Invalid admin username or password. (Demo: admin123)' };
       }
 
-      const activeTenant = matchedTenant || resolveStoreTenant(preferredTenantId, cleanUser);
+      const activeTenant = resolveStoreTenant(preferredTenantId, cleanUser) || matchedTenant;
       if (activeTenant) {
         setCurrentTenant(activeTenant);
+        try {
+          localStorage.setItem('freshmart_current_tenant_id', activeTenant.id);
+          localStorage.setItem('freshmart_current_tenant', JSON.stringify(activeTenant));
+        } catch (e) {}
       }
 
       const fallbackBranchId = preferredBranchId || null;
@@ -2941,8 +2957,8 @@ export const StoreProvider = ({ children }) => {
         name: activeTenant ? `${activeTenant.name} Admin` : 'Store Admin',
         email: cleanUser.includes('@') ? cleanUser : `${cleanUser}@supergrocery.pk`,
         role: 'admin',
-        tenantId: activeTenant ? activeTenant.id : 'tenant-freshmart',
-        tenantName: activeTenant ? activeTenant.name : 'FreshMart Direct',
+        tenantId: activeTenant ? activeTenant.id : (preferredTenantId || 'tenant-freshmart'),
+        tenantName: activeTenant ? (activeTenant.displayName || activeTenant.name) : 'Unimaart (Market Store)',
         branchId: fallbackBranchId,
         branchName: fallbackBranchName
       };

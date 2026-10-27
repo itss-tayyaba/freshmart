@@ -46,8 +46,8 @@ export const DashboardView = ({ onNavigateModule }) => {
 
   // Active Tenant Metrics & Branding
   const isSuperAdmin = user?.role === 'superadmin' || adminRole === 'superadmin' || user?.isSuperAdmin;
-  const tenantKey = isSuperAdmin ? null : (user?.tenantId || currentTenant?.id);
-  const tenantMetrics = branchMetrics || (getBranchMetrics && getBranchMetrics(tenantKey || 'tenant-alfatah')) || BRANCH_METRICS[tenantKey || 'tenant-alfatah'] || BRANCH_METRICS['tenant-alfatah'];
+  const tenantKey = isSuperAdmin ? null : (user?.tenantId || currentTenant?.id || 'tenant-freshmart');
+  const tenantMetrics = branchMetrics || (getBranchMetrics && getBranchMetrics(tenantKey || 'tenant-freshmart')) || BRANCH_METRICS[tenantKey || 'tenant-freshmart'] || BRANCH_METRICS['tenant-freshmart'];
 
   // Selected period: '7days' | 'today' | '30days' | 'year'
   const [period, setPeriod] = useState('7days');
@@ -414,7 +414,7 @@ export const DashboardView = ({ onNavigateModule }) => {
                 {currentTenant?.logo || '🏬'}
               </span>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2">
-                <span>{currentTenant?.name || tenantMetrics.name}</span>
+                <span>{user?.tenantName || currentTenant?.displayName || currentTenant?.name || tenantMetrics.name}</span>
               </h1>
               <span className="bg-white/15 text-white border border-white/25 text-[11px] font-black px-3 py-1 rounded-full flex items-center gap-1.5 backdrop-blur-xs">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
