@@ -286,6 +286,52 @@ export const StoreProvider = ({ children }) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  // --- 🌙 Dark Mode / ☀️ Light Mode Theme Engine ---
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('freshmart_theme');
+        if (saved) return saved === 'dark';
+        return Boolean(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      }
+    } catch (e) {
+      // ignore
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    try {
+      if (typeof document === 'undefined') return;
+      const root = document.documentElement;
+      const body = document.body;
+      if (isDarkMode) {
+        root.classList.add('dark');
+        if (body) body.classList.add('dark');
+        localStorage.setItem('freshmart_theme', 'dark');
+      } else {
+        root.classList.remove('dark');
+        if (body) body.classList.remove('dark');
+        localStorage.setItem('freshmart_theme', 'light');
+      }
+
+      // Sync theme-color meta tag for mobile browsers and PWA
+      let metaTheme = document.querySelector('meta[name="theme-color"]');
+      if (!metaTheme) {
+        metaTheme = document.createElement('meta');
+        metaTheme.name = 'theme-color';
+        document.head.appendChild(metaTheme);
+      }
+      metaTheme.setAttribute('content', isDarkMode ? '#0b0f19' : '#0b4d3c');
+    } catch (e) {
+      // ignore in test/SSR environments
+    }
+  }, [isDarkMode]);
+
+  const toggleDarkMode = () => {
+    setIsDarkMode((prev) => !prev);
+  };
+
   // Initial route resolution
   const initialRoute = parseRouteFromUrl(FRESHMART_PRODUCTS);
 
@@ -6894,7 +6940,11 @@ export const StoreProvider = ({ children }) => {
         substituteOrderItem,
         substituteCartItem,
         sanitizeOrder,
-        DEFAULT_INITIAL_ORDERS
+        DEFAULT_INITIAL_ORDERS,
+        // --- 🌙 Dark Mode / ☀️ Light Mode Theme Engine ---
+        isDarkMode,
+        setIsDarkMode,
+        toggleDarkMode
       }}
     >
       {children}

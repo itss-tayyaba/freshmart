@@ -312,3 +312,173 @@
 .action-link-ledger.danger:hover {
   background: var(--brick-light);
 }
+
+/* =======================================================
+   🌙 FreshMart Dark Mode / Light Mode Theme System
+   ======================================================= */
+
+.dark {
+  --ink: #f8fafc;
+  --ink-2: #e2e8f0;
+  --parchment: #0b0f19;
+  --surface: #111827;
+  --border: #1e293b;
+  --border-strong: #334155;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  color-scheme: dark;
+}
+
+/* Smooth transition when toggling modes */
+html, body, header, nav, main, footer, div, section, article {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.15s ease;
+}
+
+/* Document Body in Dark Mode */
+.dark body {
+  background-color: #0b0f19 !important;
+  color: #f1f5f9 !important;
+}
+
+.dark #root {
+  background-color: #0b0f19;
+}
+
+/* Dark Surfaces & Containers */
+.dark .bg-white {
+  background-color: #111827 !important;
+  color: #f8fafc;
+}
+
+.dark .bg-white\/95 {
+  background-color: rgba(17, 24, 39, 0.95) !important;
+}
+
+.dark .bg-slate-50,
+.dark .bg-gray-50,
+.dark .bg-\[\#f8fafc\],
+.dark .bg-\[\#fbf9f4\] {
+  background-color: #0b0f19 !important;
+}
+
+.dark .bg-slate-100,
+.dark .bg-gray-100 {
+  background-color: #1e293b !important;
+}
+
+.dark .bg-slate-200,
+.dark .bg-gray-200 {
+  background-color: #334155 !important;
+}
+
+.dark .bg-slate-50\/90 {
+  background-color: rgba(30, 41, 59, 0.9) !important;
+}
+
+/* Dark Typography */
+.dark .text-slate-900,
+.dark .text-gray-900,
+.dark .text-slate-800,
+.dark .text-gray-800 {
+  color: #f8fafc !important;
+}
+
+.dark .text-slate-700,
+.dark .text-gray-700,
+.dark .text-slate-600,
+.dark .text-gray-600 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-slate-500,
+.dark .text-gray-500,
+.dark .text-slate-400,
+.dark .text-gray-400 {
+  color: #94a3b8 !important;
+}
+
+/* Dark Borders */
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-200\/80,
+.dark .border-slate-200\/90,
+.dark .border-gray-100,
+.dark .border-gray-200 {
+  border-color: #1e293b !important;
+}
+
+.dark .border-slate-300,
+.dark .border-gray-300 {
+  border-color: #334155 !important;
+}
+
+/* Dark Form Controls */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark select,
+.dark textarea {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+.dark select option {
+  background-color: #111827 !important;
+  color: #f8fafc !important;
+}
+
+/* Dark Shadows */
+.dark .shadow-xs,
+.dark .shadow-sm,
+.dark .shadow-md,
+.dark .shadow-lg,
+.dark .shadow-xl {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Dark Scrollbars */
+.dark ::-webkit-scrollbar-track {
+  background: #0b0f19;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Dark Leaflet Map Tile Inversion & Popups */
+.dark .leaflet-tile {
+  filter: brightness(0.68) invert(1) contrast(2.4) hue-rotate(200deg) saturate(0.35);
+}
+
+.dark .leaflet-container {
+  background: #0b0f19 !important;
+}
+
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: #111827 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8) !important;
+  border: 1px solid #334155;
+}
+
+.dark .leaflet-bar a {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+.dark .leaflet-bar a:hover {
+  background-color: #334155 !important;
+}
+

@@ -35,7 +35,7 @@ function FreshMartAppContent() {
   // If in dedicated Login view, render the multi-role staff/rider/admin login console
   if (currentPage === 'login' || currentPage === 'signin') {
     return (
-      <div className="min-h-screen w-full bg-[#f8fafc] font-sans">
+      <div className="min-h-screen w-full bg-[#f8fafc] dark:bg-[#0b0f19] dark:text-slate-100 font-sans">
         <AdminLogin />
       </div>
     );
@@ -44,7 +44,7 @@ function FreshMartAppContent() {
   // If in Admin / Vendor Dashboard view, render the dedicated full-screen admin/vendor experience
   if (currentPage === 'admin' || currentPage === 'vendor' || currentPage === 'vendor-portal') {
     return (
-      <div className="min-h-screen w-full bg-slate-100 font-sans">
+      <div className="min-h-screen w-full bg-slate-100 dark:bg-[#0b0f19] dark:text-slate-100 font-sans">
         <AdminDashboard />
       </div>
     );
@@ -55,13 +55,13 @@ function FreshMartAppContent() {
     const isRiderAuthorized = isAdminLoggedIn && user && ['rider', 'admin', 'superadmin'].includes((user.role || adminRole || '').toLowerCase());
     if (!isRiderAuthorized) {
       return (
-        <div className="min-h-screen w-full bg-[#f8fafc] font-sans">
+        <div className="min-h-screen w-full bg-[#f8fafc] dark:bg-[#0b0f19] dark:text-slate-100 font-sans">
           <AdminLogin />
         </div>
       );
     }
     return (
-      <div className="min-h-screen w-full bg-[#fbf9f4] font-sans">
+      <div className="min-h-screen w-full bg-[#fbf9f4] dark:bg-[#0b0f19] dark:text-slate-100 font-sans">
         <DeliveryPortal />
       </div>
     );
@@ -72,13 +72,13 @@ function FreshMartAppContent() {
     const isStaffAuthorized = isAdminLoggedIn && user && ['pickup_staff', 'admin', 'superadmin'].includes((user.role || adminRole || '').toLowerCase());
     if (!isStaffAuthorized) {
       return (
-        <div className="min-h-screen w-full bg-[#f8fafc] font-sans">
+        <div className="min-h-screen w-full bg-[#f8fafc] dark:bg-[#0b0f19] dark:text-slate-100 font-sans">
           <AdminLogin />
         </div>
       );
     }
     return (
-      <div className="min-h-screen w-full bg-[#f8fafc] font-sans">
+      <div className="min-h-screen w-full bg-[#f8fafc] dark:bg-[#0b0f19] dark:text-slate-100 font-sans">
         <PickupStaffPortal />
       </div>
     );
@@ -87,7 +87,7 @@ function FreshMartAppContent() {
   // If in Customer Portal view, render the dedicated customer dashboard experience
   if (currentPage === 'customer-portal') {
     return (
-      <div className="min-h-screen bg-[#f8fafc] font-sans">
+      <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0b0f19] dark:text-slate-100 font-sans">
         <CustomerPortal />
         <CartDrawer />
         <FloatingCartPill />
@@ -98,7 +98,7 @@ function FreshMartAppContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8fafc] font-sans antialiased text-slate-800 w-full max-w-full overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc] dark:bg-[#0b0f19] font-sans antialiased text-slate-800 dark:text-slate-100 w-full max-w-full overflow-x-hidden">
       {/* Top Header & Navigation Bar */}
       <FreshMartHeader />
 

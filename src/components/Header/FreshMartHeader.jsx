@@ -13,7 +13,9 @@ import {
   User,
   ShieldCheck,
   Bike,
-  Truck
+  Truck,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 import { useStore } from '../../context/StoreContext';
@@ -52,7 +54,9 @@ export const FreshMartHeader = () => {
     categories,
     getNearbyStores,
     selectStoreAndBranch,
-    allBranches
+    allBranches,
+    isDarkMode,
+    toggleDarkMode
   } = useStore();
 
   const nearbyStoreOptions = useMemo(() => {
@@ -517,6 +521,26 @@ export const FreshMartHeader = () => {
             </div>
           </button>
 
+          {/* Light / Dark Mode Toggle */}
+          <button
+            type="button"
+            onClick={toggleDarkMode}
+            className="flex flex-col items-center justify-center p-1.5 text-slate-600 hover:text-amber-500 transition-colors focus:outline-none cursor-pointer group"
+            title={isDarkMode ? "Switch to Light Mode ☀️" : "Switch to Dark Mode 🌙"}
+            aria-label={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            <div className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center transition-all group-hover:scale-110 shadow-2xs border border-slate-200/80 dark:border-slate-700">
+              {isDarkMode ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+              )}
+            </div>
+            <span className="text-[10px] font-semibold hidden md:inline mt-0.5">
+              {isDarkMode ? 'Light' : 'Dark'}
+            </span>
+          </button>
+
         </div>
 
       </div>
@@ -837,6 +861,22 @@ export const FreshMartHeader = () => {
               className="p-2.5 bg-white border border-slate-200/80 rounded-xl text-left hover:bg-slate-50 flex items-center gap-2 font-bold text-slate-800 cursor-pointer"
             >
               <span>👤</span> Customer Portal
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                toggleDarkMode();
+                setMobileMenuOpen(false);
+              }}
+              className="p-2.5 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-between font-bold text-slate-800 dark:text-slate-100 cursor-pointer col-span-2 shadow-2xs"
+            >
+              <div className="flex items-center gap-2">
+                <span>{isDarkMode ? '☀️' : '🌙'}</span>
+                <span>Theme Mode</span>
+              </div>
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-amber-400">
+                {isDarkMode ? 'Dark Active (Tap for Light)' : 'Light Active (Tap for Dark)'}
+              </span>
             </button>
           </div>
 
