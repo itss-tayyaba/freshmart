@@ -128,7 +128,7 @@ const StoreAdminConsole = () => {
     ? { title: 'Rider', badge: 'Rider', tag: 'Delivery Operations', iconBg: 'bg-rose-600' }
     : roleMeta[adminRole] || roleMeta.admin;
 
-  const activeTenantId = user?.tenantId || currentTenant?.id || 'tenant-freshmart';
+  const activeTenantId = currentTenant?.id || user?.tenantId || 'tenant-freshmart';
 
   // Track locally completed delivered orders to ensure synced badge counts
   const deliveredOrderIds = useMemo(() => {
@@ -615,9 +615,9 @@ const StoreAdminConsole = () => {
             <CategoriesView onOpenAddCategoryModal={() => setIsAddCategoryOpen(true)} />
           )}
           {activeTab === 'Orders' && (
-            <OrdersView onNavigateToCustomers={() => setActiveTab('Customers')} />
+            <OrdersView orders={unifiedTenantOrders} onNavigateToCustomers={() => setActiveTab('Customers')} />
           )}
-          {activeTab === 'Pickup Staff' && <FulfillmentView />}
+          {activeTab === 'Pickup Staff' && <FulfillmentView orders={unifiedTenantOrders} />}
           {activeTab === 'Rider' && <DeliveryView />}
           {activeTab === 'Riders' && <DeliveryView />}
           {activeTab === 'Customers' && (

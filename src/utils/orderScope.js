@@ -36,10 +36,30 @@ export const normalizeOrderTenantId = (order) => {
     order.tenantId ||
     order.companyId ||
     order.tenant ||
+    order.storeId ||
+    order.tenantName ||
+    order.storeName ||
     (order.items && order.items[0]?.tenantId) ||
     (order.rawItems && order.rawItems[0]?.tenantId) ||
     (order.orderItems && order.orderItems[0]?.tenantId);
-  return resolveTenantId(raw);
+  if (raw) {
+    const resolved = resolveTenantId(raw);
+    if (resolved) return resolved;
+  }
+  const idLower = String(order.id || order.orderId || order._id || '').toLowerCase().trim();
+  if (idLower.includes('fm') || idLower.includes('83459') || idLower.includes('unimaart') || idLower.includes('freshmart')) {
+    return 'company_004';
+  }
+  if (idLower.includes('af') || idLower.includes('701') || idLower.includes('alfatah')) {
+    return 'company_001';
+  }
+  if (idLower.includes('cu') || idLower.includes('caseup') || idLower.includes('chaseup')) {
+    return 'company_002';
+  }
+  if (idLower.includes('cv') || idLower.includes('caseval') || idLower.includes('chasevalue')) {
+    return 'company_003';
+  }
+  return null;
 };
 
 /**

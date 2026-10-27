@@ -35,7 +35,7 @@ import { useStore } from '../../../context/StoreContext';
 import { DeliverToStaffModal } from '../modals/DeliverToStaffModal';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 import { sanitizeOrder } from '../../../utils/orderSanitizer';
-import { normalizeOrderTenantId } from '../../../utils/orderScope';
+import { normalizeOrderTenantId, isOrderVisibleToUser } from '../../../utils/orderScope';
 
 // Helper: Extract human-readable order items count/summary safely (never returns an object/array)
 const formatOrderItemsSummary = (ord) => {
@@ -142,7 +142,7 @@ const renderStatusBadge = (status) => {
   );
 };
 
-export const OrdersView = ({ onNavigateToCustomers }) => {
+export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
   const {
     customerOrders,
     adminOrders,
@@ -211,74 +211,64 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     return (allBranches || []).filter((b) => isSameTenant(b.tenantId, activeTenant));
   }, [allBranches, currentTenant?.id, user?.tenantId]);
 
-  // Combine live orders filtered strictly by active supermarket branch (prioritizing Delivered status)
+  // Combine live orders (uses unified tenant orders from AdminDashboard if provided)
   const liveOrders = useMemo(() => {
-    const combined = [...(customerOrders || []), ...(adminOrders || [])].map(sanitizeOrder);
-    const uniqueMap = new Map();
-    const getStatusRank = (st) => {
-      const s = String(st || '').toLowerCase();
-      if (s === 'delivered') return 7;
-      if (s === 'out for delivery' || s === 'dispatched to rider' || s === 'dispatched') return 6;
-      if (s === 'ready for dispatch' || s === 'ready') return 5;
-      if (s === 'prepared') return 4;
-      if (s === 'packed' || s === 'picking' || s === 'preparing') return 3;
-      if (s === 'deliver to staff' || s === 'delivered to staff' || s === 'received by pickup staff') return 2;
-      return 1;
-    };
+    let list = [];
+    if (Array.isArray(passedOrders) && passedOrders.length >= 0) {
+      list = [...passedOrders];
+    } else {
+      const combined = [...(customerOrders || []), ...(adminOrders || [])].map(sanitizeOrder);
+      const uniqueMap = new Map();
+      const getStatusRank = (st) => {
+        const s = String(st || '').toLowerCase();
+        if (s === 'delivered') return 7;
+        if (s === 'out for delivery' || s === 'dispatched to rider' || s === 'dispatched') return 6;
+        if (s === 'ready for dispatch' || s === 'ready') return 5;
+        if (s === 'prepared') return 4;
+        if (s === 'packed' || s === 'picking' || s === 'preparing') return 3;
+        if (s === 'deliver to staff' || s === 'delivered to staff' || s === 'received by pickup staff') return 2;
+        return 1;
+      };
 
-    combined.forEach((ord) => {
-      if (ord && (ord.id || ord.orderId || ord._id)) {
-        const bareKey = String(ord.id || ord.orderId || ord._id).replace(/^#/, '').trim().toLowerCase();
-        if (bareKey === 'cu5011') return;
-        const existing = uniqueMap.get(bareKey);
-        if (!existing) {
-          uniqueMap.set(bareKey, ord);
-        } else {
-          const rankExisting = getStatusRank(existing.status);
-          const rankOrd = getStatusRank(ord.status);
-          const preferOrd =
-            rankOrd >= rankExisting ||
-            (ord.isDispatchedByStaff && !existing.isDispatchedByStaff) ||
-            (ord.assignedRider && !existing.assignedRider) ||
-            (ord.pickupStaffId && !existing.pickupStaffId);
+      combined.forEach((ord) => {
+        if (ord && (ord.id || ord.orderId || ord._id)) {
+          const bareKey = String(ord.id || ord.orderId || ord._id).replace(/^#/, '').trim().toLowerCase();
+          if (bareKey === 'cu5011') return;
+          const existing = uniqueMap.get(bareKey);
+          if (!existing) {
+            uniqueMap.set(bareKey, ord);
+          } else {
+            const rankExisting = getStatusRank(existing.status);
+            const rankOrd = getStatusRank(ord.status);
+            const preferOrd =
+              rankOrd >= rankExisting ||
+              (ord.isDispatchedByStaff && !existing.isDispatchedByStaff) ||
+              (ord.assignedRider && !existing.assignedRider) ||
+              (ord.pickupStaffId && !existing.pickupStaffId);
 
-          const base = preferOrd ? { ...existing, ...ord } : { ...ord, ...existing };
-          if (existing.pickupStaffName && !base.pickupStaffName) base.pickupStaffName = existing.pickupStaffName;
-          if (existing.pickupStaffId && !base.pickupStaffId) base.pickupStaffId = existing.pickupStaffId;
-          if (existing.assignedRider && !base.assignedRider) base.assignedRider = existing.assignedRider;
-          if (existing.isDispatchedByStaff || ord.isDispatchedByStaff) base.isDispatchedByStaff = true;
-          if (ord.pickupStep === 'verified' || existing.pickupStep === 'verified') base.pickupStep = 'verified';
-          if (base.isDispatchedByStaff && (!base.status || base.status === 'Pending')) {
-            base.status = 'Prepared';
+            const base = preferOrd ? { ...existing, ...ord } : { ...ord, ...existing };
+            if (existing.pickupStaffName && !base.pickupStaffName) base.pickupStaffName = existing.pickupStaffName;
+            if (existing.pickupStaffId && !base.pickupStaffId) base.pickupStaffId = existing.pickupStaffId;
+            if (existing.assignedRider && !base.assignedRider) base.assignedRider = existing.assignedRider;
+            if (existing.isDispatchedByStaff || ord.isDispatchedByStaff) base.isDispatchedByStaff = true;
+            if (ord.pickupStep === 'verified' || existing.pickupStep === 'verified') base.pickupStep = 'verified';
+            if (base.isDispatchedByStaff && (!base.status || base.status === 'Pending')) {
+              base.status = 'Prepared';
+            }
+            uniqueMap.set(bareKey, base);
           }
-          uniqueMap.set(bareKey, base);
         }
-      }
-    });
-    const raw = Array.from(uniqueMap.values());
-    const isSuperAdmin = user?.role === 'superadmin' || adminRole === 'superadmin' || user?.isSuperAdmin;
-    const targetTenantId = isSuperAdmin ? null : (currentTenant?.id || user?.tenantId);
-    let list = raw;
-    if (targetTenantId) {
-      list = list.filter((o) => {
-        const orderTenant = normalizeOrderTenantId(o);
-        if (orderTenant) {
-          return isSameTenant(orderTenant, targetTenantId);
-        }
-        const idLower = String(o.id || o.orderId || o._id || '').toLowerCase().replace(/^#/, '').trim();
-        if ((idLower.startsWith('cu') || idLower.includes('-cu-') || idLower.includes('caseup')) && isSameTenant(targetTenantId, 'tenant-chaseup')) return true;
-        if ((idLower.startsWith('cv') || idLower.includes('-cv-')) && isSameTenant(targetTenantId, 'tenant-chasevalue')) return true;
-        if ((idLower.includes('701') || idLower.startsWith('af') || idLower.includes('-af-')) && isSameTenant(targetTenantId, 'tenant-alfatah')) return true;
-        if ((idLower.includes('83459') || idLower.startsWith('fm') || idLower.includes('-fm-')) && isSameTenant(targetTenantId, 'tenant-freshmart')) return true;
-        return false;
       });
+      const raw = Array.from(uniqueMap.values());
+      const activeTenant = currentTenant?.id || user?.tenantId || 'tenant-freshmart';
+      list = raw.filter((o) => isOrderVisibleToUser(o, user, activeTenant));
     }
 
-    // Branch scoping:
-    // If a specific branch is selected in the store admin dropdown or user is branch-scoped
-    if (currentBranchFilter && currentBranchFilter !== 'all') {
+    // Branch scoping: Only filter if a valid branch belonging to this store is selected
+    const isValidBranch = currentBranchFilter && currentBranchFilter !== 'all' && tenantBranches.some((b) => b.id === currentBranchFilter || b._id === currentBranchFilter);
+    if (isValidBranch) {
       list = list.filter((o) => o.branchId === currentBranchFilter);
-    } else if (user?.branchId && user.branchId !== 'all') {
+    } else if (user?.branchId && user.branchId !== 'all' && user?.role !== 'admin') {
       list = list.filter((o) => !o.branchId || o.branchId === user.branchId);
     }
 
@@ -302,14 +292,14 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
       const timeB = new Date(b.createdAt || b.fulfillmentUpdatedAt || b.time || 0).getTime();
       return timeB - timeA;
     });
-  }, [customerOrders, adminOrders, currentTenant, user?.tenantId, user?.branchId, user?.role, currentBranchFilter, tenantBranches]);
+  }, [passedOrders, customerOrders, adminOrders, currentTenant, user?.tenantId, user?.branchId, user?.role, currentBranchFilter, tenantBranches]);
 
   // Statistics KPI counts
   const stats = useMemo(() => {
     const total = liveOrders.length;
     const pending = liveOrders.filter((o) => {
       const s = String(o.status || '').toLowerCase();
-      return ['pending', 'confirmed', 'order placed'].includes(s);
+      return ['pending', 'confirmed', 'order placed', 'deliver to staff', 'delivered to staff', 'received by pickup staff'].includes(s);
     }).length;
     const deliverToStaff = liveOrders.filter((o) => {
       const s = String(o.status || '').toLowerCase();
@@ -341,7 +331,7 @@ export const OrdersView = ({ onNavigateToCustomers }) => {
     return liveOrders.filter((o) => {
       const s = String(o.status || 'Pending').toLowerCase();
       // Tab filter
-      if (activeTab === 'Pending' && !['pending', 'confirmed', 'order placed', 'deliver to staff', 'delivered to staff'].includes(s)) return false;
+      if (activeTab === 'Pending' && !['pending', 'confirmed', 'order placed', 'deliver to staff', 'delivered to staff', 'received by pickup staff'].includes(s)) return false;
       if (activeTab === 'Preparing' && !['preparing', 'processing', 'picking', 'packed'].includes(s)) return false;
       if (activeTab === 'Prepared' && !['prepared', 'ready', 'ready for dispatch', 'ready(dispatched)'].includes(s) && !o.isDispatchedByStaff) return false;
       if (

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Boxes, UserPlus, Trash2, X, Eye, EyeOff, Clock, MapPin, PackageCheck, Lock } from 'lucide-react';
+import { Boxes, UserPlus, Trash2, X, Eye, EyeOff, Clock, MapPin, PackageCheck, Lock, Zap, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 import { countPickupStaffTasks } from '../../../utils/pickupStaffAssignment';
@@ -16,10 +16,11 @@ const getStaffActivity = (order) => {
   return 'Waiting for staff assignment';
 };
 
-export const FulfillmentView = () => {
+export const FulfillmentView = ({ orders: passedOrders }) => {
   const {
     adminOrders = [], customerOrders = [], currentTenant, user, pickupStaff = [], allBranches = [],
-    addPickupStaff, deletePickupStaff, assignPickupStaffToOrder, autoAssignPickupStaff
+    addPickupStaff, deletePickupStaff, assignPickupStaffToOrder, autoAssignPickupStaff,
+    unassignPickupStaffFromOrder, isPickupStaffAutoAssignEnabled, setIsPickupStaffAutoAssignEnabled
   } = useStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -43,7 +44,11 @@ export const FulfillmentView = () => {
     }),
     [pickupStaff, activeTenantId, user?.branchId]
   );
+
   const orders = useMemo(() => {
+    if (Array.isArray(passedOrders) && passedOrders.length >= 0) {
+      return [...passedOrders].sort((a, b) => new Date(b.fulfillmentUpdatedAt || b.updatedAt || b.createdAt || 0) - new Date(a.fulfillmentUpdatedAt || a.updatedAt || a.createdAt || 0));
+    }
     const unique = new Map();
     [...customerOrders, ...adminOrders].forEach((order) => {
       const id = String(order?.id || order?.orderId || order?._id || '');
@@ -61,7 +66,6 @@ export const FulfillmentView = () => {
           order.rawItems?.[0]?.tenantId ||
           order.orderItems?.[0]?.tenantId;
 
-        const rawItemList = Array.isArray(order.rawItems)
         let matchesTenant = false;
         if (orderTenant) {
           matchesTenant = isSameTenant(orderTenant, activeTenantId);
@@ -77,12 +81,25 @@ export const FulfillmentView = () => {
       unique.set(id, { ...unique.get(id), ...order });
     });
     return [...unique.values()].sort((a, b) => new Date(b.fulfillmentUpdatedAt || b.updatedAt || b.createdAt || 0) - new Date(a.fulfillmentUpdatedAt || a.updatedAt || a.createdAt || 0));
-  }, [customerOrders, adminOrders, activeTenantId]);
+  }, [passedOrders, customerOrders, adminOrders, activeTenantId]);
+
   const filteredOrders = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return orders;
     return orders.filter((order) => `${getOrderLabel(order)} ${order.customerName || order.customer || ''} ${order.pickupStaffName || ''} ${order.status || ''}`.toLowerCase().includes(query));
   }, [orders, search]);
+
+  const unassignedOrders = useMemo(() => {
+    return orders.filter((o) => !o.pickupStaffId && !o.pickupStaffName && !['Delivered', 'Cancelled', 'Out for Delivery'].includes(o.status));
+  }, [orders]);
+
+  const handleAutoAssignAll = () => {
+    if (unassignedOrders.length === 0) return;
+    unassignedOrders.forEach((o) => {
+      const oId = o.id || o.orderId || o._id;
+      if (oId) autoAssignPickupStaff?.(oId);
+    });
+  };
 
   const submitStaff = async (event) => {
     event.preventDefault();
@@ -106,52 +123,129 @@ export const FulfillmentView = () => {
       autoAssignPickupStaff?.(orderId);
       return;
     }
-    assignPickupStaffToOrder(orderId, staffId);
+    if (staffId === '__unassign__') {
+      unassignPickupStaffFromOrder?.(orderId);
+      return;
+    }
+    assignPickupStaffToOrder?.(orderId, staffId);
   };
 
   return (
     <div className="space-y-6">
+      {/* 1. Staff Roster Header Card */}
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-black text-slate-900">Pickup Staff</h1>
-            <p className="mt-1 text-sm text-slate-500">Manage your staff roster, assign orders, and follow packing activity.</p>
+            <h1 className="text-xl font-black text-slate-900">Pickup Staff Team</h1>
+            <p className="mt-1 text-sm text-slate-500">Manage packing personnel for {currentTenant?.name || 'this supermarket'} and assign incoming orders.</p>
           </div>
-          <button onClick={() => setIsAddOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700">
-            <UserPlus size={16} /> Add Staff
+          <button onClick={() => setIsAddOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 shadow-sm cursor-pointer">
+            <UserPlus size={16} /> Add Staff Account
           </button>
         </div>
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {tenantStaff.map((staff) => (
-            <div key={staff.id} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+            <div key={staff.id} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-2xs">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 font-black text-emerald-800">{(staff.name || 'S').slice(0, 1).toUpperCase()}</div>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold text-slate-900">{staff.name}</p>
-                  <p className="truncate text-xs text-slate-500">{staff.username}</p>
+                  <p className="truncate text-xs text-slate-500 font-mono">{staff.username}</p>
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 mt-0.5 inline-block">
+                    {countPickupStaffTasks(staff.id, orders)} active orders
+                  </span>
                 </div>
               </div>
-              <button onClick={() => deletePickupStaff?.(staff.id)} title={`Remove ${staff.name}`} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
+              <button onClick={() => deletePickupStaff?.(staff.id)} title={`Remove ${staff.name}`} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer">
                 <Trash2 size={15} />
               </button>
             </div>
           ))}
-          {tenantStaff.length === 0 && <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500 sm:col-span-2 lg:col-span-3 xl:col-span-4">No pickup staff yet. Add a staff account to start assigning orders.</p>}
+          {tenantStaff.length === 0 && <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500 sm:col-span-2 lg:col-span-3 xl:col-span-4">No pickup staff accounts yet. Click "Add Staff Account" to configure your packing team.</p>}
         </div>
       </section>
 
+      {/* 2. Staff Activity & Order Assignment Table */}
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5">
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-black text-slate-900"><PackageCheck className="text-emerald-600" size={19} /> Staff Activity & Order Assignment</h2>
-            <p className="mt-1 text-xs text-slate-500">Packing progress comes from the pickup staff account and updates automatically.</p>
+        {/* Header with Search and Auto-Assignment Settings Control */}
+        <div className="border-b border-slate-100 p-5 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-black text-slate-900">
+                <PackageCheck className="text-emerald-600" size={19} />
+                <span>Staff Activity & Order Assignment</span>
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-500">Live order queue and packing telemetry from pickup staff mobile terminals.</p>
+            </div>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search order, customer, staff..."
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500 sm:w-72"
+            />
           </div>
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search order, customer, staff..." className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500 sm:w-72" />
+
+          {/* ⚡ Auto-Assignment Setting Control Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-50/90 rounded-2xl border border-slate-200">
+            <div className="flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isPickupStaffAutoAssignEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
+                <Zap size={16} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-slate-800">Checkout Auto-Assignment:</span>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isPickupStaffAutoAssignEnabled ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'}`}>
+                    {isPickupStaffAutoAssignEnabled ? '⚡ Auto-Assign ON (Balanced)' : '✋ Manual Admin Review'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {isPickupStaffAutoAssignEnabled
+                    ? 'Incoming customer orders automatically assign to the staff member with the lowest workload.'
+                    : 'Incoming orders remain in Pending queue until manually assigned by Store Admin.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 ml-auto">
+              {/* Toggle Auto-Assignment Switch */}
+              <button
+                type="button"
+                onClick={() => setIsPickupStaffAutoAssignEnabled?.(!isPickupStaffAutoAssignEnabled)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                  isPickupStaffAutoAssignEnabled
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <span>{isPickupStaffAutoAssignEnabled ? 'Auto-Assign: Active' : 'Enable Auto-Assign'}</span>
+              </button>
+
+              {/* ⚡ Immediate 1-Click Auto-Assign for all pending orders */}
+              {unassignedOrders.length > 0 && tenantStaff.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleAutoAssignAll}
+                  className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Assign all unassigned orders across staff"
+                >
+                  <Zap size={13} />
+                  <span>Auto-Assign All ({unassignedOrders.length})</span>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
+
         <div className="overflow-x-auto">
           <table className="w-full min-w-[850px] text-left text-sm">
             <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
-              <tr><th className="px-5 py-3">Order & customer</th><th className="px-5 py-3">Items</th><th className="px-5 py-3">Assigned staff</th><th className="px-5 py-3">Latest activity</th><th className="px-5 py-3">Updated</th></tr>
+              <tr>
+                <th className="px-5 py-3">Order & Customer</th>
+                <th className="px-5 py-3">Items</th>
+                <th className="px-5 py-3">Assigned Staff</th>
+                <th className="px-5 py-3">Latest Activity</th>
+                <th className="px-5 py-3">Updated</th>
+              </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredOrders.map((order) => {
@@ -160,8 +254,9 @@ export const FulfillmentView = () => {
                 const isAssigned = Boolean(order.pickupStaffId || order.pickupStaffName);
                 const canAssign = !isAssigned && !order.isDispatched && !['Dispatched', 'Out for Delivery', 'Arrived at Customer', 'Delivered'].includes(order.status);
                 const activityAt = order.fulfillmentUpdatedAt || order.updatedAt || order.createdAt;
+
                 return (
-                  <tr key={orderId} className="align-top hover:bg-slate-50/70">
+                  <tr key={orderId} className="align-top hover:bg-slate-50/70 transition-colors">
                     <td className="px-5 py-4">
                       <span className="font-mono font-bold text-emerald-700">{getOrderLabel(order)}</span>
                       <span className="mt-1 block font-semibold text-slate-900">{order.customerName || order.customer || 'Customer'}</span>
@@ -181,9 +276,9 @@ export const FulfillmentView = () => {
                         <select
                           value=""
                           onChange={(event) => assignStaff(order, event.target.value)}
-                          className="w-48 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs hover:border-slate-400"
+                          className="w-52 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs hover:border-slate-400"
                         >
-                          <option value="">Assign pickup staff</option>
+                          <option value="">Assign pickup staff...</option>
                           {tenantStaff.length > 1 && (
                             <option value="__auto__">⚡ Auto-assign (fewest tasks)</option>
                           )}
@@ -194,30 +289,71 @@ export const FulfillmentView = () => {
                           ))}
                         </select>
                       ) : isAssigned ? (
-                        <div className="inline-flex items-center gap-2 rounded-xl bg-amber-50/90 border border-amber-300/80 px-3 py-1.5 shadow-2xs">
-                          <div className="w-4 h-4 rounded bg-amber-200/90 text-amber-900 flex items-center justify-center shrink-0">
-                            <Lock size={11} />
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="inline-flex items-center gap-2 rounded-xl bg-amber-50/90 border border-amber-300/80 px-2.5 py-1.5 shadow-2xs">
+                            <div className="w-4 h-4 rounded bg-amber-200/90 text-amber-900 flex items-center justify-center shrink-0">
+                              <Lock size={11} />
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-xs font-bold text-amber-950 truncate block leading-tight">
+                                {order.pickupStaffName || 'Pickup Staff'}
+                              </span>
+                              <span className="text-[10px] font-semibold text-amber-800 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
+                                Assigned
+                              </span>
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <span className="text-xs font-bold text-amber-950 truncate block leading-tight">
-                              {order.pickupStaffName || 'Pickup Staff'}
-                            </span>
-                            <span className="text-[10px] font-semibold text-amber-800 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
-                              Locked · Assigned
-                            </span>
-                          </div>
+                          {!order.isDispatched && !['Delivered', 'Cancelled'].includes(order.status) && (
+                            <select
+                              value=""
+                              onChange={(event) => assignStaff(order, event.target.value)}
+                              className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-600 hover:border-slate-400 cursor-pointer shadow-2xs outline-none"
+                              title="Reassign or unassign staff"
+                            >
+                              <option value="">Reassign...</option>
+                              <option value="__unassign__">❌ Unassign (Set to Pending)</option>
+                              {tenantStaff.length > 1 && (
+                                <option value="__auto__">⚡ Auto-reassign (least busy)</option>
+                              )}
+                              {tenantStaff.map((staff) => (
+                                <option key={staff.id} value={staff.id}>
+                                  📦 {staff.name} ({countPickupStaffTasks(staff.id, orders)} open)
+                                </option>
+                              ))}
+                            </select>
+                          )}
                         </div>
                       ) : (
                         <span className="text-xs font-semibold text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="px-5 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${order.status === 'Delivered' ? 'bg-emerald-100 text-emerald-800' : order.status === 'Out for Delivery' ? 'bg-amber-100 text-amber-800' : (order.status === 'Ready for Dispatch' || order.status === 'Prepared' || order.isDispatchedByStaff) ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>{getStaffActivity(order)}</span><span className="mt-1 block text-[11px] text-slate-500">{order.status === 'Prepared' ? 'Prepared (Ready for Rider)' : (order.status || 'Order placed')}</span></td>
-                    <td className="px-5 py-4 text-xs text-slate-500">{activityAt ? <span className="inline-flex items-center gap-1"><Clock size={12} />{new Date(activityAt).toLocaleString()}</span> : '?'}</td>
+                    <td className="px-5 py-4">
+                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${order.status === 'Delivered' ? 'bg-emerald-100 text-emerald-800' : order.status === 'Out for Delivery' ? 'bg-amber-100 text-amber-800' : (order.status === 'Ready for Dispatch' || order.status === 'Prepared' || order.isDispatchedByStaff) ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>
+                        {getStaffActivity(order)}
+                      </span>
+                      <span className="mt-1 block text-[11px] text-slate-500">
+                        {order.status === 'Prepared' ? 'Prepared (Ready for Rider)' : (order.status || 'Order placed')}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-xs text-slate-500">
+                      {activityAt ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Clock size={12} />
+                          {new Date(activityAt).toLocaleString()}
+                        </span>
+                      ) : '—'}
+                    </td>
                   </tr>
                 );
               })}
-              {filteredOrders.length === 0 && <tr><td colSpan="5" className="px-5 py-12 text-center text-sm text-slate-500">No orders to show yet.</td></tr>}
+              {filteredOrders.length === 0 && (
+                <tr>
+                  <td colSpan="5" className="px-5 py-12 text-center text-sm text-slate-500">
+                    No orders to show yet.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

@@ -756,6 +756,23 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   };
 
+  // Pickup Staff Auto-Assignment Mode (Store Admin can toggle between Auto-assign and Manual review)
+  const [isPickupStaffAutoAssignEnabled, setIsPickupStaffAutoAssignEnabledState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_pickup_auto_assign');
+      return saved !== null ? saved === 'true' : false;
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const setIsPickupStaffAutoAssignEnabled = (val) => {
+    setIsPickupStaffAutoAssignEnabledState(Boolean(val));
+    try {
+      localStorage.setItem('freshmart_pickup_auto_assign', String(Boolean(val)));
+    } catch (e) {}
+  };
+
   // Keep branch dynamically set to corresponding tenant branch nearest to customer delivery location
   useEffect(() => {
     const canonical = resolveTenantId(currentTenant?.id);
@@ -4587,8 +4604,8 @@ export const StoreProvider = ({ children }) => {
     const tenantPickupStaff = (pickupStaff || []).filter(
       (person) => isSameTenant(person.tenantId, resolvedTenantId) && (person.status === 'Active' || !person.status)
     );
-    // With 2+ pickup staff, send the parcel to whoever currently has the fewest open tasks.
-    if (tenantPickupStaff.length > 1) {
+    // Auto-assign to staff with fewest active tasks ONLY if Store Admin has enabled auto-assignment
+    if (isPickupStaffAutoAssignEnabled && tenantPickupStaff.length > 0) {
       const uniqueOrders = new Map();
       [...(customerOrders || []), ...(adminOrders || []), finalConfirmedOrder].forEach((order) => {
         const key = String(order?.id || order?.orderId || order?._id || '').replace(/^#/, '').toLowerCase();
@@ -5792,6 +5809,51 @@ export const StoreProvider = ({ children }) => {
     return true;
   };
 
+  const unassignPickupStaffFromOrder = (orderId) => {
+    if (!['admin', 'superadmin'].includes(adminRole)) {
+      addToast('Action denied', 'Only a store admin can unassign pickup staff.', 'error');
+      return false;
+    }
+    const cleanId = String(orderId || '').replace(/^#/, '').toLowerCase().trim();
+    const orderMatches = (item) => {
+      if (!item) return false;
+      const iId = String(item.id || item.orderId || item._id || '').replace(/^#/, '').toLowerCase().trim();
+      return iId === cleanId || item.id === orderId || item.orderId === orderId;
+    };
+    const update = {
+      pickupStaffId: null,
+      pickupStaffName: null,
+      pickupStaffUsername: null,
+      status: 'Pending',
+      fulfillmentStage: 1,
+      pickupStep: 'unassigned'
+    };
+    setCustomerOrders((previous) => {
+      const next = previous.map((item) => (orderMatches(item) ? { ...item, ...update } : item));
+      try {
+        localStorage.setItem('freshmart_customer_orders', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+    setAdminOrders((previous) => {
+      const next = previous.map((item) => (orderMatches(item) ? { ...item, ...update } : item));
+      try {
+        localStorage.setItem('freshmart_admin_orders', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+    try {
+      window.dispatchEvent(
+        new CustomEvent('freshmart_order_updated', {
+          detail: { orderId: cleanId, status: 'Pending', ...update }
+        })
+      );
+    } catch (e) {}
+    apiService.updateOrderStatus(orderId, 'Pending', update).catch(() => {});
+    addToast('Staff Unassigned 📦', `Order #${cleanId.toUpperCase()} unassigned. Order is now awaiting staff assignment.`);
+    return true;
+  };
+
   // --- 🔄 Smart Product Substitution Pipeline ---
   const getProductSubstitutes = (targetProduct, options = {}) => {
     // Gather candidates from active catalog, master products, and branch catalogs so alternative brands are always discovered
@@ -6140,6 +6202,9 @@ export const StoreProvider = ({ children }) => {
         verifyOrderDeposit,
         assignPickupStaffToOrder,
         autoAssignPickupStaff,
+        unassignPickupStaffFromOrder,
+        isPickupStaffAutoAssignEnabled,
+        setIsPickupStaffAutoAssignEnabled,
         currentBranch,
         setCurrentBranch,
         currentBranchFilter,
