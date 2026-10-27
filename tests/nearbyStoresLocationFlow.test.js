@@ -52,11 +52,11 @@ describe('Customer Location → Nearby Supermarkets & Branch Routing Pipeline', 
     assert.ok(chaseValue, 'Chase Value must be present in nearby stores');
     assert.ok(unimaart, 'Unimaart must be present in nearby stores');
 
-    // Exact proximity matching user specification
-    assert.equal(alFatah.distanceKm, 1.2, 'Al-Fatah must be ~1.2 km away from D-Ground Faisalabad');
-    assert.equal(chaseUp.distanceKm, 1.5, 'Chase Up must be ~1.5 km away from D-Ground Faisalabad');
-    assert.equal(chaseValue.distanceKm, 2.0, 'Chase Value must be ~2.0 km away from D-Ground Faisalabad');
-    assert.equal(unimaart.distanceKm, 0.8, 'Unimaart must be ~0.8 km away from D-Ground Faisalabad');
+    // Exact proximity matching user specification (2km, 4km, 5km, 8km)
+    assert.equal(alFatah.distanceKm, 4.0, 'Al-Fatah must be ~4.0 km away from D-Ground Faisalabad');
+    assert.equal(chaseUp.distanceKm, 5.0, 'Chase Up must be ~5.0 km away from D-Ground Faisalabad');
+    assert.equal(chaseValue.distanceKm, 8.0, 'Chase Value must be ~8.0 km away from D-Ground Faisalabad');
+    assert.equal(unimaart.distanceKm, 2.0, 'Unimaart must be ~2.0 km away from D-Ground Faisalabad');
   });
 
   it('2. Correctly flags all nearby stores as Deliverable within express zone (< 35km)', () => {

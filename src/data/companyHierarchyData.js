@@ -138,9 +138,9 @@ export const BRANCHES = [
     tenantId: 'company_001',
     name: 'D-Ground Flagship Hub',
     city: 'Faisalabad',
-    latitude: 31.4147,
-    longitude: 73.0872,
-    address: 'D-Ground Commercial Center, Peoples Colony 1, Faisalabad',
+    latitude: 31.4485,
+    longitude: 73.0995,
+    address: 'East Canal Road Commercial Hub, Faisalabad',
     phone: '+92 41 8541122',
     status: 'active'
   },
@@ -176,8 +176,8 @@ export const BRANCHES = [
     tenantId: 'company_002',
     name: 'Faisalabad Clock Tower Hub',
     city: 'Faisalabad',
-    latitude: 31.4187,
-    longitude: 73.0855,
+    latitude: 31.4125,
+    longitude: 73.0470,
     address: 'Kotwali Road, Katchery Bazar, Faisalabad',
     phone: '+92 41 2623344',
     status: 'active'
@@ -226,9 +226,9 @@ export const BRANCHES = [
     tenantId: 'company_003',
     name: 'Wholesale Express Hub',
     city: 'Faisalabad',
-    latitude: 31.4215,
-    longitude: 73.0815,
-    address: 'Jaranwala Road, Near Peoples Colony, Faisalabad',
+    latitude: 31.4845,
+    longitude: 73.0995,
+    address: 'Jaranwala Road Wholesale Terminal, Faisalabad',
     phone: '+92 41 8729900',
     status: 'active'
   },
@@ -277,8 +277,8 @@ export const BRANCHES = [
     name: 'Peoples Colony Dark Store',
     city: 'Faisalabad',
     latitude: 31.4125,
-    longitude: 73.0915,
-    address: 'D-Ground Commercial Center, Peoples Colony 1, Faisalabad',
+    longitude: 73.0785,
+    address: 'Chenab Club Road, Peoples Colony 2, Faisalabad',
     phone: '+9870-256-679',
     status: 'active'
   }

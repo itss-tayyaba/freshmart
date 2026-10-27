@@ -1532,7 +1532,9 @@ export const StoreProvider = ({ children }) => {
         color: tenant.color,
         nearestBranch,
         distanceKm: Number.isFinite(minDistance) ? Number(minDistance.toFixed(1)) : null,
-        distanceFormatted: Number.isFinite(minDistance) ? `${minDistance.toFixed(1)} km` : 'Unavailable',
+        distanceFormatted: Number.isFinite(minDistance)
+          ? `${minDistance % 1 === 0 ? minDistance.toFixed(0) : minDistance.toFixed(1)} km`
+          : 'Unavailable',
         estimatedTime,
         isDeliverable,
         deliveryFeeText: `Free over Rs. ${freeDeliveryThreshold.toLocaleString()}`,
