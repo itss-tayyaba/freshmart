@@ -100,8 +100,9 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
 
   const isDelivered =
     orderStatus === 'delivered' ||
+    orderStatus === 'completed' ||
     activeOrder?.isDelivered === true ||
-    fulfillmentStage === 4;
+    fulfillmentStage >= 7;
 
   // Courier is only active when an actual rider object with a name/id is assigned AND order is out for delivery/dispatched
   const hasAssignedRiderData = Boolean(

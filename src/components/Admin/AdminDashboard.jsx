@@ -161,7 +161,7 @@ const StoreAdminConsole = () => {
         o.status === 'Delivered' ||
         o.status === 'Completed' ||
         o.isDelivered === true ||
-        Number(o.fulfillmentStage) >= 4 ||
+        Number(o.fulfillmentStage) >= 7 ||
         deliveredOrderIds.has(bare);
 
       const existing = map.get(bare);

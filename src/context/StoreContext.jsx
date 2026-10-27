@@ -157,8 +157,8 @@ const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
     localOrder.status === 'Delivered' ||
     Boolean(remoteOrder.isDelivered) ||
     Boolean(localOrder.isDelivered) ||
-    Number(remoteOrder.fulfillmentStage) >= 4 ||
-    Number(localOrder.fulfillmentStage) >= 4;
+    Number(remoteOrder.fulfillmentStage) >= 7 ||
+    Number(localOrder.fulfillmentStage) >= 7;
 
   const resolvedStatus = isDelivered ? 'Delivered' : (remoteOrder.status || localOrder.status || 'Pending');
 
@@ -182,7 +182,7 @@ const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
     branchName,
     status: resolvedStatus,
     isDelivered,
-    fulfillmentStage: isDelivered ? 4 : (remoteOrder.fulfillmentStage || localOrder.fulfillmentStage || 1),
+    fulfillmentStage: isDelivered ? Math.max(Number(remoteOrder.fulfillmentStage || 0), Number(localOrder.fulfillmentStage || 0), 4) : (remoteOrder.fulfillmentStage || localOrder.fulfillmentStage || 1),
     deliveredAt: remoteOrder.deliveredAt || localOrder.deliveredAt || (isDelivered ? (remoteOrder.updatedAt || localOrder.updatedAt || remoteOrder.createdAt || localOrder.createdAt || new Date().toISOString()) : null),
     isPaid: isDelivered ? true : (remoteOrder.isPaid || localOrder.isPaid || false),
     paymentStatus: isDelivered ? 'Paid' : (remoteOrder.paymentStatus || localOrder.paymentStatus || 'Pending'),

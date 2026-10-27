@@ -349,9 +349,9 @@ export const DeliveryPage = () => {
     if (!order) return 1;
     const s = (order.status || '').toLowerCase();
     const stage = Number(order.fulfillmentStage || 0);
-    if (stage === 4 || stage >= 7 || s.includes('delivered') || s.includes('completed') || order.isDelivered) return 4;
-    if (stage === 3 || stage >= 5 || s.includes('out for delivery') || s.includes('transit') || s.includes('picked up') || s.includes('dispatched') || order.isDispatched || order.assignedRider) return 3;
-    if (stage === 2 || s.includes('packing') || s.includes('processing') || s.includes('ready') || s.includes('packed')) return 2;
+    if (stage >= 7 || s.includes('delivered') || s.includes('completed') || order.isDelivered) return 4;
+    if (stage >= 5 || s.includes('out for delivery') || s.includes('transit') || s.includes('picked up') || s.includes('dispatched') || order.isDispatched || order.assignedRider) return 3;
+    if (stage >= 2 || s.includes('packing') || s.includes('processing') || s.includes('ready') || s.includes('packed') || s.includes('prepared')) return 2;
     return 1; // Pending / Placed
   };
 
@@ -359,7 +359,7 @@ export const DeliveryPage = () => {
 
   const isDelivered =
     activeStage === 4 ||
-    currentOrder?.fulfillmentStage === 4 ||
+    Number(currentOrder?.fulfillmentStage || 0) >= 7 ||
     currentOrder?.isDelivered === true ||
     (currentOrder?.status || '').toLowerCase() === 'delivered' ||
     (currentOrder?.status || '').toLowerCase() === 'completed';

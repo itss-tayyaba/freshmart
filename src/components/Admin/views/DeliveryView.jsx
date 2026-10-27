@@ -291,7 +291,7 @@ export const DeliveryView = () => {
         const existing = uniqueMap.get(bareKey);
         if (!existing) {
           uniqueMap.set(bareKey, ord);
-        } else if (ord.status === 'Delivered' || ord.isDelivered || Number(ord.fulfillmentStage) >= 4) {
+        } else if (ord.status === 'Delivered' || ord.isDelivered === true || Number(ord.fulfillmentStage) >= 7) {
           uniqueMap.set(bareKey, ord);
         }
       }
@@ -344,7 +344,7 @@ export const DeliveryView = () => {
   const completedDeliveries = useMemo(() => {
     return allOrdersList.filter((o) => {
       const s = String(o.status || '').toLowerCase();
-      const isDel = s === 'delivered' || o.isDelivered || Number(o.fulfillmentStage) >= 4;
+      const isDel = s === 'delivered' || o.isDelivered === true || Number(o.fulfillmentStage) >= 7;
       if (adminRole === 'rider') {
         const assignedRiderId = o.assignedRider?.id || o.assignedRider?.riderId;
         return (
@@ -1311,7 +1311,7 @@ export const DeliveryView = () => {
 
                       const activeOrdersForRider = (allOrdersList || []).filter((o) => {
                         const s = String(o.status || '').toLowerCase();
-                        const isDelivered = s === 'delivered' || s === 'completed' || o.isDelivered || Number(o.fulfillmentStage) >= 4;
+                        const isDelivered = s === 'delivered' || s === 'completed' || o.isDelivered === true || Number(o.fulfillmentStage) >= 7;
                         if (isDelivered) return false;
 
                         const assigned = o.assignedRider;

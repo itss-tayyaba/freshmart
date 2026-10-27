@@ -66,12 +66,12 @@ export const DashboardView = ({ onNavigateModule }) => {
     combined.forEach((ord) => {
       if (ord && (ord.id || ord.orderId || ord._id)) {
         const bareKey = String(ord.id || ord.orderId || ord._id).replace(/^#/, '').trim().toLowerCase();
-        const isDelivered = ord.status === 'Delivered' || ord.isDelivered || Number(ord.fulfillmentStage) >= 4;
+        const isDelivered = ord.status === 'Delivered' || ord.isDelivered === true || Number(ord.fulfillmentStage) >= 7;
         const existing = uniqueMap.get(bareKey);
         if (!existing) {
-          uniqueMap.set(bareKey, isDelivered ? { ...ord, status: 'Delivered', isDelivered: true, fulfillmentStage: 4 } : ord);
+          uniqueMap.set(bareKey, isDelivered ? { ...ord, status: 'Delivered', isDelivered: true } : ord);
         } else if (isDelivered) {
-          uniqueMap.set(bareKey, { ...existing, ...ord, status: 'Delivered', isDelivered: true, fulfillmentStage: 4 });
+          uniqueMap.set(bareKey, { ...existing, ...ord, status: 'Delivered', isDelivered: true });
         }
       }
     });

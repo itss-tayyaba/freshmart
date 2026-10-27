@@ -27,13 +27,6 @@ export const saveDiskOrder = (order) => {
     const plain = order.toObject ? order.toObject() : { ...order };
     const cleanId = String(plain.id || plain.orderId || plain._id || '').replace(/^#/, '').toLowerCase().trim();
     if (!cleanId) return;
-    const list = loadDiskOrders();
-    const filtered = list.filter((o) => {
-      const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
-      return oId !== cleanId;
-    });
-    filtered.unshift(plain);
-    fs.writeFileSync(ORDERS_FILE_PATH, JSON.stringify(filtered, null, 2), 'utf-8');
 
     // Keep ADMIN_ORDERS_FULL in sync
     const memIdx = ADMIN_ORDERS_FULL.findIndex((m) => {
@@ -45,6 +38,27 @@ export const saveDiskOrder = (order) => {
     } else {
       ADMIN_ORDERS_FULL.unshift(plain);
     }
+
+    // Do NOT persist test/mock orders from test suites to disk database
+    const isTestOrder =
+      process.env.NODE_ENV === 'test' ||
+      cleanId.includes('stage-test') ||
+      cleanId.includes('admin-sync') ||
+      cleanId.includes('otp-demo') ||
+      cleanId.includes('otp-test') ||
+      cleanId.includes('assign-') ||
+      cleanId.includes('mock') ||
+      cleanId.startsWith('fm-live');
+
+    if (isTestOrder) return;
+
+    const list = loadDiskOrders();
+    const filtered = list.filter((o) => {
+      const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+      return oId !== cleanId;
+    });
+    filtered.unshift(plain);
+    fs.writeFileSync(ORDERS_FILE_PATH, JSON.stringify(filtered, null, 2), 'utf-8');
   } catch (e) {}
 };
 
@@ -54,6 +68,17 @@ try {
   if (diskOrders.length > 0) {
     diskOrders.forEach((o) => {
       const oKey = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+      if (
+        oKey.includes('stage-test') ||
+        oKey.includes('admin-sync') ||
+        oKey.includes('otp-demo') ||
+        oKey.includes('otp-test') ||
+        oKey.includes('assign-') ||
+        oKey.includes('mock') ||
+        oKey.startsWith('fm-live')
+      ) {
+        return;
+      }
       const exists = ADMIN_ORDERS_FULL.some((m) => String(m.id || m.orderId || m._id || '').replace(/^#/, '').toLowerCase().trim() === oKey);
       if (!exists) ADMIN_ORDERS_FULL.push(o);
     });
