@@ -319,11 +319,11 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       {/* =========================================================================
           LEFT SIDEBAR: Deep Forest Green (#062319) matching the screenshot
           ========================================================================= */}
-      <aside className="w-full md:w-64 lg:w-72 bg-[#062319] text-slate-200 flex flex-col justify-between shrink-0 p-5 md:min-h-screen select-none">
+      <aside className="w-full md:w-64 lg:w-68 bg-[#062319] text-slate-200 flex flex-col justify-between shrink-0 p-4 md:h-screen md:sticky md:top-0 select-none overflow-y-auto">
         <div>
           {/* Logo Brand Header */}
-          <div className="flex items-center gap-3 pb-6 border-b border-emerald-950/80">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-emerald-950/80">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400">
               <ShoppingCart className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
@@ -337,7 +337,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
           </div>
 
           {/* Navigation Menu (History & Profile removed) */}
-          <nav className="mt-6 space-y-1.5">
+          <nav className="mt-3 space-y-1">
             {[
               { id: 'Dashboard', label: 'Dashboard', icon: LayoutDashboard },
               { id: 'Assigned Orders', label: 'Assigned Orders', icon: ClipboardList, count: kpiCounts.assigned },
@@ -357,7 +357,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                     if (item.id === 'Notifications') setShowNotifications(!showNotifications);
                     else setActiveNav(item.id);
                   }}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-semibold text-xs transition-all cursor-pointer ${
                     isActive
                       ? 'bg-[#10b981] text-white shadow-lg shadow-emerald-950/40 font-bold'
                       : 'text-slate-300 hover:text-white hover:bg-emerald-900/40'
@@ -393,10 +393,10 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
         </div>
 
         {/* Bottom Sidebar: User Profile Card & Vegetable Crate Artwork */}
-        <div className="pt-6 border-t border-emerald-950/80 space-y-4">
+        <div className="pt-3 border-t border-emerald-950/80 space-y-2.5 mt-auto">
           {/* User Profile Card */}
           <div
-            className="flex items-center gap-3 p-2.5 rounded-xl bg-emerald-950/50 border border-emerald-800/40 transition"
+            className="flex items-center gap-3 p-2 rounded-xl bg-emerald-950/50 border border-emerald-800/40 transition"
           >
             <img
               src="/staff_ayesha.jpg"
@@ -425,7 +425,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             <img
               src="/pickup_crate.jpg"
               alt="Fresh Produce Crate"
-              className="w-full h-32 object-cover transition duration-300 group-hover:scale-105"
+              className="w-full h-20 object-cover transition duration-300 group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#062319] via-transparent to-transparent"></div>
             <div className="absolute bottom-2 left-2 right-2 text-center">
@@ -443,9 +443,9 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         
         {/* Top Header Row with Welcome Text, Branch ID Scoping Pill & Notification Bell */}
-        <header className="bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-30 shadow-2xs">
+        <header className="bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-800 px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 z-30 shadow-2xs">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
               Pickup Staff Dashboard
             </h1>
             <div className="flex flex-wrap items-center gap-2 mt-1">
@@ -538,7 +538,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
         </header>
 
         {/* Main Workspace Body */}
-        <main className="p-5 sm:p-7 space-y-6 max-w-7xl mx-auto w-full">
+        <main className="p-4 sm:p-5 space-y-3.5 max-w-7xl mx-auto w-full">
           
           {/* =========================================================================
               TOP 4 STAT CARDS (Identical to user's screenshot)
@@ -547,18 +547,18 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               - 5 Ready for Delivery (soft amber)
               - 2 Delayed Orders (soft purple)
               ========================================================================= */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             
             {/* Card 1: Assigned Orders */}
             <div
               onClick={() => setActiveNav('Assigned Orders')}
-              className="bg-[#ecfdf5] dark:bg-emerald-950/30 border border-[#a7f3d0] dark:border-emerald-800/60 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+              className="bg-[#ecfdf5] dark:bg-emerald-950/30 border border-[#a7f3d0] dark:border-emerald-800/60 rounded-xl p-3 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
             >
-              <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#062319] border border-emerald-200 dark:border-emerald-700 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-2xs">
-                <ClipboardList className="w-5 h-5 text-emerald-600" />
+              <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#062319] border border-emerald-200 dark:border-emerald-700 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-2xs">
+                <ClipboardList className="w-4 h-4 text-emerald-600" />
               </div>
-              <div className="mt-4">
-                <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono block">
+              <div className="mt-2">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono block">
                   {kpiCounts.assigned}
                 </span>
                 <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 mt-0.5 block">
@@ -570,13 +570,13 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             {/* Card 2: Packed Orders */}
             <div
               onClick={() => setActiveNav('Packed Orders')}
-              className="bg-[#eff6ff] dark:bg-blue-950/30 border border-[#bfdbfe] dark:border-blue-800/60 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+              className="bg-[#eff6ff] dark:bg-blue-950/30 border border-[#bfdbfe] dark:border-blue-800/60 rounded-xl p-3 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
             >
-              <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#0d2238] border border-blue-200 dark:border-blue-700 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-2xs">
-                <Package className="w-5 h-5 text-blue-600" />
+              <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#0d2238] border border-blue-200 dark:border-blue-700 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-2xs">
+                <Package className="w-4 h-4 text-blue-600" />
               </div>
-              <div className="mt-4">
-                <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono block">
+              <div className="mt-2">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono block">
                   {kpiCounts.packed}
                 </span>
                 <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 mt-0.5 block">
@@ -588,13 +588,13 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             {/* Card 3: Ready for Delivery */}
             <div
               onClick={() => setActiveNav('Ready for Delivery')}
-              className="bg-[#fffbeb] dark:bg-amber-950/30 border border-[#fde68a] dark:border-amber-800/60 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+              className="bg-[#fffbeb] dark:bg-amber-950/30 border border-[#fde68a] dark:border-amber-800/60 rounded-xl p-3 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
             >
-              <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#382805] border border-amber-200 dark:border-amber-700 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-2xs">
-                <CheckCircle2 className="w-5 h-5 text-amber-600" />
+              <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#382805] border border-amber-200 dark:border-amber-700 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-2xs">
+                <CheckCircle2 className="w-4 h-4 text-amber-600" />
               </div>
-              <div className="mt-4">
-                <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono block">
+              <div className="mt-2">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono block">
                   {kpiCounts.ready}
                 </span>
                 <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 mt-0.5 block">
@@ -606,13 +606,13 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             {/* Card 4: Delayed Orders */}
             <div
               onClick={() => setActiveNav('All Orders')}
-              className="bg-[#faf5ff] dark:bg-purple-950/30 border border-[#e9d5ff] dark:border-purple-800/60 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+              className="bg-[#faf5ff] dark:bg-purple-950/30 border border-[#e9d5ff] dark:border-purple-800/60 rounded-xl p-3 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
             >
-              <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#28133d] border border-purple-200 dark:border-purple-700 flex items-center justify-center text-purple-600 dark:text-purple-400 shadow-2xs">
-                <Clock className="w-5 h-5 text-purple-600" />
+              <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#28133d] border border-purple-200 dark:border-purple-700 flex items-center justify-center text-purple-600 dark:text-purple-400 shadow-2xs">
+                <Clock className="w-4 h-4 text-purple-600" />
               </div>
-              <div className="mt-4">
-                <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono block">
+              <div className="mt-2">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono block">
                   {kpiCounts.delayed}
                 </span>
                 <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 mt-0.5 block">
@@ -628,7 +628,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               ========================================================================= */}
           {(activeNav === 'Dashboard' || activeNav === 'Assigned Orders') && (
 
-          <section className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-xs">
+          <section className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-xs">
             <div className="flex items-center justify-between pb-4">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <span>Assigned Orders</span>
@@ -647,12 +647,12 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
 
             {/* Assigned Orders Table or Clean Empty State */}
             {displayAssignedOrders.length === 0 ? (
-              <div className="text-center py-12 px-4 space-y-2">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto text-xl">
+              <div className="text-center py-5 px-4 space-y-1">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto text-base">
                   📋
                 </div>
-                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">No Assigned Orders</p>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                <p className="text-xs font-bold text-slate-700 dark:text-slate-200">No Assigned Orders</p>
+                <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
                   Orders placed by customers for {staffBranch.name} will appear here for packing.
                 </p>
               </div>
@@ -727,7 +727,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             <section className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <PackageCheck className="w-5 h-5 text-blue-600" />
+                  <PackageCheck className="w-4 h-4 text-blue-600" />
                   <span>Packed Orders</span>
                   <span className="text-xs font-normal text-slate-400 font-mono">({packedOrders.length})</span>
                 </h3>
@@ -790,7 +790,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             <section className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Boxes className="w-5 h-5 text-emerald-600" />
+                  <Boxes className="w-4 h-4 text-emerald-600" />
                   <span>All Branch Orders</span>
                   <span className="text-xs font-normal text-slate-400 font-mono">({branchOrders.length})</span>
                 </h3>
@@ -885,7 +885,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               ========================================================================= */}
           {(activeNav === 'Dashboard' || activeNav === 'Ready for Delivery') && (
 
-          <section className="space-y-4">
+          <section className="space-y-2.5">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <span>Ready for Delivery</span>
@@ -903,12 +903,12 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             </div>
 
             {displayReadyOrders.length === 0 ? (
-              <div className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-8 text-center space-y-2">
-                <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto text-xl">
+              <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 text-center space-y-1">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto text-base">
                   📦
                 </div>
-                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">No Orders Ready for Delivery</p>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                <p className="text-xs font-bold text-slate-700 dark:text-slate-200">No Orders Ready for Delivery</p>
+                <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
                   Pack assigned orders and click &ldquo;Mark Ready for Delivery&rdquo; to stage parcels in the hub for store admin rider assignment.
                 </p>
               </div>
@@ -982,12 +982,12 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               ========================================================================= */}
           {activeNav === 'Dashboard' && (
 
-          <section className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-xs">
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-5">
+          <section className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-3.5 sm:p-4 shadow-xs">
+            <h4 className="text-xs font-bold text-slate-900 dark:text-white mb-2.5">
               How it works (Pickup Flow)
             </h4>
 
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 py-1">
               {[
                 {
                   step: 1,
@@ -1034,7 +1034,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                 return (
                   <React.Fragment key={item.step}>
                     <div className="flex flex-col items-center text-center">
-                      <div className={`w-12 h-12 rounded-full ${item.bg} ${item.color} flex items-center justify-center shadow-xs`}>
+                      <div className={`w-8 h-8 rounded-full ${item.bg} ${item.color} flex items-center justify-center shadow-xs`}>
                         <Icon className="w-5 h-5" />
                       </div>
                       <span className={`text-xs font-bold mt-2 ${item.numColor}`}>
@@ -1047,7 +1047,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
 
                     {/* Arrow between steps */}
                     {idx < 4 && (
-                      <div className="hidden sm:flex text-slate-300 dark:text-slate-600 pb-6">
+                      <div className="hidden sm:flex text-slate-300 dark:text-slate-600 pb-3">
                         <ArrowRight className="w-5 h-5" />
                       </div>
                     )}
