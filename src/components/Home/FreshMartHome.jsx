@@ -39,6 +39,7 @@ import { CaseValueCategoryStrip } from '../CaseValue/CaseValueCategoryStrip';
 import { CaseValueTopDeals } from '../CaseValue/CaseValueTopDeals';
 import { AlFatahHero } from '../AlFatah/AlFatahHero';
 import { ChaseUpHero } from '../ChaseUp/ChaseUpHero';
+import { NearbyStoresSection } from './NearbyStoresSection';
 
 export const FreshMartHome = () => {
   const {
@@ -56,8 +57,17 @@ export const FreshMartHome = () => {
     products,
     categories,
     storeSettings,
-    currentTenant
+    currentTenant,
+    deliveryLocation,
+    getNearbyStores,
+    selectStoreAndBranch
   } = useStore();
+
+  const nearbyStores = useMemo(() => {
+    return typeof getNearbyStores === 'function'
+      ? getNearbyStores(deliveryLocation?.coords || deliveryLocation)
+      : [];
+  }, [getNearbyStores, deliveryLocation]);
 
   // Active category filter tab for Bestsellers
   const [activeBestsellerTab, setActiveBestsellerTab] = useState('all');
@@ -674,6 +684,21 @@ export const FreshMartHome = () => {
             <h2 className="text-3xl font-black">{currentTenant?.name}</h2>
             <p className="text-sm text-slate-300 mt-2">{currentTenant?.tagline}</p>
           </div>
+        </section>
+      )}
+
+      {/* 🏬 5.5 Nearby & Deliverable Supermarket Stores Based on Customer Pin */}
+      {nearbyStores && nearbyStores.length > 0 && (
+        <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+          <NearbyStoresSection
+            nearbyStores={nearbyStores}
+            onSelectStore={(tenant, branch) => {
+              if (selectStoreAndBranch) {
+                selectStoreAndBranch(tenant, branch);
+                addToast('Store Switched 🏬', `Now shopping at ${tenant.displayName || tenant.name} (${branch?.name || 'Main'})`);
+              }
+            }}
+          />
         </section>
       )}
 

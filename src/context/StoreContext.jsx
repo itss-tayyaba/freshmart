@@ -1245,32 +1245,20 @@ export const StoreProvider = ({ children }) => {
       coords: { lat: 31.4125, lng: 73.0995 }
     };
   });
-  // Check if customer or visitor has already confirmed/selected their delivery location previously
+  // When a user opens the website, prompt them to select their location on every fresh visit,
+  // rather than silently assuming the previous one. Session-level confirmation avoids re-prompting while navigating within the same tab.
   const checkInitialLocationConfirmed = () => {
     try {
       if (typeof window === 'undefined') return false;
-      const isConfirmed = localStorage.getItem('freshmart_location_confirmed');
-      if (isConfirmed === 'true') return true;
-
-      // Returning customer or saved address counts as confirmed
-      const savedUser = localStorage.getItem('freshmart_customer_user');
-      if (savedUser) return true;
-
-      const savedAddresses = localStorage.getItem('freshmart_saved_addresses');
-      if (savedAddresses) {
-        const parsed = JSON.parse(savedAddresses);
-        if (Array.isArray(parsed) && parsed.length > 0) return true;
+      const path = window.location.pathname.toLowerCase();
+      if (path.includes('/admin') || path.includes('/pickup-staff') || path.includes('/delivery-portal') || path.includes('/rider-portal')) {
+        return true;
       }
-
-      // Existing saved delivery location from prior visit
-      const savedLoc = localStorage.getItem('freshmart_delivery_location');
-      if (savedLoc) return true;
+      return sessionStorage.getItem('freshmart_session_location_confirmed') === 'true';
     } catch (e) {}
     return false;
   };
 
-  // Customers only need to select their location ONCE.
-  // Returning visitors have their confirmed location restored from storage and are never prompted repeatedly.
   const [isLocationConfirmed, setIsLocationConfirmed] = useState(() => checkInitialLocationConfirmed());
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(() => !checkInitialLocationConfirmed());
 
@@ -1616,6 +1604,7 @@ export const StoreProvider = ({ children }) => {
     setIsLocationModalOpen(false);
 
     try {
+      sessionStorage.setItem('freshmart_session_location_confirmed', 'true');
       localStorage.setItem('freshmart_delivery_location', JSON.stringify(resolved));
       localStorage.setItem('freshmart_location_confirmed', 'true');
     } catch (e) {}

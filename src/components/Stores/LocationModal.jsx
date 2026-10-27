@@ -369,6 +369,9 @@ const LocationModalContent = () => {
 
   // Dismiss or close modal
   const handleCloseModal = () => {
+    try {
+      sessionStorage.setItem('freshmart_session_location_confirmed', 'true');
+    } catch (e) {}
     if (!isLocationConfirmed) {
       if (confirmDeliveryLocation) {
         confirmDeliveryLocation(deliveryLocation);
