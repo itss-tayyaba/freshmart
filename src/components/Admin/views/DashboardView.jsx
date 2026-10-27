@@ -87,28 +87,9 @@ export const DashboardView = ({ onNavigateModule }) => {
         order.rawItems?.[0]?.tenantId ||
         order.orderItems?.[0]?.tenantId;
 
-      const rawItemList = Array.isArray(order.rawItems)
-        ? order.rawItems
-        : Array.isArray(order.orderItems)
-        ? order.orderItems
-        : Array.isArray(order.items)
-        ? order.items
-        : [];
-      const hasCaseValue = rawItemList.some((it) => {
-        const n = String(it?.name || it?.productName || '').toLowerCase();
-        const b = String(it?.brand || '').toLowerCase();
-        return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
-      });
-      if (hasCaseValue && isSameTenant(tenantKey, 'tenant-chasevalue')) return true;
-      if (hasCaseValue && !isSameTenant(tenantKey, 'tenant-chasevalue')) return false;
-
-      const hasChaseUp = rawItemList.some((it) => {
-        const n = String(it?.name || it?.productName || '').toLowerCase();
-        const b = String(it?.brand || '').toLowerCase();
-        return n.includes('chase up') || n.includes('case up') || n.includes('caseup') || b.includes('chase up') || b.includes('case up') || b.includes('caseup') || isSameTenant(it?.tenantId, 'tenant-chaseup');
-      });
-      if (hasChaseUp && isSameTenant(tenantKey, 'tenant-chaseup')) return true;
-      if (hasChaseUp && !isSameTenant(tenantKey, 'tenant-chaseup')) return false;
+      if (orderTenant) {
+        return isSameTenant(orderTenant, tenantKey);
+      }
 
       const idLower = String(order.id || order.orderId || order._id || '').toLowerCase();
       if ((idLower.startsWith('#cu') || idLower.startsWith('cu-') || idLower.startsWith('ord-cu') || idLower.includes('-cu-') || idLower.includes('caseup')) && isSameTenant(tenantKey, 'tenant-chaseup')) {
@@ -118,16 +99,11 @@ export const DashboardView = ({ onNavigateModule }) => {
         return true;
       }
 
-      if (!orderTenant) {
-        const id = idLower;
-        if (id.includes('701') || id.includes('af')) return isSameTenant('tenant-alfatah', tenantKey);
-        if (id.includes('fm') || id.includes('83459')) return isSameTenant('tenant-freshmart', tenantKey);
-        if (id.includes('cv')) return isSameTenant('tenant-chasevalue', tenantKey);
-        if (id.includes('cu') || id.includes('caseup')) return isSameTenant('tenant-chaseup', tenantKey);
-        return false;
-      }
-
-      return isSameTenant(orderTenant, tenantKey);
+      if (idLower.includes('701') || idLower.includes('af')) return isSameTenant('tenant-alfatah', tenantKey);
+      if (idLower.includes('fm') || idLower.includes('83459')) return isSameTenant('tenant-freshmart', tenantKey);
+      if (idLower.includes('cv')) return isSameTenant('tenant-chasevalue', tenantKey);
+      if (idLower.includes('cu') || idLower.includes('caseup')) return isSameTenant('tenant-chaseup', tenantKey);
+      return false;
     });
 
     return list.sort((a, b) => {

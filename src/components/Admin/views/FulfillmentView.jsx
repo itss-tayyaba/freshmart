@@ -62,38 +62,6 @@ export const FulfillmentView = () => {
           order.orderItems?.[0]?.tenantId;
 
         const rawItemList = Array.isArray(order.rawItems)
-          ? order.rawItems
-          : Array.isArray(order.orderItems)
-          ? order.orderItems
-          : Array.isArray(order.items)
-          ? order.items
-          : [];
-        const hasCaseValue = rawItemList.some((it) => {
-          const n = String(it?.name || it?.productName || '').toLowerCase();
-          const b = String(it?.brand || '').toLowerCase();
-          return n.includes('chase value') || n.includes('case value') || b.includes('chase value') || b.includes('case value') || isSameTenant(it?.tenantId, 'tenant-chasevalue');
-        });
-        if (hasCaseValue && isSameTenant(activeTenantId, 'tenant-chasevalue')) {
-          unique.set(id, { ...unique.get(id), ...order });
-          return;
-        }
-        if (hasCaseValue && !isSameTenant(activeTenantId, 'tenant-chasevalue')) {
-          return;
-        }
-
-        const hasChaseUp = rawItemList.some((it) => {
-          const n = String(it?.name || it?.productName || '').toLowerCase();
-          const b = String(it?.brand || '').toLowerCase();
-          return n.includes('chase up') || n.includes('case up') || n.includes('caseup') || b.includes('chase up') || b.includes('case up') || b.includes('caseup') || isSameTenant(it?.tenantId, 'tenant-chaseup');
-        });
-        if (hasChaseUp && isSameTenant(activeTenantId, 'tenant-chaseup')) {
-          unique.set(id, { ...unique.get(id), ...order });
-          return;
-        }
-        if (hasChaseUp && !isSameTenant(activeTenantId, 'tenant-chaseup')) {
-          return;
-        }
-
         let matchesTenant = false;
         if (orderTenant) {
           matchesTenant = isSameTenant(orderTenant, activeTenantId);

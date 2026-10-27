@@ -66,8 +66,7 @@ export const sanitizeOrder = (ord) => {
     (ord.tenantName && (String(ord.tenantName).toLowerCase().includes('case value') || String(ord.tenantName).toLowerCase().includes('chase value'))) ||
     (ord.storeName && (String(ord.storeName).toLowerCase().includes('case value') || String(ord.storeName).toLowerCase().includes('chase value'))) ||
     (ord.tenant && isSameTenant(ord.tenant, 'tenant-chasevalue')) ||
-    hasCaseValueItem ||
-    ((idStr.startsWith('#cv') || idStr.startsWith('cv-') || idStr.startsWith('ord-cv') || idStr.includes('-cv-')) && (!ord.tenantId || isSameTenant(ord.tenantId, 'tenant-chasevalue')));
+    (!ord.tenantId && !ord.companyId && (hasCaseValueItem || (idStr.startsWith('#cv') || idStr.startsWith('cv-') || idStr.startsWith('ord-cv') || idStr.includes('-cv-'))));
 
   if (isExplicitCaseValue) {
     return {
@@ -101,8 +100,7 @@ export const sanitizeOrder = (ord) => {
       String(ord.storeName).toLowerCase().includes('chaseup')
     )) ||
     (ord.tenant && isSameTenant(ord.tenant, 'tenant-chaseup')) ||
-    hasChaseUpItem ||
-    ((idStr.startsWith('#cu') || idStr.startsWith('cu-') || idStr.startsWith('cu') || idStr.startsWith('ord-cu') || idStr.includes('-cu-') || idStr.includes('caseup')) && (!ord.tenantId || isSameTenant(ord.tenantId, 'tenant-chaseup')));
+    (!ord.tenantId && !ord.companyId && (hasChaseUpItem || (idStr.startsWith('#cu') || idStr.startsWith('cu-') || idStr.startsWith('cu') || idStr.startsWith('ord-cu') || idStr.includes('-cu-') || idStr.includes('caseup'))));
 
   if (isExplicitChaseUp) {
     return {
