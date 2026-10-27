@@ -299,6 +299,19 @@ export const INITIAL_PICKUP_STAFF = [
     branchId: 'branch_um_fsd',
     branchName: 'Peoples Colony Dark Store',
     status: 'Active'
+  },
+  {
+    id: 'PCK-AYESHA',
+    name: 'Ayesha Khan',
+    username: 'ayesha',
+    email: 'ayesha@freshmart.pk',
+    password: 'staff123',
+    phone: '+92 345 9876543',
+    tenantId: 'tenant-freshmart',
+    tenantName: 'Unimaart (Market Store)',
+    branchId: 'branch_um_fsd',
+    branchName: 'Peoples Colony Dark Store',
+    status: 'Active'
   }
 ];
 

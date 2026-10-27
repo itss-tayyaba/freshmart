@@ -548,6 +548,248 @@ export const StoreProvider = ({ children }) => {
       time: 'Just now',
       createdAt: new Date().toISOString()
     },
+    // Screen-accurate FreshMart / Unimaart Orders for Peoples Colony Branch
+    {
+      id: '#FM1256',
+      orderId: '#FM1256',
+      tenantId: 'tenant-freshmart',
+      tenantName: 'FreshMart Direct',
+      branchId: 'branch_um_fsd',
+      branchName: 'Peoples Colony Dark Store',
+      customer: 'Sara Ali',
+      customerName: 'Sara Ali',
+      customerPhone: '+92 300 4567891',
+      phone: '+92 300 4567891',
+      orderType: 'Delivery',
+      status: 'Pending',
+      fulfillmentStage: 1,
+      pickupStep: 'assigned',
+      total: 1950,
+      totalAmount: 1950,
+      paymentMethod: 'Cash on Delivery',
+      paymentStatus: 'Pending',
+      time: '09:30 AM',
+      createdAt: new Date(Date.now() - 35 * 60000).toISOString(),
+      shippingAddress: {
+        address: 'House 14-B, Peoples Colony 1, Faisalabad',
+        city: 'Faisalabad'
+      },
+      address: 'House 14-B, Peoples Colony 1, Faisalabad',
+      city: 'Faisalabad',
+      items: [
+        { id: 'fm-item-1', name: 'Fresh Farm Spinach (Palak)', quantity: 2, price: 70, unit: '500g' },
+        { id: 'fm-item-2', name: 'Olpers Milk 1L', quantity: 2, price: 280, unit: '1L' },
+        { id: 'fm-item-3', name: 'Farm Fresh Brown Eggs (Dozen)', quantity: 1, price: 340, unit: '12 pcs' },
+        { id: 'fm-item-4', name: 'Dawn Whole Wheat Bread', quantity: 1, price: 180, unit: 'Large' },
+        { id: 'fm-item-5', name: 'Fresh Red Tomatoes 1kg', quantity: 2, price: 120, unit: '1kg' }
+      ]
+    },
+    {
+      id: '#FM1257',
+      orderId: '#FM1257',
+      tenantId: 'tenant-freshmart',
+      tenantName: 'FreshMart Direct',
+      branchId: 'branch_um_fsd',
+      branchName: 'Peoples Colony Dark Store',
+      customer: 'Usman Ahmed',
+      customerName: 'Usman Ahmed',
+      customerPhone: '+92 321 8899001',
+      phone: '+92 321 8899001',
+      orderType: 'Delivery',
+      status: 'Pending',
+      fulfillmentStage: 1,
+      pickupStep: 'assigned',
+      total: 3420,
+      totalAmount: 3420,
+      paymentMethod: 'Credit / Debit Card',
+      paymentStatus: 'Paid',
+      time: '09:45 AM',
+      createdAt: new Date(Date.now() - 28 * 60000).toISOString(),
+      shippingAddress: {
+        address: 'Street 9, D-Ground Commercial, Faisalabad',
+        city: 'Faisalabad'
+      },
+      address: 'Street 9, D-Ground Commercial, Faisalabad',
+      city: 'Faisalabad',
+      items: [
+        { id: 'fm-item-6', name: 'Dalda Cooking Oil 1L Pouch', quantity: 3, price: 540, unit: '1L' },
+        { id: 'fm-item-7', name: 'Nestle Everyday Powder 375g', quantity: 2, price: 420, unit: '375g' },
+        { id: 'fm-item-8', name: 'Tapal Danedar Tea 450g', quantity: 1, price: 680, unit: '450g' },
+        { id: 'fm-item-9', name: 'National Himalayan Pink Salt 800g', quantity: 2, price: 140, unit: '800g' }
+      ]
+    },
+    {
+      id: '#FM1258',
+      orderId: '#FM1258',
+      tenantId: 'tenant-freshmart',
+      tenantName: 'FreshMart Direct',
+      branchId: 'branch_um_fsd',
+      branchName: 'Peoples Colony Dark Store',
+      customer: 'Hina Batool',
+      customerName: 'Hina Batool',
+      customerPhone: '+92 333 4455667',
+      phone: '+92 333 4455667',
+      orderType: 'Delivery',
+      status: 'Pending',
+      fulfillmentStage: 1,
+      pickupStep: 'assigned',
+      total: 1250,
+      totalAmount: 1250,
+      paymentMethod: 'Cash on Delivery',
+      paymentStatus: 'Pending',
+      time: '10:00 AM',
+      createdAt: new Date(Date.now() - 20 * 60000).toISOString(),
+      shippingAddress: {
+        address: 'Corner Villa, Block C, Peoples Colony 2, Faisalabad',
+        city: 'Faisalabad'
+      },
+      address: 'Corner Villa, Block C, Peoples Colony 2, Faisalabad',
+      city: 'Faisalabad',
+      items: [
+        { id: 'fm-item-10', name: 'Lays French Cheese 65g', quantity: 2, price: 100, unit: '65g' },
+        { id: 'fm-item-11', name: 'Coca Cola 1.5L Bottle', quantity: 2, price: 190, unit: '1.5L' },
+        { id: 'fm-item-12', name: 'Oreo Double Stuf Biscuits', quantity: 1, price: 250, unit: 'Pack' }
+      ]
+    },
+    {
+      id: '#FM1259',
+      orderId: '#FM1259',
+      tenantId: 'tenant-freshmart',
+      tenantName: 'FreshMart Direct',
+      branchId: 'branch_um_fsd',
+      branchName: 'Peoples Colony Dark Store',
+      customer: 'Zain Abbas',
+      customerName: 'Zain Abbas',
+      customerPhone: '+92 345 1122334',
+      phone: '+92 345 1122334',
+      orderType: 'Delivery',
+      status: 'Pending',
+      fulfillmentStage: 1,
+      pickupStep: 'assigned',
+      total: 2890,
+      totalAmount: 2890,
+      paymentMethod: 'Cash on Delivery',
+      paymentStatus: 'Pending',
+      time: '10:15 AM',
+      createdAt: new Date(Date.now() - 14 * 60000).toISOString(),
+      shippingAddress: {
+        address: 'Sector 4, Canal Road Officers Colony, Faisalabad',
+        city: 'Faisalabad'
+      },
+      address: 'Sector 4, Canal Road Officers Colony, Faisalabad',
+      city: 'Faisalabad',
+      items: [
+        { id: 'fm-item-13', name: 'Basmati Rice Premium 5kg', quantity: 1, price: 1650, unit: '5kg' },
+        { id: 'fm-item-14', name: 'Shan Biryani Masala Double Pack', quantity: 2, price: 210, unit: 'Pack' },
+        { id: 'fm-item-15', name: 'Fresh Garlic & Ginger Paste', quantity: 1, price: 290, unit: '300g' }
+      ]
+    },
+    {
+      id: '#FM1260',
+      orderId: '#FM1260',
+      tenantId: 'tenant-freshmart',
+      tenantName: 'FreshMart Direct',
+      branchId: 'branch_um_fsd',
+      branchName: 'Peoples Colony Dark Store',
+      customer: 'Fatima Noor',
+      customerName: 'Fatima Noor',
+      customerPhone: '+92 312 9988776',
+      phone: '+92 312 9988776',
+      orderType: 'Delivery',
+      status: 'Pending',
+      fulfillmentStage: 1,
+      pickupStep: 'assigned',
+      total: 1840,
+      totalAmount: 1840,
+      paymentMethod: 'Credit / Debit Card',
+      paymentStatus: 'Paid',
+      time: '10:30 AM',
+      createdAt: new Date(Date.now() - 8 * 60000).toISOString(),
+      shippingAddress: {
+        address: 'House 55, Susan Road Commercial Area, Faisalabad',
+        city: 'Faisalabad'
+      },
+      address: 'House 55, Susan Road Commercial Area, Faisalabad',
+      city: 'Faisalabad',
+      items: [
+        { id: 'fm-item-16', name: 'Head & Shoulders Shampoo 360ml', quantity: 1, price: 890, unit: '360ml' },
+        { id: 'fm-item-17', name: 'Dettol Soap Original (Pack of 3)', quantity: 1, price: 420, unit: '3x100g' },
+        { id: 'fm-item-18', name: 'Surf Excel Quick Wash 1kg', quantity: 1, price: 530, unit: '1kg' }
+      ]
+    },
+    {
+      id: '#FM1248',
+      orderId: '#FM1248',
+      tenantId: 'tenant-freshmart',
+      tenantName: 'FreshMart Direct',
+      branchId: 'branch_um_fsd',
+      branchName: 'Peoples Colony Dark Store',
+      customer: 'Ahmed Raza',
+      customerName: 'Ahmed Raza',
+      customerPhone: '+92 300 1248000',
+      phone: '+92 300 1248000',
+      orderType: 'Delivery',
+      status: 'Prepared',
+      fulfillmentStage: 4,
+      pickupStep: 'verified',
+      isDispatchedByStaff: true,
+      total: 3150,
+      totalAmount: 3150,
+      paymentMethod: 'Cash on Delivery',
+      paymentStatus: 'Pending',
+      time: '09:10 AM',
+      createdAt: new Date(Date.now() - 50 * 60000).toISOString(),
+      shippingAddress: {
+        address: 'Street 45, Block E, DHA, Lahore',
+        city: 'Lahore'
+      },
+      address: 'Street 45, Block E, DHA, Lahore',
+      city: 'Lahore',
+      items: [
+        { id: 'fm-item-19', name: 'Fresh Farm Potatoes 5kg', quantity: 1, price: 450, unit: '5kg' },
+        { id: 'fm-item-20', name: 'Fresh Farm Onions 3kg', quantity: 1, price: 390, unit: '3kg' },
+        { id: 'fm-item-21', name: 'Olpers Milk 1L', quantity: 4, price: 280, unit: '1L' },
+        { id: 'fm-item-22', name: 'Nurpur Butter 200g', quantity: 2, price: 380, unit: '200g' },
+        { id: 'fm-item-23', name: 'Dawn Whole Wheat Bread', quantity: 1, price: 180, unit: 'Large' }
+      ]
+    },
+    {
+      id: '#FM1249',
+      orderId: '#FM1249',
+      tenantId: 'tenant-freshmart',
+      tenantName: 'FreshMart Direct',
+      branchId: 'branch_um_fsd',
+      branchName: 'Peoples Colony Dark Store',
+      customer: 'Maryam Iqbal',
+      customerName: 'Maryam Iqbal',
+      customerPhone: '+92 322 1249000',
+      phone: '+92 322 1249000',
+      orderType: 'Delivery',
+      status: 'Prepared',
+      fulfillmentStage: 4,
+      pickupStep: 'verified',
+      isDispatchedByStaff: true,
+      total: 2190,
+      totalAmount: 2190,
+      paymentMethod: 'Credit / Debit Card',
+      paymentStatus: 'Paid',
+      time: '09:20 AM',
+      createdAt: new Date(Date.now() - 42 * 60000).toISOString(),
+      shippingAddress: {
+        address: 'Johar Town, Lahore',
+        city: 'Lahore'
+      },
+      address: 'Johar Town, Lahore',
+      city: 'Lahore',
+      items: [
+        { id: 'fm-item-24', name: 'Mitchells Mixed Fruit Jam 450g', quantity: 1, price: 390, unit: '450g' },
+        { id: 'fm-item-25', name: 'Dawn Multi-Grain Bread', quantity: 1, price: 210, unit: 'Large' },
+        { id: 'fm-item-26', name: 'Farm Fresh Organic Eggs (Dozen)', quantity: 1, price: 380, unit: '12 pcs' },
+        { id: 'fm-item-27', name: 'Nestle Pure Life 1.5L (Case of 6)', quantity: 1, price: 620, unit: '6x1.5L' },
+        { id: 'fm-item-28', name: 'National Tomato Ketchup 800g', quantity: 1, price: 420, unit: '800g' },
+        { id: 'fm-item-29', name: 'Lipton Yellow Label Tea 200g', quantity: 1, price: 320, unit: '200g' }
+      ]
+    },
     {
       id: '#CV4092',
       orderId: '#CV4092',
@@ -2756,6 +2998,27 @@ export const StoreProvider = ({ children }) => {
           password: cleanPass,
           tenantId: 'tenant-alfatah',
           tenantName: 'Al-Fatah Supermarket',
+          branchId: 'branch_af_fsd',
+          branchName: 'D-Ground Flagship Hub',
+          role: 'pickup_staff',
+          status: 'Active'
+        };
+      }
+    }
+
+    // Special built-in check for Ayesha (Unimaart Pickup Staff)
+    if (!matchedPickupStaff && (cleanUser === 'ayesha' || cleanUser === 'ayesha_staff' || cleanUser.includes('ayesha'))) {
+      if (cleanPass === 'staff123' || cleanPass === 'ayesha123' || cleanPass === 'admin123' || cleanPass === 'pickup123') {
+        matchedPickupStaff = {
+          id: 'PCK-AYESHA',
+          name: 'Ayesha Khan',
+          username: 'ayesha',
+          email: 'ayesha@freshmart.pk',
+          password: cleanPass,
+          tenantId: 'tenant-freshmart',
+          tenantName: 'Unimaart (Market Store)',
+          branchId: 'branch_um_fsd',
+          branchName: 'Peoples Colony Dark Store',
           role: 'pickup_staff',
           status: 'Active'
         };
