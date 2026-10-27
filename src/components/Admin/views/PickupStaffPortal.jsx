@@ -34,6 +34,7 @@ import { useStore } from '../../../context/StoreContext';
 import { resolveTenantId, isSameTenant, BRANCHES } from '../../../data/companyHierarchyData';
 import { isOrderAssignedToPickupStaff, isPickupOrderAssigned } from '../../../utils/pickupStaffAssignment';
 import { isOrderVisibleToUser, normalizeOrderTenantId } from '../../../utils/orderScope';
+import { sanitizeOrder } from '../../../utils/orderSanitizer';
 import { apiService } from '../../../services/api';
 
 // Helper: category/grocery item icon
@@ -105,7 +106,10 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
 
   const staffBranchId = useMemo(() => {
     if (user?.branchId && user.branchId !== 'all') return user.branchId;
-    if (currentBranch?._id || currentBranch?.id) return currentBranch._id || currentBranch.id;
+    if (currentBranch && isSameTenant(currentBranch.tenantId, staffTenantId)) {
+      const bId = currentBranch._id || currentBranch.id;
+      if (bId && bId !== 'all') return bId;
+    }
     if (isSameTenant(staffTenantId, 'company_001')) return 'branch_af_fsd';
     if (isSameTenant(staffTenantId, 'company_002')) return 'branch_006';
     if (isSameTenant(staffTenantId, 'company_003')) return 'branch_cv_fsd';
@@ -119,25 +123,25 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     return {
       _id: staffBranchId,
       id: staffBranchId,
-      name: user?.branchName || 'Peoples Colony Dark Store',
+      name: user?.branchName || (isSameTenant(staffTenantId, 'company_004') ? 'Peoples Colony Dark Store' : 'Main SuperHub'),
       city: 'Faisalabad',
       address: 'D-Ground Commercial Center, Peoples Colony 1, Faisalabad'
     };
-  }, [allBranches, staffBranchId, user?.branchName]);
+  }, [allBranches, staffBranchId, user?.branchName, staffTenantId]);
 
   const storeBrandName = useMemo(() => {
     if (isSameTenant(staffTenantId, 'company_001')) return 'Al-Fatah';
     if (isSameTenant(staffTenantId, 'company_002')) return 'Chase Up';
     if (isSameTenant(staffTenantId, 'company_003')) return 'Chase Value';
-    return 'FreshMart';
+    return 'Unimaart';
   }, [staffTenantId]);
 
-  const staffName = user?.name || 'Ayesha Khan';
-  const staffFirstName = staffName.split(' ')[0] || 'Ayesha';
+  const staffName = user?.name || (isSameTenant(staffTenantId, 'company_004') ? 'Unimaart Packing Desk' : 'Packing Staff');
+  const staffFirstName = staffName.split(' ')[0] || staffName;
 
   // 2. Strict Branch & Tenant Scoped Order Feed
   const branchOrders = useMemo(() => {
-    const combined = [...(customerOrders || []), ...(adminOrders || [])];
+    const combined = [...(customerOrders || []), ...(adminOrders || [])].map(sanitizeOrder);
     const uniqueMap = new Map();
 
     combined.forEach((ord) => {
@@ -156,34 +160,65 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       const ordTenant = normalizeOrderTenantId(ord);
       if (!isSameTenant(ordTenant, staffTenantId)) return false;
 
-      // Must strictly match respective branch
+      // 1. Direct Assignment Bypass:
+      // If store admin assigned this order directly to this staff member (or packing desk), ALWAYS show it!
+      if (isOrderAssignedToPickupStaff(ord, user)) return true;
+
+      // 2. If user is Store Admin / Super Admin previewing the portal, show all tenant orders
+      if (user?.role === 'admin' || user?.role === 'superadmin') return true;
+
+      // 3. If assigned to a DIFFERENT staff member at this store, only they see it
+      const currentStaffId = String(user?.id || user?.staffId || user?._id || '').toLowerCase().trim();
+      const ordStaffId = String(ord.pickupStaffId || '').toLowerCase().trim();
+      if (ordStaffId && currentStaffId && ordStaffId !== currentStaffId) {
+        return false;
+      }
+
+      // 4. For unassigned orders: match branch
       const ordBranch = ord.branchId;
-      if (ordBranch && ordBranch !== staffBranchId) return false;
+      if (ordBranch && ordBranch !== 'all' && staffBranchId && staffBranchId !== 'all') {
+        if (ordBranch !== staffBranchId) return false;
+      }
 
       return true;
     }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-  }, [customerOrders, adminOrders, staffTenantId, staffBranchId]);
+  }, [customerOrders, adminOrders, staffTenantId, staffBranchId, user]);
 
   // Order category groupings
   const isPendingStatus = (s = '') => {
-    const lower = String(s || '').toLowerCase();
-    return ['pending', 'pending_kitchen', 'order placed', 'received by pickup staff', 'deliver to staff', 'delivered to staff', 'to pack'].includes(lower) || !s;
+    const lower = String(s || '').toLowerCase().trim();
+    return [
+      'pending',
+      'pending_kitchen',
+      'order placed',
+      'received by pickup staff',
+      'deliver to staff',
+      'delivered to staff',
+      'to pack',
+      'picking',
+      'received',
+      'assigned',
+      'processing'
+    ].includes(lower) || !s;
   };
   const isPackingStatus = (s = '') => {
-    const lower = String(s || '').toLowerCase();
+    const lower = String(s || '').toLowerCase().trim();
     return ['preparing', 'processing', 'picking', 'packed'].includes(lower);
   };
   const isReadyStatus = (o) => {
-    const lower = String(o?.status || '').toLowerCase();
+    const lower = String(o?.status || '').toLowerCase().trim();
     return ['prepared', 'ready', 'ready for dispatch', 'ready(dispatched)'].includes(lower) || o?.isDispatchedByStaff;
   };
   const isDispatchedStatus = (o) => {
-    const lower = String(o?.status || '').toLowerCase();
+    const lower = String(o?.status || '').toLowerCase().trim();
     return ['dispatched', 'out for delivery', 'delivered'].includes(lower) || o?.isDispatched;
   };
 
   const assignedOrders = useMemo(() => {
-    return branchOrders.filter((o) => isPendingStatus(o.status) || (o.status || '').toLowerCase() === 'preparing');
+    return branchOrders.filter((o) => {
+      if (isReadyStatus(o) || isDispatchedStatus(o) || (o.status || '').toLowerCase() === 'packed') return false;
+      return isPendingStatus(o.status) || (o.status || '').toLowerCase() === 'preparing' || (o.status || '').toLowerCase() === 'picking';
+    });
   }, [branchOrders]);
 
   const packedOrders = useMemo(() => {
@@ -673,7 +708,13 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                     {displayAssignedOrders.map((ord) => {
                       const orderId = ord.id || ord.orderId;
                       const customer = ord.customerName || ord.customer || 'Customer';
-                      const itemsCount = Array.isArray(ord.items) ? ord.items.length : (ord.itemsCount || 8);
+                      const itemsCount = Array.isArray(ord.items) && ord.items.length > 0 && typeof ord.items[0] === 'object'
+                        ? ord.items.length
+                        : Array.isArray(ord.orderItems) && ord.orderItems.length > 0
+                        ? ord.orderItems.length
+                        : Array.isArray(ord.rawItems) && ord.rawItems.length > 0
+                        ? ord.rawItems.length
+                        : (ord.itemsCount || 1);
                       const time = ord.time || (ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '09:30 AM');
 
                       return (
@@ -1099,7 +1140,13 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             {/* Picking Progress Bar */}
             {(() => {
               const orderId = selectedOrderForPacking.id || selectedOrderForPacking.orderId;
-              const items = Array.isArray(selectedOrderForPacking.items) ? selectedOrderForPacking.items : [];
+              const items = Array.isArray(selectedOrderForPacking.items) && selectedOrderForPacking.items.length > 0 && typeof selectedOrderForPacking.items[0] === 'object'
+                ? selectedOrderForPacking.items
+                : Array.isArray(selectedOrderForPacking.orderItems) && selectedOrderForPacking.orderItems.length > 0
+                ? selectedOrderForPacking.orderItems
+                : Array.isArray(selectedOrderForPacking.rawItems) && selectedOrderForPacking.rawItems.length > 0
+                ? selectedOrderForPacking.rawItems
+                : [{ name: typeof selectedOrderForPacking.items === 'string' ? selectedOrderForPacking.items : 'Grocery Item', quantity: 1 }];
               const pickedList = pickedState[orderId] || [];
               const pickPercent = items.length > 0 ? Math.round((pickedList.length / items.length) * 100) : 100;
               const isAllPicked = pickedList.length === items.length && items.length > 0;

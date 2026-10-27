@@ -451,4 +451,33 @@ test('Pickup Staff Management & "Deliver to Staff" Workflow', async (t) => {
     assert.equal(countPickupStaffTasks('PCK-HAFSA', orders), 1);
     assert.equal(pickLeastBusyPickupStaff(staff, orders).id, 'PCK-HAFSA');
   });
+
+  await t.test('13. Unimaart pickup staff sees orders assigned to Unimaart packing desk even with differing branch', async () => {
+    const { isOrderAssignedToPickupStaff } = await import('../src/utils/pickupStaffAssignment.js');
+    const { isOrderVisibleToUser } = await import('../src/utils/orderScope.js');
+
+    const unimartStaffUser = {
+      id: 'PCK-UNIMAART',
+      username: 'unimart_staff',
+      name: 'Unimaart Packing Desk',
+      role: 'pickup_staff',
+      tenantId: 'tenant-freshmart',
+      branchId: 'branch_um_fsd'
+    };
+
+    const assignedOrder = {
+      id: '#FM83459',
+      orderId: '#FM83459',
+      tenantId: 'tenant-freshmart',
+      branchId: 'branch_010', // Branch difference should not block direct staff assignment
+      pickupStaffId: 'PCK-UNIMAART',
+      pickupStaffName: 'Unimaart Packing Desk',
+      pickupStaffUsername: 'unimart_staff',
+      status: 'Deliver to Staff'
+    };
+
+    assert.equal(isOrderAssignedToPickupStaff(assignedOrder, unimartStaffUser), true);
+    assert.equal(isOrderVisibleToUser(assignedOrder, unimartStaffUser), true);
+  });
 });
+

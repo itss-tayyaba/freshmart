@@ -1,5 +1,2186 @@
 [
   {
+    "id": "ORD-REAL-101",
+    "orderId": "ORD-REAL-101",
+    "customerName": "Sana Malik",
+    "address": "House 18, Block G, Johar Town, Lahore",
+    "city": "Lahore, Pakistan",
+    "status": "Out for Delivery",
+    "fulfillmentStage": 3,
+    "assignedRider": {
+      "id": "RDR-501",
+      "riderId": "RDR-501",
+      "name": "Hamza Farooq",
+      "phone": "+92 302 9876543",
+      "vehicle": "Yamaha YBR 125",
+      "vehicleType": "🏍️ Honda 125",
+      "vehicleNumber": "LEK-0000",
+      "zone": "Lahore Hub",
+      "rating": 5,
+      "coordinates": {
+        "lat": 31.48,
+        "lng": 74.29
+      },
+      "coverageRadiusKm": 25,
+      "currentLat": 31.48,
+      "currentLng": 74.29,
+      "assignedAt": "2026-10-27T10:38:51.714Z",
+      "status": "On-Duty",
+      "eta": "7 mins",
+      "etaMinutes": 22
+    },
+    "deliveryOtp": "8161",
+    "isDispatched": true,
+    "dispatchStatus": "Out for Delivery",
+    "statusClass": "bg-amber-100 text-amber-800",
+    "destinationCoords": {
+      "lat": 31.4697,
+      "lng": 74.2728
+    },
+    "distanceKm": 2,
+    "eta": "7 mins",
+    "etaMinutes": 22,
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:38 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "03:42 PM",
+        "completed": true,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "ETA: 7 mins",
+        "completed": true,
+        "desc": "Assigned to courier Hamza Farooq (Yamaha YBR 125). GPS tracking live."
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "Pending",
+        "completed": false,
+        "desc": "Contactless handover at House 18, Block G, Johar Town, Lahore"
+      }
+    ]
+  },
+  {
+    "id": "#AF-TEST-9002",
+    "orderId": "#AF-TEST-9002",
+    "tenantId": "tenant-alfatah",
+    "tenantName": "Al-Fatah Supermarket",
+    "branchId": "branch_001",
+    "branchName": "DHA Lahore",
+    "customerId": "CUST-GUEST",
+    "customer": "Zainab Bibi",
+    "customerName": "Zainab Bibi",
+    "customerPhone": "+92 300 7788990",
+    "address": "Sector Y, Phase 3, DHA Lahore",
+    "city": "Lahore",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "Sector Y, Phase 3, DHA Lahore",
+      "city": "Lahore",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.4826,
+      "lng": 74.4074
+    },
+    "hubCoords": {
+      "lat": 31.4697,
+      "lng": 74.4082
+    },
+    "distanceKm": 1.4,
+    "eta": "5 mins (Upon dispatch)",
+    "etaMinutes": 5,
+    "orderItems": [
+      {
+        "name": "Borges Extra Virgin Olive Oil 1L",
+        "price": 2950,
+        "quantity": 1,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Borges Extra Virgin Olive Oil 1L",
+        "price": 2950,
+        "quantity": 1,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 2950,
+    "totalPrice": 2950,
+    "totalAmount": 2950,
+    "subtotal": 2950,
+    "itemsPrice": 2950,
+    "deliveryPrice": 0,
+    "deliveryCharges": 0,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Pending",
+    "statusClass": "bg-amber-100 text-amber-800",
+    "payment": "Credit / Debit Card",
+    "paymentMethod": "Credit / Debit Card",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:38:51.310Z",
+    "assignedRider": null,
+    "deliveryOtp": "1460",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:38 PM",
+        "completed": true,
+        "desc": "Payment method: Credit / Debit Card"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "In Progress",
+        "completed": false,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Awaiting Assignment",
+        "completed": false,
+        "desc": "Dispatch team is reviewing address to assign fleet rider"
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "Pending",
+        "completed": false,
+        "desc": "Contactless handover at Sector Y, Phase 3, DHA Lahore"
+      }
+    ]
+  },
+  {
+    "id": "#CV-TEST-9001",
+    "orderId": "#CV-TEST-9001",
+    "tenantId": "tenant-chasevalue",
+    "tenantName": "Chase Value",
+    "branchId": "branch_cv_fsd",
+    "branchName": "Wholesale Express Hub",
+    "customerId": "CUST-GUEST",
+    "customer": "Kashif Ali",
+    "customerName": "Kashif Ali",
+    "customerPhone": "+92 321 4455667",
+    "address": "Jaranwala Road, Near Peoples Colony, Faisalabad",
+    "city": "Faisalabad",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "Jaranwala Road, Near Peoples Colony, Faisalabad",
+      "city": "Faisalabad",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.4504,
+      "lng": 73.135
+    },
+    "hubCoords": {
+      "lat": 31.436,
+      "lng": 73.1795
+    },
+    "distanceKm": 4.5,
+    "eta": "13 mins (Upon dispatch)",
+    "etaMinutes": 13,
+    "orderItems": [
+      {
+        "name": "Chakki Atta 10kg",
+        "price": 1250,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Chakki Atta 10kg",
+        "price": 1250,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 2500,
+    "totalPrice": 2500,
+    "totalAmount": 2500,
+    "subtotal": 2500,
+    "itemsPrice": 2500,
+    "deliveryPrice": 0,
+    "deliveryCharges": 0,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Pending",
+    "statusClass": "bg-amber-100 text-amber-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:38:51.227Z",
+    "assignedRider": null,
+    "deliveryOtp": "2889",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:38 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "In Progress",
+        "completed": false,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Awaiting Assignment",
+        "completed": false,
+        "desc": "Dispatch team is reviewing address to assign fleet rider"
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "Pending",
+        "completed": false,
+        "desc": "Contactless handover at Jaranwala Road, Near Peoples Colony, Faisalabad"
+      }
+    ]
+  },
+  {
+    "id": "#FM-STAGE-TEST-5968",
+    "orderId": "#FM-STAGE-TEST-5968",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart",
+    "branchId": "branch_010",
+    "branchName": "Gulberg SuperHub",
+    "customerId": "CUST-GUEST",
+    "customer": "Tayyaba Batool",
+    "customerName": "Tayyaba Batool",
+    "customerPhone": "+92 320 6551696",
+    "address": "House 55, Block B, Gulberg 3, Lahore",
+    "city": "Lahore, Pakistan",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "House 55, Block B, Gulberg 3, Lahore",
+      "city": "Lahore, Pakistan",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.5204,
+      "lng": 74.3587
+    },
+    "hubCoords": {
+      "lat": 31.5126,
+      "lng": 74.3436
+    },
+    "distanceKm": 1.4,
+    "eta": "5 mins",
+    "etaMinutes": 5,
+    "orderItems": [
+      {
+        "name": "Fresh Milk 1L",
+        "price": 210,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Fresh Milk 1L",
+        "price": 210,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 420,
+    "totalPrice": 420,
+    "totalAmount": 420,
+    "subtotal": 420,
+    "itemsPrice": 420,
+    "deliveryPrice": 100,
+    "deliveryCharges": 100,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Delivered",
+    "statusClass": "bg-emerald-100 text-emerald-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:38:50.951Z",
+    "assignedRider": {
+      "id": "RDR-101",
+      "riderId": "RDR-101",
+      "name": "Assigned Courier",
+      "phone": "+92 300 0000000",
+      "vehicle": "Motorbike",
+      "vehicleType": "🏍️ Honda 125",
+      "vehicleNumber": "LEK-0000",
+      "zone": "Lahore Hub",
+      "rating": 5,
+      "coordinates": {
+        "lat": 31.515,
+        "lng": 74.345
+      },
+      "coverageRadiusKm": 25,
+      "currentLat": 31.515,
+      "currentLng": 74.345,
+      "assignedAt": "2026-10-27T10:38:50.958Z",
+      "status": "On-Duty",
+      "eta": "5 mins",
+      "etaMinutes": 5
+    },
+    "deliveryOtp": "2034",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:38 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "03:42 PM",
+        "completed": true,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Completed",
+        "completed": true,
+        "desc": "Assigned to courier Assigned Courier (Motorbike). GPS tracking live."
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "03:56 PM",
+        "completed": true,
+        "desc": "Contactless handover at House 55, Block B, Gulberg 3, Lahore"
+      }
+    ],
+    "fulfillmentStage": 4,
+    "isDispatched": true,
+    "dispatchStatus": "Out for Delivery",
+    "isDelivered": true,
+    "paymentStatus": "Paid",
+    "paymentCollected": true,
+    "deliveredAt": "2026-10-27T10:38:50.972Z"
+  },
+  {
+    "id": "#FM-ASSIGN-2031",
+    "orderId": "#FM-ASSIGN-2031",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart",
+    "branchId": "branch_010",
+    "branchName": "Gulberg SuperHub",
+    "customerId": "CUST-GUEST",
+    "customer": "Ahmad Raza",
+    "customerName": "Ahmad Raza",
+    "customerPhone": "+92 300 1122334",
+    "address": "Gulberg 3, Lahore",
+    "city": "Lahore",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "Gulberg 3, Lahore",
+      "city": "Lahore",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.5204,
+      "lng": 74.3587
+    },
+    "hubCoords": {
+      "lat": 31.5126,
+      "lng": 74.3436
+    },
+    "distanceKm": 1.4,
+    "eta": "5 mins",
+    "etaMinutes": 5,
+    "orderItems": [
+      {
+        "name": "Brown Bread",
+        "price": 150,
+        "quantity": 1,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Brown Bread",
+        "price": 150,
+        "quantity": 1,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 150,
+    "totalPrice": 150,
+    "totalAmount": 150,
+    "subtotal": 150,
+    "itemsPrice": 150,
+    "deliveryPrice": 100,
+    "deliveryCharges": 100,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Out for Delivery",
+    "statusClass": "bg-amber-100 text-amber-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:38:50.930Z",
+    "assignedRider": {
+      "id": "RDR-101",
+      "riderId": "RDR-101",
+      "name": "Assigned Courier",
+      "phone": "+92 300 0000000",
+      "vehicle": "Motorbike",
+      "vehicleType": "🏍️ Honda 125",
+      "vehicleNumber": "LEK-0000",
+      "zone": "Lahore Hub",
+      "rating": 5,
+      "coordinates": {
+        "lat": 31.515,
+        "lng": 74.345
+      },
+      "coverageRadiusKm": 25,
+      "currentLat": 31.515,
+      "currentLng": 74.345,
+      "assignedAt": "2026-10-27T10:38:50.943Z",
+      "status": "On-Duty",
+      "eta": "5 mins",
+      "etaMinutes": 5
+    },
+    "deliveryOtp": "9920",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:38 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "03:42 PM",
+        "completed": true,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "ETA: 5 mins",
+        "completed": true,
+        "desc": "Assigned to courier Assigned Courier (Motorbike). GPS tracking live."
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "Pending",
+        "completed": false,
+        "desc": "Contactless handover at Gulberg 3, Lahore"
+      }
+    ],
+    "fulfillmentStage": 3,
+    "isDispatched": true,
+    "dispatchStatus": "Out for Delivery"
+  },
+  {
+    "id": "#FM-ADMIN-SYNC-4663",
+    "orderId": "#FM-ADMIN-SYNC-4663",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart",
+    "branchId": "branch_um_fsd",
+    "branchName": "Peoples Colony Dark Store",
+    "customerId": "CUST-GUEST",
+    "customer": "Tayyaba Batool",
+    "customerName": "Tayyaba Batool",
+    "customerPhone": "+92 320 6551696",
+    "address": "Peoples Colony 1, Faisalabad",
+    "city": "Faisalabad",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "Peoples Colony 1, Faisalabad",
+      "city": "Faisalabad",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.4504,
+      "lng": 73.135
+    },
+    "hubCoords": {
+      "lat": 31.4015,
+      "lng": 73.083
+    },
+    "distanceKm": 7.3,
+    "eta": "20 mins (Upon dispatch)",
+    "etaMinutes": 20,
+    "orderItems": [
+      {
+        "name": "Farm Fresh Milk",
+        "price": 220,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Farm Fresh Milk",
+        "price": 220,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 440,
+    "totalPrice": 440,
+    "totalAmount": 440,
+    "subtotal": 440,
+    "itemsPrice": 440,
+    "deliveryPrice": 100,
+    "deliveryCharges": 100,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Delivered",
+    "statusClass": "bg-emerald-100 text-emerald-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:38:50.882Z",
+    "assignedRider": null,
+    "deliveryOtp": "5821",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:38 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "In Progress",
+        "completed": false,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Awaiting Assignment",
+        "completed": false,
+        "desc": "Dispatch team is reviewing address to assign fleet rider"
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "03:56 PM",
+        "completed": true,
+        "desc": "Contactless handover at Peoples Colony 1, Faisalabad"
+      }
+    ],
+    "fulfillmentStage": 4,
+    "isDelivered": true,
+    "paymentStatus": "Paid",
+    "paymentCollected": true,
+    "deliveredAt": "2026-10-27T10:38:50.896Z"
+  },
+  {
+    "id": "FM-LIVE-3396",
+    "orderId": "#FM-LIVE-3396",
+    "status": "Delivered",
+    "deliveryOtp": "4896",
+    "paymentStatus": "Paid",
+    "totalPrice": 1200,
+    "fulfillmentStage": 4,
+    "isDelivered": true,
+    "statusClass": "bg-emerald-100 text-emerald-800",
+    "paymentCollected": true,
+    "deliveredAt": "2026-10-27T10:38:50.874Z",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:38 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "In Progress",
+        "completed": false,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Awaiting Assignment",
+        "completed": false,
+        "desc": "Dispatch team is reviewing address to assign fleet rider"
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "03:56 PM",
+        "completed": true,
+        "desc": "Contactless handover at Delivery Address"
+      }
+    ]
+  },
+  {
+    "id": "#FM-OTP-DEMO-4820",
+    "orderId": "#FM-OTP-DEMO-4820",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart",
+    "branchId": "branch_010",
+    "branchName": "Gulberg SuperHub",
+    "customerId": "CUST-GUEST",
+    "customer": "Bilal Ahmed",
+    "customerName": "Bilal Ahmed",
+    "customerPhone": "+92 333 4455667",
+    "address": "House 19, Model Town",
+    "city": "Lahore, Pakistan",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "House 19, Model Town",
+      "city": "Lahore, Pakistan",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.5204,
+      "lng": 74.3587
+    },
+    "hubCoords": {
+      "lat": 31.5126,
+      "lng": 74.3436
+    },
+    "distanceKm": 1.7,
+    "eta": "6 mins (Upon dispatch)",
+    "etaMinutes": 6,
+    "orderItems": [
+      {
+        "name": "Lays Masala 65g",
+        "price": 100,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Lays Masala 65g",
+        "price": 100,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 200,
+    "totalPrice": 200,
+    "totalAmount": 200,
+    "subtotal": 200,
+    "itemsPrice": 200,
+    "deliveryPrice": 100,
+    "deliveryCharges": 100,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Delivered",
+    "statusClass": "bg-emerald-100 text-emerald-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:38:50.859Z",
+    "assignedRider": null,
+    "deliveryOtp": "9999",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:38 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "In Progress",
+        "completed": false,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Awaiting Assignment",
+        "completed": false,
+        "desc": "Dispatch team is reviewing address to assign fleet rider"
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "03:56 PM",
+        "completed": true,
+        "desc": "Contactless handover at House 19, Model Town"
+      }
+    ],
+    "fulfillmentStage": 4,
+    "isDelivered": true,
+    "paymentStatus": "Paid",
+    "paymentCollected": true,
+    "deliveredAt": "2026-10-27T10:38:50.867Z"
+  },
+  {
+    "id": "#FM-OTP-TEST-6017",
+    "orderId": "#FM-OTP-TEST-6017",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart",
+    "branchId": "branch_010",
+    "branchName": "Gulberg SuperHub",
+    "customerId": "CUST-GUEST",
+    "customer": "Zainab Tariq",
+    "customerName": "Zainab Tariq",
+    "customerPhone": "+92 321 1122334",
+    "address": "Apartment 3A, Gulberg Heights",
+    "city": "Lahore, Pakistan",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "Apartment 3A, Gulberg Heights",
+      "city": "Lahore, Pakistan",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.5204,
+      "lng": 74.3587
+    },
+    "hubCoords": {
+      "lat": 31.5126,
+      "lng": 74.3436
+    },
+    "distanceKm": 1.4,
+    "eta": "5 mins",
+    "etaMinutes": 5,
+    "orderItems": [
+      {
+        "name": "Red Apples 1kg",
+        "price": 299,
+        "quantity": 1,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Red Apples 1kg",
+        "price": 299,
+        "quantity": 1,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 299,
+    "totalPrice": 299,
+    "totalAmount": 299,
+    "subtotal": 299,
+    "itemsPrice": 299,
+    "deliveryPrice": 100,
+    "deliveryCharges": 100,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Delivered",
+    "statusClass": "bg-emerald-100 text-emerald-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:38:50.831Z",
+    "assignedRider": {
+      "id": "RDR-101",
+      "riderId": "RDR-101",
+      "name": "Ali Khan",
+      "phone": "+92 300 1122334",
+      "vehicle": "Motorbike",
+      "vehicleType": "🏍️ Honda 125",
+      "vehicleNumber": "LEK-0000",
+      "zone": "Lahore Hub",
+      "rating": 5,
+      "coordinates": {
+        "lat": 31.515,
+        "lng": 74.345
+      },
+      "coverageRadiusKm": 25,
+      "currentLat": 31.515,
+      "currentLng": 74.345,
+      "assignedAt": "2026-10-27T10:38:50.840Z",
+      "status": "On-Duty",
+      "eta": "5 mins",
+      "etaMinutes": 5
+    },
+    "deliveryOtp": "7429",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:38 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "03:42 PM",
+        "completed": true,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Completed",
+        "completed": true,
+        "desc": "Assigned to courier Ali Khan (Motorbike). GPS tracking live."
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "03:56 PM",
+        "completed": true,
+        "desc": "Contactless handover at Apartment 3A, Gulberg Heights"
+      }
+    ],
+    "fulfillmentStage": 4,
+    "isDispatched": true,
+    "dispatchStatus": "Out for Delivery",
+    "isDelivered": true,
+    "paymentStatus": "Paid",
+    "paymentCollected": true,
+    "deliveredAt": "2026-10-27T10:38:50.851Z"
+  },
+  {
+    "id": "#FM-OTP-1001",
+    "orderId": "#FM-OTP-1001",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart",
+    "branchId": "branch_011",
+    "branchName": "DHA Phase 6 Express",
+    "customerId": "CUST-GUEST",
+    "customer": "Fatima Noor",
+    "customerName": "Fatima Noor",
+    "customerPhone": "+92 300 9988776",
+    "address": "House 55, Street 8, Sector Y, DHA Phase 3",
+    "city": "Lahore, Pakistan",
+    "deliverySlot": "⚡ 10-Min Flash Express",
+    "shippingAddress": {
+      "address": "House 55, Street 8, Sector Y, DHA Phase 3",
+      "city": "Lahore, Pakistan",
+      "deliverySlot": "⚡ 10-Min Flash Express"
+    },
+    "destinationCoords": {
+      "lat": 31.4826,
+      "lng": 74.4074
+    },
+    "hubCoords": {
+      "lat": 31.4722,
+      "lng": 74.4444
+    },
+    "distanceKm": 3.7,
+    "eta": "11 mins (Upon dispatch)",
+    "etaMinutes": 11,
+    "orderItems": [
+      {
+        "name": "Fresh Farm Milk 1L",
+        "price": 240,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      },
+      {
+        "name": "Organic Farm Eggs (12-pack)",
+        "price": 340,
+        "quantity": 1,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Fresh Farm Milk 1L",
+        "price": 240,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      },
+      {
+        "name": "Organic Farm Eggs (12-pack)",
+        "price": 340,
+        "quantity": 1,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "2 Items",
+    "total": 820,
+    "totalPrice": 820,
+    "totalAmount": 820,
+    "subtotal": 820,
+    "itemsPrice": 820,
+    "deliveryPrice": 100,
+    "deliveryCharges": 100,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Pending",
+    "statusClass": "bg-amber-100 text-amber-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:38:50.770Z",
+    "assignedRider": null,
+    "deliveryOtp": "7479",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:38 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "In Progress",
+        "completed": false,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Awaiting Assignment",
+        "completed": false,
+        "desc": "Dispatch team is reviewing address to assign fleet rider"
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "Pending",
+        "completed": false,
+        "desc": "Contactless handover at House 55, Street 8, Sector Y, DHA Phase 3"
+      }
+    ]
+  },
+  {
+    "id": "#FM-STAGE-TEST-5496",
+    "orderId": "#FM-STAGE-TEST-5496",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart",
+    "branchId": "branch_010",
+    "branchName": "Gulberg SuperHub",
+    "customerId": "CUST-GUEST",
+    "customer": "Tayyaba Batool",
+    "customerName": "Tayyaba Batool",
+    "customerPhone": "+92 320 6551696",
+    "address": "House 55, Block B, Gulberg 3, Lahore",
+    "city": "Lahore, Pakistan",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "House 55, Block B, Gulberg 3, Lahore",
+      "city": "Lahore, Pakistan",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.5204,
+      "lng": 74.3587
+    },
+    "hubCoords": {
+      "lat": 31.5126,
+      "lng": 74.3436
+    },
+    "distanceKm": 1.4,
+    "eta": "5 mins",
+    "etaMinutes": 5,
+    "orderItems": [
+      {
+        "name": "Fresh Milk 1L",
+        "price": 210,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Fresh Milk 1L",
+        "price": 210,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 420,
+    "totalPrice": 420,
+    "totalAmount": 420,
+    "subtotal": 420,
+    "itemsPrice": 420,
+    "deliveryPrice": 100,
+    "deliveryCharges": 100,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Delivered",
+    "statusClass": "bg-emerald-100 text-emerald-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:38:09.104Z",
+    "assignedRider": {
+      "id": "RDR-101",
+      "riderId": "RDR-101",
+      "name": "Assigned Courier",
+      "phone": "+92 300 0000000",
+      "vehicle": "Motorbike",
+      "vehicleType": "🏍️ Honda 125",
+      "vehicleNumber": "LEK-0000",
+      "zone": "Lahore Hub",
+      "rating": 5,
+      "coordinates": {
+        "lat": 31.515,
+        "lng": 74.345
+      },
+      "coverageRadiusKm": 25,
+      "currentLat": 31.515,
+      "currentLng": 74.345,
+      "assignedAt": "2026-10-27T10:38:09.108Z",
+      "status": "On-Duty",
+      "eta": "5 mins",
+      "etaMinutes": 5
+    },
+    "deliveryOtp": "8335",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:38 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "03:42 PM",
+        "completed": true,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Completed",
+        "completed": true,
+        "desc": "Assigned to courier Assigned Courier (Motorbike). GPS tracking live."
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "03:56 PM",
+        "completed": true,
+        "desc": "Contactless handover at House 55, Block B, Gulberg 3, Lahore"
+      }
+    ],
+    "fulfillmentStage": 4,
+    "isDispatched": true,
+    "dispatchStatus": "Out for Delivery",
+    "isDelivered": true,
+    "paymentStatus": "Paid",
+    "paymentCollected": true,
+    "deliveredAt": "2026-10-27T10:38:09.113Z"
+  },
+  {
+    "id": "#FM-ASSIGN-1286",
+    "orderId": "#FM-ASSIGN-1286",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart",
+    "branchId": "branch_010",
+    "branchName": "Gulberg SuperHub",
+    "customerId": "CUST-GUEST",
+    "customer": "Ahmad Raza",
+    "customerName": "Ahmad Raza",
+    "customerPhone": "+92 300 1122334",
+    "address": "Gulberg 3, Lahore",
+    "city": "Lahore",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "Gulberg 3, Lahore",
+      "city": "Lahore",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.5204,
+      "lng": 74.3587
+    },
+    "hubCoords": {
+      "lat": 31.5126,
+      "lng": 74.3436
+    },
+    "distanceKm": 1.4,
+    "eta": "5 mins",
+    "etaMinutes": 5,
+    "orderItems": [
+      {
+        "name": "Brown Bread",
+        "price": 150,
+        "quantity": 1,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Brown Bread",
+        "price": 150,
+        "quantity": 1,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 150,
+    "totalPrice": 150,
+    "totalAmount": 150,
+    "subtotal": 150,
+    "itemsPrice": 150,
+    "deliveryPrice": 100,
+    "deliveryCharges": 100,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Out for Delivery",
+    "statusClass": "bg-amber-100 text-amber-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:38:09.090Z",
+    "assignedRider": {
+      "id": "RDR-101",
+      "riderId": "RDR-101",
+      "name": "Assigned Courier",
+      "phone": "+92 300 0000000",
+      "vehicle": "Motorbike",
+      "vehicleType": "🏍️ Honda 125",
+      "vehicleNumber": "LEK-0000",
+      "zone": "Lahore Hub",
+      "rating": 5,
+      "coordinates": {
+        "lat": 31.515,
+        "lng": 74.345
+      },
+      "coverageRadiusKm": 25,
+      "currentLat": 31.515,
+      "currentLng": 74.345,
+      "assignedAt": "2026-10-27T10:38:09.097Z",
+      "status": "On-Duty",
+      "eta": "5 mins",
+      "etaMinutes": 5
+    },
+    "deliveryOtp": "4005",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:38 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "03:42 PM",
+        "completed": true,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "ETA: 5 mins",
+        "completed": true,
+        "desc": "Assigned to courier Assigned Courier (Motorbike). GPS tracking live."
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "Pending",
+        "completed": false,
+        "desc": "Contactless handover at Gulberg 3, Lahore"
+      }
+    ],
+    "fulfillmentStage": 3,
+    "isDispatched": true,
+    "dispatchStatus": "Out for Delivery"
+  },
+  {
+    "id": "#FM-ADMIN-SYNC-1401",
+    "orderId": "#FM-ADMIN-SYNC-1401",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart",
+    "branchId": "branch_um_fsd",
+    "branchName": "Peoples Colony Dark Store",
+    "customerId": "CUST-GUEST",
+    "customer": "Tayyaba Batool",
+    "customerName": "Tayyaba Batool",
+    "customerPhone": "+92 320 6551696",
+    "address": "Peoples Colony 1, Faisalabad",
+    "city": "Faisalabad",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "Peoples Colony 1, Faisalabad",
+      "city": "Faisalabad",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.4504,
+      "lng": 73.135
+    },
+    "hubCoords": {
+      "lat": 31.4015,
+      "lng": 73.083
+    },
+    "distanceKm": 7.3,
+    "eta": "20 mins (Upon dispatch)",
+    "etaMinutes": 20,
+    "orderItems": [
+      {
+        "name": "Farm Fresh Milk",
+        "price": 220,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Farm Fresh Milk",
+        "price": 220,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 440,
+    "totalPrice": 440,
+    "totalAmount": 440,
+    "subtotal": 440,
+    "itemsPrice": 440,
+    "deliveryPrice": 100,
+    "deliveryCharges": 100,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Delivered",
+    "statusClass": "bg-emerald-100 text-emerald-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:38:09.069Z",
+    "assignedRider": null,
+    "deliveryOtp": "5821",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:38 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "In Progress",
+        "completed": false,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Awaiting Assignment",
+        "completed": false,
+        "desc": "Dispatch team is reviewing address to assign fleet rider"
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "03:56 PM",
+        "completed": true,
+        "desc": "Contactless handover at Peoples Colony 1, Faisalabad"
+      }
+    ],
+    "fulfillmentStage": 4,
+    "isDelivered": true,
+    "paymentStatus": "Paid",
+    "paymentCollected": true,
+    "deliveredAt": "2026-10-27T10:38:09.075Z"
+  },
+  {
+    "id": "FM-LIVE-1766",
+    "orderId": "#FM-LIVE-1766",
+    "status": "Delivered",
+    "deliveryOtp": "4896",
+    "paymentStatus": "Paid",
+    "totalPrice": 1200,
+    "fulfillmentStage": 4,
+    "isDelivered": true,
+    "statusClass": "bg-emerald-100 text-emerald-800",
+    "paymentCollected": true,
+    "deliveredAt": "2026-10-27T10:38:09.060Z",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:38 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "In Progress",
+        "completed": false,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Awaiting Assignment",
+        "completed": false,
+        "desc": "Dispatch team is reviewing address to assign fleet rider"
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "03:56 PM",
+        "completed": true,
+        "desc": "Contactless handover at Delivery Address"
+      }
+    ]
+  },
+  {
+    "id": "#FM-OTP-DEMO-1414",
+    "orderId": "#FM-OTP-DEMO-1414",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart",
+    "branchId": "branch_010",
+    "branchName": "Gulberg SuperHub",
+    "customerId": "CUST-GUEST",
+    "customer": "Bilal Ahmed",
+    "customerName": "Bilal Ahmed",
+    "customerPhone": "+92 333 4455667",
+    "address": "House 19, Model Town",
+    "city": "Lahore, Pakistan",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "House 19, Model Town",
+      "city": "Lahore, Pakistan",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.5204,
+      "lng": 74.3587
+    },
+    "hubCoords": {
+      "lat": 31.5126,
+      "lng": 74.3436
+    },
+    "distanceKm": 1.7,
+    "eta": "6 mins (Upon dispatch)",
+    "etaMinutes": 6,
+    "orderItems": [
+      {
+        "name": "Lays Masala 65g",
+        "price": 100,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Lays Masala 65g",
+        "price": 100,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 200,
+    "totalPrice": 200,
+    "totalAmount": 200,
+    "subtotal": 200,
+    "itemsPrice": 200,
+    "deliveryPrice": 100,
+    "deliveryCharges": 100,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Delivered",
+    "statusClass": "bg-emerald-100 text-emerald-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:38:09.047Z",
+    "assignedRider": null,
+    "deliveryOtp": "9999",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:38 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "In Progress",
+        "completed": false,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Awaiting Assignment",
+        "completed": false,
+        "desc": "Dispatch team is reviewing address to assign fleet rider"
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "03:56 PM",
+        "completed": true,
+        "desc": "Contactless handover at House 19, Model Town"
+      }
+    ],
+    "fulfillmentStage": 4,
+    "isDelivered": true,
+    "paymentStatus": "Paid",
+    "paymentCollected": true,
+    "deliveredAt": "2026-10-27T10:38:09.053Z"
+  },
+  {
+    "id": "#FM-OTP-TEST-9677",
+    "orderId": "#FM-OTP-TEST-9677",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart",
+    "branchId": "branch_010",
+    "branchName": "Gulberg SuperHub",
+    "customerId": "CUST-GUEST",
+    "customer": "Zainab Tariq",
+    "customerName": "Zainab Tariq",
+    "customerPhone": "+92 321 1122334",
+    "address": "Apartment 3A, Gulberg Heights",
+    "city": "Lahore, Pakistan",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "Apartment 3A, Gulberg Heights",
+      "city": "Lahore, Pakistan",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.5204,
+      "lng": 74.3587
+    },
+    "hubCoords": {
+      "lat": 31.5126,
+      "lng": 74.3436
+    },
+    "distanceKm": 1.4,
+    "eta": "5 mins",
+    "etaMinutes": 5,
+    "orderItems": [
+      {
+        "name": "Red Apples 1kg",
+        "price": 299,
+        "quantity": 1,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Red Apples 1kg",
+        "price": 299,
+        "quantity": 1,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 299,
+    "totalPrice": 299,
+    "totalAmount": 299,
+    "subtotal": 299,
+    "itemsPrice": 299,
+    "deliveryPrice": 100,
+    "deliveryCharges": 100,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Delivered",
+    "statusClass": "bg-emerald-100 text-emerald-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:38:09.009Z",
+    "assignedRider": {
+      "id": "RDR-101",
+      "riderId": "RDR-101",
+      "name": "Ali Khan",
+      "phone": "+92 300 1122334",
+      "vehicle": "Motorbike",
+      "vehicleType": "🏍️ Honda 125",
+      "vehicleNumber": "LEK-0000",
+      "zone": "Lahore Hub",
+      "rating": 5,
+      "coordinates": {
+        "lat": 31.515,
+        "lng": 74.345
+      },
+      "coverageRadiusKm": 25,
+      "currentLat": 31.515,
+      "currentLng": 74.345,
+      "assignedAt": "2026-10-27T10:38:09.032Z",
+      "status": "On-Duty",
+      "eta": "5 mins",
+      "etaMinutes": 5
+    },
+    "deliveryOtp": "7429",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:38 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "03:42 PM",
+        "completed": true,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Completed",
+        "completed": true,
+        "desc": "Assigned to courier Ali Khan (Motorbike). GPS tracking live."
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "03:56 PM",
+        "completed": true,
+        "desc": "Contactless handover at Apartment 3A, Gulberg Heights"
+      }
+    ],
+    "fulfillmentStage": 4,
+    "isDispatched": true,
+    "dispatchStatus": "Out for Delivery",
+    "isDelivered": true,
+    "paymentStatus": "Paid",
+    "paymentCollected": true,
+    "deliveredAt": "2026-10-27T10:38:09.039Z"
+  },
+  {
+    "id": "#FM-STAGE-TEST-9913",
+    "orderId": "#FM-STAGE-TEST-9913",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart",
+    "branchId": "branch_010",
+    "branchName": "Gulberg SuperHub",
+    "customerId": "CUST-GUEST",
+    "customer": "Tayyaba Batool",
+    "customerName": "Tayyaba Batool",
+    "customerPhone": "+92 320 6551696",
+    "address": "House 55, Block B, Gulberg 3, Lahore",
+    "city": "Lahore, Pakistan",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "House 55, Block B, Gulberg 3, Lahore",
+      "city": "Lahore, Pakistan",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.5204,
+      "lng": 74.3587
+    },
+    "hubCoords": {
+      "lat": 31.5126,
+      "lng": 74.3436
+    },
+    "distanceKm": 1.4,
+    "eta": "5 mins",
+    "etaMinutes": 5,
+    "orderItems": [
+      {
+        "name": "Fresh Milk 1L",
+        "price": 210,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Fresh Milk 1L",
+        "price": 210,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 420,
+    "totalPrice": 420,
+    "totalAmount": 420,
+    "subtotal": 420,
+    "itemsPrice": 420,
+    "deliveryPrice": 100,
+    "deliveryCharges": 100,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Delivered",
+    "statusClass": "bg-emerald-100 text-emerald-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:35:14.121Z",
+    "assignedRider": {
+      "id": "RDR-101",
+      "riderId": "RDR-101",
+      "name": "Assigned Courier",
+      "phone": "+92 300 0000000",
+      "vehicle": "Motorbike",
+      "vehicleType": "🏍️ Honda 125",
+      "vehicleNumber": "LEK-0000",
+      "zone": "Lahore Hub",
+      "rating": 5,
+      "coordinates": {
+        "lat": 31.515,
+        "lng": 74.345
+      },
+      "coverageRadiusKm": 25,
+      "currentLat": 31.515,
+      "currentLng": 74.345,
+      "assignedAt": "2026-10-27T10:35:14.140Z",
+      "status": "On-Duty",
+      "eta": "5 mins",
+      "etaMinutes": 5
+    },
+    "deliveryOtp": "8012",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:35 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "03:39 PM",
+        "completed": true,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Completed",
+        "completed": true,
+        "desc": "Assigned to courier Assigned Courier (Motorbike). GPS tracking live."
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "03:53 PM",
+        "completed": true,
+        "desc": "Contactless handover at House 55, Block B, Gulberg 3, Lahore"
+      }
+    ],
+    "fulfillmentStage": 4,
+    "isDispatched": true,
+    "dispatchStatus": "Out for Delivery",
+    "isDelivered": true,
+    "paymentStatus": "Paid",
+    "paymentCollected": true,
+    "deliveredAt": "2026-10-27T10:35:14.149Z"
+  },
+  {
+    "id": "#FM-ASSIGN-8399",
+    "orderId": "#FM-ASSIGN-8399",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart",
+    "branchId": "branch_010",
+    "branchName": "Gulberg SuperHub",
+    "customerId": "CUST-GUEST",
+    "customer": "Ahmad Raza",
+    "customerName": "Ahmad Raza",
+    "customerPhone": "+92 300 1122334",
+    "address": "Gulberg 3, Lahore",
+    "city": "Lahore",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "Gulberg 3, Lahore",
+      "city": "Lahore",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.5204,
+      "lng": 74.3587
+    },
+    "hubCoords": {
+      "lat": 31.5126,
+      "lng": 74.3436
+    },
+    "distanceKm": 1.4,
+    "eta": "5 mins",
+    "etaMinutes": 5,
+    "orderItems": [
+      {
+        "name": "Brown Bread",
+        "price": 150,
+        "quantity": 1,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Brown Bread",
+        "price": 150,
+        "quantity": 1,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 150,
+    "totalPrice": 150,
+    "totalAmount": 150,
+    "subtotal": 150,
+    "itemsPrice": 150,
+    "deliveryPrice": 100,
+    "deliveryCharges": 100,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Out for Delivery",
+    "statusClass": "bg-amber-100 text-amber-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:35:14.101Z",
+    "assignedRider": {
+      "id": "RDR-101",
+      "riderId": "RDR-101",
+      "name": "Assigned Courier",
+      "phone": "+92 300 0000000",
+      "vehicle": "Motorbike",
+      "vehicleType": "🏍️ Honda 125",
+      "vehicleNumber": "LEK-0000",
+      "zone": "Lahore Hub",
+      "rating": 5,
+      "coordinates": {
+        "lat": 31.515,
+        "lng": 74.345
+      },
+      "coverageRadiusKm": 25,
+      "currentLat": 31.515,
+      "currentLng": 74.345,
+      "assignedAt": "2026-10-27T10:35:14.108Z",
+      "status": "On-Duty",
+      "eta": "5 mins",
+      "etaMinutes": 5
+    },
+    "deliveryOtp": "9590",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:35 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "03:39 PM",
+        "completed": true,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "ETA: 5 mins",
+        "completed": true,
+        "desc": "Assigned to courier Assigned Courier (Motorbike). GPS tracking live."
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "Pending",
+        "completed": false,
+        "desc": "Contactless handover at Gulberg 3, Lahore"
+      }
+    ],
+    "fulfillmentStage": 3,
+    "isDispatched": true,
+    "dispatchStatus": "Out for Delivery"
+  },
+  {
+    "id": "#FM-ADMIN-SYNC-6474",
+    "orderId": "#FM-ADMIN-SYNC-6474",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart",
+    "branchId": "branch_um_fsd",
+    "branchName": "Peoples Colony Dark Store",
+    "customerId": "CUST-GUEST",
+    "customer": "Tayyaba Batool",
+    "customerName": "Tayyaba Batool",
+    "customerPhone": "+92 320 6551696",
+    "address": "Peoples Colony 1, Faisalabad",
+    "city": "Faisalabad",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "Peoples Colony 1, Faisalabad",
+      "city": "Faisalabad",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.4504,
+      "lng": 73.135
+    },
+    "hubCoords": {
+      "lat": 31.4015,
+      "lng": 73.083
+    },
+    "distanceKm": 7.3,
+    "eta": "20 mins (Upon dispatch)",
+    "etaMinutes": 20,
+    "orderItems": [
+      {
+        "name": "Farm Fresh Milk",
+        "price": 220,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Farm Fresh Milk",
+        "price": 220,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 440,
+    "totalPrice": 440,
+    "totalAmount": 440,
+    "subtotal": 440,
+    "itemsPrice": 440,
+    "deliveryPrice": 100,
+    "deliveryCharges": 100,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Delivered",
+    "statusClass": "bg-emerald-100 text-emerald-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:35:14.083Z",
+    "assignedRider": null,
+    "deliveryOtp": "5821",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:35 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "In Progress",
+        "completed": false,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Awaiting Assignment",
+        "completed": false,
+        "desc": "Dispatch team is reviewing address to assign fleet rider"
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "03:53 PM",
+        "completed": true,
+        "desc": "Contactless handover at Peoples Colony 1, Faisalabad"
+      }
+    ],
+    "fulfillmentStage": 4,
+    "isDelivered": true,
+    "paymentStatus": "Paid",
+    "paymentCollected": true,
+    "deliveredAt": "2026-10-27T10:35:14.089Z"
+  },
+  {
+    "id": "FM-LIVE-8717",
+    "orderId": "#FM-LIVE-8717",
+    "status": "Delivered",
+    "deliveryOtp": "4896",
+    "paymentStatus": "Paid",
+    "totalPrice": 1200,
+    "fulfillmentStage": 4,
+    "isDelivered": true,
+    "statusClass": "bg-emerald-100 text-emerald-800",
+    "paymentCollected": true,
+    "deliveredAt": "2026-10-27T10:35:14.073Z",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:35 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "In Progress",
+        "completed": false,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Awaiting Assignment",
+        "completed": false,
+        "desc": "Dispatch team is reviewing address to assign fleet rider"
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "03:53 PM",
+        "completed": true,
+        "desc": "Contactless handover at Delivery Address"
+      }
+    ]
+  },
+  {
+    "id": "#FM-OTP-DEMO-7798",
+    "orderId": "#FM-OTP-DEMO-7798",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart",
+    "branchId": "branch_010",
+    "branchName": "Gulberg SuperHub",
+    "customerId": "CUST-GUEST",
+    "customer": "Bilal Ahmed",
+    "customerName": "Bilal Ahmed",
+    "customerPhone": "+92 333 4455667",
+    "address": "House 19, Model Town",
+    "city": "Lahore, Pakistan",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "House 19, Model Town",
+      "city": "Lahore, Pakistan",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.5204,
+      "lng": 74.3587
+    },
+    "hubCoords": {
+      "lat": 31.5126,
+      "lng": 74.3436
+    },
+    "distanceKm": 1.7,
+    "eta": "6 mins (Upon dispatch)",
+    "etaMinutes": 6,
+    "orderItems": [
+      {
+        "name": "Lays Masala 65g",
+        "price": 100,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Lays Masala 65g",
+        "price": 100,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 200,
+    "totalPrice": 200,
+    "totalAmount": 200,
+    "subtotal": 200,
+    "itemsPrice": 200,
+    "deliveryPrice": 100,
+    "deliveryCharges": 100,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Delivered",
+    "statusClass": "bg-emerald-100 text-emerald-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:35:14.008Z",
+    "assignedRider": null,
+    "deliveryOtp": "9999",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:35 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "In Progress",
+        "completed": false,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Awaiting Assignment",
+        "completed": false,
+        "desc": "Dispatch team is reviewing address to assign fleet rider"
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "03:53 PM",
+        "completed": true,
+        "desc": "Contactless handover at House 19, Model Town"
+      }
+    ],
+    "fulfillmentStage": 4,
+    "isDelivered": true,
+    "paymentStatus": "Paid",
+    "paymentCollected": true,
+    "deliveredAt": "2026-10-27T10:35:14.058Z"
+  },
+  {
+    "id": "#FM-OTP-TEST-5450",
+    "orderId": "#FM-OTP-TEST-5450",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart",
+    "branchId": "branch_010",
+    "branchName": "Gulberg SuperHub",
+    "customerId": "CUST-GUEST",
+    "customer": "Zainab Tariq",
+    "customerName": "Zainab Tariq",
+    "customerPhone": "+92 321 1122334",
+    "address": "Apartment 3A, Gulberg Heights",
+    "city": "Lahore, Pakistan",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "Apartment 3A, Gulberg Heights",
+      "city": "Lahore, Pakistan",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.5204,
+      "lng": 74.3587
+    },
+    "hubCoords": {
+      "lat": 31.5126,
+      "lng": 74.3436
+    },
+    "distanceKm": 1.4,
+    "eta": "5 mins",
+    "etaMinutes": 5,
+    "orderItems": [
+      {
+        "name": "Red Apples 1kg",
+        "price": 299,
+        "quantity": 1,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Red Apples 1kg",
+        "price": 299,
+        "quantity": 1,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 299,
+    "totalPrice": 299,
+    "totalAmount": 299,
+    "subtotal": 299,
+    "itemsPrice": 299,
+    "deliveryPrice": 100,
+    "deliveryCharges": 100,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Delivered",
+    "statusClass": "bg-emerald-100 text-emerald-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-27T10:35:13.990Z",
+    "assignedRider": {
+      "id": "RDR-101",
+      "riderId": "RDR-101",
+      "name": "Ali Khan",
+      "phone": "+92 300 1122334",
+      "vehicle": "Motorbike",
+      "vehicleType": "🏍️ Honda 125",
+      "vehicleNumber": "LEK-0000",
+      "zone": "Lahore Hub",
+      "rating": 5,
+      "coordinates": {
+        "lat": 31.515,
+        "lng": 74.345
+      },
+      "coverageRadiusKm": 25,
+      "currentLat": 31.515,
+      "currentLng": 74.345,
+      "assignedAt": "2026-10-27T10:35:13.997Z",
+      "status": "On-Duty",
+      "eta": "5 mins",
+      "etaMinutes": 5
+    },
+    "deliveryOtp": "7429",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "03:35 PM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "03:39 PM",
+        "completed": true,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Completed",
+        "completed": true,
+        "desc": "Assigned to courier Ali Khan (Motorbike). GPS tracking live."
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "03:53 PM",
+        "completed": true,
+        "desc": "Contactless handover at Apartment 3A, Gulberg Heights"
+      }
+    ],
+    "fulfillmentStage": 4,
+    "isDispatched": true,
+    "dispatchStatus": "Out for Delivery",
+    "isDelivered": true,
+    "paymentStatus": "Paid",
+    "paymentCollected": true,
+    "deliveredAt": "2026-10-27T10:35:14.002Z"
+  },
+  {
     "id": "#FM-STAGE-TEST-7894",
     "orderId": "#FM-STAGE-TEST-7894",
     "tenantId": "tenant-freshmart",
@@ -602,100 +2783,5 @@
     "paymentStatus": "Paid",
     "paymentCollected": true,
     "deliveredAt": "2026-10-25T12:38:33.531Z"
-  },
-  {
-    "id": "#AF-TEST-9002",
-    "orderId": "#AF-TEST-9002",
-    "tenantId": "tenant-alfatah",
-    "tenantName": "Al-Fatah Supermarket",
-    "branchId": "branch_001",
-    "branchName": "DHA Lahore",
-    "customerId": "CUST-GUEST",
-    "customer": "Zainab Bibi",
-    "customerName": "Zainab Bibi",
-    "customerPhone": "+92 300 7788990",
-    "address": "Sector Y, Phase 3, DHA Lahore",
-    "city": "Lahore",
-    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
-    "shippingAddress": {
-      "address": "Sector Y, Phase 3, DHA Lahore",
-      "city": "Lahore",
-      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
-    },
-    "destinationCoords": {
-      "lat": 31.4826,
-      "lng": 74.4074
-    },
-    "hubCoords": {
-      "lat": 31.515,
-      "lng": 74.345
-    },
-    "distanceKm": 6.9,
-    "eta": "19 mins (Upon dispatch)",
-    "etaMinutes": 19,
-    "orderItems": [
-      {
-        "name": "Borges Extra Virgin Olive Oil 1L",
-        "price": 2950,
-        "quantity": 1,
-        "unit": "1 unit",
-        "image": "",
-        "vendorId": "VND-101"
-      }
-    ],
-    "rawItems": [
-      {
-        "name": "Borges Extra Virgin Olive Oil 1L",
-        "price": 2950,
-        "quantity": 1,
-        "unit": "1 unit",
-        "image": "",
-        "vendorId": "VND-101"
-      }
-    ],
-    "items": "1 Item",
-    "total": 2950,
-    "totalPrice": 2950,
-    "totalAmount": 2950,
-    "subtotal": 2950,
-    "itemsPrice": 2950,
-    "deliveryPrice": 0,
-    "deliveryCharges": 0,
-    "discountPrice": 0,
-    "discountAmount": 0,
-    "status": "Pending",
-    "statusClass": "bg-amber-100 text-amber-800",
-    "payment": "Credit / Debit Card",
-    "paymentMethod": "Credit / Debit Card",
-    "time": "Just now",
-    "createdAt": "2026-10-25T12:38:33.529Z",
-    "assignedRider": null,
-    "deliveryOtp": "5857",
-    "timeline": [
-      {
-        "title": "Order Confirmed",
-        "time": "05:38 PM",
-        "completed": true,
-        "desc": "Payment method: Credit / Debit Card"
-      },
-      {
-        "title": "Dark Store Packed & Verified",
-        "time": "In Progress",
-        "completed": false,
-        "desc": "Quality checked and sealed in chilled thermal insulation"
-      },
-      {
-        "title": "Out for Express Delivery",
-        "time": "Awaiting Assignment",
-        "completed": false,
-        "desc": "Dispatch team is reviewing address to assign fleet rider"
-      },
-      {
-        "title": "Delivered to Doorstep",
-        "time": "Pending",
-        "completed": false,
-        "desc": "Contactless handover at Sector Y, Phase 3, DHA Lahore"
-      }
-    ]
   }
 ]

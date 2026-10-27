@@ -18,11 +18,23 @@ export const isOrderAssignedToPickupStaff = (order, user) => {
   if (!order || !user) return false;
   const assignedId = String(order.pickupStaffId || '').trim().toLowerCase();
   const assignedUsername = String(order.pickupStaffUsername || '').trim().toLowerCase();
-  if (!assignedId && !assignedUsername) return false;
-  const identities = [user.id, user.staffId, user._id, user.username]
+  const assignedName = String(order.pickupStaffName || '').trim().toLowerCase();
+  if (!assignedId && !assignedUsername && !assignedName) return false;
+
+  const identities = [user.id, user.staffId, user._id, user.username, user.name]
     .filter(Boolean)
     .map((value) => String(value).trim().toLowerCase());
-  return (assignedId && identities.includes(assignedId)) || (assignedUsername && identities.includes(assignedUsername));
+
+  if (assignedId && identities.includes(assignedId)) return true;
+  if (assignedUsername && identities.includes(assignedUsername)) return true;
+  if (assignedName && (identities.includes(assignedName) || identities.some((id) => id.includes(assignedName) || assignedName.includes(id)))) return true;
+
+  // Generic store packing desk matching (e.g. Unimaart Packing Desk)
+  const isStoreDeskOrder = assignedId.includes('unimart') || assignedId.includes('unimaart') || assignedName.includes('unimart') || assignedName.includes('unimaart');
+  const isStoreDeskUser = identities.some((id) => id.includes('unimart') || id.includes('unimaart') || id.includes('freshmart'));
+  if (isStoreDeskOrder && isStoreDeskUser) return true;
+
+  return false;
 };
 
 export const countPickupStaffTasks = (staffId, orders = []) =>

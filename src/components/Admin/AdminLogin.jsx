@@ -803,6 +803,13 @@ export const AdminLogin = () => {
               </button>
               <button
                 type="button"
+                onClick={() => autoFillCredentials('pickup_staff', 'unimart_staff', 'staff123', 'tenant-freshmart', 'Unimaart Packing Desk')}
+                className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 border border-sky-300 text-sky-950 font-bold text-[11px] transition-colors cursor-pointer"
+              >
+                📦 Unimaart Staff
+              </button>
+              <button
+                type="button"
                 onClick={() => autoFillCredentials('pickup_staff', 'chasevalue_staff', 'staff123', 'tenant-chasevalue', 'Chase Value Packing Desk')}
                 className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-[11px] transition-colors cursor-pointer"
               >

@@ -4,6 +4,7 @@ import {
   resolveTenantId,
   isSameTenant
 } from '../data/companyHierarchyData.js';
+import { isOrderAssignedToPickupStaff } from './pickupStaffAssignment.js';
 
 // Calculate Haversine distance in KM
 export const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
@@ -174,16 +175,22 @@ export const isOrderVisibleToUser = (order, user, activeTenantId = null) => {
     return true;
   }
 
-  // Pickup Staff: strictly scoped to same store AND same branch
+  // Pickup Staff: strictly scoped to same store; directly assigned tasks always visible
   if (role === 'pickup_staff' || role === 'staff') {
     if (!isSameTenant(orderTenant, targetTenant)) return false;
-    if (user?.branchId && order.branchId && order.branchId !== user.branchId) {
+
+    // Field staff directly assigned to this order can always see it regardless of branch
+    if (isOrderAssignedToPickupStaff(order, user)) return true;
+
+    // If order was assigned to a different staff member, hide from this user
+    const staffId = user?.staffId || user?.id || user?._id;
+    if (order.pickupStaffId && staffId && String(order.pickupStaffId).toLowerCase() !== String(staffId).toLowerCase()) {
       return false;
     }
-    // Field staff sees tasks assigned to them or unassigned in their branch
-    const staffId = user?.staffId || user?.id || user?._id;
-    if (order.pickupStaffId && staffId && String(order.pickupStaffId) !== String(staffId)) {
-      return false;
+
+    // For unassigned pool, check branch
+    if (user?.branchId && user.branchId !== 'all' && order.branchId && order.branchId !== 'all') {
+      if (order.branchId !== user.branchId) return false;
     }
     return true;
   }
