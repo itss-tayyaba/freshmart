@@ -40,20 +40,20 @@ describe('Leaflet GPS Map & Multi-Stage Location Detection Pipeline', () => {
   };
 
   it('1. Computes exact Haversine distance between customer coordinates and supermarket branches', () => {
-    // Al-Fatah East Canal Road branch (31.4485, 73.0995) from user (31.4125, 73.0995)
-    const distAlFatah = calculateDistanceKm(31.4125, 73.0995, 31.4485, 73.0995);
+    // Al-Fatah East Canal Road branch (31.4382, 73.1292) from user (31.4125, 73.0995)
+    const distAlFatah = calculateDistanceKm(31.4125, 73.0995, 31.4382, 73.1292);
     assert.equal(Number(distAlFatah.toFixed(1)), 4.0, 'Distance to Al-Fatah should be 4.0 km');
 
-    // Chase Up Satiana Road branch (31.4125, 73.0470) from user (31.4125, 73.0995)
-    const distChaseUp = calculateDistanceKm(31.4125, 73.0995, 31.4125, 73.0470);
+    // Chase Up Jhal Khanuana Chowk branch (31.3965, 73.0505) from user (31.4125, 73.0995)
+    const distChaseUp = calculateDistanceKm(31.4125, 73.0995, 31.3965, 73.0505);
     assert.equal(Number(distChaseUp.toFixed(1)), 5.0, 'Distance to Chase Up should be 5.0 km');
 
-    // Chase Value Wholesale Hub (31.4845, 73.0995) from user (31.4125, 73.0995)
-    const distChaseValue = calculateDistanceKm(31.4125, 73.0995, 31.4845, 73.0995);
+    // Chase Value Wholesale Hub (31.4360, 73.1795) from user (31.4125, 73.0995)
+    const distChaseValue = calculateDistanceKm(31.4125, 73.0995, 31.4360, 73.1795);
     assert.equal(Number(distChaseValue.toFixed(1)), 8.0, 'Distance to Chase Value should be 8.0 km');
 
-    // Unimaart Chenab Club Road Dark Store (31.4125, 73.0785) from user (31.4125, 73.0995)
-    const distUnimaart = calculateDistanceKm(31.4125, 73.0995, 31.4125, 73.0785);
+    // Unimaart D-Ground / Peoples Colony Dark Store (31.4015, 73.0830) from user (31.4125, 73.0995)
+    const distUnimaart = calculateDistanceKm(31.4125, 73.0995, 31.4015, 73.0830);
     assert.equal(Number(distUnimaart.toFixed(1)), 2.0, 'Distance to Unimaart should be 2.0 km');
   });
 

@@ -124,8 +124,8 @@ describe('Nearest Store by Customer Location & Branch Pinning Suite', () => {
   });
 
   it('5. Nearest store logic correctly identifies closest supermarket based on customer location', () => {
-    // Test Location A: Faisalabad Al-Fatah Flagship Hub coordinates (31.4485, 73.0995)
-    const fsdCustomer = { lat: 31.4485, lng: 73.0995 };
+    // Test Location A: Faisalabad Al-Fatah Canal Road coordinates (31.4382, 73.1292)
+    const fsdCustomer = { lat: 31.4382, lng: 73.1292 };
 
     const getNearestStoreForCoords = (userCoords) => {
       const stores = INITIAL_TENANTS.map((tenant) => {
@@ -160,7 +160,7 @@ describe('Nearest Store by Customer Location & Branch Pinning Suite', () => {
 
     const fsdStores = getNearestStoreForCoords(fsdCustomer);
     assert.ok(fsdStores.length === 4, 'Must return all 4 supermarkets ranked by distance');
-    // In Faisalabad, Al-Fatah Flagship Hub is at 31.4485, 73.0995 (0 km distance)
+    // In Faisalabad, Al-Fatah Flagship Hub is at 31.4382, 73.1292 (0 km distance)
     assert.equal(fsdStores[0].tenantId, 'tenant-alfatah', 'Al-Fatah should be closest at its Faisalabad Flagship Hub');
     assert.equal(fsdStores[0].distanceKm, 0, 'Distance to Flagship hub should be ~0 km');
 
