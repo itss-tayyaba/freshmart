@@ -75,12 +75,14 @@ const LocationModalContent = () => {
     currentTenant,
     setCurrentTenant,
     getNearbyStores,
+    selectStoreAndBranch,
     addToast
   } = useStore();
 
   const [isSaving, setIsSaving] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [locateStatus, setLocateStatus] = useState('');
+  const [selectedStoreId, setSelectedStoreId] = useState(null);
 
   // Editable coordinates state (defaults to Muhammad Nagar, Faisalabad: 31.3973, 73.1180)
   const [currentCoords, setCurrentCoords] = useState(() => ({
@@ -119,6 +121,15 @@ const LocationModalContent = () => {
 
   const closestStore = nearbyStores && nearbyStores.length > 0 ? nearbyStores[0] : null;
   const isOutsideDeliveryZone = closestStore ? closestStore.distanceKm > 35 : false;
+
+  // Dynamically resolve relative store: either manually selected or relative nearest for customer pin
+  const effectiveStore = useMemo(() => {
+    if (selectedStoreId) {
+      const match = nearbyStores.find((s) => s.id === selectedStoreId);
+      if (match) return match;
+    }
+    return closestStore || null;
+  }, [selectedStoreId, nearbyStores, closestStore]);
 
   // Sync internal state when deliveryLocation changes
   useEffect(() => {
@@ -180,6 +191,8 @@ const LocationModalContent = () => {
       const fixedLng = Number(lng.toFixed(5));
       setCurrentCoords({ lat: fixedLat, lng: fixedLng });
       userMarker.setLatLng([fixedLat, fixedLng]);
+      // Reset manual selection so the relative nearest store to the new pin is automatically highlighted
+      setSelectedStoreId(null);
 
       // 1. Automatically sync nearest city so city dropdown and neighborhood pills track the dragged pin
       const nearest = findNearestCity(fixedLat, fixedLng);
@@ -247,6 +260,11 @@ const LocationModalContent = () => {
         zIndexOffset: 500
       }).addTo(map);
 
+      marker.on('click', () => {
+        setSelectedStoreId(st.id);
+        addToast('Store Selected 🏬', `Selected ${st.displayName || st.name}`);
+      });
+
       marker.bindPopup(`
         <div style="font-family: inherit; font-size: 11px; line-height: 1.4; min-width: 140px;">
           <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 2px;">
@@ -281,6 +299,7 @@ const LocationModalContent = () => {
         const detectedLng = Number(result.lng.toFixed(5));
 
         setCurrentCoords({ lat: detectedLat, lng: detectedLng });
+        setSelectedStoreId(null);
         if (result.matchedCityId) {
           setSelectedCityId(result.matchedCityId);
         }
@@ -312,6 +331,7 @@ const LocationModalContent = () => {
   // City selection from dropdown
   const handleSelectCity = (cityObj) => {
     setSelectedCityId(cityObj.id);
+    setSelectedStoreId(null);
     const defaultNeighborhood = cityObj.neighborhoods[0];
     const coords = defaultNeighborhood.coords;
 
@@ -330,6 +350,7 @@ const LocationModalContent = () => {
   const handleSelectArea = (n) => {
     setAddressInput(n.defaultAddress);
     setCurrentCoords({ lat: n.coords.lat, lng: n.coords.lng });
+    setSelectedStoreId(null);
 
     if (mapInstanceRef.current && userMarkerRef.current) {
       userMarkerRef.current.setLatLng([n.coords.lat, n.coords.lng]);
@@ -339,7 +360,7 @@ const LocationModalContent = () => {
     addToast('Area Selected 📍', `${n.name}, ${currentCityObj.city}`);
   };
 
-  // Final confirmation: Locks location, saves to store and database
+  // Final confirmation: Locks location, saves to store and database, and auto-routes to relative nearest or chosen store
   const handleConfirmLocation = async (e) => {
     if (e) e.preventDefault();
     setIsSaving(true);
@@ -361,19 +382,30 @@ const LocationModalContent = () => {
       isDeliverable: !isOutsideDeliveryZone
     };
 
-    // 1. Store in the store context & localStorage
+    const chosenStore = effectiveStore || closestStore;
+    const storeTenant = chosenStore?.tenant || chosenStore;
+    const branch = chosenStore?.nearestBranch || null;
+
+    // 1. Immediately activate relative store across storefront & dashboard
+    if (storeTenant && selectStoreAndBranch) {
+      selectStoreAndBranch(storeTenant, branch);
+    } else if (storeTenant && setCurrentTenant) {
+      setCurrentTenant(storeTenant);
+    }
+
+    // 2. Store in the store context & localStorage
     if (confirmDeliveryLocation) {
-      confirmDeliveryLocation(locObj);
+      confirmDeliveryLocation(locObj, chosenStore);
     } else {
       setIsLocationModalOpen(false);
     }
 
-    // 2. Persist to MongoDB database
+    // 3. Persist to MongoDB database with chosen store
     try {
       await apiService.saveLocation({
         ...locObj,
-        tenantId: currentTenant?.id || 'tenant-freshmart',
-        tenantName: currentTenant?.name || 'Store'
+        tenantId: storeTenant?.id || currentTenant?.id || 'tenant-freshmart',
+        tenantName: storeTenant?.displayName || storeTenant?.name || currentTenant?.name || 'Store'
       });
     } catch (err) {
       console.warn('Location DB persistence fallback:', err.message);
@@ -390,20 +422,22 @@ const LocationModalContent = () => {
     } catch (e) {}
     if (!isLocationConfirmed) {
       if (confirmDeliveryLocation) {
-        confirmDeliveryLocation(deliveryLocation);
+        confirmDeliveryLocation(deliveryLocation, effectiveStore || closestStore);
       }
     }
     setIsLocationModalOpen(false);
   };
 
+  const activeStoreTenant = effectiveStore?.tenant || effectiveStore || currentTenant;
   const tenantThemeColor =
-    currentTenant?.color ||
-    currentTenant?.theme?.primaryColor ||
-    (currentTenant?.id === 'tenant-alfatah'
+    effectiveStore?.color ||
+    activeStoreTenant?.color ||
+    activeStoreTenant?.theme?.primaryColor ||
+    (activeStoreTenant?.id === 'tenant-alfatah'
       ? '#991b1b'
-      : currentTenant?.id === 'tenant-chaseup'
+      : activeStoreTenant?.id === 'tenant-chaseup'
       ? '#6b21a8'
-      : currentTenant?.id === 'tenant-chasevalue'
+      : activeStoreTenant?.id === 'tenant-chasevalue'
       ? '#78350f'
       : '#0284c7');
 
@@ -428,23 +462,23 @@ const LocationModalContent = () => {
           <X className="w-5 h-5" />
         </button>
 
-        {/* Store Brand Emblem at top */}
+        {/* Store Brand Emblem at top dynamically matching relative or chosen store */}
         <div className="flex flex-col items-center justify-center mb-2">
           <div
             style={{ backgroundColor: `${tenantThemeColor}15`, borderColor: `${tenantThemeColor}30` }}
-            className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-xs border mb-1.5 overflow-hidden"
+            className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-xs border mb-1.5 overflow-hidden transition-all duration-200"
           >
-            {currentTenant?.logo && currentTenant.logo.startsWith('http') ? (
-              <img src={currentTenant.logo} alt={currentTenant?.name} className="w-full h-full object-cover" />
+            {activeStoreTenant?.logo && activeStoreTenant.logo.startsWith('http') ? (
+              <img src={activeStoreTenant.logo} alt={activeStoreTenant?.name} className="w-full h-full object-cover" />
             ) : (
-              <span className="text-2xl">{currentTenant?.logo || '🛒'}</span>
+              <span className="text-2xl">{activeStoreTenant?.logo || '🛒'}</span>
             )}
           </div>
-          <h3 className="text-base font-black text-slate-900 tracking-tight">
-            {currentTenant?.displayName || currentTenant?.name || 'FreshMart Supermarket'}
+          <h3 className="text-base font-black text-slate-900 tracking-tight transition-colors">
+            {activeStoreTenant?.displayName || activeStoreTenant?.name || 'FreshMart Supermarket'}
           </h3>
           <p className="text-[11px] text-slate-500 font-medium">
-            {currentTenant?.tagline || 'Online Supermarket • 100% Express Doorstep Delivery'}
+            {activeStoreTenant?.tagline || 'Online Supermarket • 100% Express Doorstep Delivery'}
           </p>
         </div>
 
@@ -586,22 +620,22 @@ const LocationModalContent = () => {
 
             <div className="grid grid-cols-2 gap-2">
               {nearbyStores.map((store, idx) => {
-                const isSelectedStore = (currentTenant?.id || 'tenant-freshmart') === store.id;
+                const isSelectedStore = effectiveStore ? effectiveStore.id === store.id : (idx === 0);
                 const isClosest = idx === 0;
 
                 return (
                   <div
                     key={store.id}
                     onClick={() => {
-                      if (setCurrentTenant) setCurrentTenant(store);
-                      addToast('Store Switched 🏬', `Shopping at ${store.name}`);
+                      setSelectedStoreId(store.id);
+                      addToast('Store Selected 🏬', `Selected ${store.displayName || store.name}`);
                     }}
                     className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-1.5 ${
                       isSelectedStore
-                        ? 'bg-white border-emerald-500 shadow-xs ring-1 ring-emerald-500'
+                        ? 'bg-white border-emerald-500 shadow-xs ring-2 ring-emerald-500'
                         : 'bg-white/80 hover:bg-white border-slate-200'
                     }`}
-                    title={`Click to shop at ${store.name}`}
+                    title={`Click to shop at ${store.displayName || store.name}`}
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
                       <div
@@ -624,11 +658,15 @@ const LocationModalContent = () => {
                       <span className="text-[11px] font-black text-emerald-700 block font-mono leading-tight">
                         {store.distanceFormatted || '1.2 km'}
                       </span>
-                      {isClosest && (
+                      {isClosest ? (
                         <span className="text-[8px] font-black uppercase text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
                           Nearest
                         </span>
-                      )}
+                      ) : isSelectedStore ? (
+                        <span className="text-[8px] font-black uppercase text-emerald-800 bg-emerald-100 px-1 py-0.2 rounded border border-emerald-300">
+                          Selected
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -665,7 +703,7 @@ const LocationModalContent = () => {
             ) : (
               <>
                 <Check className="w-4 h-4" />
-                <span>Select Delivery Location</span>
+                <span>Select Delivery Location • Shop at {activeStoreTenant?.displayName || activeStoreTenant?.name || 'Selected Store'}</span>
               </>
             )}
           </button>

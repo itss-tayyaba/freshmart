@@ -903,35 +903,41 @@ export const StoreProvider = ({ children }) => {
   // Switch store and auto-select its closest branch
   const selectStoreAndBranch = (storeTenant, branch) => {
     if (!storeTenant) return;
-    setCurrentTenant(storeTenant);
+    const resolvedTenant = storeTenant.tenant || storeTenant;
+    setCurrentTenant(resolvedTenant);
     if (branch) {
       setCurrentBranch(branch);
     } else {
-      const canonical = resolveTenantId(storeTenant.id);
-      const bList = BRANCHES.filter((b) => b.tenantId === canonical);
+      const canonical = resolveTenantId(resolvedTenant.id);
+      const bList = (allBranches || BRANCHES).filter((b) => isSameTenant(b.tenantId, canonical) || isSameTenant(b.tenantId, resolvedTenant.id));
       if (bList.length > 0) {
         const uLat = Number(deliveryLocation?.lat || 31.4125);
         const uLng = Number(deliveryLocation?.lng || 73.0995);
         let best = bList[0];
         let bestDist = Infinity;
         for (const b of bList) {
-          const d = calculateDistanceKm(uLat, uLng, b.latitude, b.longitude);
-          if (d < bestDist) {
-            bestDist = d;
-            best = b;
+          const bLat = Number(b.latitude ?? b.coordinates?.lat);
+          const bLng = Number(b.longitude ?? b.coordinates?.lng);
+          if (!isNaN(bLat) && !isNaN(bLng)) {
+            const d = calculateDistanceKm(uLat, uLng, bLat, bLng);
+            if (d < bestDist) {
+              bestDist = d;
+              best = b;
+            }
           }
         }
         setCurrentBranch(best);
       }
     }
     try {
-      localStorage.setItem('freshmart_current_tenant_id', storeTenant.id);
+      localStorage.setItem('freshmart_current_tenant_id', resolvedTenant.id);
+      localStorage.setItem('freshmart_current_tenant', JSON.stringify(resolvedTenant));
     } catch (e) {}
-    addToast('Store Activated 🛒', `Now shopping at ${storeTenant.name}`);
+    addToast('Store Activated 🛒', `Now shopping at ${resolvedTenant.displayName || resolvedTenant.name}`);
   };
 
   // Confirm customer delivery location, lock coordinates, persist to database & store, and auto-route
-  const confirmDeliveryLocation = (newLoc) => {
+  const confirmDeliveryLocation = (newLoc, preferredStore = null) => {
     if (!newLoc) return;
     const resolved = {
       ...deliveryLocation,
@@ -952,6 +958,15 @@ export const StoreProvider = ({ children }) => {
       localStorage.setItem('freshmart_location_confirmed', 'true');
     } catch (e) {}
 
+    // Find and auto-route to closest store based on Haversine distance, or use explicitly selected preferred store
+    const nearby = getNearbyStores(resolved.coords);
+    const targetStore = preferredStore || (nearby && nearby.length > 0 ? nearby[0] : null);
+    const targetTenant = targetStore?.tenant || targetStore;
+
+    if (targetStore && targetTenant) {
+      selectStoreAndBranch(targetTenant, targetStore.nearestBranch);
+    }
+
     // Persist delivery location directly to MongoDB database
     try {
       apiService.saveLocation({
@@ -964,24 +979,15 @@ export const StoreProvider = ({ children }) => {
         lng: resolved.lng,
         label: resolved.label || 'Home',
         phone: resolved.phone || '',
-        tenantId: currentTenant?.id || 'tenant-freshmart',
-        tenantName: currentTenant?.name || 'FreshMart',
+        tenantId: targetTenant?.id || currentTenant?.id || 'tenant-freshmart',
+        tenantName: targetTenant?.displayName || targetTenant?.name || currentTenant?.name || 'FreshMart',
         orderType: 'Delivery'
       });
     } catch (e) {}
 
-    // Find and auto-route to closest store based on Haversine distance
-    const nearby = getNearbyStores(resolved.coords);
-    if (nearby && nearby.length > 0) {
-      const closestStore = nearby[0];
-      if (closestStore?.tenant && closestStore?.nearestBranch) {
-        selectStoreAndBranch(closestStore.tenant, closestStore.nearestBranch);
-      }
-    }
-
     addToast(
       'Location Confirmed 📍',
-      `Delivering to: ${resolved.address || resolved.city}. Saved to database & store!`
+      `Delivering to: ${resolved.address || resolved.city}. Selected ${targetTenant?.displayName || targetTenant?.name || 'Store'}!`
     );
   };
 
@@ -1683,10 +1689,10 @@ export const StoreProvider = ({ children }) => {
     };
   }, [isAdminLoggedIn, adminRole, user?.id, user?.staffId, user?.riderId, user?.tenantId]);
 
-  // Keep currentTenant aligned with the logged-in Store Admin's assigned tenant
+  // Keep currentTenant aligned with the logged-in Store Admin's assigned tenant only on initial mount or admin view
   useEffect(() => {
-    if (isAdminLoggedIn && adminRole === 'admin' && user?.tenantId) {
-      if (!currentTenant || !isSameTenant(currentTenant.id, user.tenantId)) {
+    if (currentPage === 'admin' && isAdminLoggedIn && adminRole === 'admin' && user?.tenantId) {
+      if (!currentTenant) {
         const matchingTenant = (tenants || []).find((t) => isSameTenant(t.id, user.tenantId)) ||
           INITIAL_TENANTS.find((t) => isSameTenant(t.id, user.tenantId));
         if (matchingTenant) {
@@ -1698,7 +1704,7 @@ export const StoreProvider = ({ children }) => {
         }
       }
     }
-  }, [isAdminLoggedIn, adminRole, user?.tenantId]);
+  }, [currentPage, isAdminLoggedIn, adminRole, user?.tenantId, currentTenant]);
 
   // Helper to resolve the correct store tenant based on preferred tenant ID, username, or store keywords
   const resolveStoreTenant = (candidateTenantId, userStr = '') => {
