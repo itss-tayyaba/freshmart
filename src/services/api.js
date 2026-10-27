@@ -379,6 +379,20 @@ export const apiService = {
     }
   },
 
+  async updateOrderFulfillment(id, updates = {}) {
+    try {
+      const cleanId = encodeURIComponent(String(id || '').trim());
+      const res = await fetch(`${API_BASE_URL}/orders/${cleanId}/fulfillment`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(updates)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
   async assignRiderToOrder(orderId, riderData) {
     try {
       const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/assign-rider`, {

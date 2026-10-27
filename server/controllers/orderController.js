@@ -692,10 +692,18 @@ export const trackOrder = async (req, res) => {
   }
 };
 
-// @desc    Assign rider to order
+// @desc    Assign rider to order (Strict Admin Authority)
 // @route   PUT /api/orders/:id/assign-rider
 export const assignRiderToOrder = async (req, res) => {
   try {
+    const role = (req.user?.role || '').toLowerCase();
+    if (req.user && !['admin', 'superadmin', 'store admin'].includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Rider assignment authority is reserved strictly for Store Admin.'
+      });
+    }
+
     const { id } = req.params;
     const { riderId, rider, status } = req.body;
 
@@ -976,18 +984,41 @@ export const updateOrderStatus = async (req, res) => {
     const role = req.user?.role;
     const staffId = req.user?.staffId || req.user?.id;
     const riderId = req.user?.riderId || req.user?.id;
-    const pickupStatuses = new Set(['Received by Pickup Staff', 'Picking', 'Preparing', 'preparing', 'Packed', 'packed', 'Parcel Verified', 'Ready for Dispatch', 'Prepared', 'prepared']);
+    const pickupStatuses = new Set([
+      'Received by Pickup Staff', 'Picking', 'picking',
+      'Preparing', 'preparing', 'Packed', 'packed',
+      'Parcel Verified', 'Ready for Dispatch', 'Prepared', 'prepared',
+      'Ready', 'ready', 'Deliver to Staff', 'Delivered to Staff'
+    ]);
     const metadataFields = [
       'pickupStaffId', 'pickupStaffName', 'pickupStaffUsername', 'pickupAssignedAt', 'deliveredToStaffAt',
       'pickupStep', 'pickupAcceptedAt', 'pickingStartedAt', 'pickedItems', 'parcelCode', 'packedAt',
       'sealedAt', 'parcelVerifiedAt', 'readyForDispatchAt', 'dispatchedAt', 'fulfillmentStage',
-      'fulfillmentUpdatedAt', 'fulfillmentUpdatedBy', 'isDispatched', 'dispatchStatus', 'assignedRider'
+      'fulfillmentUpdatedAt', 'fulfillmentUpdatedBy', 'isDispatched', 'isDispatchedByStaff', 'dispatchStatus', 'assignedRider'
     ];
     const applyUpdate = (order) => {
-      const isAdmin = role === 'admin' || role === 'superadmin';
-      if (role === 'pickup_staff') {
-        if (!order.pickupStaffId || (staffId && String(order.pickupStaffId) !== String(staffId))) return false;
+      const isAdmin = role === 'admin' || role === 'superadmin' || role === 'store admin';
+      if (role === 'pickup_staff' || role === 'staff') {
+        const ordTenant = normalizeOrderTenantId(order);
+        const userTenant = req.user?.tenantId;
+        const userBranch = req.user?.branchId;
+        if (userTenant && !isSameTenant(ordTenant, userTenant)) return false;
+        if (userBranch && order.branchId && order.branchId !== userBranch) return false;
+        if (order.pickupStaffId && staffId && String(order.pickupStaffId) !== String(staffId)) return false;
         if (!pickupStatuses.has(status)) return false;
+
+        // Auto-assign staff ID when pickup staff starts working on an unassigned order
+        if (!order.pickupStaffId && staffId) {
+          order.pickupStaffId = staffId;
+          order.pickupStaffName = req.user?.name || req.user?.username || 'Pickup Staff';
+          order.pickupStaffUsername = req.user?.username;
+        }
+
+        // If marking prepared / ready for delivery, stage it without assigning a rider
+        if (status === 'Prepared' || status === 'Ready' || status === 'Ready for Dispatch') {
+          order.isDispatchedByStaff = true;
+          order.readyForDispatchAt = new Date().toISOString();
+        }
       } else if (role === 'rider') {
         const assignedId = order.assignedRider?.id || order.assignedRider?.riderId;
         if (assignedId && riderId && String(assignedId) !== String(riderId)) return false;
@@ -995,11 +1026,13 @@ export const updateOrderStatus = async (req, res) => {
         return false;
       }
 
-      order.status = status;
+      order.status = (status === 'Ready' || status === 'Ready for Dispatch') ? 'Prepared' : status;
       for (const field of metadataFields) {
         if (Object.prototype.hasOwnProperty.call(updates, field)) order[field] = updates[field];
       }
-      if (!updates.fulfillmentUpdatedAt && ['pickup_staff', 'rider'].includes(role)) order.fulfillmentUpdatedAt = new Date();
+      if (!updates.fulfillmentUpdatedAt && ['pickup_staff', 'staff', 'rider'].includes(role)) {
+        order.fulfillmentUpdatedAt = new Date();
+      }
       order.timeline = buildDynamicTimeline(order);
       return true;
     };

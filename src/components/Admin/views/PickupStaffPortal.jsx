@@ -34,6 +34,7 @@ import { useStore } from '../../../context/StoreContext';
 import { resolveTenantId, isSameTenant, BRANCHES } from '../../../data/companyHierarchyData';
 import { isOrderAssignedToPickupStaff, isPickupOrderAssigned } from '../../../utils/pickupStaffAssignment';
 import { isOrderVisibleToUser, normalizeOrderTenantId } from '../../../utils/orderScope';
+import { apiService } from '../../../services/api';
 
 // Helper: category/grocery item icon
 const getItemIcon = (name = '') => {
@@ -75,7 +76,22 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
   const [selectedOrderForPacking, setSelectedOrderForPacking] = useState(null);
   const [pickedState, setPickedState] = useState({});
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Manual backend order sync
+  const handleRefreshOrders = async () => {
+    setIsRefreshing(true);
+    try {
+      const res = await apiService.getOrders();
+      if (res && res.success && Array.isArray(res.orders)) {
+        addToast?.('Orders Synced 🔄', `${res.orders.length} database order${res.orders.length === 1 ? '' : 's'} loaded.`);
+      }
+    } catch (e) {
+      console.error('Failed to sync orders:', e);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Smart Product Substitution modal state for unavailable items
   const [substitutionModal, setSubstitutionModal] = useState(null); // { order, item, idx }
@@ -187,140 +203,17 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     });
   }, [branchOrders]);
 
-  // 3. Fallback Screen-Accurate Mock Orders if Live Orders are sparse
-  // Matches the exact UI of user's screenshot: #FM1256, #FM1257, #FM1258, #FM1259, #FM1260, #FM1248, #FM1249
-  const displayAssignedOrders = useMemo(() => {
-    if (assignedOrders.length > 0) return assignedOrders;
-    return [
-      {
-        id: '#FM1256',
-        orderId: '#FM1256',
-        customer: 'Sara Ali',
-        customerName: 'Sara Ali',
-        customerPhone: '+92 300 4567891',
-        time: '09:30 AM',
-        status: 'To Pack',
-        branchId: staffBranchId,
-        items: [
-          { name: 'Fresh Farm Spinach (Palak)', quantity: 2, price: 70 },
-          { name: 'Olpers Milk 1L', quantity: 2, price: 280 },
-          { name: 'Farm Fresh Brown Eggs', quantity: 1, price: 340 },
-          { name: 'Dawn Whole Wheat Bread', quantity: 1, price: 180 },
-          { name: 'Fresh Red Tomatoes 1kg', quantity: 2, price: 120 }
-        ]
-      },
-      {
-        id: '#FM1257',
-        orderId: '#FM1257',
-        customer: 'Usman Ahmed',
-        customerName: 'Usman Ahmed',
-        customerPhone: '+92 321 8899001',
-        time: '09:45 AM',
-        status: 'To Pack',
-        branchId: staffBranchId,
-        items: [
-          { name: 'Dalda Cooking Oil 1L Pouch', quantity: 3, price: 540 },
-          { name: 'Nestle Everyday Powder 375g', quantity: 2, price: 420 },
-          { name: 'Tapal Danedar Tea 450g', quantity: 1, price: 680 },
-          { name: 'National Pink Salt 800g', quantity: 2, price: 140 }
-        ]
-      },
-      {
-        id: '#FM1258',
-        orderId: '#FM1258',
-        customer: 'Hina Batool',
-        customerName: 'Hina Batool',
-        customerPhone: '+92 333 4455667',
-        time: '10:00 AM',
-        status: 'To Pack',
-        branchId: staffBranchId,
-        items: [
-          { name: 'Lays French Cheese 65g', quantity: 2, price: 100 },
-          { name: 'Coca Cola 1.5L Bottle', quantity: 2, price: 190 },
-          { name: 'Oreo Double Stuf Biscuits', quantity: 1, price: 250 }
-        ]
-      },
-      {
-        id: '#FM1259',
-        orderId: '#FM1259',
-        customer: 'Zain Abbas',
-        customerName: 'Zain Abbas',
-        customerPhone: '+92 345 1122334',
-        time: '10:15 AM',
-        status: 'To Pack',
-        branchId: staffBranchId,
-        items: [
-          { name: 'Basmati Rice Premium 5kg', quantity: 1, price: 1650 },
-          { name: 'Shan Biryani Masala Double', quantity: 2, price: 210 },
-          { name: 'Fresh Garlic & Ginger Paste', quantity: 1, price: 290 }
-        ]
-      },
-      {
-        id: '#FM1260',
-        orderId: '#FM1260',
-        customer: 'Fatima Noor',
-        customerName: 'Fatima Noor',
-        customerPhone: '+92 312 9988776',
-        time: '10:30 AM',
-        status: 'To Pack',
-        branchId: staffBranchId,
-        items: [
-          { name: 'Head & Shoulders Shampoo 360ml', quantity: 1, price: 890 },
-          { name: 'Dettol Soap Original (Pack of 3)', quantity: 1, price: 420 },
-          { name: 'Surf Excel Quick Wash 1kg', quantity: 1, price: 530 }
-        ]
-      }
-    ];
-  }, [assignedOrders, staffBranchId]);
+  // 3. Real Live Branch Orders (Zero mock seeds: populated strictly from live checkout or database)
+  const displayAssignedOrders = assignedOrders;
+  const displayReadyOrders = readyOrders;
 
-  const displayReadyOrders = useMemo(() => {
-    if (readyOrders.length > 0) return readyOrders;
-    return [
-      {
-        id: '#FM1248',
-        orderId: '#FM1248',
-        customer: 'Ahmed Raza',
-        customerName: 'Ahmed Raza',
-        customerPhone: '+92 300 1248000',
-        address: 'Street 45, Block E, DHA, Lahore',
-        branchId: staffBranchId,
-        status: 'Ready',
-        items: [
-          { name: 'Fresh Farm Potatoes 5kg', quantity: 1, price: 450 },
-          { name: 'Fresh Farm Onions 3kg', quantity: 1, price: 390 },
-          { name: 'Olpers Milk 1L', quantity: 4, price: 280 },
-          { name: 'Nurpur Butter 200g', quantity: 2, price: 380 },
-          { name: 'Dawn Whole Wheat Bread', quantity: 1, price: 180 }
-        ]
-      },
-      {
-        id: '#FM1249',
-        orderId: '#FM1249',
-        customer: 'Maryam Iqbal',
-        customerName: 'Maryam Iqbal',
-        customerPhone: '+92 322 1249000',
-        address: 'Johar Town, Lahore',
-        branchId: staffBranchId,
-        status: 'Ready',
-        items: [
-          { name: 'Mitchells Mixed Fruit Jam 450g', quantity: 1, price: 390 },
-          { name: 'Dawn Multi-Grain Bread', quantity: 1, price: 210 },
-          { name: 'Farm Fresh Organic Eggs', quantity: 1, price: 380 },
-          { name: 'Nestle Pure Life 1.5L (Case of 6)', quantity: 1, price: 620 },
-          { name: 'National Tomato Ketchup 800g', quantity: 1, price: 420 },
-          { name: 'Lipton Yellow Label Tea 200g', quantity: 1, price: 320 }
-        ]
-      }
-    ];
-  }, [readyOrders, staffBranchId]);
-
-  // Counts for Top 4 Stat Cards
+  // Real Counts for Top 4 Stat Cards
   const kpiCounts = useMemo(() => {
     return {
-      assigned: Math.max(12, assignedOrders.length),
-      packed: Math.max(8, packedOrders.length),
-      ready: Math.max(5, readyOrders.length),
-      delayed: Math.max(2, delayedOrders.length)
+      assigned: assignedOrders.length,
+      packed: packedOrders.length,
+      ready: readyOrders.length,
+      delayed: delayedOrders.length
     };
   }, [assignedOrders.length, packedOrders.length, readyOrders.length, delayedOrders.length]);
 
@@ -419,30 +312,6 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     setSelectedOrderForPacking(null);
   };
 
-  // Handover to Rider
-  const handleHandoverToRider = async (order) => {
-    const orderId = order.id || order.orderId;
-    const branchRiders = (riders || []).filter((r) => {
-      if (r.tenantId && !isSameTenant(r.tenantId, staffTenantId)) return false;
-      return !r.branchId || r.branchId === staffBranchId;
-    });
-    const selectedRider = branchRiders[0] || (riders && riders[0]) || { name: 'Ali Khan', id: 'RDR-ALI', phone: '03001122334' };
-
-    if (typeof assignRiderToOrder === 'function') {
-      await assignRiderToOrder(orderId, selectedRider.id || selectedRider.riderId, 'Dispatched', true);
-    } else if (typeof updateOrderFulfillment === 'function') {
-      await updateOrderFulfillment(orderId, {
-        status: 'Dispatched',
-        fulfillmentStage: 5,
-        isDispatched: true,
-        assignedRider: selectedRider,
-        branchId: staffBranchId,
-        dispatchedAt: new Date().toISOString()
-      });
-    }
-
-    addToast?.('Handed Over to Rider 🛵', `Order ${orderId} successfully handed to ${selectedRider.name}`);
-  };
 
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col md:flex-row font-sans">
@@ -467,7 +336,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             </div>
           </div>
 
-          {/* Navigation Menu */}
+          {/* Navigation Menu (History & Profile removed) */}
           <nav className="mt-6 space-y-1.5">
             {[
               { id: 'Dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -475,9 +344,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               { id: 'All Orders', label: 'All Orders', icon: Boxes },
               { id: 'Packed Orders', label: 'Packed Orders', icon: PackageCheck, count: kpiCounts.packed },
               { id: 'Ready for Delivery', label: 'Ready for Delivery', icon: CheckSquare, count: kpiCounts.ready },
-              { id: 'History', label: 'History', icon: Clock },
-              { id: 'Profile', label: 'Profile', icon: User },
-              { id: 'Notifications', label: 'Notifications', icon: Bell, badge: 3 }
+              { id: 'Notifications', label: 'Notifications', icon: Bell, badge: (kpiCounts.assigned + kpiCounts.ready) || undefined }
             ].map((item) => {
               const Icon = item.icon;
               const isActive = activeNav === item.id;
@@ -487,8 +354,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                   key={item.id}
                   type="button"
                   onClick={() => {
-                    if (item.id === 'Profile') setShowProfileModal(true);
-                    else if (item.id === 'Notifications') setShowNotifications(!showNotifications);
+                    if (item.id === 'Notifications') setShowNotifications(!showNotifications);
                     else setActiveNav(item.id);
                   }}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
@@ -530,8 +396,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
         <div className="pt-6 border-t border-emerald-950/80 space-y-4">
           {/* User Profile Card */}
           <div
-            onClick={() => setShowProfileModal(true)}
-            className="flex items-center gap-3 p-2.5 rounded-xl bg-emerald-950/50 border border-emerald-800/40 cursor-pointer hover:bg-emerald-900/60 transition"
+            className="flex items-center gap-3 p-2.5 rounded-xl bg-emerald-950/50 border border-emerald-800/40 transition"
           >
             <img
               src="/staff_ayesha.jpg"
@@ -601,6 +466,18 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                   {staffBranchId}
                 </span>
               </div>
+
+              {/* REFRESH ORDERS FROM DATABASE */}
+              <button
+                type="button"
+                onClick={handleRefreshOrders}
+                disabled={isRefreshing}
+                title="Refresh orders from database"
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition cursor-pointer"
+              >
+                <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin text-emerald-600' : 'text-slate-500'}`} />
+                <span>{isRefreshing ? 'Syncing...' : 'Sync'}</span>
+              </button>
             </div>
           </div>
 
@@ -613,9 +490,11 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               title="Notifications"
             >
               <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white rounded-full text-[11px] font-bold flex items-center justify-center border-2 border-white dark:border-[#0f172a]">
-                3
-              </span>
+              {(kpiCounts.assigned + kpiCounts.ready > 0) && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white rounded-full text-[11px] font-bold flex items-center justify-center border-2 border-white dark:border-[#0f172a]">
+                  {kpiCounts.assigned + kpiCounts.ready}
+                </span>
+              )}
             </button>
 
             {/* Notification Flyout Drawer */}
@@ -631,21 +510,27 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                   </button>
                 </div>
                 <div className="mt-3 space-y-2.5 text-xs">
-                  <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200">
-                    <p className="font-bold">New Order Assigned: #FM1256</p>
-                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">8 items ready to pick at {staffBranch.name}</p>
-                    <span className="text-[10px] text-emerald-600 dark:text-emerald-500 font-mono">2 mins ago</span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200">
-                    <p className="font-bold">Order #FM1248 Verified Ready</p>
-                    <p className="text-[11px] text-blue-700 dark:text-blue-400 mt-0.5">Assigned to courier Ali Khan for handover.</p>
-                    <span className="text-[10px] text-blue-600 dark:text-blue-500 font-mono">10 mins ago</span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200">
-                    <p className="font-bold">Rider Fleet In Transit</p>
-                    <p className="text-[11px] text-purple-700 dark:text-purple-400 mt-0.5">Rider RDR-ALI approaching branch terminal.</p>
-                    <span className="text-[10px] text-purple-600 dark:text-purple-500 font-mono">15 mins ago</span>
-                  </div>
+                  {branchOrders.length === 0 ? (
+                    <div className="p-4 text-center text-slate-400">
+                      No branch alerts. Live customer orders placed for {staffBranch.name} will trigger real-time alerts here.
+                    </div>
+                  ) : (
+                    branchOrders.slice(0, 4).map((bo) => {
+                      const boId = bo.id || bo.orderId;
+                      const isReady = isReadyStatus(bo);
+                      const isPacked = (bo.status || '').toLowerCase() === 'packed';
+                      return (
+                        <div key={boId} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+                          <p className="font-bold text-slate-900 dark:text-white">
+                            Order {boId}: {isReady ? 'Ready for Delivery' : isPacked ? 'Order Packed' : 'Assigned to Pick'}
+                          </p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            Customer: {bo.customerName || bo.customer || 'Shopper'} • {bo.items?.length || 1} items
+                          </p>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}
@@ -739,8 +624,10 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
           </div>
 
           {/* =========================================================================
-              SECTION 1: ASSIGNED ORDERS TABLE (Screen-accurate with amber "To Pack" button)
+              SECTION 1: ASSIGNED ORDERS TABLE (Active on Dashboard or Assigned Orders)
               ========================================================================= */}
+          {(activeNav === 'Dashboard' || activeNav === 'Assigned Orders') && (
+
           <section className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-xs">
             <div className="flex items-center justify-between pb-4">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -758,70 +645,246 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               </button>
             </div>
 
-            {/* Assigned Orders Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="text-slate-400 dark:text-slate-500 font-bold border-b border-slate-100 dark:border-slate-800 pb-2">
-                    <th className="py-2.5 font-bold">Order ID</th>
-                    <th className="py-2.5 font-bold">Customer</th>
-                    <th className="py-2.5 font-bold">Items</th>
-                    <th className="py-2.5 font-bold">Time</th>
-                    <th className="py-2.5 font-bold text-right pr-3">Status</th>
-                    <th className="py-2.5 w-6"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                  {displayAssignedOrders.map((ord) => {
-                    const orderId = ord.id || ord.orderId;
-                    const customer = ord.customerName || ord.customer || 'Customer';
-                    const itemsCount = Array.isArray(ord.items) ? ord.items.length : (ord.itemsCount || 8);
-                    const time = ord.time || (ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '09:30 AM');
+            {/* Assigned Orders Table or Clean Empty State */}
+            {displayAssignedOrders.length === 0 ? (
+              <div className="text-center py-12 px-4 space-y-2">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto text-xl">
+                  📋
+                </div>
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">No Assigned Orders</p>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  Orders placed by customers for {staffBranch.name} will appear here for packing.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="text-slate-400 dark:text-slate-500 font-bold border-b border-slate-100 dark:border-slate-800 pb-2">
+                      <th className="py-2.5 font-bold">Order ID</th>
+                      <th className="py-2.5 font-bold">Customer</th>
+                      <th className="py-2.5 font-bold">Items</th>
+                      <th className="py-2.5 font-bold">Time</th>
+                      <th className="py-2.5 font-bold text-right pr-3">Status</th>
+                      <th className="py-2.5 w-6"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                    {displayAssignedOrders.map((ord) => {
+                      const orderId = ord.id || ord.orderId;
+                      const customer = ord.customerName || ord.customer || 'Customer';
+                      const itemsCount = Array.isArray(ord.items) ? ord.items.length : (ord.itemsCount || 8);
+                      const time = ord.time || (ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '09:30 AM');
 
-                    return (
-                      <tr
-                        key={orderId}
-                        onClick={() => setSelectedOrderForPacking(ord)}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer group"
-                      >
-                        <td className="py-3.5 font-mono font-bold text-slate-900 dark:text-white">
-                          <span>{orderId}</span>
-                        </td>
-                        <td className="py-3.5 font-medium text-slate-800 dark:text-slate-200">
-                          {customer}
-                        </td>
-                        <td className="py-3.5 text-slate-500 dark:text-slate-400 font-medium">
-                          {itemsCount} items
-                        </td>
-                        <td className="py-3.5 text-slate-500 dark:text-slate-400 font-medium">
-                          {time}
-                        </td>
-                        <td className="py-3.5 text-right pr-3">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedOrderForPacking(ord);
-                            }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#fffbeb] dark:bg-amber-950/60 text-[#d97706] dark:text-amber-300 border border-[#fde68a] dark:border-amber-700/60 hover:bg-amber-100 transition shadow-2xs"
-                          >
-                            <span>To Pack</span>
-                          </button>
-                        </td>
-                        <td className="py-3.5 text-slate-300 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition">
-                          <ChevronRight className="w-4 h-4" />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                      return (
+                        <tr
+                          key={orderId}
+                          onClick={() => setSelectedOrderForPacking(ord)}
+                          className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer group"
+                        >
+                          <td className="py-3.5 font-mono font-bold text-slate-900 dark:text-white">
+                            <span>{orderId}</span>
+                          </td>
+                          <td className="py-3.5 font-medium text-slate-800 dark:text-slate-200">
+                            {customer}
+                          </td>
+                          <td className="py-3.5 text-slate-500 dark:text-slate-400 font-medium">
+                            {itemsCount} items
+                          </td>
+                          <td className="py-3.5 text-slate-500 dark:text-slate-400 font-medium">
+                            {time}
+                          </td>
+                          <td className="py-3.5 text-right pr-3">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedOrderForPacking(ord);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#fffbeb] dark:bg-amber-950/60 text-[#d97706] dark:text-amber-300 border border-[#fde68a] dark:border-amber-700/60 hover:bg-amber-100 transition shadow-2xs"
+                            >
+                              <span>To Pack</span>
+                            </button>
+                          </td>
+                          <td className="py-3.5 text-slate-300 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition">
+                            <ChevronRight className="w-4 h-4" />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
 
+          )}
+
           {/* =========================================================================
-              SECTION 2: READY FOR DELIVERY (2-Column Card Grid with Hand Over to Rider)
+              SECTION 1.5: PACKED ORDERS VIEW (Active on Packed Orders tab)
               ========================================================================= */}
+          {activeNav === 'Packed Orders' && (
+            <section className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <PackageCheck className="w-5 h-5 text-blue-600" />
+                  <span>Packed Orders</span>
+                  <span className="text-xs font-normal text-slate-400 font-mono">({packedOrders.length})</span>
+                </h3>
+              </div>
+              {packedOrders.length === 0 ? (
+                <div className="text-center py-12 px-4 space-y-2">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto text-xl">
+                    📦
+                  </div>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">No Packed Orders</p>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    Orders that you pack and seal will show here before being staged for delivery.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800 pb-2">
+                        <th className="py-2.5">Order ID</th>
+                        <th className="py-2.5">Customer</th>
+                        <th className="py-2.5">Parcel Code</th>
+                        <th className="py-2.5">Items</th>
+                        <th className="py-2.5 text-right pr-3">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {packedOrders.map((ord) => {
+                        const ordId = ord.id || ord.orderId;
+                        return (
+                          <tr key={ordId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                            <td className="py-3 font-mono font-bold text-slate-900 dark:text-white">{ordId}</td>
+                            <td className="py-3 font-medium text-slate-800 dark:text-slate-200">{ord.customerName || ord.customer || 'Customer'}</td>
+                            <td className="py-3 font-mono text-emerald-600 dark:text-emerald-400 font-bold">{ord.parcelCode || 'PRCL-STD'}</td>
+                            <td className="py-3 text-slate-500">{ord.items?.length || 1} items</td>
+                            <td className="py-3 text-right pr-3">
+                              <button
+                                type="button"
+                                onClick={() => handleMarkReadyForDispatch(ord)}
+                                className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1.5 ml-auto cursor-pointer"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Mark Ready for Delivery</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* =========================================================================
+              SECTION 1.6: ALL ORDERS VIEW (Active on All Orders tab)
+              ========================================================================= */}
+          {activeNav === 'All Orders' && (
+            <section className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Boxes className="w-5 h-5 text-emerald-600" />
+                  <span>All Branch Orders</span>
+                  <span className="text-xs font-normal text-slate-400 font-mono">({branchOrders.length})</span>
+                </h3>
+                <div className="relative max-w-xs w-full">
+                  <input
+                    type="text"
+                    placeholder="Search orders..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full text-xs px-3 py-1.5 pl-8 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none"
+                  />
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                </div>
+              </div>
+              {branchOrders.length === 0 ? (
+                <div className="text-center py-12 px-4 space-y-2">
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">No Branch Orders</p>
+                  <p className="text-xs text-slate-400">Customer orders for {staffBranch.name} will appear here.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800 pb-2">
+                        <th className="py-2.5">Order ID</th>
+                        <th className="py-2.5">Customer</th>
+                        <th className="py-2.5">Total</th>
+                        <th className="py-2.5">Status</th>
+                        <th className="py-2.5 text-right pr-3">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {branchOrders
+                        .filter((o) => {
+                          if (!search) return true;
+                          const q = search.toLowerCase();
+                          return (o.id || o.orderId || '').toLowerCase().includes(q) ||
+                                 (o.customerName || o.customer || '').toLowerCase().includes(q);
+                        })
+                        .map((ord) => {
+                          const ordId = ord.id || ord.orderId;
+                          const isReady = isReadyStatus(ord);
+                          const isPacked = (ord.status || '').toLowerCase() === 'packed';
+                          const isPending = isPendingStatus(ord.status);
+                          return (
+                            <tr key={ordId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                              <td className="py-3 font-mono font-bold text-slate-900 dark:text-white">{ordId}</td>
+                              <td className="py-3 font-medium text-slate-800 dark:text-slate-200">{ord.customerName || ord.customer || 'Customer'}</td>
+                              <td className="py-3 font-bold text-slate-900 dark:text-white">{currency} {(ord.total || ord.totalAmount || 0).toLocaleString()}</td>
+                              <td className="py-3">
+                                <span className={"px-2.5 py-0.5 rounded-full text-[10px] font-bold " + (
+                                  isReady ? "bg-emerald-100 text-emerald-800" :
+                                  isPacked ? "bg-blue-100 text-blue-800" :
+                                  isPending ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"
+                                )}>
+                                  {ord.status || 'Pending'}
+                                </span>
+                              </td>
+                              <td className="py-3 text-right pr-3">
+                                {isPending ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedOrderForPacking(ord)}
+                                    className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white cursor-pointer"
+                                  >
+                                    To Pack
+                                  </button>
+                                ) : isPacked ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMarkReadyForDispatch(ord)}
+                                    className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                                  >
+                                    Mark Ready
+                                  </button>
+                                ) : (
+                                  <span className="text-[11px] text-slate-400 font-medium">Staged in Hub</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* =========================================================================
+              SECTION 2: READY FOR DELIVERY (Active on Dashboard or Ready for Delivery)
+              ========================================================================= */}
+          {(activeNav === 'Dashboard' || activeNav === 'Ready for Delivery') && (
+
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -839,71 +902,86 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {displayReadyOrders.map((ord) => {
-                const orderId = ord.id || ord.orderId;
-                const customer = ord.customerName || ord.customer || 'Customer';
-                const itemsCount = Array.isArray(ord.items) ? ord.items.length : 9;
-                const address = ord.address || ord.shippingAddress?.address || 'Street 45, Block E, DHA, Lahore';
+            {displayReadyOrders.length === 0 ? (
+              <div className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-8 text-center space-y-2">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto text-xl">
+                  📦
+                </div>
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">No Orders Ready for Delivery</p>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  Pack assigned orders and click &ldquo;Mark Ready for Delivery&rdquo; to stage parcels in the hub for store admin rider assignment.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {displayReadyOrders.map((ord) => {
+                  const orderId = ord.id || ord.orderId;
+                  const customer = ord.customerName || ord.customer || 'Customer';
+                  const itemsCount = Array.isArray(ord.items) ? ord.items.length : 9;
+                  const address = ord.address || ord.shippingAddress?.address || 'Street 45, Block E, DHA, Lahore';
 
-                return (
-                  <div
-                    key={orderId}
-                    className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-xs flex flex-col justify-between gap-4"
-                  >
-                    <div className="flex items-start gap-4">
-                      {/* Left Side: Paper Grocery Bag Artwork */}
-                      <div className="w-20 h-24 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40 p-1 flex items-center justify-center shrink-0 overflow-hidden">
-                        <img
-                          src="/pickup_bag.jpg"
-                          alt="Grocery Bag"
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-
-                      {/* Right Side: Order Info */}
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold text-slate-900 dark:text-white font-mono">
-                            Order ID: <b className="text-slate-900 dark:text-white">{orderId}</b>
-                          </span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                            Ready
-                          </span>
+                  return (
+                    <div
+                      key={orderId}
+                      className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-xs flex flex-col justify-between gap-4"
+                    >
+                      <div className="flex items-start gap-4">
+                        {/* Left Side: Paper Grocery Bag Artwork */}
+                        <div className="w-20 h-24 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40 p-1 flex items-center justify-center shrink-0 overflow-hidden">
+                          <img
+                            src="/pickup_bag.jpg"
+                            alt="Grocery Bag"
+                            className="w-full h-full object-contain"
+                          />
                         </div>
 
-                        <p className="text-xs text-slate-700 dark:text-slate-300">
-                          Customer: <b className="text-slate-900 dark:text-white font-bold">{customer}</b>
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          Items: <b className="text-slate-700 dark:text-slate-300 font-medium">{itemsCount} items</b>
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                          Address: <span className="text-slate-700 dark:text-slate-300">{address}</span>
+                        {/* Right Side: Order Info */}
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white font-mono">
+                              Order ID: <b className="text-slate-900 dark:text-white">{orderId}</b>
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                              Ready
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-slate-700 dark:text-slate-300">
+                            Customer: <b className="text-slate-900 dark:text-white font-bold">{customer}</b>
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Items: <b className="text-slate-700 dark:text-slate-300 font-medium">{itemsCount} items</b>
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                            Address: <span className="text-slate-700 dark:text-slate-300">{address}</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Ready for Delivery Indicator - Rider assignment authority is reserved for Store Admin */}
+                      <div className="space-y-1.5 pt-1">
+                        <div className="w-full py-2.5 px-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 font-bold text-xs flex items-center justify-center gap-2 shadow-2xs">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          <span>Ready for Delivery &bull; Staged in Hub</span>
+                        </div>
+                        <p className="text-[11px] text-center text-slate-500 dark:text-slate-400">
+                          Awaiting Store Admin to assign delivery rider
                         </p>
                       </div>
                     </div>
-
-                    {/* Primary Green CTA Button: Hand Over to Rider */}
-                    <button
-                      type="button"
-                      onClick={() => handleHandoverToRider(ord)}
-                      className="w-full py-2.5 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-900/10 transition cursor-pointer"
-                    >
-                      <Truck className="w-4 h-4 text-white" />
-                      <span>Hand Over to Rider</span>
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
+          )}
+
           {/* =========================================================================
-              SECTION 3: HOW IT WORKS (PICKUP FLOW)
-              5-step circular flow matching the screenshot
-              1. Receive Order ➔ 2. Pick Items ➔ 3. Pack Order ➔ 4. Mark Ready ➔ 5. Hand Over
+              SECTION 3: HOW IT WORKS (PICKUP FLOW) - Active on Dashboard
               ========================================================================= */}
+          {activeNav === 'Dashboard' && (
+
           <section className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-xs">
             <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-5">
               How it works (Pickup Flow)
@@ -945,11 +1023,11 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                 },
                 {
                   step: 5,
-                  title: 'Hand Over',
-                  icon: Truck,
-                  bg: 'bg-rose-100 dark:bg-rose-950/60',
-                  color: 'text-rose-600 dark:text-rose-400',
-                  numColor: 'text-rose-700 dark:text-rose-300'
+                  title: 'Ready for Rider',
+                  icon: CheckCircle2,
+                  bg: 'bg-emerald-100 dark:bg-emerald-950/60',
+                  color: 'text-emerald-600 dark:text-emerald-400',
+                  numColor: 'text-emerald-700 dark:text-emerald-300'
                 }
               ].map((item, idx) => {
                 const Icon = item.icon;
@@ -978,6 +1056,8 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               })}
             </div>
           </section>
+
+          )}
 
         </main>
       </div>
@@ -1232,65 +1312,6 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
         </div>
       )}
 
-      {/* =========================================================================
-          STAFF PROFILE & BRANCH ASSIGNMENT MODAL
-          ========================================================================= */}
-      {showProfileModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-100">
-          <div className="bg-white dark:bg-[#111827] rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-bold text-base text-slate-900 dark:text-white">Staff Member Profile</h3>
-              <button
-                type="button"
-                onClick={() => setShowProfileModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <img
-                src="/staff_ayesha.jpg"
-                alt={staffName}
-                className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-500 shadow-md"
-              />
-              <div>
-                <h4 className="font-bold text-base text-slate-900 dark:text-white">{staffName}</h4>
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">Pickup & Packing Staff</p>
-                <p className="text-xs text-slate-500 font-mono mt-0.5">ID: {user?.id || 'PCK-AYESHA'}</p>
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Assigned Branch:</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">{staffBranch.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Branch ID:</span>
-                <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">{staffBranchId}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Supermarket:</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">{storeBrandName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Duty Status:</span>
-                <span className="font-bold text-emerald-600">● On Shift / Active</span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowProfileModal(false)}
-              className="w-full py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-xs hover:bg-slate-800 transition cursor-pointer"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      )}
 
     </div>
   );

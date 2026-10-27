@@ -18,6 +18,7 @@ import { Inventory } from '../models/Inventory.js';
 import { Company } from '../models/Company.js';
 import { Order } from '../models/Order.js';
 import { isDbOnline } from '../config/db.js';
+import { loadDiskOrders } from './orderController.js';
 
 const BRANCHES_FILE_PATH = path.resolve(process.cwd(), 'server/data/branches_db.json');
 
@@ -200,14 +201,19 @@ export const getBranchOrders = async (req, res) => {
       }
     }
 
-    const orders = getOrdersByBranch(branch.tenantId, branch._id);
+    const diskOrders = loadDiskOrders().filter((o) => {
+      const bId = String(o.branchId || '').toLowerCase().trim();
+      const targetId = String(branch._id || branch.id || '').toLowerCase().trim();
+      return bId === targetId;
+    });
+
     return res.json({
       success: true,
       tenantId: branch.tenantId,
       branchId: branch._id,
       branchName: branch.name,
-      count: orders.length,
-      orders
+      count: diskOrders.length,
+      orders: diskOrders
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });

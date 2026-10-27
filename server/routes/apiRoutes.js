@@ -146,12 +146,13 @@ router.delete('/categories/:id', protect, adminOnly, deleteCategory);
 // Public: Shoppers place orders (validated) and track delivery status
 router.post('/orders', validate(createOrderSchema), createOrder);
 router.get('/orders/track/:orderId', trackOrder);
-// Admin & Fleet: Assign rider, update live GPS location, verify delivery OTP, and update order status
-router.put('/orders/:id/assign-rider', protect, staffOrAdmin, assignRiderToOrder);
+// Admin Only: Rider assignment authority belongs strictly to Store Admin
+router.put('/orders/:id/assign-rider', protect, adminOnly, assignRiderToOrder);
 router.put('/orders/:id/rider-location', updateRiderLocation);
 router.post('/orders/:id/verify-delivery-otp', verifyDeliveryOtp);
 router.get('/orders', protect, getOrders);
 router.put('/orders/:id/status', protect, validate(updateOrderStatusSchema), updateOrderStatus);
+router.put('/orders/:id/fulfillment', protect, staffOrAdmin, updateOrderStatus);
 
 // --- Inventory Routes ---
 // Admin Locked & Validated: Viewing warehouse stocks and restocking items
