@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Boxes, UserPlus, Trash2, X, Eye, EyeOff, Clock, MapPin, PackageCheck, Lock, Zap, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Boxes, UserPlus, Trash2, Edit3, KeyRound, X, Eye, EyeOff, Clock, MapPin, PackageCheck, Lock, Zap, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 import { countPickupStaffTasks } from '../../../utils/pickupStaffAssignment';
@@ -19,12 +19,15 @@ const getStaffActivity = (order) => {
 export const FulfillmentView = ({ orders: passedOrders }) => {
   const {
     adminOrders = [], customerOrders = [], currentTenant, user, pickupStaff = [], allBranches = [],
-    addPickupStaff, deletePickupStaff, assignPickupStaffToOrder, autoAssignPickupStaff,
+    addPickupStaff, updatePickupStaff, deletePickupStaff, assignPickupStaffToOrder, autoAssignPickupStaff,
     unassignPickupStaffFromOrder, isPickupStaffAutoAssignEnabled, setIsPickupStaffAutoAssignEnabled
   } = useStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', phone: '', branchId: '' });
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [editStaffForm, setEditStaffForm] = useState({ name: '', username: '', password: '', phone: '', branchId: '' });
+  const [showEditPassword, setShowEditPassword] = useState(false);
   const [search, setSearch] = useState('');
 
   const activeTenantId = currentTenant?.id || user?.tenantId || 'tenant-freshmart';
@@ -156,9 +159,34 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
                   </span>
                 </div>
               </div>
-              <button onClick={() => deletePickupStaff?.(staff.id)} title={`Remove ${staff.name}`} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer">
-                <Trash2 size={15} />
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingStaff(staff);
+                    setEditStaffForm({
+                      name: staff.name || '',
+                      username: staff.username || '',
+                      password: staff.password || 'staff123',
+                      phone: staff.phone || '',
+                      branchId: staff.branchId || ''
+                    });
+                    setShowEditPassword(false);
+                  }}
+                  title={`Edit ${staff.name} credentials`}
+                  className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700 transition-colors cursor-pointer"
+                >
+                  <Edit3 size={15} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deletePickupStaff?.(staff.id)}
+                  title={`Remove ${staff.name}`}
+                  className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
             </div>
           ))}
           {tenantStaff.length === 0 && <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500 sm:col-span-2 lg:col-span-3 xl:col-span-4">No pickup staff accounts yet. Click "Add Staff Account" to configure your packing team.</p>}
@@ -385,6 +413,144 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
           </form>
         </div>
       </div>}
+
+      {/* 3. Edit Pickup Staff Modal */}
+      {editingStaff && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-slate-100">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  <span className="p-1.5 rounded-xl bg-emerald-100 text-emerald-700"><KeyRound size={17} /></span>
+                  <span>Edit Staff & Password</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Update {editingStaff.name}'s sign-in credentials and branch</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingStaff(null)}
+                className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!editingStaff) return;
+                const chosenBranch = availableBranches.find((b) => b._id === editStaffForm.branchId || b.id === editStaffForm.branchId) || availableBranches[0];
+                await updatePickupStaff(editingStaff.id, {
+                  name: editStaffForm.name.trim(),
+                  username: editStaffForm.username.trim().toLowerCase(),
+                  password: editStaffForm.password.trim(),
+                  phone: editStaffForm.phone.trim(),
+                  branchId: chosenBranch?._id || chosenBranch?.id || editStaffForm.branchId || null,
+                  branchName: chosenBranch?.name || editingStaff.branchName || null
+                });
+                setEditingStaff(null);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Staff Full Name</label>
+                <input
+                  required
+                  value={editStaffForm.name}
+                  onChange={(e) => setEditStaffForm({ ...editStaffForm, name: e.target.value })}
+                  placeholder="Staff full name"
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Sign-in Username / Handle</label>
+                <input
+                  required
+                  value={editStaffForm.username}
+                  onChange={(e) => setEditStaffForm({ ...editStaffForm, username: e.target.value })}
+                  placeholder="Sign-in username"
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm font-mono font-bold outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700">Password</label>
+                  <button
+                    type="button"
+                    onClick={() => setEditStaffForm({ ...editStaffForm, password: `staff${Math.floor(100 + Math.random() * 900)}` })}
+                    className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                  >
+                    ⚡ Quick Generate
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    required
+                    type={showEditPassword ? 'text' : 'password'}
+                    value={editStaffForm.password}
+                    onChange={(e) => setEditStaffForm({ ...editStaffForm, password: e.target.value })}
+                    placeholder="Enter new password"
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 pr-11 text-sm font-mono font-bold outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditPassword(!showEditPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    {showEditPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number (Optional)</label>
+                <input
+                  value={editStaffForm.phone}
+                  onChange={(e) => setEditStaffForm({ ...editStaffForm, phone: e.target.value })}
+                  placeholder="Phone number"
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              {availableBranches.length > 0 && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Assigned Operating Branch</label>
+                  <select
+                    value={editStaffForm.branchId}
+                    onChange={(e) => setEditStaffForm({ ...editStaffForm, branchId: e.target.value })}
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm bg-white font-medium text-slate-700 cursor-pointer outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="">Select Operating Branch...</option>
+                    {availableBranches.map((b) => (
+                      <option key={b._id || b.id} value={b._id || b.id}>
+                        📍 {b.name} ({b.city})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingStaff(null)}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-emerald-600 hover:bg-emerald-700 px-5 py-2.5 text-sm font-bold text-white transition-colors cursor-pointer shadow-sm"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

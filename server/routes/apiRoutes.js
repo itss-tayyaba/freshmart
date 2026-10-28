@@ -5,6 +5,7 @@ import {
   getUserProfile,
   createPickupStaff,
   getPickupStaff,
+  updatePickupStaff,
   deletePickupStaff,
   saveStoreAdmin,
   getStoreAdmins,
@@ -120,6 +121,7 @@ router.post('/auth/register', authLimiter, validate(registerSchema), registerUse
 router.post('/auth/login', authLimiter, validate(loginSchema), loginUser);
 router.post('/auth/pickup-staff', protect, adminOnly, createPickupStaff);
 router.get('/auth/pickup-staff', protect, adminOnly, getPickupStaff);
+router.put('/auth/pickup-staff/:id', protect, adminOnly, updatePickupStaff);
 router.delete('/auth/pickup-staff/:id', protect, adminOnly, deletePickupStaff);
 router.post('/auth/store-admin', protect, superAdminOnly, saveStoreAdmin);
 router.get('/auth/store-admins', protect, superAdminOnly, getStoreAdmins);

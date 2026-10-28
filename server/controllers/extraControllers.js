@@ -439,7 +439,16 @@ export const updateRider = async (req, res) => {
     const updates = req.body || {};
 
     const diskRiders = loadDiskRiders();
-    const idx = diskRiders.findIndex((r) => r.id === id || r._id === id || r.username === id);
+    const cleanId = String(id || '').trim().toLowerCase();
+    const idx = diskRiders.findIndex(
+      (r) =>
+        String(r.id || '').trim().toLowerCase() === cleanId ||
+        String(r.riderId || '').trim().toLowerCase() === cleanId ||
+        String(r._id || '').trim().toLowerCase() === cleanId ||
+        String(r.username || '').trim().toLowerCase() === cleanId ||
+        (r.phone && updates.phone && String(r.phone).replace(/[^0-9]/g, '') === String(updates.phone).replace(/[^0-9]/g, ''))
+    );
+
     let updatedRider = null;
     if (idx >= 0) {
       diskRiders[idx] = { ...diskRiders[idx], ...updates };
@@ -448,14 +457,35 @@ export const updateRider = async (req, res) => {
       }
       updatedRider = diskRiders[idx];
       saveAllDiskRiders(diskRiders);
+    } else {
+      const newRec = { ...updates, id: id.toUpperCase() };
+      diskRiders.push(newRec);
+      saveAllDiskRiders(diskRiders);
+      updatedRider = newRec;
     }
 
     if (isDbOnline()) {
-      await Rider.findOneAndUpdate(
-        { $or: [{ id }, { _id: id }] },
-        { $set: updates },
-        { new: true }
-      );
+      try {
+        let riderDoc = await Rider.findOne({
+          $or: [
+            { id: id },
+            { id: id.toUpperCase() },
+            { username: id },
+            { username: cleanId },
+            ...(updates.phone ? [{ phone: updates.phone }] : []),
+            ...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : [])
+          ]
+        });
+
+        if (riderDoc) {
+          Object.assign(riderDoc, updates);
+          await riderDoc.save();
+        } else {
+          await Rider.create({ ...updates, id: id.toUpperCase() });
+        }
+      } catch (dbErr) {
+        console.warn('Mongo rider update fallback:', dbErr.message);
+      }
     }
 
     res.json({ success: true, message: 'Rider location and profile updated successfully', rider: updatedRider });

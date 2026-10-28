@@ -1,0 +1,47 @@
+[
+  {
+    "id": "PCK-ALFATAH-HAFSA",
+    "staffId": "PCK-ALFATAH-HAFSA",
+    "name": "Hafsa (Al-Fatah Packing Desk)",
+    "username": "hafsa",
+    "email": "hafsa@alfatah.pk",
+    "phone": "+92 300 1112233",
+    "password": "staff123",
+    "tenantId": "tenant-alfatah",
+    "tenantName": "Al-Fatah Supermarket",
+    "branchId": "branch_af_fsd",
+    "branchName": "D-Ground Flagship Hub (Faisalabad)",
+    "role": "pickup_staff",
+    "status": "Active"
+  },
+  {
+    "id": "PCK-ALFATAH",
+    "staffId": "PCK-ALFATAH",
+    "name": "Al-Fatah Packing Desk",
+    "username": "alfatah_staff",
+    "email": "staff@alfatah.pk",
+    "phone": "+92 300 1112234",
+    "password": "staff123",
+    "tenantId": "tenant-alfatah",
+    "tenantName": "Al-Fatah Supermarket",
+    "branchId": "branch_af_fsd",
+    "branchName": "D-Ground Flagship Hub (Faisalabad)",
+    "role": "pickup_staff",
+    "status": "Active"
+  },
+  {
+    "id": "PCK-AYESHA",
+    "staffId": "PCK-AYESHA",
+    "name": "Ayesha Khan",
+    "username": "ayesha",
+    "email": "ayesha@freshmart.pk",
+    "phone": "+92 300 1112235",
+    "password": "staff123",
+    "tenantId": "tenant-freshmart",
+    "tenantName": "Unimaart (Market Store)",
+    "branchId": "branch_um_fsd",
+    "branchName": "Peoples Colony Dark Store",
+    "role": "pickup_staff",
+    "status": "Active"
+  }
+]

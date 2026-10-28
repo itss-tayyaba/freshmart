@@ -118,6 +118,19 @@ export const apiService = {
     }
   },
 
+  async updatePickupStaff(staffId, staffData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/pickup-staff/${encodeURIComponent(staffId)}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(staffData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
   async deletePickupStaff(staffId) {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/pickup-staff/${encodeURIComponent(staffId)}`, {

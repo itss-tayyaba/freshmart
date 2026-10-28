@@ -2050,12 +2050,12 @@ export const DeliveryView = () => {
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-600">
+                  <div className="flex items-center justify-between text-[11px] text-slate-600 flex-wrap gap-1">
                     <span>
-                      Login credentials: <strong>{editRiderForm.phone.trim() || 'mobile'}</strong> & password
+                      Sign-in via: <strong>{editRiderForm.username.trim() || editRiderForm.phone.trim() || 'username'}</strong> or <strong>{editRiderForm.phone.trim()}</strong>
                     </span>
                     <span className="font-mono text-emerald-900 bg-white px-2 py-0.5 rounded-md border border-emerald-200 font-bold text-[10px]">
-                      App Key
+                      Rider Fleet Key
                     </span>
                   </div>
                 </div>

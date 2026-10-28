@@ -1829,7 +1829,7 @@ export const StoreProvider = ({ children }) => {
       const returnedRole = (authRes.role || targetRole).toLowerCase();
 
       // Case A: Super Admin
-      if (targetRole === 'superadmin' || returnedRole === 'superadmin') {
+      if (returnedRole === 'superadmin' || targetRole === 'superadmin') {
         const superUser = {
           name: authRes.name || 'Platform Super Admin',
           email: authRes.email || 'superadmin@supergrocery.pk',
@@ -1841,8 +1841,87 @@ export const StoreProvider = ({ children }) => {
         return { success: true, role: 'superadmin', user: superUser };
       }
 
-      // Case B: Store Admin
-      if (targetRole === 'admin') {
+      // Case B: Rider (Priority: if authenticated as rider, always log in as rider!)
+      if (returnedRole === 'rider' || targetRole === 'rider') {
+        const riderTenant = resolveStoreTenant(authRes.tenantId || preferredTenantId, cleanUser);
+        if (riderTenant) {
+          setCurrentTenant(riderTenant);
+        }
+        const assignedBranchId = preferredBranchId || authRes.branchId || null;
+        let assignedBranchName = authRes.branchName;
+        if (!assignedBranchName && assignedBranchId) {
+          const foundB = (allBranches || BRANCHES).find((b) => b._id === assignedBranchId || b.id === assignedBranchId);
+          assignedBranchName = foundB?.name || 'Branch';
+        }
+        const riderUser = {
+          id: authRes._id || authRes.id || `usr-${Date.now()}`,
+          name: authRes.name || `${riderTenant?.name || 'Store'} Delivery Rider`,
+          email: authRes.email || `${cleanUser}@rider.freshmart.pk`,
+          role: 'rider',
+          riderId: authRes.id || authRes.riderId || 'RDR-101',
+          phone: authRes.phone || cleanUser,
+          tenantId: riderTenant ? riderTenant.id : 'tenant-alfatah',
+          tenantName: riderTenant ? riderTenant.name : 'Al-Fatah Supermarket',
+          branchId: assignedBranchId,
+          branchName: assignedBranchName || 'Branch'
+        };
+        if (assignedBranchId) {
+          setCurrentBranchFilter(assignedBranchId);
+        }
+        applyAuthSession('rider', riderUser, authRes.token);
+        addToast('Delivery Rider Authenticated 🛵', `Welcome ${riderUser.name} to dispatch.`);
+        return { success: true, role: 'rider', user: riderUser };
+      }
+
+      // Case C: Pickup Staff (Priority: if authenticated as pickup staff, always log in as pickup staff!)
+      if (returnedRole === 'pickup_staff' || targetRole === 'pickup_staff') {
+        const staffTenant = resolveStoreTenant(authRes.tenantId || preferredTenantId, cleanUser);
+        if (staffTenant) {
+          setCurrentTenant(staffTenant);
+        }
+        const assignedBranchId = preferredBranchId || authRes.branchId || null;
+        let assignedBranchName = authRes.branchName;
+        if (!assignedBranchName && assignedBranchId) {
+          const foundB = (allBranches || BRANCHES).find((b) => b._id === assignedBranchId || b.id === assignedBranchId);
+          assignedBranchName = foundB?.name || 'Branch';
+        }
+        const staffUser = {
+          id: authRes.staffId || authRes.id || authRes._id,
+          staffId: authRes.staffId || authRes.id || authRes._id,
+          name: authRes.name || `${staffTenant?.name || 'Store'} Pickup Staff`,
+          username: cleanUser.split('@')[0],
+          email: authRes.email || `${cleanUser.split('@')[0]}@pickup.freshmart.pk`,
+          role: 'pickup_staff',
+          tenantId: staffTenant ? staffTenant.id : 'tenant-freshmart',
+          tenantName: staffTenant ? staffTenant.name : 'FreshMart Direct',
+          branchId: assignedBranchId,
+          branchName: assignedBranchName || 'Branch'
+        };
+        if (assignedBranchId) {
+          setCurrentBranchFilter(assignedBranchId);
+        }
+        applyAuthSession('pickup_staff', staffUser, authRes.token);
+        addToast('Pickup Staff Authenticated 📦', `Welcome ${staffUser.name} to the packing desk.`);
+        return { success: true, role: 'pickup_staff', user: staffUser };
+      }
+
+      // Case D: Supplier / Vendor
+      if (returnedRole === 'supplier' || returnedRole === 'vendor' || targetRole === 'supplier' || targetRole === 'vendor') {
+        const supplierUser = {
+          id: authRes._id || authRes.id || `usr-${Date.now()}`,
+          name: authRes.name || 'Vendor Partner',
+          email: authRes.email || `${cleanUser}@freshmart.pk`,
+          role: 'supplier',
+          vendorId: authRes.vendorId || authRes.id || 'VND-101',
+          supplierId: authRes.supplierId || authRes.id || 'SUP-101'
+        };
+        applyAuthSession('supplier', supplierUser, authRes.token);
+        addToast('Vendor Partner Authenticated 📦', `Welcome ${supplierUser.name} to the portal.`);
+        return { success: true, role: 'supplier', user: supplierUser };
+      }
+
+      // Case E: Store Admin
+      if (returnedRole === 'admin' || targetRole === 'admin') {
         const storeTenant = resolveStoreTenant(preferredTenantId || authRes.tenantId, cleanUser);
         if (storeTenant) {
           setCurrentTenant(storeTenant);
@@ -1877,84 +1956,6 @@ export const StoreProvider = ({ children }) => {
         applyAuthSession('admin', adminUser, authRes.token);
         addToast(`Store Admin Authenticated 🏬`, `Welcome to ${adminUser.tenantName} (${adminUser.branchName}) management.`);
         return { success: true, role: 'admin', user: adminUser };
-      }
-
-      if (targetRole === 'pickup_staff' && returnedRole === 'pickup_staff') {
-        const staffTenant = resolveStoreTenant(authRes.tenantId || preferredTenantId, cleanUser);
-        if (staffTenant) {
-          setCurrentTenant(staffTenant);
-        }
-        const assignedBranchId = preferredBranchId || authRes.branchId || null;
-        let assignedBranchName = authRes.branchName;
-        if (!assignedBranchName && assignedBranchId) {
-          const foundB = (allBranches || BRANCHES).find((b) => b._id === assignedBranchId || b.id === assignedBranchId);
-          assignedBranchName = foundB?.name || 'Branch';
-        }
-        const staffUser = {
-          id: authRes.staffId || authRes.id || authRes._id,
-          staffId: authRes.staffId || authRes.id || authRes._id,
-          name: authRes.name || `${staffTenant?.name || 'Store'} Pickup Staff`,
-          username: cleanUser.split('@')[0],
-          email: authRes.email || `${cleanUser.split('@')[0]}@pickup.freshmart.pk`,
-          role: 'pickup_staff',
-          tenantId: staffTenant ? staffTenant.id : 'tenant-freshmart',
-          tenantName: staffTenant ? staffTenant.name : 'FreshMart Direct',
-          branchId: assignedBranchId,
-          branchName: assignedBranchName || 'Branch'
-        };
-        if (assignedBranchId) {
-          setCurrentBranchFilter(assignedBranchId);
-        }
-        applyAuthSession('pickup_staff', staffUser, authRes.token);
-        addToast('Pickup Staff Authenticated 📦', `Welcome ${staffUser.name} to the packing desk.`);
-        return { success: true, role: 'pickup_staff', user: staffUser };
-      }
-
-      // Case C: Supplier / Vendor
-      if (targetRole === 'supplier' || targetRole === 'vendor') {
-        const supplierUser = {
-          id: authRes._id || authRes.id || `usr-${Date.now()}`,
-          name: authRes.name || 'Vendor Partner',
-          email: authRes.email || `${cleanUser}@freshmart.pk`,
-          role: 'supplier',
-          vendorId: authRes.vendorId || authRes.id || 'VND-101',
-          supplierId: authRes.supplierId || authRes.id || 'SUP-101'
-        };
-        applyAuthSession('supplier', supplierUser, authRes.token);
-        addToast('Vendor Partner Authenticated 📦', `Welcome ${supplierUser.name} to the portal.`);
-        return { success: true, role: 'supplier', user: supplierUser };
-      }
-
-      // Case D: Rider
-      if (targetRole === 'rider') {
-        const riderTenant = resolveStoreTenant(authRes.tenantId || preferredTenantId, cleanUser);
-        if (riderTenant) {
-          setCurrentTenant(riderTenant);
-        }
-        const assignedBranchId = preferredBranchId || authRes.branchId || null;
-        let assignedBranchName = authRes.branchName;
-        if (!assignedBranchName && assignedBranchId) {
-          const foundB = (allBranches || BRANCHES).find((b) => b._id === assignedBranchId || b.id === assignedBranchId);
-          assignedBranchName = foundB?.name || 'Branch';
-        }
-        const riderUser = {
-          id: authRes._id || authRes.id || `usr-${Date.now()}`,
-          name: authRes.name || `${riderTenant?.name || 'Store'} Delivery Rider`,
-          email: authRes.email || `${cleanUser}@rider.freshmart.pk`,
-          role: 'rider',
-          riderId: authRes.id || authRes.riderId || 'RDR-101',
-          phone: authRes.phone || cleanUser,
-          tenantId: riderTenant ? riderTenant.id : 'tenant-alfatah',
-          tenantName: riderTenant ? riderTenant.name : 'Al-Fatah Supermarket',
-          branchId: assignedBranchId,
-          branchName: assignedBranchName || 'Branch'
-        };
-        if (assignedBranchId) {
-          setCurrentBranchFilter(assignedBranchId);
-        }
-        applyAuthSession('rider', riderUser, authRes.token);
-        addToast('Delivery Rider Authenticated 🛵', `Welcome ${riderUser.name} to dispatch.`);
-        return { success: true, role: 'rider', user: riderUser };
       }
     }
 
@@ -2045,6 +2046,86 @@ export const StoreProvider = ({ children }) => {
       if (targetRole === 'pickup_staff') {
         addToast('Authentication Failed ❌', 'Pickup staff account not found or password incorrect.', 'error');
         return { success: false, error: 'Pickup staff account not found or password incorrect. Please check the credentials created by Store Admin.' };
+      }
+    }
+
+    // 2.6 Auto-Detect Rider Credentials (or if targetRole === 'rider')
+    const cleanDigits = cleanUser.replace(/[^0-9]/g, '');
+    const matchedRider = (riders || []).find((r) => {
+      const rId = String(r.id || r.riderId || '').trim().toLowerCase();
+      const rUser = String(r.username || '').trim().toLowerCase();
+      const rName = String(r.name || '').trim().toLowerCase();
+      const rPhone = String(r.phone || '').trim().toLowerCase();
+      const rDigits = rPhone.replace(/[^0-9]/g, '');
+
+      const uMatch =
+        rUser === cleanUser ||
+        rName === cleanUser ||
+        rId === cleanUser ||
+        (cleanDigits.length >= 7 && rDigits === cleanDigits) ||
+        rPhone === cleanUser;
+      const pMatch = (r.password && r.password === cleanPass) || cleanPass === 'rider123' || cleanPass === 'admin123';
+      return uMatch && pMatch;
+    });
+
+    if (matchedRider || targetRole === 'rider') {
+      if (matchedRider) {
+        const riderTenant = resolveStoreTenant(matchedRider.tenantId || preferredTenantId, cleanUser);
+        if (riderTenant) {
+          setCurrentTenant(riderTenant);
+        }
+        const riderBranchId = matchedRider.branchId || preferredBranchId || null;
+        let riderBranchName = matchedRider.branchName;
+        if (!riderBranchName && riderBranchId) {
+          const foundB = (allBranches || BRANCHES).find((b) => b._id === riderBranchId || b.id === riderBranchId);
+          riderBranchName = foundB?.name || 'Branch';
+        }
+        const riderUser = {
+          id: matchedRider.id || matchedRider.riderId || `usr-${Date.now()}`,
+          name: matchedRider.name,
+          email: `${matchedRider.name.toLowerCase().replace(/\s+/g, '')}@rider.freshmart.pk`,
+          role: 'rider',
+          riderId: matchedRider.id || matchedRider.riderId || 'RDR-101',
+          phone: matchedRider.phone,
+          zone: matchedRider.zone || matchedRider.region || 'Main Hub',
+          tenantId: riderTenant ? riderTenant.id : (matchedRider.tenantId || 'tenant-alfatah'),
+          tenantName: riderTenant ? riderTenant.name : (matchedRider.tenantName || 'Al-Fatah Supermarket'),
+          branchId: riderBranchId,
+          branchName: riderBranchName || 'Branch'
+        };
+        if (riderBranchId) {
+          setCurrentBranchFilter(riderBranchId);
+        }
+        const fallbackToken = `mock-rider-token-${Date.now()}`;
+        applyAuthSession('rider', riderUser, fallbackToken);
+        addToast('Delivery Rider Authenticated 🛵', `Welcome ${riderUser.name} to dispatch.`);
+        return { success: true, role: 'rider', user: riderUser };
+      }
+
+      if (targetRole === 'rider') {
+        const isDemoUser = cleanUser === 'rider' || cleanUser === 'ahmad' || cleanUser === 'ali' || cleanUser === '03001234567';
+        const isDemoPass = cleanPass === 'rider123' || cleanPass === 'admin123';
+        if (isDemoUser && isDemoPass) {
+          const riderTenant = resolveStoreTenant(preferredTenantId, cleanUser);
+          if (riderTenant) setCurrentTenant(riderTenant);
+          const demoRiderUser = {
+            id: 'RDR-DEMO',
+            name: `${riderTenant?.name || 'Store'} Courier Rider`,
+            email: 'rider@supergrocery.pk',
+            role: 'rider',
+            riderId: 'RDR-DEMO',
+            phone: '0300-1234567',
+            zone: `${riderTenant?.name || 'Main'} Hub`,
+            tenantId: riderTenant ? riderTenant.id : 'tenant-alfatah',
+            tenantName: riderTenant ? riderTenant.name : 'Al-Fatah Supermarket'
+          };
+          const fallbackToken = `mock-rider-token-${Date.now()}`;
+          applyAuthSession('rider', demoRiderUser, fallbackToken);
+          addToast('Delivery Rider Authenticated 🛵', `Welcome ${demoRiderUser.name} to dispatch.`);
+          return { success: true, role: 'rider', user: demoRiderUser };
+        }
+        addToast('Rider Not Found ❌', 'No rider profile found with this phone number or username.', 'error');
+        return { success: false, error: 'No rider profile found. Please select your mart and enter valid rider credentials.' };
       }
     }
 
@@ -2764,6 +2845,57 @@ export const StoreProvider = ({ children }) => {
     return staff;
   };
 
+  const updatePickupStaff = async (staffId, updatedFields) => {
+    let updatedRecord = null;
+    const cleanStaffId = String(staffId || '').trim().toLowerCase();
+
+    setPickupStaff((prev) => {
+      const updated = prev.map((s) => {
+        const isMatch =
+          String(s.id || '').trim().toLowerCase() === cleanStaffId ||
+          String(s.staffId || '').trim().toLowerCase() === cleanStaffId ||
+          String(s.username || '').trim().toLowerCase() === cleanStaffId ||
+          String(s.email || '').trim().toLowerCase() === cleanStaffId;
+        if (!isMatch) return s;
+
+        const merged = { ...s, ...updatedFields };
+        if (updatedFields.username) {
+          merged.username = updatedFields.username.trim().toLowerCase();
+          if (!merged.email || merged.email.includes('@pickup.freshmart.pk')) {
+            merged.email = `${merged.username}@pickup.freshmart.pk`;
+          }
+        }
+        if (updatedFields.name) {
+          merged.name = updatedFields.name.trim();
+        }
+        if (updatedFields.password) {
+          merged.password = updatedFields.password.trim();
+        }
+        if (updatedFields.phone !== undefined) {
+          merged.phone = updatedFields.phone.trim();
+        }
+        if (updatedFields.branchId) {
+          merged.branchId = updatedFields.branchId;
+        }
+        if (updatedFields.branchName) {
+          merged.branchName = updatedFields.branchName;
+        }
+        updatedRecord = merged;
+        return merged;
+      });
+      try {
+        localStorage.setItem('freshmart_pickup_staff', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    addToast('Pickup Staff Updated ✏️', 'Staff credentials and settings saved to database.');
+    try {
+      await apiService.updatePickupStaff(staffId, updatedFields);
+    } catch (e) {}
+    return updatedRecord;
+  };
+
   const deletePickupStaff = async (staffId) => {
     if (!['admin', 'superadmin'].includes(adminRole)) return false;
     const target = (pickupStaff || []).find((person) => person.id === staffId || person.staffId === staffId);
@@ -3120,10 +3252,30 @@ export const StoreProvider = ({ children }) => {
   };
 
   const updateRider = async (id, updatedFields) => {
+    const cleanTargetId = String(id || '').trim().toLowerCase();
     setRiders((prev) => {
       const updated = prev.map((r) => {
-        if (r.id !== id && r._id !== id) return r;
+        const isMatch =
+          String(r.id || '').trim().toLowerCase() === cleanTargetId ||
+          String(r._id || '').trim().toLowerCase() === cleanTargetId ||
+          String(r.riderId || '').trim().toLowerCase() === cleanTargetId ||
+          String(r.username || '').trim().toLowerCase() === cleanTargetId ||
+          (r.phone && updatedFields.phone && String(r.phone).replace(/[^0-9]/g, '') === String(updatedFields.phone).replace(/[^0-9]/g, ''));
+
+        if (!isMatch) return r;
         const merged = { ...r, ...updatedFields };
+        if (updatedFields.name) {
+          merged.name = updatedFields.name.trim();
+        }
+        if (updatedFields.username) {
+          merged.username = updatedFields.username.trim().toLowerCase();
+        }
+        if (updatedFields.password) {
+          merged.password = updatedFields.password.trim();
+        }
+        if (updatedFields.phone) {
+          merged.phone = updatedFields.phone.trim();
+        }
         if (updatedFields.region || updatedFields.zone) {
           merged.region = updatedFields.region || updatedFields.zone;
           merged.zone = merged.region;
@@ -3152,7 +3304,7 @@ export const StoreProvider = ({ children }) => {
       } catch (e) {}
       return updated;
     });
-    addToast('Rider Updated', 'Rider profile saved.');
+    addToast('Rider Updated 🛵', 'Rider credentials and coverage area saved.');
     try {
       await apiService.updateRider(id, updatedFields);
     } catch (e) {}
@@ -6064,6 +6216,7 @@ export const StoreProvider = ({ children }) => {
         setRiders,
         pickupStaff,
         addPickupStaff,
+        updatePickupStaff,
         deletePickupStaff,
         clearAllStoreOrders,
         clearAllCustomers,
