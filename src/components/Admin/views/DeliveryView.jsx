@@ -1582,19 +1582,22 @@ export const DeliveryView = () => {
       {/* ===================================================================== */}
       {/* MODAL: ADMIN ADD NEW RIDER (STREAMLINED & PROFESSIONAL)              */}
       {/* ===================================================================== */}
+      {/* ===================================================================== */}
+      {/* MODAL: ADMIN ADD NEW RIDER (STREAMLINED & PROFESSIONAL)              */}
+      {/* ===================================================================== */}
       {isAddRiderModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl flex flex-col max-h-[90vh] border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200 text-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl flex flex-col max-h-[92vh] border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200 text-xs">
             
             {/* Modal Header (Fixed at top) */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center text-xl shadow-md shadow-emerald-900/15">
+            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center text-lg shadow-md shadow-emerald-900/15 shrink-0">
                   🛵
                 </div>
                 <div>
-                  <h3 className="font-black text-base text-slate-900 tracking-tight">Register Delivery Rider</h3>
-                  <p className="text-[11px] text-slate-500 font-medium">Add courier to dispatch fleet</p>
+                  <h3 className="font-black text-sm sm:text-base text-slate-900 tracking-tight">Register Delivery Rider</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">Add courier to dispatch fleet with area coverage</p>
                 </div>
               </div>
               <button
@@ -1611,128 +1614,87 @@ export const DeliveryView = () => {
             <form onSubmit={handleAddRiderSubmit} className="flex flex-col flex-1 min-h-0">
               
               {/* Scrollable Form Body */}
-              <div className="p-6 space-y-4 overflow-y-auto flex-1">
+              <div className="p-5 space-y-3.5 overflow-y-auto flex-1">
                 
-                {/* 1. Full Name */}
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1 text-xs">
-                    Rider Full Name <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Usman Farooq"
-                    value={newRiderForm.name}
-                    onChange={(e) => setNewRiderForm({ ...newRiderForm, name: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all"
-                  />
-                </div>
-
-                {/* Rider Username */}
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1 text-xs">
-                    Username / Handle <span className="text-slate-400 font-normal">(Optional, e.g. hamza)</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. hamza or ahmad"
-                    value={newRiderForm.username}
-                    onChange={(e) => setNewRiderForm({ ...newRiderForm, username: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-mono font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all"
-                  />
-                </div>
-
-                {/* 2. Phone Number */}
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1 text-xs">
-                    Phone Number (Mobile) <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-xs">🇵🇰</span>
-                    <input
-                      type="tel"
-                      required
-                      placeholder="0300-1234567"
-                      value={newRiderForm.phone}
-                      onChange={(e) => setNewRiderForm({ ...newRiderForm, phone: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-2.5 font-mono font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* 3. Rider Login Password (Custom Credentials) */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Rider Login Password <span className="text-rose-500">*</span></span>
+                {/* Row 1: Full Name & Username */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-xs">
+                      Rider Full Name <span className="text-rose-500">*</span>
                     </label>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                      Rider App Access Key
-                    </span>
-                  </div>
-                  <div className="relative">
                     <input
-                      type={showRiderPassword ? 'text' : 'password'}
+                      type="text"
                       required
-                      placeholder="Set rider password (e.g. rider123 or custom)"
-                      value={newRiderForm.password}
-                      onChange={(e) => setNewRiderForm({ ...newRiderForm, password: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-3.5 pr-10 py-2.5 font-mono font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition-all"
+                      placeholder="e.g. Usman Farooq"
+                      value={newRiderForm.name}
+                      onChange={(e) => setNewRiderForm({ ...newRiderForm, name: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowRiderPassword(!showRiderPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-1 transition-colors"
-                      title={showRiderPassword ? "Hide password" : "Show password"}
-                    >
-                      {showRiderPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
                   </div>
-                  <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500">
-                    <span>
-                      Rider will log in with <strong>{newRiderForm.phone.trim() || 'mobile number'}</strong> & this password.
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setNewRiderForm({ ...newRiderForm, password: 'rider' + Math.floor(100 + Math.random() * 900) })}
-                      className="text-emerald-700 hover:text-emerald-900 font-bold hover:underline cursor-pointer shrink-0 ml-2"
-                    >
-                      🎲 Generate
-                    </button>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-xs">
+                      Username / Handle <span className="text-slate-400 font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. hamza or ahmad"
+                      value={newRiderForm.username}
+                      onChange={(e) => setNewRiderForm({ ...newRiderForm, username: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
                   </div>
                 </div>
 
-                {/* 3. Operational City */}
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1 text-xs">
-                    Operating City <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={newRiderForm.city}
-                    onChange={(e) => {
-                      const newCity = e.target.value;
-                      setNewRiderForm((prev) => ({
-                        ...prev,
-                        city: newCity,
-                        serviceArea: newCity === 'Lahore' ? 'Gulberg' : newCity === 'Karachi' ? 'Clifton' : 'Peoples Colony'
-                      }));
-                    }}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Faisalabad">🏙️ Faisalabad</option>
-                    <option value="Lahore">🏙️ Lahore</option>
-                    <option value="Karachi">🏙️ Karachi</option>
-                    <option value="Islamabad">🏙️ Islamabad</option>
-                    <option value="Rawalpindi">🏙️ Rawalpindi</option>
-                    <option value="Multan">🏙️ Multan</option>
-                    <option value="Peshawar">🏙️ Peshawar</option>
-                    <option value="Sialkot">🏙️ Sialkot</option>
-                    <option value="Gujranwala">🏙️ Gujranwala</option>
-                  </select>
+                {/* Row 2: Phone & Operating City */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-xs">
+                      Phone Number (Mobile) <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">🇵🇰</span>
+                      <input
+                        type="tel"
+                        required
+                        placeholder="0300-1234567"
+                        value={newRiderForm.phone}
+                        onChange={(e) => setNewRiderForm({ ...newRiderForm, phone: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2 font-mono font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-xs">
+                      Operating City <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={newRiderForm.city}
+                      onChange={(e) => {
+                        const newCity = e.target.value;
+                        setNewRiderForm((prev) => ({
+                          ...prev,
+                          city: newCity,
+                          serviceArea: newCity === 'Lahore' ? 'Gulberg' : newCity === 'Karachi' ? 'Clifton' : 'Peoples Colony'
+                        }));
+                      }}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+                    >
+                      <option value="Faisalabad">🏙️ Faisalabad</option>
+                      <option value="Lahore">🏙️ Lahore</option>
+                      <option value="Karachi">🏙️ Karachi</option>
+                      <option value="Islamabad">🏙️ Islamabad</option>
+                      <option value="Rawalpindi">🏙️ Rawalpindi</option>
+                      <option value="Multan">🏙️ Multan</option>
+                      <option value="Peshawar">🏙️ Peshawar</option>
+                      <option value="Sialkot">🏙️ Sialkot</option>
+                      <option value="Gujranwala">🏙️ Gujranwala</option>
+                    </select>
+                  </div>
                 </div>
 
-                {/* 4. Service Area / Coverage Zone */}
+                {/* Row 3: Coverage Area / Neighborhood */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="font-bold text-slate-700 text-xs">
@@ -1748,10 +1710,10 @@ export const DeliveryView = () => {
                     placeholder="e.g. Peoples Colony, D-Ground, Madina Town"
                     value={newRiderForm.serviceArea}
                     onChange={(e) => setNewRiderForm({ ...newRiderForm, serviceArea: e.target.value, region: e.target.value, zone: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                   {/* Quick Select Area Chips */}
-                  <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+                  <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
                     <span className="text-[10px] font-bold text-slate-400">Quick Select:</span>
                     {(newRiderForm.city === 'Lahore'
                       ? ['Gulberg', 'DHA Phase 5 & 6', 'Johar Town', 'Model Town', 'Bahria Town', 'Mall Road']
@@ -1780,111 +1742,106 @@ export const DeliveryView = () => {
                   </div>
                 </div>
 
-                {/* 5. Assigned Branch Hub */}
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1 text-xs">
-                    Assigned Branch & Hub <span className="text-slate-400 font-normal">(Base Station)</span>
-                  </label>
-                  <select
-                    value={isCustomRegion ? 'custom' : (newRiderForm.branchId || newRiderForm.branchName || newRiderForm.region)}
-                    onChange={handleBranchSelectChange}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none cursor-pointer transition-all"
-                  >
-                    <optgroup label="Added & Available Store Branches">
-                      {availableBranches.map((b) => {
-                        const branchKey = b.id || b._id || b.name;
-                        return (
-                          <option key={branchKey} value={branchKey}>
-                            🏪 {b.name} — {b.city} {b.address ? `(${b.address})` : ''}
-                          </option>
-                        );
-                      })}
-                    </optgroup>
-                    <optgroup label="Custom Area">
-                      <option value="custom">📍 + Add Custom Area / Location</option>
-                    </optgroup>
-                  </select>
+                {/* Row 4: Assigned Branch Hub & Base Address */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-xs">
+                      Assigned Branch & Hub <span className="text-slate-400 font-normal">(Base Station)</span>
+                    </label>
+                    <select
+                      value={isCustomRegion ? 'custom' : (newRiderForm.branchId || newRiderForm.branchName || newRiderForm.region)}
+                      onChange={handleBranchSelectChange}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+                    >
+                      <optgroup label="Added & Available Store Branches">
+                        {availableBranches.map((b) => {
+                          const branchKey = b.id || b._id || b.name;
+                          return (
+                            <option key={branchKey} value={branchKey}>
+                              🏪 {b.name} ({b.city})
+                            </option>
+                          );
+                        })}
+                      </optgroup>
+                      <optgroup label="Custom Area">
+                        <option value="custom">📍 Custom Hub / Area</option>
+                      </optgroup>
+                    </select>
+                  </div>
 
-                  {/* Active Branch GPS Info Badge */}
-                  {!isCustomRegion && (
-                    <div className="mt-1.5 flex items-center justify-between text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200/80 rounded-lg px-2.5 py-1.5 font-medium">
-                      <span className="flex items-center gap-1.5 truncate">
-                        <Building className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span className="truncate">
-                          Assigned: <strong>{newRiderForm.branchName || newRiderForm.zone}</strong> ({newRiderForm.city || 'Active Branch'})
-                        </span>
-                      </span>
-                      <span className="text-[10px] font-bold text-emerald-700 shrink-0 ml-2">
-                        📍 {newRiderForm.latitude}° N, {newRiderForm.longitude}° E
-                      </span>
-                    </div>
-                  )}
-
-                  {isCustomRegion && (
-                    <div className="mt-2 space-y-2">
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Model Town Branch / Johar Town Area"
-                        value={customRegionName}
-                        onChange={(e) => handleCustomRegionNameChange(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 font-semibold text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* 6. Base Address & Coverage Radius */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
+                  <div>
                     <label className="font-bold text-slate-700 block mb-1 text-xs">
                       Base Address / Landmark <span className="text-slate-400 font-normal">(Optional)</span>
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Near D-Ground Commercial"
+                      placeholder="e.g. Near D-Ground Market"
                       value={newRiderForm.address}
                       onChange={(e) => setNewRiderForm({ ...newRiderForm, address: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1 text-xs">
-                      Radius (km)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="100"
-                      value={newRiderForm.coverageRadiusKm}
-                      onChange={(e) => setNewRiderForm({ ...newRiderForm, coverageRadiusKm: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
                   </div>
                 </div>
 
-                {/* Login Credentials Confirmation Notice */}
-                <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-xl p-2.5 text-[11px] text-emerald-900 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>
-                    Login Credentials: Username is <strong className="font-mono text-emerald-950 font-bold">{newRiderForm.phone.trim() || 'mobile number'}</strong>, Password is <strong className="font-mono text-emerald-950 font-bold bg-white px-1.5 py-0.5 rounded border border-emerald-200">{newRiderForm.password.trim() || 'rider123'}</strong>.
-                  </span>
+                {/* Row 5: Rider Password Card */}
+                <div className="bg-emerald-50/50 border border-emerald-200/90 rounded-2xl p-3.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Rider Login Password <span className="text-rose-500">*</span></span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setNewRiderForm({ ...newRiderForm, password: 'rider' + Math.floor(100 + Math.random() * 900) })}
+                      className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <span>🎲 Generate</span>
+                    </button>
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type={showRiderPassword ? 'text' : 'password'}
+                      required
+                      placeholder="Set rider password (e.g. rider123)"
+                      value={newRiderForm.password}
+                      onChange={(e) => setNewRiderForm({ ...newRiderForm, password: e.target.value })}
+                      className="w-full bg-white border border-emerald-300 rounded-xl pl-3 pr-10 py-2 font-mono font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowRiderPassword(!showRiderPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-1"
+                      title={showRiderPassword ? "Hide password" : "Show password"}
+                    >
+                      {showRiderPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-slate-600">
+                    <span>
+                      Rider logs in with <strong>{newRiderForm.phone.trim() || 'mobile number'}</strong> & this password.
+                    </span>
+                    <span className="font-mono text-emerald-900 bg-white px-2 py-0.5 rounded-md border border-emerald-200 font-bold text-[10px]">
+                      Rider App Access Key
+                    </span>
+                  </div>
                 </div>
 
               </div>
 
               {/* Modal Footer (Sticky & Always Visible at Bottom) */}
-              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
+              <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsAddRiderModalOpen(false)}
-                  className="px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl font-bold text-xs cursor-pointer transition-colors"
+                  className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl font-bold text-xs cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl font-black text-xs shadow-md shadow-emerald-900/20 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                  className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl font-black text-xs shadow-md shadow-emerald-900/20 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                 >
                   Register Rider 🛵
                 </button>
@@ -1898,20 +1855,22 @@ export const DeliveryView = () => {
 
       {/* ✏️ EDIT RIDER & CREDENTIALS MODAL */}
       {editingRider && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            {/* Modal Header */}
-            <div className="px-6 py-4 bg-gradient-to-r from-emerald-600 to-teal-700 text-white flex items-center justify-between shrink-0">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl border border-slate-100 flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-150 text-xs">
+            
+            {/* Modal Header (Fixed at top) */}
+            <div className="px-5 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-lg">
+                <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-lg shrink-0">
                   ✏️
                 </div>
                 <div>
-                  <h2 className="font-black text-base leading-tight">Edit Courier & Password</h2>
-                  <p className="text-[11px] text-emerald-100">Update credentials for {editingRider.name}</p>
+                  <h2 className="font-black text-sm sm:text-base leading-tight">Edit Courier & Password</h2>
+                  <p className="text-[11px] text-emerald-100">Update profile, coverage location & rider credentials</p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setEditingRider(null)}
                 className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer transition-colors"
                 aria-label="Close"
@@ -1920,175 +1879,206 @@ export const DeliveryView = () => {
               </button>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleEditRiderSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1 text-xs">
-                  Rider Full Name <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editRiderForm.name}
-                  onChange={(e) => setEditRiderForm({ ...editRiderForm, name: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
+            {/* Modal Form */}
+            <form onSubmit={handleEditRiderSubmit} className="flex flex-col flex-1 min-h-0">
+              
+              {/* Scrollable Form Body */}
+              <div className="p-5 space-y-3.5 overflow-y-auto flex-1">
+                
+                {/* Row 1: Name & Username */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-xs">
+                      Rider Full Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Usman Farooq"
+                      value={editRiderForm.name}
+                      onChange={(e) => setEditRiderForm({ ...editRiderForm, name: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1 text-xs">
-                  Username <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editRiderForm.username}
-                  onChange={(e) => setEditRiderForm({ ...editRiderForm, username: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-mono font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1 text-xs">
-                  Phone Number (Login ID) <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  required
-                  value={editRiderForm.phone}
-                  onChange={(e) => setEditRiderForm({ ...editRiderForm, phone: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-mono font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              {/* Operating City */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1 text-xs">
-                  Operating City <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  value={editRiderForm.city}
-                  onChange={(e) => setEditRiderForm({ ...editRiderForm, city: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
-                >
-                  <option value="Faisalabad">🏙️ Faisalabad</option>
-                  <option value="Lahore">🏙️ Lahore</option>
-                  <option value="Karachi">🏙️ Karachi</option>
-                  <option value="Islamabad">🏙️ Islamabad</option>
-                  <option value="Rawalpindi">🏙️ Rawalpindi</option>
-                  <option value="Multan">🏙️ Multan</option>
-                  <option value="Peshawar">🏙️ Peshawar</option>
-                  <option value="Sialkot">🏙️ Sialkot</option>
-                  <option value="Gujranwala">🏙️ Gujranwala</option>
-                </select>
-              </div>
-
-              {/* Service Area / Coverage Zone */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="font-bold text-slate-700 text-xs">
-                    Coverage Area / Neighborhood <span className="text-rose-500">*</span>
-                  </label>
-                  <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                    🎯 Auto-Prioritizes Orders Here
-                  </span>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-xs">
+                      Username / Handle <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. ahmad"
+                      value={editRiderForm.username}
+                      onChange={(e) => setEditRiderForm({ ...editRiderForm, username: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Peoples Colony, D-Ground, Madina Town"
-                  value={editRiderForm.serviceArea || editRiderForm.region || ''}
-                  onChange={(e) => setEditRiderForm({ ...editRiderForm, serviceArea: e.target.value, region: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-                {/* Quick Select Chips */}
-                <div className="mt-2 flex flex-wrap gap-1.5 items-center">
-                  <span className="text-[10px] font-bold text-slate-400">Quick Select:</span>
-                  {(editRiderForm.city === 'Lahore'
-                    ? ['Gulberg', 'DHA Phase 5 & 6', 'Johar Town', 'Model Town', 'Bahria Town', 'Mall Road']
-                    : editRiderForm.city === 'Karachi'
-                    ? ['Clifton', 'DHA Phase 6', 'Gulshan-e-Iqbal', 'North Nazimabad', 'Tariq Road']
-                    : ['Peoples Colony', 'D-Ground', 'Madina Town', 'Jaranwala Road', 'Kohinoor', 'Samanabad', 'Gulberg']
-                  ).map((area) => (
-                    <button
-                      key={area}
-                      type="button"
-                      onClick={() => setEditRiderForm((prev) => ({
-                        ...prev,
-                        serviceArea: area,
-                        region: area
-                      }))}
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
-                        (editRiderForm.serviceArea === area || editRiderForm.region === area)
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
-                      }`}
+
+                {/* Row 2: Phone & Operating City */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-xs">
+                      Phone Number (Login ID) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="0300-1234567"
+                      value={editRiderForm.phone}
+                      onChange={(e) => setEditRiderForm({ ...editRiderForm, phone: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-xs">
+                      Operating City <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={editRiderForm.city}
+                      onChange={(e) => setEditRiderForm({ ...editRiderForm, city: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
                     >
-                      +{area}
-                    </button>
-                  ))}
+                      <option value="Faisalabad">🏙️ Faisalabad</option>
+                      <option value="Lahore">🏙️ Lahore</option>
+                      <option value="Karachi">🏙️ Karachi</option>
+                      <option value="Islamabad">🏙️ Islamabad</option>
+                      <option value="Rawalpindi">🏙️ Rawalpindi</option>
+                      <option value="Multan">🏙️ Multan</option>
+                      <option value="Peshawar">🏙️ Peshawar</option>
+                      <option value="Sialkot">🏙️ Sialkot</option>
+                      <option value="Gujranwala">🏙️ Gujranwala</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
 
-              {/* Base Address */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1 text-xs">
-                  Base Address / Landmark <span className="text-slate-400 font-normal">(Optional)</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Near D-Ground Market, Faisalabad"
-                  value={editRiderForm.address || ''}
-                  onChange={(e) => setEditRiderForm({ ...editRiderForm, address: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
-                    <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Rider Access Password <span className="text-rose-500">*</span></span>
-                  </label>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                    Rider App Key
-                  </span>
-                </div>
-                <div className="relative">
+                {/* Row 3: Coverage Area / Neighborhood */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold text-slate-700 text-xs">
+                      Coverage Area / Neighborhood <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      🎯 Auto-Prioritizes Orders Here
+                    </span>
+                  </div>
                   <input
-                    type={showEditRiderPassword ? 'text' : 'password'}
+                    type="text"
                     required
-                    placeholder="Enter new password"
-                    value={editRiderForm.password}
-                    onChange={(e) => setEditRiderForm({ ...editRiderForm, password: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-3.5 pr-10 py-2.5 font-mono font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    placeholder="e.g. Peoples Colony, D-Ground, Madina Town"
+                    value={editRiderForm.serviceArea || editRiderForm.region || ''}
+                    onChange={(e) => setEditRiderForm({ ...editRiderForm, serviceArea: e.target.value, region: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowEditRiderPassword(!showEditRiderPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-1"
-                    title={showEditRiderPassword ? "Hide password" : "Show password"}
-                  >
-                    {showEditRiderPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                  {/* Quick Select Chips */}
+                  <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
+                    <span className="text-[10px] font-bold text-slate-400">Quick Select:</span>
+                    {(editRiderForm.city === 'Lahore'
+                      ? ['Gulberg', 'DHA Phase 5 & 6', 'Johar Town', 'Model Town', 'Bahria Town', 'Mall Road']
+                      : editRiderForm.city === 'Karachi'
+                      ? ['Clifton', 'DHA Phase 6', 'Gulshan-e-Iqbal', 'North Nazimabad', 'Tariq Road']
+                      : ['Peoples Colony', 'D-Ground', 'Madina Town', 'Jaranwala Road', 'Kohinoor', 'Samanabad', 'Gulberg']
+                    ).map((area) => (
+                      <button
+                        key={area}
+                        type="button"
+                        onClick={() => setEditRiderForm((prev) => ({
+                          ...prev,
+                          serviceArea: area,
+                          region: area
+                        }))}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                          (editRiderForm.serviceArea === area || editRiderForm.region === area)
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        +{area}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
+                {/* Row 4: Base Address / Landmark */}
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1 text-xs">
+                    Base Address / Landmark <span className="text-slate-400 font-normal">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Near D-Ground Market, Faisalabad"
+                    value={editRiderForm.address || ''}
+                    onChange={(e) => setEditRiderForm({ ...editRiderForm, address: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Row 5: Rider Password Card (Prominent & Easy to Edit) */}
+                <div className="bg-emerald-50/50 border border-emerald-200/90 rounded-2xl p-3.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Rider Access Password <span className="text-rose-500">*</span></span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setEditRiderForm({ ...editRiderForm, password: 'rider' + Math.floor(100 + Math.random() * 900) })}
+                      className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <span>🎲 Generate</span>
+                    </button>
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type={showEditRiderPassword ? 'text' : 'password'}
+                      required
+                      placeholder="Enter new password"
+                      value={editRiderForm.password}
+                      onChange={(e) => setEditRiderForm({ ...editRiderForm, password: e.target.value })}
+                      className="w-full bg-white border border-emerald-300 rounded-xl pl-3 pr-10 py-2 font-mono font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowEditRiderPassword(!showEditRiderPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-1"
+                      title={showEditRiderPassword ? "Hide password" : "Show password"}
+                    >
+                      {showEditRiderPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-slate-600">
+                    <span>
+                      Login credentials: <strong>{editRiderForm.phone.trim() || 'mobile'}</strong> & password
+                    </span>
+                    <span className="font-mono text-emerald-900 bg-white px-2 py-0.5 rounded-md border border-emerald-200 font-bold text-[10px]">
+                      App Key
+                    </span>
+                  </div>
+                </div>
+
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+              {/* Modal Footer (Sticky & Always Visible at Bottom) */}
+              <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingRider(null)}
-                  className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl font-bold text-xs cursor-pointer"
+                  className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl font-bold text-xs cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-900/20 cursor-pointer"
+                  className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl font-black text-xs shadow-md shadow-emerald-900/20 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
                 >
-                  Save Credentials
+                  Save Changes & Password 🔑
                 </button>
               </div>
+
             </form>
           </div>
         </div>
