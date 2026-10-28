@@ -218,16 +218,19 @@ export const DeliveryView = () => {
     vehicleNumber: '',
     branchId: initialBranch.id || initialBranch._id || '',
     branchName: initialBranch.name,
-    region: 'Samanabad',
-    zone: 'Samanabad',
+    serviceArea: 'Peoples Colony',
+    region: 'Peoples Colony',
+    zone: 'Peoples Colony',
     city: initialBranch.city || 'Faisalabad',
+    address: '',
     latitude: String(initialBranch.latitude || 31.4125),
     longitude: String(initialBranch.longitude || 73.0915),
     coverageRadiusKm: String(initialBranch.deliveryRadius || initialBranch.coverageRadiusKm || 15),
     status: 'Active',
     cnic: '',
     username: '',
-    password: 'rider123'
+    password: 'rider123',
+    isGlobal: true
   });
 
   const [showRiderPassword, setShowRiderPassword] = useState(false);
@@ -237,6 +240,9 @@ export const DeliveryView = () => {
     name: '',
     username: '',
     phone: '',
+    city: 'Faisalabad',
+    serviceArea: '',
+    address: '',
     region: '',
     password: '',
     vehicleType: '🏍️ Honda 125',
@@ -490,6 +496,9 @@ export const DeliveryView = () => {
     const generatedPlate =
       newRiderForm.vehicleNumber.trim() || `FSD-${Math.floor(1000 + Math.random() * 9000)}`;
 
+    const riderCity = newRiderForm.city?.trim() || selectedBranch?.city || currentTenant?.city || 'Faisalabad';
+    const riderArea = newRiderForm.serviceArea?.trim() || finalBranchName || 'General Area';
+
     addRider({
       name: newRiderForm.name.trim(),
       phone: newRiderForm.phone.trim(),
@@ -497,9 +506,11 @@ export const DeliveryView = () => {
       vehicleNumber: generatedPlate,
       branchId: isCustomRegion ? 'custom' : (selectedBranch?.id || selectedBranch?._id || ''),
       branchName: finalBranchName,
-      city: selectedBranch?.city || currentTenant?.city || 'Faisalabad',
-      region: finalRegion,
-      zone: finalBranchName,
+      city: riderCity,
+      serviceArea: riderArea,
+      address: newRiderForm.address?.trim() || '',
+      region: `${riderArea} (${riderCity})`,
+      zone: riderArea,
       latitude: lat,
       longitude: lng,
       coordinates: { lat, lng },
@@ -510,6 +521,7 @@ export const DeliveryView = () => {
       cnic: newRiderForm.cnic ? newRiderForm.cnic.trim() : '',
       username: generatedUsername,
       password: generatedPassword,
+      isGlobal: true,
       deliveriesCount: 0,
       rating: 5.0
     });
@@ -526,16 +538,19 @@ export const DeliveryView = () => {
       vehicleNumber: '',
       branchId: nextBr.id || nextBr._id || '',
       branchName: nextBr.name || 'Main Hub',
-      region: 'Samanabad',
-      zone: 'Samanabad',
-      city: nextBr.city || '',
-      latitude: String(nextBr.latitude || 31.5204),
-      longitude: String(nextBr.longitude || 74.3587),
+      serviceArea: 'Peoples Colony',
+      region: 'Peoples Colony',
+      zone: 'Peoples Colony',
+      city: nextBr.city || 'Faisalabad',
+      address: '',
+      latitude: String(nextBr.latitude || 31.4125),
+      longitude: String(nextBr.longitude || 73.0915),
       coverageRadiusKm: String(nextBr.deliveryRadius || 15),
       status: 'Active',
       cnic: '',
       username: '',
-      password: 'rider123'
+      password: 'rider123',
+      isGlobal: true
     });
   };
 
@@ -543,17 +558,24 @@ export const DeliveryView = () => {
     e.preventDefault();
     if (!editingRider) return;
     const finalPassword = editRiderForm.password?.trim() || 'rider123';
+    const finalCity = editRiderForm.city?.trim() || editingRider.city || 'Faisalabad';
+    const finalArea = editRiderForm.serviceArea?.trim() || editRiderForm.region?.trim() || editingRider.serviceArea || editingRider.zone || 'Peoples Colony';
+    const finalAddress = editRiderForm.address?.trim() || editingRider.address || '';
     updateRider(editingRider.id, {
       name: editRiderForm.name.trim(),
       username: editRiderForm.username ? editRiderForm.username.trim() : editingRider.username,
       phone: editRiderForm.phone.trim(),
-      region: editRiderForm.region ? editRiderForm.region.trim() : editingRider.region,
-      zone: editRiderForm.region ? editRiderForm.region.trim() : editingRider.zone,
+      city: finalCity,
+      serviceArea: finalArea,
+      address: finalAddress,
+      region: `${finalArea} (${finalCity})`,
+      zone: finalArea,
       password: finalPassword,
       vehicleType: editRiderForm.vehicleType || '🏍️ Honda 125',
-      vehicleNumber: editRiderForm.vehicleNumber ? editRiderForm.vehicleNumber.trim() : (editingRider.vehicleNumber || '')
+      vehicleNumber: editRiderForm.vehicleNumber ? editRiderForm.vehicleNumber.trim() : (editingRider.vehicleNumber || ''),
+      isGlobal: editingRider.isGlobal ?? true
     });
-    addToast('Credentials Updated 🔑', `${editRiderForm.name}'s details updated successfully.`);
+    addToast('Courier & Location Saved 🔑', `${editRiderForm.name}'s coverage area (${finalArea}) updated.`);
     setEditingRider(null);
   };
 
@@ -1061,7 +1083,10 @@ export const DeliveryView = () => {
                                   </div>
                                   <div className="min-w-0">
                                     <p className={`font-bold text-sm truncate ${isChosen ? 'text-white' : 'text-stone-900'}`}>{r.name}</p>
-                                    <p className={`text-[10px] truncate ${isChosen ? 'text-stone-300' : 'text-stone-400'}`}>{r.region || r.zone || 'General'}</p>
+                                    <p className={`text-[10px] truncate ${isChosen ? 'text-stone-300' : 'text-stone-400'}`}>
+                                      {r.servedAreaLabel || r.serviceArea || r.zone || r.region || 'General Area'}
+                                      {r.isDirectAreaMatch ? ' ⭐ (Area Match)' : ''}
+                                    </p>
                                   </div>
                                 </div>
                                 <div className="text-right shrink-0">
@@ -1349,9 +1374,15 @@ export const DeliveryView = () => {
                             {rider.phone || 'Not set'}
                           </td>
 
-                          {/* REGION */}
+                          {/* REGION / SERVED AREA */}
                           <td className="py-4 px-4 text-stone-700 text-xs font-medium">
-                            {rider.region || rider.zone || rider.branchName || 'Samanabad'}
+                            <div className="font-bold text-stone-900 flex items-center gap-1">
+                              <span>📍</span>
+                              <span>{rider.serviceArea || rider.zone || rider.region || 'All Areas'}</span>
+                            </div>
+                            <div className="text-[10px] text-stone-400 font-medium">
+                              {rider.city || 'Faisalabad'}{rider.address ? ` · ${rider.address}` : ''}
+                            </div>
                           </td>
 
                           {/* ACTIVE ORDERS */}
@@ -1386,7 +1417,10 @@ export const DeliveryView = () => {
                                       name: rider.name || '',
                                       username: rider.username || rider.name.toLowerCase().replace(/\s+/g, '_'),
                                       phone: rider.phone || '',
-                                      region: rider.region || rider.zone || 'Samanabad',
+                                      city: rider.city || 'Faisalabad',
+                                      serviceArea: rider.serviceArea || rider.zone || rider.region || 'Peoples Colony',
+                                      address: rider.address || '',
+                                      region: rider.serviceArea || rider.region || rider.zone || 'Peoples Colony',
                                       password: rider.password || 'rider123',
                                       vehicleType: rider.vehicleType || '🏍️ Honda 125',
                                       vehicleNumber: rider.vehicleNumber || ''
@@ -1669,10 +1703,87 @@ export const DeliveryView = () => {
                   </div>
                 </div>
 
-                {/* 3. Assigned Branch & Delivery Area */}
+                {/* 3. Operational City */}
                 <div>
                   <label className="font-bold text-slate-700 block mb-1 text-xs">
-                    Assigned Branch & Area <span className="text-rose-500">*</span>
+                    Operating City <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={newRiderForm.city}
+                    onChange={(e) => {
+                      const newCity = e.target.value;
+                      setNewRiderForm((prev) => ({
+                        ...prev,
+                        city: newCity,
+                        serviceArea: newCity === 'Lahore' ? 'Gulberg' : newCity === 'Karachi' ? 'Clifton' : 'Peoples Colony'
+                      }));
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+                  >
+                    <option value="Faisalabad">🏙️ Faisalabad</option>
+                    <option value="Lahore">🏙️ Lahore</option>
+                    <option value="Karachi">🏙️ Karachi</option>
+                    <option value="Islamabad">🏙️ Islamabad</option>
+                    <option value="Rawalpindi">🏙️ Rawalpindi</option>
+                    <option value="Multan">🏙️ Multan</option>
+                    <option value="Peshawar">🏙️ Peshawar</option>
+                    <option value="Sialkot">🏙️ Sialkot</option>
+                    <option value="Gujranwala">🏙️ Gujranwala</option>
+                  </select>
+                </div>
+
+                {/* 4. Service Area / Coverage Zone */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold text-slate-700 text-xs">
+                      Coverage Area / Neighborhood <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      🎯 Auto-Prioritizes Orders Here
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Peoples Colony, D-Ground, Madina Town"
+                    value={newRiderForm.serviceArea}
+                    onChange={(e) => setNewRiderForm({ ...newRiderForm, serviceArea: e.target.value, region: e.target.value, zone: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                  {/* Quick Select Area Chips */}
+                  <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+                    <span className="text-[10px] font-bold text-slate-400">Quick Select:</span>
+                    {(newRiderForm.city === 'Lahore'
+                      ? ['Gulberg', 'DHA Phase 5 & 6', 'Johar Town', 'Model Town', 'Bahria Town', 'Mall Road']
+                      : newRiderForm.city === 'Karachi'
+                      ? ['Clifton', 'DHA Phase 6', 'Gulshan-e-Iqbal', 'North Nazimabad', 'Tariq Road']
+                      : ['Peoples Colony', 'D-Ground', 'Madina Town', 'Jaranwala Road', 'Kohinoor', 'Samanabad', 'Gulberg']
+                    ).map((area) => (
+                      <button
+                        key={area}
+                        type="button"
+                        onClick={() => setNewRiderForm((prev) => ({
+                          ...prev,
+                          serviceArea: area,
+                          region: area,
+                          zone: area
+                        }))}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                          newRiderForm.serviceArea === area
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        +{area}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 5. Assigned Branch Hub */}
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1 text-xs">
+                    Assigned Branch & Hub <span className="text-slate-400 font-normal">(Base Station)</span>
                   </label>
                   <select
                     value={isCustomRegion ? 'custom' : (newRiderForm.branchId || newRiderForm.branchName || newRiderForm.region)}
@@ -1721,6 +1832,35 @@ export const DeliveryView = () => {
                       />
                     </div>
                   )}
+                </div>
+
+                {/* 6. Base Address & Coverage Radius */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2">
+                    <label className="font-bold text-slate-700 block mb-1 text-xs">
+                      Base Address / Landmark <span className="text-slate-400 font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Near D-Ground Commercial"
+                      value={newRiderForm.address}
+                      onChange={(e) => setNewRiderForm({ ...newRiderForm, address: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1 text-xs">
+                      Radius (km)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={newRiderForm.coverageRadiusKm}
+                      onChange={(e) => setNewRiderForm({ ...newRiderForm, coverageRadiusKm: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
 
                 {/* Login Credentials Confirmation Notice */}
@@ -1821,16 +1961,86 @@ export const DeliveryView = () => {
                 />
               </div>
 
+              {/* Operating City */}
               <div>
                 <label className="font-bold text-slate-700 block mb-1 text-xs">
-                  Region / Delivery Area <span className="text-rose-500">*</span>
+                  Operating City <span className="text-rose-500">*</span>
                 </label>
+                <select
+                  value={editRiderForm.city}
+                  onChange={(e) => setEditRiderForm({ ...editRiderForm, city: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+                >
+                  <option value="Faisalabad">🏙️ Faisalabad</option>
+                  <option value="Lahore">🏙️ Lahore</option>
+                  <option value="Karachi">🏙️ Karachi</option>
+                  <option value="Islamabad">🏙️ Islamabad</option>
+                  <option value="Rawalpindi">🏙️ Rawalpindi</option>
+                  <option value="Multan">🏙️ Multan</option>
+                  <option value="Peshawar">🏙️ Peshawar</option>
+                  <option value="Sialkot">🏙️ Sialkot</option>
+                  <option value="Gujranwala">🏙️ Gujranwala</option>
+                </select>
+              </div>
+
+              {/* Service Area / Coverage Zone */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-slate-700 text-xs">
+                    Coverage Area / Neighborhood <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    🎯 Auto-Prioritizes Orders Here
+                  </span>
+                </div>
                 <input
                   type="text"
                   required
-                  value={editRiderForm.region}
-                  onChange={(e) => setEditRiderForm({ ...editRiderForm, region: e.target.value })}
+                  placeholder="e.g. Peoples Colony, D-Ground, Madina Town"
+                  value={editRiderForm.serviceArea || editRiderForm.region || ''}
+                  onChange={(e) => setEditRiderForm({ ...editRiderForm, serviceArea: e.target.value, region: e.target.value })}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+                {/* Quick Select Chips */}
+                <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+                  <span className="text-[10px] font-bold text-slate-400">Quick Select:</span>
+                  {(editRiderForm.city === 'Lahore'
+                    ? ['Gulberg', 'DHA Phase 5 & 6', 'Johar Town', 'Model Town', 'Bahria Town', 'Mall Road']
+                    : editRiderForm.city === 'Karachi'
+                    ? ['Clifton', 'DHA Phase 6', 'Gulshan-e-Iqbal', 'North Nazimabad', 'Tariq Road']
+                    : ['Peoples Colony', 'D-Ground', 'Madina Town', 'Jaranwala Road', 'Kohinoor', 'Samanabad', 'Gulberg']
+                  ).map((area) => (
+                    <button
+                      key={area}
+                      type="button"
+                      onClick={() => setEditRiderForm((prev) => ({
+                        ...prev,
+                        serviceArea: area,
+                        region: area
+                      }))}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                        (editRiderForm.serviceArea === area || editRiderForm.region === area)
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      +{area}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Base Address */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1 text-xs">
+                  Base Address / Landmark <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Near D-Ground Market, Faisalabad"
+                  value={editRiderForm.address || ''}
+                  onChange={(e) => setEditRiderForm({ ...editRiderForm, address: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
               </div>
 

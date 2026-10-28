@@ -28,9 +28,33 @@ import {
   ADMIN_DELIVERY_PERFORMANCE
 } from '../../src/data/adminSuiteData.js';
 
+import fs from 'node:fs';
+import path from 'node:path';
+import { INITIAL_RIDERS } from '../../src/data/tenantData.js';
+
+const RIDERS_FILE_PATH = path.resolve(process.cwd(), 'server/data/riders_db.json');
+
+export const loadDiskRiders = () => {
+  try {
+    if (fs.existsSync(RIDERS_FILE_PATH)) {
+      const data = fs.readFileSync(RIDERS_FILE_PATH, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return (INITIAL_RIDERS || []).map((r) => ({ ...r, isGlobal: true }));
+};
+
+export const saveAllDiskRiders = (ridersList) => {
+  try {
+    if (!Array.isArray(ridersList)) return;
+    fs.writeFileSync(RIDERS_FILE_PATH, JSON.stringify(ridersList, null, 2), 'utf-8');
+  } catch (e) {}
+};
+
 // In-Memory state fallback
 let memorySuppliers = Array.isArray(ADMIN_SUPPLIERS_DATA) ? [...ADMIN_SUPPLIERS_DATA] : [];
-let memoryRiders = [];
+let memoryRiders = loadDiskRiders();
 let memoryPromotions = Array.isArray(ADMIN_PROMOTIONS_DATA) ? [...ADMIN_PROMOTIONS_DATA] : [];
 
 // --- INVENTORY CONTROLLER ---
@@ -247,48 +271,57 @@ export const getRiders = async (req, res) => {
       : req.user?.tenantId;
     const callerBranch = req.query.branchId || (req.user?.branchId !== 'all' ? req.user?.branchId : null);
 
-    const filter = {};
-    if (callerTenant) {
-      filter.tenantId = callerTenant;
-    }
-    if (callerBranch) {
-      filter.branchId = callerBranch;
-    }
-
     if (isDbOnline()) {
-      const riders = await Rider.find(filter).sort({ createdAt: -1 });
+      const filter = {};
+      if (callerTenant && callerTenant !== 'all') {
+        filter.$or = [{ tenantId: callerTenant }, { isGlobal: true }, { tenantId: null }];
+      }
+      if (callerBranch && callerBranch !== 'all') {
+        filter.branchId = callerBranch;
+      }
+
+      let riders = await Rider.find(filter).sort({ createdAt: -1 });
+      if (!riders || riders.length === 0) {
+        const diskFallback = loadDiskRiders();
+        riders = diskFallback;
+      }
+
       const mapped = (riders || []).map((r) => {
         const lat = r.latitude ?? r.coordinates?.lat;
         const lng = r.longitude ?? r.coordinates?.lng;
         return {
-          id: r.id || r._id.toString(),
+          id: r.id || r._id?.toString(),
           name: r.name,
           phone: r.phone,
           vehicleType: r.vehicleType,
           vehicleNumber: r.vehicleNumber,
           zone: r.zone || r.region,
           region: r.region || r.zone,
+          city: r.city || 'Faisalabad',
+          serviceArea: r.serviceArea || r.region || r.zone || '',
+          address: r.address || '',
           latitude: lat,
           longitude: lng,
           coordinates: r.coordinates || ((lat && lng) ? { lat, lng } : undefined),
           coverageRadiusKm: r.coverageRadiusKm || 15,
-          status: r.status,
+          status: r.status || 'Active',
           username: r.username,
           deliveriesCount: r.deliveriesCount || 0,
           rating: r.rating || 5.0,
           tenantId: r.tenantId,
           branchId: r.branchId,
-          branchName: r.branchName
+          branchName: r.branchName,
+          isGlobal: Boolean(r.isGlobal ?? true)
         };
       });
       return res.json({ success: true, riders: mapped });
     }
 
-    let list = memoryRiders;
-    if (callerTenant) {
-      list = list.filter((r) => !r.tenantId || r.tenantId === callerTenant);
+    let list = loadDiskRiders();
+    if (callerTenant && callerTenant !== 'all') {
+      list = list.filter((r) => r.isGlobal || !r.tenantId || isSameTenant(r.tenantId, callerTenant));
     }
-    if (callerBranch) {
+    if (callerBranch && callerBranch !== 'all') {
       list = list.filter((r) => !r.branchId || r.branchId === callerBranch);
     }
     res.json({ success: true, riders: list });
@@ -299,14 +332,41 @@ export const getRiders = async (req, res) => {
 
 export const addRider = async (req, res) => {
   try {
-    const { id, name, phone, vehicleType, vehicleNumber, zone, region, latitude, longitude, status, username, password, cnic, coordinates, coverageRadiusKm, branchId: rawBranchId, branchName: rawBranchName, tenantId: rawTenantId } = req.body;
+    const {
+      id,
+      name,
+      phone,
+      vehicleType,
+      vehicleNumber,
+      zone,
+      region,
+      serviceArea,
+      city,
+      address,
+      latitude,
+      longitude,
+      status,
+      username,
+      password,
+      cnic,
+      coordinates,
+      coverageRadiusKm,
+      branchId: rawBranchId,
+      branchName: rawBranchName,
+      tenantId: rawTenantId,
+      isGlobal
+    } = req.body;
+
     const riderId = id || 'RDR-' + Math.floor(100 + Math.random() * 900);
-    const resolvedRegion = region || zone || 'Lahore Hub';
-    const lat = latitude !== undefined && latitude !== null && latitude !== '' ? Number(latitude) : (coordinates?.lat !== undefined ? Number(coordinates.lat) : undefined);
-    const lng = longitude !== undefined && longitude !== null && longitude !== '' ? Number(longitude) : (coordinates?.lng !== undefined ? Number(coordinates.lng) : undefined);
+    const resolvedRegion = region || zone || 'Peoples Colony';
+    const resolvedZone = zone || region || resolvedRegion;
+    const resolvedCity = city || 'Faisalabad';
+    const resolvedArea = serviceArea || resolvedRegion;
+    const lat = latitude !== undefined && latitude !== null && latitude !== '' ? Number(latitude) : (coordinates?.lat !== undefined ? Number(coordinates.lat) : 31.4147);
+    const lng = longitude !== undefined && longitude !== null && longitude !== '' ? Number(longitude) : (coordinates?.lng !== undefined ? Number(coordinates.lng) : 73.0872);
     const resolvedCoordinates = (Number.isFinite(lat) && Number.isFinite(lng))
       ? { lat, lng }
-      : (coordinates && Number.isFinite(Number(coordinates.lat)) && Number.isFinite(Number(coordinates.lng)) ? { lat: Number(coordinates.lat), lng: Number(coordinates.lng) } : undefined);
+      : { lat: 31.4147, lng: 73.0872 };
 
     const tenantId = rawTenantId || req.user?.tenantId || 'tenant-freshmart';
     let branchId = rawBranchId || req.user?.branchId;
@@ -327,52 +387,78 @@ export const addRider = async (req, res) => {
       phone,
       vehicleType: vehicleType || '🏍️ Honda 125',
       vehicleNumber: vehicleNumber || 'LEK-0000',
-      zone: resolvedRegion,
+      zone: resolvedZone,
       region: resolvedRegion,
+      serviceArea: resolvedArea,
+      city: resolvedCity,
+      address: address || `${resolvedRegion}, ${resolvedCity}`,
       latitude: lat,
       longitude: lng,
-      status: status || 'On-Duty',
+      coordinates: resolvedCoordinates,
+      status: status || 'Active',
       username: username || name.toLowerCase().replace(/\s+/g, '_'),
       password: password || 'rider123',
       cnic: cnic || '',
-      coordinates: resolvedCoordinates,
       coverageRadiusKm: Number(coverageRadiusKm) || 15,
       deliveriesCount: 0,
       rating: 5.0,
       tenantId,
       branchId,
-      branchName
+      branchName,
+      isGlobal: Boolean(isGlobal ?? true)
     };
 
+    // Save to Disk Database
+    const diskRiders = loadDiskRiders();
+    const existingIdx = diskRiders.findIndex((r) => r.id === riderId);
+    if (existingIdx >= 0) {
+      diskRiders[existingIdx] = newRider;
+    } else {
+      diskRiders.unshift(newRider);
+    }
+    saveAllDiskRiders(diskRiders);
+
     if (isDbOnline()) {
-      const createdRider = await Rider.create(newRider);
-      return res.status(201).json({
-        success: true,
-        rider: {
-          id: createdRider.id,
-          name: createdRider.name,
-          phone: createdRider.phone,
-          vehicleType: createdRider.vehicleType,
-          vehicleNumber: createdRider.vehicleNumber,
-          zone: createdRider.zone,
-          region: createdRider.region,
-          latitude: createdRider.latitude,
-          longitude: createdRider.longitude,
-          coordinates: createdRider.coordinates,
-          coverageRadiusKm: createdRider.coverageRadiusKm,
-          status: createdRider.status,
-          username: createdRider.username,
-          deliveriesCount: createdRider.deliveriesCount,
-          rating: createdRider.rating,
-          tenantId: createdRider.tenantId,
-          branchId: createdRider.branchId,
-          branchName: createdRider.branchName
-        }
-      });
+      try {
+        await Rider.create(newRider);
+      } catch (dbErr) {
+        await Rider.findOneAndUpdate({ id: riderId }, { $set: newRider }, { upsert: true });
+      }
     }
 
     memoryRiders.unshift(newRider);
     res.status(201).json({ success: true, rider: newRider });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateRider = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body || {};
+
+    const diskRiders = loadDiskRiders();
+    const idx = diskRiders.findIndex((r) => r.id === id || r._id === id || r.username === id);
+    let updatedRider = null;
+    if (idx >= 0) {
+      diskRiders[idx] = { ...diskRiders[idx], ...updates };
+      if (updates.latitude !== undefined && updates.longitude !== undefined) {
+        diskRiders[idx].coordinates = { lat: Number(updates.latitude), lng: Number(updates.longitude) };
+      }
+      updatedRider = diskRiders[idx];
+      saveAllDiskRiders(diskRiders);
+    }
+
+    if (isDbOnline()) {
+      await Rider.findOneAndUpdate(
+        { $or: [{ id }, { _id: id }] },
+        { $set: updates },
+        { new: true }
+      );
+    }
+
+    res.json({ success: true, message: 'Rider location and profile updated successfully', rider: updatedRider });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -384,7 +470,9 @@ export const deleteRider = async (req, res) => {
     if (isDbOnline()) {
       await Rider.deleteOne({ $or: [{ id }, { _id: id }] });
     }
-    memoryRiders = memoryRiders.filter((r) => r.id !== id);
+    const diskRiders = loadDiskRiders().filter((r) => r.id !== id && r._id !== id);
+    saveAllDiskRiders(diskRiders);
+    memoryRiders = memoryRiders.filter((r) => r.id !== id && r._id !== id);
     res.json({ success: true, message: 'Rider removed' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -400,12 +488,14 @@ export const clearAllRiders = async (req, res) => {
       if (isDbOnline()) {
         await Rider.deleteMany({});
       }
+      saveAllDiskRiders([]);
       memoryRiders = [];
     } else {
-      // Store Admin can only clear their store's riders
       if (isDbOnline()) {
         await Rider.deleteMany({ tenantId: userTenant });
       }
+      const kept = loadDiskRiders().filter((r) => r.tenantId !== userTenant);
+      saveAllDiskRiders(kept);
       memoryRiders = memoryRiders.filter((r) => r.tenantId !== userTenant);
     }
     res.json({ success: true, message: 'Riders cleared successfully' });

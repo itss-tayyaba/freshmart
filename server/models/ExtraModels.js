@@ -63,7 +63,11 @@ const riderSchema = new mongoose.Schema(
     activeOrders: [{ type: String }],
     tenantId: { type: String, index: true, default: 'tenant-freshmart' },
     branchId: { type: String, index: true, default: 'branch_001' },
-    branchName: { type: String, default: 'Main Branch' }
+    branchName: { type: String, default: 'Main Branch' },
+    city: { type: String, default: 'Faisalabad' },
+    serviceArea: { type: String },
+    address: { type: String },
+    isGlobal: { type: Boolean, default: true }
   },
   { timestamps: true, bufferCommands: false }
 );

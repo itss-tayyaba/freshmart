@@ -1079,9 +1079,11 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                                         {eligibleRiders.length === 0 && <option value="">No riders available</option>}
                                         {eligibleRiders.map((r) => {
                                           const rId = r.id || r._id || r.riderId;
+                                          const area = r.servedAreaLabel || r.region || r.zone || r.city || '';
+                                          const badge = r.isDirectAreaMatch ? ' ⭐ (Area Match)' : '';
                                           return (
                                             <option key={rId} value={rId}>
-                                              🛵 {r.name}
+                                              🛵 {r.name} {area ? `· ${area}` : ''}{badge}
                                             </option>
                                           );
                                         })}
@@ -1524,9 +1526,12 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                         {eligibleList.length === 0 && <option value="">No riders available</option>}
                         {eligibleList.map((r) => {
                           const rId = r.id || r._id || r.riderId;
+                          const area = r.servedAreaLabel || r.region || r.zone || r.city || '';
+                          const badge = r.isDirectAreaMatch ? ' ⭐ (Area Match)' : '';
+                          const dist = r.distanceKm > 0 ? ` · ${r.distanceKm.toFixed(1)}km` : '';
                           return (
                             <option key={rId} value={rId}>
-                              🛵 {r.name} {r.distanceKm > 0 ? `· ${r.distanceKm.toFixed(1)}km` : ''}
+                              🛵 {r.name} {area ? `· ${area}` : ''}{badge}{dist}
                             </option>
                           );
                         })}

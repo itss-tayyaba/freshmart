@@ -231,29 +231,20 @@ export const canAssignRiderToOrder = (order, rider) => {
   const orderTenant = normalizeOrderTenantId(order);
   const riderTenant = resolveTenantId(rider.tenantId);
 
-  if (!isSameTenant(orderTenant, riderTenant)) {
-    return {
-      allowed: false,
-      reason: `Rider belongs to store [${rider.tenantId || 'unassigned'}] but order is for [${order.tenantId || 'unassigned'}]`
-    };
-  }
+  // 1. Store / Tenant Matching:
+  // A rider is allowed if:
+  // - They belong to the same tenant, OR
+  // - They are flagged as global fleet courier (rider.isGlobal), OR
+  // - They have no store restriction (!rider.tenantId)
+  const isTenantMatch = !rider.tenantId || rider.isGlobal === true || isSameTenant(orderTenant, riderTenant);
 
-  // 1. Same branch explicitly matches
-  if (order.branchId && rider.branchId && String(order.branchId).toLowerCase() === String(rider.branchId).toLowerCase()) {
-    return { allowed: true };
-  }
-
-  // 2. Either entity has branch unassigned or 'all'
-  if (!order.branchId || !rider.branchId || order.branchId === 'all' || rider.branchId === 'all') {
-    return { allowed: true };
-  }
-
-  // 3. Resolve geographic area / city for order and rider
+  // 2. Resolve geographic area / city for order and rider
   const getArea = (entity = {}) => {
     const s = [
       entity.city,
       entity.zone,
       entity.region,
+      entity.serviceArea,
       entity.branchName,
       entity.branchId,
       entity.address,
@@ -264,7 +255,7 @@ export const canAssignRiderToOrder = (order, rider) => {
       .join(' ')
       .toLowerCase();
 
-    if (s.includes('faisalabad') || s.includes('fsd') || s.includes('peoples colony') || s.includes('d-ground') || s.includes('jaranwala') || s.includes('clock tower')) return 'faisalabad';
+    if (s.includes('faisalabad') || s.includes('fsd') || s.includes('peoples colony') || s.includes('d-ground') || s.includes('jaranwala') || s.includes('clock tower') || s.includes('jhal khanuana')) return 'faisalabad';
     if (s.includes('lahore') || s.includes('lhr') || s.includes('gulberg') || s.includes('johar') || s.includes('dha phase') || s.includes('dha lahore')) return 'lahore';
     if (s.includes('karachi') || s.includes('khi') || s.includes('clifton') || s.includes('hassan square') || s.includes('nazimabad') || s.includes('shaheed')) return 'karachi';
     if (s.includes('islamabad') || s.includes('isb') || s.includes('centaurus') || s.includes('blue area')) return 'islamabad';
@@ -276,25 +267,32 @@ export const canAssignRiderToOrder = (order, rider) => {
   const orderArea = getArea(order);
   const riderArea = getArea(rider);
 
-  // If both entities have resolved area and they match (e.g. both in Faisalabad or both in Lahore):
-  if (orderArea && riderArea && orderArea === riderArea) {
-    return { allowed: true };
-  }
-
   // Reject cross-city / cross-region assignment (e.g. rider in Karachi, order in Faisalabad)
   if (orderArea && riderArea && orderArea !== riderArea) {
     return {
       allowed: false,
-      reason: `Rider is based in [${rider.zone || rider.region || riderArea}] but order is in [${order.branchName || orderArea}]`
+      reason: `Rider is based in [${rider.city || rider.zone || rider.region || riderArea}] but order is in [${order.city || order.branchName || orderArea}]`
     };
   }
 
-  // Strict branch mismatch fallback
-  if (order.branchId && rider.branchId && order.branchId !== rider.branchId) {
+  // Cross-store rejection (if rider is from another store and NOT in global fleet)
+  if (!isTenantMatch) {
     return {
       allowed: false,
-      reason: `Rider belongs to branch [${rider.branchName || rider.branchId}] but order is routed to branch [${order.branchName || order.branchId}]`
+      reason: `Rider belongs to store [${rider.tenantId || 'unassigned'}] but order is for [${order.tenantId || 'unassigned'}]`
     };
+  }
+
+  // Strict branch mismatch fallback (only if both have different explicit non-matching branch IDs and rider is not global)
+  if (order.branchId && rider.branchId && order.branchId !== 'all' && rider.branchId !== 'all' && order.branchId !== 'custom' && rider.branchId !== 'custom') {
+    if (String(order.branchId).toLowerCase() !== String(rider.branchId).toLowerCase()) {
+      if (!rider.isGlobal) {
+        return {
+          allowed: false,
+          reason: `Rider belongs to branch [${rider.branchName || rider.branchId}] but order is routed to branch [${order.branchName || order.branchId}]`
+        };
+      }
+    }
   }
 
   return { allowed: true };
@@ -329,14 +327,101 @@ export const canAssignStaffToOrder = (order, staff) => {
 };
 
 /**
- * Strict eligibility filter for riders: same store and same branch
+ * Strict eligibility filter for riders: matching location and store fleet
  */
 export const getStrictEligibleRiders = (order, ridersList = []) => {
   if (!order || !Array.isArray(ridersList)) return [];
-  return ridersList.filter((rider) => {
+
+  const eligible = ridersList.filter((rider) => {
+    if (!rider) return false;
     const res = canAssignRiderToOrder(order, rider);
     return res.allowed;
   });
+
+  // Location-based relative ranking:
+  const orderText = [
+    order.branchName,
+    order.branchHub,
+    order.city,
+    order.address,
+    order.zone,
+    order.shippingAddress?.address,
+    order.shippingAddress?.city
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return eligible
+    .map((rider) => {
+      let score = 0;
+      const riderLocText = [
+        rider.region,
+        rider.zone,
+        rider.serviceArea,
+        rider.branchName,
+        rider.city,
+        rider.address
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      // Check specific neighborhood / served locality match
+      const subAreas = [
+        'peoples colony',
+        'd-ground',
+        'jaranwala',
+        'madina town',
+        'jhal khanuana',
+        'clock tower',
+        'samanabad',
+        'kohinoor',
+        'gulberg',
+        'dha',
+        'model town',
+        'clifton',
+        'gulshan'
+      ];
+
+      let isDirectAreaMatch = false;
+      for (const area of subAreas) {
+        if (orderText.includes(area) && riderLocText.includes(area)) {
+          score += 100;
+          isDirectAreaMatch = true;
+          break;
+        }
+      }
+
+      // Branch match
+      if (order.branchId && rider.branchId && String(order.branchId).toLowerCase() === String(rider.branchId).toLowerCase()) {
+        score += 50;
+      }
+
+      // City match
+      if ((orderText.includes('faisalabad') && riderLocText.includes('faisalabad')) ||
+          (orderText.includes('lahore') && riderLocText.includes('lahore')) ||
+          (orderText.includes('karachi') && riderLocText.includes('karachi')) ||
+          (orderText.includes('islamabad') && riderLocText.includes('islamabad'))) {
+        score += 30;
+      }
+
+      // Available / Active status bonus
+      const st = String(rider.status || '').toLowerCase();
+      if (st === 'active' || st === 'on-duty' || st === 'available') {
+        score += 10;
+      }
+
+      const servedLabel = rider.region || rider.zone || rider.serviceArea || rider.branchName || rider.city || 'Store Area';
+
+      return {
+        ...rider,
+        relevanceScore: score,
+        isDirectAreaMatch,
+        servedAreaLabel: servedLabel
+      };
+    })
+    .sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
 };
 
 /**

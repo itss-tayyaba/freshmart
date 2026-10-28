@@ -3084,19 +3084,22 @@ export const StoreProvider = ({ children }) => {
       city: riderData.city || currentTenant?.city || 'Faisalabad',
       region: regionName,
       zone: regionName,
+      serviceArea: riderData.serviceArea || regionName,
+      address: riderData.address || `${regionName}, ${riderData.city || currentTenant?.city || 'Faisalabad'}`,
       latitude: lat,
       longitude: lng,
       coordinates: { lat, lng },
       coverageRadiusKm: Number(riderData.coverageRadiusKm) || 15,
       status: riderData.status || 'Active',
-      tenantId: riderData.tenantId || currentTenant?.id || 'tenant-alfatah',
+      tenantId: riderData.tenantId || currentTenant?.id || 'tenant-freshmart',
       tenantName: tenantName,
       cnic: riderData.cnic || '',
       username: (riderData.username || riderData.name).toLowerCase().replace(/\s+/g, '_'),
       password: riderData.password || 'rider123',
       deliveriesCount: 0,
       rating: 5.0,
-      joinedDate: new Date().toISOString().split('T')[0]
+      joinedDate: new Date().toISOString().split('T')[0],
+      isGlobal: Boolean(riderData.isGlobal ?? true)
     };
 
     setRiders((prev) => {
@@ -3119,11 +3122,20 @@ export const StoreProvider = ({ children }) => {
   const updateRider = async (id, updatedFields) => {
     setRiders((prev) => {
       const updated = prev.map((r) => {
-        if (r.id !== id) return r;
+        if (r.id !== id && r._id !== id) return r;
         const merged = { ...r, ...updatedFields };
         if (updatedFields.region || updatedFields.zone) {
           merged.region = updatedFields.region || updatedFields.zone;
           merged.zone = merged.region;
+        }
+        if (updatedFields.city) {
+          merged.city = updatedFields.city;
+        }
+        if (updatedFields.serviceArea) {
+          merged.serviceArea = updatedFields.serviceArea;
+        }
+        if (updatedFields.address) {
+          merged.address = updatedFields.address;
         }
         if (updatedFields.latitude !== undefined || updatedFields.longitude !== undefined) {
           const lat = Number(updatedFields.latitude ?? merged.latitude);

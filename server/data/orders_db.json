@@ -24,12 +24,12 @@
       "coverageRadiusKm": 25,
       "currentLat": 31.48,
       "currentLng": 74.29,
-      "assignedAt": "2026-10-28T05:32:23.201Z",
+      "assignedAt": "2026-10-28T06:47:50.009Z",
       "status": "On-Duty",
       "eta": "7 mins",
       "etaMinutes": 22
     },
-    "deliveryOtp": "9600",
+    "deliveryOtp": "3954",
     "isDispatched": true,
     "dispatchStatus": "Out for Delivery",
     "statusClass": "bg-amber-100 text-amber-800",
@@ -43,13 +43,13 @@
     "timeline": [
       {
         "title": "Order Confirmed",
-        "time": "10:32 AM",
+        "time": "11:47 AM",
         "completed": true,
         "desc": "Payment method: Cash on Delivery"
       },
       {
         "title": "Dark Store Packed & Verified",
-        "time": "10:36 AM",
+        "time": "11:51 AM",
         "completed": true,
         "desc": "Quality checked and sealed in chilled thermal insulation"
       },
@@ -132,13 +132,13 @@
     "payment": "Credit / Debit Card",
     "paymentMethod": "Credit / Debit Card",
     "time": "Just now",
-    "createdAt": "2026-10-28T05:32:22.243Z",
+    "createdAt": "2026-10-28T06:47:49.073Z",
     "assignedRider": null,
-    "deliveryOtp": "7626",
+    "deliveryOtp": "7306",
     "timeline": [
       {
         "title": "Order Confirmed",
-        "time": "10:32 AM",
+        "time": "11:47 AM",
         "completed": true,
         "desc": "Payment method: Credit / Debit Card"
       },
@@ -159,6 +159,101 @@
         "time": "Pending",
         "completed": false,
         "desc": "Contactless handover at Sector Y, Phase 3, DHA Lahore"
+      }
+    ]
+  },
+  {
+    "id": "#CV-TEST-9001",
+    "orderId": "#CV-TEST-9001",
+    "tenantId": "tenant-chasevalue",
+    "tenantName": "Chase Value",
+    "branchId": "branch_cv_fsd",
+    "branchName": "Wholesale Express Hub",
+    "customerId": "CUST-GUEST",
+    "customer": "Kashif Ali",
+    "customerName": "Kashif Ali",
+    "customerPhone": "+92 321 4455667",
+    "address": "Jaranwala Road, Near Peoples Colony, Faisalabad",
+    "city": "Faisalabad",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "Jaranwala Road, Near Peoples Colony, Faisalabad",
+      "city": "Faisalabad",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.4504,
+      "lng": 73.135
+    },
+    "hubCoords": {
+      "lat": 31.436,
+      "lng": 73.1795
+    },
+    "distanceKm": 4.5,
+    "eta": "13 mins (Upon dispatch)",
+    "etaMinutes": 13,
+    "orderItems": [
+      {
+        "name": "Chakki Atta 10kg",
+        "price": 1250,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Chakki Atta 10kg",
+        "price": 1250,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "1 Item",
+    "total": 2500,
+    "totalPrice": 2500,
+    "totalAmount": 2500,
+    "subtotal": 2500,
+    "itemsPrice": 2500,
+    "deliveryPrice": 0,
+    "deliveryCharges": 0,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Pending",
+    "statusClass": "bg-amber-100 text-amber-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-10-28T06:47:48.957Z",
+    "assignedRider": null,
+    "deliveryOtp": "7433",
+    "timeline": [
+      {
+        "title": "Order Confirmed",
+        "time": "11:47 AM",
+        "completed": true,
+        "desc": "Payment method: Cash on Delivery"
+      },
+      {
+        "title": "Dark Store Packed & Verified",
+        "time": "In Progress",
+        "completed": false,
+        "desc": "Quality checked and sealed in chilled thermal insulation"
+      },
+      {
+        "title": "Out for Express Delivery",
+        "time": "Awaiting Assignment",
+        "completed": false,
+        "desc": "Dispatch team is reviewing address to assign fleet rider"
+      },
+      {
+        "title": "Delivered to Doorstep",
+        "time": "Pending",
+        "completed": false,
+        "desc": "Contactless handover at Jaranwala Road, Near Peoples Colony, Faisalabad"
       }
     ]
   },
@@ -243,13 +338,13 @@
     "payment": "Cash on Delivery",
     "paymentMethod": "Cash on Delivery",
     "time": "Just now",
-    "createdAt": "2026-10-28T05:32:22.145Z",
+    "createdAt": "2026-10-28T06:47:47.797Z",
     "assignedRider": null,
-    "deliveryOtp": "7422",
+    "deliveryOtp": "9907",
     "timeline": [
       {
         "title": "Order Confirmed",
-        "time": "10:32 AM",
+        "time": "11:47 AM",
         "completed": true,
         "desc": "Payment method: Cash on Delivery"
       },
@@ -270,101 +365,6 @@
         "time": "Pending",
         "completed": false,
         "desc": "Contactless handover at House 55, Street 8, Sector Y, DHA Phase 3"
-      }
-    ]
-  },
-  {
-    "id": "#CV-TEST-9001",
-    "orderId": "#CV-TEST-9001",
-    "tenantId": "tenant-chasevalue",
-    "tenantName": "Chase Value",
-    "branchId": "branch_cv_fsd",
-    "branchName": "Wholesale Express Hub",
-    "customerId": "CUST-GUEST",
-    "customer": "Kashif Ali",
-    "customerName": "Kashif Ali",
-    "customerPhone": "+92 321 4455667",
-    "address": "Jaranwala Road, Near Peoples Colony, Faisalabad",
-    "city": "Faisalabad",
-    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
-    "shippingAddress": {
-      "address": "Jaranwala Road, Near Peoples Colony, Faisalabad",
-      "city": "Faisalabad",
-      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
-    },
-    "destinationCoords": {
-      "lat": 31.4504,
-      "lng": 73.135
-    },
-    "hubCoords": {
-      "lat": 31.436,
-      "lng": 73.1795
-    },
-    "distanceKm": 4.5,
-    "eta": "13 mins (Upon dispatch)",
-    "etaMinutes": 13,
-    "orderItems": [
-      {
-        "name": "Chakki Atta 10kg",
-        "price": 1250,
-        "quantity": 2,
-        "unit": "1 unit",
-        "image": "",
-        "vendorId": "VND-101"
-      }
-    ],
-    "rawItems": [
-      {
-        "name": "Chakki Atta 10kg",
-        "price": 1250,
-        "quantity": 2,
-        "unit": "1 unit",
-        "image": "",
-        "vendorId": "VND-101"
-      }
-    ],
-    "items": "1 Item",
-    "total": 2500,
-    "totalPrice": 2500,
-    "totalAmount": 2500,
-    "subtotal": 2500,
-    "itemsPrice": 2500,
-    "deliveryPrice": 0,
-    "deliveryCharges": 0,
-    "discountPrice": 0,
-    "discountAmount": 0,
-    "status": "Pending",
-    "statusClass": "bg-amber-100 text-amber-800",
-    "payment": "Cash on Delivery",
-    "paymentMethod": "Cash on Delivery",
-    "time": "Just now",
-    "createdAt": "2026-10-28T05:23:36.589Z",
-    "assignedRider": null,
-    "deliveryOtp": "7600",
-    "timeline": [
-      {
-        "title": "Order Confirmed",
-        "time": "10:23 AM",
-        "completed": true,
-        "desc": "Payment method: Cash on Delivery"
-      },
-      {
-        "title": "Dark Store Packed & Verified",
-        "time": "In Progress",
-        "completed": false,
-        "desc": "Quality checked and sealed in chilled thermal insulation"
-      },
-      {
-        "title": "Out for Express Delivery",
-        "time": "Awaiting Assignment",
-        "completed": false,
-        "desc": "Dispatch team is reviewing address to assign fleet rider"
-      },
-      {
-        "title": "Delivered to Doorstep",
-        "time": "Pending",
-        "completed": false,
-        "desc": "Contactless handover at Jaranwala Road, Near Peoples Colony, Faisalabad"
       }
     ]
   }

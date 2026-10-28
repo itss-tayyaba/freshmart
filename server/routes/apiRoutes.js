@@ -43,6 +43,7 @@ import {
   deleteSupplier,
   getRiders,
   addRider,
+  updateRider,
   deleteRider,
   clearAllRiders,
   getPromotions,
@@ -179,6 +180,7 @@ router.delete('/suppliers/:id', protect, adminOnly, deleteSupplier);
 // Admin Locked & Validated: Delivery fleet management
 router.get('/riders', protect, adminOnly, getRiders);
 router.post('/riders', protect, adminOnly, validate(createRiderSchema), addRider);
+router.put('/riders/:id', protect, adminOnly, updateRider);
 router.delete('/riders/:id', protect, adminOnly, deleteRider);
 router.delete('/riders', protect, superAdminOnly, clearAllRiders);
 
