@@ -125,7 +125,7 @@ const StoreAdminConsole = () => {
   };
 
   const currentRoleInfo = adminRole === 'rider'
-    ? { title: 'Rider', badge: 'Rider', tag: 'Delivery Operations', iconBg: 'bg-rose-600' }
+    ? { title: 'Rider', badge: 'Rider', tag: 'Delivery Operations', iconBg: 'bg-emerald-600' }
     : roleMeta[adminRole] || roleMeta.admin;
 
   const activeTenantId = currentTenant?.id || user?.tenantId || 'tenant-freshmart';
@@ -255,7 +255,7 @@ const StoreAdminConsole = () => {
       {/* 📱 Mobile Top Header Bar (< lg screens) */}
       <div className="lg:hidden bg-[#0f172a] text-slate-200 px-4 py-3.5 flex items-center justify-between border-b border-slate-800 sticky top-0 z-40 shadow-md">
         <div onClick={() => navigateTo('home')} className="flex items-center gap-2.5 cursor-pointer">
-          <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-black text-base shadow-xs">
+          <div className="w-8 h-8 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black text-base shadow-xs">
             {currentTenant?.logo || '🏬'}
           </div>
           <div>

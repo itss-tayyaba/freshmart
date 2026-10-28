@@ -67,7 +67,7 @@ function FreshMartAppContent() {
       );
     }
     return (
-      <div className="min-h-screen w-full bg-[#fbf9f4] dark:bg-[#0b0f19] dark:text-slate-100 font-sans">
+      <div className="min-h-screen w-full bg-[#f8fafc] dark:bg-[#0b0f19] dark:text-slate-100 font-sans">
         <DeliveryPortal />
       </div>
     );

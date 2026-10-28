@@ -352,27 +352,29 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col md:flex-row font-sans">
       
       {/* =========================================================================
-          LEFT SIDEBAR: Deep Forest Green (#062319) matching the screenshot
+          LEFT SIDEBAR: Signature Deep Midnight Navy (#0b132b) matching Store Admin
           ========================================================================= */}
-      <aside className="w-full md:w-64 lg:w-68 bg-[#062319] text-slate-200 flex flex-col justify-between shrink-0 p-4 md:h-screen md:sticky md:top-0 select-none overflow-y-auto">
-        <div>
+      <aside className="w-full md:w-64 lg:w-72 bg-[#0b132b] text-slate-300 flex flex-col justify-between shrink-0 md:h-screen md:sticky md:top-0 select-none overflow-y-auto border-r border-slate-800/80 shadow-xl">
+        <div className="flex flex-col flex-1 min-h-0">
           {/* Logo Brand Header */}
-          <div className="flex items-center gap-2.5 pb-3 border-b border-emerald-950/80">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400">
-              <ShoppingCart className="w-5 h-5 text-emerald-400" />
-            </div>
-            <div>
-              <h2 className="text-xl font-extrabold tracking-tight text-white leading-none">
-                {storeBrandName}
-              </h2>
-              <p className="text-xs text-emerald-300/80 font-medium mt-1">
-                Pickup Staff
-              </p>
+          <div className="p-4 border-b border-slate-800/80 shrink-0 bg-[#0f172a]/80">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black text-lg shadow-sm shrink-0">
+                <ShoppingCart className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="min-w-0 flex-1 truncate">
+                <h2 className="text-sm font-black tracking-tight text-white leading-tight truncate">
+                  {storeBrandName}
+                </h2>
+                <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block truncate mt-0.5">
+                  Pickup Staff
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Navigation Menu (History & Profile removed) */}
-          <nav className="mt-3 space-y-1">
+          {/* Navigation Menu */}
+          <nav className="flex-1 overflow-y-auto min-h-0 py-3 px-2.5 space-y-1">
             {[
               { id: 'Dashboard', label: 'Dashboard', icon: LayoutDashboard },
               { id: 'Assigned Orders', label: 'Assigned Orders', icon: ClipboardList, count: kpiCounts.assigned },
@@ -392,82 +394,96 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                     if (item.id === 'Notifications') setShowNotifications(!showNotifications);
                     else setActiveNav(item.id);
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-semibold text-xs transition-all cursor-pointer ${
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer group ${
                     isActive
-                      ? 'bg-[#10b981] text-white shadow-lg shadow-emerald-950/40 font-bold'
-                      : 'text-slate-300 hover:text-white hover:bg-emerald-900/40'
+                      ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/40 ring-1 ring-emerald-500/30'
+                      : 'text-slate-400 hover:bg-slate-800/70 hover:text-white'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                  <div className="flex items-center gap-2.5">
+                    <Icon className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-emerald-400'}`} />
                     <span>{item.label}</span>
                   </div>
                   {item.badge ? (
-                    <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0">
                       {item.badge}
                     </span>
                   ) : item.count !== undefined ? (
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white font-bold' : 'text-slate-400'}`}>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'}`}>
                       {item.count}
                     </span>
                   ) : null}
                 </button>
               );
             })}
-
-            {/* Logout button */}
-            <button
-              type="button"
-              onClick={adminLogout}
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-rose-300 hover:text-white hover:bg-rose-950/50 transition cursor-pointer mt-2"
-            >
-              <LogOut className="w-4 h-4 text-rose-400" />
-              <span>Logout</span>
-            </button>
           </nav>
         </div>
 
         {/* Bottom Sidebar: User Profile Card & Vegetable Crate Artwork */}
-        <div className="pt-3 border-t border-emerald-950/80 space-y-2.5 mt-auto">
+        <div className="p-3 border-t border-slate-800/80 shrink-0 bg-[#0f172a]/90 space-y-2 mt-auto">
           {/* User Profile Card */}
-          <div
-            className="flex items-center gap-3 p-2 rounded-xl bg-emerald-950/50 border border-emerald-800/40 transition"
-          >
+          <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-800/60 border border-slate-700/60">
             <img
               src="/staff_ayesha.jpg"
               alt={staffName}
               onError={(e) => {
                 e.target.style.display = 'none';
               }}
-              className="w-10 h-10 rounded-full object-cover border-2 border-emerald-400 shrink-0 shadow-xs"
+              className="w-9 h-9 rounded-xl object-cover border border-emerald-500/40 shrink-0 shadow-xs"
             />
             <div className="min-w-0 flex-1">
-              <h4 className="text-sm font-bold text-white truncate leading-tight">
+              <h4 className="text-xs font-bold text-white truncate leading-tight">
                 {staffName}
               </h4>
-              <p className="text-[11px] text-emerald-300/80 leading-tight">
+              <p className="text-[10px] text-emerald-400 font-semibold mt-0.5">
                 Pickup Staff
               </p>
-              <div className="flex items-center gap-1.5 mt-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span className="text-[10px] font-bold text-emerald-300">Online</span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="text-[10px] font-bold text-slate-400">Online</span>
               </div>
             </div>
           </div>
 
-          {/* Decorative Grocery Crate (matching the screenshot) */}
-          <div className="rounded-2xl overflow-hidden shadow-lg border border-emerald-900/60 bg-emerald-950/40 relative group">
+          {/* Decorative Grocery Crate */}
+          <div className="rounded-xl overflow-hidden shadow-sm border border-slate-800 bg-slate-900/60 relative group">
             <img
               src="/pickup_crate.jpg"
               alt="Fresh Produce Crate"
-              className="w-full h-20 object-cover transition duration-300 group-hover:scale-105"
+              className="w-full h-16 object-cover transition duration-300 group-hover:scale-105"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#062319] via-transparent to-transparent"></div>
-            <div className="absolute bottom-2 left-2 right-2 text-center">
-              <span className="text-[10px] font-bold text-emerald-200 uppercase tracking-widest bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30">
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0b132b] via-transparent to-transparent"></div>
+            <div className="absolute bottom-1.5 left-2 right-2 text-center">
+              <span className="text-[9px] font-bold text-emerald-300 uppercase tracking-widest bg-[#0f172a]/90 px-2 py-0.5 rounded-full border border-emerald-500/30">
                 Hub Packing Desk
               </span>
             </div>
+          </div>
+
+          {/* Storefront & Logout */}
+          <div className="space-y-1.5 pt-0.5">
+            {onBackToAdmin && (
+              <button
+                type="button"
+                onClick={onBackToAdmin}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-emerald-400 bg-emerald-950/40 hover:bg-emerald-950/80 border border-emerald-800/40 transition-colors cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <Boxes className="w-4 h-4" />
+                  <span>Admin Console</span>
+                </span>
+                <ExternalLink className="w-3.5 h-3.5 text-emerald-400/80" />
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={adminLogout}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-950/40 transition cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Logout</span>
+            </button>
           </div>
         </div>
       </aside>
@@ -674,7 +690,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               <button
                 type="button"
                 onClick={() => setActiveNav('Assigned Orders')}
-                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition cursor-pointer"
+                className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition cursor-pointer"
               >
                 View All
               </button>
@@ -742,7 +758,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                                 e.stopPropagation();
                                 setSelectedOrderForPacking(ord);
                               }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#fffbeb] dark:bg-amber-950/60 text-[#d97706] dark:text-amber-300 border border-[#fde68a] dark:border-amber-700/60 hover:bg-amber-100 transition shadow-2xs"
+                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 hover:bg-emerald-100 transition shadow-2xs cursor-pointer"
                             >
                               <span>To Pack</span>
                             </button>
@@ -768,14 +784,14 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             <section className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <PackageCheck className="w-4 h-4 text-blue-600" />
+                  <PackageCheck className="w-4 h-4 text-emerald-600" />
                   <span>Packed Orders</span>
                   <span className="text-xs font-normal text-slate-400 font-mono">({packedOrders.length})</span>
                 </h3>
               </div>
               {packedOrders.length === 0 ? (
                 <div className="text-center py-12 px-4 space-y-2">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto text-xl">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto text-xl">
                     📦
                   </div>
                   <p className="text-sm font-bold text-slate-700 dark:text-slate-200">No Packed Orders</p>
@@ -884,7 +900,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                               <td className="py-3">
                                 <span className={"px-2.5 py-0.5 rounded-full text-[10px] font-bold " + (
                                   isReady ? "bg-emerald-100 text-emerald-800" :
-                                  isPacked ? "bg-blue-100 text-blue-800" :
+                                  isPacked ? "bg-emerald-100 text-emerald-800" :
                                   isPending ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"
                                 )}>
                                   {ord.status || 'Pending'}
@@ -895,7 +911,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                                   <button
                                     type="button"
                                     onClick={() => setSelectedOrderForPacking(ord)}
-                                    className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white cursor-pointer"
+                                    className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
                                   >
                                     To Pack
                                   </button>
@@ -937,7 +953,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               <button
                 type="button"
                 onClick={() => setActiveNav('Ready for Delivery')}
-                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition cursor-pointer"
+                className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition cursor-pointer"
               >
                 View All
               </button>
@@ -1239,7 +1255,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                     <button
                       type="button"
                       onClick={() => handlePackItems(selectedOrderForPacking, items.length)}
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <Package className="w-4 h-4" />
                       <span>Pack & Seal Order</span>

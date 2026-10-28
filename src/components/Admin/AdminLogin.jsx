@@ -99,20 +99,10 @@ export const AdminLogin = () => {
     return currentTenant?.color || currentMart?.color || '#991b1b';
   }, [currentTenant, currentMart]);
 
-  // Dynamic theme color tailored to active console role
+  // Unified brand color matching main dashboard theme (emerald green #059669)
   const themeColor = useMemo(() => {
-    if (selectedRole === 'admin') {
-      return currentMart?.color || websiteBrandColor;
-    }
-    if (selectedRole === 'rider') {
-      return '#ea580c'; // High-visibility courier amber/orange
-    }
-    if (selectedRole === 'superadmin') {
-      return '#b45309'; // Executive platform gold/amber
-    }
-    // pickup_staff
-    return websiteBrandColor;
-  }, [selectedRole, currentMart, websiteBrandColor]);
+    return '#059669';
+  }, []);
 
   const roles = [
     {
@@ -563,13 +553,13 @@ export const AdminLogin = () => {
 
           {/* 🛵 RIDER INFO BANNER */}
           {selectedRole === 'rider' && (
-            <div className="p-3 bg-orange-50/90 border border-orange-200/90 rounded-2xl flex items-center gap-2.5 text-xs text-orange-950 animate-in fade-in duration-200">
-              <div className="w-8 h-8 rounded-xl bg-orange-200/80 text-orange-900 flex items-center justify-center font-bold shrink-0 text-base">
+            <div className="p-3 bg-emerald-50/90 border border-emerald-200/90 rounded-2xl flex items-center gap-2.5 text-xs text-emerald-950 animate-in fade-in duration-200">
+              <div className="w-8 h-8 rounded-xl bg-emerald-200/80 text-emerald-900 flex items-center justify-center font-bold shrink-0 text-base">
                 🛵
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-bold text-slate-900">Delivery Fleet & Courier Portal</div>
-                <div className="text-[11px] text-orange-900/80 leading-snug">
+                <div className="text-[11px] text-emerald-900/80 leading-snug">
                   View assigned customer deliveries, share live GPS route telemetry, and verify customer delivery OTP.
                 </div>
               </div>
@@ -578,25 +568,13 @@ export const AdminLogin = () => {
 
           {/* 📦 PICKUP STAFF INFO BANNER */}
           {selectedRole === 'pickup_staff' && (
-            <div
-              style={{
-                backgroundColor: `${websiteBrandColor}0d`,
-                borderColor: `${websiteBrandColor}30`
-              }}
-              className="p-3 border rounded-2xl flex items-center gap-2.5 text-xs animate-in fade-in duration-200"
-            >
-              <div
-                style={{
-                  backgroundColor: `${websiteBrandColor}20`,
-                  color: websiteBrandColor
-                }}
-                className="w-8 h-8 rounded-xl flex items-center justify-center font-bold shrink-0 text-base"
-              >
+            <div className="p-3 bg-emerald-50/90 border border-emerald-200/90 rounded-2xl flex items-center gap-2.5 text-xs text-emerald-950 animate-in fade-in duration-200">
+              <div className="w-8 h-8 rounded-xl bg-emerald-200/80 text-emerald-900 flex items-center justify-center font-bold shrink-0 text-base">
                 📦
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-bold text-slate-900">Pickup Staff Packing Desk</div>
-                <div className="text-[11px] text-slate-600 leading-snug">
+                <div className="text-[11px] text-emerald-900/80 leading-snug">
                   Sign in with credentials assigned by Store Admin to pick shelf items, pack parcels, and stage for courier dispatch.
                 </div>
               </div>
