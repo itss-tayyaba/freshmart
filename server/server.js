@@ -1,11 +1,13 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { connectDB, isDbOnline, getDbStatus } from './config/db.js';
 import { corsOptions } from './config/corsOptions.js';
 import apiRoutes from './routes/apiRoutes.js';
 import { notFound, errorHandler } from './middleware/errorMiddleware.js';
+import { apiLimiter } from './middleware/rateLimitMiddleware.js';
 import { Product } from './models/Product.js';
 import { Category } from './models/Category.js';
 import { Company } from './models/Company.js';
@@ -21,8 +23,9 @@ dotenv.config();
 const app = express();
 
 // Middlewares
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '200kb' }));
 
 if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
@@ -65,6 +68,7 @@ app.get('/api/db-status', (req, res) => {
 });
 
 // API Routes
+app.use('/api', apiLimiter);
 app.use('/api', apiRoutes);
 
 // Error Handling Middleware

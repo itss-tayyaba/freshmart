@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { isDbOnline } from '../config/db.js';
 import { Order } from '../models/Order.js';
 import { Product } from '../models/Product.js';
@@ -253,70 +254,77 @@ export const createOrder = async (req, res) => {
       };
     });
 
+    const isTestEnv = process.env.NODE_ENV !== 'production';
+
     const custName =
       req.body.customerName ||
       req.body.recipientName ||
       req.body.customer ||
       req.user?.name ||
-      'Customer';
+      (isTestEnv ? 'Customer' : '');
 
     const custPhone =
       req.body.customerPhone ||
       req.body.phone ||
       req.user?.phone ||
-      '+92 300 1234567';
+      (isTestEnv ? '+92 300 1234567' : '');
 
     // Normalize shipping address
     let shippingAddress = req.body.shippingAddress;
+    let streetAddress = '';
     if (typeof shippingAddress === 'string') {
+      streetAddress = shippingAddress;
       shippingAddress = {
         address: shippingAddress,
         city: req.body.city || 'Lahore, Pakistan',
         deliverySlot: req.body.deliverySlot || '⚡ 15-25 Mins Express Delivery'
       };
-    } else if (!shippingAddress || typeof shippingAddress !== 'object') {
+    } else if (shippingAddress && typeof shippingAddress === 'object') {
+      streetAddress = shippingAddress.address || req.body.address || '';
       shippingAddress = {
-        address: req.body.address || '123 Main Street, Gulberg, Lahore',
-        city: req.body.city || 'Lahore, Pakistan',
-        deliverySlot: req.body.deliverySlot || '⚡ 15-25 Mins Express Delivery'
-      };
-    } else {
-      shippingAddress = {
-        address: shippingAddress.address || req.body.address || '123 Main Street, Gulberg, Lahore',
+        address: streetAddress,
         city: shippingAddress.city || req.body.city || 'Lahore, Pakistan',
         deliverySlot: shippingAddress.deliverySlot || req.body.deliverySlot || '⚡ 15-25 Mins Express Delivery'
       };
+    } else {
+      streetAddress = req.body.address || (isTestEnv ? '123 Main Street, Gulberg, Lahore' : '');
+      shippingAddress = {
+        address: streetAddress,
+        city: req.body.city || 'Lahore, Pakistan',
+        deliverySlot: req.body.deliverySlot || '⚡ 15-25 Mins Express Delivery'
+      };
+    }
+
+    if (!isTestEnv && (!custName || !custPhone || !streetAddress)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Customer name, phone number, and delivery street address are required.'
+      });
     }
 
     const paymentMethod = req.body.paymentMethod || req.body.payment || 'Cash on Delivery';
 
-    const itemsPrice =
-      req.body.itemsPrice !== undefined
-        ? Number(req.body.itemsPrice)
-        : req.body.subtotal !== undefined
-        ? Number(req.body.subtotal)
-        : orderItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+    // Calculate verified itemsPrice from item price * quantity
+    const computedItemsPrice = orderItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+    const itemsPrice = isTestEnv && req.body.itemsPrice !== undefined
+      ? Number(req.body.itemsPrice)
+      : computedItemsPrice;
 
     const deliveryPrice =
-      req.body.deliveryPrice !== undefined
-        ? Number(req.body.deliveryPrice)
-        : req.body.deliveryCharges !== undefined
-        ? Number(req.body.deliveryCharges)
-        : itemsPrice >= 1000 || itemsPrice === 0
+      itemsPrice >= 1000 || itemsPrice === 0
         ? 0
-        : 100;
+        : (isTestEnv && req.body.deliveryPrice !== undefined ? Number(req.body.deliveryPrice) : 100);
 
-    const discount = Number(req.body.discountPrice || req.body.discountAmount || 0);
-    const totalPrice =
-      req.body.totalPrice !== undefined
-        ? Number(req.body.totalPrice)
-        : req.body.totalAmount !== undefined
-        ? Number(req.body.totalAmount)
-        : req.body.total !== undefined
-        ? Number(req.body.total)
-        : Math.max(0, itemsPrice + deliveryPrice - discount);
+    const discount = Math.min(itemsPrice, Math.max(0, Number(req.body.discountPrice || req.body.discountAmount || 0)));
+    const totalPrice = isTestEnv && req.body.totalPrice !== undefined
+      ? Number(req.body.totalPrice)
+      : Math.max(0, itemsPrice + deliveryPrice - discount);
 
-    const orderId = req.body.orderId || req.body.id || ('#FM' + Math.floor(10000 + Math.random() * 90000));
+    // Cryptographically secure Order ID
+    const secureHex = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const orderId = (isTestEnv && (req.body.orderId || req.body.id))
+      ? (req.body.orderId || req.body.id)
+      : `#FM-${Date.now().toString().slice(-4)}${secureHex}`;
 
     // Calculate destination coordinates and resolve store branch routing
     const destinationCoords = resolveDestinationCoords(shippingAddress);
@@ -352,7 +360,9 @@ export const createOrder = async (req, res) => {
     const distanceKm = routing.distanceKm || calculateDistanceKm(hubCoords.lat, hubCoords.lng, destinationCoords.lat, destinationCoords.lng);
     const etaMinutes = routing.etaMinutes || calculateEtaMinutes(distanceKm);
     const etaText = `${etaMinutes} mins (Upon dispatch)`;
-    const deliveryOtp = req.body.deliveryOtp || String(Math.floor(1000 + Math.random() * 9000));
+    const deliveryOtp = (isTestEnv && req.body.deliveryOtp)
+      ? String(req.body.deliveryOtp)
+      : String(crypto.randomInt(1000, 10000));
 
     const initialOrderObj = {
       orderId,
@@ -708,6 +718,21 @@ export const trackOrder = async (req, res) => {
     foundOrder.etaMinutes = etaMinutes;
     foundOrder.timeline = buildDynamicTimeline(foundOrder);
 
+    // Strip sensitive delivery PIN / OTP and mask customer phone in public tracking
+    delete foundOrder.deliveryOtp;
+    if (foundOrder.customerPhone) {
+      const p = String(foundOrder.customerPhone);
+      if (p.length > 6) {
+        foundOrder.customerPhone = p.slice(0, 4) + '****' + p.slice(-3);
+      }
+    }
+    if (foundOrder.phone) {
+      const p = String(foundOrder.phone);
+      if (p.length > 6) {
+        foundOrder.phone = p.slice(0, 4) + '****' + p.slice(-3);
+      }
+    }
+
     return res.json({
       success: true,
       order: foundOrder
@@ -920,6 +945,14 @@ export const assignRiderToOrder = async (req, res) => {
 // @route   PUT /api/orders/:id/rider-location
 export const updateRiderLocation = async (req, res) => {
   try {
+    if (req.user) {
+      const userRole = (req.user.role || '').toLowerCase();
+      const isAuthorizedRole = ['rider', 'admin', 'superadmin', 'store admin'].includes(userRole);
+      if (!isAuthorizedRole) {
+        return res.status(403).json({ success: false, message: 'Only authorized riders and admins can update rider GPS coordinates' });
+      }
+    }
+
     const { id } = req.params;
     const { lat, lng, speed, heading } = req.body;
 
@@ -1171,17 +1204,25 @@ export const verifyDeliveryOtp = async (req, res) => {
       }
     }
 
-    // Synthesize demo/in-memory fallback order if not already in DB
+    const isDemoMode = process.env.NODE_ENV === 'production'
+      ? process.env.ALLOW_DEMO_AUTH === 'true'
+      : true;
+
+    // Synthesize demo/in-memory fallback order ONLY in demo/test environments
     if (!foundOrder) {
-      foundOrder = {
-        id: cleanId,
-        orderId: `#${cleanId}`,
-        status: 'In Transit',
-        deliveryOtp: clientExpectedOtp || cleanOtp || '7412',
-        paymentStatus: 'Pending',
-        totalPrice: 1200
-      };
-      ADMIN_ORDERS_FULL.unshift(foundOrder);
+      if (isDemoMode) {
+        foundOrder = {
+          id: cleanId,
+          orderId: `#${cleanId}`,
+          status: 'In Transit',
+          deliveryOtp: clientExpectedOtp || cleanOtp || '7412',
+          paymentStatus: 'Pending',
+          totalPrice: 1200
+        };
+        ADMIN_ORDERS_FULL.unshift(foundOrder);
+      } else {
+        return res.status(404).json({ success: false, message: `Order #${cleanId} not found` });
+      }
     }
 
     if (foundOrder.status === 'Delivered') {
@@ -1192,21 +1233,28 @@ export const verifyDeliveryOtp = async (req, res) => {
       });
     }
 
-    // Verify OTP against stored OTP (or client-provided expected OTP, or demo bypasses: 7412, 9999, 1234, 4829)
-    const expectedOtp = String(clientExpectedOtp || foundOrder.deliveryOtp || '7412').trim();
-    const isOtpValid =
-      cleanOtp === expectedOtp ||
-      (clientExpectedOtp && cleanOtp === String(clientExpectedOtp).trim()) ||
-      (foundOrder.deliveryOtp && cleanOtp === String(foundOrder.deliveryOtp).trim()) ||
-      cleanOtp === '7412' ||
-      cleanOtp === '9999' ||
-      cleanOtp === '1234' ||
-      cleanOtp === '4829';
+    // Verify OTP against stored OTP (Reject client hints and bypass codes in production)
+    const storedOtp = String(foundOrder.deliveryOtp || '').trim();
+    let isOtpValid = false;
+
+    if (isDemoMode) {
+      const expectedOtp = String(clientExpectedOtp || storedOtp || '7412').trim();
+      isOtpValid =
+        cleanOtp === expectedOtp ||
+        (clientExpectedOtp && cleanOtp === String(clientExpectedOtp).trim()) ||
+        (storedOtp && cleanOtp === storedOtp) ||
+        cleanOtp === '7412' ||
+        cleanOtp === '9999' ||
+        cleanOtp === '1234' ||
+        cleanOtp === '4829';
+    } else {
+      isOtpValid = Boolean(storedOtp && cleanOtp === storedOtp);
+    }
 
     if (!isOtpValid) {
       return res.status(400).json({
         success: false,
-        message: `Invalid OTP code "${cleanOtp}". Please ask the customer for the 4-digit code shown in their Customer Portal (Doorstep OTP: ${expectedOtp}).`
+        message: 'Invalid OTP code provided. Please enter the valid 4-digit verification code.'
       });
     }
 

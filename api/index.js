@@ -1,18 +1,20 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { connectDB, isDbOnline } from '../server/config/db.js';
 import { corsOptions } from '../server/config/corsOptions.js';
 import apiRoutes from '../server/routes/apiRoutes.js';
 import { notFound, errorHandler } from '../server/middleware/errorMiddleware.js';
+import { apiLimiter } from '../server/middleware/rateLimitMiddleware.js';
 
 dotenv.config();
 
 const app = express();
 
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors(corsOptions));
-
-app.use(express.json());
+app.use(express.json({ limit: '200kb' }));
 
 // Serverless DB Connection Middleware
 app.use(async (req, res, next) => {
@@ -44,6 +46,7 @@ app.get('/api', (req, res) => {
   });
 });
 
+app.use('/api', apiLimiter);
 app.use('/api', apiRoutes);
 
 app.use(notFound);

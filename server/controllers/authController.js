@@ -6,6 +6,14 @@ import { User } from '../models/User.js';
 import { Supplier, Rider } from '../models/ExtraModels.js';
 import { isDbOnline } from '../config/db.js';
 import { loadDiskRiders } from './extraControllers.js';
+import { escapeRegex, getJwtSecret, signJwtToken } from '../utils/jwtHelper.js';
+
+const allowDemoAuth = () => {
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.ALLOW_DEMO_AUTH === 'true';
+  }
+  return true;
+};
 
 const PICKUP_STAFF_FILE_PATH = path.resolve(process.cwd(), 'server/data/pickup_staff_db.json');
 
@@ -28,11 +36,7 @@ export const saveAllDiskPickupStaff = (staffList) => {
 };
 
 const generateToken = (id, role = 'customer', email = '', name = '', vendorId = undefined, extraClaims = {}) => {
-  return jwt.sign(
-    { id, role, email, name, ...(vendorId ? { vendorId } : {}), ...extraClaims },
-    process.env.JWT_SECRET || 'freshmart_secret_key_2026',
-    { expiresIn: '30d' }
-  );
+  return signJwtToken(id, role, email, name, vendorId, extraClaims);
 };
 
 // @desc    Register a new user
@@ -103,6 +107,10 @@ export const loginUser = async (req, res) => {
 
     const cleanDigits = cleanInput.replace(/[^0-9]/g, '');
 
+    const safeRegexInput = escapeRegex(cleanInput);
+    const safePickupUsername = escapeRegex(pickupUsername);
+    const safeDigits = escapeRegex(cleanDigits);
+
     if (isDbOnline()) {
       // 1. Check User model (Customers, Admins, Pickup Staff)
       const user = await User.findOne({
@@ -111,16 +119,16 @@ export const loginUser = async (req, res) => {
           { email: `${cleanInput}@pickup.freshmart.pk` },
           { email: `${pickupUsername}@pickup.freshmart.pk` },
           { staffId: cleanInput.toUpperCase() },
-          { name: new RegExp(`^${cleanInput}$`, 'i') },
-          ...(cleanDigits.length >= 7 ? [{ phone: new RegExp(cleanDigits) }] : []),
-          ...(cleanInput === 'admin' ? [{ role: 'admin' }] : [])
+          { name: new RegExp(`^${safeRegexInput}$`, 'i') },
+          ...(cleanDigits.length >= 7 ? [{ phone: new RegExp(safeDigits) }] : [])
         ]
       });
 
       if (user) {
         const isMatch = await user.matchPassword(password);
-        const isAdminFallback = user.role === 'admin' && (password === 'admin123' || password === 'adminpassword123');
-        const isStaffFallback = user.role === 'pickup_staff' && (password === 'staff123' || password === 'admin123' || password === 'hafsa123');
+        const isDemo = allowDemoAuth();
+        const isAdminFallback = isDemo && user.role === 'admin' && (password === 'admin123' || password === 'adminpassword123');
+        const isStaffFallback = isDemo && user.role === 'pickup_staff' && (password === 'staff123' || password === 'admin123' || password === 'hafsa123');
 
         if (isMatch || isAdminFallback || isStaffFallback) {
           let resolvedTenantId = req.body.tenantId || user.tenantId;
@@ -175,14 +183,14 @@ export const loginUser = async (req, res) => {
         $or: [
           { email: cleanInput },
           { username: cleanInput },
-          { name: new RegExp(`^${cleanInput}$`, 'i') },
+          { name: new RegExp(`^${safeRegexInput}$`, 'i') },
           { supplierId: cleanInput.toUpperCase() }
         ]
       });
 
       if (supplier) {
         const isMatch = await supplier.matchPassword(password);
-        const isDefaultSupplierFallback = password === 'supplier123' || password === 'cocacola123';
+        const isDefaultSupplierFallback = allowDemoAuth() && (password === 'supplier123' || password === 'cocacola123');
 
         if (isMatch || isDefaultSupplierFallback) {
           const vId = supplier.supplierId || supplier.id || 'VND-101';
@@ -201,25 +209,27 @@ export const loginUser = async (req, res) => {
 
       // 3. Check Rider model with bcrypt matchPassword
       const bareRiderInput = cleanInput.replace(/@(rider\.)?freshmart\.(pk|com)$/, '');
+      const safeBareRider = escapeRegex(bareRiderInput);
       const rider = await Rider.findOne({
         $or: [
-          { username: new RegExp(`^${cleanInput}$`, 'i') },
-          { username: new RegExp(`^${bareRiderInput}$`, 'i') },
+          { username: new RegExp(`^${safeRegexInput}$`, 'i') },
+          { username: new RegExp(`^${safeBareRider}$`, 'i') },
           { username: cleanInput },
           { phone: cleanInput },
           ...(cleanDigits.length >= 7 ? [
-            { phone: new RegExp(cleanDigits) },
-            { phone: new RegExp(cleanDigits.slice(-9)) }
+            { phone: new RegExp(safeDigits) },
+            { phone: new RegExp(escapeRegex(cleanDigits.slice(-9))) }
           ] : []),
           { id: cleanInput.toUpperCase() },
-          { name: new RegExp(`^${cleanInput}$`, 'i') }
+          { name: new RegExp(`^${safeRegexInput}$`, 'i') }
         ]
       });
 
       if (rider) {
         const isBcryptMatch = await rider.matchPassword(password);
-        const isRawMatch = rider.password === password;
-        const isDefaultRiderFallback = password === 'rider123' || password === 'admin123';
+        const isDemo = allowDemoAuth();
+        const isRawMatch = isDemo && rider.password === password;
+        const isDefaultRiderFallback = isDemo && (password === 'rider123' || password === 'admin123');
 
         if (isBcryptMatch || isRawMatch || isDefaultRiderFallback) {
           const riderTenantId = rider.tenantId || req.body.tenantId || 'tenant-alfatah';
@@ -247,9 +257,10 @@ export const loginUser = async (req, res) => {
       }
     }
 
-    // --- DISK DATABASE FALLBACK & SYNC (Crucial for offline DB and local disk storage) ---
-    // Check disk-persisted Riders (server/data/riders_db.json)
-    const diskRiders = loadDiskRiders();
+    // --- DEMO / DISK DATABASE FALLBACK & SYNC (Strictly gated behind allowDemoAuth) ---
+    if (allowDemoAuth()) {
+      // Check disk-persisted Riders (server/data/riders_db.json)
+      const diskRiders = loadDiskRiders();
     const bareRiderInput = cleanInput.replace(/@(rider\.)?freshmart\.(pk|com)$/, '');
     const matchedDiskRider = (diskRiders || []).find((r) => {
       const rId = String(r.id || r.riderId || '').trim().toLowerCase();
@@ -567,8 +578,9 @@ export const loginUser = async (req, res) => {
         token: generateToken(staffIdentifier, 'pickup_staff', `${pickupUsername}@pickup.freshmart.pk`, staffDisplayName, undefined, { staffId: staffIdentifier, tenantId: tId })
       });
     }
+  }
 
-    return res.status(401).json({ success: false, message: 'Invalid email or password' });
+  return res.status(401).json({ success: false, message: 'Invalid email or password' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -865,7 +877,7 @@ export const deletePickupStaff = async (req, res) => {
           { staffId: id },
           { email: cleanId },
           { email: `${cleanId}@pickup.freshmart.pk` },
-          { name: new RegExp(`^${cleanId}$`, 'i') },
+          { name: new RegExp(`^${escapeRegex(cleanId)}$`, 'i') },
           ...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : [])
         ]
       });

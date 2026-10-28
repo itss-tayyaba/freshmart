@@ -96,7 +96,7 @@ import {
   getTenantPerformance,
   getPlatformOverview
 } from '../controllers/tenantController.js';
-import { protect, adminOnly, protectVendor, superAdminOnly, staffOrAdmin } from '../middleware/authMiddleware.js';
+import { protect, adminOnly, protectVendor, superAdminOnly, staffOrAdmin, requireRoles } from '../middleware/authMiddleware.js';
 import { authLimiter } from '../middleware/rateLimitMiddleware.js';
 import {
   validate,
@@ -151,10 +151,10 @@ router.post('/orders', validate(createOrderSchema), createOrder);
 router.get('/orders/track/:orderId', trackOrder);
 // Admin Only: Rider assignment authority belongs strictly to Store Admin
 router.put('/orders/:id/assign-rider', protect, adminOnly, assignRiderToOrder);
-router.put('/orders/:id/rider-location', updateRiderLocation);
+router.put('/orders/:id/rider-location', protect, updateRiderLocation);
 router.post('/orders/:id/verify-delivery-otp', verifyDeliveryOtp);
 router.get('/orders', protect, getOrders);
-router.put('/orders/:id/status', protect, validate(updateOrderStatusSchema), updateOrderStatus);
+router.put('/orders/:id/status', protect, requireRoles('admin', 'superadmin', 'store admin', 'pickup_staff', 'staff', 'rider'), validate(updateOrderStatusSchema), updateOrderStatus);
 router.put('/orders/:id/fulfillment', protect, staffOrAdmin, updateOrderStatus);
 
 // --- Inventory Routes ---
@@ -165,12 +165,12 @@ router.post('/inventory/:id/restock', protect, adminOnly, validate(restockSchema
 // --- Customers Routes ---
 // Admin Locked: Viewing customer registry
 router.get('/customers', protect, adminOnly, getCustomers);
-// Public: Customer enrollment
-router.post('/customers', addCustomer);
+// Public: Customer enrollment (Rate Limited)
+router.post('/customers', authLimiter, addCustomer);
 router.delete('/customers/:id', protect, adminOnly, deleteCustomer);
-// Delivery Location Persistence (Stores to Database & Session)
-router.post('/customer/location', saveCustomerLocation);
-router.get('/customer/location', getCustomerLocation);
+// Delivery Location Persistence (Stores to Database & Session - Rate Limited)
+router.post('/customer/location', authLimiter, saveCustomerLocation);
+router.get('/customer/location', authLimiter, getCustomerLocation);
 
 // --- Suppliers Routes ---
 // Admin Locked & Validated: Supplier database and partner operations

@@ -22,11 +22,20 @@ export const isOriginAllowed = (origin) => {
   // Direct exact match
   if (allAllowed.includes(origin)) return true;
 
-  // Allow *.vercel.app preview and production deployments for this project
+  // Allow verified freshmart and grocery *.vercel.app preview and production deployments
   try {
     const parsed = new URL(origin);
-    if (parsed.hostname.endsWith('.vercel.app')) {
-      return true;
+    const host = parsed.hostname.toLowerCase();
+    if (host.endsWith('.vercel.app')) {
+      if (
+        host === 'freshmart-eosin-iota.vercel.app' ||
+        host === 'grocery-fawn-five.vercel.app' ||
+        host.startsWith('freshmart-') ||
+        host.startsWith('grocery-')
+      ) {
+        return true;
+      }
+      return false;
     }
   } catch (e) {
     return false;

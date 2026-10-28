@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import mongoose from 'mongoose';
 import { isDbOnline } from '../config/db.js';
 import { Product } from '../models/Product.js';
@@ -136,7 +137,7 @@ export const addCustomer = async (req, res) => {
           name,
           email,
           phone: phone || '',
-          password: password || 'password123',
+          password: password || crypto.randomBytes(16).toString('hex'),
           role: 'customer'
         });
       }

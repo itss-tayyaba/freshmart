@@ -3,6 +3,14 @@ import { Vendor } from '../models/Vendor.js';
 import { Product } from '../models/Product.js';
 import { Order } from '../models/Order.js';
 import { isDbOnline } from '../config/db.js';
+import { getJwtSecret } from '../utils/jwtHelper.js';
+
+const isDemoAllowed = () => {
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.ALLOW_DEMO_AUTH === 'true';
+  }
+  return true;
+};
 
 const generateVendorToken = (vendor) => {
   return jwt.sign(
@@ -13,7 +21,7 @@ const generateVendorToken = (vendor) => {
       email: vendor.email,
       role: 'vendor'
     },
-    process.env.JWT_SECRET || 'freshmart_secret_key_2026',
+    getJwtSecret(),
     { expiresIn: '30d' }
   );
 };
@@ -147,7 +155,7 @@ export const loginVendor = async (req, res) => {
       (v) => v.email.toLowerCase() === cleanInput || v.vendorId.toLowerCase() === cleanInput || v.name.toLowerCase().includes(cleanInput)
     );
 
-    if (foundMem || cleanInput === 'vendor' || cleanInput === 'tayyab') {
+    if (foundMem || (isDemoAllowed() && (cleanInput === 'vendor' || cleanInput === 'tayyab'))) {
       const v = foundMem || memoryVendors[0];
       return res.json({
         success: true,
@@ -156,7 +164,7 @@ export const loginVendor = async (req, res) => {
         email: v.email,
         role: 'vendor',
         status: v.status || 'Approved',
-        token: jwt.sign({ id: v.vendorId, vendorId: v.vendorId, name: v.name, email: v.email, role: 'vendor' }, process.env.JWT_SECRET || 'freshmart_secret_key_2026'),
+        token: jwt.sign({ id: v.vendorId, vendorId: v.vendorId, name: v.name, email: v.email, role: 'vendor' }, getJwtSecret()),
         vendor: v
       });
     }

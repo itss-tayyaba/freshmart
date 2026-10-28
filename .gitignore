@@ -27,6 +27,9 @@ pnpm-debug.log*
 lerna-debug.log*
 *.log
 
+# Sensitive runtime local data
+server/data/orders_db.json
+
 # Editor & OS files
 .vscode/
 .idea/

@@ -4,6 +4,7 @@ import { User } from '../models/User.js';
 import { Vendor } from '../models/Vendor.js';
 import { Supplier } from '../models/ExtraModels.js';
 import { resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyData.js';
+import { getJwtSecret } from '../utils/jwtHelper.js';
 
 const isDemoAllowed = () => {
   return process.env.ALLOW_DEMO_AUTH === 'true' || process.env.NODE_ENV === 'test';
@@ -37,7 +38,7 @@ export const protect = async (req, res, next) => {
         return next();
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'freshmart_secret_key_2026');
+      const decoded = jwt.verify(token, getJwtSecret());
 
       if (isDbOnline() && decoded.id && typeof decoded.id === 'string' && decoded.id.match(/^[0-9a-fA-F]{24}$/)) {
         try {
@@ -79,6 +80,12 @@ export const protect = async (req, res, next) => {
             req.user.role = 'supplier';
             return next();
           }
+
+          // User had a MongoDB ObjectId but was not found in DB -> Demoted or deleted user (Fail closed)
+          return res.status(401).json({
+            success: false,
+            message: 'User account no longer exists or has been deactivated'
+          });
         } catch (dbErr) {
           console.warn('DB lookup in auth middleware:', dbErr.message);
         }
