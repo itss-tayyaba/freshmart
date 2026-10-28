@@ -895,6 +895,7 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                     const itemsList = getOrderItemsList(ord);
                     const itemsCount = itemsList.length > 0 ? itemsList.length : (parseInt(ord.items) || 1);
                     const isPaid = ord.paymentStatus === 'Paid' || ord.paymentStatus === 'Verified' || ord.isPaymentVerified || ord.isPaid || ord.status === 'Delivered';
+                    const paymentMethod = ord.paymentMethod || ord.payment || 'Cash on Delivery';
                     const rawEligible = getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : [];
                     const orderTenant = normalizeOrderTenantId(ord);
                     const eligibleRiders = (rawEligible && rawEligible.length > 0)
@@ -998,7 +999,7 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                                 }`}
                               >
                                 <span>{isPaid ? 'PAID' : 'PENDING'}</span>
-                                <span className="opacity-70">({paymentMethod})</span>
+                                <span className="opacity-70">({ord.paymentMethod || ord.payment || paymentMethod || 'Cash on Delivery'})</span>
                               </span>
                             </div>
                           </div>
@@ -1447,12 +1448,18 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
               <div className="flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-emerald-700" />
                 <div>
-                  <span className="font-bold text-slate-900 block">{selectedOrder.payment || 'Cash on Delivery'}</span>
-                  <span className="text-[10px] text-emerald-700 font-semibold">Payment Status: Paid / Verified</span>
+                  <span className="font-bold text-slate-900 block">{selectedOrder.payment || selectedOrder.paymentMethod || 'Cash on Delivery'}</span>
+                  <span className="text-[10px] text-emerald-700 font-semibold">
+                    Payment Status: {selectedOrder.isPaid || selectedOrder.status === 'Delivered' || selectedOrder.paymentStatus === 'Paid' ? 'Paid / Verified' : (selectedOrder.paymentStatus || 'Pending')}
+                  </span>
                 </div>
               </div>
-              <span className="text-[10px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-full">
-                PAID
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                selectedOrder.isPaid || selectedOrder.status === 'Delivered' || selectedOrder.paymentStatus === 'Paid'
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-amber-100 text-amber-800'
+              }`}>
+                {selectedOrder.isPaid || selectedOrder.status === 'Delivered' || selectedOrder.paymentStatus === 'Paid' ? 'PAID' : 'PENDING'}
               </span>
             </div>
 
