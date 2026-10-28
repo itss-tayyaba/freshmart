@@ -257,14 +257,30 @@ const StoreAdminConsole = () => {
     <div className="h-screen w-full bg-[#f8fafc] flex flex-col font-sans text-slate-800 antialiased overflow-hidden">
       <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden w-full">
       {/* 📱 Mobile Top Header Bar (< lg screens) */}
-      <div className="lg:hidden bg-[#0f172a] text-slate-200 px-4 py-3.5 flex items-center justify-between border-b border-slate-800 sticky top-0 z-40 shadow-md">
+      <div
+        className="lg:hidden text-slate-200 px-4 py-3.5 flex items-center justify-between sticky top-0 z-40 shadow-md transition-colors"
+        style={{
+          backgroundColor: storeTheme.sidebarHeaderBg,
+          borderBottom: `1px solid ${storeTheme.sidebarBorder}`
+        }}
+      >
         <div onClick={() => navigateTo('home')} className="flex items-center gap-2.5 cursor-pointer">
-          <div className="w-8 h-8 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black text-base shadow-xs">
+          <div
+            className="w-8 h-8 rounded-xl border flex items-center justify-center font-black text-base shadow-xs"
+            style={{
+              backgroundColor: storeTheme.primaryLight,
+              borderColor: storeTheme.primaryBorder,
+              color: storeTheme.accentText
+            }}
+          >
             {currentTenant?.logo || '🏬'}
           </div>
           <div>
             <h2 className="text-sm font-black text-white leading-none">{currentTenant?.name || 'Store Admin'}</h2>
-            <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block mt-0.5">
+            <span
+              className="text-[10px] font-bold uppercase tracking-wider block mt-0.5"
+              style={{ color: storeTheme.accentText }}
+            >
               {currentRoleInfo.badge}
             </span>
           </div>

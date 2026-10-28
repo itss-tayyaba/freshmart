@@ -69,7 +69,7 @@ export const COMPANIES = [
     banner: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80',
     status: 'active',
     tagline: 'Maximum Wholesale Value & Direct Factory Groceries',
-    themeColor: '#1e40af',
+    themeColor: '#854d0e',
     ownerName: 'Farhan Chase',
     ownerEmail: 'admin@chasevalue.pk'
   },
