@@ -783,28 +783,19 @@ export const DeliveryPage = () => {
                         : `Dark store team is preparing parcel and matching available couriers in ${selectedCity.city}.`}
                     </p>
 
-                    {/* Display Handover OTP clearly in Milestone 3 ONLY when rider is assigned */}
-                    {assignedRider ? (
-                      <div className="mt-2 p-2 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm">🔐</span>
-                          <span className="text-[11px] font-bold text-amber-950">Customer Handover OTP:</span>
+                    {/* Display Handover OTP clearly in Milestone 3 */}
+                    <div className="mt-2 p-2.5 bg-amber-50 rounded-xl border border-amber-200/90 flex items-center justify-between shadow-2xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🔐</span>
+                        <div>
+                          <span className="text-[11px] font-black text-amber-950 block">Customer Handover OTP</span>
+                          <span className="text-[10px] text-amber-800">Share this 4-digit PIN with courier upon arrival</span>
                         </div>
-                        <span className="font-mono font-black text-xs px-2 py-0.5 bg-white border border-amber-400 rounded-lg text-amber-950 tracking-wider">
-                          {currentOrder?.deliveryOtp || '7412'}
-                        </span>
                       </div>
-                    ) : (
-                      <div className="mt-2 p-2 bg-slate-100/80 rounded-xl border border-slate-200 flex items-center justify-between text-slate-500">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs">🔒</span>
-                          <span className="text-[11px] font-medium text-slate-600">Handover OTP:</span>
-                        </div>
-                        <span className="text-[10px] font-bold bg-white border border-slate-200 text-slate-500 px-2 py-0.5 rounded-lg">
-                          Assigned upon courier dispatch
-                        </span>
-                      </div>
-                    )}
+                      <span className="font-mono font-black text-sm px-3 py-1 bg-white border-2 border-amber-400 rounded-xl text-amber-950 tracking-widest shadow-inner">
+                        {currentOrder?.deliveryOtp || '7412'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -878,8 +869,8 @@ export const DeliveryPage = () => {
                     </span>
                   </div>
                 </div>
-              ) : assignedRider ? (
-                /* State: Rider Assigned -> Customer assigned OTP and can verify */
+              ) : (
+                /* State: Active Order -> Customer assigned OTP ready to share with courier */
                 <div className="border-2 rounded-3xl p-5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4 transition-all bg-gradient-to-r from-amber-50 via-amber-100/40 to-orange-50 border-amber-300/80">
                   <div className="flex items-center gap-3.5">
                     <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-2xl shadow-md">
@@ -889,11 +880,13 @@ export const DeliveryPage = () => {
                       <div className="flex items-center gap-2">
                         <h4 className="font-black text-sm text-slate-900">Doorstep Delivery Handover OTP</h4>
                         <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-amber-300 text-amber-950">
-                          Assigned to Customer
+                          {assignedRider ? 'Ready for Handover' : 'Security PIN Assigned'}
                         </span>
                       </div>
                       <p className="text-xs text-slate-600 font-medium mt-0.5">
-                        Provide this 4-digit code to rider <strong className="text-slate-900">{assignedRider.name}</strong> upon arrival to verify handover.
+                        {assignedRider
+                          ? `Provide this 4-digit PIN to courier ${assignedRider.name} upon arrival to verify delivery.`
+                          : 'Your 4-digit security PIN is ready. Provide this code to the courier upon doorstep arrival to verify physical delivery.'}
                       </p>
                     </div>
                   </div>
@@ -903,8 +896,11 @@ export const DeliveryPage = () => {
                       {currentOrder.deliveryOtp || '7412'}
                     </div>
                     <button
+                      type="button"
                       onClick={() => {
-                        navigator.clipboard.writeText(currentOrder.deliveryOtp || '7412');
+                        if (navigator.clipboard) {
+                          navigator.clipboard.writeText(currentOrder.deliveryOtp || '7412');
+                        }
                         addToast('OTP Copied 📋', `Share PIN ${currentOrder.deliveryOtp || '7412'} with rider on delivery.`);
                       }}
                       className="p-2.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-xl transition-all cursor-pointer font-bold"
@@ -912,56 +908,6 @@ export const DeliveryPage = () => {
                     >
                       📋
                     </button>
-                    <button
-                      onClick={async () => {
-                        if (verifyOrderDeliveryOtp) {
-                          const targetPin = currentOrder.deliveryOtp || '7412';
-                          const orderId = currentOrder.id || currentOrder.orderId;
-                          const riderId = assignedRider?.id || null;
-                          const res = await verifyOrderDeliveryOtp(orderId, targetPin, riderId, targetPin);
-                          if (res && res.success) {
-                            if (res.order) {
-                              setRemoteOrder(res.order);
-                            }
-                            addToast('Delivered! 🎉', 'Handover OTP verified! Order marked Delivered.');
-                          }
-                        }
-                      }}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all cursor-pointer text-xs font-black shadow-md flex items-center gap-1.5"
-                      title="Confirm OTP and complete delivery"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Verify & Complete Delivery</span>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                /* State: Rider NOT Assigned Yet -> Customer OTP is locked/pending */
-                <div className="border-2 rounded-3xl p-5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4 transition-all bg-gradient-to-r from-slate-50 via-slate-100/60 to-slate-50 border-slate-200">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-400 text-white flex items-center justify-center font-black text-2xl shadow-md">
-                      🔒
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-black text-sm text-slate-800">Doorstep Delivery Handover OTP</h4>
-                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-slate-200 text-slate-700">
-                          Awaiting Rider Assignment
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 font-medium mt-0.5">
-                        Your 4-digit handover OTP will be generated and assigned once a courier rider is assigned to your order.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="px-4 py-1.5 rounded-2xl font-mono font-black text-2xl tracking-widest shadow-inner bg-white border-2 border-slate-300 text-slate-400">
-                      ••••
-                    </div>
-                    <span className="text-xs font-bold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-2 rounded-xl">
-                      OTP Assigned Upon Dispatch
-                    </span>
                   </div>
                 </div>
               )

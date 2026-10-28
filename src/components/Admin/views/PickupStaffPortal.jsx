@@ -36,6 +36,7 @@ import { isOrderAssignedToPickupStaff, isPickupOrderAssigned } from '../../../ut
 import { isOrderVisibleToUser, normalizeOrderTenantId } from '../../../utils/orderScope';
 import { sanitizeOrder } from '../../../utils/orderSanitizer';
 import { apiService } from '../../../services/api';
+import { getStoreTheme } from '../../../utils/storeTheme';
 
 // Helper: category/grocery item icon
 const getItemIcon = (name = '') => {
@@ -103,6 +104,10 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
   const staffTenantId = useMemo(() => {
     return resolveTenantId(user?.tenantId || currentTenant?.id || 'company_004');
   }, [user?.tenantId, currentTenant?.id]);
+
+  const storeTheme = useMemo(() => {
+    return getStoreTheme(staffTenantId || currentTenant?.id);
+  }, [staffTenantId, currentTenant?.id]);
 
   const staffBranchId = useMemo(() => {
     if (user?.branchId && user.branchId !== 'all') return user.branchId;
@@ -352,21 +357,43 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col md:flex-row font-sans">
       
       {/* =========================================================================
-          LEFT SIDEBAR: Signature Deep Midnight Navy (#0b132b) matching Store Admin
+          LEFT SIDEBAR: Store Themed Sidebar
           ========================================================================= */}
-      <aside className="w-full md:w-64 lg:w-72 bg-[#0b132b] text-slate-300 flex flex-col justify-between shrink-0 md:h-screen md:sticky md:top-0 select-none overflow-y-auto border-r border-slate-800/80 shadow-xl">
+      <aside
+        className="w-full md:w-64 lg:w-72 text-slate-300 flex flex-col justify-between shrink-0 md:h-screen md:sticky md:top-0 select-none overflow-y-auto shadow-xl transition-colors duration-300"
+        style={{
+          backgroundColor: storeTheme.sidebarBg,
+          borderRight: `1px solid ${storeTheme.sidebarBorder}`
+        }}
+      >
         <div className="flex flex-col flex-1 min-h-0">
           {/* Logo Brand Header */}
-          <div className="p-4 border-b border-slate-800/80 shrink-0 bg-[#0f172a]/80">
+          <div
+            className="p-4 shrink-0 transition-colors"
+            style={{
+              backgroundColor: storeTheme.sidebarHeaderBg,
+              borderBottom: `1px solid ${storeTheme.sidebarBorder}`
+            }}
+          >
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black text-lg shadow-sm shrink-0">
-                <ShoppingCart className="w-4 h-4 text-emerald-400" />
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg shadow-sm shrink-0"
+                style={{
+                  backgroundColor: `${storeTheme.primaryLight}25`,
+                  border: `1px solid ${storeTheme.primaryLight}50`,
+                  color: storeTheme.accentText
+                }}
+              >
+                <ShoppingCart className="w-4 h-4" style={{ color: storeTheme.accentText }} />
               </div>
               <div className="min-w-0 flex-1 truncate">
                 <h2 className="text-sm font-black tracking-tight text-white leading-tight truncate">
                   {storeBrandName}
                 </h2>
-                <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block truncate mt-0.5">
+                <span
+                  className="text-[10px] font-bold uppercase tracking-wider block truncate mt-0.5"
+                  style={{ color: storeTheme.accentText }}
+                >
                   Pickup Staff
                 </span>
               </div>
@@ -396,12 +423,21 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer group ${
                     isActive
-                      ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/40 ring-1 ring-emerald-500/30'
-                      : 'text-slate-400 hover:bg-slate-800/70 hover:text-white'
+                      ? 'text-white font-bold shadow-md'
+                      : 'text-slate-400 hover:bg-white/10 hover:text-white'
                   }`}
+                  style={
+                    isActive
+                      ? {
+                          backgroundColor: storeTheme.activeBg,
+                          boxShadow: storeTheme.activeGlow,
+                          border: `1px solid ${storeTheme.primaryLight}50`
+                        }
+                      : {}
+                  }
                 >
                   <div className="flex items-center gap-2.5">
-                    <Icon className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-emerald-400'}`} />
+                    <Icon className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
                     <span>{item.label}</span>
                   </div>
                   {item.badge ? (
@@ -420,22 +456,35 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
         </div>
 
         {/* Bottom Sidebar: User Profile Card & Vegetable Crate Artwork */}
-        <div className="p-3 border-t border-slate-800/80 shrink-0 bg-[#0f172a]/90 space-y-2 mt-auto">
+        <div
+          className="p-3 shrink-0 space-y-2 mt-auto transition-colors"
+          style={{
+            backgroundColor: storeTheme.sidebarFooterBg,
+            borderTop: `1px solid ${storeTheme.sidebarBorder}`
+          }}
+        >
           {/* User Profile Card */}
-          <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-800/60 border border-slate-700/60">
+          <div
+            className="flex items-center gap-2.5 p-2 rounded-xl transition-colors"
+            style={{
+              backgroundColor: `${storeTheme.sidebarBg}bb`,
+              border: `1px solid ${storeTheme.sidebarBorder}`
+            }}
+          >
             <img
               src="/staff_ayesha.jpg"
               alt={staffName}
               onError={(e) => {
                 e.target.style.display = 'none';
               }}
-              className="w-9 h-9 rounded-xl object-cover border border-emerald-500/40 shrink-0 shadow-xs"
+              className="w-9 h-9 rounded-xl object-cover shrink-0 shadow-xs"
+              style={{ border: `1px solid ${storeTheme.primaryLight}60` }}
             />
             <div className="min-w-0 flex-1">
               <h4 className="text-xs font-bold text-white truncate leading-tight">
                 {staffName}
               </h4>
-              <p className="text-[10px] text-emerald-400 font-semibold mt-0.5">
+              <p className="text-[10px] font-semibold mt-0.5" style={{ color: storeTheme.accentText }}>
                 Pickup Staff
               </p>
               <div className="flex items-center gap-1.5 mt-0.5">
@@ -446,15 +495,30 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
           </div>
 
           {/* Decorative Grocery Crate */}
-          <div className="rounded-xl overflow-hidden shadow-sm border border-slate-800 bg-slate-900/60 relative group">
+          <div
+            className="rounded-xl overflow-hidden shadow-sm relative group"
+            style={{ border: `1px solid ${storeTheme.sidebarBorder}` }}
+          >
             <img
               src="/pickup_crate.jpg"
               alt="Fresh Produce Crate"
               className="w-full h-16 object-cover transition duration-300 group-hover:scale-105"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0b132b] via-transparent to-transparent"></div>
+            <div
+              className="absolute inset-0"
+              style={{
+                background: `linear-gradient(to top, ${storeTheme.sidebarBg}, transparent)`
+              }}
+            ></div>
             <div className="absolute bottom-1.5 left-2 right-2 text-center">
-              <span className="text-[9px] font-bold text-emerald-300 uppercase tracking-widest bg-[#0f172a]/90 px-2 py-0.5 rounded-full border border-emerald-500/30">
+              <span
+                className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: `${storeTheme.sidebarHeaderBg}f0`,
+                  border: `1px solid ${storeTheme.primaryLight}50`,
+                  color: storeTheme.accentText
+                }}
+              >
                 Hub Packing Desk
               </span>
             </div>
@@ -466,13 +530,18 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               <button
                 type="button"
                 onClick={onBackToAdmin}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-emerald-400 bg-emerald-950/40 hover:bg-emerald-950/80 border border-emerald-800/40 transition-colors cursor-pointer"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                style={{
+                  color: storeTheme.accentText,
+                  backgroundColor: `${storeTheme.primaryLight}18`,
+                  border: `1px solid ${storeTheme.primaryLight}40`
+                }}
               >
                 <span className="flex items-center gap-2">
                   <Boxes className="w-4 h-4" />
                   <span>Admin Console</span>
                 </span>
-                <ExternalLink className="w-3.5 h-3.5 text-emerald-400/80" />
+                <ExternalLink className="w-3.5 h-3.5" style={{ color: storeTheme.accentText }} />
               </button>
             )}
 

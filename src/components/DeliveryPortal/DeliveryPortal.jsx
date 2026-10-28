@@ -36,6 +36,7 @@ import {
   getWhatsAppDeliveryLink,
   getWhatsAppEnRouteLink
 } from '../../utils/whatsappHelper';
+import { getStoreTheme } from '../../utils/storeTheme';
 
 // Custom Leaflet SVG Markers for reliable Vite asset rendering
 const createPickupPin = (label = 'Store') =>
@@ -860,28 +861,50 @@ export const DeliveryPortal = () => {
   const storeBrandName = currentTenant?.name || user?.tenantName || 'Supermarket';
   const storeLogo = currentTenant?.logo || '🏬';
 
+  const storeTheme = useMemo(() => {
+    return getStoreTheme(currentTenant || user?.tenantName || user?.tenantId || activeRider?.tenantId || activeRider?.companyId || storeBrandName);
+  }, [currentTenant, user?.tenantName, user?.tenantId, activeRider?.tenantId, activeRider?.companyId, storeBrandName]);
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col md:flex-row antialiased font-sans">
       
       {/* ===================================================================== */}
       {/* MOBILE TOP BAR                                                        */}
       {/* ===================================================================== */}
-      <div className="md:hidden bg-[#0f172a] text-slate-200 px-4 py-3 flex items-center justify-between border-b border-slate-800/80 shrink-0 shadow-md">
+      <div
+        className="md:hidden text-slate-200 px-4 py-3 flex items-center justify-between shrink-0 shadow-md transition-colors"
+        style={{
+          backgroundColor: storeTheme.sidebarHeaderBg,
+          borderBottom: `1px solid ${storeTheme.sidebarBorder}`
+        }}
+      >
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition"
             aria-label="Toggle menu"
           >
             {mobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black text-base shadow-xs">
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-base shadow-xs"
+              style={{
+                backgroundColor: `${storeTheme.primaryLight}25`,
+                border: `1px solid ${storeTheme.primaryLight}50`,
+                color: storeTheme.accentText
+              }}
+            >
               {storeLogo}
             </div>
             <div>
               <h1 className="text-sm font-bold tracking-tight text-white">{storeBrandName}</h1>
-              <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Parcel Dispatch</p>
+              <p
+                className="text-[10px] font-bold uppercase tracking-wider"
+                style={{ color: storeTheme.accentText }}
+              >
+                Parcel Dispatch
+              </p>
             </div>
           </div>
         </div>
@@ -907,18 +930,35 @@ export const DeliveryPortal = () => {
       </div>
 
       {/* ===================================================================== */}
-      {/* 1. LEFT SIDEBAR (Signature Deep Midnight Logistics Cockpit)           */}
+      {/* 1. LEFT SIDEBAR (Store Themed Logistics Cockpit)                      */}
       {/* ===================================================================== */}
       <aside
-        className={`fixed md:sticky top-0 left-0 z-40 h-screen w-72 bg-[#0b132b] text-slate-300 flex flex-col justify-between border-r border-slate-800/80 transition-transform duration-200 shrink-0 shadow-xl select-none ${
+        className={`fixed md:sticky top-0 left-0 z-40 h-screen w-72 text-slate-300 flex flex-col justify-between transition-transform duration-200 shrink-0 shadow-xl select-none ${
           mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
+        style={{
+          backgroundColor: storeTheme.sidebarBg,
+          borderRight: `1px solid ${storeTheme.sidebarBorder}`
+        }}
       >
         <div className="p-4 space-y-5">
           
           {/* Logo & Portal Header */}
-          <div className="p-2 border-b border-slate-800/80 bg-[#0f172a]/80 rounded-2xl flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black text-lg shadow-sm shrink-0">
+          <div
+            className="p-2 rounded-2xl flex items-center gap-3 transition-colors"
+            style={{
+              backgroundColor: storeTheme.sidebarHeaderBg,
+              border: `1px solid ${storeTheme.sidebarBorder}`
+            }}
+          >
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg shadow-sm shrink-0"
+              style={{
+                backgroundColor: `${storeTheme.primaryLight}25`,
+                border: `1px solid ${storeTheme.primaryLight}50`,
+                color: storeTheme.accentText
+              }}
+            >
               {storeLogo}
             </div>
             <div className="min-w-0 flex-1 truncate">
@@ -927,7 +967,12 @@ export const DeliveryPortal = () => {
               </h1>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider truncate">Express Parcel Dispatch</p>
+                <p
+                  className="text-[10px] font-bold uppercase tracking-wider truncate"
+                  style={{ color: storeTheme.accentText }}
+                >
+                  Express Parcel Dispatch
+                </p>
               </div>
             </div>
           </div>
@@ -949,15 +994,32 @@ export const DeliveryPortal = () => {
                 }}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer group ${
                   activeTab === 'out-for-delivery'
-                    ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/40 ring-1 ring-emerald-500/30'
-                    : 'text-slate-400 hover:bg-slate-800/70 hover:text-white'
+                    ? 'text-white font-bold shadow-md'
+                    : 'text-slate-400 hover:bg-white/10 hover:text-white'
                 }`}
+                style={
+                  activeTab === 'out-for-delivery'
+                    ? {
+                        backgroundColor: storeTheme.activeBg,
+                        boxShadow: storeTheme.activeGlow,
+                        border: `1px solid ${storeTheme.primaryLight}50`
+                      }
+                    : {}
+                }
               >
                 <div className="flex items-center gap-2.5">
-                  <Package className={`w-4 h-4 shrink-0 transition-colors ${activeTab === 'out-for-delivery' ? 'text-white' : 'text-slate-400 group-hover:text-emerald-400'}`} />
+                  <Package
+                    className={`w-4 h-4 shrink-0 transition-colors ${
+                      activeTab === 'out-for-delivery' ? 'text-white' : 'text-slate-400 group-hover:text-white'
+                    }`}
+                  />
                   <span>Active Parcels</span>
                 </div>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${activeTab === 'out-for-delivery' ? 'bg-white/20 text-white font-bold' : 'bg-slate-800 text-slate-300'}`}>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${
+                    activeTab === 'out-for-delivery' ? 'bg-white/20 text-white font-bold' : 'bg-slate-800 text-slate-300'
+                  }`}
+                >
                   {outForDeliveryOrders.length}
                 </span>
               </button>
@@ -973,15 +1035,32 @@ export const DeliveryPortal = () => {
                 }}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer group ${
                   activeTab === 'delivered-today'
-                    ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/40 ring-1 ring-emerald-500/30'
-                    : 'text-slate-400 hover:bg-slate-800/70 hover:text-white'
+                    ? 'text-white font-bold shadow-md'
+                    : 'text-slate-400 hover:bg-white/10 hover:text-white'
                 }`}
+                style={
+                  activeTab === 'delivered-today'
+                    ? {
+                        backgroundColor: storeTheme.activeBg,
+                        boxShadow: storeTheme.activeGlow,
+                        border: `1px solid ${storeTheme.primaryLight}50`
+                      }
+                    : {}
+                }
               >
                 <div className="flex items-center gap-2.5">
-                  <CheckCircle2 className={`w-4 h-4 shrink-0 transition-colors ${activeTab === 'delivered-today' ? 'text-white' : 'text-slate-400 group-hover:text-emerald-400'}`} />
+                  <CheckCircle2
+                    className={`w-4 h-4 shrink-0 transition-colors ${
+                      activeTab === 'delivered-today' ? 'text-white' : 'text-slate-400 group-hover:text-white'
+                    }`}
+                  />
                   <span>Delivered Parcels Today</span>
                 </div>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${activeTab === 'delivered-today' ? 'bg-white/20 text-white font-bold' : 'bg-slate-800 text-slate-300'}`}>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${
+                    activeTab === 'delivered-today' ? 'bg-white/20 text-white font-bold' : 'bg-slate-800 text-slate-300'
+                  }`}
+                >
                   {deliveredTodayOrders.length}
                 </span>
               </button>
@@ -991,23 +1070,42 @@ export const DeliveryPortal = () => {
         </div>
 
         {/* Bottom Profile & Actions */}
-        <div className="p-3 border-t border-slate-800/80 shrink-0 bg-[#0f172a]/90 space-y-2 mt-auto">
-          <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-800/60 border border-slate-700/60">
-            <div className="w-9 h-9 rounded-xl bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center font-black text-sm uppercase shadow-sm shrink-0">
+        <div
+          className="p-3 shrink-0 space-y-2 mt-auto transition-colors"
+          style={{
+            backgroundColor: storeTheme.sidebarFooterBg,
+            borderTop: `1px solid ${storeTheme.sidebarBorder}`
+          }}
+        >
+          <div
+            className="flex items-center gap-2.5 p-2 rounded-xl transition-colors"
+            style={{
+              backgroundColor: `${storeTheme.sidebarBg}bb`,
+              border: `1px solid ${storeTheme.sidebarBorder}`
+            }}
+          >
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm uppercase shadow-sm shrink-0"
+              style={{
+                backgroundColor: `${storeTheme.primaryLight}25`,
+                border: `1px solid ${storeTheme.primaryLight}50`,
+                color: storeTheme.accentText
+              }}
+            >
               {(activeRider?.name || 'A')[0]}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <h2 className="text-xs font-bold text-white truncate leading-tight capitalize">
-                  {activeRider?.name || 'Ahmad Khan (Al-Fatah)'}
+                  {activeRider?.name || 'Ahmad Khan'}
                 </h2>
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 animate-pulse" title="Online & On Duty"></span>
               </div>
               <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5 truncate">
-                <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
+                <MapPin className="w-3 h-3 shrink-0" style={{ color: storeTheme.accentText }} />
                 <span className="truncate">{activeRider?.zone || 'Peoples Colony No. 1 (Faisalabad)'}</span>
               </p>
-              <p className="text-[10px] text-emerald-400 font-semibold mt-0.5 truncate">
+              <p className="text-[10px] font-semibold mt-0.5 truncate" style={{ color: storeTheme.accentText }}>
                 {activeRider?.vehicleType || '🏍️ Honda 125'} • {activeRider?.vehicleNumber || 'FSD-4821'}
               </p>
             </div>
@@ -1017,14 +1115,19 @@ export const DeliveryPortal = () => {
             <button
               type="button"
               onClick={() => navigateTo('home')}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-emerald-400 bg-emerald-950/40 hover:bg-emerald-950/80 border border-emerald-800/40 transition-colors cursor-pointer"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              style={{
+                color: storeTheme.accentText,
+                backgroundColor: `${storeTheme.primaryLight}18`,
+                border: `1px solid ${storeTheme.primaryLight}40`
+              }}
               title="Back to Customer Storefront"
             >
               <span className="flex items-center gap-2">
                 <Store className="w-4 h-4" />
                 <span>Customer Store</span>
               </span>
-              <ExternalLink className="w-3.5 h-3.5 text-emerald-400/80" />
+              <ExternalLink className="w-3.5 h-3.5" style={{ color: storeTheme.accentText }} />
             </button>
 
             <button

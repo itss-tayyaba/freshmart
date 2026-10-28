@@ -459,60 +459,39 @@ export const OrderTrackerModal = () => {
 
               {/* Handover OTP PIN */}
               {!currentOrder.isDelivered ? (
-                currentOrder.isAssigned ? (
-                  <div className="bg-amber-50 border border-amber-300/80 rounded-2xl p-4 flex items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-base shadow-xs">
-                        🔐
-                      </div>
-                      <div>
-                        <div className="font-black text-amber-950 flex items-center gap-1.5">
-                          <span>Doorstep Handover OTP</span>
-                          <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-bold uppercase">Required</span>
-                        </div>
-                        <p className="text-[11px] text-amber-800 font-medium">
-                          Share this 4-digit PIN with rider {currentOrder.driverName !== 'Awaiting Courier Assignment' ? currentOrder.driverName : ''} at delivery
-                        </p>
-                      </div>
+                <div className="bg-amber-50 border border-amber-300/80 rounded-2xl p-4 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-base shadow-xs">
+                      🔐
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-black text-lg px-3.5 py-1 bg-white border border-amber-300 rounded-xl text-amber-950 tracking-widest shadow-2xs">
-                        {currentOrder.deliveryOtp || '7412'}
-                      </span>
-                      <button
-                        onClick={() => {
+                    <div>
+                      <div className="font-black text-amber-950 flex items-center gap-1.5">
+                        <span>Doorstep Handover OTP</span>
+                        <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-bold uppercase">Required</span>
+                      </div>
+                      <p className="text-[11px] text-amber-800 font-medium">
+                        Share this 4-digit PIN with courier upon arrival to verify delivery
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-black text-lg px-3.5 py-1 bg-white border border-amber-300 rounded-xl text-amber-950 tracking-widest shadow-2xs">
+                      {currentOrder.deliveryOtp || '7412'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (navigator.clipboard) {
                           navigator.clipboard.writeText(currentOrder.deliveryOtp || '7412');
-                        }}
-                        className="p-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg cursor-pointer transition-colors text-xs"
-                        title="Copy OTP PIN"
-                      >
-                        📋
-                      </button>
-                    </div>
+                        }
+                      }}
+                      className="p-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg cursor-pointer transition-colors text-xs"
+                      title="Copy OTP PIN"
+                    >
+                      📋
+                    </button>
                   </div>
-                ) : (
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-slate-300 text-slate-600 flex items-center justify-center font-bold text-base shadow-xs">
-                        🔒
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-700 flex items-center gap-1.5">
-                          <span>Doorstep Handover OTP</span>
-                          <span className="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-bold uppercase">Awaiting Rider</span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 font-medium">
-                          OTP will be assigned once a courier rider is assigned to your order
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-base px-3 py-1 bg-white border border-slate-200 rounded-xl text-slate-400 tracking-widest shadow-2xs">
-                        ••••
-                      </span>
-                    </div>
-                  </div>
-                )
+                </div>
               ) : (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-2.5 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2 text-emerald-800 font-bold">

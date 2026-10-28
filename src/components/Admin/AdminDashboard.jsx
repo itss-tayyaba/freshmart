@@ -28,6 +28,7 @@ import { useStore } from '../../context/StoreContext';
 import { isSameTenant, resolveTenantId } from '../../data/companyHierarchyData';
 import { sanitizeOrder } from '../../utils/orderSanitizer';
 import { isOrderVisibleToUser } from '../../utils/orderScope';
+import { getStoreTheme } from '../../utils/storeTheme';
 
 // 11 Views
 import { DashboardView } from './views/DashboardView';
@@ -129,6 +130,9 @@ const StoreAdminConsole = () => {
     : roleMeta[adminRole] || roleMeta.admin;
 
   const activeTenantId = currentTenant?.id || user?.tenantId || 'tenant-freshmart';
+  const storeTheme = useMemo(() => {
+    return getStoreTheme(currentTenant || activeTenantId);
+  }, [currentTenant, activeTenantId]);
 
   // Track locally completed delivered orders to ensure synced badge counts
   const deliveredOrderIds = useMemo(() => {
@@ -287,23 +291,35 @@ const StoreAdminConsole = () => {
             className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs"
             onClick={() => setIsMobileMenuOpen(false)}
           />
-          <div className="relative z-10 w-72 max-w-[85vw] bg-[#0b132b] text-slate-300 flex flex-col h-full shadow-2xl border-r border-slate-800 overflow-hidden animate-in slide-in-from-left duration-200">
+          <div
+            style={{ backgroundColor: storeTheme.sidebarBg, borderColor: storeTheme.sidebarBorder }}
+            className="relative z-10 w-72 max-w-[85vw] text-slate-300 flex flex-col h-full shadow-2xl border-r overflow-hidden animate-in slide-in-from-left duration-200"
+          >
             {/* Brand in Mobile Drawer (Pinned Top) */}
-            <div className="p-4 border-b border-slate-800 shrink-0 bg-[#0f172a] flex items-center justify-between">
+            <div
+              style={{ backgroundColor: storeTheme.sidebarHeaderBg, borderColor: storeTheme.sidebarBorder }}
+              className="p-4 border-b shrink-0 flex items-center justify-between"
+            >
               <div onClick={() => { navigateTo('home'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2.5 cursor-pointer">
-                <div className="w-9 h-9 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black text-lg shadow-md">
+                <div
+                  style={{ backgroundColor: storeTheme.primaryLight, borderColor: storeTheme.primaryBorder, color: storeTheme.accentText }}
+                  className="w-9 h-9 rounded-xl border flex items-center justify-center font-black text-lg shadow-md"
+                >
                   {currentTenant?.logo || '🏬'}
                 </div>
                 <div>
                   <h2 className="text-base font-black text-white leading-none">{currentTenant?.displayName || currentTenant?.name || 'Store Admin'}</h2>
-                  <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block mt-1">
+                  <span
+                    style={{ color: storeTheme.accentText }}
+                    className="text-[10px] font-bold uppercase tracking-wider block mt-1"
+                  >
                     {currentRoleInfo.badge}
                   </span>
                 </div>
               </div>
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -319,10 +335,11 @@ const StoreAdminConsole = () => {
                   <button
                     key={item.label}
                     onClick={() => handleSelectNav(item.label)}
+                    style={isActive ? { backgroundColor: storeTheme.activeBg, boxShadow: storeTheme.activeGlow } : {}}
                     className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all text-left cursor-pointer ${
                       isActive
-                        ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/40 ring-1 ring-emerald-500/30'
-                        : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
+                        ? 'text-white font-bold ring-1 ring-white/20'
+                        : 'text-slate-400 hover:bg-white/5 hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -330,7 +347,7 @@ const StoreAdminConsole = () => {
                       <span>{item.customName || item.label}</span>
                     </div>
                     {item.badge && (
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${item.badgeColor || 'bg-slate-800 text-slate-300'}`}>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${item.badgeColor || 'bg-black/30 text-slate-300'}`}>
                         {item.badge}
                       </span>
                     )}
@@ -340,10 +357,14 @@ const StoreAdminConsole = () => {
             </nav>
 
             {/* Mobile Footer Links (Pinned Bottom) */}
-            <div className="p-4 border-t border-slate-800 shrink-0 bg-[#0f172a] space-y-2 mt-auto">
+            <div
+              style={{ backgroundColor: storeTheme.sidebarFooterBg, borderColor: storeTheme.sidebarBorder }}
+              className="p-4 border-t shrink-0 space-y-2 mt-auto"
+            >
               <button
                 onClick={() => { navigateTo('home'); setIsMobileMenuOpen(false); }}
-                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold text-emerald-400 bg-emerald-950/40 hover:bg-emerald-950/70 border border-emerald-800/40 transition-colors cursor-pointer"
+                style={{ backgroundColor: storeTheme.primaryLight, borderColor: storeTheme.primaryBorder, color: storeTheme.accentText }}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer border"
               >
                 <span className="flex items-center gap-2">
                   <Store className="w-4 h-4" />
@@ -368,17 +389,34 @@ const StoreAdminConsole = () => {
       <aside
         className={`hidden lg:flex flex-col ${
           isSidebarCollapsed ? 'w-20' : 'w-64'
-        } bg-[#0b132b] text-slate-300 h-full shrink-0 border-r border-slate-800/80 transition-all duration-300 z-40 overflow-hidden shadow-xl select-none`}
+        } text-slate-300 h-full shrink-0 transition-all duration-300 z-40 overflow-hidden shadow-xl select-none`}
+        style={{
+          backgroundColor: storeTheme.sidebarBg,
+          borderRight: `1px solid ${storeTheme.sidebarBorder}`
+        }}
       >
         {/* Brand & Collapse Toggle (Pinned Top) */}
-        <div className="p-4 border-b border-slate-800/80 shrink-0 bg-[#0f172a]/80">
+        <div
+          className="p-4 shrink-0 transition-colors"
+          style={{
+            backgroundColor: storeTheme.sidebarHeaderBg,
+            borderBottom: `1px solid ${storeTheme.sidebarBorder}`
+          }}
+        >
           <div className="flex items-center justify-between gap-2">
             <div
               onClick={() => navigateTo('home')}
               className="flex items-center gap-2.5 cursor-pointer group min-w-0"
               title="Return to Customer Storefront"
             >
-              <div className="w-9 h-9 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black text-lg shadow-sm group-hover:scale-105 transition-transform shrink-0">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg shadow-sm group-hover:scale-105 transition-transform shrink-0"
+                style={{
+                  backgroundColor: `${storeTheme.primaryLight}25`,
+                  border: `1px solid ${storeTheme.primaryLight}50`,
+                  color: storeTheme.accentText
+                }}
+              >
                 {currentTenant?.logo || '🏬'}
               </div>
               {!isSidebarCollapsed && (
@@ -386,7 +424,10 @@ const StoreAdminConsole = () => {
                   <h2 className="text-sm font-black text-white leading-tight truncate">
                     {user?.tenantName || currentTenant?.displayName || currentTenant?.name || 'Store Admin'}
                   </h2>
-                  <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block truncate mt-0.5">
+                  <span
+                    className="text-[10px] font-bold uppercase tracking-wider block truncate mt-0.5"
+                    style={{ color: storeTheme.accentText }}
+                  >
                     {currentRoleInfo.title}
                   </span>
                 </div>
@@ -396,7 +437,7 @@ const StoreAdminConsole = () => {
             {/* Desktop Collapse / Expand Button */}
             <button
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors shrink-0 cursor-pointer"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
               title={isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
             >
               {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -419,12 +460,25 @@ const StoreAdminConsole = () => {
                   isSidebarCollapsed ? 'justify-center px-2 py-2.5' : 'justify-between px-3 py-2'
                 } rounded-xl text-xs font-semibold transition-all text-left cursor-pointer group relative ${
                   isActive
-                    ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/40 ring-1 ring-emerald-500/30'
-                    : 'text-slate-400 hover:bg-slate-800/70 hover:text-white'
+                    ? 'text-white font-bold shadow-md'
+                    : 'text-slate-400 hover:bg-white/10 hover:text-white'
                 }`}
+                style={
+                  isActive
+                    ? {
+                        backgroundColor: storeTheme.activeBg,
+                        boxShadow: storeTheme.activeGlow,
+                        border: `1px solid ${storeTheme.primaryLight}50`
+                      }
+                    : {}
+                }
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <Icon className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-emerald-400'}`} />
+                  <Icon
+                    className={`w-4 h-4 shrink-0 transition-colors ${
+                      isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'
+                    }`}
+                  />
                   {!isSidebarCollapsed && (
                     <span className="truncate">{item.customName || item.label}</span>
                   )}
@@ -445,19 +499,30 @@ const StoreAdminConsole = () => {
         </nav>
 
         {/* Desktop Footer Actions: Storefront & Sign Out (Pinned Bottom) */}
-        <div className="p-3 border-t border-slate-800/80 shrink-0 bg-[#0f172a]/90 space-y-1.5 mt-auto">
+        <div
+          className="p-3 shrink-0 space-y-1.5 mt-auto transition-colors"
+          style={{
+            backgroundColor: storeTheme.sidebarFooterBg,
+            borderTop: `1px solid ${storeTheme.sidebarBorder}`
+          }}
+        >
           <button
             onClick={() => navigateTo('home')}
             title="Back to Customer Storefront"
             className={`w-full flex items-center ${
               isSidebarCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'
-            } rounded-xl text-xs font-bold text-emerald-400 bg-emerald-950/40 hover:bg-emerald-950/80 border border-emerald-800/40 transition-colors cursor-pointer`}
+            } rounded-xl text-xs font-bold transition-colors cursor-pointer`}
+            style={{
+              color: storeTheme.accentText,
+              backgroundColor: `${storeTheme.primaryLight}18`,
+              border: `1px solid ${storeTheme.primaryLight}40`
+            }}
           >
             <span className="flex items-center gap-2 min-w-0">
               <Store className="w-4 h-4 shrink-0" />
               {!isSidebarCollapsed && <span className="truncate">Customer Store</span>}
             </span>
-            {!isSidebarCollapsed && <ExternalLink className="w-3.5 h-3.5 shrink-0 text-emerald-400/80" />}
+            {!isSidebarCollapsed && <ExternalLink className="w-3.5 h-3.5 shrink-0" style={{ color: storeTheme.accentText }} />}
           </button>
           
           <button

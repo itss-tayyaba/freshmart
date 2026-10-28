@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   LayoutDashboard,
   Package,
@@ -44,6 +44,7 @@ import { WalletRewardsView } from './views/WalletRewardsView';
 import { ProfileSettingsView } from './views/ProfileSettingsView';
 import { CustomerLiveTrackingCard } from './CustomerLiveTrackingCard';
 import { FRESHMART_PRODUCTS } from '../../data/freshMartData';
+import { getStoreTheme } from '../../utils/storeTheme';
 
 export const CustomerPortal = () => {
   const {
@@ -52,6 +53,7 @@ export const CustomerPortal = () => {
     updateCustomerAvatar,
     customerNotifications = [],
     navigateTo,
+    currentTenant,
     cart = [],
     updateCartQuantity,
     removeFromCart,
@@ -75,6 +77,10 @@ export const CustomerPortal = () => {
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'orders' | 'cart' | 'wishlist' | 'addresses' | 'payments' | 'settings' | 'notifications' | 'support'
   const [copiedCode, setCopiedCode] = useState(null);
   const fileInputRef = useRef(null);
+
+  const storeTheme = useMemo(() => {
+    return getStoreTheme(currentTenant || customerUser?.tenantId || customerUser?.storeId);
+  }, [currentTenant, customerUser]);
 
   // If customer is not logged in, show Sign In / Create Account Screen
   if (!customerUser) {
@@ -121,23 +127,32 @@ export const CustomerPortal = () => {
       <header className="bg-white/90 backdrop-blur-md border-b border-emerald-100/90 sticky top-0 z-40 px-4 sm:px-6 py-3.5 shadow-xs">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           
-          {/* Left: FreshMart Customer Brand + Back to Shop Button */}
+          {/* Left: Store Customer Brand + Back to Shop Button */}
           <div className="flex items-center gap-3">
             <div
               onClick={() => navigateTo('home')}
               className="flex items-center gap-2.5 cursor-pointer group"
             >
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-700 to-[#07382c] flex items-center justify-center text-white font-black text-xl shadow-md shadow-emerald-900/20 group-hover:scale-105 transition-transform">
-                🛒
+              <div
+                className="w-10 h-10 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-md group-hover:scale-105 transition-transform"
+                style={{
+                  backgroundColor: storeTheme.activeBg,
+                  boxShadow: storeTheme.activeGlow
+                }}
+              >
+                {currentTenant?.logo || '🛒'}
               </div>
               <div>
                 <h1 className="text-base font-black text-slate-900 leading-none flex items-center gap-1.5">
-                  <span>FreshMart</span>
+                  <span>{currentTenant?.displayName || currentTenant?.name || storeTheme.name}</span>
                   <span className="text-[10px] bg-gradient-to-r from-amber-500 to-orange-500 text-white px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
                     PRO
                   </span>
                 </h1>
-                <span className="text-[11px] text-emerald-700 font-bold tracking-wide block mt-0.5">
+                <span
+                  className="text-[11px] font-bold tracking-wide block mt-0.5"
+                  style={{ color: storeTheme.primary }}
+                >
                   Customer Portal & Loyalty
                 </span>
               </div>
@@ -274,10 +289,16 @@ export const CustomerPortal = () => {
         {/* ========================================================= */}
         <aside className="lg:col-span-3 space-y-5">
           
-          {/* Profile Card in Deep Forest Emerald Gradient */}
-          <div className="bg-gradient-to-br from-[#07382c] via-[#0b4d3c] to-[#14765d] rounded-3xl p-5 text-white shadow-xl shadow-emerald-950/20 border border-emerald-600/30 space-y-4 relative overflow-hidden">
+          {/* Profile Card in Store Themed Gradient */}
+          <div
+            className={`bg-gradient-to-br ${storeTheme.customerProfileGradient} rounded-3xl p-5 text-white shadow-xl shadow-slate-950/20 border space-y-4 relative overflow-hidden`}
+            style={{ borderColor: `${storeTheme.primaryLight}40` }}
+          >
             {/* Background glowing ambient light */}
-            <div className="absolute -right-8 -top-8 w-28 h-28 bg-emerald-400/20 rounded-full blur-2xl pointer-events-none"></div>
+            <div
+              className="absolute -right-8 -top-8 w-28 h-28 rounded-full blur-2xl pointer-events-none"
+              style={{ backgroundColor: `${storeTheme.primaryLight}30` }}
+            ></div>
             <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-amber-400/15 rounded-full blur-xl pointer-events-none"></div>
 
             <div className="flex items-center gap-3.5 relative z-10">
@@ -286,10 +307,14 @@ export const CustomerPortal = () => {
                   <img
                     src={customerUser.avatar}
                     alt={customerUser.name}
-                    className="w-14 h-14 rounded-2xl object-cover border-2 border-emerald-400 shadow-md ring-2 ring-emerald-300/30"
+                    className="w-14 h-14 rounded-2xl object-cover shadow-md"
+                    style={{ border: `2px solid ${storeTheme.primaryLight}` }}
                   />
                 ) : (
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white font-black text-lg flex items-center justify-center shadow-md ring-2 ring-white/20">
+                  <div
+                    className="w-14 h-14 rounded-2xl text-white font-black text-lg flex items-center justify-center shadow-md ring-2 ring-white/20"
+                    style={{ backgroundColor: storeTheme.activeBg }}
+                  >
                     {getInitials(customerUser.name)}
                   </div>
                 )}
@@ -310,16 +335,23 @@ export const CustomerPortal = () => {
                   <h3 className="font-black text-sm text-white truncate leading-snug">
                     {customerUser.name}
                   </h3>
-                  <span className="text-[9px] bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 flex items-center gap-1">
-                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-300" />
+                  <span
+                    className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 flex items-center gap-1"
+                    style={{
+                      backgroundColor: `${storeTheme.primaryLight}30`,
+                      color: storeTheme.accentText,
+                      border: `1px solid ${storeTheme.primaryLight}50`
+                    }}
+                  >
+                    <CheckCircle2 className="w-2.5 h-2.5" style={{ color: storeTheme.accentText }} />
                     Verified
                   </span>
                 </div>
-                <p className="text-xs text-emerald-200/90 font-medium truncate mt-0.5">
+                <p className="text-xs font-medium truncate mt-0.5 opacity-90">
                   {customerUser.phone || customerUser.email}
                 </p>
-                <p className="text-[11px] text-emerald-300 font-semibold mt-1 flex items-center gap-1">
-                  <span>FreshMart Registered Member</span>
+                <p className="text-[11px] font-semibold mt-1 flex items-center gap-1" style={{ color: storeTheme.accentText }}>
+                  <span>{currentTenant?.displayName || currentTenant?.name || storeTheme.name} Member</span>
                 </p>
               </div>
             </div>
@@ -331,7 +363,7 @@ export const CustomerPortal = () => {
                 onClick={() => fileInputRef.current?.click()}
                 className="w-full py-2 bg-white/15 hover:bg-white/25 text-white backdrop-blur-xs rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-white/20 hover:border-white/40 shadow-xs"
               >
-                <Upload className="w-3.5 h-3.5 text-emerald-200" />
+                <Upload className="w-3.5 h-3.5 text-white" />
                 <span>Change Profile Photo</span>
               </button>
 
@@ -346,18 +378,26 @@ export const CustomerPortal = () => {
           </div>
 
           {/* Navigation Menu Links */}
-          <div className="bg-white rounded-3xl p-3 border border-emerald-100/80 shadow-sm space-y-1 text-xs font-bold">
+          <div className="bg-white rounded-3xl p-3 border border-slate-200/80 shadow-sm space-y-1 text-xs font-bold">
             
             <button
               onClick={() => setActiveTab('dashboard')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
                 activeTab === 'dashboard'
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black shadow-md shadow-emerald-900/20 scale-[1.02]'
-                  : 'text-slate-700 hover:bg-emerald-50/70 hover:text-emerald-800'
+                  ? 'text-white font-black shadow-md scale-[1.02]'
+                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
               }`}
+              style={
+                activeTab === 'dashboard'
+                  ? {
+                      backgroundColor: storeTheme.activeBg,
+                      boxShadow: storeTheme.activeGlow
+                    }
+                  : {}
+              }
             >
               <div className="flex items-center gap-3">
-                <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${activeTab === 'dashboard' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
+                <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${activeTab === 'dashboard' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
                   <LayoutDashboard className="w-3.5 h-3.5" />
                 </div>
                 <span>Dashboard</span>
@@ -368,9 +408,17 @@ export const CustomerPortal = () => {
               onClick={() => setActiveTab('orders')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
                 activeTab === 'orders'
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black shadow-md shadow-emerald-900/20 scale-[1.02]'
-                  : 'text-slate-700 hover:bg-emerald-50/70 hover:text-emerald-800'
+                  ? 'text-white font-black shadow-md scale-[1.02]'
+                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
               }`}
+              style={
+                activeTab === 'orders'
+                  ? {
+                      backgroundColor: storeTheme.activeBg,
+                      boxShadow: storeTheme.activeGlow
+                    }
+                  : {}
+              }
             >
               <div className="flex items-center gap-3">
                 <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${activeTab === 'orders' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700'}`}>
@@ -379,7 +427,7 @@ export const CustomerPortal = () => {
                 <span>My Orders</span>
               </div>
               {customerOrders.length > 0 && (
-                <span className={`w-5 h-5 rounded-full text-[10px] flex items-center justify-center font-black ${activeTab === 'orders' ? 'bg-white text-emerald-800' : 'bg-emerald-600 text-white'}`}>
+                <span className={`w-5 h-5 rounded-full text-[10px] flex items-center justify-center font-black ${activeTab === 'orders' ? 'bg-white text-slate-900' : 'bg-slate-800 text-white'}`}>
                   {customerOrders.length}
                 </span>
               )}
@@ -389,9 +437,17 @@ export const CustomerPortal = () => {
               onClick={() => setActiveTab('cart')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
                 activeTab === 'cart'
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black shadow-md shadow-emerald-900/20 scale-[1.02]'
-                  : 'text-slate-700 hover:bg-emerald-50/70 hover:text-emerald-800'
+                  ? 'text-white font-black shadow-md scale-[1.02]'
+                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
               }`}
+              style={
+                activeTab === 'cart'
+                  ? {
+                      backgroundColor: storeTheme.activeBg,
+                      boxShadow: storeTheme.activeGlow
+                    }
+                  : {}
+              }
             >
               <div className="flex items-center gap-3">
                 <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${activeTab === 'cart' ? 'bg-white/20 text-white' : 'bg-teal-100 text-teal-700'}`}>
@@ -400,7 +456,7 @@ export const CustomerPortal = () => {
                 <span>My Cart</span>
               </div>
               {cart.length > 0 && (
-                <span className={`w-5 h-5 rounded-full text-[10px] flex items-center justify-center font-black ${activeTab === 'cart' ? 'bg-white text-emerald-800' : 'bg-emerald-600 text-white'}`}>
+                <span className={`w-5 h-5 rounded-full text-[10px] flex items-center justify-center font-black ${activeTab === 'cart' ? 'bg-white text-slate-900' : 'bg-slate-800 text-white'}`}>
                   {cart.length}
                 </span>
               )}
@@ -410,9 +466,17 @@ export const CustomerPortal = () => {
               onClick={() => setActiveTab('wishlist')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
                 activeTab === 'wishlist'
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black shadow-md shadow-emerald-900/20 scale-[1.02]'
-                  : 'text-slate-700 hover:bg-emerald-50/70 hover:text-emerald-800'
+                  ? 'text-white font-black shadow-md scale-[1.02]'
+                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
               }`}
+              style={
+                activeTab === 'wishlist'
+                  ? {
+                      backgroundColor: storeTheme.activeBg,
+                      boxShadow: storeTheme.activeGlow
+                    }
+                  : {}
+              }
             >
               <div className="flex items-center gap-3">
                 <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${activeTab === 'wishlist' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-600'}`}>
@@ -431,9 +495,17 @@ export const CustomerPortal = () => {
               onClick={() => setActiveTab('addresses')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
                 activeTab === 'addresses'
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black shadow-md shadow-emerald-900/20 scale-[1.02]'
-                  : 'text-slate-700 hover:bg-emerald-50/70 hover:text-emerald-800'
+                  ? 'text-white font-black shadow-md scale-[1.02]'
+                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
               }`}
+              style={
+                activeTab === 'addresses'
+                  ? {
+                      backgroundColor: storeTheme.activeBg,
+                      boxShadow: storeTheme.activeGlow
+                    }
+                  : {}
+              }
             >
               <div className="flex items-center gap-3">
                 <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${activeTab === 'addresses' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700'}`}>
@@ -447,9 +519,17 @@ export const CustomerPortal = () => {
               onClick={() => setActiveTab('payments')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
                 activeTab === 'payments'
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black shadow-md shadow-emerald-900/20 scale-[1.02]'
-                  : 'text-slate-700 hover:bg-emerald-50/70 hover:text-emerald-800'
+                  ? 'text-white font-black shadow-md scale-[1.02]'
+                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
               }`}
+              style={
+                activeTab === 'payments'
+                  ? {
+                      backgroundColor: storeTheme.activeBg,
+                      boxShadow: storeTheme.activeGlow
+                    }
+                  : {}
+              }
             >
               <div className="flex items-center gap-3">
                 <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${activeTab === 'payments' ? 'bg-white/20 text-white' : 'bg-purple-100 text-purple-700'}`}>
@@ -463,9 +543,17 @@ export const CustomerPortal = () => {
               onClick={() => setActiveTab('settings')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
                 activeTab === 'settings'
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black shadow-md shadow-emerald-900/20 scale-[1.02]'
-                  : 'text-slate-700 hover:bg-emerald-50/70 hover:text-emerald-800'
+                  ? 'text-white font-black shadow-md scale-[1.02]'
+                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
               }`}
+              style={
+                activeTab === 'settings'
+                  ? {
+                      backgroundColor: storeTheme.activeBg,
+                      boxShadow: storeTheme.activeGlow
+                    }
+                  : {}
+              }
             >
               <div className="flex items-center gap-3">
                 <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${activeTab === 'settings' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'}`}>
@@ -480,9 +568,17 @@ export const CustomerPortal = () => {
               onClick={() => setActiveTab('notifications')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
                 activeTab === 'notifications'
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black shadow-md shadow-emerald-900/20 scale-[1.02]'
-                  : 'text-slate-700 hover:bg-emerald-50/70 hover:text-emerald-800'
+                  ? 'text-white font-black shadow-md scale-[1.02]'
+                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
               }`}
+              style={
+                activeTab === 'notifications'
+                  ? {
+                      backgroundColor: storeTheme.activeBg,
+                      boxShadow: storeTheme.activeGlow
+                    }
+                  : {}
+              }
             >
               <div className="flex items-center gap-3">
                 <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${activeTab === 'notifications' ? 'bg-white/20 text-white' : 'bg-orange-100 text-orange-700'}`}>
@@ -499,9 +595,17 @@ export const CustomerPortal = () => {
               onClick={() => setActiveTab('support')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
                 activeTab === 'support'
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black shadow-md shadow-emerald-900/20 scale-[1.02]'
-                  : 'text-slate-700 hover:bg-emerald-50/70 hover:text-emerald-800'
+                  ? 'text-white font-black shadow-md scale-[1.02]'
+                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
               }`}
+              style={
+                activeTab === 'support'
+                  ? {
+                      backgroundColor: storeTheme.activeBg,
+                      boxShadow: storeTheme.activeGlow
+                    }
+                  : {}
+              }
             >
               <div className="flex items-center gap-3">
                 <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${activeTab === 'support' ? 'bg-white/20 text-white' : 'bg-cyan-100 text-cyan-700'}`}>
