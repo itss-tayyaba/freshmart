@@ -2051,6 +2051,7 @@ export const StoreProvider = ({ children }) => {
 
     // 2.6 Auto-Detect Rider Credentials (or if targetRole === 'rider')
     const cleanDigits = cleanUser.replace(/[^0-9]/g, '');
+    const bareRiderUser = cleanUser.replace(/@(rider\.)?freshmart\.(pk|com)$/, '');
     const matchedRider = (riders || []).find((r) => {
       const rId = String(r.id || r.riderId || '').trim().toLowerCase();
       const rUser = String(r.username || '').trim().toLowerCase();
@@ -2058,13 +2059,22 @@ export const StoreProvider = ({ children }) => {
       const rPhone = String(r.phone || '').trim().toLowerCase();
       const rDigits = rPhone.replace(/[^0-9]/g, '');
 
+      const phoneMatch = Boolean(
+        rDigits &&
+        cleanDigits.length >= 7 &&
+        (rDigits === cleanDigits ||
+          rDigits.endsWith(cleanDigits.slice(-9)) ||
+          cleanDigits.endsWith(rDigits.slice(-9)))
+      );
+
       const uMatch =
         rUser === cleanUser ||
+        rUser === bareRiderUser ||
         rName === cleanUser ||
         rId === cleanUser ||
-        (cleanDigits.length >= 7 && rDigits === cleanDigits) ||
+        phoneMatch ||
         rPhone === cleanUser;
-      const pMatch = (r.password && r.password === cleanPass) || cleanPass === 'rider123' || cleanPass === 'admin123';
+      const pMatch = (r.password && String(r.password).trim() === cleanPass) || cleanPass === 'rider123' || cleanPass === 'admin123';
       return uMatch && pMatch;
     });
 
@@ -2377,13 +2387,29 @@ export const StoreProvider = ({ children }) => {
     }
 
     if (targetRole === 'rider') {
-      const foundRider = (riders || []).find(
-        (r) =>
-          (r.username && r.username.toLowerCase() === cleanUser) ||
-          (r.phone && r.phone.replace(/[^0-9]/g, '') === cleanUser.replace(/[^0-9]/g, '')) ||
-          (r.id && r.id.toLowerCase() === cleanUser) ||
-          (r.name && r.name.toLowerCase() === cleanUser)
-      );
+      const bareRiderUser = cleanUser.replace(/@(rider\.)?freshmart\.(pk|com)$/, '');
+      const foundRider = (riders || []).find((r) => {
+        const rId = String(r.id || r.riderId || '').trim().toLowerCase();
+        const rUser = String(r.username || '').trim().toLowerCase();
+        const rName = String(r.name || '').trim().toLowerCase();
+        const rPhone = String(r.phone || '').trim().toLowerCase();
+        const rDigits = rPhone.replace(/[^0-9]/g, '');
+        const phoneMatch = Boolean(
+          rDigits &&
+          cleanDigits.length >= 7 &&
+          (rDigits === cleanDigits ||
+            rDigits.endsWith(cleanDigits.slice(-9)) ||
+            cleanDigits.endsWith(rDigits.slice(-9)))
+        );
+        return (
+          rUser === cleanUser ||
+          rUser === bareRiderUser ||
+          rName === cleanUser ||
+          rId === cleanUser ||
+          phoneMatch ||
+          rPhone === cleanUser
+        );
+      });
 
       if (!foundRider) {
         const isDemoUser = cleanUser === 'rider' || cleanUser === 'ahmad' || cleanUser === '03001234567';
@@ -2672,67 +2698,12 @@ export const StoreProvider = ({ children }) => {
       const saved = localStorage.getItem('freshmart_riders_v3') || localStorage.getItem('freshmart_riders');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Permanently purge Usman Tariq, Hamza, Delivery rider and ensure official fleet
-          const withoutUsman = parsed.filter((r) => {
-            const rName = (r.name || '').toLowerCase();
-            const rId = (r.id || '').toUpperCase();
-            const rUser = (r.username || '').toLowerCase();
-            if (
-              rId === 'RDR-CHASEUP' ||
-              rId === 'RDR-HAMZA' ||
-              rId === 'RDR-DELIVERY' ||
-              rUser === 'chaseup_rider' ||
-              rUser === 'delivery' ||
-              rUser === 'hamza' ||
-              (rName.includes('usman') && isSameTenant(r.tenantId, 'tenant-chaseup'))
-            ) {
-              return false;
-            }
-            return true;
-          });
-
-          const existingKeys = new Set(withoutUsman.map((r) => (r.username || r.email || r.id || r.phone)?.toLowerCase()));
-          const merged = withoutUsman.map((r) => {
-            if (
-              r.id === 'RDR-ALFATAH' ||
-              isSameTenant(r.tenantId, 'tenant-alfatah') ||
-              (r.name && r.name.toLowerCase().includes('alfatah')) ||
-              (r.name && r.name.toLowerCase().includes('ahmad khan') && String(r.zone).toLowerCase().includes('lahore'))
-            ) {
-              return {
-                ...r,
-                branchId: r.branchId || 'branch_af_fsd',
-                zone: 'Peoples Colony No. 1 (Faisalabad)',
-                branchName: 'D-Ground Flagship Hub (Faisalabad)',
-                vehicleNumber: 'FSD-4821',
-                coordinates: { lat: 31.4147, lng: 73.0872 }
-              };
-            }
-            return r;
-          });
-          (INITIAL_RIDERS || []).forEach((initR) => {
-            const k1 = (initR.username || '').toLowerCase();
-            const k2 = (initR.id || '').toLowerCase();
-            const k3 = (initR.phone || '').toLowerCase();
-            if (!existingKeys.has(k1) && !existingKeys.has(k2) && !existingKeys.has(k3)) {
-              merged.push(initR);
-            }
-          });
-          // Patch isGlobal flag onto stored seed riders so they show in all store dashboards
-          const seedIds = new Set((INITIAL_RIDERS || []).map((r) => r.id));
-          const mergedWithGlobal = merged.map((r) =>
-            seedIds.has(r.id) ? { ...r, isGlobal: true } : r
-          );
-          try {
-            localStorage.setItem('freshmart_riders_v3', JSON.stringify(mergedWithGlobal));
-            localStorage.setItem('freshmart_riders', JSON.stringify(mergedWithGlobal));
-          } catch (e) {}
-          return mergedWithGlobal;
+        if (Array.isArray(parsed)) {
+          return parsed;
         }
       }
     } catch (e) {}
-    return INITIAL_RIDERS || [];
+    return [];
   });
 
   useEffect(() => {
@@ -3013,18 +2984,11 @@ export const StoreProvider = ({ children }) => {
           const cleanRiders = res.riders.filter(
             (r) => r && (r.id || r._id)
           );
-          setRiders((prev) => {
-            const map = new Map();
-            (INITIAL_RIDERS || []).forEach((r) => map.set(String(r.id || r.riderId || r._id).toLowerCase(), r));
-            (prev || []).forEach((r) => map.set(String(r.id || r.riderId || r._id).toLowerCase(), r));
-            cleanRiders.forEach((r) => map.set(String(r.id || r.riderId || r._id).toLowerCase(), r));
-            const merged = Array.from(map.values());
-            try {
-              localStorage.setItem('freshmart_riders_v3', JSON.stringify(merged));
-              localStorage.setItem('freshmart_riders', JSON.stringify(merged));
-            } catch (e) {}
-            return merged;
-          });
+          setRiders(cleanRiders);
+          try {
+            localStorage.setItem('freshmart_riders_v3', JSON.stringify(cleanRiders));
+            localStorage.setItem('freshmart_riders', JSON.stringify(cleanRiders));
+          } catch (e) {}
         }
       } catch (e) {}
     };
@@ -3358,7 +3322,7 @@ export const StoreProvider = ({ children }) => {
 
   const getEligibleRidersForOrder = (order) => {
     if (!order) return [];
-    const allRidersPool = (riders && riders.length > 0) ? riders : (INITIAL_RIDERS || []);
+    const allRidersPool = Array.isArray(riders) ? riders : [];
     return getStrictEligibleRiders(order, allRidersPool);
   };
 

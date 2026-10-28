@@ -253,19 +253,15 @@ export const DeliveryView = () => {
   // Selected rider for mobile app simulator
   const [simulatedRiderId, setSimulatedRiderId] = useState(riders[0]?.id || '');
 
-  // Filter riders - show all riders if no riders match the active tenant (fallback to all)
+  // Filter riders - strictly scoped to store tenant or all active registered riders
   const storeRiders = useMemo(() => {
     const tId = currentTenant?.id || user?.tenantId;
-    const allRidersList = (riders && riders.length > 0) ? riders : [
-      { id: 'RDR-ALI', name: 'Ali Khan', username: 'ali', phone: '03001122334', isGlobal: true, status: 'Active', zone: 'D-Ground Commercial', branchName: 'D-Ground Flagship Hub' },
-      { id: 'RDR-AHMAD', name: 'Ahmad Khan', username: 'ahmad', phone: '03206551696', isGlobal: true, status: 'Active', zone: 'Peoples Colony', branchName: 'D-Ground Flagship Hub' }
-    ];
+    const allRidersList = Array.isArray(riders) ? riders : [];
     if (!tId || adminRole === 'superadmin') return allRidersList;
     const tenantMatched = allRidersList.filter(
       (r) => !r.tenantId || isSameTenant(r.tenantId, tId) || r.isGlobal
     );
-    // Fallback: if no riders match this store's tenant, show all riders so fleet is never empty
-    return tenantMatched.length > 0 ? tenantMatched : allRidersList;
+    return tenantMatched;
   }, [riders, currentTenant?.id, user?.tenantId, adminRole]);
 
   // Filter riders based on search and branch/zone
@@ -1296,12 +1292,29 @@ export const DeliveryView = () => {
             </div>
 
             {isAdmin && (
-              <button
-                onClick={handleOpenAddRiderModal}
-                className="px-5 py-2.5 bg-[#ca8a04] hover:bg-[#b47b04] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer hover:shadow-md hover:scale-[1.02] shrink-0"
-              >
-                <span>+ Add Rider</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {storeRiders.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Delete every rider from the dashboard and database? You can then register fresh riders and set custom passwords.')) {
+                        clearAllRiders();
+                      }
+                    }}
+                    className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:border-rose-300"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear All Riders</span>
+                  </button>
+                )}
+                <button
+                  onClick={handleOpenAddRiderModal}
+                  className="px-5 py-2.5 bg-[#ca8a04] hover:bg-[#b47b04] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer hover:shadow-md hover:scale-[1.02] shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Add Rider</span>
+                </button>
+              </div>
             )}
           </div>
 
@@ -1323,8 +1336,28 @@ export const DeliveryView = () => {
                 <tbody className="divide-y divide-stone-100 text-xs">
                   {filteredRiders.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-12 text-stone-400">
-                        No delivery riders found matching "{searchRider}". Click "+ Add Rider" to add one.
+                      <td colSpan={7} className="text-center py-12 px-6">
+                        <div className="max-w-md mx-auto space-y-3">
+                          <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto text-2xl">
+                            🛵
+                          </div>
+                          <h4 className="font-bold text-sm text-stone-900">
+                            No Delivery Riders Registered
+                          </h4>
+                          <p className="text-xs text-stone-500">
+                            All default couriers have been cleared. Click <strong>+ Add Rider</strong> to register your couriers with their custom login password.
+                          </p>
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={handleOpenAddRiderModal}
+                              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#ca8a04] hover:bg-[#b47b04] text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Register Delivery Rider</span>
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ) : (
@@ -1455,6 +1488,22 @@ export const DeliveryView = () => {
                                 <Eye className="w-3.5 h-3.5" />
                                 <span>View Dashboard</span>
                               </button>
+
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (window.confirm(`Delete rider "${rider.name}" from fleet?`)) {
+                                      deleteRider(rider.id);
+                                    }
+                                  }}
+                                  className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-600 border border-slate-300 hover:border-rose-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                                  title="Delete Rider"
+                                >
+                                  <Trash2 className="w-3 h-3 text-rose-500" />
+                                  <span>Delete</span>
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>

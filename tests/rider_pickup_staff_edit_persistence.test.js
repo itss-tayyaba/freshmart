@@ -10,6 +10,7 @@ import {
 } from '../server/controllers/authController.js';
 import {
   updateRider,
+  deleteRider,
   loadDiskRiders
 } from '../server/controllers/extraControllers.js';
 
@@ -89,6 +90,9 @@ test('Rider and Pickup Staff Edit & Database/Disk Persistence Test Suite', async
     assert.equal(loginByPhoneRes.statusCode, 200);
     assert.equal(loginByPhoneRes.jsonData.success, true);
     assert.equal(loginByPhoneRes.jsonData.role, 'rider');
+
+    // Clean up test rider so fleet remains empty
+    await deleteRider({ params: { id: 'RDR-AHMAD' } }, createMockRes());
   });
 
   await t.test('2. Create and Edit pickup staff credentials -> saves to disk & allows login', async () => {

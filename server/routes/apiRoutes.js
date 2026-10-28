@@ -184,7 +184,7 @@ router.get('/riders', protect, adminOnly, getRiders);
 router.post('/riders', protect, adminOnly, validate(createRiderSchema), addRider);
 router.put('/riders/:id', protect, adminOnly, updateRider);
 router.delete('/riders/:id', protect, adminOnly, deleteRider);
-router.delete('/riders', protect, superAdminOnly, clearAllRiders);
+router.delete('/riders', protect, adminOnly, clearAllRiders);
 
 // --- Promotions & Coupons Routes ---
 // Public: Active coupons and checkout promo validation

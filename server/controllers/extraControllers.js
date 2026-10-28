@@ -39,10 +39,10 @@ export const loadDiskRiders = () => {
     if (fs.existsSync(RIDERS_FILE_PATH)) {
       const data = fs.readFileSync(RIDERS_FILE_PATH, 'utf-8');
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch (e) {}
-  return (INITIAL_RIDERS || []).map((r) => ({ ...r, isGlobal: true }));
+  return [];
 };
 
 export const saveAllDiskRiders = (ridersList) => {
@@ -410,7 +410,12 @@ export const addRider = async (req, res) => {
 
     // Save to Disk Database
     const diskRiders = loadDiskRiders();
-    const existingIdx = diskRiders.findIndex((r) => r.id === riderId);
+    const existingIdx = diskRiders.findIndex(
+      (r) =>
+        r.id === riderId ||
+        (r.username && newRider.username && r.username.toLowerCase() === newRider.username.toLowerCase()) ||
+        (r.phone && newRider.phone && r.phone.replace(/[^0-9]/g, '') === newRider.phone.replace(/[^0-9]/g, ''))
+    );
     if (existingIdx >= 0) {
       diskRiders[existingIdx] = newRider;
     } else {
@@ -422,11 +427,15 @@ export const addRider = async (req, res) => {
       try {
         await Rider.create(newRider);
       } catch (dbErr) {
-        await Rider.findOneAndUpdate({ id: riderId }, { $set: newRider }, { upsert: true });
+        await Rider.findOneAndUpdate(
+          { $or: [{ id: riderId }, { username: newRider.username }] },
+          { $set: newRider },
+          { upsert: true }
+        );
       }
     }
 
-    memoryRiders.unshift(newRider);
+    memoryRiders = diskRiders;
     res.status(201).json({ success: true, rider: newRider });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -511,24 +520,12 @@ export const deleteRider = async (req, res) => {
 
 export const clearAllRiders = async (req, res) => {
   try {
-    const userRole = (req.user?.role || '').toLowerCase();
-    const userTenant = req.user?.tenantId;
-
-    if (userRole === 'superadmin' || !userTenant) {
-      if (isDbOnline()) {
-        await Rider.deleteMany({});
-      }
-      saveAllDiskRiders([]);
-      memoryRiders = [];
-    } else {
-      if (isDbOnline()) {
-        await Rider.deleteMany({ tenantId: userTenant });
-      }
-      const kept = loadDiskRiders().filter((r) => r.tenantId !== userTenant);
-      saveAllDiskRiders(kept);
-      memoryRiders = memoryRiders.filter((r) => r.tenantId !== userTenant);
+    if (isDbOnline()) {
+      await Rider.deleteMany({});
     }
-    res.json({ success: true, message: 'Riders cleared successfully' });
+    saveAllDiskRiders([]);
+    memoryRiders = [];
+    res.json({ success: true, message: 'All delivery riders cleared successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

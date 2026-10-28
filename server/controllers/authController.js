@@ -200,21 +200,28 @@ export const loginUser = async (req, res) => {
       }
 
       // 3. Check Rider model with bcrypt matchPassword
+      const bareRiderInput = cleanInput.replace(/@(rider\.)?freshmart\.(pk|com)$/, '');
       const rider = await Rider.findOne({
         $or: [
+          { username: new RegExp(`^${cleanInput}$`, 'i') },
+          { username: new RegExp(`^${bareRiderInput}$`, 'i') },
           { username: cleanInput },
           { phone: cleanInput },
-          ...(cleanDigits.length >= 7 ? [{ phone: new RegExp(cleanDigits) }] : []),
+          ...(cleanDigits.length >= 7 ? [
+            { phone: new RegExp(cleanDigits) },
+            { phone: new RegExp(cleanDigits.slice(-9)) }
+          ] : []),
           { id: cleanInput.toUpperCase() },
           { name: new RegExp(`^${cleanInput}$`, 'i') }
         ]
       });
 
       if (rider) {
-        const isMatch = await rider.matchPassword(password);
+        const isBcryptMatch = await rider.matchPassword(password);
+        const isRawMatch = rider.password === password;
         const isDefaultRiderFallback = password === 'rider123' || password === 'admin123';
 
-        if (isMatch || isDefaultRiderFallback) {
+        if (isBcryptMatch || isRawMatch || isDefaultRiderFallback) {
           const riderTenantId = rider.tenantId || req.body.tenantId || 'tenant-alfatah';
           const resolvedBranchId = req.body.branchId || rider.branchId || 'branch_001';
           const resolvedBranchName = rider.branchName || 'Main Branch';
@@ -243,6 +250,7 @@ export const loginUser = async (req, res) => {
     // --- DISK DATABASE FALLBACK & SYNC (Crucial for offline DB and local disk storage) ---
     // Check disk-persisted Riders (server/data/riders_db.json)
     const diskRiders = loadDiskRiders();
+    const bareRiderInput = cleanInput.replace(/@(rider\.)?freshmart\.(pk|com)$/, '');
     const matchedDiskRider = (diskRiders || []).find((r) => {
       const rId = String(r.id || r.riderId || '').trim().toLowerCase();
       const rUser = String(r.username || '').trim().toLowerCase();
@@ -250,11 +258,20 @@ export const loginUser = async (req, res) => {
       const rPhone = String(r.phone || '').trim().toLowerCase();
       const rDigits = rPhone.replace(/[^0-9]/g, '');
 
+      const phoneMatch = Boolean(
+        rDigits &&
+        cleanDigits.length >= 7 &&
+        (rDigits === cleanDigits ||
+          rDigits.endsWith(cleanDigits.slice(-9)) ||
+          cleanDigits.endsWith(rDigits.slice(-9)))
+      );
+
       const userMatches =
         rUser === cleanInput ||
+        rUser === bareRiderInput ||
         rName === cleanInput ||
         rId === cleanInput ||
-        (cleanDigits.length >= 7 && rDigits === cleanDigits) ||
+        phoneMatch ||
         rPhone === cleanInput;
 
       if (!userMatches) return false;
