@@ -32,8 +32,14 @@ import { ToastContainer } from './components/Modals/ToastContainer';
 function FreshMartAppContent() {
   const { currentPage, isVendorRegisterOpen, setIsVendorRegisterOpen, user, adminRole, isAdminLoggedIn } = useStore();
 
+  // If user is authenticated as courier or packing staff, keep them on their operational dashboard even after refresh
+  const effRole = (user?.role || adminRole || '').toLowerCase();
+  const isRider = isAdminLoggedIn && user && effRole === 'rider';
+  const isStaff = isAdminLoggedIn && user && effRole === 'pickup_staff';
+  const activeView = (currentPage === 'home' && isRider) ? 'delivery-portal' : (currentPage === 'home' && isStaff) ? 'pickup-staff' : currentPage;
+
   // If in dedicated Login view, render the multi-role staff/rider/admin login console
-  if (currentPage === 'login' || currentPage === 'signin') {
+  if (activeView === 'login' || activeView === 'signin') {
     return (
       <div className="min-h-screen w-full bg-[#f8fafc] dark:bg-[#0b0f19] dark:text-slate-100 font-sans">
         <AdminLogin />
@@ -42,7 +48,7 @@ function FreshMartAppContent() {
   }
 
   // If in Admin / Vendor Dashboard view, render the dedicated full-screen admin/vendor experience
-  if (currentPage === 'admin' || currentPage === 'vendor' || currentPage === 'vendor-portal') {
+  if (activeView === 'admin' || activeView === 'vendor' || activeView === 'vendor-portal') {
     return (
       <div className="min-h-screen w-full bg-slate-100 dark:bg-[#0b0f19] dark:text-slate-100 font-sans">
         <AdminDashboard />
@@ -51,7 +57,7 @@ function FreshMartAppContent() {
   }
 
   // If in Delivery / Rider Portal view, render the dedicated courier dashboard experience
-  if (currentPage === 'delivery-portal' || currentPage === 'rider-portal') {
+  if (activeView === 'delivery-portal' || activeView === 'rider-portal') {
     const isRiderAuthorized = isAdminLoggedIn && user && ['rider', 'admin', 'superadmin'].includes((user.role || adminRole || '').toLowerCase());
     if (!isRiderAuthorized) {
       return (
@@ -68,7 +74,7 @@ function FreshMartAppContent() {
   }
 
   // If in Pickup Staff Portal view, render the dedicated packing station experience
-  if (currentPage === 'pickup-staff' || currentPage === 'pickup-portal' || currentPage === 'staff-portal') {
+  if (activeView === 'pickup-staff' || activeView === 'pickup-portal' || activeView === 'staff-portal') {
     const isStaffAuthorized = isAdminLoggedIn && user && ['pickup_staff', 'admin', 'superadmin'].includes((user.role || adminRole || '').toLowerCase());
     if (!isStaffAuthorized) {
       return (
@@ -85,7 +91,7 @@ function FreshMartAppContent() {
   }
 
   // If in Customer Portal view, render the dedicated customer dashboard experience
-  if (currentPage === 'customer-portal') {
+  if (activeView === 'customer-portal') {
     return (
       <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0b0f19] dark:text-slate-100 font-sans">
         <CustomerPortal />

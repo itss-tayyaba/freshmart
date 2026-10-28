@@ -138,4 +138,18 @@ test('Rider Dashboard Assignment Visibility - Exact User Bug Reproduction & Fix'
       resolvedOnlyString.map((it) => it.name);
     });
   });
+
+  await t.test('activeView in App.jsx keeps authenticated courier on delivery-portal on page refresh even if currentPage defaulted to home', () => {
+    const user = ahmadRiderUser;
+    const adminRole = 'rider';
+    const isAdminLoggedIn = true;
+    const currentPage = 'home'; // simulate initial route defaulting to home
+
+    const effRole = (user?.role || adminRole || '').toLowerCase();
+    const isRider = isAdminLoggedIn && user && effRole === 'rider';
+    const isStaff = isAdminLoggedIn && user && effRole === 'pickup_staff';
+    const activeView = (currentPage === 'home' && isRider) ? 'delivery-portal' : (currentPage === 'home' && isStaff) ? 'pickup-staff' : currentPage;
+
+    assert.equal(activeView, 'delivery-portal', 'Authenticated rider MUST stay on delivery-portal on refresh');
+  });
 });

@@ -349,19 +349,54 @@ export const StoreProvider = ({ children }) => {
   // Initial route resolution
   const initialRoute = parseRouteFromUrl(FRESHMART_PRODUCTS);
 
-  // Current active page view
-  const [currentPage, setCurrentPage] = useState(initialRoute.page);
-
   // Admin Role State ('admin' | 'superadmin' | 'supplier' | 'rider' | 'pickup_staff')
   const [adminRole, setAdminRole] = useState(() => {
     try {
       if (initialRoute?.page === 'login') return null;
       const tabRole = sessionStorage.getItem('freshmart_tab_role');
       if (tabRole) return tabRole;
-      return localStorage.getItem('freshmart_admin_role') || null;
+      const localRole = localStorage.getItem('freshmart_admin_role');
+      if (localRole) return localRole;
+      const savedUserStr = sessionStorage.getItem('freshmart_tab_user') || localStorage.getItem('freshmart_admin_user');
+      if (savedUserStr) {
+        const u = JSON.parse(savedUserStr);
+        if (u && u.role) return u.role;
+      }
+      return null;
     } catch (e) {
       return null;
     }
+  });
+
+  // Current active page view (persists active portal across refreshes)
+  const [currentPage, setCurrentPage] = useState(() => {
+    // 1. If explicit page is present in URL (e.g. /delivery-portal, /admin, /pickup-staff, /shop, etc.)
+    if (initialRoute && initialRoute.page && initialRoute.page !== 'home') {
+      return initialRoute.page;
+    }
+
+    // 2. If authenticated as staff or rider, restore their active operational dashboard
+    try {
+      const tabRole = sessionStorage.getItem('freshmart_tab_role');
+      const localRole = localStorage.getItem('freshmart_admin_role');
+      const tabUser = sessionStorage.getItem('freshmart_tab_user');
+      const localUser = localStorage.getItem('freshmart_admin_user');
+      const parsedUser = tabUser ? JSON.parse(tabUser) : (localUser ? JSON.parse(localUser) : null);
+      const effRole = (tabRole || localRole || parsedUser?.role || '').toLowerCase();
+      const isAuth = sessionStorage.getItem('freshmart_tab_session') === 'true' || localStorage.getItem('freshmart_admin_session') === 'true' || Boolean(parsedUser);
+
+      if (isAuth) {
+        if (effRole === 'rider') return 'delivery-portal';
+        if (effRole === 'pickup_staff') return 'pickup-staff';
+        if (effRole === 'supplier' || effRole === 'vendor') return 'vendor';
+        const savedPage = sessionStorage.getItem('freshmart_current_page') || localStorage.getItem('freshmart_current_page');
+        if (savedPage && ['delivery-portal', 'rider-portal', 'pickup-staff', 'admin', 'vendor'].includes(savedPage)) {
+          return savedPage;
+        }
+      }
+    } catch (e) {}
+
+    return initialRoute?.page || 'home';
   });
 
   // Customer Authentication State (Starts null so user must register/sign in)
@@ -1647,7 +1682,13 @@ export const StoreProvider = ({ children }) => {
       if (tabSession === 'true' && tabToken) return true;
       const isSession = localStorage.getItem('freshmart_admin_session') === 'true';
       const hasToken = Boolean(localStorage.getItem('freshmart_admin_token'));
-      return isSession && hasToken;
+      if (isSession && hasToken) return true;
+      const savedUserStr = sessionStorage.getItem('freshmart_tab_user') || localStorage.getItem('freshmart_admin_user');
+      if (savedUserStr) {
+        const u = JSON.parse(savedUserStr);
+        if (u && (u.role || u.id)) return true;
+      }
+      return false;
     } catch (e) {
       return false;
     }
@@ -1758,6 +1799,8 @@ export const StoreProvider = ({ children }) => {
       localStorage.removeItem('freshmart_admin_token');
       localStorage.removeItem('freshmart_vendor_token');
       localStorage.removeItem('freshmart_rider_live_telemetry');
+      sessionStorage.removeItem('freshmart_current_page');
+      localStorage.removeItem('freshmart_current_page');
       localStorage.removeItem('freshmart_current_tenant_id');
       localStorage.removeItem('freshmart_current_tenant');
     } catch (e) {}
@@ -1774,6 +1817,19 @@ export const StoreProvider = ({ children }) => {
       localStorage.setItem('freshmart_admin_role', role);
       localStorage.setItem('freshmart_admin_user', JSON.stringify(newUser));
       localStorage.setItem('freshmart_admin_token', effectiveToken);
+      if (role === 'rider') {
+        sessionStorage.setItem('freshmart_current_page', 'delivery-portal');
+        localStorage.setItem('freshmart_current_page', 'delivery-portal');
+      } else if (role === 'pickup_staff') {
+        sessionStorage.setItem('freshmart_current_page', 'pickup-staff');
+        localStorage.setItem('freshmart_current_page', 'pickup-staff');
+      } else if (role === 'admin' || role === 'superadmin') {
+        sessionStorage.setItem('freshmart_current_page', 'admin');
+        localStorage.setItem('freshmart_current_page', 'admin');
+      } else if (role === 'supplier' || role === 'vendor') {
+        sessionStorage.setItem('freshmart_current_page', 'vendor');
+        localStorage.setItem('freshmart_current_page', 'vendor');
+      }
       if (role === 'supplier' || role === 'vendor') {
         localStorage.setItem('freshmart_vendor_token', effectiveToken);
       }
@@ -5297,6 +5353,8 @@ export const StoreProvider = ({ children }) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     try {
+      sessionStorage.setItem('freshmart_current_page', page);
+      localStorage.setItem('freshmart_current_page', page);
       let targetPath = '/';
       if (page === 'admin') targetPath = '/admin';
       else if (page === 'login' || page === 'signin') targetPath = '/login';
@@ -5348,6 +5406,21 @@ export const StoreProvider = ({ children }) => {
       window.removeEventListener('hashchange', handleLocationChange);
     };
   }, [products]);
+
+  // Synchronize browser address bar with active dashboard portal so page reloads stay on the correct route
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const path = (window.location.pathname || '').toLowerCase();
+      if (currentPage === 'delivery-portal' && !path.includes('delivery-portal') && !path.includes('rider')) {
+        window.history.replaceState({ page: 'delivery-portal' }, '', '/delivery-portal');
+      } else if (currentPage === 'pickup-staff' && !path.includes('pickup-staff') && !path.includes('staff')) {
+        window.history.replaceState({ page: 'pickup-staff' }, '', '/pickup-staff');
+      } else if (currentPage === 'admin' && path === '/') {
+        window.history.replaceState({ page: 'admin' }, '', '/admin');
+      }
+    } catch (e) {}
+  }, [currentPage]);
 
   // Dynamic SEO metadata & page title synchronization
   useEffect(() => {

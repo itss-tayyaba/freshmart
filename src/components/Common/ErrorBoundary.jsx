@@ -18,18 +18,14 @@ export class ErrorBoundary extends React.Component {
 
   handleReset = () => {
     try {
-      // Clear corrupt cache keys while preserving user's essential state
       localStorage.removeItem('freshmart_cart');
       localStorage.removeItem('freshmart_cart_v2');
-      localStorage.removeItem('freshmart_customers');
-      localStorage.removeItem('freshmart_customers_v2');
-      localStorage.removeItem('freshmart_customers_v3');
-      localStorage.removeItem('freshmart_customer_user');
-      localStorage.removeItem('freshmart_delivery_location');
       localStorage.removeItem('freshmart_customer_orders');
     } catch (e) {}
     this.setState({ hasError: false, error: null });
-    window.location.href = '/';
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
   };
 
   render() {
@@ -66,14 +62,20 @@ export class ErrorBoundary extends React.Component {
               <button
                 onClick={() => {
                   try {
-                    localStorage.clear();
+                    localStorage.removeItem('freshmart_cart');
+                    localStorage.removeItem('freshmart_cart_v2');
+                    localStorage.removeItem('freshmart_customer_orders');
+                    sessionStorage.removeItem('freshmart_session_location_confirmed');
                   } catch (e) {}
-                  window.location.href = '/';
+                  this.setState({ hasError: false, error: null });
+                  if (typeof window !== 'undefined') {
+                    window.location.reload();
+                  }
                 }}
                 className="w-full py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset All Local Storage Cache</span>
+                <span>Reset Cache & Refresh</span>
               </button>
             </div>
           </div>
