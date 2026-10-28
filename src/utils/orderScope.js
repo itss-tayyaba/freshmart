@@ -148,6 +148,89 @@ export const resolveOrderRouting = ({
 };
 
 /**
+ * Check if an order is assigned to a specific courier/rider.
+ * Handles object or string representations, name matching (case-insensitive substring),
+ * phone digits, ID, riderId, and username.
+ */
+export const isOrderAssignedToRider = (order, user) => {
+  if (!order || !user) return false;
+
+  const rObj = order.assignedRider;
+  const rawRiderName = (
+    typeof rObj === 'string'
+      ? rObj
+      : (rObj?.name || order.assignedRiderName || order.riderName || '')
+  ).toLowerCase().trim();
+
+  const rawRiderId = typeof rObj === 'object'
+    ? (rObj?.id || rObj?._id || rObj?.riderId || order.assignedRiderId || order.riderId)
+    : (typeof rObj === 'string' && (rObj.startsWith('RDR') || rObj.startsWith('usr-') || rObj.startsWith('rdr_')) ? rObj : null);
+
+  const rawRiderUsername = (
+    typeof rObj === 'object'
+      ? (rObj?.username || '')
+      : ''
+  ).toLowerCase().trim();
+
+  const rawRiderPhone = (
+    typeof rObj === 'object'
+      ? (rObj?.phone || order.assignedRiderPhone || order.riderPhone || '')
+      : ''
+  ).replace(/[^0-9]/g, '');
+
+  const userIds = [user.id, user._id, user.riderId]
+    .filter(Boolean)
+    .map((id) => String(id).toLowerCase().trim());
+
+  const userName = String(user.name || '').toLowerCase().trim();
+  const userUsername = String(user.username || user.email?.split('@')[0] || '').toLowerCase().trim();
+  const userPhone = String(user.phone || '').replace(/[^0-9]/g, '');
+
+  // 1. Direct ID match
+  if (rawRiderId) {
+    const cleanRId = String(rawRiderId).toLowerCase().trim();
+    if (userIds.includes(cleanRId)) return true;
+  }
+
+  // 2. Direct Username match
+  if (rawRiderUsername && userUsername && rawRiderUsername === userUsername) {
+    return true;
+  }
+
+  // 3. Name match (case-insensitive, handles full name vs first name, e.g. "ahmad" vs "ahmad khan")
+  if (rawRiderName && userName) {
+    if (
+      rawRiderName === userName ||
+      rawRiderName.includes(userName) ||
+      userName.includes(rawRiderName)
+    ) {
+      return true;
+    }
+  }
+
+  // If order was assigned by username/name stored as string in assignedRider
+  if (typeof rObj === 'string' && rObj.trim()) {
+    const cleanStr = rObj.toLowerCase().trim();
+    if (userUsername && cleanStr === userUsername) return true;
+    if (userName && (cleanStr === userName || cleanStr.includes(userName) || userName.includes(cleanStr))) return true;
+    if (userIds.includes(cleanStr)) return true;
+  }
+
+  // 4. Phone number match (last 7+ digits)
+  if (rawRiderPhone && userPhone && userPhone.length >= 7) {
+    if (
+      rawRiderPhone === userPhone ||
+      rawRiderPhone.endsWith(userPhone.slice(-9)) ||
+      userPhone.endsWith(rawRiderPhone.slice(-9))
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+/**
  * Determine if an order is visible to a user based on role, store, and branch
  */
 export const isOrderVisibleToUser = (order, user, activeTenantId = null) => {
@@ -195,16 +278,29 @@ export const isOrderVisibleToUser = (order, user, activeTenantId = null) => {
     return true;
   }
 
-  // Rider: strictly scoped to same store AND same branch
+  // Rider: directly assigned parcels are ALWAYS visible to the assigned courier!
   if (role === 'rider') {
-    if (!isSameTenant(orderTenant, targetTenant)) return false;
-    if (user?.branchId && order.branchId && order.branchId !== user.branchId) {
+    // 1. If this parcel is directly assigned to this rider, it is ALWAYS visible!
+    // Direct dispatch assignment guarantees the courier can view their active orders regardless of store/branch origin.
+    if (isOrderAssignedToRider(order, user)) {
+      return true;
+    }
+
+    // 2. If the order has already been assigned to another rider, hide it from this courier's pool
+    const assignedRiderObj = order.assignedRider;
+    if (
+      assignedRiderObj &&
+      (assignedRiderObj.id || assignedRiderObj.name || (typeof assignedRiderObj === 'string' && assignedRiderObj.trim()))
+    ) {
       return false;
     }
-    const riderId = user?.riderId || user?.id || user?._id;
-    const assignedId = order.assignedRider?.id || order.assignedRider?.riderId;
-    if (assignedId && riderId && String(assignedId) !== String(riderId)) {
-      return false;
+
+    // 3. For unassigned orders in the dispatch/ready pool: check store and branch
+    if (!isSameTenant(orderTenant, targetTenant)) return false;
+    if (user?.branchId && user.branchId !== 'all' && user.branchId !== 'custom' && order.branchId && order.branchId !== 'all') {
+      if (order.branchId !== user.branchId) {
+        return false;
+      }
     }
     return true;
   }

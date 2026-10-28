@@ -796,16 +796,17 @@ export const assignRiderToOrder = async (req, res) => {
       });
 
       if (order) {
-        // Enforce store and branch isolation: Reject cross-store or cross-branch assignment
+        // Enforce store and branch isolation: Reject cross-store or cross-branch assignment (unless global fleet courier)
+        const isGlobalFleet = targetRider?.isGlobal === true || !targetRider?.tenantId;
         const orderTenant = normalizeOrderTenantId(order);
         const riderTenant = resolveTenantId(targetRider?.tenantId);
-        if (orderTenant && riderTenant && !isSameTenant(orderTenant, riderTenant)) {
+        if (!isGlobalFleet && orderTenant && riderTenant && !isSameTenant(orderTenant, riderTenant)) {
           return res.status(400).json({
             success: false,
             message: `Cross-store assignment denied: Rider belongs to [${targetRider.tenantId}] but order is for [${order.tenantId}]`
           });
         }
-        if (order.branchId && targetRider?.branchId && order.branchId !== targetRider.branchId) {
+        if (!isGlobalFleet && order.branchId && targetRider?.branchId && order.branchId !== targetRider.branchId && order.branchId !== 'custom' && targetRider.branchId !== 'custom') {
           return res.status(400).json({
             success: false,
             message: `Cross-branch assignment denied: Rider belongs to branch [${targetRider.branchName || targetRider.branchId}] but order is in branch [${order.branchName || order.branchId}]`
@@ -855,16 +856,17 @@ export const assignRiderToOrder = async (req, res) => {
       (o) => o.id === id || o.orderId === id || o.id === `#${id}` || o.id === id.replace(/^#/, '')
     );
     if (memOrder) {
-      // Enforce store and branch isolation: Reject cross-store or cross-branch assignment
+      // Enforce store and branch isolation: Reject cross-store or cross-branch assignment (unless global fleet courier)
+      const isGlobalFleet = targetRider?.isGlobal === true || !targetRider?.tenantId;
       const orderTenant = normalizeOrderTenantId(memOrder);
       const riderTenant = resolveTenantId(targetRider?.tenantId);
-      if (orderTenant && riderTenant && !isSameTenant(orderTenant, riderTenant)) {
+      if (!isGlobalFleet && orderTenant && riderTenant && !isSameTenant(orderTenant, riderTenant)) {
         return res.status(400).json({
           success: false,
           message: `Cross-store assignment denied: Rider belongs to [${targetRider.tenantId}] but order is for [${memOrder.tenantId}]`
         });
       }
-      if (memOrder.branchId && targetRider?.branchId && memOrder.branchId !== targetRider.branchId) {
+      if (!isGlobalFleet && memOrder.branchId && targetRider?.branchId && memOrder.branchId !== targetRider.branchId && memOrder.branchId !== 'custom' && targetRider.branchId !== 'custom') {
         return res.status(400).json({
           success: false,
           message: `Cross-branch assignment denied: Rider belongs to branch [${targetRider.branchName || targetRider.branchId}] but order is in branch [${memOrder.branchName || memOrder.branchId}]`

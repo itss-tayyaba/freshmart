@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { isSameTenant } from '../../data/companyHierarchyData';
-import { isOrderVisibleToUser } from '../../utils/orderScope';
+import { isOrderVisibleToUser, isOrderAssignedToRider } from '../../utils/orderScope';
 
 // Custom Leaflet SVG Markers for reliable Vite asset rendering
 const createPickupPin = (label = 'Store') =>
@@ -194,6 +194,45 @@ export const DeliveryPortal = () => {
     } catch (e) {}
   }, [locallyCompletedOrders]);
 
+  // Real-time synchronization across browser tabs (when store admin assigns a parcel in Admin tab)
+  useEffect(() => {
+    const handleStorageOrderSync = () => {
+      try {
+        const rawAdmin = localStorage.getItem('freshmart_admin_orders');
+        if (rawAdmin && typeof setAdminOrders === 'function') {
+          const parsed = JSON.parse(rawAdmin);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setAdminOrders((prev) => {
+              const sigPrev = (prev || []).map((o) => `${o.id}_${o.status}_${o.assignedRider?.id || o.assignedRider?.name || ''}`).join(',');
+              const sigNext = parsed.map((o) => `${o.id}_${o.status}_${o.assignedRider?.id || o.assignedRider?.name || ''}`).join(',');
+              return sigPrev === sigNext ? prev : parsed;
+            });
+          }
+        }
+        const rawCust = localStorage.getItem('freshmart_customer_orders');
+        if (rawCust && typeof setCustomerOrders === 'function') {
+          const parsed = JSON.parse(rawCust);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setCustomerOrders((prev) => {
+              const sigPrev = (prev || []).map((o) => `${o.id}_${o.status}_${o.assignedRider?.id || o.assignedRider?.name || ''}`).join(',');
+              const sigNext = parsed.map((o) => `${o.id}_${o.status}_${o.assignedRider?.id || o.assignedRider?.name || ''}`).join(',');
+              return sigPrev === sigNext ? prev : parsed;
+            });
+          }
+        }
+      } catch (e) {}
+    };
+
+    window.addEventListener('storage', handleStorageOrderSync);
+    window.addEventListener('focus', handleStorageOrderSync);
+    window.addEventListener('freshmart_orders_updated', handleStorageOrderSync);
+    return () => {
+      window.removeEventListener('storage', handleStorageOrderSync);
+      window.removeEventListener('focus', handleStorageOrderSync);
+      window.removeEventListener('freshmart_orders_updated', handleStorageOrderSync);
+    };
+  }, [setAdminOrders, setCustomerOrders]);
+
   // Combined system orders scoped to store tenant (excluding any mock demo parcels)
   const allOrdersList = useMemo(() => {
     // Put adminOrders first so admin assignments and statuses take priority, then merge customerOrders
@@ -247,18 +286,25 @@ export const DeliveryPortal = () => {
 
     return rawList.filter((o) => {
       if (o.branchId === 'branch_demo') return false;
-      return isOrderVisibleToUser(o, user || activeRider, activeTenantId);
+      const courier = user || activeRider;
+      // If the parcel is directly assigned to this courier, it is ALWAYS visible in their dashboard!
+      if (isOrderAssignedToRider(o, courier)) return true;
+      return isOrderVisibleToUser(o, courier, activeTenantId);
     });
-  }, [customerOrders, adminOrders, user?.tenantId, currentTenant?.id, locallyCompletedOrders]);
+  }, [customerOrders, adminOrders, user?.tenantId, currentTenant?.id, locallyCompletedOrders, activeRider, user]);
 
   // Orders specifically assigned to this courier (both active run and delivered today)
   const assignedOrders = useMemo(() => {
-    const currentRiderId = activeRider?.id || user?.riderId || 'RDR-ALFATAH';
-    const currentName = (activeRider?.name || user?.name || 'Ahmad Khan').toLowerCase().trim();
+    const courier = activeRider || user;
+    const currentRiderId = courier?.id || courier?.riderId || 'RDR-ALFATAH';
+    const currentName = (courier?.name || 'Ahmad Khan').toLowerCase().trim();
 
     return allOrdersList.filter((o) => {
       const s = String(o.status || '').toLowerCase();
       if (s === 'cancelled') return false;
+
+      // 1. Direct assignment match via centralized helper
+      if (isOrderAssignedToRider(o, courier)) return true;
 
       const rObj = o.assignedRider;
       const rId = typeof rObj === 'object'
@@ -274,7 +320,7 @@ export const DeliveryPortal = () => {
       const idMatches = Boolean(
         rId && (
           rId === currentRiderId ||
-          rId === activeRider?.id ||
+          rId === courier?.id ||
           (String(rId).toLowerCase().includes('alfatah') && String(currentRiderId).toLowerCase().includes('alfatah'))
         )
       );
@@ -300,7 +346,7 @@ export const DeliveryPortal = () => {
 
       return idMatches || nameMatches || isLocallyCompleted || isTenantRiderMatch;
     });
-  }, [allOrdersList, activeRider, user?.riderId, user?.name, locallyCompletedOrders]);
+  }, [allOrdersList, activeRider, user, locallyCompletedOrders]);
 
   // Live timer tick for estimated preparation countdown
   const [prepClock, setPrepClock] = useState(Date.now());
@@ -1059,10 +1105,10 @@ export const DeliveryPortal = () => {
             </div>
             <div className="mt-2.5">
               <p className="text-sm sm:text-base font-black text-slate-900 truncate">
-                Faisalabad Metro
+                {activeRider?.city || user?.city || activeOrder?.city || 'Faisalabad Metro'}
               </p>
               <span className="text-[11px] text-slate-500 font-medium block truncate mt-0.5">
-                Al-Fatah D-Ground SuperHub
+                {activeRider?.branchName || activeRider?.zone || user?.branchName || user?.zone || (activeOrder ? `${activeOrder.tenantName || 'Store'} Hub` : 'Peoples Colony Dark Store')}
               </span>
             </div>
           </div>

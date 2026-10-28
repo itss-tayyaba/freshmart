@@ -2658,26 +2658,61 @@ export const StoreProvider = ({ children }) => {
         const orders = event.newValue ? JSON.parse(event.newValue) : [];
         if (!Array.isArray(orders) || orders.length === 0) return;
         const sanitized = orders.map(sanitizeOrder);
-        // Use functional update + equality check to avoid unnecessary re-renders
+        const sigOf = (arr) => (arr || []).map((o) => `${o.id}_${o.status}_${o.assignedRider?.id || o.assignedRider?.name || ''}_${o.deliveryOtp || ''}`).join(',');
         if (event.key === 'freshmart_customer_orders') {
           setCustomerOrders((prev) => {
-            const prevIds = prev.map((o) => o.id + o.status).join(',');
-            const nextIds = sanitized.map((o) => o.id + o.status).join(',');
-            return prevIds === nextIds ? prev : sanitized;
+            const prevSig = sigOf(prev);
+            const nextSig = sigOf(sanitized);
+            return prevSig === nextSig ? prev : sanitized;
           });
         }
         if (event.key === 'freshmart_admin_orders') {
           setAdminOrders((prev) => {
-            const prevIds = prev.map((o) => o.id + o.status).join(',');
-            const nextIds = sanitized.map((o) => o.id + o.status).join(',');
-            return prevIds === nextIds ? prev : sanitized;
+            const prevSig = sigOf(prev);
+            const nextSig = sigOf(sanitized);
+            return prevSig === nextSig ? prev : sanitized;
           });
         }
       } catch (e) {}
     };
 
+    const syncOrdersFromStorageDirect = () => {
+      try {
+        const sigOf = (arr) => (arr || []).map((o) => `${o.id}_${o.status}_${o.assignedRider?.id || o.assignedRider?.name || ''}_${o.deliveryOtp || ''}`).join(',');
+        const rawCust = localStorage.getItem('freshmart_customer_orders');
+        if (rawCust) {
+          const parsed = JSON.parse(rawCust);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const sanitized = parsed.map(sanitizeOrder);
+            setCustomerOrders((prev) => {
+              return sigOf(prev) === sigOf(sanitized) ? prev : sanitized;
+            });
+          }
+        }
+        const rawAdmin = localStorage.getItem('freshmart_admin_orders');
+        if (rawAdmin) {
+          const parsed = JSON.parse(rawAdmin);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const sanitized = parsed.map(sanitizeOrder);
+            setAdminOrders((prev) => {
+              return sigOf(prev) === sigOf(sanitized) ? prev : sanitized;
+            });
+          }
+        }
+      } catch (e) {}
+    };
+
     window.addEventListener('storage', syncOrderStorage);
-    return () => window.removeEventListener('storage', syncOrderStorage);
+    window.addEventListener('focus', syncOrdersFromStorageDirect);
+    window.addEventListener('freshmart_orders_updated', syncOrdersFromStorageDirect);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') syncOrdersFromStorageDirect();
+    });
+    return () => {
+      window.removeEventListener('storage', syncOrderStorage);
+      window.removeEventListener('focus', syncOrdersFromStorageDirect);
+      window.removeEventListener('freshmart_orders_updated', syncOrdersFromStorageDirect);
+    };
   }, []);
 
   useEffect(() => {
@@ -3450,6 +3485,7 @@ export const StoreProvider = ({ children }) => {
       );
       try {
         localStorage.setItem('freshmart_admin_orders', JSON.stringify(next));
+        window.dispatchEvent(new CustomEvent('freshmart_orders_updated', { detail: { orderId: cleanId, rider: assignedInfo } }));
       } catch (e) {}
       return next;
     });
