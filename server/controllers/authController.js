@@ -448,18 +448,26 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    // Default rider fallback credentials (e.g. rider / rider123, alfatah_rider, chasevalue_rider, etc.)
+    // Default rider fallback credentials (e.g. rider / rider123, hamza, alfatah_rider, chasevalue_rider, etc.)
     if (
-      (cleanInput === 'rider' || cleanInput === '0301-1234567' || cleanInput.includes('rider')) &&
+      (cleanInput === 'rider' ||
+       cleanInput === 'hamza' ||
+       cleanInput === 'bilal_cv' ||
+       cleanInput === 'usman' ||
+       cleanInput === 'kamran_cu' ||
+       cleanInput === '0301-1234567' ||
+       cleanInput === '03001234567' ||
+       cleanInput.includes('rider') ||
+       cleanInput.includes('hamza')) &&
       (password === 'rider123' || password === 'admin123')
     ) {
       let tId = req.body.tenantId;
-      if (!tId) {
-        if (cleanInput.includes('chasevalue')) tId = 'tenant-chasevalue';
-        else if (cleanInput.includes('chaseup')) tId = 'tenant-chaseup';
-        else if (cleanInput.includes('unimart') || cleanInput.includes('freshmart')) tId = 'tenant-freshmart';
-        else if (cleanInput.includes('alfatah')) tId = 'tenant-alfatah';
-        else tId = 'tenant-alfatah';
+      if (!tId || cleanInput.includes('hamza') || cleanInput === 'bilal_cv') {
+        if (cleanInput.includes('hamza') || cleanInput === 'bilal_cv' || cleanInput.includes('chasevalue')) tId = 'tenant-chasevalue';
+        else if (cleanInput.includes('chaseup') || cleanInput === 'kamran_cu') tId = 'tenant-chaseup';
+        else if (cleanInput.includes('unimart') || cleanInput.includes('freshmart') || cleanInput === 'usman') tId = 'tenant-freshmart';
+        else if (cleanInput.includes('alfatah') || cleanInput === 'ali' || cleanInput === 'ahmad') tId = 'tenant-alfatah';
+        else tId = req.body.tenantId || 'tenant-alfatah';
       }
       const tenantNames = {
         'tenant-alfatah': 'Al-Fatah Supermarket',
@@ -467,17 +475,54 @@ export const loginUser = async (req, res) => {
         'tenant-chaseup': 'Chase Up',
         'tenant-freshmart': 'Unimaart'
       };
+      const riderName = cleanInput.includes('hamza')
+        ? 'Hamza'
+        : cleanInput === 'bilal_cv'
+        ? 'Bilal Ahmed'
+        : cleanInput === 'kamran_cu'
+        ? 'Kamran Shah'
+        : cleanInput === 'usman'
+        ? 'Usman Tariq'
+        : `${tenantNames[tId] || 'Store'} Courier Rider`;
+
+      const branchId =
+        tId === 'tenant-chasevalue'
+          ? 'branch_cv_fsd'
+          : tId === 'tenant-freshmart'
+          ? 'branch_um_fsd'
+          : tId === 'tenant-chaseup'
+          ? 'branch_006'
+          : 'branch_af_fsd';
+
+      const branchName =
+        tId === 'tenant-chasevalue'
+          ? 'Wholesale Express Hub'
+          : tId === 'tenant-freshmart'
+          ? 'Peoples Colony Dark Store'
+          : tId === 'tenant-chaseup'
+          ? 'Faisalabad Clock Tower Hub'
+          : 'D-Ground Flagship Hub';
+
+      const riderId = cleanInput.includes('hamza') ? 'RDR-HAMZA' : `RDR-${tId}`;
+
       return res.json({
         success: true,
-        _id: `rdr-${tId}`,
-        id: `RDR-${tId}`,
-        riderId: `RDR-${tId}`,
-        name: `${tenantNames[tId] || 'Store'} Courier Rider`,
+        _id: `rdr-${tId}-${cleanInput}`,
+        id: riderId,
+        riderId: riderId,
+        name: riderName,
         role: 'rider',
-        phone: cleanInput,
+        phone: cleanInput.includes('hamza') ? '03001234567' : cleanInput,
         tenantId: tId,
         tenantName: tenantNames[tId] || 'Store',
-        token: generateToken(`rdr-${tId}`, 'rider', `${cleanInput}@rider.freshmart.pk`, 'Rider', undefined, { riderId: `RDR-${tId}`, tenantId: tId })
+        branchId,
+        branchName,
+        token: generateToken(riderId, 'rider', `${cleanInput}@rider.freshmart.pk`, riderName, undefined, {
+          riderId: riderId,
+          tenantId: tId,
+          branchId,
+          branchName
+        })
       });
     }
 

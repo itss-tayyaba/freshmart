@@ -406,6 +406,28 @@ export const INITIAL_RIDERS = [
     rating: 4.9
   },
   {
+    id: 'RDR-HAMZA',
+    riderId: 'RDR-HAMZA',
+    name: 'Hamza',
+    username: 'hamza',
+    phone: '03001234567',
+    password: 'rider123',
+    tenantId: 'tenant-chasevalue',
+    tenantName: 'Chase Value',
+    isGlobal: true,
+    branchId: 'branch_cv_fsd',
+    branchName: 'Wholesale Express Hub',
+    region: 'Jaranwala Road',
+    zone: 'Jaranwala Road Wholesale Hub (Faisalabad)',
+    city: 'Faisalabad',
+    vehicleType: '🏍️ Honda 125',
+    vehicleNumber: 'LEK-0000',
+    status: 'Active',
+    coordinates: { lat: 31.4360, lng: 73.1795 },
+    coverageRadiusKm: 25,
+    rating: 5.0
+  },
+  {
     id: 'RDR-CHASEVALUE',
     riderId: 'RDR-CHASEVALUE',
     name: 'Bilal Ahmed',

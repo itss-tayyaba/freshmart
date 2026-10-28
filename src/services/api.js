@@ -579,20 +579,6 @@ export const apiService = {
     }
   },
 
-  // Auth API
-  async login(email, password) {
-    try {
-      const res = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      return await handleResponse(res);
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
-  },
-
   async register(userData) {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/register`, {

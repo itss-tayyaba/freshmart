@@ -59,16 +59,31 @@ export const AdminLogin = () => {
     if (tenants && tenants.length > 0) {
       return tenants.map((t) => {
         let short = t.displayName || t.brandName || t.name;
-        if (t.id === 'tenant-chasevalue') short = 'Chase Value';
-        else if (t.id === 'tenant-chaseup') short = 'Chase Up';
-        else if (t.id === 'tenant-alfatah') short = 'Al-Fatah';
-        else if (t.id === 'tenant-freshmart') short = 'Unimart';
-        else if (t.id === 'tenant-localgrocery') short = 'Local Grocery';
-        else if (t.id === 'tenant-superstore') short = 'Super Store';
+        let subtitle = 'Supermarket Store';
+        if (t.id === 'tenant-chasevalue') {
+          short = 'Chase Value';
+          subtitle = 'Wholesale Express Mart';
+        } else if (t.id === 'tenant-chaseup') {
+          short = 'Chase Up';
+          subtitle = 'Department Store';
+        } else if (t.id === 'tenant-alfatah') {
+          short = 'Al-Fatah';
+          subtitle = 'Flagship Supermarket';
+        } else if (t.id === 'tenant-freshmart') {
+          short = 'Unimart';
+          subtitle = 'Direct Market Store';
+        } else if (t.id === 'tenant-localgrocery') {
+          short = 'Local Grocery';
+          subtitle = 'Neighborhood Store';
+        } else if (t.id === 'tenant-superstore') {
+          short = 'Super Store';
+          subtitle = 'Hypermarket';
+        }
         return {
           id: t.id,
           name: t.name,
           shortName: short,
+          subtitle,
           logo: t.logo || '🏬',
           color: t.color || '#991b1b',
           defaultEmail: t.ownerEmail || `admin@${t.slug || t.id.replace('tenant-', '')}.pk`
@@ -76,12 +91,12 @@ export const AdminLogin = () => {
       });
     }
     return [
-      { id: 'tenant-alfatah', name: 'Al-Fatah Supermarket', shortName: 'Al-Fatah', logo: '🏬', color: '#991b1b', defaultEmail: 'admin@alfatah.pk' },
-      { id: 'tenant-chasevalue', name: 'Chase Value', shortName: 'Chase Value', logo: '🛒', color: '#b45309', defaultEmail: 'admin@chasevalue.pk' },
-      { id: 'tenant-chaseup', name: 'Chase Up', shortName: 'Chase Up', logo: '🏪', color: '#7e22ce', defaultEmail: 'admin@chaseup.pk' },
-      { id: 'tenant-freshmart', name: 'Unimart (Market Store)', shortName: 'Unimart', logo: '🛍️', color: '#0284c7', defaultEmail: 'admin@unimart.pk' },
-      { id: 'tenant-localgrocery', name: 'Local Grocery', shortName: 'Local Grocery', logo: '🏬', color: '#0f766e', defaultEmail: 'admin@localgrocery.pk' },
-      { id: 'tenant-superstore', name: 'Super Store', shortName: 'Super Store', logo: '🏪', color: '#9333ea', defaultEmail: 'admin@superstore.pk' }
+      { id: 'tenant-alfatah', name: 'Al-Fatah Supermarket', shortName: 'Al-Fatah', subtitle: 'Flagship Supermarket', logo: '🏬', color: '#991b1b', defaultEmail: 'admin@alfatah.pk' },
+      { id: 'tenant-chasevalue', name: 'Chase Value', shortName: 'Chase Value', subtitle: 'Wholesale Express Mart', logo: '🛒', color: '#b45309', defaultEmail: 'admin@chasevalue.pk' },
+      { id: 'tenant-chaseup', name: 'Chase Up', shortName: 'Chase Up', subtitle: 'Department Store', logo: '🏪', color: '#7e22ce', defaultEmail: 'admin@chaseup.pk' },
+      { id: 'tenant-freshmart', name: 'Unimart (Market Store)', shortName: 'Unimart', subtitle: 'Direct Market Store', logo: '🛍️', color: '#0284c7', defaultEmail: 'admin@unimart.pk' },
+      { id: 'tenant-localgrocery', name: 'Local Grocery', shortName: 'Local Grocery', subtitle: 'Neighborhood Store', logo: '🏬', color: '#0f766e', defaultEmail: 'admin@localgrocery.pk' },
+      { id: 'tenant-superstore', name: 'Super Store', shortName: 'Super Store', subtitle: 'Hypermarket', logo: '🏪', color: '#9333ea', defaultEmail: 'admin@superstore.pk' }
     ];
   }, [tenants]);
 
@@ -172,20 +187,37 @@ export const AdminLogin = () => {
       }
     } else if (role === 'rider') {
       const activeRiders = (riders && riders.length > 0) ? riders : [
-        { id: 'RDR-ALI', name: 'Ali Khan', username: 'ali', phone: '03001122334', password: 'rider123' },
-        { id: 'RDR-AHMAD', name: 'Ahmad Khan', username: 'ahmad', phone: '03206551696', password: 'rider123' }
+        { id: 'RDR-HAMZA', name: 'Hamza', username: 'hamza', phone: '03001234567', password: 'rider123', tenantId: 'tenant-chasevalue' },
+        { id: 'RDR-CHASEVALUE', name: 'Bilal Ahmed', username: 'bilal_cv', phone: '03223344556', password: 'rider123', tenantId: 'tenant-chasevalue' },
+        { id: 'RDR-ALI', name: 'Ali Khan', username: 'ali', phone: '03001122334', password: 'rider123', tenantId: 'tenant-alfatah' },
+        { id: 'RDR-AHMAD', name: 'Ahmad Khan', username: 'ahmad', phone: '03206551696', password: 'rider123', tenantId: 'tenant-alfatah' },
+        { id: 'RDR-UNIMART', name: 'Usman Tariq', username: 'usman', phone: '03112233445', password: 'rider123', tenantId: 'tenant-freshmart' },
+        { id: 'RDR-CHASEUP', name: 'Kamran Shah', username: 'kamran_cu', phone: '03334455667', password: 'rider123', tenantId: 'tenant-chaseup' }
       ];
-      const martRider = activeRiders.find(
-        (r) => r.tenantId === martId || (r.username && r.username.includes(martId.replace('tenant-', '')))
-      ) || activeRiders.find((r) => r.isGlobal) || activeRiders[0];
+
+      let martRider = activeRiders.find((r) => r.tenantId === martId);
+      if (!martRider && martId === 'tenant-chasevalue') {
+        martRider = activeRiders.find((r) => r.username === 'hamza' || r.username === 'bilal_cv');
+      } else if (!martRider && martId === 'tenant-chaseup') {
+        martRider = activeRiders.find((r) => r.username === 'kamran_cu');
+      } else if (!martRider && martId === 'tenant-freshmart') {
+        martRider = activeRiders.find((r) => r.username === 'usman');
+      } else if (!martRider && martId === 'tenant-alfatah') {
+        martRider = activeRiders.find((r) => r.username === 'ali' || r.username === 'ahmad');
+      }
+
+      if (!martRider) {
+        martRider = activeRiders.find((r) => r.isGlobal) || activeRiders[0];
+      }
+
       if (martRider) {
         setUsername(martRider.username || martRider.phone || martRider.name);
         setPassword(martRider.password || 'rider123');
-        showFeedback(`Loaded ${martRider.name} credentials`);
+        showFeedback(`Loaded ${martRider.name} credentials (${martConfig?.shortName || 'Store'} Rider)`);
       } else {
-        setUsername('ali');
+        setUsername('hamza');
         setPassword('rider123');
-        showFeedback('Loaded Ali Khan credentials');
+        showFeedback('Loaded Hamza credentials');
       }
     } else if (role === 'pickup_staff') {
       if (martId === 'tenant-alfatah') {
@@ -447,8 +479,8 @@ export const AdminLogin = () => {
                 {selectedRole === 'pickup_staff' && 'Select your store to sign in to its dedicated order packing desk.'}
               </p>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
-                {availableMarts.map((m) => {
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-0.5">
+                {availableMarts.slice(0, 4).map((m) => {
                   const isSelected = selectedMartId === m.id;
                   return (
                     <button
@@ -457,55 +489,55 @@ export const AdminLogin = () => {
                       onClick={() => handleSelectMart(m.id)}
                       style={{
                         borderColor: isSelected ? m.color : '#e2e8f0',
-                        backgroundColor: isSelected ? `${m.color}12` : '#ffffff',
-                        color: isSelected ? m.color : '#334155'
+                        backgroundColor: isSelected ? `${m.color}0d` : '#ffffff',
+                        boxShadow: isSelected ? `0 0 0 2px ${m.color}40, 0 4px 12px ${m.color}15` : 'none'
                       }}
-                      className={`p-2 sm:p-2.5 rounded-xl text-left border flex items-center justify-between gap-1.5 transition-all cursor-pointer ${
-                        isSelected ? 'font-bold shadow-xs ring-1 ring-offset-1' : 'hover:bg-slate-100/80 hover:border-slate-300'
+                      className={`p-3 rounded-2xl text-left border flex items-center justify-between gap-2.5 transition-all cursor-pointer relative ${
+                        isSelected
+                          ? 'font-bold'
+                          : 'hover:bg-slate-50/80 hover:border-slate-300'
                       }`}
                     >
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-base shrink-0">{m.logo}</span>
-                        <span className="text-[11px] truncate font-bold leading-tight">{m.shortName}</span>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          style={{
+                            backgroundColor: `${m.color}18`,
+                            color: m.color
+                          }}
+                          className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 shadow-2xs"
+                        >
+                          {m.logo}
+                        </div>
+                        <div className="min-w-0 text-left">
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              style={{ color: isSelected ? m.color : '#0f172a' }}
+                              className="text-xs sm:text-[13px] font-extrabold leading-tight tracking-tight whitespace-nowrap"
+                            >
+                              {m.shortName}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-medium block leading-tight mt-0.5 truncate">
+                            {m.subtitle}
+                          </span>
+                        </div>
                       </div>
-                      {isSelected && (
-                        <Check className="w-3.5 h-3.5 shrink-0" style={{ color: m.color }} />
-                      )}
+                      <div className="flex items-center shrink-0">
+                        {isSelected ? (
+                          <div
+                            style={{ backgroundColor: m.color }}
+                            className="w-5 h-5 rounded-full flex items-center justify-center text-white shadow-xs"
+                          >
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          </div>
+                        ) : (
+                          <div className="w-4 h-4 rounded-full border border-slate-300" />
+                        )}
+                      </div>
                     </button>
                   );
                 })}
               </div>
-
-              {/* Branch Scope Selector for Store Admin, Rider, and Pickup Staff */}
-              {(selectedRole === 'admin' || selectedRole === 'rider' || selectedRole === 'pickup_staff') && availableBranchesForMart.length > 0 && (
-                <div className="pt-2.5 border-t border-slate-200/80">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wider">
-                      <MapPin className="w-3.5 h-3.5 text-sky-600" />
-                      <span>{selectedRole === 'admin' ? 'Branch Scope / Assignment:' : 'Assigned Operating Branch:'}</span>
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-medium">
-                      {selectedRole === 'admin'
-                        ? (selectedBranchId === 'all' ? 'All Branches (Store Admin)' : 'Branch Admin Mode')
-                        : 'Branch Assignment'}
-                    </span>
-                  </div>
-                  <select
-                    value={selectedBranchId}
-                    onChange={(e) => setSelectedBranchId(e.target.value)}
-                    className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer"
-                  >
-                    {selectedRole === 'admin' && (
-                      <option value="all">🏢 All Branches (Store Admin Access)</option>
-                    )}
-                    {availableBranchesForMart.map((b) => (
-                      <option key={b._id || b.id} value={b._id || b.id}>
-                        📍 {b.name} ({b.city})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
             </div>
           )}
 
@@ -553,14 +585,26 @@ export const AdminLogin = () => {
 
           {/* 🛵 RIDER INFO BANNER */}
           {selectedRole === 'rider' && (
-            <div className="p-3 bg-emerald-50/90 border border-emerald-200/90 rounded-2xl flex items-center gap-2.5 text-xs text-emerald-950 animate-in fade-in duration-200">
-              <div className="w-8 h-8 rounded-xl bg-emerald-200/80 text-emerald-900 flex items-center justify-center font-bold shrink-0 text-base">
+            <div
+              style={{
+                backgroundColor: `${currentMart.color}0d`,
+                borderColor: `${currentMart.color}35`
+              }}
+              className="p-3 border rounded-2xl flex items-center gap-2.5 text-xs animate-in fade-in duration-200"
+            >
+              <div
+                style={{
+                  backgroundColor: `${currentMart.color}20`,
+                  color: currentMart.color
+                }}
+                className="w-8 h-8 rounded-xl flex items-center justify-center font-bold shrink-0 text-base"
+              >
                 🛵
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-bold text-slate-900">Delivery Fleet & Courier Portal</div>
-                <div className="text-[11px] text-emerald-900/80 leading-snug">
-                  View assigned customer deliveries, share live GPS route telemetry, and verify customer delivery OTP.
+                <div className="font-bold text-slate-900">{currentMart.shortName} Delivery Fleet & Dispatch Portal</div>
+                <div className="text-[11px] text-slate-600 leading-snug">
+                  Sign in with your courier credentials (e.g. {currentMart.id === 'tenant-chasevalue' ? 'hamza or bilal_cv' : currentMart.id === 'tenant-chaseup' ? 'kamran_cu' : currentMart.id === 'tenant-freshmart' ? 'usman' : 'ali or ahmad'}) to view orders and live GPS dispatch.
                 </div>
               </div>
             </div>
@@ -728,280 +772,6 @@ export const AdminLogin = () => {
               )}
             </button>
           </form>
-
-          {/* Quick 1-Click Role Fill Chips */}
-          <div className="pt-2 border-t border-slate-100">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                <span>⚡ Quick Test Logins:</span>
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => autoFillCredentials('superadmin', 'superadmin', 'superadmin123', null, 'Super Admin')}
-                className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-semibold text-[11px] transition-colors cursor-pointer"
-              >
-                👑 Super Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => autoFillCredentials('admin', 'admin@chasevalue.pk', 'admin123', 'tenant-chasevalue', 'Chase Value Admin')}
-                className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 font-bold text-[11px] transition-colors cursor-pointer"
-              >
-                🛒 Chase Value Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => autoFillCredentials('admin', 'admin@alfatah.pk', 'admin123', 'tenant-alfatah', 'Al-Fatah Admin')}
-                className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-900 font-semibold text-[11px] transition-colors cursor-pointer"
-              >
-                🏬 Al-Fatah Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => autoFillCredentials('admin', 'admin@chaseup.pk', 'admin123', 'tenant-chaseup', 'Chase Up Admin')}
-                className="px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 font-semibold text-[11px] transition-colors cursor-pointer"
-              >
-                🏪 Chase Up Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => autoFillCredentials('admin', 'admin.peoplescolony@unimart.pk', 'admin123', 'tenant-freshmart', 'Unimaart Peoples Colony Branch Admin (Faisalabad)', 'branch_um_fsd')}
-                className="px-2.5 py-1 rounded-lg bg-sky-100 hover:bg-sky-200 border border-sky-300 text-sky-950 font-bold text-[11px] transition-colors cursor-pointer"
-              >
-                📍 Unimaart Peoples Colony
-              </button>
-              <button
-                type="button"
-                onClick={() => autoFillCredentials('admin', 'admin@unimart.pk', 'admin123', 'tenant-freshmart', 'Unimaart Store Admin (All Branches)')}
-                className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-900 font-semibold text-[11px] transition-colors cursor-pointer"
-              >
-                🛍️ Unimaart Store Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => autoFillCredentials('pickup_staff', 'unimart_staff', 'staff123', 'tenant-freshmart', 'Unimaart Packing Desk')}
-                className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 border border-sky-300 text-sky-950 font-bold text-[11px] transition-colors cursor-pointer"
-              >
-                📦 Unimaart Staff
-              </button>
-              <button
-                type="button"
-                onClick={() => autoFillCredentials('pickup_staff', 'chasevalue_staff', 'staff123', 'tenant-chasevalue', 'Chase Value Packing Desk')}
-                className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-[11px] transition-colors cursor-pointer"
-              >
-                📦 Chase Value Staff
-              </button>
-              <button
-                type="button"
-                onClick={() => autoFillCredentials('rider', 'chasevalue_rider', 'rider123', 'tenant-chasevalue', 'Chase Value Courier (Bilal Ahmed)')}
-                className="px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-100 border border-orange-300 text-orange-950 font-bold text-[11px] transition-colors cursor-pointer"
-              >
-                🛵 Chase Value Rider
-              </button>
-              <button
-                type="button"
-                onClick={() => autoFillCredentials('pickup_staff', 'hafsa', 'staff123', 'tenant-alfatah', 'Hafsa (Al-Fatah Staff)')}
-                className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-900 font-bold text-[11px] transition-colors cursor-pointer"
-              >
-                📦 Hafsa (Al-Fatah Staff)
-              </button>
-              <button
-                type="button"
-                onClick={() => autoFillCredentials('pickup_staff', 'alfatah_staff', 'staff123', 'tenant-alfatah', 'Al-Fatah Packing Desk')}
-                className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-900 font-semibold text-[11px] transition-colors cursor-pointer"
-              >
-                📦 Al-Fatah Staff
-              </button>
-              <button
-                type="button"
-                onClick={() => autoFillCredentials('rider', 'alfatah_rider', 'rider123', 'tenant-alfatah', 'Al-Fatah Courier (Ahmad Khan)')}
-                className="px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-900 font-semibold text-[11px] transition-colors cursor-pointer"
-              >
-                🛵 Al-Fatah Rider
-              </button>
-            </div>
-          </div>
-
-          {/* Expandable Demo Credentials Assistant */}
-          <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3 text-xs">
-            <button
-              type="button"
-              onClick={() => setShowCredentialsHelp(!showCredentialsHelp)}
-              className="w-full flex items-center justify-between text-[11px] font-bold text-slate-700 hover:text-slate-900 transition-colors cursor-pointer"
-            >
-              <span className="flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5" style={{ color: websiteBrandColor }} />
-                <span>All Registered Mart Admins, Riders & Staff Directory</span>
-              </span>
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-slate-400 font-normal">
-                  {showCredentialsHelp ? 'Hide' : 'Show All'}
-                </span>
-                {showCredentialsHelp ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-              </div>
-            </button>
-
-            {showCredentialsHelp && (
-              <div className="mt-2.5 pt-2.5 border-t border-slate-200 space-y-2.5 text-[11px] animate-in fade-in duration-200">
-                {/* Super Admin */}
-                <div
-                  onClick={() => autoFillCredentials('superadmin', 'superadmin', 'superadmin123', null, 'Super Admin')}
-                  className={`p-2.5 rounded-xl border cursor-pointer transition ${
-                    selectedRole === 'superadmin' ? 'bg-amber-50 border-amber-400 shadow-2xs' : 'bg-white border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-900">👑 Super Admin (Platform Owner)</span>
-                    {selectedRole === 'superadmin' && <span className="text-[10px] text-amber-700 font-bold">Selected</span>}
-                  </div>
-                  <div className="font-mono text-[10px] text-slate-500 mt-0.5">superadmin / superadmin123</div>
-                </div>
-
-                {/* Grid of Mart Admins */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {(storeAdmins || []).map((sa) => (
-                    <div
-                      key={sa.id}
-                      onClick={() => autoFillCredentials('admin', sa.email, sa.password, sa.tenantId, `${sa.name || sa.tenantName} (${sa.branchName || 'All Branches'})`, sa.branchId)}
-                      className={`p-2 rounded-xl border cursor-pointer transition ${
-                        selectedRole === 'admin' && username === sa.email
-                          ? 'bg-rose-50 border-rose-500 shadow-2xs'
-                          : 'bg-white border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800 truncate max-w-[130px]">{sa.name || sa.tenantName}</span>
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${sa.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-                          {sa.status}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-sky-700 font-bold mt-0.5 truncate">
-                        📍 {sa.branchName || 'All Branches'}
-                      </div>
-                      <div className="font-mono text-[10px] text-slate-600 truncate mt-0.5">{sa.email}</div>
-                      <div className="text-[9px] text-slate-400 mt-0.5">Password: <span className="font-mono font-bold text-slate-700">{sa.password}</span></div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Pickup Staff Accounts List */}
-                <div className="pt-2 border-t border-slate-200 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-800 text-[11px] flex items-center gap-1.5">
-                      <Boxes className="w-3.5 h-3.5" style={{ color: websiteBrandColor }} />
-                      <span>📦 Pickup Staff (Packing Team)</span>
-                    </span>
-                    <span
-                      style={{
-                        backgroundColor: `${websiteBrandColor}12`,
-                        color: websiteBrandColor
-                      }}
-                      className="text-[9px] font-bold px-2 py-0.5 rounded-full"
-                    >
-                      {(pickupStaff || []).length} registered
-                    </span>
-                  </div>
-
-                  {(pickupStaff && pickupStaff.length > 0) ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {pickupStaff.map((staff) => (
-                        <div
-                          key={staff.id}
-                          onClick={() => autoFillCredentials('pickup_staff', staff.username, staff.password, staff.tenantId, staff.name)}
-                          className={`p-2 rounded-xl border cursor-pointer transition ${
-                            selectedRole === 'pickup_staff' && username === staff.username
-                              ? 'bg-slate-100 border-slate-400 shadow-2xs'
-                              : 'bg-white border-slate-200 hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-slate-800 truncate max-w-[130px]">{staff.name}</span>
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                              Active
-                            </span>
-                          </div>
-                          <div className="font-mono text-[10px] text-slate-600 truncate mt-0.5">@{staff.username}</div>
-                          <div className="text-[9px] text-slate-400 mt-0.5">Password: <span className="font-mono font-bold text-slate-700">{staff.password}</span></div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-2.5 rounded-xl bg-slate-100/80 border border-dashed border-slate-200 text-slate-500 text-[11px] text-center">
-                      No pickup staff accounts yet. Create one from Store Admin &rarr; Pickup Staff.
-                    </div>
-                  )}
-                </div>
-
-                {/* 🛵 Delivery Riders Fleet Directory */}
-                <div className="pt-2 border-t border-slate-200 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-800 text-[11px] flex items-center gap-1.5">
-                      <Truck className="w-3.5 h-3.5 text-orange-600" />
-                      <span>🛵 Delivery Riders Fleet</span>
-                    </span>
-                    <span className="text-[9px] font-bold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200/60">
-                      {(riders || []).length} registered
-                    </span>
-                  </div>
-
-                  {(riders && riders.length > 0) ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {riders.map((rdr) => (
-                        <div
-                          key={rdr.id}
-                          onClick={() => autoFillCredentials('rider', rdr.phone || rdr.username || rdr.name, rdr.password || 'rider123', null, rdr.name)}
-                          className={`p-2 rounded-xl border cursor-pointer transition ${
-                            selectedRole === 'rider' && (username === rdr.phone || username === rdr.username || username === rdr.name)
-                              ? 'bg-orange-50 border-orange-500 shadow-2xs'
-                              : 'bg-white border-slate-200 hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-slate-800 truncate max-w-[130px]">{rdr.name}</span>
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                              {rdr.status || 'Active'}
-                            </span>
-                          </div>
-                          <div className="font-mono text-[10px] text-slate-600 truncate mt-0.5">{rdr.phone || `@${rdr.username}`}</div>
-                          <div className="text-[9px] text-slate-400 mt-0.5">Password: <span className="font-mono font-bold text-slate-700">{rdr.password || 'rider123'}</span></div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div
-                        onClick={() => autoFillCredentials('rider', 'ali', 'rider123', null, 'Ali Khan (Fleet Courier)')}
-                        className={`p-2 rounded-xl border cursor-pointer transition ${
-                          selectedRole === 'rider' && username === 'ali' ? 'bg-orange-50 border-orange-500 shadow-2xs' : 'bg-white border-slate-200 hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-slate-800">🛵 Ali Khan</span>
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Active</span>
-                        </div>
-                        <div className="font-mono text-[10px] text-slate-600 mt-0.5">ali / rider123 (03001122334)</div>
-                      </div>
-                      <div
-                        onClick={() => autoFillCredentials('rider', 'ahmad', 'rider123', null, 'Ahmad Khan (Fleet Courier)')}
-                        className={`p-2 rounded-xl border cursor-pointer transition ${
-                          selectedRole === 'rider' && username === 'ahmad' ? 'bg-orange-50 border-orange-500 shadow-2xs' : 'bg-white border-slate-200 hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-slate-800">🛵 Ahmad Khan</span>
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Active</span>
-                        </div>
-                        <div className="font-mono text-[10px] text-slate-600 mt-0.5">ahmad / rider123 (03206551696)</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-              </div>
-            )}
-          </div>
 
           {/* Footer Navigation */}
           <div className="pt-2 text-center border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">

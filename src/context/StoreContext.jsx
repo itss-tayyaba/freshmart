@@ -2169,10 +2169,46 @@ export const StoreProvider = ({ children }) => {
       }
 
       if (targetRole === 'rider') {
-        const isDemoUser = cleanUser === 'rider' || cleanUser === 'ahmad' || cleanUser === 'ali' || cleanUser === '03001234567';
+        if (cleanUser === 'hamza' || cleanUser.includes('hamza')) {
+          const chaseValueTenant = resolveStoreTenant('tenant-chasevalue', 'hamza');
+          if (chaseValueTenant) setCurrentTenant(chaseValueTenant);
+          const hamzaUser = {
+            id: 'RDR-HAMZA',
+            name: 'Hamza',
+            email: 'hamza@rider.freshmart.pk',
+            role: 'rider',
+            riderId: 'RDR-HAMZA',
+            phone: '0300-1234567',
+            zone: 'Jaranwala Road Wholesale Hub (Faisalabad)',
+            tenantId: 'tenant-chasevalue',
+            tenantName: 'Chase Value',
+            branchId: 'branch_cv_fsd',
+            branchName: 'Wholesale Express Hub'
+          };
+          setCurrentBranchFilter('branch_cv_fsd');
+          const fallbackToken = `mock-rider-token-${Date.now()}`;
+          applyAuthSession('rider', hamzaUser, fallbackToken);
+          addToast('Delivery Rider Authenticated 🛵', `Welcome ${hamzaUser.name} to Chase Value dispatch.`);
+          return { success: true, role: 'rider', user: hamzaUser };
+        }
+
+        const isDemoUser =
+          cleanUser === 'rider' ||
+          cleanUser === 'ahmad' ||
+          cleanUser === 'ali' ||
+          cleanUser === 'bilal_cv' ||
+          cleanUser === 'usman' ||
+          cleanUser === 'kamran_cu' ||
+          cleanUser === 'chasevalue_rider' ||
+          cleanUser === 'alfatah_rider' ||
+          cleanUser === '03001234567';
         const isDemoPass = cleanPass === 'rider123' || cleanPass === 'admin123';
         if (isDemoUser && isDemoPass) {
-          const riderTenant = resolveStoreTenant(preferredTenantId, cleanUser);
+          let riderTenantId = preferredTenantId;
+          if (cleanUser === 'bilal_cv' || cleanUser === 'chasevalue_rider') riderTenantId = 'tenant-chasevalue';
+          else if (cleanUser === 'kamran_cu') riderTenantId = 'tenant-chaseup';
+          else if (cleanUser === 'usman') riderTenantId = 'tenant-freshmart';
+          const riderTenant = resolveStoreTenant(riderTenantId, cleanUser);
           if (riderTenant) setCurrentTenant(riderTenant);
           const demoRiderUser = {
             id: 'RDR-DEMO',
@@ -2468,10 +2504,46 @@ export const StoreProvider = ({ children }) => {
       });
 
       if (!foundRider) {
-        const isDemoUser = cleanUser === 'rider' || cleanUser === 'ahmad' || cleanUser === '03001234567';
+        if (cleanUser === 'hamza' || cleanUser.includes('hamza')) {
+          const chaseValueTenant = resolveStoreTenant('tenant-chasevalue', 'hamza');
+          if (chaseValueTenant) setCurrentTenant(chaseValueTenant);
+          const hamzaUser = {
+            id: 'RDR-HAMZA',
+            name: 'Hamza',
+            email: 'hamza@rider.freshmart.pk',
+            role: 'rider',
+            riderId: 'RDR-HAMZA',
+            phone: '0300-1234567',
+            zone: 'Jaranwala Road Wholesale Hub (Faisalabad)',
+            tenantId: 'tenant-chasevalue',
+            tenantName: 'Chase Value',
+            branchId: 'branch_cv_fsd',
+            branchName: 'Wholesale Express Hub'
+          };
+          setCurrentBranchFilter('branch_cv_fsd');
+          const fallbackToken = `mock-rider-token-${Date.now()}`;
+          applyAuthSession('rider', hamzaUser, fallbackToken);
+          addToast('Delivery Rider Authenticated 🛵', `Welcome ${hamzaUser.name} to Chase Value dispatch.`);
+          return { success: true, role: 'rider', user: hamzaUser };
+        }
+
+        const isDemoUser =
+          cleanUser === 'rider' ||
+          cleanUser === 'ahmad' ||
+          cleanUser === 'ali' ||
+          cleanUser === 'bilal_cv' ||
+          cleanUser === 'usman' ||
+          cleanUser === 'kamran_cu' ||
+          cleanUser === 'chasevalue_rider' ||
+          cleanUser === 'alfatah_rider' ||
+          cleanUser === '03001234567';
         const isDemoPass = cleanPass === 'rider123' || cleanPass === 'admin123';
         if (isDemoUser && isDemoPass) {
-          const riderTenant = resolveStoreTenant(preferredTenantId, cleanUser);
+          let riderTenantId = preferredTenantId;
+          if (cleanUser === 'bilal_cv' || cleanUser === 'chasevalue_rider') riderTenantId = 'tenant-chasevalue';
+          else if (cleanUser === 'kamran_cu') riderTenantId = 'tenant-chaseup';
+          else if (cleanUser === 'usman') riderTenantId = 'tenant-freshmart';
+          const riderTenant = resolveStoreTenant(riderTenantId, cleanUser);
           if (riderTenant) setCurrentTenant(riderTenant);
           const demoRiderUser = {
             id: 'RDR-DEMO',
@@ -2789,12 +2861,22 @@ export const StoreProvider = ({ children }) => {
       const saved = localStorage.getItem('freshmart_riders_v3') || localStorage.getItem('freshmart_riders');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingKeys = new Set(parsed.map((r) => (r.username || r.phone || r.id)?.toLowerCase()));
+          const merged = [...parsed];
+          (INITIAL_RIDERS || []).forEach((initR) => {
+            const k1 = (initR.username || '').toLowerCase();
+            const k2 = (initR.phone || '').toLowerCase();
+            const k3 = (initR.id || '').toLowerCase();
+            if (!existingKeys.has(k1) && !existingKeys.has(k2) && !existingKeys.has(k3)) {
+              merged.push(initR);
+            }
+          });
+          return merged;
         }
       }
     } catch (e) {}
-    return [];
+    return INITIAL_RIDERS || [];
   });
 
   useEffect(() => {
@@ -3075,11 +3157,23 @@ export const StoreProvider = ({ children }) => {
           const cleanRiders = res.riders.filter(
             (r) => r && (r.id || r._id)
           );
-          setRiders(cleanRiders);
-          try {
-            localStorage.setItem('freshmart_riders_v3', JSON.stringify(cleanRiders));
-            localStorage.setItem('freshmart_riders', JSON.stringify(cleanRiders));
-          } catch (e) {}
+          setRiders((prev) => {
+            const keyMap = new Map();
+            (prev && prev.length > 0 ? prev : INITIAL_RIDERS || []).forEach((r) => {
+              const k = (r.username || r.phone || r.id || '').toLowerCase();
+              if (k) keyMap.set(k, r);
+            });
+            cleanRiders.forEach((r) => {
+              const k = (r.username || r.phone || r.id || '').toLowerCase();
+              if (k) keyMap.set(k, { ...(keyMap.get(k) || {}), ...r });
+            });
+            const merged = Array.from(keyMap.values());
+            try {
+              localStorage.setItem('freshmart_riders_v3', JSON.stringify(merged));
+              localStorage.setItem('freshmart_riders', JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
         }
       } catch (e) {}
     };

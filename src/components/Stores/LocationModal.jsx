@@ -524,34 +524,6 @@ const LocationModalContent = () => {
           </div>
         </div>
 
-        {/* Quick Area Pills (e.g. Muhammad Nagar) */}
-        {currentCityObj?.neighborhoods?.length > 0 && (
-          <div className="mt-2 text-left">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-              Popular areas in {currentCityObj.city.split(',')[0]}:
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {currentCityObj.neighborhoods.map((n) => {
-                const isSelected = addressInput.toLowerCase().includes(n.name.toLowerCase());
-                return (
-                  <button
-                    key={n.id}
-                    type="button"
-                    onClick={() => handleSelectArea(n)}
-                    className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    📍 {n.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* 3. 🗺️ LEAFLET MAP & DETECT CURRENT LOCATION ACTION */}
         <div className="mt-3.5 text-left space-y-2">
           <div className="flex items-center justify-between">
