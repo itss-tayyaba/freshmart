@@ -95,6 +95,19 @@ const createRiderPin = () =>
     popupAnchor: [0, -48]
   });
 
+// Safely extract item objects array from any order representation (handles array or string or missing)
+const resolveOrderItemsList = (ord) => {
+  if (!ord) return [];
+  if (Array.isArray(ord.rawItems) && ord.rawItems.length > 0) return ord.rawItems;
+  if (Array.isArray(ord.orderItems) && ord.orderItems.length > 0) return ord.orderItems;
+  if (Array.isArray(ord.items) && ord.items.length > 0) return ord.items;
+  if (Array.isArray(ord.itemsList) && ord.itemsList.length > 0) return ord.itemsList;
+  if (typeof ord.items === 'string' && ord.items.trim()) {
+    return [{ name: ord.items, quantity: 1, price: ord.totalAmount || ord.total || ord.totalPrice || 0 }];
+  }
+  return [];
+};
+
 export const DeliveryPortal = () => {
   const {
     user,
@@ -444,7 +457,7 @@ export const DeliveryPortal = () => {
         region: rawCity === 'Faisalabad' ? 'Peoples Colony No. 1 (Faisalabad)' : rawCity,
         deliveryOtp: finalOtp,
         notes: o.notes || o.deliveryNotes || 'Standard Parcel Delivery. Handle grocery bags with care.',
-        itemsList: o.items || o.orderItems || o.rawItems || []
+        itemsList: resolveOrderItemsList(o)
       };
     });
   }, [assignedOrders, locallyCompletedOrders, activeRider]);
@@ -1233,7 +1246,7 @@ export const DeliveryPortal = () => {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <span className="px-3 py-1 bg-slate-100 rounded-xl text-xs font-bold text-slate-700 border border-slate-200">
-                      📦 {activeOrder.itemsList?.length || 1} Item{(activeOrder.itemsList?.length || 1) > 1 ? 's' : ''} in Bag
+                      📦 {Array.isArray(activeOrder.itemsList) && activeOrder.itemsList.length > 0 ? activeOrder.itemsList.length : 1} Item{((Array.isArray(activeOrder.itemsList) && activeOrder.itemsList.length > 0 ? activeOrder.itemsList.length : 1) > 1) ? 's' : ''} in Bag
                     </span>
                     <span className="px-3 py-1 bg-amber-50 rounded-xl text-xs font-black text-amber-900 border border-amber-200 font-mono">
                       {formatPrice(activeOrder.totalAmount)}
@@ -1557,16 +1570,16 @@ export const DeliveryPortal = () => {
                         PARCEL CONTENTS
                       </span>
                       <div className="space-y-1 text-xs text-slate-800">
-                        {order.itemsList && order.itemsList.length > 0 ? (
+                        {Array.isArray(order.itemsList) && order.itemsList.length > 0 ? (
                           order.itemsList.map((item, idx) => (
                             <div key={idx} className="flex justify-between items-center">
-                              <span className="font-medium text-slate-800">{item.name || item.productName || 'Grocery Item'}</span>
+                              <span className="font-medium text-slate-800">{item.name || item.productName || item.title || 'Grocery Item'}</span>
                               <span className="font-bold text-slate-500 font-mono">x{item.quantity || item.qty || 1}</span>
                             </div>
                           ))
                         ) : (
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-slate-800">Grocery Parcel Package</span>
+                            <span className="font-medium text-slate-800">{typeof order.items === 'string' ? order.items : 'Grocery Parcel Package'}</span>
                             <span className="font-bold text-slate-500 font-mono">x1</span>
                           </div>
                         )}
@@ -1712,9 +1725,9 @@ export const DeliveryPortal = () => {
                             {order.shippingAddress?.address || order.address || 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad'}
                           </td>
                           <td className="py-3.5 px-6 text-slate-500">
-                            {order.itemsList && order.itemsList.length > 0
-                              ? order.itemsList.map((i) => `${i.name || i.productName || 'Item'} (x${i.quantity || 1})`).join(', ')
-                              : '1 Item'}
+                            {Array.isArray(order.itemsList) && order.itemsList.length > 0
+                              ? order.itemsList.map((i) => `${i.name || i.productName || i.title || 'Item'} (x${i.quantity || i.qty || 1})`).join(', ')
+                              : (typeof order.items === 'string' ? order.items : '1 Item')}
                           </td>
                           <td className="py-3.5 px-6 font-black text-slate-900 font-mono">
                             {totalFormatted}

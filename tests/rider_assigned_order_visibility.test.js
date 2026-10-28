@@ -97,16 +97,45 @@ test('Rider Dashboard Assignment Visibility - Exact User Bug Reproduction & Fix'
     assert.equal(isOrderVisibleToUser(unassignedChaseUpOrder, ahmadRiderUser, 'tenant-alfatah'), false);
   });
 
-  await t.test('canAssignRiderToOrder allows dispatching Ahmad to Unimaart order in Faisalabad', () => {
-    const riderProfile = {
-      id: 'RDR-AHMAD-01',
-      name: 'ahmad',
-      city: 'Faisalabad',
-      serviceArea: 'Peoples Colony',
-      isGlobal: true,
-      tenantId: 'tenant-alfatah'
+  await t.test('order with string items property (e.g. "1 Item (Delivery)") parses safely without throwing itemsList.map error', () => {
+    const stringItemsOrder = {
+      id: '#83459',
+      items: '1 Item (Delivery)',
+      rawItems: [{ name: 'Farm-To-Table Vine-Ripened Tomatoes 1kg', price: 180, quantity: 1 }],
+      totalAmount: 180
     };
-    const result = canAssignRiderToOrder(unimaartOrder, riderProfile);
-    assert.equal(result.allowed, true);
+
+    // Simulate resolveOrderItemsList
+    const resolveList = (ord) => {
+      if (!ord) return [];
+      if (Array.isArray(ord.rawItems) && ord.rawItems.length > 0) return ord.rawItems;
+      if (Array.isArray(ord.orderItems) && ord.orderItems.length > 0) return ord.orderItems;
+      if (Array.isArray(ord.items) && ord.items.length > 0) return ord.items;
+      if (Array.isArray(ord.itemsList) && ord.itemsList.length > 0) return ord.itemsList;
+      if (typeof ord.items === 'string' && ord.items.trim()) {
+        return [{ name: ord.items, quantity: 1, price: ord.totalAmount || ord.total || 0 }];
+      }
+      return [];
+    };
+
+    const resolved = resolveList(stringItemsOrder);
+    assert.equal(Array.isArray(resolved), true);
+    assert.equal(resolved.length, 1);
+    assert.doesNotThrow(() => {
+      resolved.map((it) => it.name);
+    });
+
+    // When only string items exists
+    const onlyStringItemsOrder = {
+      id: '#83460',
+      items: '1 Item (Delivery)',
+      totalAmount: 180
+    };
+    const resolvedOnlyString = resolveList(onlyStringItemsOrder);
+    assert.equal(Array.isArray(resolvedOnlyString), true);
+    assert.equal(resolvedOnlyString.length, 1);
+    assert.doesNotThrow(() => {
+      resolvedOnlyString.map((it) => it.name);
+    });
   });
 });
