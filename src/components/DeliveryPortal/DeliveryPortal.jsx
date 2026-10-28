@@ -1352,11 +1352,11 @@ export const DeliveryPortal = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
               
               {/* Left Column: Interactive Leaflet Map */}
-              <div className="lg:col-span-6 flex flex-col relative h-56 sm:h-64 rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
+              <div className="lg:col-span-6 flex flex-col relative isolate z-0 h-56 sm:h-64 rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
                 <div ref={mapContainerRef} className="w-full h-full min-h-[224px] sm:min-h-[256px]" />
 
                 {/* Overlay Badge at Bottom Left */}
-                <div className="absolute bottom-2.5 left-2.5 z-[1000] bg-white/95 backdrop-blur-md border border-slate-200 px-3 py-1.5 rounded-xl shadow-md text-[11px] font-bold text-slate-800 flex items-center gap-2">
+                <div className="absolute bottom-2.5 left-2.5 z-10 bg-white/95 backdrop-blur-md border border-slate-200 px-3 py-1.5 rounded-xl shadow-md text-[11px] font-bold text-slate-800 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
                   <span className="font-mono font-black">{activeOrder.orderId}</span>
                   <span className="text-slate-300">•</span>
@@ -1945,7 +1945,7 @@ export const DeliveryPortal = () => {
           role="dialog"
           aria-modal="true"
           aria-labelledby="whatsapp-notify-modal-title"
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
         >
           <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[92vh]">
             

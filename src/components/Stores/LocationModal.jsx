@@ -548,7 +548,7 @@ const LocationModalContent = () => {
           </button>
 
           {/* Map Box */}
-          <div className="rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-xs bg-slate-100 relative">
+          <div className="rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-xs bg-slate-100 relative isolate z-0">
             <div ref={mapContainerRef} className="w-full h-48 sm:h-56 z-0" />
 
             {/* Live Coordinate Badge at bottom-left */}

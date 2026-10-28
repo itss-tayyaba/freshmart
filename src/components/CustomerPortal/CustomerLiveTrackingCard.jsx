@@ -402,7 +402,7 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
 
       {/* Interactive Leaflet Dual Map Container */}
       <div className="px-4 sm:px-5">
-        <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
+        <div className="relative isolate z-0 rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
           <div ref={mapContainerRef} className="h-64 sm:h-72 w-full z-10" />
 
           {/* Map Overlay Badge */}
