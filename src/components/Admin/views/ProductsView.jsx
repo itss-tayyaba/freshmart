@@ -484,8 +484,54 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
           ))}
         </div>
 
-        {/* Data Table */}
-        <div className="overflow-x-auto">
+        {/* 📱 MOBILE PRODUCT CARDS VIEW (< md screens) */}
+        <div className="block md:hidden divide-y divide-slate-100">
+          {filtered.map((item) => {
+            const status = item.status || (item.inStock ? (item.stock < 15 ? 'Low Stock' : 'Active') : 'Out of Stock');
+            return (
+              <div key={`mob-${item.id}`} className="py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="w-12 h-12 rounded-xl object-cover bg-slate-100 shrink-0 border border-slate-200"
+                  />
+                  <div className="min-w-0">
+                    <span className="font-bold text-xs text-slate-800 block truncate">{item.name}</span>
+                    <span className="text-[10px] text-slate-400 font-semibold block truncate">
+                      {item.categoryLabel || item.category} • {item.unit || '1 unit'}
+                    </span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="font-mono font-bold text-xs text-slate-900">Rs. {item.price}</span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${status === 'Active' ? 'bg-emerald-50 text-emerald-700' : status === 'Low Stock' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'}`}>
+                        {status} ({item.stock || 0})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => handleOpenEditProduct(item)}
+                    className="p-2 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 transition"
+                    title="Edit Product"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteProduct(item.id, item.name)}
+                    className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 transition"
+                    title="Delete Product"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 💻 Desktop / Tablet Table View (hidden on mobile) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="text-slate-400 border-b border-slate-100 pb-3">

@@ -28,7 +28,8 @@ import {
   RefreshCw,
   Eye,
   X,
-  Share2
+  Share2,
+  Menu
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { resolveTenantId, isSameTenant, BRANCHES } from '../../../data/companyHierarchyData';
@@ -102,6 +103,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
 
   // Active navigation sidebar tab: 'Dashboard' | 'Assigned Orders' | 'All Orders' | 'Packed Orders' | 'Ready for Delivery' | 'History'
   const [activeNav, setActiveNav] = useState('Dashboard');
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedOrderForPacking, setSelectedOrderForPacking] = useState(null);
   const [pickedState, setPickedState] = useState({});
@@ -384,11 +386,78 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col md:flex-row font-sans">
       
+      {/* 📱 MOBILE TOP HEADER BAR (< md screens) */}
+      <div
+        className="md:hidden text-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-md transition-colors shrink-0"
+        style={{
+          backgroundColor: storeTheme.sidebarHeaderBg,
+          borderBottom: `1px solid ${storeTheme.sidebarBorder}`
+        }}
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+            className="p-2 -ml-1 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+            aria-label="Toggle pickup staff menu"
+          >
+            {mobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-sm font-black tracking-tight text-white leading-tight truncate">
+              {storeBrandName}
+            </h1>
+            <p
+              className="text-[10px] font-bold uppercase tracking-wider truncate"
+              style={{ color: storeTheme.accentText }}
+            >
+              Packing Station • {activeNav}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+            aria-label="Toggle notifications"
+          >
+            <Bell className="w-4 h-4" />
+            {(kpiCounts.assigned + kpiCounts.ready) > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-black flex items-center justify-center">
+                {kpiCounts.assigned + kpiCounts.ready}
+              </span>
+            )}
+          </button>
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs uppercase shadow-xs shrink-0"
+            style={{
+              backgroundColor: `${storeTheme.primaryLight}40`,
+              color: storeTheme.accentText,
+              border: `1px solid ${storeTheme.primaryLight}60`
+            }}
+          >
+            {(staffName || 'S')[0]}
+          </div>
+        </div>
+      </div>
+
+      {/* 📱 MOBILE SIDEBAR DRAWER OVERLAY */}
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-950/75 backdrop-blur-xs md:hidden animate-in fade-in duration-150"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
       {/* =========================================================================
-          LEFT SIDEBAR: Store Themed Sidebar
+          LEFT SIDEBAR: Store Themed Sidebar (Desktop Sticky / Mobile Drawer)
           ========================================================================= */}
       <aside
-        className="w-full md:w-64 lg:w-72 text-slate-300 flex flex-col justify-between shrink-0 md:h-screen md:sticky md:top-0 select-none overflow-y-auto shadow-xl transition-colors duration-300"
+        className={`fixed md:sticky top-0 left-0 z-50 h-screen w-72 md:w-64 lg:w-72 text-slate-300 flex flex-col justify-between shrink-0 select-none overflow-y-auto shadow-2xl transition-transform duration-200 ${
+          mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
         style={{
           backgroundColor: storeTheme.sidebarBg,
           borderRight: `1px solid ${storeTheme.sidebarBorder}`
@@ -447,7 +516,10 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                   type="button"
                   onClick={() => {
                     if (item.id === 'Notifications') setShowNotifications(!showNotifications);
-                    else setActiveNav(item.id);
+                    else {
+                      setActiveNav(item.id);
+                      setMobileSidebarOpen(false);
+                    }
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer group ${
                     isActive
@@ -588,7 +660,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       {/* =========================================================================
           MAIN WORKSPACE AREA
           ========================================================================= */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto pb-16 md:pb-0">
         
         {/* Top Header Row with Welcome Text, Branch ID Scoping Pill & Notification Bell */}
         <header className="bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-800 px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 z-30 shadow-2xs">
@@ -1466,6 +1538,87 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
         </div>
       )}
 
+
+      {/* 📱 MOBILE BOTTOM QUICK-SWITCH BAR (< md screens) */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#0b132b]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800 flex items-center justify-around py-1.5 px-2 shadow-lg safe-bottom"
+      >
+        <button
+          type="button"
+          onClick={() => setActiveNav('Dashboard')}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl transition cursor-pointer ${
+            activeNav === 'Dashboard'
+              ? 'text-emerald-700 dark:text-emerald-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400 font-medium'
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Home</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveNav('Assigned Orders')}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl relative transition cursor-pointer ${
+            activeNav === 'Assigned Orders'
+              ? 'text-emerald-700 dark:text-emerald-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400 font-medium'
+          }`}
+        >
+          <ClipboardList className="w-4 h-4" />
+          {kpiCounts.assigned > 0 && (
+            <span className="absolute top-0 right-1 px-1 min-w-[14px] h-3.5 bg-emerald-700 text-white rounded-full text-[9px] font-black flex items-center justify-center">
+              {kpiCounts.assigned}
+            </span>
+          )}
+          <span className="text-[10px] mt-0.5">Assigned</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveNav('Packed Orders')}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl relative transition cursor-pointer ${
+            activeNav === 'Packed Orders'
+              ? 'text-emerald-700 dark:text-emerald-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400 font-medium'
+          }`}
+        >
+          <PackageCheck className="w-4 h-4" />
+          {kpiCounts.packed > 0 && (
+            <span className="absolute top-0 right-1 px-1 min-w-[14px] h-3.5 bg-blue-700 text-white rounded-full text-[9px] font-black flex items-center justify-center">
+              {kpiCounts.packed}
+            </span>
+          )}
+          <span className="text-[10px] mt-0.5">Packed</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveNav('Ready for Delivery')}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl relative transition cursor-pointer ${
+            activeNav === 'Ready for Delivery'
+              ? 'text-emerald-700 dark:text-emerald-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400 font-medium'
+          }`}
+        >
+          <CheckSquare className="w-4 h-4" />
+          {kpiCounts.ready > 0 && (
+            <span className="absolute top-0 right-1 px-1 min-w-[14px] h-3.5 bg-amber-500 text-white rounded-full text-[9px] font-black flex items-center justify-center">
+              {kpiCounts.ready}
+            </span>
+          )}
+          <span className="text-[10px] mt-0.5">Ready</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMobileSidebarOpen(true)}
+          className="flex flex-col items-center py-1 px-2.5 rounded-xl text-slate-500 dark:text-slate-400 font-medium transition cursor-pointer"
+        >
+          <Menu className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Menu</span>
+        </button>
+      </nav>
 
     </div>
   );

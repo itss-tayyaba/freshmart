@@ -929,6 +929,14 @@ export const DeliveryPortal = () => {
         </div>
       </div>
 
+      {/* 📱 MOBILE SIDEBAR DRAWER OVERLAY */}
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 z-35 bg-slate-950/75 backdrop-blur-xs md:hidden animate-in fade-in duration-150"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
       {/* ===================================================================== */}
       {/* 1. LEFT SIDEBAR (Store Themed Logistics Cockpit)                      */}
       {/* ===================================================================== */}
@@ -1153,7 +1161,7 @@ export const DeliveryPortal = () => {
       {/* ===================================================================== */}
       {/* 2. MAIN CONTENT AREA (Modern Slate Parcel Delivery Operations Console) */}
       {/* ===================================================================== */}
-      <main className="flex-1 min-w-0 p-4 sm:p-7 lg:p-8 space-y-7 overflow-y-auto max-w-7xl mx-auto">
+      <main className="flex-1 min-w-0 p-3 sm:p-7 lg:p-8 pb-24 md:pb-8 space-y-4 sm:space-y-7 overflow-y-auto max-w-7xl mx-auto">
         
         {/* Top Header: Courier Operations Console */}
         <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1457,36 +1465,38 @@ export const DeliveryPortal = () => {
                     Ask customer for their 4-digit security PIN upon physical handover of parcel:
                   </p>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                     <input
                       type="text"
                       maxLength={6}
-                      placeholder="Enter customer's 4-digit PIN"
+                      placeholder="Customer 4-digit PIN"
                       value={otpInputs[activeOrder.id] || ''}
                       onChange={(e) => handleOtpInputChange(activeOrder.id, e.target.value)}
-                      className="flex-1 bg-white border border-emerald-300 rounded-xl px-3.5 py-2 text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="flex-1 bg-white border border-emerald-300 rounded-xl px-4 py-3 sm:py-2 text-center sm:text-left text-sm font-mono font-black text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 tracking-wider"
                     />
-                    <button
-                      type="button"
-                      disabled={verifyingOrderMap[activeOrder.id]}
-                      onClick={() => handleVerifyOtp(activeOrder.id, activeOrder.deliveryOtp)}
-                      className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer disabled:opacity-50 shrink-0 flex items-center gap-1.5"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>{verifyingOrderMap[activeOrder.id] ? 'Verifying...' : 'Verify PIN & Deliver'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={verifyingOrderMap[activeOrder.id]}
-                      onClick={() => {
-                        handleOtpInputChange(activeOrder.id, activeOrder.deliveryOtp || '7412');
-                        handleVerifyOtp(activeOrder.id, activeOrder.deliveryOtp || '7412');
-                      }}
-                      className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50 shrink-0 flex items-center gap-1"
-                      title="Direct Handover Delivery"
-                    >
-                      <span>Deliver Parcel</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={verifyingOrderMap[activeOrder.id]}
+                        onClick={() => handleVerifyOtp(activeOrder.id, activeOrder.deliveryOtp)}
+                        className="flex-1 sm:flex-initial px-4 py-3 sm:py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer disabled:opacity-50 shrink-0 flex items-center justify-center gap-1.5"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>{verifyingOrderMap[activeOrder.id] ? 'Verifying...' : 'Verify PIN & Deliver'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={verifyingOrderMap[activeOrder.id]}
+                        onClick={() => {
+                          handleOtpInputChange(activeOrder.id, activeOrder.deliveryOtp || '7412');
+                          handleVerifyOtp(activeOrder.id, activeOrder.deliveryOtp || '7412');
+                        }}
+                        className="px-3.5 py-3 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50 shrink-0 flex items-center justify-center gap-1"
+                        title="Direct Handover Delivery"
+                      >
+                        <span>Deliver</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1930,12 +1940,81 @@ export const DeliveryPortal = () => {
       <button
         type="button"
         onClick={() => addToast('Courier Dispatch Help 💬', 'Dispatch desk is online and monitoring your route.')}
-        className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-xl hover:scale-105 transition cursor-pointer z-50"
+        className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-xl hover:scale-105 transition cursor-pointer z-30"
         title="Support & Dispatch Chat"
         aria-label="Support & Dispatch Chat"
       >
-        <MessageCircle className="w-6 h-6" />
+        <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
       </button>
+
+      {/* 📱 COURIER RIDER MOBILE BOTTOM NAV BAR (< md screens) */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#0b132b]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800 flex items-center justify-around py-1.5 px-2 shadow-lg safe-bottom"
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('out-for-delivery');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className={`flex flex-col items-center py-1 px-3 rounded-xl relative transition cursor-pointer ${
+            activeTab === 'out-for-delivery'
+              ? 'text-emerald-700 dark:text-emerald-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400 font-medium'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          {outForDeliveryOrders.length > 0 && (
+            <span className="absolute top-0 right-1 px-1 min-w-[14px] h-3.5 bg-emerald-700 text-white rounded-full text-[9px] font-black flex items-center justify-center">
+              {outForDeliveryOrders.length}
+            </span>
+          )}
+          <span className="text-[10px] mt-0.5">Active Run</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('delivered-today');
+            const el = document.getElementById('delivered-parcels-today-section');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }}
+          className={`flex flex-col items-center py-1 px-3 rounded-xl relative transition cursor-pointer ${
+            activeTab === 'delivered-today'
+              ? 'text-emerald-700 dark:text-emerald-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400 font-medium'
+          }`}
+        >
+          <CheckCircle2 className="w-4 h-4" />
+          {deliveredTodayOrders.length > 0 && (
+            <span className="absolute top-0 right-1 px-1 min-w-[14px] h-3.5 bg-blue-700 text-white rounded-full text-[9px] font-black flex items-center justify-center">
+              {deliveredTodayOrders.length}
+            </span>
+          )}
+          <span className="text-[10px] mt-0.5">Delivered</span>
+        </button>
+
+        {activeOrder && (
+          <a
+            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(activeOrder.shippingAddress?.address || activeOrder.address || 'Faisalabad')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col items-center py-1 px-3 rounded-xl text-sky-600 dark:text-sky-400 font-medium transition cursor-pointer"
+          >
+            <Navigation className="w-4 h-4" />
+            <span className="text-[10px] mt-0.5">Route</span>
+          </a>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setMobileSidebarOpen(true)}
+          className="flex flex-col items-center py-1 px-3 rounded-xl text-slate-500 dark:text-slate-400 font-medium transition cursor-pointer"
+        >
+          <Menu className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Menu</span>
+        </button>
+      </nav>
 
       {/* ===================================================================== */}
       {/* WHATSAPP DELIVERY NOTIFICATION MODAL                                  */}

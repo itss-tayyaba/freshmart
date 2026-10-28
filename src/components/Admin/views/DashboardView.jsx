@@ -490,7 +490,7 @@ export const DashboardView = ({ onNavigateModule }) => {
       </div>
 
       {/* Live totals from this store's actual records */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
         {[
           { label: "Today's Sales", value: `${currency.symbol || 'Rs. '}${salesToday.toLocaleString()}`, detail: `${todayOrders.length} orders today`, icon: DollarSign, iconClass: 'bg-emerald-50 text-emerald-600' },
           { label: "Today's Orders", value: todayOrders.length.toLocaleString(), detail: `${pendingOrdersCount} active orders`, icon: ShoppingBag, iconClass: 'bg-blue-50 text-blue-600' },

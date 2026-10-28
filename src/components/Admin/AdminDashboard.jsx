@@ -685,7 +685,7 @@ const StoreAdminConsole = () => {
         </header>
 
         {/* Dynamic View Content according to Active Tab */}
-        <main className="p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="p-3 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-7xl w-full mx-auto">
           {activeTab === 'Dashboard' && (
             <DashboardView onNavigateModule={(mod) => setActiveTab(mod)} />
           )}
@@ -714,6 +714,90 @@ const StoreAdminConsole = () => {
 
       </div>
       </div>
+
+      {/* 📱 STORE ADMIN MOBILE BOTTOM QUICK-BAR (< lg screens) */}
+      <nav
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#0b132b]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800 flex items-center justify-around py-1.5 px-2 shadow-lg safe-bottom"
+      >
+        <button
+          type="button"
+          onClick={() => setActiveTab('Dashboard')}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl transition cursor-pointer ${
+            activeTab === 'Dashboard'
+              ? 'text-emerald-700 dark:text-emerald-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400 font-medium'
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Overview</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('Orders')}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl relative transition cursor-pointer ${
+            activeTab === 'Orders'
+              ? 'text-emerald-700 dark:text-emerald-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400 font-medium'
+          }`}
+        >
+          <ShoppingBag className="w-4 h-4" />
+          {pendingOrdersCount > 0 && (
+            <span className="absolute top-0 right-1 px-1 min-w-[14px] h-3.5 bg-rose-500 text-white rounded-full text-[9px] font-black flex items-center justify-center">
+              {pendingOrdersCount}
+            </span>
+          )}
+          <span className="text-[10px] mt-0.5">Orders</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('Products')}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl transition cursor-pointer ${
+            activeTab === 'Products'
+              ? 'text-emerald-700 dark:text-emerald-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400 font-medium'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Products</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('Pickup Staff')}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl transition cursor-pointer ${
+            activeTab === 'Pickup Staff'
+              ? 'text-emerald-700 dark:text-emerald-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400 font-medium'
+          }`}
+        >
+          <Boxes className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Packing</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('Riders')}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl transition cursor-pointer ${
+            activeTab === 'Riders' || activeTab === 'Rider'
+              ? 'text-emerald-700 dark:text-emerald-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400 font-medium'
+          }`}
+        >
+          <Truck className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Riders</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="flex flex-col items-center py-1 px-2 rounded-xl text-slate-500 dark:text-slate-400 font-medium transition cursor-pointer"
+        >
+          <Menu className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">More</span>
+        </button>
+      </nav>
 
       {/* Global Admin Modals */}
       <AdminModals

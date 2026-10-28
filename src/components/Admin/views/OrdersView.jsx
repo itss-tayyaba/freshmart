@@ -887,8 +887,175 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
               No orders found matching "{search}" in {activeTab}.
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-slate-200/90 shadow-2xs bg-white">
-              <table className="w-full text-left text-xs border-collapse">
+            <>
+              {/* 📱 MOBILE ORDERS CARD VIEW (< md screens) */}
+              <div className="block md:hidden space-y-3">
+                {filteredOrders.map((ord) => {
+                  const customerName = getCustomerDisplayName(ord.customerName || ord.customer || ord.recipientName || ord.shippingAddress?.recipientName);
+                  const customerPhone = typeof ord.customerPhone === 'string' ? ord.customerPhone : (ord.customer?.phone || ord.phone || '');
+                  const orderType = ord.orderType || (ord.table ? 'Dine-In' : 'Delivery');
+                  const itemsList = getOrderItemsList(ord);
+                  const itemsCount = itemsList.length > 0 ? itemsList.length : (parseInt(ord.items) || 1);
+                  const isPaid = ord.paymentStatus === 'Paid' || ord.paymentStatus === 'Verified' || ord.isPaymentVerified || ord.isPaid || ord.status === 'Delivered';
+                  const paymentMethod = ord.paymentMethod || ord.payment || 'Cash on Delivery';
+                  const rawEligible = getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : [];
+                  const orderTenant = normalizeOrderTenantId(ord);
+                  const eligibleRiders = (rawEligible && rawEligible.length > 0)
+                    ? rawEligible
+                    : (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
+                  const s = String(ord.status || 'Pending').toLowerCase();
+                  const isDeliveredState = s === 'delivered' || ord.isDelivered;
+                  const isInTransitState = !isDeliveredState && (ord.assignedRider || ['out for delivery', 'dispatched to rider', 'dispatched', 'in transit'].includes(s));
+                  const isPreparedState = !isDeliveredState && !isInTransitState && (['prepared', 'ready for dispatch', 'ready'].includes(s) || ord.isDispatchedByStaff);
+                  const hasStaff = Boolean(ord.pickupStaffId || ord.pickupStaffName);
+
+                  const orderKey = ord.id || ord.orderId || ord._id;
+                  const cleanOrderKey = String(orderKey).replace(/^#/, '').trim();
+                  const defaultRiderId = eligibleRiders?.[0]?.id || eligibleRiders?.[0]?._id || eligibleRiders?.[0]?.riderId || '';
+                  const currentChosenRider =
+                    selectedRiderMap[orderKey] ||
+                    selectedRiderMap[cleanOrderKey] ||
+                    selectedRiderMap[`#${cleanOrderKey}`] ||
+                    ord.assignedRider?.id ||
+                    ord.assignedRider?._id ||
+                    defaultRiderId;
+
+                  return (
+                    <div
+                      key={`mob-${ord.id}`}
+                      onClick={() => setSelectedOrder(ord)}
+                      className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs space-y-3 cursor-pointer active:scale-[0.99] transition"
+                    >
+                      {/* Top Row: Order ID, Time & Status */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-black text-xs text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg">
+                            {ord.orderId || ord.id}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {ord.time || 'Today'}
+                          </span>
+                        </div>
+                        <span
+                          className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                            isDeliveredState
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : isInTransitState
+                              ? 'bg-sky-100 text-sky-800'
+                              : isPreparedState
+                              ? 'bg-teal-100 text-teal-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {ord.status || 'Pending'}
+                        </span>
+                      </div>
+
+                      {/* Customer & Address Row */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-bold text-xs text-slate-900 truncate">
+                            {customerName}
+                          </p>
+                          <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                            📍 {ord.address || ord.shippingAddress?.address || 'Delivery Address'}
+                          </p>
+                        </div>
+                        {customerPhone && (
+                          <a
+                            href={`tel:${customerPhone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-2 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 shrink-0"
+                            title="Call Customer"
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Items & Price */}
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                        <span className="text-slate-600 font-medium">
+                          📦 {itemsCount} {itemsCount === 1 ? 'item' : 'items'} ({orderType})
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-black text-slate-900">
+                            {formatPrice(ord.totalAmount || ord.total || 0)}
+                          </span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                            {paymentMethod === 'Cash on Delivery' ? 'COD' : 'Paid'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Action Bar */}
+                      <div className="pt-2 flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
+                        {isPreparedState && !isInTransitState ? (
+                          <div className="flex items-center gap-1.5 w-full">
+                            <select
+                              value={currentChosenRider}
+                              onChange={(e) => handleRiderSelect(orderKey, e.target.value)}
+                              className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 text-xs font-bold text-slate-700"
+                            >
+                              {eligibleRiders.map((r) => (
+                                <option key={r.id || r._id} value={r.id || r._id}>
+                                  🛵 {r.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => handleDispatchRider(orderKey, currentChosenRider)}
+                              className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs shrink-0 flex items-center gap-1"
+                            >
+                              <Rocket className="w-3.5 h-3.5" />
+                              <span>Dispatch</span>
+                            </button>
+                          </div>
+                        ) : s === 'pending' && !hasStaff ? (
+                          <button
+                            type="button"
+                            onClick={() => setDeliverToStaffOrder(ord)}
+                            className="w-full py-1.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center justify-center gap-1.5"
+                          >
+                            <Boxes className="w-3.5 h-3.5" />
+                            <span>Assign Packing Staff</span>
+                          </button>
+                        ) : isDeliveredState ? (
+                          <div className="w-full flex items-center justify-between">
+                            <span className="text-emerald-700 font-bold text-[11px] flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Delivered
+                            </span>
+                            <a
+                              href={getWhatsAppDeliveryLink(ord)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#25D366] text-white rounded-lg text-xs font-bold"
+                            >
+                              <MessageCircle className="w-3 h-3" />
+                              <span>WhatsApp</span>
+                            </a>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedOrder(ord)}
+                            className="w-full py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View Full Details</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 💻 Desktop / Tablet Table View (hidden on mobile) */}
+              <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200/90 shadow-2xs bg-white">
+                <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
                     <th className="py-3.5 pl-4 pr-3">Order & Customer</th>
@@ -1252,7 +1419,8 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                 </tbody>
               </table>
             </div>
-          )}
+          </>
+        )}
 
           {/* Footer Info */}
           <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
