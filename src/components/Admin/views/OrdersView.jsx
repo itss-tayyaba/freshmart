@@ -147,6 +147,7 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
     customerOrders,
     adminOrders,
     customers,
+    riders = [],
     assignRiderToOrder,
     getEligibleRidersForOrder,
     pickupStaff = [],

@@ -57,7 +57,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { SUBSCRIPTION_PLANS } from '../../data/tenantData';
-import { BRANCHES } from '../../data/companyHierarchyData';
+import { BRANCHES, isSameTenant } from '../../data/companyHierarchyData';
 import { LeafletLocationPicker } from '../Common/LeafletLocationPicker';
 
 export const SuperAdminDashboard = () => {
@@ -92,6 +92,7 @@ export const SuperAdminDashboard = () => {
     deleteStoreAdmin,
     toggleStoreAdminStatus,
     allBranches,
+    setAllBranches,
     addBranch,
     updateBranch,
     deleteBranch,
