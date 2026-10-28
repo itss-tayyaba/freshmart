@@ -263,7 +263,6 @@ export const QuickViewModal = () => {
                               onClick={() => {
                                 addToCart(alt, 1);
                                 setSelectedProductForQuickView(null);
-                                addToast('Added Alternative 🛒', `${alt.name} added to cart.`);
                               }}
                               className="py-1 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition cursor-pointer"
                               title="Add directly to cart"

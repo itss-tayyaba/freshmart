@@ -375,7 +375,6 @@ export const ProductDetailPage = () => {
                               type="button"
                               onClick={() => {
                                 addToCart(alt, 1);
-                                addToast('Added Alternative 🛒', `${alt.name} added to cart.`);
                               }}
                               className="py-1.5 px-3 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
                               title="Add directly to cart"

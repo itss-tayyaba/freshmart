@@ -200,7 +200,6 @@ export const FreshMartHeader = () => {
                       onClick={(e) => {
                         e.stopPropagation();
                         addToCart(item, 1);
-                        addToast('Added to Cart 🛒', `${item.name} added.`);
                       }}
                       className="p-1.5 bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white rounded-lg transition-colors cursor-pointer"
                       title="Quick Add"

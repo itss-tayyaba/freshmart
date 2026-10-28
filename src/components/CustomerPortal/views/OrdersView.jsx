@@ -16,7 +16,6 @@ export const OrdersView = () => {
           addToCart(item.product, item.quantity || 1);
         }
       });
-      addToast('Items Added to Basket 🛒', `All items from order ${order.id} reordered.`);
     }
   };
 

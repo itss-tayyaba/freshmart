@@ -262,7 +262,6 @@ export const UnimaartTopSave = ({ activeCategory: propActiveCategory, onSelectCa
                         type="button"
                         onClick={() => {
                           addToCart(prod, 1);
-                          addToast('Added to Cart 🛒', `${prod.name} added to cart.`);
                         }}
                         className={`p-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center ${
                           inCart

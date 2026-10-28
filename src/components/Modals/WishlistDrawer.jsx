@@ -35,7 +35,6 @@ export const WishlistDrawer = () => {
 
   const handleMoveAllToCart = () => {
     wishlistProducts.forEach((p) => addToCart(p, 1));
-    addToast('Moved to Basket', `Added ${wishlistProducts.length} items to your cart.`);
   };
 
   return (

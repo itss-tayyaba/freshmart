@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { X, AlertCircle, Info } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 
 export const ToastContainer = () => {
@@ -18,13 +18,35 @@ export const ToastContainer = () => {
     'customer-portal'
   ].includes(currentPage);
 
-  if (isDashboard || toasts.length === 0) return null;
+  // Remove green / success notifications completely - NEVER render green notifications on screen
+  const visibleToasts = toasts
+    .filter((toast) => {
+      // Suppress any success or green notifications, and any cart / basket notifications
+      if (!toast.type || toast.type === 'success') return false;
+      const isError = toast.type === 'error';
+      const isInfo = toast.type === 'info';
+      if (!isError && !isInfo) return false;
+
+      const title = String(toast.title || '').toLowerCase();
+      const msg = String(toast.message || '').toLowerCase();
+      if (
+        title.includes('cart') ||
+        title.includes('basket') ||
+        title.includes('added') ||
+        msg.includes('added')
+      ) {
+        return false;
+      }
+      return true;
+    })
+    .slice(-1); // Limit to at most 1 so notifications never stack on screen
+
+  if (isDashboard || visibleToasts.length === 0) return null;
 
   return (
     <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
-      {toasts.map((toast) => {
+      {visibleToasts.map((toast) => {
         const isError = toast.type === 'error';
-        const isInfo = toast.type === 'info';
 
         return (
           <div
@@ -32,19 +54,15 @@ export const ToastContainer = () => {
             className={`pointer-events-auto p-4 rounded-2xl shadow-xl flex items-start gap-3 border transition-all animate-in slide-in-from-bottom-5 duration-200 ${
               isError
                 ? 'bg-rose-950 text-white border-rose-800'
-                : isInfo
-                ? 'bg-slate-900 text-white border-slate-800'
-                : 'bg-[#07382c] text-white border-emerald-700/60'
+                : 'bg-slate-900 text-white border-slate-800'
             }`}
           >
             {/* Icon */}
             <div className="shrink-0 mt-0.5">
               {isError ? (
                 <AlertCircle className="w-5 h-5 text-rose-400" />
-              ) : isInfo ? (
-                <Info className="w-5 h-5 text-blue-400" />
               ) : (
-                <CheckCircle2 className="w-5 h-5 text-lime-400" />
+                <Info className="w-5 h-5 text-blue-400" />
               )}
             </div>
 

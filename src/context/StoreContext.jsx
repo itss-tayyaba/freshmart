@@ -276,11 +276,25 @@ export const StoreProvider = ({ children }) => {
   // Toast notifications state & helpers (available across the whole provider)
   const [toasts, setToasts] = useState([]);
   const addToast = (title, message, type = 'success') => {
+    // Suppress green notifications and cart/basket notifications completely
+    const tLower = String(title || '').toLowerCase();
+    const mLower = String(message || '').toLowerCase();
+    if (
+      type === 'success' ||
+      !type ||
+      tLower.includes('basket') ||
+      tLower.includes('cart') ||
+      tLower.includes('added') ||
+      mLower.includes('added')
+    ) {
+      return;
+    }
     const id = Date.now() + Math.random();
-    setToasts((prev) => [...prev, { id, title, message, type }]);
+    // Cap to at most 1 active toast so notifications never stack
+    setToasts([{ id, title, message, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
+    }, 3500);
   };
   const removeToast = (id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -5008,7 +5022,6 @@ export const StoreProvider = ({ children }) => {
         }
       ];
     });
-    addToast('Added to Basket 🛒', `${product.name} (${numQty}x) added.`);
     setIsCartOpen(true);
   };
 
@@ -5041,7 +5054,6 @@ export const StoreProvider = ({ children }) => {
   const removeFromCart = (productOrId) => {
     const targetId = getProductId(productOrId);
     setCart((prev) => prev.filter((item) => getProductId(item.product) !== targetId));
-    addToast('Item Removed', 'Product removed from basket.', 'info');
   };
 
 
@@ -5052,7 +5064,6 @@ export const StoreProvider = ({ children }) => {
   const addRecipeIngredientsToCart = (productIds) => {
     const matchedProducts = products.filter((p) => productIds.includes(String(p.id || p._id)));
     matchedProducts.forEach((p) => addToCart(p, 1));
-    addToast('Recipe Bundle Added! 🍲', `Added all ${matchedProducts.length} ingredients to your cart.`);
   };
 
   // Wishlist Functions with Bulletproof ID normalization
@@ -5073,10 +5084,8 @@ export const StoreProvider = ({ children }) => {
       const exists = prev.includes(id);
       const target = products.find((p) => String(p.id || p._id) === id);
       if (exists) {
-        addToast('Removed from Wishlist', `${target?.name || 'Item'} removed.`, 'info');
         return prev.filter((item) => item !== id);
       } else {
-        addToast('Added to Wishlist ❤️', `${target?.name || 'Item'} saved.`);
         return [...prev, id];
       }
     });
