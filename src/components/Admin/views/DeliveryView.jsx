@@ -33,11 +33,13 @@ import {
   Eye,
   EyeOff,
   Lock,
-  Key
+  Key,
+  MessageCircle
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { PAKISTAN_CITIES } from '../../../data/pakistanLocations';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
+import { getWhatsAppDeliveryLink } from '../../../utils/whatsappHelper';
 
 export const PAKISTAN_REGIONS = [
   // Lahore
@@ -912,14 +914,28 @@ export const DeliveryView = () => {
                                   <span className="text-base">🛵</span>
                                   <div>
                                     <span className="font-semibold text-stone-900 block">{order.assignedRider.name}</span>
-                                    {isDelivered
-                                      ? <span className="text-[10px] text-emerald-700 font-bold">✓ Delivered</span>
-                                      : <button
-                                          type="button"
-                                          onClick={(e) => { e.stopPropagation(); setSidebarOrder(order); setSidebarRiderId(order.assignedRider?.id || ''); }}
-                                          className="text-[10px] text-amber-700 font-bold hover:underline cursor-pointer"
-                                        >Reassign →</button>
-                                    }
+                                    {isDelivered ? (
+                                      <div className="flex items-center gap-1.5 mt-0.5">
+                                        <span className="text-[10px] text-emerald-700 font-bold">✓ Delivered</span>
+                                        <a
+                                          href={getWhatsAppDeliveryLink(order)}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-[#25D366] hover:bg-[#20ba5a] text-white rounded text-[10px] font-bold shadow-2xs transition"
+                                          title="Notify customer on WhatsApp"
+                                        >
+                                          <MessageCircle className="w-2.5 h-2.5" />
+                                          <span>WhatsApp</span>
+                                        </a>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); setSidebarOrder(order); setSidebarRiderId(order.assignedRider?.id || ''); }}
+                                        className="text-[10px] text-amber-700 font-bold hover:underline cursor-pointer"
+                                      >Reassign →</button>
+                                    )}
                                   </div>
                                 </div>
                               ) : (
