@@ -54,6 +54,34 @@ const getItemIcon = (name = '') => {
   return '📦';
 };
 
+// Robust helper: safely determine the true item count of an order without falling back to arbitrary numbers
+const resolveOrderItemsCount = (ord) => {
+  if (!ord) return 1;
+  if (Array.isArray(ord.items) && ord.items.length > 0) {
+    if (typeof ord.items[0] === 'object') {
+      return ord.items.reduce((sum, item) => sum + (Number(item?.quantity) || 1), 0) || ord.items.length;
+    }
+    return ord.items.length;
+  }
+  if (Array.isArray(ord.orderItems) && ord.orderItems.length > 0) {
+    return ord.orderItems.reduce((sum, item) => sum + (Number(item?.quantity) || 1), 0) || ord.orderItems.length;
+  }
+  if (Array.isArray(ord.rawItems) && ord.rawItems.length > 0) {
+    return ord.rawItems.reduce((sum, item) => sum + (Number(item?.quantity) || 1), 0) || ord.rawItems.length;
+  }
+  if (typeof ord.itemsCount === 'number' && ord.itemsCount > 0) {
+    return ord.itemsCount;
+  }
+  if (typeof ord.items === 'number' && ord.items > 0) {
+    return ord.items;
+  }
+  if (typeof ord.items === 'string') {
+    const parsed = parseInt(ord.items, 10);
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+  return 1;
+};
+
 export const PickupStaffPortal = ({ onBackToAdmin }) => {
   const {
     user,
@@ -309,7 +337,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
   // Pack Order
   const handlePackItems = async (order, itemsCount) => {
     const orderId = order.id || order.orderId;
-    const total = itemsCount || (Array.isArray(order.items) ? order.items.length : 1);
+    const total = itemsCount || resolveOrderItemsCount(order);
     setPickedState((prev) => ({
       ...prev,
       [orderId]: Array.from({ length: total }, (_, i) => i)
@@ -334,7 +362,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
   // Ready for Delivery
   const handleMarkReadyForDispatch = async (order) => {
     const orderId = order.id || order.orderId;
-    const total = Array.isArray(order.items) ? order.items.length : 1;
+    const total = resolveOrderItemsCount(order);
     const parcelCode = order.parcelCode || `PRCL-${String(orderId).replace(/\W/g, '').slice(-6).toUpperCase()}`;
 
     await updateOrderFulfillment?.(orderId, {
@@ -645,7 +673,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                             Order {boId}: {isReady ? 'Ready for Delivery' : isPacked ? 'Order Packed' : 'Assigned to Pick'}
                           </p>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            Customer: {bo.customerName || bo.customer || 'Shopper'} • {bo.items?.length || 1} items
+                            Customer: {bo.customerName || bo.customer || 'Shopper'} • {resolveOrderItemsCount(bo)} {resolveOrderItemsCount(bo) === 1 ? 'item' : 'items'}
                           </p>
                         </div>
                       );
@@ -793,13 +821,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                     {displayAssignedOrders.map((ord) => {
                       const orderId = ord.id || ord.orderId;
                       const customer = ord.customerName || ord.customer || 'Customer';
-                      const itemsCount = Array.isArray(ord.items) && ord.items.length > 0 && typeof ord.items[0] === 'object'
-                        ? ord.items.length
-                        : Array.isArray(ord.orderItems) && ord.orderItems.length > 0
-                        ? ord.orderItems.length
-                        : Array.isArray(ord.rawItems) && ord.rawItems.length > 0
-                        ? ord.rawItems.length
-                        : (ord.itemsCount || 1);
+                      const itemsCount = resolveOrderItemsCount(ord);
                       const time = ord.time || (ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '09:30 AM');
 
                       return (
@@ -888,7 +910,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                             <td className="py-3 font-mono font-bold text-slate-900 dark:text-white">{ordId}</td>
                             <td className="py-3 font-medium text-slate-800 dark:text-slate-200">{ord.customerName || ord.customer || 'Customer'}</td>
                             <td className="py-3 font-mono text-emerald-600 dark:text-emerald-400 font-bold">{ord.parcelCode || 'PRCL-STD'}</td>
-                            <td className="py-3 text-slate-500">{ord.items?.length || 1} items</td>
+                            <td className="py-3 text-slate-500">{resolveOrderItemsCount(ord)} {resolveOrderItemsCount(ord) === 1 ? 'item' : 'items'}</td>
                             <td className="py-3 text-right pr-3">
                               <button
                                 type="button"
@@ -1043,7 +1065,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                 {displayReadyOrders.map((ord) => {
                   const orderId = ord.id || ord.orderId;
                   const customer = ord.customerName || ord.customer || 'Customer';
-                  const itemsCount = Array.isArray(ord.items) ? ord.items.length : 9;
+                  const itemsCount = resolveOrderItemsCount(ord);
                   const address = ord.address || ord.shippingAddress?.address || 'Street 45, Block E, DHA, Lahore';
 
                   return (
@@ -1076,7 +1098,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                             Customer: <b className="text-slate-900 dark:text-white font-bold">{customer}</b>
                           </p>
                           <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Items: <b className="text-slate-700 dark:text-slate-300 font-medium">{itemsCount} items</b>
+                            Items: <b className="text-slate-700 dark:text-slate-300 font-medium">{itemsCount} {itemsCount === 1 ? 'item' : 'items'}</b>
                           </p>
                           <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                             Address: <span className="text-slate-700 dark:text-slate-300">{address}</span>
