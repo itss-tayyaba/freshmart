@@ -37,6 +37,7 @@ import {
   getWhatsAppEnRouteLink
 } from '../../utils/whatsappHelper';
 import { getStoreTheme } from '../../utils/storeTheme';
+import { switchMapTileLayer } from '../../utils/mapTiles';
 
 // Custom Leaflet SVG Markers for reliable Vite asset rendering
 const createPickupPin = (label = 'Store') =>
@@ -643,8 +644,10 @@ export const DeliveryPortal = () => {
     activeOrder?.pickupCoords || { lat: 31.4147, lng: 73.0872 }
   );
 
+  const [mapViewMode, setMapViewMode] = useState('street'); // 'street' | 'satellite' | 'hybrid'
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const tileLayerRef = useRef(null);
   const pickupMarkerRef = useRef(null);
   const dropoffMarkerRef = useRef(null);
   const riderMarkerRef = useRef(null);
@@ -652,6 +655,13 @@ export const DeliveryPortal = () => {
   const lastActiveOrderIdRef = useRef(null);
   const locationWatchIdRef = useRef(null);
   const simulationIntervalRef = useRef(null);
+
+  const handleLayerChange = (layerKey) => {
+    setMapViewMode(layerKey);
+    if (mapInstanceRef.current) {
+      switchMapTileLayer(mapInstanceRef.current, layerKey, tileLayerRef);
+    }
+  };
 
   // Initialize Leaflet Map once, then smoothly update markers without destroying the map (ZERO FLICKER)
   useEffect(() => {
@@ -671,11 +681,8 @@ export const DeliveryPortal = () => {
       });
       mapInstanceRef.current = map;
 
-      // OpenStreetMap Tile Layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 19
-      }).addTo(map);
+      // Add Tile Layer
+      switchMapTileLayer(map, mapViewMode, tileLayerRef);
 
       // Pickup Marker
       const pickupMarker = L.marker([pickup.lat, pickup.lng], {
@@ -1364,8 +1371,45 @@ export const DeliveryPortal = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
               
               {/* Left Column: Interactive Leaflet Map */}
-              <div className="lg:col-span-6 flex flex-col relative isolate z-0 h-56 sm:h-64 rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
+              <div className="lg:col-span-6 flex flex-col relative isolate z-0 h-56 sm:h-64 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-inner bg-slate-100 dark:bg-slate-900">
                 <div ref={mapContainerRef} className="w-full h-full min-h-[224px] sm:min-h-[256px]" />
+
+                {/* 🛰️ Top-Right Map Layer Controls: Street View vs Satellite View vs Hybrid */}
+                <div className="absolute top-2.5 right-2.5 z-10 flex items-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl p-0.5 shadow-md border border-slate-200/90 dark:border-slate-700 text-[10px] font-bold gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => handleLayerChange('street')}
+                    className={`px-2 py-0.5 rounded-lg transition-all cursor-pointer ${
+                      mapViewMode === 'street'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    🗺️ Street
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLayerChange('satellite')}
+                    className={`px-2 py-0.5 rounded-lg transition-all cursor-pointer ${
+                      mapViewMode === 'satellite'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    🛰️ Satellite
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLayerChange('hybrid')}
+                    className={`px-2 py-0.5 rounded-lg transition-all cursor-pointer ${
+                      mapViewMode === 'hybrid'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    🏙️ Hybrid
+                  </button>
+                </div>
 
                 {/* Overlay Badge at Bottom Left */}
                 <div className="absolute bottom-2.5 left-2.5 z-10 bg-white/95 backdrop-blur-md border border-slate-200 px-3 py-1.5 rounded-xl shadow-md text-[11px] font-bold text-slate-800 flex items-center gap-2">

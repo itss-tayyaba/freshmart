@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import L from 'leaflet';
 import {
   MapPin,
@@ -14,6 +14,7 @@ import {
   Store
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { switchMapTileLayer } from '../../utils/mapTiles';
 
 // Custom Leaflet SVG Pins
 const createPickupPin = (storeName = 'Store') =>
@@ -84,13 +85,22 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
     assignNearestRiderToOrder
   } = useStore();
 
+  const [mapViewMode, setMapViewMode] = useState('street'); // 'street' | 'satellite' | 'hybrid'
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const tileLayerRef = useRef(null);
   const pickupMarkerRef = useRef(null);
   const dropoffMarkerRef = useRef(null);
   const riderMarkerRef = useRef(null);
   const routePolylineRef = useRef(null);
   const lastOrderIdRef = useRef(null);
+
+  const handleLayerChange = (layerKey) => {
+    setMapViewMode(layerKey);
+    if (mapInstanceRef.current) {
+      switchMapTileLayer(mapInstanceRef.current, layerKey, tileLayerRef);
+    }
+  };
 
   // Normalize order metadata
   const orderId = activeOrder?.id || activeOrder?.orderId || 'ORD-LIVE';
@@ -211,10 +221,7 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
       });
       mapInstanceRef.current = map;
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 19
-      }).addTo(map);
+      switchMapTileLayer(map, mapViewMode, tileLayerRef);
 
       // Store Pickup Marker
       const pickupMarker = L.marker([pickup.lat, pickup.lng], {
@@ -416,6 +423,43 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
                 ? "Rider sees your location • You see rider's live route"
                 : `Store Packing Desk: ${storeLabel} • Preparing parcel`}
             </span>
+          </div>
+
+          {/* 🛰️ Top-Right Map Layer Controls: Street View vs Satellite View vs Hybrid */}
+          <div className="absolute top-3 right-3 z-20 flex items-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl p-0.5 shadow-md border border-slate-200/90 dark:border-slate-700 text-[10px] font-bold gap-0.5">
+            <button
+              type="button"
+              onClick={() => handleLayerChange('street')}
+              className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
+                mapViewMode === 'street'
+                  ? 'bg-sky-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              🗺️ Street
+            </button>
+            <button
+              type="button"
+              onClick={() => handleLayerChange('satellite')}
+              className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
+                mapViewMode === 'satellite'
+                  ? 'bg-sky-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              🛰️ Satellite
+            </button>
+            <button
+              type="button"
+              onClick={() => handleLayerChange('hybrid')}
+              className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
+                mapViewMode === 'hybrid'
+                  ? 'bg-sky-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              🏙️ Hybrid
+            </button>
           </div>
         </div>
       </div>

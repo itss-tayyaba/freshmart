@@ -15,6 +15,7 @@ import { useStore } from '../../context/StoreContext';
 import { PAKISTAN_CITIES, findNearestCity } from '../../data/pakistanLocations';
 import { detectUserLocation, reverseGeocodeAddress } from '../../utils/geolocationHelper';
 import { apiService } from '../../services/api';
+import { switchMapTileLayer } from '../../utils/mapTiles';
 
 // Custom Modern SVG Pin for User Location to guarantee zero missing asset issues in Vite
 const createUserPin = () =>
@@ -103,9 +104,11 @@ const LocationModalContent = () => {
     deliveryLocation?.address || 'Muhammad Nagar, Faisalabad'
   );
 
-  // Leaflet map refs
+  // Leaflet map refs & Layer mode
+  const [mapViewMode, setMapViewMode] = useState('street'); // 'street' | 'satellite' | 'hybrid'
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const tileLayerRef = useRef(null);
   const userMarkerRef = useRef(null);
   const storeMarkersRef = useRef([]);
 
@@ -166,10 +169,7 @@ const LocationModalContent = () => {
       scrollWheelZoom: true
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 19
-    }).addTo(map);
+    switchMapTileLayer(map, mapViewMode, tileLayerRef);
 
     // Draggable user location pin
     const userMarker = L.marker([initialLat, initialLng], {
@@ -240,6 +240,13 @@ const LocationModalContent = () => {
       }
     };
   }, []);
+
+  const handleLayerChange = (layerKey) => {
+    setMapViewMode(layerKey);
+    if (mapInstanceRef.current) {
+      switchMapTileLayer(mapInstanceRef.current, layerKey, tileLayerRef);
+    }
+  };
 
   // Update store markers on the Leaflet Map
   useEffect(() => {
@@ -548,8 +555,45 @@ const LocationModalContent = () => {
           </button>
 
           {/* Map Box */}
-          <div className="rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-xs bg-slate-100 relative isolate z-0">
+          <div className="rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-xs bg-slate-100 dark:bg-slate-900 relative isolate z-0">
             <div ref={mapContainerRef} className="w-full h-48 sm:h-56 z-0" />
+
+            {/* 🛰️ Top-Right Map Layer Controls: Street View vs Satellite View vs Hybrid */}
+            <div className="absolute top-2 right-2 z-[1000] flex items-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl p-0.5 shadow-md border border-slate-200/90 dark:border-slate-700 text-[10px] font-bold gap-0.5">
+              <button
+                type="button"
+                onClick={() => handleLayerChange('street')}
+                className={`px-2 py-0.5 rounded-lg transition-all cursor-pointer ${
+                  mapViewMode === 'street'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                🗺️ Street
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLayerChange('satellite')}
+                className={`px-2 py-0.5 rounded-lg transition-all cursor-pointer ${
+                  mapViewMode === 'satellite'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                🛰️ Satellite
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLayerChange('hybrid')}
+                className={`px-2 py-0.5 rounded-lg transition-all cursor-pointer ${
+                  mapViewMode === 'hybrid'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                🏙️ Hybrid
+              </button>
+            </div>
 
             {/* Live Coordinate Badge at bottom-left */}
             <div className="absolute bottom-2 left-2 z-[1000] bg-slate-900/90 backdrop-blur-md text-white text-[9px] font-mono px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1.5 pointer-events-none max-w-[70%]">

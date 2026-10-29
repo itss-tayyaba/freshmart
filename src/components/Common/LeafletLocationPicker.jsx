@@ -3,6 +3,7 @@ import L from 'leaflet';
 import { Compass, MapPin, Navigation, Store, Check, Info } from 'lucide-react';
 import { calculateDistanceKm } from '../../data/pakistanLocations';
 import { reverseGeocodeAddress } from '../../utils/geolocationHelper';
+import { switchMapTileLayer } from '../../utils/mapTiles';
 
 // Custom modern SVG Leaflet DivIcons to avoid broken asset URL issues in Vite
 const createUserIcon = () =>
@@ -56,13 +57,22 @@ export const LeafletLocationPicker = ({
   onLocateCurrent = null,
   activeCityName = ''
 }) => {
+  const [mapViewMode, setMapViewMode] = useState('street'); // 'street' | 'satellite' | 'hybrid'
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const tileLayerRef = useRef(null);
   const userMarkerRef = useRef(null);
   const storeMarkersRef = useRef([]);
 
   const currentLat = Number(coords?.lat || 31.4125);
   const currentLng = Number(coords?.lng || 73.0995);
+
+  const handleLayerChange = (layerKey) => {
+    setMapViewMode(layerKey);
+    if (mapInstanceRef.current) {
+      switchMapTileLayer(mapInstanceRef.current, layerKey, tileLayerRef);
+    }
+  };
 
   // Initialize Leaflet Map
   useEffect(() => {
@@ -81,10 +91,7 @@ export const LeafletLocationPicker = ({
       scrollWheelZoom: true
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 19
-    }).addTo(map);
+    switchMapTileLayer(map, mapViewMode, tileLayerRef);
 
     // Draggable User Location Marker
     const userMarker = L.marker([currentLat, currentLng], {
@@ -198,8 +205,45 @@ export const LeafletLocationPicker = ({
   return (
     <div className="space-y-3">
       {/* Interactive Map Box */}
-      <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-md bg-slate-100">
+      <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-md bg-slate-100 dark:bg-slate-900">
         <div ref={mapContainerRef} className="w-full h-64 sm:h-72 z-0" />
+
+        {/* 🛰️ Map Layer Controls: Street View vs Satellite View vs Hybrid */}
+        <div className="absolute top-3 left-3 z-[1000] flex items-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl p-0.5 shadow-md border border-slate-200/90 dark:border-slate-700 text-[10px] font-bold gap-0.5">
+          <button
+            type="button"
+            onClick={() => handleLayerChange('street')}
+            className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
+              mapViewMode === 'street'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            🗺️ Street
+          </button>
+          <button
+            type="button"
+            onClick={() => handleLayerChange('satellite')}
+            className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
+              mapViewMode === 'satellite'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            🛰️ Satellite
+          </button>
+          <button
+            type="button"
+            onClick={() => handleLayerChange('hybrid')}
+            className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
+              mapViewMode === 'hybrid'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            🏙️ Hybrid
+          </button>
+        </div>
 
         {/* Floating Quick Action: Auto-Detect GPS / IP button */}
         {onLocateCurrent && (
