@@ -56,8 +56,8 @@ export const CheckoutModal = () => {
     });
     const cartProductTenantId = cartItemTenant?.product?.tenantId || cartItemTenant?.tenantId;
     const finalTenantId =
-      currentTenant?.id ||
       cartProductTenantId ||
+      currentTenant?.id ||
       'tenant-freshmart';
 
     const isOrderChaseValue = isSameTenant(finalTenantId, 'tenant-chasevalue');

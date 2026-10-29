@@ -287,7 +287,12 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
     // Branch scoping: Only filter if a valid branch belonging to this store is selected
     const isValidBranch = currentBranchFilter && currentBranchFilter !== 'all' && tenantBranches.some((b) => b.id === currentBranchFilter || b._id === currentBranchFilter);
     if (isValidBranch) {
-      list = list.filter((o) => o.branchId === currentBranchFilter);
+      list = list.filter((o) => {
+        // Pending incoming orders always stay visible to Store Admin for immediate review & dispatch
+        const isPending = !o.status || ['pending', 'order placed', 'confirmed'].includes(String(o.status).toLowerCase());
+        if (isPending) return true;
+        return o.branchId === currentBranchFilter;
+      });
     } else if (user?.branchId && user.branchId !== 'all' && user?.role !== 'admin') {
       list = list.filter((o) => !o.branchId || o.branchId === user.branchId);
     }

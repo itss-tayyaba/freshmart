@@ -1853,13 +1853,44 @@ export const StoreProvider = ({ children }) => {
       }
     };
     // Initial fetch after a short delay so the UI renders first
-    const initTimer = setTimeout(refreshOrders, 2000);
-    // Poll every 30s instead of 5s to prevent flickering
-    const intervalId = window.setInterval(refreshOrders, 30000);
+    const initTimer = setTimeout(refreshOrders, 500);
+    // Poll every 5s so new orders placed on other tabs or devices appear promptly on admin desk
+    const intervalId = window.setInterval(refreshOrders, 5000);
+
+    const onFocusSync = () => { if (active) refreshOrders(); };
+    window.addEventListener('focus', onFocusSync);
+    window.addEventListener('freshmart_orders_updated', onFocusSync);
+
+    // BroadcastChannel for instant 0ms cross-tab new order updates
+    let channel;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        channel = new BroadcastChannel('freshmart_orders_channel');
+        channel.onmessage = (event) => {
+          if (event.data?.type === 'NEW_ORDER' && event.data?.order) {
+            const incoming = sanitizeOrder(event.data.order);
+            const cleanId = String(incoming.id || incoming.orderId || '').toLowerCase().trim();
+            setAdminOrders((prev) => {
+              const filtered = (prev || []).filter((o) => String(o.id || o.orderId || '').toLowerCase().trim() !== cleanId);
+              return [incoming, ...filtered];
+            });
+            setCustomerOrders((prev) => {
+              const filtered = (prev || []).filter((o) => String(o.id || o.orderId || '').toLowerCase().trim() !== cleanId);
+              return [incoming, ...filtered];
+            });
+            if (active) refreshOrders();
+          }
+        };
+      }
+    } catch (e) {}
+
     return () => {
       active = false;
       clearTimeout(initTimer);
       window.clearInterval(intervalId);
+      window.removeEventListener('focus', onFocusSync);
+      window.removeEventListener('freshmart_orders_updated', onFocusSync);
+      if (channel) channel.close();
     };
   }, [isAdminLoggedIn, adminRole, user?.id, user?.staffId, user?.riderId, user?.tenantId]);
 
@@ -5180,48 +5211,43 @@ export const StoreProvider = ({ children }) => {
       console.error('Backend order creation sync error:', e);
     }
 
-    let finalConfirmedOrder = sanitizeOrder(confirmedOrder);
-    const tenantPickupStaff = (pickupStaff || []).filter(
-      (person) => isSameTenant(person.tenantId, resolvedTenantId) && (person.status === 'Active' || !person.status)
-    );
-    // Auto-assign to staff with fewest active tasks ONLY if Store Admin has enabled auto-assignment
-    if (isPickupStaffAutoAssignEnabled && tenantPickupStaff.length > 0) {
-      const uniqueOrders = new Map();
-      [...(customerOrders || []), ...(adminOrders || []), finalConfirmedOrder].forEach((order) => {
-        const key = String(order?.id || order?.orderId || order?._id || '').replace(/^#/, '').toLowerCase();
-        if (key) uniqueOrders.set(key, order);
-      });
-      const leastBusy = pickLeastBusyPickupStaff(tenantPickupStaff, [...uniqueOrders.values()]);
-      if (leastBusy) {
-        finalConfirmedOrder = sanitizeOrder({
-          ...finalConfirmedOrder,
-          ...buildPickupStaffAssignment(leastBusy)
-        });
-        apiService.updateOrderStatus(finalConfirmedOrder.id, 'Received by Pickup Staff', {
-          pickupStaffId: leastBusy.id,
-          pickupStaffName: leastBusy.name,
-          pickupStaffUsername: leastBusy.username,
-          pickupAssignedAt: finalConfirmedOrder.pickupAssignedAt,
-          deliveredToStaffAt: finalConfirmedOrder.deliveredToStaffAt,
-          fulfillmentStage: 2,
-          pickupStep: 'received'
-        }).catch(() => {});
+    // Strict Admin Workflow: Newly placed customer orders strictly land on the Store Admin's desk
+    // with status "Pending" and stage 1. Staff and Rider are not assigned until Store Admin reviews and dispatches.
+    let finalConfirmedOrder = sanitizeOrder({
+      ...confirmedOrder,
+      status: 'Pending',
+      statusClass: 'bg-amber-100 text-amber-800',
+      fulfillmentStage: 1,
+      pickupStep: 'unassigned',
+      pickupStaffId: null,
+      pickupStaffName: null,
+      pickupStaffUsername: null,
+      assignedRider: null
+    });
+
+    const nextCust = [finalConfirmedOrder, ...(customerOrders || []).filter((o) => (o.id || o.orderId) !== (finalConfirmedOrder.id || finalConfirmedOrder.orderId))];
+    const nextAdmin = [finalConfirmedOrder, ...(adminOrders || []).filter((o) => (o.id || o.orderId) !== (finalConfirmedOrder.id || finalConfirmedOrder.orderId))];
+
+    setCustomerOrders(nextCust);
+    setAdminOrders(nextAdmin);
+
+    try {
+      localStorage.setItem('freshmart_customer_orders', JSON.stringify(nextCust));
+      localStorage.setItem('freshmart_admin_orders', JSON.stringify(nextAdmin));
+      localStorage.setItem('freshmart_last_order_sync', String(Date.now()));
+    } catch (e) {}
+
+    // Zero-latency cross-tab and in-window notifications so Store Admin sees order immediately
+    try {
+      window.dispatchEvent(new CustomEvent('freshmart_orders_updated', { detail: finalConfirmedOrder }));
+      window.dispatchEvent(new CustomEvent('freshmart_new_order_placed', { detail: finalConfirmedOrder }));
+      if (typeof BroadcastChannel !== 'undefined') {
+        const channel = new BroadcastChannel('freshmart_orders_channel');
+        channel.postMessage({ type: 'NEW_ORDER', order: finalConfirmedOrder });
+        channel.close();
       }
-    }
-    setCustomerOrders((prev) => {
-      const next = [finalConfirmedOrder, ...(prev || []).filter((o) => (o.id || o.orderId) !== (finalConfirmedOrder.id || finalConfirmedOrder.orderId))];
-      try {
-        localStorage.setItem('freshmart_customer_orders', JSON.stringify(next));
-      } catch (e) {}
-      return next;
-    });
-    setAdminOrders((prev) => {
-      const next = [finalConfirmedOrder, ...(prev || []).filter((o) => (o.id || o.orderId) !== (finalConfirmedOrder.id || finalConfirmedOrder.orderId))];
-      try {
-        localStorage.setItem('freshmart_admin_orders', JSON.stringify(next));
-      } catch (e) {}
-      return next;
-    });
+    } catch (e) {}
+
     setActiveDeliveryOrder(finalConfirmedOrder);
     try {
       localStorage.setItem('freshmart_active_delivery', JSON.stringify(finalConfirmedOrder));
