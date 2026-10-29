@@ -535,36 +535,87 @@ export const StoreProvider = ({ children }) => {
   });
 
   // --- 🛡️ Multi-Tenant Mart Admins State (Each Mart has its own Admin & Password assigned by Super Admin) ---
+  const DEFAULT_STORE_ADMINS = [
+    {
+      id: 'admin_alfatah',
+      name: 'Sheikh Tariq Al-Fatah',
+      email: 'admin@alfatah.pk',
+      username: 'admin@alfatah.pk',
+      password: 'admin123',
+      phone: '+92 300 8441122',
+      tenantId: 'tenant-alfatah',
+      tenantName: 'Al-Fatah Supermarket',
+      role: 'admin',
+      status: 'Active',
+      location: 'D-Ground Flagship Hub (Faisalabad)',
+      createdAt: '2026-08-01T10:00:00.000Z',
+      lastLogin: 'Today'
+    },
+    {
+      id: 'admin_chaseup',
+      name: 'Muhammad Salman Chase',
+      email: 'admin@chaseup.pk',
+      username: 'admin@chaseup.pk',
+      password: 'admin123',
+      phone: '+92 300 7654321',
+      tenantId: 'tenant-chaseup',
+      tenantName: 'Chase Up',
+      role: 'admin',
+      status: 'Active',
+      location: 'Clock Tower Hub (Faisalabad)',
+      createdAt: '2026-08-05T10:00:00.000Z',
+      lastLogin: 'Today'
+    },
+    {
+      id: 'admin_chasevalue',
+      name: 'Farhan Case Value',
+      email: 'admin@chasevalue.pk',
+      username: 'admin@chasevalue.pk',
+      password: 'admin123',
+      phone: '+92 321 9876543',
+      tenantId: 'tenant-chasevalue',
+      tenantName: 'Chase Value (Case Value)',
+      role: 'admin',
+      status: 'Active',
+      location: 'Wholesale Express Hub (Faisalabad)',
+      createdAt: '2026-08-10T10:00:00.000Z',
+      lastLogin: 'Today'
+    },
+    {
+      id: 'admin_unimart',
+      name: 'Aimen Yasin',
+      email: 'admin@unimart.pk',
+      username: 'admin@unimart.pk',
+      password: 'admin123',
+      phone: '+92 300 1234567',
+      tenantId: 'tenant-freshmart',
+      tenantName: 'Unimaart (Market Store)',
+      role: 'admin',
+      status: 'Active',
+      location: 'Peoples Colony Dark Store (Faisalabad)',
+      createdAt: '2026-08-12T10:00:00.000Z',
+      lastLogin: 'Today'
+    }
+  ];
+
   const [storeAdmins, setStoreAdmins] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_store_admins');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Permanently purge all old pre-seeded mock admins
-          const clean = parsed.filter(
-            (sa) =>
-              !String(sa.id || '').startsWith('sa-') &&
-              ![
-                'admin@alfatah.pk',
-                'admin.gulberg@alfatah.pk',
-                'admin.dha@alfatah.pk',
-                'admin@unimart.pk',
-                'admin.peoplescolony@unimart.pk',
-                'admin.gulberg@unimart.pk',
-                'admin@chasevalue.pk',
-                'admin.fsd@chasevalue.pk',
-                'admin@chaseup.pk',
-                'admin.clifton@chaseup.pk',
-                'admin@localgrocery.pk',
-                'admin@superstore.pk'
-              ].includes(String(sa.email || '').toLowerCase())
-          );
-          return clean;
+          const map = new Map(parsed.map((sa) => [String(sa.email || sa.id || '').toLowerCase(), sa]));
+          // Ensure all 4 core mart admins are present
+          DEFAULT_STORE_ADMINS.forEach((def) => {
+            if (!map.has(def.email.toLowerCase())) {
+              map.set(def.email.toLowerCase(), def);
+            }
+          });
+          return Array.from(map.values());
         }
       }
     } catch (e) {}
-    return [];
+    return DEFAULT_STORE_ADMINS;
   });
 
   useEffect(() => {
@@ -572,6 +623,47 @@ export const StoreProvider = ({ children }) => {
       localStorage.setItem('freshmart_store_admins', JSON.stringify(storeAdmins));
     } catch (e) {}
   }, [storeAdmins]);
+
+  // --- ⚙️ Platform Global Settings State ---
+  const DEFAULT_PLATFORM_SETTINGS = {
+    platformTitle: 'FreshMart Super Platform',
+    tagline: "Pakistan's Premier Multi-Store Grocery Marketplace",
+    supportPhone: '+92 41 8712345',
+    supportEmail: 'support@freshmart.pk',
+    currency: 'PKR (Pakistani Rupee - Rs.)',
+    freeDeliveryThreshold: 1000,
+    defaultDeliveryFee: 150,
+    deliveryRadiusKm: 15,
+    expressSlaMinutes: 15,
+    maxRiderOrders: 5,
+    maxStaffParcels: 10,
+    autoAssignRiders: true,
+    autoAssignStaff: true,
+    smsNotifications: true,
+    whatsappReceipts: true
+  };
+
+  const [platformSettings, setPlatformSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_platform_settings');
+      if (saved) {
+        return { ...DEFAULT_PLATFORM_SETTINGS, ...JSON.parse(saved) };
+      }
+    } catch (e) {}
+    return DEFAULT_PLATFORM_SETTINGS;
+  });
+
+  const updatePlatformSettings = (newSettings) => {
+    setPlatformSettings((prev) => {
+      const updated = { ...prev, ...newSettings };
+      try {
+        localStorage.setItem('freshmart_platform_settings', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    addToast('Platform Settings Updated ✅', 'All changes have been successfully saved and applied.');
+    return { success: true };
+  };
 
   const [currentTenant, setCurrentTenantState] = useState(() => {
     try {
@@ -3137,32 +3229,112 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [suppliers]);
 
-  // Default Customer List (Zero mock seeds: populated strictly via manual addition from Super Admin or customer registration)
-  const defaultCustomersList = [];
+  // Default Customer Directory across Al-Fatah, Chase Up, Case Value, and Unimaart
+  const DEFAULT_CUSTOMERS = [
+    {
+      id: 'CUST-001',
+      name: 'Sana Malik',
+      email: 'sana.malik@gmail.com',
+      phone: '+92 300 8441122',
+      address: 'House #42, Street 3, D-Ground',
+      city: 'Faisalabad',
+      tenantName: 'Al-Fatah Supermarket',
+      tenantId: 'tenant-alfatah',
+      ordersCount: 4,
+      totalSpent: 12450,
+      status: 'Active',
+      joinDate: '2026-08-15'
+    },
+    {
+      id: 'CUST-002',
+      name: 'Zainab Bibi',
+      email: 'zainab.bibi@yahoo.com',
+      phone: '+92 300 7788990',
+      address: 'Peoples Colony No. 1, Block B',
+      city: 'Faisalabad',
+      tenantName: 'Unimaart (Market Store)',
+      tenantId: 'tenant-freshmart',
+      ordersCount: 6,
+      totalSpent: 18900,
+      status: 'Active',
+      joinDate: '2026-09-02'
+    },
+    {
+      id: 'CUST-003',
+      name: 'Kashif Ali',
+      email: 'kashif.ali@gmail.com',
+      phone: '+92 321 4455667',
+      address: 'Jaranwala Road, Near Wholesale Hub',
+      city: 'Faisalabad',
+      tenantName: 'Chase Value',
+      tenantId: 'tenant-chasevalue',
+      ordersCount: 3,
+      totalSpent: 8750,
+      status: 'Active',
+      joinDate: '2026-09-18'
+    },
+    {
+      id: 'CUST-004',
+      name: 'Fatima Noor',
+      email: 'fatima.noor@outlook.com',
+      phone: '+92 300 9988776',
+      address: 'Kotwali Road, Near Clock Tower',
+      city: 'Faisalabad',
+      tenantName: 'Chase Up',
+      tenantId: 'tenant-chaseup',
+      ordersCount: 5,
+      totalSpent: 15320,
+      status: 'Active',
+      joinDate: '2026-09-24'
+    },
+    {
+      id: 'CUST-005',
+      name: 'Tayyaba Batool',
+      email: 'tayyaba.batool@gmail.com',
+      phone: '+92 321 4523673',
+      address: 'Civil Lines, House 12-A',
+      city: 'Faisalabad',
+      tenantName: 'Al-Fatah Supermarket',
+      tenantId: 'tenant-alfatah',
+      ordersCount: 8,
+      totalSpent: 26400,
+      status: 'Active',
+      joinDate: '2026-07-10'
+    },
+    {
+      id: 'CUST-006',
+      name: 'Muhammad Hamza',
+      email: 'hamza.pk@gmail.com',
+      phone: '+92 302 5566778',
+      address: 'Madina Town, Main Boulevard',
+      city: 'Faisalabad',
+      tenantName: 'Chase Up',
+      tenantId: 'tenant-chaseup',
+      ordersCount: 2,
+      totalSpent: 5900,
+      status: 'Active',
+      joinDate: '2026-10-01'
+    }
+  ];
 
-  // Customers State (Starts empty for manual addition from Super Admin)
+  // Customers State (Seeded with real shoppers across all 4 marts)
   const [customers, setCustomers] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_customers_v3');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.filter(
-            (c) =>
-              c.id !== 'CUST-001' &&
-              c.id !== 'CUST-002' &&
-              c.name !== 'Hafsa' &&
-              c.name !== 'Aimen' &&
-              c.name !== 'Hafsa Tariq' &&
-              c.name !== 'Aimen Yasin' &&
-              c.email !== 'hafsa@gmail.com' &&
-              c.email !== 'aimen@gmail.com'
-          );
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map(parsed.map((c) => [String(c.email || c.id || '').toLowerCase(), c]));
+          DEFAULT_CUSTOMERS.forEach((dc) => {
+            if (!map.has(dc.email.toLowerCase())) {
+              map.set(dc.email.toLowerCase(), dc);
+            }
+          });
+          return Array.from(map.values());
         }
       }
-      localStorage.removeItem('freshmart_customers');
     } catch (e) {}
-    return [];
+    return DEFAULT_CUSTOMERS;
   });
 
   useEffect(() => {
@@ -4457,11 +4629,21 @@ export const StoreProvider = ({ children }) => {
   };
 
   const getTenantOrders = (tenantId = 'all') => {
+    const all = [...(adminOrders || []), ...(customerOrders || [])];
+    const map = new Map();
+    all.forEach((o) => {
+      const id = o.id || o.orderId;
+      if (id && !map.has(id)) {
+        map.set(id, o);
+      }
+    });
+    const unique = Array.from(map.values());
+
     if (!tenantId || tenantId === 'all') {
-      return adminOrders;
+      return unique;
     }
-    return adminOrders.filter(
-      (o) => o.tenantId === tenantId || o.storeId === tenantId || (tenantId === 'tenant-freshmart' && !o.tenantId)
+    return unique.filter(
+      (o) => isSameTenant(o.tenantId, tenantId) || isSameTenant(o.storeId, tenantId) || (tenantId === 'tenant-freshmart' && !o.tenantId)
     );
   };
 
@@ -6589,6 +6771,10 @@ export const StoreProvider = ({ children }) => {
         updateStoreAdmin,
         deleteStoreAdmin,
         toggleStoreAdminStatus,
+        // --- ⚙️ Platform Global Settings ---
+        platformSettings,
+        setPlatformSettings,
+        updatePlatformSettings,
         // --- 🏢 Multi-Company & Branch Architecture Values ---
         companies: COMPANIES,
         allBranches,
