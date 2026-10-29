@@ -190,11 +190,13 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
   const tenantStaff = useMemo(() => {
-    const activeTenant = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
+    const activeTenant = (user?.role !== 'superadmin' && user?.tenantId)
+      ? user.tenantId
+      : (currentTenant?.id || user?.tenantId || 'tenant-alfatah');
     return (pickupStaff || []).filter(
       (s) => isSameTenant(s.tenantId || s.companyId, activeTenant) && (s.status === 'Active' || !s.status)
     );
-  }, [pickupStaff, currentTenant?.id, user?.tenantId]);
+  }, [pickupStaff, currentTenant?.id, user?.tenantId, user?.role]);
 
   const handleAssignPickupStaff = async (orderId) => {
     const staffId = selectedStaffMap[orderId];
@@ -219,15 +221,21 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
   };
 
   const tenantBranches = useMemo(() => {
-    const activeTenant = currentTenant?.id || user?.tenantId;
+    const activeTenant = (user?.role !== 'superadmin' && user?.tenantId)
+      ? user.tenantId
+      : (currentTenant?.id || user?.tenantId);
     return (allBranches || []).filter((b) => isSameTenant(b.tenantId, activeTenant));
-  }, [allBranches, currentTenant?.id, user?.tenantId]);
+  }, [allBranches, currentTenant?.id, user?.tenantId, user?.role]);
 
   // Combine live orders (uses unified tenant orders from AdminDashboard if provided)
   const liveOrders = useMemo(() => {
     let list = [];
-    if (Array.isArray(passedOrders) && passedOrders.length >= 0) {
-      list = [...passedOrders];
+    const activeTenant = (user?.role !== 'superadmin' && user?.tenantId)
+      ? user.tenantId
+      : (currentTenant?.id || user?.tenantId || 'tenant-freshmart');
+
+    if (Array.isArray(passedOrders) && passedOrders.length > 0) {
+      list = passedOrders.filter((o) => isOrderVisibleToUser(o, user, activeTenant));
     } else {
       const combined = [...(customerOrders || []), ...(adminOrders || [])].map(sanitizeOrder);
       const uniqueMap = new Map();
@@ -272,7 +280,6 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
         }
       });
       const raw = Array.from(uniqueMap.values());
-      const activeTenant = currentTenant?.id || user?.tenantId || 'tenant-freshmart';
       list = raw.filter((o) => isOrderVisibleToUser(o, user, activeTenant));
     }
 

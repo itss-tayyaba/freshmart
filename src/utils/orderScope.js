@@ -238,7 +238,11 @@ export const isOrderVisibleToUser = (order, user, activeTenantId = null) => {
 
   const role = (user?.role || '').toLowerCase();
   const orderTenant = normalizeOrderTenantId(order);
-  const targetTenant = resolveTenantId(activeTenantId || user?.tenantId);
+  const targetTenant = resolveTenantId(
+    (role !== 'superadmin' && !user?.isSuperAdmin && user?.tenantId)
+      ? user.tenantId
+      : (activeTenantId || user?.tenantId)
+  );
 
   // Superadmin can view all orders, or filter by active tenant if chosen
   if (role === 'superadmin' || user?.isSuperAdmin) {
@@ -248,9 +252,10 @@ export const isOrderVisibleToUser = (order, user, activeTenantId = null) => {
     return true;
   }
 
-  // Store Admin: scoped to their own tenant
+  // Store Admin: strictly scoped to their own tenant
   if (role === 'admin' || role === 'store admin') {
-    if (!isSameTenant(orderTenant, targetTenant)) return false;
+    const adminTenant = resolveTenantId(user?.tenantId || targetTenant);
+    if (!isSameTenant(orderTenant, adminTenant)) return false;
     // If admin is restricted to a specific branch
     if (user?.branchId && user.branchId !== 'all') {
       return !order.branchId || order.branchId === user.branchId;
@@ -260,7 +265,8 @@ export const isOrderVisibleToUser = (order, user, activeTenantId = null) => {
 
   // Pickup Staff: strictly scoped to same store; directly assigned tasks always visible
   if (role === 'pickup_staff' || role === 'staff') {
-    if (!isSameTenant(orderTenant, targetTenant)) return false;
+    const staffTenant = resolveTenantId(user?.tenantId || targetTenant);
+    if (!isSameTenant(orderTenant, staffTenant)) return false;
 
     // Field staff directly assigned to this order can always see it regardless of branch
     if (isOrderAssignedToPickupStaff(order, user)) return true;

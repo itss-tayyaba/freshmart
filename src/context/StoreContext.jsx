@@ -576,6 +576,11 @@ export const StoreProvider = ({ children }) => {
   const [currentTenant, setCurrentTenantState] = useState(() => {
     try {
       if (typeof window !== 'undefined') {
+        const tabTenantId = sessionStorage.getItem('freshmart_tab_tenant_id');
+        if (tabTenantId) {
+          const foundTab = INITIAL_TENANTS.find((t) => t.id === tabTenantId || t.slug === tabTenantId);
+          if (foundTab) return foundTab;
+        }
         const params = new URLSearchParams(window.location.search);
         const storeParam = params.get('store') || params.get('tenant') || params.get('branch');
         if (storeParam) {
@@ -587,7 +592,10 @@ export const StoreProvider = ({ children }) => {
               (t.displayName && t.displayName.toLowerCase().includes(s)) ||
               t.name.toLowerCase().includes(s)
           );
-          if (foundByParam) return foundByParam;
+          if (foundByParam) {
+            sessionStorage.setItem('freshmart_tab_tenant_id', foundByParam.id);
+            return foundByParam;
+          }
         }
       }
       const savedId = localStorage.getItem('freshmart_current_tenant_id');
@@ -1296,6 +1304,7 @@ export const StoreProvider = ({ children }) => {
     if (!target) return;
     setCurrentTenantState(target);
     try {
+      sessionStorage.setItem('freshmart_tab_tenant_id', target.id);
       localStorage.setItem('freshmart_current_tenant_id', target.id);
     } catch (e) {}
 
@@ -1316,6 +1325,7 @@ export const StoreProvider = ({ children }) => {
           branchName: 'All Branches'
         };
         try {
+          sessionStorage.setItem('freshmart_tab_user', JSON.stringify(updatedUser));
           localStorage.setItem('freshmart_admin_user', JSON.stringify(updatedUser));
         } catch (e) {}
         return updatedUser;
@@ -1747,19 +1757,20 @@ export const StoreProvider = ({ children }) => {
   // Keep currentTenant aligned with the logged-in Store Admin's assigned tenant only on initial mount or admin view
   useEffect(() => {
     if (currentPage === 'admin' && isAdminLoggedIn && adminRole === 'admin' && user?.tenantId) {
-      if (!currentTenant) {
+      if (!currentTenant || !isSameTenant(currentTenant.id, user.tenantId)) {
         const matchingTenant = (tenants || []).find((t) => isSameTenant(t.id, user.tenantId)) ||
           INITIAL_TENANTS.find((t) => isSameTenant(t.id, user.tenantId));
         if (matchingTenant) {
           setCurrentTenantState(matchingTenant);
           try {
+            sessionStorage.setItem('freshmart_tab_tenant_id', matchingTenant.id);
             localStorage.setItem('freshmart_current_tenant_id', matchingTenant.id);
             localStorage.setItem('freshmart_current_tenant', JSON.stringify(matchingTenant));
           } catch (e) {}
         }
       }
     }
-  }, [currentPage, isAdminLoggedIn, adminRole, user?.tenantId, currentTenant]);
+  }, [currentPage, isAdminLoggedIn, adminRole, user?.tenantId, currentTenant?.id]);
 
   // Helper to resolve the correct store tenant based on preferred tenant ID, username, or store keywords
   const resolveStoreTenant = (candidateTenantId, userStr = '') => {
@@ -1834,6 +1845,7 @@ export const StoreProvider = ({ children }) => {
         localStorage.setItem('freshmart_vendor_token', effectiveToken);
       }
       if (newUser?.tenantId) {
+        sessionStorage.setItem('freshmart_tab_tenant_id', newUser.tenantId);
         localStorage.setItem('freshmart_current_tenant_id', newUser.tenantId);
       }
     } catch (e) {}
@@ -6073,7 +6085,9 @@ export const StoreProvider = ({ children }) => {
       addToast('Assignment denied', 'Only a store admin can auto-assign pickup staff.', 'error');
       return false;
     }
-    const activeTenantId = currentTenant?.id || user?.tenantId;
+    const activeTenantId = (user?.role !== 'superadmin' && user?.tenantId)
+      ? user.tenantId
+      : (currentTenant?.id || user?.tenantId);
     const tenantStaff = (pickupStaff || []).filter(
       (s) => isSameTenant(s.tenantId, activeTenantId) && (s.status === 'Active' || !s.status)
     );
@@ -6096,7 +6110,10 @@ export const StoreProvider = ({ children }) => {
       addToast('Assignment denied', 'Only a store admin can assign pickup staff.', 'error');
       return false;
     }
-    const staff = (pickupStaff || []).find((person) => person.id === staffId && isSameTenant(person.tenantId, currentTenant?.id || user?.tenantId) && (person.status === 'Active' || !person.status));
+    const adminTenantId = (user?.role !== 'superadmin' && user?.tenantId)
+      ? user.tenantId
+      : (currentTenant?.id || user?.tenantId);
+    const staff = (pickupStaff || []).find((person) => person.id === staffId && isSameTenant(person.tenantId, adminTenantId) && (person.status === 'Active' || !person.status));
     if (!staff) {
       addToast('Pickup staff unavailable', 'Select an active pickup staff account for this store.', 'error');
       return false;
@@ -6108,7 +6125,7 @@ export const StoreProvider = ({ children }) => {
       return iId === cleanId || item.id === orderId || item.orderId === orderId;
     };
     const current = [...(customerOrders || []), ...(adminOrders || [])].find(orderMatches);
-    if (!current || (current.tenantId && !isSameTenant(current.tenantId, currentTenant?.id || user?.tenantId))) return false;
+    if (!current || (current.tenantId && !isSameTenant(current.tenantId, adminTenantId))) return false;
 
     const staffCheck = canAssignStaffToOrder(current, staff);
     if (!staffCheck.allowed) {

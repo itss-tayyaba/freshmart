@@ -542,11 +542,18 @@ export const getOrders = async (req, res) => {
       diskOrders.forEach((d) => {
         const dKey = String(d.id || d.orderId || d._id).replace(/^#/, '').toLowerCase().trim();
         if (mongoIds.has(dKey)) return;
+        const dTenant = d.tenantId || d.companyId || (d.id && d.id.includes('AF') ? 'tenant-alfatah' : d.id && d.id.includes('CV') ? 'tenant-chasevalue' : d.id && d.id.includes('CU') ? 'tenant-chaseup' : 'tenant-freshmart');
+        if (isAdmin && userTenantId && role !== 'superadmin') {
+          if (!isSameTenant(dTenant, userTenantId)) return;
+          if (userBranchId && d.branchId && d.branchId !== userBranchId) return;
+        }
         if (role === 'pickup_staff' || role === 'staff') {
+          if (userTenantId && !isSameTenant(dTenant, userTenantId)) return;
           if (userBranchId && d.branchId && d.branchId !== userBranchId) return;
           if (req.query?.assignedOnly === 'true' && (!d.pickupStaffId || String(d.pickupStaffId) !== String(staffId))) return;
         }
         if (role === 'rider') {
+          if (userTenantId && !isSameTenant(dTenant, userTenantId)) return;
           if (userBranchId && d.branchId && d.branchId !== userBranchId) return;
           const rId = d.assignedRider?.id || d.assignedRider?.riderId;
           if (req.query?.assignedOnly === 'true' && (!rId || String(rId) !== String(riderId))) return;
@@ -599,7 +606,7 @@ export const getOrders = async (req, res) => {
     }
     if (isAdmin && userTenantId && role !== 'superadmin') {
       orders = orders.filter((order) => {
-        const orderTenant = order.tenantId || order.companyId;
+        const orderTenant = order.tenantId || order.companyId || (order.id && order.id.includes('AF') ? 'tenant-alfatah' : order.id && order.id.includes('CV') ? 'tenant-chasevalue' : order.id && order.id.includes('CU') ? 'tenant-chaseup' : 'tenant-freshmart');
         const matchTenant = isSameTenant(orderTenant, userTenantId);
         const matchBranch = !userBranchId || !order.branchId || order.branchId === userBranchId;
         return matchTenant && matchBranch;

@@ -181,7 +181,9 @@ export const DeliveryPortal = () => {
     }
 
     // 2. If viewing as admin / superadmin, match a rider for the active tenant
-    const targetTenant = currentTenant?.id || user?.tenantId;
+    const targetTenant = (user?.role !== 'superadmin' && user?.tenantId)
+      ? user.tenantId
+      : (currentTenant?.id || user?.tenantId);
     if (riders && riders.length > 0) {
       const tenantMatch = riders.find((r) => isSameTenant(r.tenantId, targetTenant));
       if (tenantMatch) {
@@ -259,7 +261,9 @@ export const DeliveryPortal = () => {
     // Put adminOrders first so admin assignments and statuses take priority, then merge customerOrders
     const combined = [...(adminOrders || []), ...(customerOrders || [])];
     const uniqueMap = new Map();
-    const activeTenantId = currentTenant?.id || user?.tenantId || 'tenant-alfatah';
+    const activeTenantId = (user?.role !== 'superadmin' && user?.tenantId)
+      ? user.tenantId
+      : (currentTenant?.id || user?.tenantId || 'tenant-alfatah');
 
     combined.forEach((ord) => {
       if (!ord) return;

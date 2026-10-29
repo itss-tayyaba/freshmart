@@ -5,7 +5,9 @@ import { isSameTenant } from '../../../data/companyHierarchyData';
 
 export const DeliverToStaffModal = ({ order, isOpen, onClose, onSuccess }) => {
   const { pickupStaff = [], assignPickupStaffToOrder, currentTenant, user, addToast } = useStore();
-  const tenantId = order?.tenantId || currentTenant?.id || user?.tenantId || 'tenant-freshmart';
+  const tenantId = (user?.role !== 'superadmin' && user?.tenantId)
+    ? user.tenantId
+    : (order?.tenantId || currentTenant?.id || 'tenant-freshmart');
   const staff = useMemo(() => pickupStaff.filter((member) => {
     if (!isSameTenant(member.tenantId || member.companyId, tenantId)) return false;
     if (member.status && member.status !== 'Active') return false;

@@ -30,7 +30,9 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [search, setSearch] = useState('');
 
-  const activeTenantId = currentTenant?.id || user?.tenantId || 'tenant-freshmart';
+  const activeTenantId = (user?.role !== 'superadmin' && user?.tenantId)
+    ? user.tenantId
+    : (currentTenant?.id || user?.tenantId || 'tenant-freshmart');
 
   const availableBranches = useMemo(() => {
     return (allBranches || []).filter((b) => isSameTenant(b.tenantId, activeTenantId));
@@ -49,8 +51,14 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
   );
 
   const orders = useMemo(() => {
-    if (Array.isArray(passedOrders) && passedOrders.length >= 0) {
-      return [...passedOrders].sort((a, b) => new Date(b.fulfillmentUpdatedAt || b.updatedAt || b.createdAt || 0) - new Date(a.fulfillmentUpdatedAt || a.updatedAt || a.createdAt || 0));
+    if (Array.isArray(passedOrders) && passedOrders.length > 0) {
+      return [...passedOrders]
+        .filter((order) => {
+          if (!activeTenantId) return true;
+          const orderTenant = order.tenantId || order.companyId;
+          return isSameTenant(orderTenant, activeTenantId);
+        })
+        .sort((a, b) => new Date(b.fulfillmentUpdatedAt || b.updatedAt || b.createdAt || 0) - new Date(a.fulfillmentUpdatedAt || a.updatedAt || a.createdAt || 0));
     }
     const unique = new Map();
     [...customerOrders, ...adminOrders].forEach((order) => {

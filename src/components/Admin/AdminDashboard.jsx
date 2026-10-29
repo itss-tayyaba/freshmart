@@ -98,9 +98,9 @@ const StoreAdminConsole = () => {
   const allTenants = tenants;
 
   const tenantBranches = useMemo(() => {
-    const activeTenant = currentTenant?.id || user?.tenantId;
+    const activeTenant = (user?.role !== 'superadmin' && user?.tenantId) ? user.tenantId : (currentTenant?.id || user?.tenantId);
     return (allBranches || []).filter((b) => isSameTenant(b.tenantId, activeTenant));
-  }, [allBranches, currentTenant?.id, user?.tenantId]);
+  }, [allBranches, currentTenant?.id, user?.tenantId, user?.role]);
   
   // Set initial activeTab
   const [activeTab, setActiveTab] = useState('Dashboard');
@@ -129,7 +129,9 @@ const StoreAdminConsole = () => {
     ? { title: 'Rider', badge: 'Rider', tag: 'Delivery Operations', iconBg: 'bg-emerald-600' }
     : roleMeta[adminRole] || roleMeta.admin;
 
-  const activeTenantId = currentTenant?.id || user?.tenantId || 'tenant-freshmart';
+  const activeTenantId = (user?.role !== 'superadmin' && user?.tenantId)
+    ? user.tenantId
+    : (currentTenant?.id || user?.tenantId || 'tenant-freshmart');
   const storeTheme = useMemo(() => {
     return getStoreTheme(currentTenant || activeTenantId);
   }, [currentTenant, activeTenantId]);

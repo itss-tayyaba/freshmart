@@ -135,14 +135,17 @@ export const DeliveryView = () => {
   // Get only the real branch and areas that are actually added or configured for this store
   // Do NOT auto-inject fake/unreal mock branches
   const availableBranches = useMemo(() => {
-    const canonicalTenantId = resolveTenantId ? resolveTenantId(currentTenant?.id) : (currentTenant?.id || 'company_002');
+    const activeTenantId = (user?.role !== 'superadmin' && user?.tenantId)
+      ? user.tenantId
+      : (currentTenant?.id || user?.tenantId || 'tenant-chaseup');
+    const canonicalTenantId = resolveTenantId ? resolveTenantId(activeTenantId) : activeTenantId;
 
     // 1. Check branches explicitly added by user in allBranches for this store
     const storeAddedBranches = (allBranches || []).filter(
       (b) =>
         b &&
         (b.status === 'active' || b.status === 'Active' || !b.status) &&
-        (b.tenantId === canonicalTenantId || b.tenantId === currentTenant?.id || isSameTenant(b.tenantId, currentTenant?.id))
+        (b.tenantId === canonicalTenantId || b.tenantId === activeTenantId || isSameTenant(b.tenantId, activeTenantId))
     );
 
     if (storeAddedBranches.length > 0) {
@@ -257,7 +260,9 @@ export const DeliveryView = () => {
 
   // Filter riders - strictly scoped to store tenant or all active registered riders
   const storeRiders = useMemo(() => {
-    const tId = currentTenant?.id || user?.tenantId;
+    const tId = (user?.role !== 'superadmin' && user?.tenantId)
+      ? user.tenantId
+      : (currentTenant?.id || user?.tenantId);
     const allRidersList = Array.isArray(riders) ? riders : [];
     if (!tId || adminRole === 'superadmin') return allRidersList;
     const tenantMatched = allRidersList.filter(
@@ -302,7 +307,9 @@ export const DeliveryView = () => {
     });
     const list = Array.from(uniqueMap.values());
     const isSuperAdmin = user?.role === 'superadmin' || adminRole === 'superadmin' || user?.isSuperAdmin;
-    const targetTenantId = isSuperAdmin ? null : (user?.tenantId || currentTenant?.id);
+    const targetTenantId = isSuperAdmin
+      ? null
+      : ((user?.role !== 'superadmin' && user?.tenantId) ? user.tenantId : (currentTenant?.id || user?.tenantId));
     if (!targetTenantId) return list;
     return list.filter((ord) => {
       const orderTenant =
@@ -514,8 +521,8 @@ export const DeliveryView = () => {
       coordinates: { lat, lng },
       coverageRadiusKm: Number(newRiderForm.coverageRadiusKm || selectedBranch?.deliveryRadius || 15),
       status: 'Active',
-      tenantId: currentTenant?.id || user?.tenantId || 'tenant-alfatah',
-      tenantName: currentTenant?.name || user?.tenantName || 'Al-Fatah',
+      tenantId: (user?.role !== 'superadmin' && user?.tenantId) ? user.tenantId : (currentTenant?.id || user?.tenantId || 'tenant-alfatah'),
+      tenantName: (user?.role !== 'superadmin' && user?.tenantName) ? user.tenantName : (currentTenant?.name || user?.tenantName || 'Al-Fatah'),
       cnic: newRiderForm.cnic ? newRiderForm.cnic.trim() : '',
       username: generatedUsername,
       password: generatedPassword,
