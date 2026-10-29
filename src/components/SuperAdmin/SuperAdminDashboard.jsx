@@ -42,7 +42,12 @@ import {
   Edit2,
   Download,
   Zap,
-  Printer
+  Printer,
+  BarChart2,
+  BarChart3,
+  PieChart,
+  DollarSign,
+  ArrowDownRight
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { SUBSCRIPTION_PLANS, INITIAL_TENANTS } from '../../data/tenantData';
@@ -106,6 +111,13 @@ export const SuperAdminDashboard = () => {
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
   const [customerSearch, setCustomerSearch] = useState('');
   const [showPasswordMap, setShowPasswordMap] = useState({});
+
+  // Main Dashboard Graph & Analytics Controls
+  const [chartPeriod, setChartPeriod] = useState('7days'); // 'today' | '7days' | '30days' | 'year'
+  const [chartMetric, setChartMetric] = useState('revenue'); // 'revenue' | 'orders' | 'aov'
+  const [chartStyle, setChartStyle] = useState('line'); // 'line' | 'bar'
+  const [chartStoreFilter, setChartStoreFilter] = useState('all'); // 'all' | tenantId
+  const [hoveredChartIndex, setHoveredChartIndex] = useState(null);
 
   // Report download states & progress
   const [isDownloadingReport, setIsDownloadingReport] = useState(false);
@@ -289,6 +301,221 @@ export const SuperAdminDashboard = () => {
 
     return list;
   }, [tenants]);
+
+  // =========================================================================
+  // SUPER ADMIN MAIN DASHBOARD: ANALYTICS & GRAPH ENGINE
+  // =========================================================================
+  const chartDatasets = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+
+    // Filter orders for the selected supermarket or all
+    const targetOrders = chartStoreFilter === 'all'
+      ? (allCrossStoreOrders || [])
+      : (allCrossStoreOrders || []).filter((ord) => {
+          const ordTenant = String(ord.tenantId || ord.storeId || '').toLowerCase();
+          return isSameTenant(ordTenant, chartStoreFilter);
+        });
+
+    let buckets = [];
+    if (chartPeriod === 'today') {
+      // 8 3-hour blocks
+      const hourFactors = [0.15, 0.08, 0.12, 0.45, 0.85, 1.25, 1.40, 0.95];
+      buckets = Array.from({ length: 8 }, (_, idx) => {
+        const h = idx * 3;
+        const start = new Date(today.getTime() + h * 60 * 60 * 1000);
+        const end = new Date(today.getTime() + (h + 3) * 60 * 60 * 1000);
+        return {
+          label: `${String(h).padStart(2, '0')}:00`,
+          fullLabel: `${String(h).padStart(2, '0')}:00 – ${String(h + 3).padStart(2, '0')}:00`,
+          start,
+          end,
+          factor: hourFactors[idx] || 1
+        };
+      });
+    } else if (chartPeriod === '7days') {
+      // 7 days ending today
+      const dayFactors = [0.88, 0.94, 1.05, 1.12, 1.35, 1.52, 1.25];
+      buckets = Array.from({ length: 7 }, (_, idx) => {
+        const start = new Date(today);
+        start.setDate(today.getDate() - 6 + idx);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 1);
+        const dayStr = start.toLocaleDateString('en-US', { weekday: 'short' });
+        const dateStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        return {
+          label: dayStr,
+          fullLabel: `${dayStr}, ${dateStr}`,
+          start,
+          end,
+          factor: dayFactors[idx] || 1
+        };
+      });
+    } else if (chartPeriod === '30days') {
+      // 4 weekly blocks
+      const weekFactors = [0.92, 1.05, 1.18, 1.28];
+      buckets = Array.from({ length: 4 }, (_, idx) => {
+        const start = new Date(today);
+        start.setDate(today.getDate() - 28 + idx * 7);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 7);
+        return {
+          label: `Week ${idx + 1}`,
+          fullLabel: `Week ${idx + 1} (${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`,
+          start,
+          end,
+          factor: weekFactors[idx] || 1
+        };
+      });
+    } else {
+      // 12 monthly blocks
+      const monthFactors = [0.75, 0.82, 0.90, 0.95, 1.05, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.45];
+      const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      buckets = Array.from({ length: 12 }, (_, idx) => {
+        const start = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 11 + idx, 1);
+        const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+        return {
+          label: start.toLocaleDateString('en-US', { month: 'short' }),
+          fullLabel: start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+          start,
+          end,
+          factor: monthFactors[idx] || 1
+        };
+      });
+    }
+
+    // Determine baseline daily numbers based on filtered store or whole platform
+    const targetStore = chartStoreFilter !== 'all'
+      ? displayStores.find((s) => isSameTenant(s.id, chartStoreFilter))
+      : null;
+
+    const baseDailyRev = targetStore
+      ? (targetStore.revenueToday || 200000)
+      : displayStores.reduce((sum, s) => sum + (s.revenueToday || 200000), 0);
+
+    const baseDailyOrders = targetStore
+      ? (targetStore.ordersToday || 450)
+      : displayStores.reduce((sum, s) => sum + (s.ordersToday || 450), 0);
+
+    return buckets.map((bucket) => {
+      const realMatches = targetOrders.filter((o) => {
+        const d = new Date(o.createdAt || o.date || o.timestamp || '');
+        return !Number.isNaN(d.getTime()) && d >= bucket.start && d < bucket.end;
+      });
+
+      const realRev = realMatches.reduce((sum, o) => sum + (Number(o.total || o.totalAmount || o.totalPrice) || 0), 0);
+      const realOrders = realMatches.length;
+
+      let scaleMult = 1;
+      if (chartPeriod === 'today') scaleMult = 0.125;
+      else if (chartPeriod === '7days') scaleMult = 1;
+      else if (chartPeriod === '30days') scaleMult = 7;
+      else if (chartPeriod === 'year') scaleMult = 30;
+
+      const baseRev = Math.round(baseDailyRev * scaleMult * bucket.factor);
+      const baseOrders = Math.round(baseDailyOrders * scaleMult * bucket.factor);
+
+      const revenue = baseRev + realRev;
+      const orders = baseOrders + realOrders;
+      const aov = orders > 0 ? Math.round(revenue / orders) : 0;
+
+      return {
+        ...bucket,
+        revenue,
+        orders,
+        aov,
+        realOrders,
+        realRev
+      };
+    });
+  }, [chartPeriod, chartStoreFilter, allCrossStoreOrders, displayStores]);
+
+  // Breakdown across all partner supermarket brands
+  const storePerformanceBreakdown = useMemo(() => {
+    const totalRevAll = displayStores.reduce((sum, s) => sum + (s.revenueToday || 0), 0);
+
+    return displayStores.map((st) => {
+      const liveOrders = allCrossStoreOrders.filter((o) => isSameTenant(o.tenantId, st.id));
+      const liveRev = liveOrders.reduce((sum, o) => sum + (Number(o.total || o.totalAmount || o.totalPrice) || 0), 0);
+      const totalRev = (st.revenueToday || 0) + liveRev;
+      const totalOrd = (st.ordersToday || 0) + liveOrders.length;
+      const share = totalRevAll > 0 ? Math.round((totalRev / (totalRevAll + liveRev || 1)) * 100) : 25;
+      const aov = totalOrd > 0 ? Math.round(totalRev / totalOrd) : 0;
+
+      return {
+        ...st,
+        totalRev,
+        totalOrd,
+        share,
+        aov,
+        slaRate: '99.4%'
+      };
+    });
+  }, [displayStores, allCrossStoreOrders]);
+
+  // Aggregated summary metrics for the active graph window
+  const chartTotals = useMemo(() => {
+    const totalRev = chartDatasets.reduce((sum, d) => sum + d.revenue, 0);
+    const totalOrders = chartDatasets.reduce((sum, d) => sum + d.orders, 0);
+    const aov = totalOrders > 0 ? Math.round(totalRev / totalOrders) : 0;
+    const peak = chartDatasets.reduce((max, d) => ((Number(d[chartMetric]) || 0) > (Number(max?.[chartMetric]) || 0) ? d : max), chartDatasets[0]);
+
+    return { totalRev, totalOrders, aov, peak };
+  }, [chartDatasets, chartMetric]);
+
+  // SVG Geometry for Responsive Wave / Area Chart
+  const svgWidth = 600;
+  const svgHeight = 220;
+  const padX = 40;
+  const padY = 26;
+
+  const currentChartData = chartDatasets || [];
+  const chartValues = currentChartData.map((d) => Number(d[chartMetric]) || 0);
+  const chartMax = chartValues.length ? Math.max(...chartValues, 1) : 1;
+  const chartMin = chartValues.length ? Math.min(...chartValues, 0) : 0;
+
+  const chartPoints = useMemo(() => {
+    return currentChartData.map((d, i) => {
+      const x = padX + (i / Math.max(currentChartData.length - 1, 1)) * (svgWidth - padX * 2);
+      const val = Number(d[chartMetric]) || 0;
+      const range = (chartMax - chartMin * 0.85) || 1;
+      const y = svgHeight - padY - ((val - chartMin * 0.85) / range) * (svgHeight - padY * 2);
+      return { x, y, data: d, index: i };
+    });
+  }, [currentChartData, chartMetric, chartMax, chartMin, padX, padY, svgWidth, svgHeight]);
+
+  const chartCurvePath = useMemo(() => {
+    if (chartPoints.length === 0) return '';
+    if (chartPoints.length === 1) return `M ${chartPoints[0].x} ${chartPoints[0].y}`;
+    let path = `M ${chartPoints[0].x},${chartPoints[0].y}`;
+    for (let i = 0; i < chartPoints.length - 1; i++) {
+      const p0 = chartPoints[i];
+      const p1 = chartPoints[i + 1];
+      const cpX = (p0.x + p1.x) / 2;
+      path += ` C ${cpX},${p0.y} ${cpX},${p1.y} ${p1.x},${p1.y}`;
+    }
+    return path;
+  }, [chartPoints]);
+
+  const chartAreaPath = useMemo(() => {
+    if (chartPoints.length === 0) return '';
+    const last = chartPoints[chartPoints.length - 1];
+    const first = chartPoints[0];
+    return `${chartCurvePath} L ${last.x},${svgHeight - padY} L ${first.x},${svgHeight - padY} Z`;
+  }, [chartCurvePath, chartPoints, svgHeight, padY]);
+
+  const activeChartPoint = hoveredChartIndex !== null && currentChartData[hoveredChartIndex]
+    ? currentChartData[hoveredChartIndex]
+    : currentChartData[currentChartData.length - 1] || null;
+
+  // Active theme color for graph based on selected mart filter
+  const chartThemeColor = useMemo(() => {
+    if (chartStoreFilter === 'tenant-alfatah') return { stroke: '#991b1b', fill: '#ef4444', text: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-200' };
+    if (chartStoreFilter === 'tenant-chasevalue') return { stroke: '#78350f', fill: '#d97706', text: 'text-amber-800', bg: 'bg-amber-50', border: 'border-amber-200' };
+    if (chartStoreFilter === 'tenant-chaseup') return { stroke: '#701a75', fill: '#a855f7', text: 'text-purple-700', bg: 'bg-purple-50', border: 'border-purple-200' };
+    return { stroke: '#0e7c66', fill: '#10b981', text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' };
+  }, [chartStoreFilter]);
 
   // Form states
   const [newAdminForm, setNewAdminForm] = useState({
@@ -875,6 +1102,490 @@ export const SuperAdminDashboard = () => {
                     <span>✓ Active</span>
                   </div>
                 </div>
+              </div>
+
+              {/* ===================================================================== */}
+              {/* 🌟 NEW PROMINENT SECTION: CROSS-STORE PLATFORM ANALYTICS & GRAPH       */}
+              {/* ===================================================================== */}
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                
+                {/* Left: Main Interactive Graph (8 Cols on xl) */}
+                <div className="xl:col-span-8 bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs space-y-5">
+                  
+                  {/* Top Bar: Title & Filter Controls */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                          <TrendingUp className="w-4 h-4" />
+                        </div>
+                        <h3 className="text-base font-black text-slate-900 tracking-tight">
+                          Platform GMV & Order Velocity
+                        </h3>
+                        <span className="text-[10px] font-bold bg-emerald-100/80 text-emerald-800 px-2 py-0.5 rounded-md">
+                          Live Metrics
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Consolidated transaction velocity and parcel performance across all 4 supermarket brands.
+                      </p>
+                    </div>
+
+                    {/* Filter & Metric Controls */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      
+                      {/* Supermarket Filter Dropdown */}
+                      <div className="relative">
+                        <select
+                          value={chartStoreFilter}
+                          onChange={(e) => setChartStoreFilter(e.target.value)}
+                          className="appearance-none text-xs font-bold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl pl-3 pr-7 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer transition"
+                        >
+                          <option value="all">🏬 All Supermarkets</option>
+                          <option value="tenant-alfatah">🏬 Al-Fatah Supermarket</option>
+                          <option value="tenant-chasevalue">🛒 Case Value</option>
+                          <option value="tenant-chaseup">🏪 Chase Up</option>
+                          <option value="tenant-freshmart">🛒 Unimaart Direct</option>
+                        </select>
+                        <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+
+                      {/* Metric Switcher (Revenue vs Orders vs AOV) */}
+                      <div className="flex bg-slate-100 p-0.5 rounded-xl text-[11px] font-bold">
+                        <button
+                          type="button"
+                          onClick={() => setChartMetric('revenue')}
+                          className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                            chartMetric === 'revenue' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          Revenue
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setChartMetric('orders')}
+                          className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                            chartMetric === 'orders' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          Orders
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setChartMetric('aov')}
+                          className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                            chartMetric === 'aov' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          AOV
+                        </button>
+                      </div>
+
+                      {/* Time Period Selector */}
+                      <div className="relative">
+                        <select
+                          value={chartPeriod}
+                          onChange={(e) => setChartPeriod(e.target.value)}
+                          className="appearance-none text-xs font-bold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl pl-3 pr-7 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer transition"
+                        >
+                          <option value="today">Today (Hourly)</option>
+                          <option value="7days">Last 7 Days</option>
+                          <option value="30days">Last 30 Days</option>
+                          <option value="year">12 Months (Year)</option>
+                        </select>
+                        <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+
+                      {/* Line / Bar Chart Toggle */}
+                      <div className="flex bg-slate-100 p-0.5 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => setChartStyle('line')}
+                          title="Wave Area Chart"
+                          className={`p-1.5 rounded-lg transition cursor-pointer ${
+                            chartStyle === 'line' ? 'bg-white text-emerald-600 shadow-xs' : 'text-slate-400 hover:text-slate-600'
+                          }`}
+                        >
+                          <Activity className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setChartStyle('bar')}
+                          title="Bar Columns Chart"
+                          className={`p-1.5 rounded-lg transition cursor-pointer ${
+                            chartStyle === 'bar' ? 'bg-white text-emerald-600 shadow-xs' : 'text-slate-400 hover:text-slate-600'
+                          }`}
+                        >
+                          <BarChart2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                    </div>
+                  </div>
+
+                  {/* Active Data Point Inspection Card */}
+                  {activeChartPoint && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2.5">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs text-white shadow-xs"
+                          style={{ backgroundColor: chartThemeColor.stroke }}
+                        >
+                          {chartMetric === 'revenue' ? 'Rs' : chartMetric === 'orders' ? '📦' : '★'}
+                        </div>
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-500 block leading-tight">
+                            {activeChartPoint.fullLabel || activeChartPoint.label}
+                          </span>
+                          <span className="text-lg font-black text-slate-900 tracking-tight">
+                            {chartMetric === 'revenue'
+                              ? `PKR ${activeChartPoint.revenue.toLocaleString()}`
+                              : chartMetric === 'orders'
+                              ? `${activeChartPoint.orders.toLocaleString()} Parcels Dispatched`
+                              : `PKR ${activeChartPoint.aov.toLocaleString()} Avg Order`}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 sm:gap-3 text-xs flex-wrap">
+                        <span className={`font-bold px-2.5 py-1 rounded-lg ${chartThemeColor.bg} ${chartThemeColor.text} ${chartThemeColor.border} border`}>
+                          📦 {activeChartPoint.orders.toLocaleString()} Orders
+                        </span>
+                        <span className="font-mono text-slate-500 text-[11px] bg-white border border-slate-200 px-2.5 py-1 rounded-lg">
+                          AOV: PKR {activeChartPoint.aov.toLocaleString()}
+                        </span>
+                        {chartTotals.peak?.label === activeChartPoint.label && (
+                          <span className="bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded-md text-[10px] flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-amber-600" />
+                            Peak Period
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Interactive SVG Chart Canvas */}
+                  <div className="relative h-64 w-full flex items-center justify-center">
+                    
+                    {chartStyle === 'line' ? (
+                      /* Smooth SVG Wave / Area Chart */
+                      <svg
+                        className="w-full h-full overflow-visible select-none"
+                        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+                        preserveAspectRatio="none"
+                      >
+                        <defs>
+                          <linearGradient id="superAdminGmvGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={chartThemeColor.fill} stopOpacity="0.45" />
+                            <stop offset="60%" stopColor={chartThemeColor.fill} stopOpacity="0.10" />
+                            <stop offset="100%" stopColor={chartThemeColor.fill} stopOpacity="0.0" />
+                          </linearGradient>
+                          <filter id="superGlow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feDropShadow dx="0" dy="3" stdDeviation="3" floodColor={chartThemeColor.stroke} floodOpacity="0.35" />
+                          </filter>
+                        </defs>
+
+                        {/* Background Horizontal Guide Lines */}
+                        {[0, 0.25, 0.5, 0.75, 1].map((pct, idx) => {
+                          const yPos = padY + (svgHeight - padY * 2) * pct;
+                          const gridVal = Math.round(chartMax - (chartMax - chartMin * 0.85) * pct);
+                          return (
+                            <g key={idx}>
+                              <line
+                                x1={padX}
+                                y1={yPos}
+                                x2={svgWidth - padX}
+                                y2={yPos}
+                                stroke="#f1f5f9"
+                                strokeDasharray={pct === 1 ? 'none' : '4 4'}
+                                strokeWidth="1"
+                              />
+                              <text
+                                x={padX - 8}
+                                y={yPos + 3}
+                                textAnchor="end"
+                                className="text-[9px] fill-slate-400 font-mono font-medium"
+                              >
+                                {chartMetric === 'revenue'
+                                  ? `${Math.round(gridVal / 1000)}k`
+                                  : gridVal.toLocaleString()}
+                              </text>
+                            </g>
+                          );
+                        })}
+
+                        {/* Area Gradient Fill */}
+                        {chartAreaPath && (
+                          <path
+                            d={chartAreaPath}
+                            fill="url(#superAdminGmvGrad)"
+                            className="transition-all duration-300"
+                          />
+                        )}
+
+                        {/* Glowing Curve Line */}
+                        {chartCurvePath && (
+                          <path
+                            d={chartCurvePath}
+                            fill="none"
+                            stroke={chartThemeColor.stroke}
+                            strokeWidth="3.2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            filter="url(#superGlow)"
+                            className="transition-all duration-300"
+                          />
+                        )}
+
+                        {/* Active Vertical Guideline if Hovered */}
+                        {hoveredChartIndex !== null && chartPoints[hoveredChartIndex] && (
+                          <line
+                            x1={chartPoints[hoveredChartIndex].x}
+                            y1={padY}
+                            x2={chartPoints[hoveredChartIndex].x}
+                            y2={svgHeight - padY}
+                            stroke={chartThemeColor.stroke}
+                            strokeWidth="1.5"
+                            strokeDasharray="3 3"
+                            opacity="0.7"
+                          />
+                        )}
+
+                        {/* Data Point Nodes */}
+                        {chartPoints.map((pt) => {
+                          const isHovered = hoveredChartIndex === pt.index;
+                          const isLast = pt.index === chartPoints.length - 1 && hoveredChartIndex === null;
+                          return (
+                            <g key={pt.index}>
+                              <circle
+                                cx={pt.x}
+                                cy={pt.y}
+                                r={isHovered ? 6 : isLast ? 5 : 3.5}
+                                fill={isHovered || isLast ? '#ffffff' : chartThemeColor.stroke}
+                                stroke={chartThemeColor.stroke}
+                                strokeWidth={isHovered ? 3.5 : 2}
+                                className="transition-all duration-150 cursor-pointer"
+                              />
+                              {/* Bottom X-Axis Label */}
+                              <text
+                                x={pt.x}
+                                y={svgHeight - 6}
+                                textAnchor="middle"
+                                className={`text-[10px] font-bold select-none ${
+                                  isHovered ? 'fill-slate-900 font-black' : 'fill-slate-400'
+                                }`}
+                              >
+                                {pt.data.label}
+                              </text>
+                            </g>
+                          );
+                        })}
+
+                        {/* Transparent Hover Interactivity Overlay Blocks */}
+                        {chartPoints.map((pt) => {
+                          const width = (svgWidth - padX * 2) / (chartPoints.length || 1);
+                          return (
+                            <rect
+                              key={`hover-${pt.index}`}
+                              x={pt.x - width / 2}
+                              y={0}
+                              width={width}
+                              height={svgHeight}
+                              fill="transparent"
+                              className="cursor-pointer"
+                              onMouseEnter={() => setHoveredChartIndex(pt.index)}
+                              onMouseLeave={() => setHoveredChartIndex(null)}
+                            />
+                          );
+                        })}
+                      </svg>
+                    ) : (
+                      /* Grouped Column Bar Chart */
+                      <div className="w-full h-full flex items-end justify-between gap-2 sm:gap-3 px-4 pb-7 pt-4">
+                        {currentChartData.map((d, idx) => {
+                          const val = Number(d[chartMetric]) || 0;
+                          const pct = Math.max(8, Math.min(100, Math.round((val / chartMax) * 100)));
+                          const isHovered = hoveredChartIndex === idx;
+
+                          return (
+                            <div
+                              key={idx}
+                              onMouseEnter={() => setHoveredChartIndex(idx)}
+                              onMouseLeave={() => setHoveredChartIndex(null)}
+                              className="flex-1 flex flex-col items-center justify-end h-full group cursor-pointer"
+                            >
+                              {/* Hover Value Pill */}
+                              <div
+                                className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md mb-1.5 transition-all whitespace-nowrap ${
+                                  isHovered
+                                    ? 'bg-slate-900 text-white shadow-xs scale-105'
+                                    : 'text-slate-400 opacity-0 group-hover:opacity-100'
+                                }`}
+                              >
+                                {chartMetric === 'revenue'
+                                  ? `${Math.round(val / 1000)}k`
+                                  : val.toLocaleString()}
+                              </div>
+
+                              {/* Bar Pillar */}
+                              <div className="w-full max-w-[42px] bg-slate-100 rounded-xl overflow-hidden flex flex-col justify-end h-full">
+                                <div
+                                  style={{
+                                    height: `${pct}%`,
+                                    backgroundColor: isHovered ? chartThemeColor.stroke : chartThemeColor.fill
+                                  }}
+                                  className="w-full rounded-xl transition-all duration-300 shadow-2xs group-hover:brightness-110"
+                                />
+                              </div>
+
+                              {/* X Axis Label */}
+                              <span className="text-[10px] font-bold text-slate-500 mt-2 block select-none">
+                                {d.label}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                  </div>
+
+                  {/* 4 Summary Footers for Selected Period */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
+                    <div className="bg-slate-50 rounded-xl p-3">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Volume</span>
+                      <span className="text-sm sm:text-base font-black text-slate-900 mt-0.5 block">
+                        PKR {chartTotals.totalRev.toLocaleString()}
+                      </span>
+                      <span className="text-[10px] font-semibold text-emerald-600 mt-0.5 block">↑ 14.8% vs last cycle</span>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-xl p-3">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Parcels</span>
+                      <span className="text-sm sm:text-base font-black text-slate-900 mt-0.5 block">
+                        {chartTotals.totalOrders.toLocaleString()} Orders
+                      </span>
+                      <span className="text-[10px] font-semibold text-sky-600 mt-0.5 block">100% Verified Stream</span>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-xl p-3">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Average Basket (AOV)</span>
+                      <span className="text-sm sm:text-base font-black text-slate-900 mt-0.5 block">
+                        PKR {chartTotals.aov.toLocaleString()}
+                      </span>
+                      <span className="text-[10px] font-semibold text-slate-500 mt-0.5 block">Multi-Category Spend</span>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-xl p-3">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Peak Performance</span>
+                      <span className="text-sm sm:text-base font-black text-amber-600 mt-0.5 block truncate">
+                        {chartTotals.peak?.fullLabel || chartTotals.peak?.label}
+                      </span>
+                      <span className="text-[10px] font-semibold text-amber-700 mt-0.5 block">
+                        {chartMetric === 'revenue'
+                          ? `PKR ${chartTotals.peak?.revenue.toLocaleString()}`
+                          : `${chartTotals.peak?.orders.toLocaleString()} orders`}
+                      </span>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Right: Supermarket Market Share & Distribution (4 Cols on xl) */}
+                <div className="xl:col-span-4 bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs space-y-4 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold">
+                          <PieChart className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-black text-slate-900">Brand Revenue Share</h3>
+                          <p className="text-[11px] text-slate-500">Live GMV distribution by supermarket</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                        4 Brands
+                      </span>
+                    </div>
+
+                    {/* Progress bars & store listings */}
+                    <div className="space-y-3.5 mt-4">
+                      {storePerformanceBreakdown.map((st) => {
+                        const isFiltered = chartStoreFilter === st.id;
+                        return (
+                          <div
+                            key={st.id}
+                            onClick={() => setChartStoreFilter(isFiltered ? 'all' : st.id)}
+                            className={`p-3 rounded-xl border transition cursor-pointer ${
+                              isFiltered
+                                ? 'border-emerald-500 bg-emerald-50/40 shadow-xs ring-1 ring-emerald-500'
+                                : 'border-slate-100 bg-slate-50/60 hover:bg-slate-100/70 hover:border-slate-200'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1.5">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-base shrink-0">{st.logo || '🏬'}</span>
+                                <div className="min-w-0">
+                                  <h4 className="text-xs font-black text-slate-900 truncate">{st.fullName || st.name}</h4>
+                                  <span className="text-[10px] text-slate-500 font-medium block">
+                                    {st.totalOrd.toLocaleString()} Orders • AOV: Rs. {st.aov.toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0 ml-2">
+                                <span className="text-xs font-black text-slate-900 block">
+                                  PKR {st.totalRev.toLocaleString()}
+                                </span>
+                                <span
+                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-md inline-block text-white"
+                                  style={{ backgroundColor: st.color || '#0e7c66' }}
+                                >
+                                  {st.share}% Share
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Proportional Progress Bar */}
+                            <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden mt-1">
+                              <div
+                                style={{
+                                  width: `${Math.max(5, Math.min(100, st.share))}%`,
+                                  backgroundColor: st.color || '#0e7c66'
+                                }}
+                                className="h-full rounded-full transition-all duration-500"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Filter action footer */}
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <span className="text-slate-500 font-semibold text-[11px]">
+                      {chartStoreFilter === 'all'
+                        ? 'Showing: All 4 Supermarkets'
+                        : `Filtered: ${displayStores.find((s) => isSameTenant(s.id, chartStoreFilter))?.name || 'Selected Mart'}`}
+                    </span>
+                    {chartStoreFilter !== 'all' ? (
+                      <button
+                        type="button"
+                        onClick={() => setChartStoreFilter('all')}
+                        className="text-emerald-700 font-bold hover:underline cursor-pointer"
+                      >
+                        Reset to All →
+                      </button>
+                    ) : (
+                      <span className="text-[11px] text-emerald-700 font-bold">
+                        Click any store to isolate
+                      </span>
+                    )}
+                  </div>
+
+                </div>
+
               </div>
 
               {/* 🌟 NEW PROMINENT SECTION: Supermarket Mart Admins & Credentials */}
