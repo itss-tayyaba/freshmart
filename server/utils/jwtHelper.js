@@ -43,3 +43,4 @@ export const signJwtToken = (userId, role, email, name, vendorId = undefined, ad
     expiresIn: process.env.JWT_EXPIRES_IN || '7d'
   });
 };
+

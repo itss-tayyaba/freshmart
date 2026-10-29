@@ -86,6 +86,12 @@ const formatDetailedItemsLine = (ord) => {
   return '1× Item';
 };
 
+// Helper: Format price as Pakistani Rupees safely
+const formatPrice = (amount) => {
+  const num = Number(amount || 0);
+  return `Rs. ${num.toLocaleString()}`;
+};
+
 // Helper: Safely get customer display name (handles string, object, or fallback)
 const getCustomerDisplayName = (customerVal, fallback = 'Customer') => {
   if (!customerVal) return fallback;
