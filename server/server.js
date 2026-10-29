@@ -13,6 +13,7 @@ import { Category } from './models/Category.js';
 import { Company } from './models/Company.js';
 import { Branch } from './models/Branch.js';
 import { Supplier } from './models/ExtraModels.js';
+import { seedCoreEntities } from './config/seedCoreEntities.js';
 import { FRESHMART_PRODUCTS } from '../src/data/freshMartData.js';
 import { ALL_BRANCH_PRODUCTS } from '../src/data/branchCatalogData.js';
 import { STORE_DEPARTMENTS, getDepartmentById } from '../src/data/departmentData.js';
@@ -266,6 +267,9 @@ async function seedInitialDatabase() {
       });
       console.log('✅ Coca-Cola partner supplier verified.');
     }
+
+    // 6. Synchronize Admins, Pickup Staff, and Riders collections
+    await seedCoreEntities();
   } catch (err) {
     console.error('Seed error:', err.message);
   }

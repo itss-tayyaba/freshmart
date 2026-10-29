@@ -3,6 +3,8 @@ import path from 'node:path';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import { User } from '../models/User.js';
+import { Admin } from '../models/Admin.js';
+import { PickupStaff } from '../models/PickupStaff.js';
 import { Supplier, Rider } from '../models/ExtraModels.js';
 import { isDbOnline } from '../config/db.js';
 import { loadDiskRiders } from './extraControllers.js';
@@ -112,6 +114,98 @@ export const loginUser = async (req, res) => {
     const safeDigits = escapeRegex(cleanDigits);
 
     if (isDbOnline()) {
+      // 0. Check dedicated Admin model
+      const adminDoc = await Admin.findOne({
+        $or: [
+          { email: cleanInput },
+          { username: cleanInput },
+          { id: cleanInput.toUpperCase() },
+          { name: new RegExp(`^${safeRegexInput}$`, 'i') },
+          ...(cleanDigits.length >= 7 ? [{ phone: new RegExp(safeDigits) }] : [])
+        ]
+      });
+
+      if (adminDoc) {
+        const isMatch = await adminDoc.matchPassword(password);
+        const isDemo = allowDemoAuth();
+        const isAdminFallback = isDemo && (password === 'admin123' || password === 'superadmin123' || password === adminDoc.plainPassword);
+
+        if (isMatch || isAdminFallback) {
+          let resolvedTenantId = req.body.tenantId || adminDoc.tenantId;
+          if (!resolvedTenantId || resolvedTenantId === 'all') {
+            resolvedTenantId = adminDoc.tenantId || 'all';
+          }
+          const resolvedBranchId = req.body.branchId || adminDoc.branchId || 'all';
+          const resolvedBranchName = adminDoc.branchName || 'All Branches';
+
+          return res.json({
+            success: true,
+            _id: adminDoc._id,
+            id: adminDoc.id || adminDoc.adminId || adminDoc._id,
+            name: adminDoc.name,
+            email: adminDoc.email,
+            role: adminDoc.role,
+            phone: adminDoc.phone,
+            tenantId: resolvedTenantId,
+            tenantName: adminDoc.tenantName,
+            branchId: resolvedBranchId,
+            branchName: resolvedBranchName,
+            city: adminDoc.city,
+            location: adminDoc.location,
+            token: generateToken(adminDoc.id || adminDoc._id, adminDoc.role, adminDoc.email, adminDoc.name, undefined, {
+              tenantId: resolvedTenantId,
+              branchId: resolvedBranchId,
+              branchName: resolvedBranchName
+            })
+          });
+        }
+      }
+
+      // 0.1 Check dedicated PickupStaff model
+      const staffDoc = await PickupStaff.findOne({
+        $or: [
+          { email: cleanInput },
+          { username: cleanInput },
+          { username: pickupUsername },
+          { staffId: cleanInput.toUpperCase() },
+          { id: cleanInput.toUpperCase() },
+          { name: new RegExp(`^${safeRegexInput}$`, 'i') },
+          ...(cleanDigits.length >= 7 ? [{ phone: new RegExp(safeDigits) }] : [])
+        ]
+      });
+
+      if (staffDoc) {
+        const isMatch = await staffDoc.matchPassword(password);
+        const isDemo = allowDemoAuth();
+        const isStaffFallback = isDemo && (password === 'staff123' || password === 'admin123' || password === staffDoc.plainPassword);
+
+        if (isMatch || isStaffFallback) {
+          const staffIdentifier = staffDoc.staffId || staffDoc.id || staffDoc._id.toString();
+          return res.json({
+            success: true,
+            _id: staffDoc._id,
+            id: staffIdentifier,
+            staffId: staffIdentifier,
+            name: staffDoc.name,
+            email: staffDoc.email,
+            role: 'pickup_staff',
+            phone: staffDoc.phone,
+            tenantId: staffDoc.tenantId,
+            tenantName: staffDoc.tenantName,
+            branchId: staffDoc.branchId,
+            branchName: staffDoc.branchName,
+            city: staffDoc.city,
+            location: staffDoc.location,
+            token: generateToken(staffIdentifier, 'pickup_staff', staffDoc.email, staffDoc.name, undefined, {
+              staffId: staffIdentifier,
+              tenantId: staffDoc.tenantId,
+              branchId: staffDoc.branchId,
+              branchName: staffDoc.branchName
+            })
+          });
+        }
+      }
+
       // 1. Check User model (Customers, Admins, Pickup Staff)
       const user = await User.findOne({
         $or: [
@@ -644,6 +738,46 @@ export const createPickupStaff = async (req, res) => {
 
     // 2. Sync to MongoDB if online
     if (isDbOnline()) {
+      const branchCity = req.body.city || 'Faisalabad';
+      const branchLocation = req.body.location || `${branchName}, ${branchCity}`;
+      const branchAddress = req.body.address || branchLocation;
+      const tenantName = req.body.tenantName || 'Supermarket';
+
+      // 2a. Save directly to dedicated PickupStaff collection
+      await PickupStaff.findOneAndUpdate(
+        {
+          $or: [
+            { staffId },
+            { id: staffId },
+            { username: cleanUsername },
+            { email }
+          ]
+        },
+        {
+          $set: {
+            id: staffId,
+            staffId,
+            name,
+            username: cleanUsername,
+            email,
+            password,
+            plainPassword: password,
+            phone: phone || '',
+            role: 'pickup_staff',
+            tenantId,
+            tenantName,
+            branchId,
+            branchName,
+            city: branchCity,
+            location: branchLocation,
+            address: branchAddress,
+            status: 'Active'
+          }
+        },
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+      );
+
+      // 2b. Maintain compatibility with User collection
       let staff = await User.findOne({
         $or: [
           { email },
@@ -673,8 +807,11 @@ export const createPickupStaff = async (req, res) => {
             email: staff.email,
             phone: staff.phone,
             tenantId,
+            tenantName,
             branchId,
             branchName,
+            city: branchCity,
+            location: branchLocation,
             role: staff.role,
             status: 'Active'
           }
@@ -692,8 +829,11 @@ export const createPickupStaff = async (req, res) => {
           email: staff.email,
           phone: staff.phone,
           tenantId,
+          tenantName,
           branchId,
           branchName,
+          city: branchCity,
+          location: branchLocation,
           role: staff.role,
           status: 'Active'
         }
@@ -725,30 +865,53 @@ export const getPickupStaff = async (req, res) => {
       return res.json({ success: true, count: list.length, staff: list });
     }
 
-    const query = { role: 'pickup_staff' };
+    const query = {};
     if (targetTenant) {
       query.tenantId = targetTenant;
     }
     if (targetBranch) {
       query.branchId = targetBranch;
     }
-    const dbStaffList = await User.find(query).select('-password').sort({ createdAt: -1 });
-    const formattedDb = dbStaffList.map((s) => ({
-      id: s.staffId || s._id.toString(),
-      staffId: s.staffId || s._id.toString(),
-      name: s.name,
-      username: s.email.includes('@pickup.freshmart.pk')
-        ? s.email.replace('@pickup.freshmart.pk', '')
-        : s.email,
-      email: s.email,
-      phone: s.phone || '',
-      tenantId: s.tenantId || 'tenant-alfatah',
-      branchId: s.branchId || 'branch_001',
-      branchName: s.branchName || 'Main Branch',
-      role: s.role,
-      status: 'Active',
-      createdAt: s.createdAt
-    }));
+    const dedicatedStaffList = await PickupStaff.find(query).sort({ createdAt: -1 });
+    const userStaffList = await User.find({ ...query, role: 'pickup_staff' }).select('-password').sort({ createdAt: -1 });
+
+    const formattedDb = [
+      ...dedicatedStaffList.map((s) => ({
+        id: s.staffId || s.id || s._id.toString(),
+        staffId: s.staffId || s.id || s._id.toString(),
+        name: s.name,
+        username: s.username,
+        email: s.email || `${s.username}@pickup.freshmart.pk`,
+        phone: s.phone || '',
+        password: s.plainPassword || 'staff123',
+        tenantId: s.tenantId || 'tenant-alfatah',
+        tenantName: s.tenantName || 'Supermarket',
+        branchId: s.branchId || 'branch_001',
+        branchName: s.branchName || 'Main Branch',
+        city: s.city || 'Faisalabad',
+        location: s.location || '',
+        address: s.address || '',
+        role: s.role || 'pickup_staff',
+        status: s.status || 'Active',
+        createdAt: s.createdAt
+      })),
+      ...userStaffList.map((s) => ({
+        id: s.staffId || s._id.toString(),
+        staffId: s.staffId || s._id.toString(),
+        name: s.name,
+        username: s.email.includes('@pickup.freshmart.pk')
+          ? s.email.replace('@pickup.freshmart.pk', '')
+          : s.email,
+        email: s.email,
+        phone: s.phone || '',
+        tenantId: s.tenantId || 'tenant-alfatah',
+        branchId: s.branchId || 'branch_001',
+        branchName: s.branchName || 'Main Branch',
+        role: s.role,
+        status: 'Active',
+        createdAt: s.createdAt
+      }))
+    ];
 
     // Merge disk and mongo records seamlessly
     const staffMap = new Map();
@@ -805,6 +968,34 @@ export const updatePickupStaff = async (req, res) => {
     // 2. Update in MongoDB
     if (isDbOnline()) {
       try {
+        // 2a. Update dedicated PickupStaff collection
+        await PickupStaff.findOneAndUpdate(
+          {
+            $or: [
+              { staffId: id },
+              { staffId: id.toUpperCase() },
+              { username: cleanId },
+              { email: cleanId },
+              ...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : [])
+            ]
+          },
+          {
+            $set: {
+              ...(updates.name ? { name: updates.name } : {}),
+              ...(updates.username ? { username: updates.username } : {}),
+              ...(updates.phone !== undefined ? { phone: updates.phone } : {}),
+              ...(updates.password ? { password: updates.password, plainPassword: updates.password } : {}),
+              ...(updates.branchId ? { branchId: updates.branchId } : {}),
+              ...(updates.branchName ? { branchName: updates.branchName } : {}),
+              ...(updates.tenantId ? { tenantId: updates.tenantId } : {}),
+              ...(updates.tenantName ? { tenantName: updates.tenantName } : {}),
+              ...(updates.city ? { city: updates.city } : {}),
+              ...(updates.location ? { location: updates.location } : {})
+            }
+          },
+          { upsert: true, returnDocument: 'after' }
+        );
+
         let staffDoc = await User.findOne({
           $or: [
             { staffId: id },
@@ -872,6 +1063,16 @@ export const deletePickupStaff = async (req, res) => {
 
     // 2. Delete from MongoDB if online
     if (isDbOnline()) {
+      await PickupStaff.deleteMany({
+        $or: [
+          { staffId: id },
+          { id: id },
+          { username: cleanId },
+          { email: cleanId },
+          ...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : [])
+        ]
+      });
+
       await User.deleteMany({
         $or: [
           { staffId: id },
@@ -900,6 +1101,41 @@ export const saveStoreAdmin = async (req, res) => {
     }
 
     if (isDbOnline()) {
+      const branchCity = req.body.city || 'Faisalabad';
+      const branchName = req.body.branchName || 'Main Branch';
+      const branchLocation = req.body.location || `${branchName}, ${branchCity}`;
+      const branchId = req.body.branchId || 'all';
+
+      // 1. Save directly into dedicated Admin collection ('admins')
+      await Admin.findOneAndUpdate(
+        {
+          $or: [
+            { email: cleanEmail },
+            { username: cleanEmail }
+          ]
+        },
+        {
+          $set: {
+            name: name || 'Store Admin',
+            username: cleanEmail,
+            email: cleanEmail,
+            password,
+            plainPassword: password,
+            phone: phone || '+92 300 0000000',
+            role: req.body.role || 'admin',
+            tenantId: tenantId || 'tenant-alfatah',
+            tenantName: tenantName || 'Supermarket',
+            branchId,
+            branchName,
+            city: branchCity,
+            location: branchLocation,
+            address: req.body.address || branchLocation,
+            status: 'Active'
+          }
+        },
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+      );
+
       let adminUser = await User.findOne({
         $or: [
           { email: cleanEmail },

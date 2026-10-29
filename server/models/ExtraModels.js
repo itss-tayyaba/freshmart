@@ -39,17 +39,19 @@ export const Supplier = mongoose.model('Supplier', supplierSchema);
 const riderSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true },
+    riderId: { type: String },
     name: { type: String, required: true },
     phone: { type: String, required: true },
     vehicleType: { type: String, default: '🏍️ Honda 125' },
     vehicleNumber: { type: String, default: 'LEK-0000' },
-    zone: { type: String, default: 'Lahore Hub' },
-    region: { type: String, default: 'Lahore Hub' },
+    zone: { type: String, default: 'D-Ground Commercial Hub (Faisalabad)' },
+    region: { type: String, default: 'D-Ground Commercial Region' },
     latitude: { type: Number },
     longitude: { type: Number },
     status: { type: String, default: 'On-Duty' },
     username: { type: String },
     password: { type: String, default: 'rider123' },
+    plainPassword: { type: String, default: 'rider123' },
     cnic: { type: String },
     deliveriesCount: { type: Number, default: 0 },
     rating: { type: Number, default: 5.0 },
@@ -57,33 +59,39 @@ const riderSchema = new mongoose.Schema(
       lat: { type: Number },
       lng: { type: Number }
     },
-    coverageRadiusKm: { type: Number, default: 15, min: 1, max: 100 },
+    coverageRadiusKm: { type: Number, default: 25, min: 1, max: 100 },
     currentLat: { type: Number },
     currentLng: { type: Number },
     activeOrders: [{ type: String }],
     tenantId: { type: String, index: true, default: 'tenant-freshmart' },
-    branchId: { type: String, index: true, default: 'branch_001' },
-    branchName: { type: String, default: 'Main Branch' },
+    tenantName: { type: String, default: 'FreshMart' },
+    branchId: { type: String, index: true, default: 'branch_um_fsd' },
+    branchName: { type: String, default: 'Peoples Colony Dark Store' },
     city: { type: String, default: 'Faisalabad' },
     serviceArea: { type: String },
+    location: { type: String },
     address: { type: String },
-    isGlobal: { type: Boolean, default: true }
+    isGlobal: { type: Boolean, default: false }
   },
-  { timestamps: true, bufferCommands: false }
+  { timestamps: true, bufferCommands: false, collection: 'riders' }
 );
 
 // Encrypt rider password before saving (Bcrypt Pre-Save Hook)
-riderSchema.pre('save', async function () {
-  if (!this.isModified('password') || !this.password) {
-    return;
+riderSchema.pre('save', async function (next) {
+  if (this.isModified('password') && this.password) {
+    if (!this.plainPassword) {
+      this.plainPassword = this.password;
+    }
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
   }
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+  if (typeof next === 'function') next();
 });
 
 // Compare password method
 riderSchema.methods.matchPassword = async function (enteredPassword) {
   if (!this.password || !enteredPassword) return false;
+  if (this.plainPassword && this.plainPassword === enteredPassword) return true;
   if (this.password === enteredPassword) return true;
   try {
     return await bcrypt.compare(enteredPassword, this.password);
