@@ -45,13 +45,13 @@ export const HeroSection = () => {
 
         {/* Right Hero Banner Slider matching screenshot */}
         <div
-          className="flex-1 relative rounded-3xl overflow-hidden bg-gradient-to-r from-[#f0f9f6] via-[#f7fbf9] to-[#edf7f3] border border-emerald-900/5 shadow-card min-h-[380px] lg:min-h-[420px] flex items-center group"
+          className="flex-1 relative rounded-3xl overflow-hidden bg-gradient-to-r from-[#f0f9f6] via-[#f7fbf9] to-[#edf7f3] dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-emerald-900/5 dark:border-slate-800 shadow-card min-h-[380px] lg:min-h-[420px] flex items-center group"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
           {/* Background Decorative subtle organic blobs */}
-          <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-emerald-200/30 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute top-10 left-1/3 w-64 h-64 bg-amber-100/40 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-emerald-200/30 dark:bg-emerald-900/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute top-10 left-1/3 w-64 h-64 bg-amber-100/40 dark:bg-amber-900/10 rounded-full blur-2xl pointer-events-none" />
 
           {/* Slide Content Container */}
           <div className="relative z-10 w-full p-6 sm:p-10 lg:p-14 flex flex-col md:flex-row items-center justify-between gap-8">
@@ -60,20 +60,20 @@ export const HeroSection = () => {
             <div className="max-w-md flex-1 text-left">
               
               {/* Optional Top Tag */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/80 text-brand-green text-xs font-semibold mb-3.5 shadow-2xs">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/80 dark:bg-emerald-950/70 text-brand-green dark:text-emerald-400 text-xs font-semibold mb-3.5 shadow-2xs">
                 <Sparkles className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
                 <span>{slide.tag}</span>
               </div>
 
               {/* Main Headline */}
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight leading-[1.18] mb-3">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-[1.18] mb-3">
                 {slide.title}
               </h1>
 
               {/* Subtitle with bold discount */}
-              <p className="text-slate-600 text-sm sm:text-base font-normal mb-6 leading-relaxed">
+              <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base font-normal mb-6 leading-relaxed">
                 {slide.subtitle}{' '}
-                <strong className="text-slate-900 font-bold">{slide.highlightDiscount}</strong>{' '}
+                <strong className="text-slate-900 dark:text-white font-bold">{slide.highlightDiscount}</strong>{' '}
                 {slide.suffixText}
               </p>
 
@@ -95,7 +95,7 @@ export const HeroSection = () => {
                     className={`h-2.5 rounded-full transition-all duration-300 focus:outline-none ${
                       idx === currentSlideIndex
                         ? 'w-7 bg-brand-green'
-                        : 'w-2.5 bg-slate-300 hover:bg-slate-400'
+                        : 'w-2.5 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400'
                     }`}
                     aria-label={`Go to slide ${idx + 1}`}
                   />
@@ -110,11 +110,11 @@ export const HeroSection = () => {
                   key={slide.id}
                   src={slide.image}
                   alt={slide.title}
-                  className="w-full h-64 sm:h-72 lg:h-80 object-cover rounded-2xl shadow-md border-4 border-white transform transition-transform duration-700 ease-out hover:scale-105"
+                  className="w-full h-64 sm:h-72 lg:h-80 object-cover rounded-2xl shadow-md border-4 border-white dark:border-slate-800 transform transition-transform duration-700 ease-out hover:scale-105"
                 />
 
                 {/* Floating badge for freshness */}
-                <div className="absolute -bottom-3 -left-3 bg-white/95 backdrop-blur-xs px-3.5 py-2 rounded-xl shadow-lg border border-slate-100 flex items-center gap-2 text-xs font-bold text-emerald-800 animate-bounce-soft">
+                <div className="absolute -bottom-3 -left-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs px-3.5 py-2 rounded-xl shadow-lg border border-slate-100 dark:border-slate-800 flex items-center gap-2 text-xs font-bold text-emerald-800 dark:text-emerald-400 animate-bounce-soft">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
                   <span>100% Quality Checked</span>
                 </div>

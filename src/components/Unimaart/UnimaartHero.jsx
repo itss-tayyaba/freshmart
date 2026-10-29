@@ -12,28 +12,28 @@ export const UnimaartHero = () => {
         {/* ========================================================================= */}
         {/* 1. MAIN LEFT BANNER (FAST DELIVERY & FRESH PRODUCE) */}
         {/* ========================================================================= */}
-        <div className="lg:col-span-8 bg-[#f0f7fc] rounded-3xl p-6 sm:p-10 lg:p-12 relative overflow-hidden border border-sky-900/10 shadow-xs flex flex-col justify-between min-h-[380px] sm:min-h-[440px]">
+        <div className="lg:col-span-8 bg-[#f0f7fc] dark:bg-slate-900/95 rounded-3xl p-6 sm:p-10 lg:p-12 relative overflow-hidden border border-sky-900/10 dark:border-slate-800 shadow-xs flex flex-col justify-between min-h-[380px] sm:min-h-[440px]">
           
           {/* Subtle Background Glow */}
-          <div className="absolute top-0 right-1/4 w-72 h-72 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute top-0 right-1/4 w-72 h-72 bg-sky-500/10 dark:bg-sky-500/5 rounded-full blur-3xl pointer-events-none" />
 
           {/* Left Text Content */}
           <div className="max-w-md sm:max-w-sm lg:max-w-md z-10 space-y-4 my-auto">
             
             {/* Offer Pill */}
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#ffe8ec] text-[#ff4757] text-[11px] font-black uppercase tracking-wider shadow-2xs">
-              <Sparkles className="w-3 h-3 text-[#ff4757]" />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#ffe8ec] dark:bg-rose-950/70 text-[#ff4757] dark:text-rose-300 text-[11px] font-black uppercase tracking-wider shadow-2xs">
+              <Sparkles className="w-3 h-3 text-[#ff4757] dark:text-rose-300" />
               <span>Exclusive offer 25% Off</span>
             </div>
 
             {/* Headline */}
-            <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-black text-slate-900 leading-[1.12] tracking-tight uppercase">
+            <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-black text-slate-900 dark:text-white leading-[1.12] tracking-tight uppercase">
               Fresh Food, Fair <br />
-              Prices, <span className="text-[#0284c7]">Fast Delivery</span>
+              Prices, <span className="text-[#0284c7] dark:text-sky-400">Fast Delivery</span>
             </h1>
 
             {/* Subtext */}
-            <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed max-w-sm">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-sm">
               Fresh veggies full of vitamins for your health. Quality produce delivered right to you.
             </p>
 
@@ -71,19 +71,19 @@ export const UnimaartHero = () => {
               setActiveCategory('fruits-veg');
               navigateTo('shop');
             }}
-            className="bg-[#f8f9fa] rounded-3xl p-5 sm:p-6 relative overflow-hidden flex-1 flex items-center justify-between border border-slate-200/60 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer group"
+            className="bg-[#f8f9fa] dark:bg-slate-900 rounded-3xl p-5 sm:p-6 relative overflow-hidden flex-1 flex items-center justify-between border border-slate-200/60 dark:border-slate-800 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer group"
           >
             <div className="z-10 max-w-[170px] space-y-1">
-              <span className="text-[#0284c7] font-bold text-xs uppercase tracking-wider block">
+              <span className="text-[#0284c7] dark:text-sky-400 font-bold text-xs uppercase tracking-wider block">
                 Healthy Food
               </span>
-              <h3 className="text-[#ff4757] font-black text-lg sm:text-xl leading-tight">
+              <h3 className="text-[#ff4757] dark:text-rose-400 font-black text-lg sm:text-xl leading-tight">
                 Organic Market
               </h3>
-              <p className="text-[11px] text-slate-500 font-medium leading-snug pt-1">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium leading-snug pt-1">
                 Start your daily shopping with some Organic food
               </p>
-              <span className="text-xs font-black text-slate-900 group-hover:text-[#0284c7] inline-flex items-center gap-1.5 pt-2 transition-colors">
+              <span className="text-xs font-black text-slate-900 dark:text-white group-hover:text-[#0284c7] dark:group-hover:text-sky-400 inline-flex items-center gap-1.5 pt-2 transition-colors">
                 <span>Shop Now</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
               </span>
@@ -104,19 +104,19 @@ export const UnimaartHero = () => {
               setActiveCategory('snacks');
               navigateTo('shop');
             }}
-            className="bg-[#f8f9fa] rounded-3xl p-5 sm:p-6 relative overflow-hidden flex-1 flex items-center justify-between border border-slate-200/60 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer group"
+            className="bg-[#f8f9fa] dark:bg-slate-900 rounded-3xl p-5 sm:p-6 relative overflow-hidden flex-1 flex items-center justify-between border border-slate-200/60 dark:border-slate-800 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer group"
           >
             <div className="z-10 max-w-[170px] space-y-1">
-              <span className="text-[#ff4757] bg-[#ffe8ec] font-black text-[10px] uppercase px-2 py-0.5 rounded-md inline-block">
+              <span className="text-[#ff4757] dark:text-rose-300 bg-[#ffe8ec] dark:bg-rose-950/70 font-black text-[10px] uppercase px-2 py-0.5 rounded-md inline-block">
                 25% OFF
               </span>
-              <h3 className="text-[#0284c7] font-black text-lg sm:text-xl leading-tight">
+              <h3 className="text-[#0284c7] dark:text-sky-400 font-black text-lg sm:text-xl leading-tight">
                 Nut Collection
               </h3>
-              <p className="text-[11px] text-slate-500 font-medium leading-snug pt-1">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium leading-snug pt-1">
                 We deliver organic vegetables & fruits.
               </p>
-              <span className="text-xs font-black text-slate-900 group-hover:text-[#0284c7] inline-flex items-center gap-1.5 pt-2 transition-colors">
+              <span className="text-xs font-black text-slate-900 dark:text-white group-hover:text-[#0284c7] dark:group-hover:text-sky-400 inline-flex items-center gap-1.5 pt-2 transition-colors">
                 <span>Shop Now</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
               </span>

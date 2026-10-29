@@ -12,7 +12,7 @@ export const CaseValueHero = () => {
         {/* ========================================================================= */}
         {/* 1. LARGE HERO CARD (LEFT 8 COLS MATCHING SCREENSHOT) */}
         {/* ========================================================================= */}
-        <div className="lg:col-span-8 bg-[#fdfaf4] border border-[#ebdcc7] rounded-3xl p-6 sm:p-8 lg:p-10 shadow-xs relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 group">
+        <div className="lg:col-span-8 bg-[#fdfaf4] dark:bg-slate-900 border border-[#ebdcc7] dark:border-slate-800 rounded-3xl p-6 sm:p-8 lg:p-10 shadow-xs relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 group">
           
           {/* Left Text Block */}
           <div className="z-10 max-w-md space-y-4 text-left">
@@ -24,13 +24,13 @@ export const CaseValueHero = () => {
             </div>
 
             {/* Headline matching screenshot */}
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#3d2314] tracking-tight leading-[1.15]">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#3d2314] dark:text-amber-100 tracking-tight leading-[1.15]">
               Fresh Food <br />
-              <span className="text-[#8c532b]">For Your Family</span>
+              <span className="text-[#8c532b] dark:text-amber-400">For Your Family</span>
             </h1>
 
             {/* Subtext matching screenshot */}
-            <p className="text-xs sm:text-sm text-[#78604d] font-medium leading-relaxed">
+            <p className="text-xs sm:text-sm text-[#78604d] dark:text-slate-300 font-medium leading-relaxed">
               Local produce, fresh meat, dairy and everyday essentials — always fresh, always near you.
             </p>
 
@@ -52,7 +52,7 @@ export const CaseValueHero = () => {
             <img
               src="/casevalue_hero_spread.jpg"
               alt="Fresh Food For Your Family - Rustic Food Spread"
-              className="w-full h-56 sm:h-72 md:h-80 object-cover rounded-2xl shadow-sm border border-[#ebdcc7]/60 group-hover:scale-[1.02] transition-transform duration-300"
+              className="w-full h-56 sm:h-72 md:h-80 object-cover rounded-2xl shadow-sm border border-[#ebdcc7]/60 dark:border-slate-800 group-hover:scale-[1.02] transition-transform duration-300"
             />
           </div>
 
@@ -66,27 +66,27 @@ export const CaseValueHero = () => {
           {/* Top Card: Fresh Meat & Seafood */}
           <div
             onClick={() => navigateTo('shop')}
-            className="flex-1 bg-[#fdfaf4] border border-[#ebdcc7] rounded-3xl p-5 sm:p-6 shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-4 group"
+            className="flex-1 bg-[#fdfaf4] dark:bg-slate-900 border border-[#ebdcc7] dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-4 group"
           >
             <div className="space-y-1.5 flex-1 text-left">
-              <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#fef3c7] text-[#92400e] text-[10px] font-black uppercase tracking-wider">
+              <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#fef3c7] dark:bg-amber-950/60 text-[#92400e] dark:text-amber-400 text-[10px] font-black uppercase tracking-wider">
                 FRESH & CLEAN
               </span>
-              <h3 className="text-base sm:text-lg font-black text-[#3d2314] leading-tight group-hover:text-[#8c532b] transition-colors">
+              <h3 className="text-base sm:text-lg font-black text-[#3d2314] dark:text-amber-100 leading-tight group-hover:text-[#8c532b] dark:group-hover:text-amber-400 transition-colors">
                 Fresh Meat & Seafood
               </h3>
-              <p className="text-[11px] text-[#78604d] font-medium">
+              <p className="text-[11px] text-[#78604d] dark:text-slate-300 font-medium">
                 Premium quality, fresh every day.
               </p>
               <div className="pt-1">
-                <span className="text-xs font-bold text-[#5c3417] inline-flex items-center gap-1 group-hover:underline">
+                <span className="text-xs font-bold text-[#5c3417] dark:text-amber-300 inline-flex items-center gap-1 group-hover:underline">
                   <span>Shop Now</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </span>
               </div>
             </div>
 
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shrink-0 border border-[#ebdcc7]">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shrink-0 border border-[#ebdcc7] dark:border-slate-800">
               <img
                 src="/casevalue_meat_seafood.jpg"
                 alt="Fresh Meat & Seafood"
@@ -98,27 +98,27 @@ export const CaseValueHero = () => {
           {/* Bottom Card: Dairy & Essentials */}
           <div
             onClick={() => navigateTo('shop')}
-            className="flex-1 bg-[#fdfaf4] border border-[#ebdcc7] rounded-3xl p-5 sm:p-6 shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-4 group"
+            className="flex-1 bg-[#fdfaf4] dark:bg-slate-900 border border-[#ebdcc7] dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-4 group"
           >
             <div className="space-y-1.5 flex-1 text-left">
-              <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#fef3c7] text-[#92400e] text-[10px] font-black uppercase tracking-wider">
+              <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#fef3c7] dark:bg-amber-950/60 text-[#92400e] dark:text-amber-400 text-[10px] font-black uppercase tracking-wider">
                 DAILY FRESH
               </span>
-              <h3 className="text-base sm:text-lg font-black text-[#3d2314] leading-tight group-hover:text-[#8c532b] transition-colors">
+              <h3 className="text-base sm:text-lg font-black text-[#3d2314] dark:text-amber-100 leading-tight group-hover:text-[#8c532b] dark:group-hover:text-amber-400 transition-colors">
                 Dairy & Essentials
               </h3>
-              <p className="text-[11px] text-[#78604d] font-medium">
+              <p className="text-[11px] text-[#78604d] dark:text-slate-300 font-medium">
                 Pure, healthy, for your family.
               </p>
               <div className="pt-1">
-                <span className="text-xs font-bold text-[#5c3417] inline-flex items-center gap-1 group-hover:underline">
+                <span className="text-xs font-bold text-[#5c3417] dark:text-amber-300 inline-flex items-center gap-1 group-hover:underline">
                   <span>Shop Now</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </span>
               </div>
             </div>
 
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shrink-0 border border-[#ebdcc7]">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shrink-0 border border-[#ebdcc7] dark:border-slate-800">
               <img
                 src="/casevalue_dairy_eggs.jpg"
                 alt="Dairy & Essentials"
