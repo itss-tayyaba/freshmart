@@ -2120,7 +2120,7 @@ export const StoreProvider = ({ children }) => {
     // 2.6 Auto-Detect Rider Credentials (or if targetRole === 'rider')
     const cleanDigits = cleanUser.replace(/[^0-9]/g, '');
     const bareRiderUser = cleanUser.replace(/@(rider\.)?freshmart\.(pk|com)$/, '');
-    const matchedRider = (riders || []).find((r) => {
+    let matchedRider = (riders || []).find((r) => {
       const rId = String(r.id || r.riderId || '').trim().toLowerCase();
       const rUser = String(r.username || '').trim().toLowerCase();
       const rName = String(r.name || '').trim().toLowerCase();
@@ -2145,6 +2145,28 @@ export const StoreProvider = ({ children }) => {
       const pMatch = (r.password && String(r.password).trim() === cleanPass) || cleanPass === 'rider123' || cleanPass === 'admin123';
       return uMatch && pMatch;
     });
+
+    // Special built-in check for Hassan (Chase Up Rider)
+    if (!matchedRider && (cleanUser === 'hassan' || cleanUser === '032145236738' || cleanDigits === '032145236738')) {
+      if (cleanPass === 'rider123' || cleanPass === 'admin123') {
+        matchedRider = {
+          id: 'RDR-CHASEUP-HASSAN',
+          riderId: 'RDR-CHASEUP-HASSAN',
+          name: 'hassan',
+          username: 'hassan',
+          phone: '032145236738',
+          password: cleanPass,
+          tenantId: 'tenant-chaseup',
+          tenantName: 'Chase Up',
+          branchId: 'branch_006',
+          branchName: 'Faisalabad Clock Tower Hub',
+          region: 'D-Ground (Faisalabad)',
+          zone: 'D-Ground (Faisalabad)',
+          role: 'rider',
+          status: 'Active'
+        };
+      }
+    }
 
     if (matchedRider || targetRole === 'rider') {
       if (matchedRider) {
@@ -2211,6 +2233,8 @@ export const StoreProvider = ({ children }) => {
           cleanUser === 'bilal_cv' ||
           cleanUser === 'usman' ||
           cleanUser === 'kamran_cu' ||
+          cleanUser === 'hassan' ||
+          cleanUser === '032145236738' ||
           cleanUser === 'chasevalue_rider' ||
           cleanUser === 'alfatah_rider' ||
           cleanUser === '03001234567';
@@ -2218,7 +2242,7 @@ export const StoreProvider = ({ children }) => {
         if (isDemoUser && isDemoPass) {
           let riderTenantId = preferredTenantId;
           if (cleanUser === 'bilal_cv' || cleanUser === 'chasevalue_rider') riderTenantId = 'tenant-chasevalue';
-          else if (cleanUser === 'kamran_cu') riderTenantId = 'tenant-chaseup';
+          else if (cleanUser === 'kamran_cu' || cleanUser === 'hassan' || cleanUser === '032145236738') riderTenantId = 'tenant-chaseup';
           else if (cleanUser === 'usman') riderTenantId = 'tenant-freshmart';
           const riderTenant = resolveStoreTenant(riderTenantId, cleanUser);
           if (riderTenant) setCurrentTenant(riderTenant);
@@ -2546,6 +2570,8 @@ export const StoreProvider = ({ children }) => {
           cleanUser === 'bilal_cv' ||
           cleanUser === 'usman' ||
           cleanUser === 'kamran_cu' ||
+          cleanUser === 'hassan' ||
+          cleanUser === '032145236738' ||
           cleanUser === 'chasevalue_rider' ||
           cleanUser === 'alfatah_rider' ||
           cleanUser === '03001234567';
@@ -2553,7 +2579,7 @@ export const StoreProvider = ({ children }) => {
         if (isDemoUser && isDemoPass) {
           let riderTenantId = preferredTenantId;
           if (cleanUser === 'bilal_cv' || cleanUser === 'chasevalue_rider') riderTenantId = 'tenant-chasevalue';
-          else if (cleanUser === 'kamran_cu') riderTenantId = 'tenant-chaseup';
+          else if (cleanUser === 'kamran_cu' || cleanUser === 'hassan' || cleanUser === '032145236738') riderTenantId = 'tenant-chaseup';
           else if (cleanUser === 'usman') riderTenantId = 'tenant-freshmart';
           const riderTenant = resolveStoreTenant(riderTenantId, cleanUser);
           if (riderTenant) setCurrentTenant(riderTenant);

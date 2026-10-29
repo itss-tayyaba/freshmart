@@ -1,8 +1,10 @@
 import jwt from 'jsonwebtoken';
 import { isDbOnline } from '../config/db.js';
+import { Admin } from '../models/Admin.js';
+import { PickupStaff } from '../models/PickupStaff.js';
 import { User } from '../models/User.js';
 import { Vendor } from '../models/Vendor.js';
-import { Supplier } from '../models/ExtraModels.js';
+import { Rider, Supplier } from '../models/ExtraModels.js';
 import { resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyData.js';
 import { getJwtSecret } from '../utils/jwtHelper.js';
 
@@ -42,6 +44,48 @@ export const protect = async (req, res, next) => {
 
       if (isDbOnline() && decoded.id && typeof decoded.id === 'string' && decoded.id.match(/^[0-9a-fA-F]{24}$/)) {
         try {
+          // Check dedicated Admin model (Store Admins and Super Admins)
+          const dbAdmin = await Admin.findById(decoded.id).select('-password');
+          if (dbAdmin) {
+            req.user = dbAdmin.toObject ? dbAdmin.toObject() : { ...dbAdmin };
+            req.user.id = String(dbAdmin._id);
+            req.user.role = dbAdmin.role || decoded.role || 'admin';
+            if (req.user.role === 'superadmin') {
+              req.user.tenantId = tenantHeader || dbAdmin.tenantId || decoded.tenantId;
+            } else {
+              req.user.tenantId = dbAdmin.tenantId || decoded.tenantId;
+            }
+            req.user.branchId = dbAdmin.branchId || decoded.branchId || 'branch_001';
+            req.user.branchName = dbAdmin.branchName || decoded.branchName || 'Main Branch';
+            return next();
+          }
+
+          // Check dedicated PickupStaff model
+          const dbStaff = await PickupStaff.findById(decoded.id).select('-password');
+          if (dbStaff) {
+            req.user = dbStaff.toObject ? dbStaff.toObject() : { ...dbStaff };
+            req.user.id = String(dbStaff._id);
+            req.user.staffId = dbStaff.staffId || decoded.staffId || String(dbStaff._id);
+            req.user.role = 'pickup_staff';
+            req.user.tenantId = dbStaff.tenantId || decoded.tenantId;
+            req.user.branchId = dbStaff.branchId || decoded.branchId || 'branch_001';
+            req.user.branchName = dbStaff.branchName || decoded.branchName || 'Main Branch';
+            return next();
+          }
+
+          // Check dedicated Rider model
+          const dbRider = await Rider.findById(decoded.id).select('-password');
+          if (dbRider) {
+            req.user = dbRider.toObject ? dbRider.toObject() : { ...dbRider };
+            req.user.id = String(dbRider._id);
+            req.user.riderId = dbRider.id || decoded.riderId || String(dbRider._id);
+            req.user.role = 'rider';
+            req.user.tenantId = dbRider.tenantId || decoded.tenantId;
+            req.user.branchId = dbRider.branchId || decoded.branchId || 'branch_001';
+            req.user.branchName = dbRider.branchName || decoded.branchName || 'Main Branch';
+            return next();
+          }
+
           // Check User model (Database role beats token role)
           const dbUser = await User.findById(decoded.id).select('-password');
           if (dbUser) {

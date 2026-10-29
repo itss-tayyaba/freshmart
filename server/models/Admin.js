@@ -54,3 +54,4 @@ adminSchema.methods.matchPassword = async function (enteredPassword) {
 };
 
 export const Admin = mongoose.models.Admin || mongoose.model('Admin', adminSchema);
+

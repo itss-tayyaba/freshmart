@@ -470,5 +470,27 @@ export const INITIAL_RIDERS = [
     coordinates: { lat: 31.3965, lng: 73.0505 },
     coverageRadiusKm: 25,
     rating: 4.9
+  },
+  {
+    id: 'RDR-CHASEUP-HASSAN',
+    riderId: 'RDR-CHASEUP-HASSAN',
+    name: 'hassan',
+    username: 'hassan',
+    phone: '032145236738',
+    password: 'rider123',
+    tenantId: 'tenant-chaseup',
+    tenantName: 'Chase Up',
+    isGlobal: true,
+    branchId: 'branch_006',
+    branchName: 'Faisalabad Clock Tower Hub',
+    region: 'D-Ground Faisalabad',
+    zone: 'D-Ground (Faisalabad)',
+    city: 'Faisalabad',
+    vehicleType: '🏍️ Honda 125',
+    vehicleNumber: 'FSD-5219',
+    status: 'Active',
+    coordinates: { lat: 31.4147, lng: 73.0872 },
+    coverageRadiusKm: 25,
+    rating: 5.0
   }
 ];

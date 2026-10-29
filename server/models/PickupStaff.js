@@ -55,3 +55,4 @@ pickupStaffSchema.methods.matchPassword = async function (enteredPassword) {
 };
 
 export const PickupStaff = mongoose.models.PickupStaff || mongoose.model('PickupStaff', pickupStaffSchema);
+
