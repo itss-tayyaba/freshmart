@@ -585,7 +585,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                 {staffName}
               </h4>
               <p className="text-[10px] font-semibold mt-0.5" style={{ color: storeTheme.accentText }}>
-                Pickup Staff
+                Pickup Staff · <span className="font-mono font-bold">{kpiCounts.assigned}/10 Parcels</span>
               </p>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -779,10 +779,10 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               </div>
               <div className="mt-2">
                 <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono block">
-                  {kpiCounts.assigned}
+                  {kpiCounts.assigned}/10
                 </span>
                 <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 mt-0.5 block">
-                  Assigned Orders
+                  Active Parcels ({kpiCounts.assigned}/10)
                 </span>
               </div>
             </div>

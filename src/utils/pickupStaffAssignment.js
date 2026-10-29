@@ -37,8 +37,24 @@ export const isOrderAssignedToPickupStaff = (order, user) => {
   return false;
 };
 
+export const MAX_PICKUP_STAFF_PARCELS = 10;
+
 export const countPickupStaffTasks = (staffId, orders = []) =>
-  (orders || []).filter((order) => String(order?.pickupStaffId) === String(staffId) && isPickupTaskActive(order)).length;
+  (orders || []).filter((order) => {
+    const sId = String(staffId || '').toLowerCase().trim();
+    const oStaffId = String(order?.pickupStaffId || '').toLowerCase().trim();
+    const oStaffUser = String(order?.pickupStaffUsername || '').toLowerCase().trim();
+    const oStaffName = String(order?.pickupStaffName || '').toLowerCase().trim();
+    const matches = (sId && oStaffId && (oStaffId === sId || oStaffId.includes(sId) || sId.includes(oStaffId))) ||
+      (sId && oStaffUser && oStaffUser === sId) ||
+      (sId && oStaffName && oStaffName === sId);
+    return matches && isPickupTaskActive(order);
+  }).length;
+
+export const formatStaffParcelRatio = (staffId, orders = []) => {
+  const count = countPickupStaffTasks(staffId, orders);
+  return `${count}/${MAX_PICKUP_STAFF_PARCELS}`;
+};
 
 export const pickLeastBusyPickupStaff = (staffList = [], orders = []) => {
   if (!Array.isArray(staffList) || staffList.length === 0) return null;

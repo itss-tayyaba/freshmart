@@ -70,3 +70,4 @@ export const switchMapTileLayer = (map, layerKey = 'street', currentTileLayerRef
 
   return newTileLayer;
 };
+

@@ -148,57 +148,195 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-black text-slate-900">Pickup Staff Team</h1>
-            <p className="mt-1 text-sm text-slate-500">Manage packing personnel for {currentTenant?.name || 'this supermarket'} and assign incoming orders.</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {tenantStaff.length} staff members · max 10 active parcels each · Manage packing personnel for {currentTenant?.name || 'this supermarket'}.
+            </p>
           </div>
           <button onClick={() => setIsAddOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 shadow-sm cursor-pointer">
             <UserPlus size={16} /> Add Staff Account
           </button>
         </div>
+
+        {/* Staff Capacity Cards Grid */}
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {tenantStaff.map((staff) => (
-            <div key={staff.id} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-2xs">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 font-black text-emerald-800">{(staff.name || 'S').slice(0, 1).toUpperCase()}</div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-slate-900">{staff.name}</p>
-                  <p className="truncate text-xs text-slate-500 font-mono">{staff.username}</p>
-                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 mt-0.5 inline-block">
-                    {countPickupStaffTasks(staff.id, orders)} active orders
-                  </span>
+          {tenantStaff.map((staff) => {
+            const activeTasks = countPickupStaffTasks(staff.id, orders);
+            const isFull = activeTasks >= 10;
+
+            return (
+              <div key={staff.id} className="flex flex-col justify-between gap-2.5 rounded-2xl border border-slate-200 bg-slate-50 p-3.5 shadow-2xs">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 font-black text-emerald-800">
+                      {(staff.name || 'S').slice(0, 1).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-slate-900">{staff.name}</p>
+                      <p className="truncate text-xs text-slate-500 font-mono">@{staff.username}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingStaff(staff);
+                        setEditStaffForm({
+                          name: staff.name || '',
+                          username: staff.username || '',
+                          password: staff.password || 'staff123',
+                          phone: staff.phone || '',
+                          branchId: staff.branchId || ''
+                        });
+                        setShowEditPassword(false);
+                      }}
+                      title={`Edit ${staff.name} credentials`}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700 transition-colors cursor-pointer"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deletePickupStaff?.(staff.id)}
+                      title={`Remove ${staff.name}`}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2/10 Parcels Workload Indicator */}
+                <div className="pt-2 border-t border-slate-200/80">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500 font-medium">Workload:</span>
+                    <span className={`font-mono font-black px-2 py-0.5 rounded-md border text-[11px] ${
+                      isFull
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : activeTasks >= 7
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`}>
+                      {activeTasks}/10 Parcels
+                    </span>
+                  </div>
+                  {/* Mini capacity bar */}
+                  <div className="w-full bg-slate-200 rounded-full h-1.5 mt-1.5 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        isFull ? 'bg-rose-500' : activeTasks >= 7 ? 'bg-amber-500' : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${Math.min(100, (activeTasks / 10) * 100)}%` }}
+                    />
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingStaff(staff);
-                    setEditStaffForm({
-                      name: staff.name || '',
-                      username: staff.username || '',
-                      password: staff.password || 'staff123',
-                      phone: staff.phone || '',
-                      branchId: staff.branchId || ''
-                    });
-                    setShowEditPassword(false);
-                  }}
-                  title={`Edit ${staff.name} credentials`}
-                  className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700 transition-colors cursor-pointer"
-                >
-                  <Edit3 size={15} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => deletePickupStaff?.(staff.id)}
-                  title={`Remove ${staff.name}`}
-                  className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </div>
-          ))}
-          {tenantStaff.length === 0 && <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500 sm:col-span-2 lg:col-span-3 xl:col-span-4">No pickup staff accounts yet. Click "Add Staff Account" to configure your packing team.</p>}
+            );
+          })}
+          {tenantStaff.length === 0 && (
+            <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500 sm:col-span-2 lg:col-span-3 xl:col-span-4">
+              No pickup staff accounts yet. Click "Add Staff Account" to configure your packing team.
+            </p>
+          )}
         </div>
+
+        {/* Clean Pickup Staff Capacity & Roster Table */}
+        {tenantStaff.length > 0 && (
+          <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/75 text-[11px] font-black uppercase tracking-wider text-slate-400">
+                    <th className="py-3 px-4">STAFF MEMBER</th>
+                    <th className="py-3 px-3">USERNAME</th>
+                    <th className="py-3 px-3">PHONE</th>
+                    <th className="py-3 px-3">ASSIGNED BRANCH</th>
+                    <th className="py-3 px-3 text-center">ACTIVE PARCELS</th>
+                    <th className="py-3 px-3">CAPACITY STATUS</th>
+                    <th className="py-3 px-4 text-right">ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {tenantStaff.map((staff) => {
+                    const activeTasks = countPickupStaffTasks(staff.id, orders);
+                    const isFull = activeTasks >= 10;
+                    const branchObj = availableBranches.find((b) => b.id === staff.branchId || b._id === staff.branchId);
+
+                    return (
+                      <tr key={staff.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3 px-4 font-bold text-slate-900 flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 font-black flex items-center justify-center text-xs shrink-0">
+                            {(staff.name || 'S').slice(0, 1).toUpperCase()}
+                          </div>
+                          <span>{staff.name}</span>
+                        </td>
+                        <td className="py-3 px-3 font-mono text-slate-500">@{staff.username}</td>
+                        <td className="py-3 px-3 font-mono text-slate-700">{staff.phone || 'Not set'}</td>
+                        <td className="py-3 px-3 text-slate-600">
+                          {branchObj ? `📍 ${branchObj.name}` : 'All Store Branches'}
+                        </td>
+                        <td className="py-3 px-3 text-center font-mono font-black text-xs">
+                          <span className={`px-2.5 py-1 rounded-md border ${
+                            isFull
+                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : activeTasks >= 7
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          }`}>
+                            {activeTasks}/10
+                          </span>
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            isFull
+                              ? 'bg-rose-100 text-rose-800'
+                              : activeTasks >= 7
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-emerald-100 text-emerald-800'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              isFull ? 'bg-rose-500' : activeTasks >= 7 ? 'bg-amber-500' : 'bg-emerald-500'
+                            }`} />
+                            <span>{isFull ? 'At Capacity (10/10)' : activeTasks === 0 ? 'Idle (0/10)' : `Available (${activeTasks}/10)`}</span>
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingStaff(staff);
+                                setEditStaffForm({
+                                  name: staff.name || '',
+                                  username: staff.username || '',
+                                  password: staff.password || 'staff123',
+                                  phone: staff.phone || '',
+                                  branchId: staff.branchId || ''
+                                });
+                                setShowEditPassword(false);
+                              }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 transition cursor-pointer"
+                              title="Edit Staff"
+                            >
+                              <Edit3 size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deletePickupStaff?.(staff.id)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                              title="Remove Staff"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* 2. Staff Activity & Order Assignment Table */}
@@ -320,7 +458,7 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
                           )}
                           {tenantStaff.map((staff) => (
                             <option key={staff.id} value={staff.id}>
-                              📦 {staff.name} ({countPickupStaffTasks(staff.id, orders)} open)
+                              📦 {staff.name} ({countPickupStaffTasks(staff.id, orders)}/10 parcels)
                             </option>
                           ))}
                         </select>
@@ -333,6 +471,11 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
                             <div className="min-w-0">
                               <span className="text-xs font-bold text-amber-950 truncate block leading-tight">
                                 {order.pickupStaffName || 'Pickup Staff'}
+                                {order.pickupStaffId && (
+                                  <span className="ml-1 font-mono font-bold text-amber-800 text-[10px]">
+                                    ({countPickupStaffTasks(order.pickupStaffId, orders)}/10)
+                                  </span>
+                                )}
                               </span>
                               <span className="text-[10px] font-semibold text-amber-800 flex items-center gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
@@ -354,7 +497,7 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
                               )}
                               {tenantStaff.map((staff) => (
                                 <option key={staff.id} value={staff.id}>
-                                  📦 {staff.name} ({countPickupStaffTasks(staff.id, orders)} open)
+                                  📦 {staff.name} ({countPickupStaffTasks(staff.id, orders)}/10 parcels)
                                 </option>
                               ))}
                             </select>

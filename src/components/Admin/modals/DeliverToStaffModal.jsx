@@ -2,9 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Boxes, MapPin, UserCheck, X } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { isSameTenant } from '../../../data/companyHierarchyData';
+import { countPickupStaffTasks, MAX_PICKUP_STAFF_PARCELS } from '../../../utils/pickupStaffAssignment';
 
 export const DeliverToStaffModal = ({ order, isOpen, onClose, onSuccess }) => {
-  const { pickupStaff = [], assignPickupStaffToOrder, currentTenant, user, addToast } = useStore();
+  const { pickupStaff = [], assignPickupStaffToOrder, currentTenant, user, addToast, adminOrders = [], customerOrders = [] } = useStore();
+  const allOrders = useMemo(() => [...adminOrders, ...customerOrders], [adminOrders, customerOrders]);
+
   const tenantId = (user?.role !== 'superadmin' && user?.tenantId)
     ? user.tenantId
     : (order?.tenantId || currentTenant?.id || 'tenant-freshmart');
@@ -46,13 +49,22 @@ export const DeliverToStaffModal = ({ order, isOpen, onClose, onSuccess }) => {
         </header>
         <div className="space-y-5 p-5">
           <div className="rounded-2xl bg-slate-50 p-4 text-sm"><p className="font-bold">{order.customerName || order.customer || 'Customer'}</p><p className="mt-1 flex items-start gap-1.5 text-xs text-slate-500"><MapPin size={14} className="shrink-0"/>{address}</p><p className="mt-3 text-xs text-slate-600">{items.length} product lines · {order.status || 'Order placed'}</p></div>
-          <label className="block text-xs font-bold text-slate-700">Pickup staff member
-            <select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
-              <option value="">Choose staff</option>{staff.map((member) => <option key={member.id} value={member.id}>{member.name} (@{member.username})</option>)}
+          <label className="block text-xs font-bold text-slate-700">Pickup staff member (max 10 active parcels each)
+            <select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold">
+              <option value="">Choose staff</option>
+              {staff.map((member) => {
+                const count = countPickupStaffTasks(member.id, allOrders);
+                const isFull = count >= MAX_PICKUP_STAFF_PARCELS;
+                return (
+                  <option key={member.id} value={member.id}>
+                    📦 {member.name} (@{member.username}) — {count}/{MAX_PICKUP_STAFF_PARCELS} parcels {isFull ? '(FULL)' : ''}
+                  </option>
+                );
+              })}
             </select>
           </label>
           {staff.length === 0 && <p className="text-xs text-amber-700">Add a pickup staff account in the admin dashboard first.</p>}
-          <p className="text-xs text-slate-500">Assignment sends this order to the staff queue. Staff will accept it and update picking, preparation, and dispatch status from their own login.</p>
+          <p className="text-xs text-slate-500">Assignment sends this order to the staff queue. Staff will accept it and update picking, preparation, and dispatch status from their own terminal.</p>
           <div className="flex justify-end gap-2"><button onClick={onClose} className="rounded-xl border px-4 py-2 text-sm font-bold text-slate-600">Cancel</button><button onClick={confirmAssignment} disabled={!staff.length} className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"><UserCheck size={16}/>Assign to Staff</button></div>
         </div>
       </div>

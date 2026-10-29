@@ -41,6 +41,7 @@ import {
   getWhatsAppDeliveryLink,
   getWhatsAppOrderStatusLink
 } from '../../../utils/whatsappHelper';
+import { countPickupStaffTasks } from '../../../utils/pickupStaffAssignment';
 
 // Helper: Extract human-readable order items count/summary safely (never returns an object/array)
 const formatOrderItemsSummary = (ord) => {
@@ -1025,6 +1026,18 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                               <span>Dispatch</span>
                             </button>
                           </div>
+                        ) : hasStaff && !isPreparedState && !isInTransitState && !isDeliveredState ? (
+                          <div className="w-full flex items-center justify-between text-xs px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200">
+                            <span className="font-bold text-amber-900 truncate">
+                              📦 Staff: {ord.pickupStaffName}
+                              {ord.pickupStaffId && (
+                                <span className="font-mono font-bold text-amber-700 ml-1">
+                                  ({countPickupStaffTasks(ord.pickupStaffId, liveOrders)}/10)
+                                </span>
+                              )}
+                            </span>
+                            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
+                          </div>
                         ) : s === 'pending' && !hasStaff ? (
                           <button
                             type="button"
@@ -1293,7 +1306,14 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                                 <div className="space-y-1 w-full">
                                   {hasStaff ? (
                                     <div className="flex items-center justify-between text-[10px] font-bold px-2 py-1 rounded-lg text-amber-900 bg-amber-50 border border-amber-200">
-                                      <span className="truncate">Staff: {ord.pickupStaffName || 'Assigned'}</span>
+                                      <span className="truncate">
+                                        Staff: {ord.pickupStaffName || 'Assigned'}
+                                        {ord.pickupStaffId && (
+                                          <span className="font-mono font-bold text-amber-700 ml-1">
+                                            ({countPickupStaffTasks(ord.pickupStaffId, liveOrders)}/10)
+                                          </span>
+                                        )}
+                                      </span>
                                       <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0 ml-1"></span>
                                     </div>
                                   ) : (
