@@ -440,7 +440,7 @@ const StoreAdminConsole = () => {
               {!isSidebarCollapsed && (
                 <div className="min-w-0 flex-1 truncate">
                   <h2 className="text-sm font-black text-white leading-tight truncate">
-                    {user?.tenantName || currentTenant?.displayName || currentTenant?.name || 'Store Admin'}
+                    {currentTenant?.displayName || currentTenant?.name || user?.tenantName || 'Store Admin'}
                   </h2>
                   <span
                     className="text-[10px] font-bold uppercase tracking-wider block truncate mt-0.5"
@@ -618,30 +618,6 @@ const StoreAdminConsole = () => {
               </div>
             )}
 
-            {/* Branch Scope / Branch Switcher */}
-            {user?.branchId ? (
-              <div className="flex items-center gap-1.5 bg-sky-50 border border-sky-200 text-sky-800 rounded-xl px-2.5 py-1.5 text-xs font-bold shadow-2xs">
-                <MapPin className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                <span className="truncate max-w-[140px] sm:max-w-none">{user.branchName || 'Branch Scoped'}</span>
-              </div>
-            ) : tenantBranches.length > 0 ? (
-              <div className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200/70 border border-slate-200 rounded-xl px-2.5 py-1.5 transition-colors">
-                <MapPin className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-                <span className="text-[11px] font-bold text-slate-500 hidden xl:inline">Branch:</span>
-                <select
-                  value={currentBranchFilter}
-                  onChange={(e) => setCurrentBranchFilter(e.target.value)}
-                  className="text-xs font-black text-slate-800 bg-transparent border-none focus:outline-none cursor-pointer"
-                >
-                  <option value="all" className="text-slate-900 bg-white font-bold">All Branches</option>
-                  {tenantBranches.map((b) => (
-                    <option key={b._id || b.id} value={b._id || b.id} className="text-slate-900 bg-white font-bold">
-                      📍 {b.name} ({b.city})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
 
             {/* Seamless 1-Click Multi-Role Switcher (No sign-out required) */}
             <div className="flex items-center gap-1.5">

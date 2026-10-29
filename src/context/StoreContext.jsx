@@ -3638,7 +3638,7 @@ export const StoreProvider = ({ children }) => {
       deliveriesCount: 0,
       rating: 5.0,
       joinedDate: new Date().toISOString().split('T')[0],
-      isGlobal: Boolean(riderData.isGlobal ?? true)
+      isGlobal: Boolean(riderData.isGlobal ?? false)
     };
 
     setRiders((prev) => {

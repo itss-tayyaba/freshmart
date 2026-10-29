@@ -266,7 +266,7 @@ export const DeliveryView = () => {
     const allRidersList = Array.isArray(riders) ? riders : [];
     if (!tId || adminRole === 'superadmin') return allRidersList;
     const tenantMatched = allRidersList.filter(
-      (r) => !r.tenantId || isSameTenant(r.tenantId, tId) || r.isGlobal
+      (r) => isSameTenant(r.tenantId, tId)
     );
     return tenantMatched;
   }, [riders, currentTenant?.id, user?.tenantId, adminRole]);
@@ -526,7 +526,7 @@ export const DeliveryView = () => {
       cnic: newRiderForm.cnic ? newRiderForm.cnic.trim() : '',
       username: generatedUsername,
       password: generatedPassword,
-      isGlobal: true,
+      isGlobal: false,
       deliveriesCount: 0,
       rating: 5.0
     });

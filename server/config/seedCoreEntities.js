@@ -429,6 +429,32 @@ export const SEED_RIDERS = [
     rating: 4.9,
     deliveriesCount: 41,
     isGlobal: false
+  },
+  {
+    id: 'RDR-CHASEUP-HASSAN',
+    riderId: 'RDR-CHASEUP-HASSAN',
+    name: 'hassan',
+    username: 'hassan',
+    phone: '032145236738',
+    password: 'rider123',
+    plainPassword: 'rider123',
+    tenantId: 'tenant-chaseup',
+    tenantName: 'Chase Up',
+    branchId: 'branch_006',
+    branchName: 'Faisalabad Clock Tower Hub',
+    city: 'Faisalabad',
+    location: 'Clock Tower Commercial Center, Faisalabad',
+    address: 'Clock Tower Commercial Center, Faisalabad',
+    region: 'Clock Tower Commercial Region',
+    zone: 'Faisalabad Clock Tower Hub',
+    vehicleType: '🏍️ Honda 125',
+    vehicleNumber: 'FSD-5219',
+    coordinates: { lat: 31.4150, lng: 73.0780 },
+    coverageRadiusKm: 25,
+    status: 'Active',
+    rating: 5.0,
+    deliveriesCount: 0,
+    isGlobal: false
   }
 ];
 

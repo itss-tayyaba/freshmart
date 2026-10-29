@@ -406,7 +406,7 @@ export const addRider = async (req, res) => {
       tenantId,
       branchId,
       branchName,
-      isGlobal: Boolean(isGlobal ?? true)
+      isGlobal: Boolean(isGlobal ?? false)
     };
 
     // Save to Disk Database

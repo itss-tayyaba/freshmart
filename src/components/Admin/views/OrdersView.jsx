@@ -823,30 +823,6 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Branch Filter or Scope Badge */}
-              {user?.branchId ? (
-                <div className="flex items-center gap-1.5 bg-sky-50 border border-sky-200 text-sky-800 rounded-2xl px-3 py-2 text-xs font-bold shadow-2xs">
-                  <MapPin className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                  <span>📍 {user.branchName || 'Branch Scoped'}</span>
-                </div>
-              ) : tenantBranches.length > 0 ? (
-                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 text-xs font-semibold text-slate-700">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <select
-                    value={currentBranchFilter}
-                    onChange={(e) => setCurrentBranchFilter(e.target.value)}
-                    className="bg-transparent border-none text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer"
-                  >
-                    <option value="all">🏢 All Branches</option>
-                    {tenantBranches.map((b) => (
-                      <option key={b._id || b.id} value={b._id || b.id}>
-                        📍 {b.name} ({b.city})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-
               <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 text-xs font-semibold text-slate-700">
                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
                 <select
