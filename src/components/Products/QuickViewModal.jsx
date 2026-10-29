@@ -143,7 +143,7 @@ export const QuickViewModal = () => {
                 <span className="text-2xl font-black" style={{ color: tenantThemeColor }}>
                   {currency.symbol}{Math.round(product.price * (currency.rate || 1)).toLocaleString()}
                 </span>
-                {product.originalPrice > product.price && (
+                {Number(product.discountPercent) > 0 && Number(product.originalPrice) > Number(product.price) && (
                   <span className="text-sm text-slate-400 line-through">
                     {currency.symbol}{Math.round(product.originalPrice * (currency.rate || 1)).toLocaleString()}
                   </span>

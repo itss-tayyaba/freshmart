@@ -130,9 +130,11 @@ export const FlashDeals = () => {
                   <span className="text-base font-extrabold text-brand-green">
                     {currency.symbol}{Math.round(product.price * (currency.rate || 1)).toLocaleString()}
                   </span>
-                  <span className="text-xs text-slate-400 line-through">
-                    {currency.symbol}{Math.round(product.originalPrice * (currency.rate || 1)).toLocaleString()}
-                  </span>
+                  {Number(product.discountPercent) > 0 && Number(product.originalPrice) > Number(product.price) && (
+                    <span className="text-xs text-slate-400 line-through">
+                      {currency.symbol}{Math.round(product.originalPrice * (currency.rate || 1)).toLocaleString()}
+                    </span>
+                  )}
                   <span className="text-[11px] text-slate-500">/ {product.unit}</span>
                 </div>
 

@@ -71,7 +71,7 @@ export const DealsPage = () => {
 
   // Filter deals based on active tab
   const dealsList = products.filter((p) => {
-    const hasDiscount = p.discountPercent > 0 || p.isFlashDeal || p.originalPrice > p.price;
+    const hasDiscount = Number(p.discountPercent) > 0 && Number(p.originalPrice) > Number(p.price);
     if (!hasDiscount) return false;
     if (activeTab === 'mega') return p.discountPercent >= 20;
     if (activeTab === 'flash') return p.isFlashDeal;
@@ -142,7 +142,7 @@ export const DealsPage = () => {
                   {spotlightDeal.discountPercent > 0 && spotlightDeal.originalPrice > spotlightDeal.price && (
                     <span className="text-xs text-slate-400 line-through">{currency.symbol}{spotlightDeal.originalPrice}</span>
                   )}
-                  {spotlightDeal.discountPercent > 0 && (
+                  {Number(spotlightDeal.discountPercent) > 0 && Number(spotlightDeal.originalPrice) > Number(spotlightDeal.price) && (
                     <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">
                       -{spotlightDeal.discountPercent}%
                     </span>
@@ -324,7 +324,7 @@ export const DealsPage = () => {
                   <span className="text-base font-black text-slate-900">
                     {currency.symbol}{product.price}
                   </span>
-                  {product.originalPrice > product.price && (
+                  {Number(product.discountPercent) > 0 && Number(product.originalPrice) > Number(product.price) && (
                     <span className="text-xs text-slate-400 line-through font-semibold">
                       {currency.symbol}{product.originalPrice}
                     </span>

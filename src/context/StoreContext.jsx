@@ -1159,23 +1159,43 @@ export const StoreProvider = ({ children }) => {
     return updated;
   };
 
-  // Products Catalog - Seeded with multi-tenant branch catalogs (5 demo items per website)
+  // Products Catalog - Seeded with multi-tenant branch catalogs with persistent admin edits
   const [allProducts, setAllProducts] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_all_products');
       if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const baseBranchCatalogIds = new Set((ALL_BRANCH_PRODUCTS || []).map((p) => String(p.id).toLowerCase()));
-          const adminCreated = parsed.filter(
-            (p) =>
-              !baseBranchCatalogIds.has(String(p.id).toLowerCase()) &&
-              !String(p.id).startsWith('alfatah-') &&
-              !String(p.id).startsWith('chasevalue-') &&
-              !String(p.id).startsWith('chaseup-') &&
-              !String(p.id).startsWith('freshmart-')
+          // Map saved items by ID and normalized name
+          const savedMap = new Map();
+          parsed.forEach((p) => {
+            const keyId = String(p.id || p.customId || p._id || '').toLowerCase().trim();
+            const keyName = (p.name || '').toLowerCase().trim();
+            if (keyId) savedMap.set(keyId, p);
+            if (keyName) savedMap.set(keyName, p);
+          });
+
+          // Merge saved edits over base branch products
+          const mergedBase = (ALL_BRANCH_PRODUCTS || []).map((baseP) => {
+            const keyId = String(baseP.id || baseP.customId || '').toLowerCase().trim();
+            const keyName = (baseP.name || '').toLowerCase().trim();
+            const update = savedMap.get(keyId) || savedMap.get(keyName);
+            if (update) {
+              return { ...baseP, ...update, id: baseP.id };
+            }
+            return baseP;
+          });
+
+          // Keep any newly created custom products by admin
+          const baseKeys = new Set(
+            (ALL_BRANCH_PRODUCTS || []).map((p) => String(p.id || p.customId || '').toLowerCase().trim())
           );
-          return [...adminCreated, ...(ALL_BRANCH_PRODUCTS || [])];
+          const customAdminCreated = parsed.filter((p) => {
+            const key = String(p.id || p.customId || p._id || '').toLowerCase().trim();
+            return key && !baseKeys.has(key);
+          });
+
+          return [...customAdminCreated, ...mergedBase];
         }
       }
     } catch (e) {}
@@ -1199,43 +1219,40 @@ export const StoreProvider = ({ children }) => {
         if (res.products.length === 0) return;
 
         setAllProducts((prev) => {
-          const baseBranchCatalogIds = new Set(
-            (ALL_BRANCH_PRODUCTS || []).map((p) => String(p.id).toLowerCase().trim())
-          );
-          const prevMap = new Map();
-          (prev || []).forEach((p) => {
-            const key = String(p.id || p.customId || p._id || '').toLowerCase().trim();
-            if (key) prevMap.set(key, p);
+          const remoteMap = new Map();
+          res.products.forEach((rp) => {
+            const keyId = String(rp.id || rp.customId || rp._id || '').toLowerCase().trim();
+            const keyName = (rp.name || '').toLowerCase().trim();
+            if (keyId) remoteMap.set(keyId, rp);
+            if (keyName) remoteMap.set(keyName, rp);
           });
 
-          const remoteAdminCreated = [];
+          // Apply remote database updates to existing items
+          const updated = (prev || []).map((p) => {
+            const keyId = String(p.id || p.customId || p._id || '').toLowerCase().trim();
+            const keyName = (p.name || '').toLowerCase().trim();
+            const remote = remoteMap.get(keyId) || remoteMap.get(keyName);
+            if (remote) {
+              return { ...p, ...remote, id: p.id };
+            }
+            return p;
+          });
+
+          // Add any remote admin created products not yet in local state
+          const localKeys = new Set(
+            updated.map((p) => String(p.id || p.customId || p._id || '').toLowerCase().trim())
+          );
           res.products.forEach((rp) => {
             const key = String(rp.id || rp.customId || rp._id || '').toLowerCase().trim();
-            if (!baseBranchCatalogIds.has(key)) {
-              remoteAdminCreated.push({
-                ...(prevMap.get(key) || {}),
-                ...rp,
-                id: rp.id || rp.customId || String(rp._id),
-                _id: String(rp._id || rp.id)
-              });
+            if (key && !localKeys.has(key)) {
+              updated.unshift(rp);
             }
           });
 
-          const localAdminCreated = (prev || []).filter((p) => {
-            const key = String(p.id || p.customId || p._id || '').toLowerCase().trim();
-            return (
-              !baseBranchCatalogIds.has(key) &&
-              !remoteAdminCreated.some(
-                (rp) => String(rp.id || rp.customId || rp._id || '').toLowerCase().trim() === key
-              )
-            );
-          });
-
-          const merged = [...remoteAdminCreated, ...localAdminCreated, ...(ALL_BRANCH_PRODUCTS || [])];
           try {
-            localStorage.setItem('freshmart_all_products', JSON.stringify(merged));
+            localStorage.setItem('freshmart_all_products', JSON.stringify(updated));
           } catch (e) {}
-          return merged;
+          return updated;
         });
       } catch (e) {}
     };
@@ -5396,19 +5413,41 @@ export const StoreProvider = ({ children }) => {
 
   const updateProductInStore = async (updatedProduct) => {
     if (!updatedProduct) return;
-    const targetId = String(updatedProduct.id || updatedProduct._id || updatedProduct.customId || '');
-    const targetName = updatedProduct.name?.trim();
+    const targetId = String(updatedProduct.id || updatedProduct._id || updatedProduct.customId || '').toLowerCase().trim();
+    const targetName = updatedProduct.name?.trim().toLowerCase();
+
+    const priceNum = Number(updatedProduct.price) || 0;
+    const discountNum = Math.max(0, Number(updatedProduct.discountPercent || 0));
+    const origPriceNum = discountNum > 0 && Number(updatedProduct.originalPrice) > priceNum
+      ? Number(updatedProduct.originalPrice)
+      : priceNum;
+
+    const normalizedProduct = {
+      ...updatedProduct,
+      price: priceNum,
+      originalPrice: origPriceNum,
+      discountPercent: origPriceNum > priceNum ? discountNum : 0,
+      isFlashDeal: Boolean(updatedProduct.isFlashDeal && discountNum > 0)
+    };
 
     setAllProducts((prev) => {
+      let matched = false;
       const next = prev.map((p) => {
-        const pId = String(p.id || p._id || p.customId || '');
-        const isMatch = (targetId && pId && pId === targetId) || (targetName && p.name && p.name.trim() === targetName);
+        const pId = String(p.id || p._id || p.customId || '').toLowerCase().trim();
+        const pName = (p.name || '').trim().toLowerCase();
+        const isMatch = (targetId && pId && pId === targetId) || (targetName && pName && pName === targetName);
 
         if (isMatch) {
-          return { ...p, ...updatedProduct, id: p.id || targetId };
+          matched = true;
+          return { ...p, ...normalizedProduct, id: p.id || targetId };
         }
         return p;
       });
+
+      if (!matched) {
+        next.unshift(normalizedProduct);
+      }
+
       try {
         localStorage.setItem('freshmart_all_products', JSON.stringify(next));
       } catch (e) {}
@@ -5416,7 +5455,7 @@ export const StoreProvider = ({ children }) => {
     });
     try {
       if (targetId) {
-        await apiService.updateProduct(targetId, updatedProduct);
+        await apiService.updateProduct(targetId, normalizedProduct);
       }
     } catch (e) {
       console.warn('Backend updateProduct error:', e);

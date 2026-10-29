@@ -146,9 +146,11 @@ export const MainHeader = () => {
                           <span className="font-bold text-emerald-800">
                             {currency.symbol}{Math.round(item.price * (currency.rate || 1)).toLocaleString()}
                           </span>
-                          <span className="text-slate-400 line-through text-[11px]">
-                            {currency.symbol}{Math.round(item.originalPrice * (currency.rate || 1)).toLocaleString()}
-                          </span>
+                          {Number(item.discountPercent) > 0 && Number(item.originalPrice) > Number(item.price) && (
+                            <span className="text-slate-400 line-through text-[11px]">
+                              {currency.symbol}{Math.round(item.originalPrice * (currency.rate || 1)).toLocaleString()}
+                            </span>
+                          )}
                           <span className="text-slate-400">• {item.unit}</span>
                         </div>
                       </div>

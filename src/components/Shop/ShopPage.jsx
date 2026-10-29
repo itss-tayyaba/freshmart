@@ -512,7 +512,7 @@ export const ShopPage = () => {
                   >
                     {/* Top Discount Tag & Heart */}
                     <div className="flex items-center justify-between mb-1">
-                      {product.discountPercent > 0 ? (
+                      {Number(product.discountPercent) > 0 && Number(product.originalPrice) > Number(product.price) ? (
                         <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md">
                           -{product.discountPercent}%
                         </span>
@@ -571,7 +571,7 @@ export const ShopPage = () => {
                         <span className="text-base font-black text-slate-900">
                           {currency.symbol}{product.price}
                         </span>
-                        {product.originalPrice > product.price && (
+                        {Number(product.discountPercent) > 0 && Number(product.originalPrice) > Number(product.price) && (
                           <span className="text-xs text-slate-400 line-through">
                             {currency.symbol}{product.originalPrice}
                           </span>
@@ -640,7 +640,7 @@ export const ShopPage = () => {
                         <p className="text-xs text-slate-400">{product.unit} • {product.brand}</p>
                         <div className="flex items-center gap-2 pt-1">
                           <span className="text-sm font-black text-slate-900">{currency.symbol}{product.price}</span>
-                          {product.originalPrice > product.price && (
+                          {Number(product.discountPercent) > 0 && Number(product.originalPrice) > Number(product.price) && (
                             <span className="text-xs text-slate-400 line-through">{currency.symbol}{product.originalPrice}</span>
                           )}
                         </div>

@@ -506,7 +506,7 @@ export const FreshMartHome = () => {
                         <span className="text-sm sm:text-base font-black text-slate-900">
                           {currency.symbol}{item.price}
                         </span>
-                        {item.originalPrice > item.price && (
+                        {Number(item.discountPercent) > 0 && Number(item.originalPrice) > Number(item.price) && (
                           <span className="text-xs text-slate-400 line-through">
                             {currency.symbol}{item.originalPrice}
                           </span>
@@ -654,7 +654,7 @@ export const FreshMartHome = () => {
                         <span className="text-sm sm:text-base font-black text-slate-900">
                           {currency.symbol}{item.price}
                         </span>
-                        {item.originalPrice > item.price && (
+                        {Number(item.discountPercent) > 0 && Number(item.originalPrice) > Number(item.price) && (
                           <span className="text-xs text-slate-400 line-through">
                             {currency.symbol}{item.originalPrice}
                           </span>
@@ -859,7 +859,7 @@ export const FreshMartHome = () => {
               >
                 {/* Top Badge & Wishlist Heart */}
                 <div className="flex items-center justify-between mb-1">
-                  {product.discountPercent > 0 ? (
+                  {Number(product.discountPercent) > 0 && Number(product.originalPrice) > Number(product.price) ? (
                     <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-md">
                       -{product.discountPercent}%
                     </span>
@@ -917,7 +917,7 @@ export const FreshMartHome = () => {
                     <span className="text-xs sm:text-sm font-black text-slate-900">
                       {currency.symbol}{product.price}
                     </span>
-                    {product.originalPrice > product.price && (
+                    {Number(product.discountPercent) > 0 && Number(product.originalPrice) > Number(product.price) && (
                       <span className="text-[10px] text-slate-400 line-through">
                         {currency.symbol}{product.originalPrice}
                       </span>

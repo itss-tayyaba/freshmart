@@ -34,7 +34,7 @@ export const ProductCard = ({ product }) => {
             <span className="bg-rose-600 text-white text-[10px] sm:text-[11px] font-black px-2 py-0.5 rounded-lg shadow-xs flex items-center gap-1">
               <span>Out of Stock</span>
             </span>
-          ) : product.discountPercent > 0 ? (
+          ) : Number(product.discountPercent) > 0 && Number(product.originalPrice) > Number(product.price) ? (
             <span className="bg-rose-500 text-white text-[10px] sm:text-[11px] font-extrabold px-2 py-0.5 rounded-lg shadow-xs">
               -{product.discountPercent}%
             </span>
@@ -136,7 +136,7 @@ export const ProductCard = ({ product }) => {
             <span className="text-sm sm:text-base font-extrabold text-brand-green">
               {currency.symbol}{Math.round(product.price * (currency.rate || 1)).toLocaleString()}
             </span>
-            {product.originalPrice > product.price && (
+            {Number(product.discountPercent) > 0 && Number(product.originalPrice) > Number(product.price) && (
               <span className="text-xs text-slate-400 line-through ml-1.5">
                 {currency.symbol}{Math.round(product.originalPrice * (currency.rate || 1)).toLocaleString()}
               </span>

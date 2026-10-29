@@ -125,8 +125,8 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
 
     const priceNum = Number(editProductForm.price) || 0;
     const discountNum = Math.max(0, Number(editProductForm.discountPercent || 0));
-    const origPriceNum = discountNum > 0
-      ? (Number(editProductForm.originalPrice) > priceNum ? Number(editProductForm.originalPrice) : Math.round(priceNum / (1 - discountNum / 100)))
+    const origPriceNum = discountNum > 0 && Number(editProductForm.originalPrice) > priceNum
+      ? Number(editProductForm.originalPrice)
       : priceNum;
 
     const updated = {
@@ -135,14 +135,14 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
       description: editProductForm.description,
       price: priceNum,
       originalPrice: origPriceNum,
-      discountPercent: discountNum,
+      discountPercent: origPriceNum > priceNum ? discountNum : 0,
       category: editProductForm.category,
       categoryLabel: editProductForm.categoryLabel,
       stock: Number(editProductForm.stock),
       stockCount: Number(editProductForm.stock),
       image: editProductForm.image || editingProduct.image,
       inStock: editProductForm.inStock && Number(editProductForm.stock) > 0,
-      isFlashDeal: Boolean(editProductForm.isFlashDeal || discountNum > 0),
+      isFlashDeal: Boolean(editProductForm.isFlashDeal && discountNum > 0),
       isBestSeller: Boolean(editProductForm.isBestSeller),
       status: !editProductForm.inStock || Number(editProductForm.stock) === 0 ? 'Out of Stock' : Number(editProductForm.stock) < 15 ? 'Low Stock' : 'Active'
     };
@@ -566,10 +566,10 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
                     <td className="py-3">
                       <div className="flex items-baseline gap-1.5">
                         <span className="font-black text-slate-900">{currency.symbol}{item.price}</span>
-                        {item.originalPrice > item.price && (
+                        {Number(item.discountPercent) > 0 && Number(item.originalPrice) > Number(item.price) && (
                           <span className="text-[10px] text-slate-400 line-through">{currency.symbol}{item.originalPrice}</span>
                         )}
-                        {item.discountPercent > 0 && (
+                        {Number(item.discountPercent) > 0 && Number(item.originalPrice) > Number(item.price) && (
                           <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">
                             -{item.discountPercent}%
                           </span>
@@ -728,7 +728,12 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
                       const newPrice = Number(val);
                       const orig = Number(editProductForm.originalPrice || newPrice);
                       const disc = orig > newPrice && orig > 0 ? Math.round(((orig - newPrice) / orig) * 100) : 0;
-                      setEditProductForm({ ...editProductForm, price: val, discountPercent: disc });
+                      setEditProductForm({
+                        ...editProductForm,
+                        price: val,
+                        discountPercent: disc,
+                        originalPrice: disc > 0 ? orig : newPrice
+                      });
                     }}
                     className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3 py-2 text-slate-800 text-xs font-bold"
                   />
@@ -743,15 +748,14 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
                     onChange={(e) => {
                       const val = e.target.value;
                       const newOrig = Number(val);
-                      const disc = Number(editProductForm.discountPercent || 0);
-                      let newPrice = Number(editProductForm.price);
-                      if (disc > 0 && newOrig > 0) {
-                        newPrice = Math.round(newOrig * (1 - disc / 100));
-                      }
+                      const currentPrice = Number(editProductForm.price);
+                      const disc = newOrig > currentPrice && newOrig > 0
+                        ? Math.round(((newOrig - currentPrice) / newOrig) * 100)
+                        : 0;
                       setEditProductForm({
                         ...editProductForm,
                         originalPrice: val,
-                        price: disc > 0 && newPrice > 0 ? newPrice : editProductForm.price
+                        discountPercent: disc
                       });
                     }}
                     className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3 py-2 text-slate-800 text-xs font-medium"
@@ -759,7 +763,27 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
                 </div>
 
                 <div>
-                  <label className="font-semibold text-slate-800 block mb-1.5 text-xs">Discount (% OFF)</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="font-semibold text-slate-800 block text-xs">Discount (% OFF)</label>
+                    {(Number(editProductForm.discountPercent) > 0 || Number(editProductForm.originalPrice) > Number(editProductForm.price)) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const p = Number(editProductForm.price);
+                          setEditProductForm({
+                            ...editProductForm,
+                            discountPercent: 0,
+                            originalPrice: p,
+                            isFlashDeal: false
+                          });
+                        }}
+                        className="text-[10px] text-rose-600 font-bold hover:underline cursor-pointer"
+                        title="Remove discount and reset to normal price"
+                      >
+                        ✕ Remove
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="number"
                     min="0"
@@ -767,17 +791,23 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
                     value={editProductForm.discountPercent}
                     onChange={(e) => {
                       const val = e.target.value;
-                      if (val === '') {
-                        setEditProductForm({ ...editProductForm, discountPercent: '' });
+                      if (val === '' || Number(val) === 0) {
+                        const p = Number(editProductForm.price);
+                        setEditProductForm({
+                          ...editProductForm,
+                          discountPercent: 0,
+                          originalPrice: p,
+                          isFlashDeal: false
+                        });
                         return;
                       }
                       const disc = Math.max(0, Math.min(99, Number(val)));
-                      const orig = Number(editProductForm.originalPrice || editProductForm.price || 0);
-                      const newPrice = orig > 0 ? Math.round(orig * (1 - disc / 100)) : editProductForm.price;
+                      const currentPrice = Number(editProductForm.price);
+                      const orig = Math.round(currentPrice / (1 - disc / 100));
                       setEditProductForm({
                         ...editProductForm,
                         discountPercent: disc,
-                        price: newPrice > 0 ? newPrice : editProductForm.price
+                        originalPrice: orig
                       });
                     }}
                     className="w-full bg-[#f6f2ec] border border-[#e8ded1] rounded-xl px-3 py-2 text-rose-600 text-xs font-black"

@@ -199,14 +199,20 @@ export const UnimaartTopSave = ({ activeCategory: propActiveCategory, onSelectCa
                   key={prod.id}
                   className="bg-white rounded-2xl border border-slate-200/70 p-3 sm:p-3.5 shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col justify-between group relative overflow-hidden"
                 >
-                  {/* Discount / New Tag */}
-                  {prod.tag && (
+                  {/* Discount / Flash Tag */}
+                  {Number(prod.discountPercent) > 0 && Number(prod.originalPrice) > Number(prod.price) ? (
                     <div className="absolute top-2.5 left-2.5 z-10">
-                      <span className={`text-[10px] font-black uppercase text-white px-2 py-0.5 rounded-md shadow-xs ${prod.tagColor || 'bg-[#ff4757]'}`}>
+                      <span className="text-[10px] font-black uppercase text-white px-2 py-0.5 rounded-md shadow-xs bg-[#ff4757]">
+                        -{prod.discountPercent}%
+                      </span>
+                    </div>
+                  ) : prod.tag ? (
+                    <div className="absolute top-2.5 left-2.5 z-10">
+                      <span className={`text-[10px] font-black uppercase text-white px-2 py-0.5 rounded-md shadow-xs ${prod.tagColor || 'bg-sky-600'}`}>
                         {prod.tag}
                       </span>
                     </div>
-                  )}
+                  ) : null}
 
                   {/* Wishlist Button */}
                   <button
@@ -248,11 +254,11 @@ export const UnimaartTopSave = ({ activeCategory: propActiveCategory, onSelectCa
                     <div className="pt-1 flex items-center justify-between">
                       <div>
                         <span className="text-xs font-black text-slate-900 block leading-none">
-                          {currency?.symbol || 'Rs. '}{prod.price.toLocaleString()}
+                          {currency?.symbol || 'Rs. '}{Number(prod.price || 0).toLocaleString()}
                         </span>
-                        {prod.originalPrice && (
+                        {Number(prod.discountPercent) > 0 && Number(prod.originalPrice) > Number(prod.price) && (
                           <span className="text-[10px] text-slate-400 line-through block mt-0.5">
-                            {currency?.symbol || 'Rs. '}{prod.originalPrice.toLocaleString()}
+                            {currency?.symbol || 'Rs. '}{Number(prod.originalPrice).toLocaleString()}
                           </span>
                         )}
                       </div>

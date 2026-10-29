@@ -239,12 +239,12 @@ export const ProductDetailPage = () => {
               <span className="text-3xl font-black text-slate-900">
                 {currency.symbol}{product.price}
               </span>
-              {product.originalPrice > product.price && (
+              {Number(product.discountPercent) > 0 && Number(product.originalPrice) > Number(product.price) && (
                 <span className="text-base text-slate-400 line-through">
                   {currency.symbol}{product.originalPrice}
                 </span>
               )}
-              {product.discountPercent > 0 && (
+              {Number(product.discountPercent) > 0 && Number(product.originalPrice) > Number(product.price) && (
                 <span className="bg-rose-50 text-rose-600 text-xs font-black px-2 py-0.5 rounded-md border border-rose-100">
                   -{product.discountPercent}% OFF
                 </span>

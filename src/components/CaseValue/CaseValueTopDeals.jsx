@@ -133,9 +133,11 @@ export const CaseValueTopDeals = () => {
                   <span className="text-sm sm:text-base font-black text-[#5c3417]">
                     {currency?.symbol || 'Rs. '}{item.price}
                   </span>
-                  <span className="text-[11px] text-[#a08875] line-through font-semibold">
-                    {currency?.symbol || 'Rs. '}{item.originalPrice}
-                  </span>
+                  {Number(item.discountPercent || 15) > 0 && Number(item.originalPrice) > Number(item.price) && (
+                    <span className="text-[11px] text-[#a08875] line-through font-semibold">
+                      {currency?.symbol || 'Rs. '}{item.originalPrice}
+                    </span>
+                  )}
                 </div>
               </div>
 

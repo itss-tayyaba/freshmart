@@ -112,16 +112,16 @@ export const AdminModals = ({
 
     const priceNum = Number(productForm.price) || 0;
     const discountNum = Math.max(0, Number(productForm.discountPercent || 0));
-    const origPriceNum = discountNum > 0
-      ? (Number(productForm.originalPrice) > priceNum ? Number(productForm.originalPrice) : Math.round(priceNum / (1 - discountNum / 100)))
-      : (Number(productForm.originalPrice) || priceNum);
+    const origPriceNum = discountNum > 0 && Number(productForm.originalPrice) > priceNum
+      ? Number(productForm.originalPrice)
+      : priceNum;
 
     const newProductPayload = {
       name: productForm.name.trim(),
       description: productForm.description || 'Fresh quality grocery product.',
       price: priceNum,
       originalPrice: origPriceNum,
-      discountPercent: discountNum,
+      discountPercent: origPriceNum > priceNum ? discountNum : 0,
       category: matchedCategory ? matchedCategory.id : productForm.category.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       categoryLabel: productForm.category,
       unit: productForm.unit || '1 Kg',
