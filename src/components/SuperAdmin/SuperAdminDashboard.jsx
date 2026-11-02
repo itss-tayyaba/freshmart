@@ -65,6 +65,7 @@ export const SuperAdminDashboard = () => {
     suspendTenant,
     activateTenant,
     deleteTenant,
+    updateTenant,
     updateTenantSubscription,
     getTenantOrders,
     getTenantPerformance,
@@ -95,7 +96,33 @@ export const SuperAdminDashboard = () => {
 
   // Modals visibility
   const [isAddTenantOpen, setIsAddTenantOpen] = useState(false);
+  const [isEditTenantOpen, setIsEditTenantOpen] = useState(false);
+  const [editTenantForm, setEditTenantForm] = useState({
+    id: '',
+    name: '',
+    tagline: '',
+    ownerName: '',
+    ownerEmail: '',
+    ownerPhone: '',
+    city: 'Faisalabad',
+    location: '',
+    logo: '🏬'
+  });
+
   const [isAddAdminOpen, setIsAddAdminOpen] = useState(false);
+  const [isEditAdminOpen, setIsEditAdminOpen] = useState(false);
+  const [editAdminForm, setEditAdminForm] = useState({
+    id: '',
+    name: '',
+    email: '',
+    password: 'admin123',
+    phone: '',
+    tenantId: 'tenant-alfatah',
+    tenantName: '',
+    status: 'Active'
+  });
+  const [showEditAdminPassword, setShowEditAdminPassword] = useState(false);
+
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
@@ -271,7 +298,11 @@ export const SuperAdminDashboard = () => {
           status: live.status || store.status,
           plan: live.subscription?.plan || store.plan,
           ownerEmail: live.ownerEmail || store.ownerEmail,
-          ownerName: live.ownerName || store.ownerName
+          ownerName: live.ownerName || store.ownerName,
+          ownerPhone: live.ownerPhone || store.ownerPhone || '',
+          location: live.location || (live.city ? `${live.city}` : store.location),
+          city: live.city || store.city || 'Faisalabad',
+          logo: live.logo || store.logo
         };
       }
       return store;
@@ -577,6 +608,64 @@ export const SuperAdminDashboard = () => {
     if (window.confirm(`Are you sure you want to permanently delete ${store.fullName} from the platform?`)) {
       await deleteTenant(store.id);
     }
+  };
+
+  const handleOpenEditTenant = (store) => {
+    setSelectedTenant(store);
+    setEditTenantForm({
+      id: store.id,
+      name: store.fullName || store.name || '',
+      tagline: store.tagline || '',
+      ownerName: store.ownerName || '',
+      ownerEmail: store.ownerEmail || '',
+      ownerPhone: store.ownerPhone || '',
+      city: store.city || 'Faisalabad',
+      location: store.location || '',
+      logo: store.logo || '🏬'
+    });
+    setIsEditTenantOpen(true);
+  };
+
+  const handleSaveTenantSubmit = async (e) => {
+    e.preventDefault();
+    if (!editTenantForm.id) return;
+    await updateTenant(editTenantForm.id, {
+      name: editTenantForm.name.trim(),
+      displayName: editTenantForm.name.trim(),
+      tagline: editTenantForm.tagline.trim(),
+      ownerName: editTenantForm.ownerName.trim(),
+      ownerEmail: editTenantForm.ownerEmail.trim(),
+      ownerPhone: editTenantForm.ownerPhone.trim(),
+      city: editTenantForm.city.trim(),
+      location: editTenantForm.location.trim() || `${editTenantForm.city.trim()}`
+    });
+    setIsEditTenantOpen(false);
+  };
+
+  const handleOpenEditAdmin = (admin) => {
+    setEditAdminForm({
+      id: admin.id || admin.email,
+      name: admin.name || '',
+      email: admin.email || '',
+      password: admin.password || 'admin123',
+      phone: admin.phone || '',
+      tenantId: admin.tenantId || 'tenant-alfatah',
+      tenantName: admin.tenantName || '',
+      status: admin.status || 'Active'
+    });
+    setShowEditAdminPassword(false);
+    setIsEditAdminOpen(true);
+  };
+
+  const handleSaveAdminSubmit = async (e) => {
+    e.preventDefault();
+    if (!editAdminForm.id) return;
+    const targetStore = displayStores.find((s) => s.id === editAdminForm.tenantId);
+    await updateStoreAdmin(editAdminForm.id, {
+      ...editAdminForm,
+      tenantName: targetStore?.fullName || targetStore?.name || editAdminForm.tenantName || 'Supermarket'
+    });
+    setIsEditAdminOpen(false);
   };
 
   const handleCreateAdminSubmit = async (e) => {
@@ -1740,6 +1829,14 @@ export const SuperAdminDashboard = () => {
 
                       <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                         <button
+                          onClick={() => handleOpenEditTenant(store)}
+                          className="font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+                          title="Edit Supermarket Name & Profile"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+                        <button
                           onClick={() => handleOpenDetails(store)}
                           className="font-bold text-slate-700 hover:text-slate-900 cursor-pointer"
                         >
@@ -1880,22 +1977,30 @@ export const SuperAdminDashboard = () => {
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <div className="pt-3 border-t border-slate-100 grid grid-cols-4 gap-1.5">
+                      <button
+                        onClick={() => handleOpenEditTenant(store)}
+                        className="py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                        title="Edit Supermarket Name & Profile"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                        <span>Edit</span>
+                      </button>
                       <button
                         onClick={() => handleOpenDetails(store)}
-                        className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition text-center cursor-pointer"
+                        className="py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition text-center cursor-pointer"
                       >
                         Profile
                       </button>
                       <button
                         onClick={() => handleOpenPlan(store)}
-                        className="flex-1 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold transition text-center cursor-pointer"
+                        className="py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold transition text-center cursor-pointer"
                       >
                         Plan Tier
                       </button>
                       <button
                         onClick={() => handleToggleStoreStatus(store)}
-                        className={`px-2 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        className={`py-1.5 rounded-lg text-xs font-bold transition text-center cursor-pointer ${
                           store.status === 'Active'
                             ? 'bg-amber-50 hover:bg-amber-100 text-amber-700'
                             : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
@@ -2073,6 +2178,16 @@ export const SuperAdminDashboard = () => {
                               <Copy className="w-3 h-3" />
                             </button>
                           </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditAdmin(admin)}
+                            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-lg text-xs font-bold cursor-pointer transition flex items-center gap-1"
+                            title="Edit Admin Credentials, Password & Mart"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            <span>Edit</span>
+                          </button>
 
                           <button
                             type="button"
@@ -2806,6 +2921,144 @@ export const SuperAdminDashboard = () => {
       )}
 
       {/* ===================================================================== */}
+      {/* MODAL: EDIT MART ADMIN CREDENTIALS & PASSWORD                         */}
+      {/* ===================================================================== */}
+      {isEditAdminOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900 leading-tight flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-amber-600" />
+                  <span>Edit Mart Admin & Password</span>
+                </h3>
+                <span className="text-xs text-slate-500">Update credentials, store assignment, and password</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditAdminOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAdminSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Assigned Supermarket Mart</label>
+                <select
+                  value={editAdminForm.tenantId}
+                  onChange={(e) => setEditAdminForm({ ...editAdminForm, tenantId: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                >
+                  {displayStores.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.logo} {store.fullName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Admin Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editAdminForm.name}
+                  onChange={(e) => setEditAdminForm({ ...editAdminForm, name: e.target.value })}
+                  placeholder="e.g. Sheikh Tariq Al-Fatah"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Login Email / Username</label>
+                <input
+                  type="email"
+                  required
+                  value={editAdminForm.email}
+                  onChange={(e) => setEditAdminForm({ ...editAdminForm, email: e.target.value })}
+                  placeholder="admin@alfatah.pk"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-slate-700">Admin Password</label>
+                  <span className="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-full">
+                    Change Password Here
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showEditAdminPassword ? 'text' : 'password'}
+                    required
+                    value={editAdminForm.password}
+                    onChange={(e) => setEditAdminForm({ ...editAdminForm, password: e.target.value })}
+                    placeholder="Enter new login password"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-10 py-2.5 text-slate-800 font-mono font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditAdminPassword(!showEditAdminPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+                    title={showEditAdminPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showEditAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Changing this password will immediately update credentials for mart admin login.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    value={editAdminForm.phone}
+                    onChange={(e) => setEditAdminForm({ ...editAdminForm, phone: e.target.value })}
+                    placeholder="+92 300 8441122"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Account Status</label>
+                  <select
+                    value={editAdminForm.status}
+                    onChange={(e) => setEditAdminForm({ ...editAdminForm, status: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Suspended">Suspended</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditAdminOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Save Admin & Password</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
       {/* MODAL: ADD CUSTOMER MANUALLY                                          */}
       {/* ===================================================================== */}
       {isAddCustomerOpen && (
@@ -3021,6 +3274,133 @@ export const SuperAdminDashboard = () => {
       )}
 
       {/* ===================================================================== */}
+      {/* MODAL: EDIT SUPERMARKET TENANT                                        */}
+      {/* ===================================================================== */}
+      {isEditTenantOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900 leading-tight flex items-center gap-2">
+                  <Store className="w-5 h-5 text-emerald-600" />
+                  <span>Edit Supermarket Tenant</span>
+                </h3>
+                <span className="text-xs text-slate-500">Update store name, owner profile, and operating details</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditTenantOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTenantSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Supermarket / Tenant Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editTenantForm.name}
+                  onChange={(e) => setEditTenantForm({ ...editTenantForm, name: e.target.value })}
+                  placeholder="e.g. Al-Fatah Supermarket"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Tagline</label>
+                <input
+                  type="text"
+                  value={editTenantForm.tagline}
+                  onChange={(e) => setEditTenantForm({ ...editTenantForm, tagline: e.target.value })}
+                  placeholder="e.g. Pakistan's Premier Department Store & Hypermarket"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Owner / Manager Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editTenantForm.ownerName}
+                    onChange={(e) => setEditTenantForm({ ...editTenantForm, ownerName: e.target.value })}
+                    placeholder="e.g. Sheikh Tariq Al-Fatah"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Owner Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={editTenantForm.ownerEmail}
+                    onChange={(e) => setEditTenantForm({ ...editTenantForm, ownerEmail: e.target.value })}
+                    placeholder="admin@alfatah.pk"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    value={editTenantForm.ownerPhone}
+                    onChange={(e) => setEditTenantForm({ ...editTenantForm, ownerPhone: e.target.value })}
+                    placeholder="+92 300 8441122"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">City</label>
+                  <input
+                    type="text"
+                    value={editTenantForm.city}
+                    onChange={(e) => setEditTenantForm({ ...editTenantForm, city: e.target.value })}
+                    placeholder="Faisalabad"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Location & Branches Overview</label>
+                <input
+                  type="text"
+                  value={editTenantForm.location}
+                  onChange={(e) => setEditTenantForm({ ...editTenantForm, location: e.target.value })}
+                  placeholder="e.g. Faisalabad (D-Ground & Peoples Colony)"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditTenantOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Save Tenant Changes</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
       {/* MODAL: MANAGE SUBSCRIPTION PLAN                                       */}
       {/* ===================================================================== */}
       {isPlanModalOpen && selectedTenant && (
@@ -3133,8 +3513,20 @@ export const SuperAdminDashboard = () => {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
               <button
+                type="button"
+                onClick={() => {
+                  setIsDetailsModalOpen(false);
+                  handleOpenEditTenant(selectedTenant);
+                }}
+                className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>Edit Supermarket</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setIsDetailsModalOpen(false)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
               >

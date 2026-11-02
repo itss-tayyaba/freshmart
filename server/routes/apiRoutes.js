@@ -92,6 +92,7 @@ import {
   activateTenant,
   deleteTenant,
   updateSubscription,
+  updateTenant,
   getTenantOrders,
   getTenantPerformance,
   getPlatformOverview
@@ -259,6 +260,7 @@ router.post('/tenants/:id/approve', protect, superAdminOnly, approveTenant);
 router.post('/tenants/:id/suspend', protect, superAdminOnly, suspendTenant);
 router.post('/tenants/:id/activate', protect, superAdminOnly, activateTenant);
 router.delete('/tenants/:id', protect, superAdminOnly, deleteTenant);
+router.put('/tenants/:id', protect, superAdminOnly, updateTenant);
 router.put('/tenants/:id/subscription', protect, superAdminOnly, updateSubscription);
 router.get('/tenants/:id/orders', protect, adminOnly, getTenantOrders);
 router.get('/tenants/:id/performance', protect, adminOnly, getTenantPerformance);

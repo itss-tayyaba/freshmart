@@ -460,6 +460,60 @@ export const updateSubscription = async (req, res) => {
   }
 };
 
+// @desc    Super Admin: Update Tenant details (name, ownerName, ownerEmail, ownerPhone, city, tagline, hubs, etc.)
+// @route   PUT /api/tenants/:id
+export const updateTenant = async (req, res) => {
+  try {
+    const { name, displayName, ownerName, ownerEmail, ownerPhone, city, location, tagline, hubs, color, logo } = req.body;
+    const tenant = await findTenantRecord(req.params.id);
+    if (!tenant) {
+      return res.status(404).json({ success: false, message: 'Tenant not found' });
+    }
+
+    if (name) {
+      tenant.name = name;
+      tenant.displayName = displayName || name;
+    }
+    if (ownerName) tenant.ownerName = ownerName;
+    if (ownerEmail) tenant.ownerEmail = ownerEmail;
+    if (ownerPhone) tenant.ownerPhone = ownerPhone;
+    if (city) tenant.city = city;
+    if (location) tenant.location = location;
+    if (tagline) tenant.tagline = tagline;
+    if (color) tenant.color = color;
+    if (logo) tenant.logo = logo;
+    if (Array.isArray(hubs)) tenant.hubs = hubs;
+
+    if (isDbOnline() && typeof tenant.save === 'function') {
+      await tenant.save();
+    }
+
+    const mem = IN_MEMORY_TENANTS.find((t) => t.id === tenant.id || t.slug === tenant.slug);
+    if (mem) {
+      Object.assign(mem, {
+        ...(name && { name, displayName: displayName || name }),
+        ...(ownerName && { ownerName }),
+        ...(ownerEmail && { ownerEmail }),
+        ...(ownerPhone && { ownerPhone }),
+        ...(city && { city }),
+        ...(location && { location }),
+        ...(tagline && { tagline }),
+        ...(color && { color }),
+        ...(logo && { logo }),
+        ...(Array.isArray(hubs) && { hubs })
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Supermarket "${tenant.name}" updated successfully.`,
+      tenant
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Super Admin: See Tenant Orders
 // @route   GET /api/tenants/:id/orders
 export const getTenantOrders = async (req, res) => {

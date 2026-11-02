@@ -4660,6 +4660,49 @@ export const StoreProvider = ({ children }) => {
     return { success: true };
   };
 
+  const updateTenant = async (tenantId, updatePayload) => {
+    let updatedTenant = null;
+    setTenants((prev) =>
+      prev.map((t) => {
+        if (t.id === tenantId || t.tenantId === tenantId) {
+          updatedTenant = {
+            ...t,
+            ...updatePayload,
+            ...(updatePayload.name ? { displayName: updatePayload.name } : {})
+          };
+          return updatedTenant;
+        }
+        return t;
+      })
+    );
+
+    if (currentTenant?.id === tenantId || currentTenant?.tenantId === tenantId) {
+      setCurrentTenant((prev) => ({
+        ...prev,
+        ...updatePayload,
+        ...(updatePayload.name ? { displayName: updatePayload.name } : {})
+      }));
+    }
+
+    // If tenant name was updated, propagate to any mart admins assigned to this tenant
+    if (updatePayload.name) {
+      setStoreAdmins((prev) =>
+        prev.map((sa) =>
+          sa.tenantId === tenantId ? { ...sa, tenantName: updatePayload.name } : sa
+        )
+      );
+    }
+
+    try {
+      await apiService.updateTenant(tenantId, updatePayload);
+    } catch (e) {
+      console.warn('Backend updateTenant failed:', e);
+    }
+
+    addToast('Tenant Updated ✅', `Supermarket "${updatePayload.name || 'Store'}" profile updated.`);
+    return { success: true, tenant: updatedTenant };
+  };
+
   const updateTenantSubscription = async (tenantId, subPayload) => {
     setTenants((prev) =>
       prev.map((t) => {
@@ -6831,6 +6874,7 @@ export const StoreProvider = ({ children }) => {
         suspendTenant,
         activateTenant,
         deleteTenant,
+        updateTenant,
         updateTenantSubscription,
         getTenantOrders,
         getTenantPerformance,

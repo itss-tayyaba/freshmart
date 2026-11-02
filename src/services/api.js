@@ -1098,6 +1098,19 @@ export const apiService = {
     }
   },
 
+  async updateTenant(id, payload) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tenants/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
   async updateTenantSubscription(id, subscriptionPayload) {
     try {
       const res = await fetch(`${API_BASE_URL}/tenants/${encodeURIComponent(id)}/subscription`, {

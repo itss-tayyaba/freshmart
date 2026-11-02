@@ -11,6 +11,7 @@ import {
   activateTenant,
   deleteTenant,
   updateSubscription,
+  updateTenant,
   getTenantOrders,
   getTenantPerformance,
   getPlatformOverview
@@ -275,6 +276,32 @@ describe('Super Grocery Multi-Tenant Platform Architecture', () => {
       assert.ok(overviewData.overview.totalTenants >= 4);
       assert.ok(overviewData.overview.totalGmv > 0);
     });
+
+    it('Op 11: Edit Tenant - updates supermarket tenant name, owner profile and locations', async () => {
+      const req = {
+        params: { id: 'tenant-alfatah' },
+        body: {
+          name: 'Al-Fatah Premium Superstore',
+          tagline: 'Pakistan Premier Luxury Department Store & Hypermarket',
+          ownerName: 'Sheikh Tariq Al-Fatah Senior',
+          ownerEmail: 'tariq@alfatah.pk',
+          ownerPhone: '+92 300 9998877',
+          city: 'Faisalabad & Lahore',
+          location: 'D-Ground Flagship & Peoples Colony Hypermarket'
+        }
+      };
+      const res = createMockRes();
+      await updateTenant(req, res);
+
+      assert.equal(res.getStatusCode(), 200);
+      const data = res.getData();
+      assert.ok(data.success);
+      assert.equal(data.tenant.name, 'Al-Fatah Premium Superstore');
+      assert.equal(data.tenant.ownerName, 'Sheikh Tariq Al-Fatah Senior');
+      assert.equal(data.tenant.ownerEmail, 'tariq@alfatah.pk');
+      assert.equal(data.tenant.ownerPhone, '+92 300 9998877');
+      assert.equal(data.tenant.city, 'Faisalabad & Lahore');
+    });
   });
 
   describe('3. Super Admin & Store Admin Authentication API', () => {
@@ -399,6 +426,25 @@ describe('Super Grocery Multi-Tenant Platform Architecture', () => {
       assert.ok(matchedAdmin);
       assert.equal(matchedAdmin.password === 'chaseSecurePass456', true);
       assert.equal(matchedAdmin.password === 'wrongpass', false);
+
+      // 5. Test Super Admin editing Mart Admin credentials and changing password
+      const editAdminPayload = {
+        name: 'Salman Qureshi Updated',
+        password: 'brandNewPassword999',
+        phone: '+92 321 0001122',
+        tenantName: 'Chase Value Hypermarket'
+      };
+
+      storeAdmins = storeAdmins.map((sa) =>
+        sa.id === savedAdmin.id ? { ...sa, ...editAdminPayload } : sa
+      );
+
+      const reUpdatedAdmin = storeAdmins.find((sa) => sa.id === savedAdmin.id);
+      assert.equal(reUpdatedAdmin.name, 'Salman Qureshi Updated');
+      assert.equal(reUpdatedAdmin.password, 'brandNewPassword999');
+      assert.equal(reUpdatedAdmin.tenantName, 'Chase Value Hypermarket');
+      assert.equal(reUpdatedAdmin.password === 'brandNewPassword999', true);
+      assert.equal(reUpdatedAdmin.password === 'chaseSecurePass456', false);
     });
   });
 });
