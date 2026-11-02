@@ -189,6 +189,12 @@ const normalizeApiOrder = (remoteOrder, localOrder = {}) => {
     assignedRider: remoteOrder.assignedRider || localOrder.assignedRider || null,
     pickupStaffId: remoteOrder.pickupStaffId || localOrder.pickupStaffId || null,
     pickupStaffName: remoteOrder.pickupStaffName || localOrder.pickupStaffName || null,
+    pickupStaffUsername: remoteOrder.pickupStaffUsername || localOrder.pickupStaffUsername || null,
+    isDispatchedByStaff: remoteOrder.isDispatchedByStaff || localOrder.isDispatchedByStaff || false,
+    pickupStep: remoteOrder.pickupStep || localOrder.pickupStep || null,
+    parcelCode: remoteOrder.parcelCode || localOrder.parcelCode || null,
+    readyForDispatchAt: remoteOrder.readyForDispatchAt || localOrder.readyForDispatchAt || null,
+    fulfillmentUpdatedAt: remoteOrder.fulfillmentUpdatedAt || localOrder.fulfillmentUpdatedAt || null,
     createdAt: remoteOrder.createdAt || localOrder.createdAt || new Date().toISOString()
   });
 };

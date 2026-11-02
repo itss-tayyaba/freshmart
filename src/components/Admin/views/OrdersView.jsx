@@ -288,9 +288,9 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
     const isValidBranch = currentBranchFilter && currentBranchFilter !== 'all' && tenantBranches.some((b) => b.id === currentBranchFilter || b._id === currentBranchFilter);
     if (isValidBranch) {
       list = list.filter((o) => {
-        // Pending incoming orders always stay visible to Store Admin for immediate review & dispatch
-        const isPending = !o.status || ['pending', 'order placed', 'confirmed'].includes(String(o.status).toLowerCase());
-        if (isPending) return true;
+        // Active orders awaiting fulfillment or courier handover always stay visible to Store Admin
+        const isAwaitingDispatch = !o.status || ['pending', 'order placed', 'confirmed', 'prepared', 'ready', 'ready for dispatch'].includes(String(o.status).toLowerCase()) || o.isDispatchedByStaff;
+        if (isAwaitingDispatch) return true;
         return o.branchId === currentBranchFilter;
       });
     } else if (user?.branchId && user.branchId !== 'all' && user?.role !== 'admin') {
@@ -357,6 +357,7 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
       const s = String(o.status || 'Pending').toLowerCase();
       // Tab filter
       if (activeTab === 'Pending' && !['pending', 'confirmed', 'order placed', 'deliver to staff', 'delivered to staff', 'received by pickup staff'].includes(s)) return false;
+      if (activeTab === 'Deliver to Staff' && !['deliver to staff', 'delivered to staff', 'received by pickup staff'].includes(s)) return false;
       if (activeTab === 'Preparing' && !['preparing', 'processing', 'picking', 'packed'].includes(s)) return false;
       if (activeTab === 'Prepared' && !['prepared', 'ready', 'ready for dispatch', 'ready(dispatched)'].includes(s) && !o.isDispatchedByStaff) return false;
       if (

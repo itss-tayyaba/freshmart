@@ -150,33 +150,72 @@ const StoreAdminConsole = () => {
     return new Set();
   }, [customerOrders, adminOrders]);
 
-  // Unified tenant orders deduplicated by bare ID, prioritizing Delivered status
+  // Unified tenant orders deduplicated by bare ID, prioritizing highest lifecycle status
   const unifiedTenantOrders = useMemo(() => {
     const combined = [...(customerOrders || []), ...(adminOrders || [])].map(sanitizeOrder);
     const map = new Map();
-    combined.forEach((o) => {
-      if (!o) return;
-      const bare = String(o.id || o.orderId || o._id || '').replace(/^#/, '').trim().toLowerCase();
-      if (!bare) return;
 
-      if (activeTenantId && !isOrderVisibleToUser(o, user, activeTenantId)) {
+    const getStatusRank = (st) => {
+      const s = String(st || '').toLowerCase();
+      if (s === 'delivered' || s === 'completed') return 7;
+      if (s === 'out for delivery' || s === 'dispatched to rider' || s === 'dispatched' || s === 'in transit') return 6;
+      if (s === 'ready for dispatch' || s === 'ready' || s === 'ready(dispatched)') return 5;
+      if (s === 'prepared') return 4;
+      if (s === 'packed' || s === 'picking' || s === 'preparing') return 3;
+      if (s === 'deliver to staff' || s === 'delivered to staff' || s === 'received by pickup staff') return 2;
+      return 1;
+    };
+
+    combined.forEach((ord) => {
+      if (!ord) return;
+      const bare = String(ord.id || ord.orderId || ord._id || '').replace(/^#/, '').trim().toLowerCase();
+      if (!bare || bare === 'cu5011') return;
+
+      if (activeTenantId && !isOrderVisibleToUser(ord, user, activeTenantId)) {
         return;
       }
 
       const isDelivered =
-        o.status === 'Delivered' ||
-        o.status === 'Completed' ||
-        o.isDelivered === true ||
-        Number(o.fulfillmentStage) >= 7 ||
+        ord.status === 'Delivered' ||
+        ord.status === 'Completed' ||
+        ord.isDelivered === true ||
+        Number(ord.fulfillmentStage) >= 7 ||
         deliveredOrderIds.has(bare);
 
       const existing = map.get(bare);
-      if (!existing || isDelivered) {
-        map.set(bare, { ...o, isDelivered, status: isDelivered ? 'Delivered' : o.status });
+      if (!existing) {
+        map.set(bare, {
+          ...ord,
+          isDelivered: isDelivered || ord.isDelivered,
+          status: isDelivered ? 'Delivered' : ord.status
+        });
+      } else {
+        const rankExisting = getStatusRank(existing.status);
+        const rankOrd = getStatusRank(ord.status);
+        const preferOrd =
+          isDelivered ||
+          rankOrd >= rankExisting ||
+          (ord.isDispatchedByStaff && !existing.isDispatchedByStaff) ||
+          (ord.assignedRider && !existing.assignedRider) ||
+          (ord.pickupStaffId && !existing.pickupStaffId);
+
+        const base = preferOrd ? { ...existing, ...ord } : { ...ord, ...existing };
+        if (existing.pickupStaffName && !base.pickupStaffName) base.pickupStaffName = existing.pickupStaffName;
+        if (existing.pickupStaffId && !base.pickupStaffId) base.pickupStaffId = existing.pickupStaffId;
+        if (existing.assignedRider && !base.assignedRider) base.assignedRider = existing.assignedRider;
+        if (existing.isDispatchedByStaff || ord.isDispatchedByStaff) base.isDispatchedByStaff = true;
+        if (ord.pickupStep === 'verified' || existing.pickupStep === 'verified') base.pickupStep = 'verified';
+        if (isDelivered) {
+          base.status = 'Delivered';
+          base.isDelivered = true;
+        } else if (base.isDispatchedByStaff && (!base.status || base.status === 'Pending')) {
+          base.status = 'Prepared';
+        }
+        map.set(bare, base);
       }
     });
     return Array.from(map.values());
-  }, [customerOrders, adminOrders, activeTenantId, deliveredOrderIds]);
+  }, [customerOrders, adminOrders, activeTenantId, deliveredOrderIds, user]);
 
   // Pending active orders count for Orders badge (only non-delivered, active orders)
   const pendingOrdersCount = useMemo(() => {
