@@ -505,7 +505,9 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
       selectedRiderMap[`#${cleanId}`] ||
       ord?.assignedRider?.id ||
       ord?.assignedRider?._id ||
-      firstEligibleId;
+      firstEligibleId ||
+      riders?.[0]?.id ||
+      riders?.[0]?._id;
 
     if (!riderId) {
       addToast('Add Rider in Fleet View 🛵', 'No courier registered yet for this store. Please add a rider in the Delivery / Fleet tab first.', 'error');
@@ -515,7 +517,7 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
       await assignRiderToOrder(orderId, riderId, 'Out for Delivery', true);
       const targetRider = (riders || []).find((r) =>
         r.id === riderId || r._id === riderId || r.riderId === riderId || r.name === riderId
-      ) || (eligible && eligible[0]);
+      ) || (eligible && eligible[0]) || riders?.[0];
 
       if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderId === orderId || String(selectedOrder.id).replace(/^#/, '').toLowerCase().trim() === cleanId)) {
         if (targetRider) {
@@ -533,6 +535,20 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
       }
       addToast('Dispatched to Rider 🚀', `Order #${cleanId.toUpperCase()} assigned to ${targetRider?.name || 'Rider'} and is Out for Delivery.`);
     }
+  };
+
+  const handleDispatchRider = async (orderId, explicitRiderId) => {
+    return handleAssignRider(orderId, explicitRiderId);
+  };
+
+  const handleRiderSelect = (ordKey, riderId) => {
+    const clean = String(ordKey || '').replace(/^#/, '').trim();
+    setSelectedRiderMap((prev) => ({
+      ...prev,
+      [ordKey]: riderId,
+      [clean]: riderId,
+      [`#${clean}`]: riderId
+    }));
   };
 
   // Helper: Open customer profile modal from order customer details
@@ -895,9 +911,12 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                   const paymentMethod = ord.paymentMethod || ord.payment || 'Cash on Delivery';
                   const rawEligible = getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : [];
                   const orderTenant = normalizeOrderTenantId(ord);
-                  const eligibleRiders = (rawEligible && rawEligible.length > 0)
+                  let eligibleRiders = (rawEligible && rawEligible.length > 0)
                     ? rawEligible
                     : (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
+                  if (eligibleRiders.length === 0 && riders && riders.length > 0) {
+                    eligibleRiders = riders;
+                  }
                   const s = String(ord.status || 'Pending').toLowerCase();
                   const isDeliveredState = s === 'delivered' || ord.isDelivered;
                   const isInTransitState = !isDeliveredState && (ord.assignedRider || ['out for delivery', 'dispatched to rider', 'dispatched', 'in transit'].includes(s));
@@ -984,75 +1003,152 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                       </div>
 
                       {/* Action Bar */}
-                      <div className="pt-2 flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
-                        {isPreparedState && !isInTransitState ? (
-                          <div className="flex items-center gap-1.5 w-full">
-                            <select
-                              value={currentChosenRider}
-                              onChange={(e) => handleRiderSelect(orderKey, e.target.value)}
-                              className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 text-xs font-bold text-slate-700"
-                            >
-                              {eligibleRiders.map((r) => (
-                                <option key={r.id || r._id} value={r.id || r._id}>
-                                  🛵 {r.name}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              type="button"
-                              onClick={() => handleDispatchRider(orderKey, currentChosenRider)}
-                              className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs shrink-0 flex items-center gap-1"
-                            >
-                              <Rocket className="w-3.5 h-3.5" />
-                              <span>Dispatch</span>
-                            </button>
-                          </div>
-                        ) : hasStaff && !isPreparedState && !isInTransitState && !isDeliveredState ? (
-                          <div className="w-full flex items-center justify-between text-xs px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200">
-                            <span className="font-bold text-amber-900 truncate">
-                              📦 Staff: {ord.pickupStaffName}
-                              {ord.pickupStaffId && (
-                                <span className="font-mono font-bold text-amber-700 ml-1">
-                                  ({countPickupStaffTasks(ord.pickupStaffId, liveOrders)}/10)
-                                </span>
-                              )}
-                            </span>
-                            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
-                          </div>
-                        ) : s === 'pending' && !hasStaff ? (
-                          <button
-                            type="button"
-                            onClick={() => setDeliverToStaffOrder(ord)}
-                            className="w-full py-1.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center justify-center gap-1.5"
-                          >
-                            <Boxes className="w-3.5 h-3.5" />
-                            <span>Assign Packing Staff</span>
-                          </button>
-                        ) : isDeliveredState ? (
-                          <div className="w-full flex items-center justify-between">
-                            <span className="text-emerald-700 font-bold text-[11px] flex items-center gap-1">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              Delivered
+                      <div className="pt-2 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+                        {isDeliveredState ? (
+                          <div className="w-full flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                            <span className="text-emerald-800 font-bold text-xs flex items-center gap-1.5 truncate">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span className="truncate">Delivered {ord.assignedRider?.name ? `by ${ord.assignedRider.name}` : ''}</span>
                             </span>
                             <a
                               href={getWhatsAppDeliveryLink(ord)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#25D366] text-white rounded-lg text-xs font-bold"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#25D366] hover:bg-[#1fb855] text-white rounded-lg text-xs font-bold transition shadow-xs shrink-0"
                             >
-                              <MessageCircle className="w-3 h-3" />
+                              <MessageCircle className="w-3.5 h-3.5" />
                               <span>WhatsApp</span>
                             </a>
                           </div>
+                        ) : isInTransitState ? (
+                          <div className="space-y-2 w-full">
+                            <div className="flex items-center justify-between bg-sky-50 border border-sky-200 rounded-xl px-3 py-2 text-xs">
+                              <span className="font-bold text-sky-900 truncate flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse shrink-0" />
+                                🛵 With {ord.assignedRider?.name || 'Rider'}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                {ord.assignedRider?.phone && (
+                                  <a
+                                    href={`tel:${ord.assignedRider.phone}`}
+                                    className="p-1 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-800 shrink-0"
+                                    title="Call Rider"
+                                  >
+                                    <Phone className="w-3.5 h-3.5" />
+                                  </a>
+                                )}
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-sky-200 text-sky-900 uppercase">
+                                  In Transit
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(orderKey, 'Delivered')}
+                                className="flex-1 py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-xs transition active:scale-95 cursor-pointer"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Mark Delivered</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedOrder(ord)}
+                                className="py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1 transition cursor-pointer"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Details</span>
+                              </button>
+                            </div>
+                          </div>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedOrder(ord)}
-                            className="w-full py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>View Full Details</span>
-                          </button>
+                          /* Active order: Give to Rider / Handover controls */
+                          <div className="space-y-2 w-full">
+                            {hasStaff && !isPreparedState && (
+                              <div className="w-full flex items-center justify-between text-[11px] px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900">
+                                <span className="font-bold truncate">
+                                  📦 Packing Staff: {ord.pickupStaffName}
+                                  {ord.pickupStaffId && (
+                                    <span className="font-mono text-amber-700 ml-1">
+                                      ({countPickupStaffTasks(ord.pickupStaffId, liveOrders)}/10)
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
+                              </div>
+                            )}
+
+                            {isPreparedState && (
+                              <div className="flex items-center gap-1 text-[11px] font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-lg">
+                                <CheckCircle2 className="w-3 h-3 text-teal-600" />
+                                <span>Packed & Ready for Courier Handover</span>
+                              </div>
+                            )}
+
+                            {/* Prominent Rider Select & Give to Rider Button */}
+                            <div className="flex items-center gap-1.5 w-full">
+                              <select
+                                value={currentChosenRider}
+                                onChange={(e) => handleRiderSelect(orderKey, e.target.value)}
+                                disabled={eligibleRiders.length === 0}
+                                className="flex-1 min-w-0 bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              >
+                                {eligibleRiders.length === 0 && <option value="">No riders available</option>}
+                                {eligibleRiders.map((r) => {
+                                  const rId = r.id || r._id || r.riderId;
+                                  const area = r.servedAreaLabel || r.region || r.zone || r.city || '';
+                                  return (
+                                    <option key={rId} value={rId}>
+                                      🛵 {r.name} {area ? `· ${area}` : ''}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const riderToUse = currentChosenRider || eligibleRiders?.[0]?.id || eligibleRiders?.[0]?._id;
+                                  if (!riderToUse) {
+                                    addToast('Select Rider 🛵', 'Please select an available rider from the list first.', 'error');
+                                    return;
+                                  }
+                                  await handleAssignRider(orderKey, riderToUse);
+                                }}
+                                disabled={eligibleRiders.length === 0}
+                                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shrink-0 flex items-center gap-1.5 shadow-sm active:scale-95 transition disabled:opacity-40 cursor-pointer"
+                                title="Give parcel to this rider"
+                              >
+                                <Rocket className="w-3.5 h-3.5" />
+                                <span>Give to Rider</span>
+                              </button>
+                            </div>
+
+                            {/* Secondary actions row */}
+                            <div className="flex items-center justify-between gap-2 pt-0.5">
+                              {s === 'pending' && !hasStaff ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setDeliverToStaffOrder(ord)}
+                                  className="text-[11px] font-bold text-amber-800 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg px-2.5 py-1 flex items-center gap-1 transition"
+                                >
+                                  <Boxes className="w-3 h-3 text-amber-600" />
+                                  <span>Send to Packing Staff</span>
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-slate-400">
+                                  {isPreparedState ? 'Ready for rider' : 'Direct rider handover allowed'}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setSelectedOrder(ord)}
+                                className="text-[11px] font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg px-2.5 py-1 flex items-center gap-1 transition ml-auto"
+                              >
+                                <Eye className="w-3 h-3 text-slate-500" />
+                                <span>Details</span>
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1086,9 +1182,12 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                     const paymentMethod = ord.paymentMethod || ord.payment || 'Cash on Delivery';
                     const rawEligible = getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : [];
                     const orderTenant = normalizeOrderTenantId(ord);
-                    const eligibleRiders = (rawEligible && rawEligible.length > 0)
+                    let eligibleRiders = (rawEligible && rawEligible.length > 0)
                       ? rawEligible
                       : (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
+                    if (eligibleRiders.length === 0 && riders && riders.length > 0) {
+                      eligibleRiders = riders;
+                    }
                     const s = String(ord.status || 'Pending').toLowerCase();
                     const isDeliveredState = s === 'delivered' || ord.isDelivered;
                     const isInTransitState = !isDeliveredState && (ord.assignedRider || ['out for delivery', 'dispatched to rider', 'dispatched', 'in transit'].includes(s));
@@ -1446,9 +1545,16 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
 
         </div>
 
-        {/* Right Side Drawer / Order Details Panel matching Screenshot */}
+        {/* Right Side Drawer / Order Details Panel (Responsive Bottom Sheet on Mobile, Sidebar on Desktop) */}
         {selectedOrder && (
-          <aside className="w-full lg:w-[420px] shrink-0 bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 space-y-5 animate-in slide-in-from-right-4 duration-200">
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 lg:relative lg:inset-auto lg:z-auto lg:bg-transparent lg:p-0">
+            {/* Mobile backdrop click to dismiss */}
+            <div
+              className="absolute inset-0 lg:hidden"
+              onClick={() => setSelectedOrder(null)}
+              aria-hidden="true"
+            />
+            <aside className="relative z-10 w-full sm:max-w-lg lg:w-[420px] max-h-[85vh] lg:max-h-none overflow-y-auto shrink-0 bg-white rounded-t-3xl sm:rounded-3xl border border-slate-200/80 shadow-2xl lg:shadow-card p-5 sm:p-6 space-y-5 animate-in slide-in-from-bottom-4 lg:slide-in-from-right-4 duration-200">
             
             {/* Header: Order ID & Close */}
             <div className="flex items-start justify-between pb-4 border-b border-slate-100">
@@ -1716,7 +1822,14 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                 ) : (() => {
                   const drawerKey = selectedOrder.id || selectedOrder.orderId || selectedOrder._id;
                   const cleanDrawerKey = String(drawerKey).replace(/^#/, '').trim();
-                  const eligibleList = (getEligibleRidersForOrder ? getEligibleRidersForOrder(selectedOrder) : []) || riders || [];
+                  const rawList = (getEligibleRidersForOrder ? getEligibleRidersForOrder(selectedOrder) : []) || [];
+                  const orderTenant = normalizeOrderTenantId(selectedOrder);
+                  let eligibleList = rawList.length > 0
+                    ? rawList
+                    : (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
+                  if (eligibleList.length === 0 && riders && riders.length > 0) {
+                    eligibleList = riders;
+                  }
                   const defaultDrawerRiderId = eligibleList[0]?.id || eligibleList[0]?._id || eligibleList[0]?.riderId || '';
                   const currentDrawerRider =
                     selectedRiderMap[drawerKey] ||
@@ -1806,7 +1919,14 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                     type="button"
                     onClick={() => {
                       const drawerKey = selectedOrder.id || selectedOrder.orderId || selectedOrder._id;
-                      const eligibleList = (getEligibleRidersForOrder ? getEligibleRidersForOrder(selectedOrder) : []) || riders || [];
+                      const rawList = (getEligibleRidersForOrder ? getEligibleRidersForOrder(selectedOrder) : []) || [];
+                      const orderTenant = normalizeOrderTenantId(selectedOrder);
+                      let eligibleList = rawList.length > 0
+                        ? rawList
+                        : (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
+                      if (eligibleList.length === 0 && riders && riders.length > 0) {
+                        eligibleList = riders;
+                      }
                       const defaultDrawerRiderId = eligibleList[0]?.id || eligibleList[0]?._id || eligibleList[0]?.riderId || '';
                       const riderToAssign = selectedRiderMap[drawerKey] || defaultDrawerRiderId;
                       handleAssignRider(drawerKey, riderToAssign);
@@ -1842,7 +1962,8 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
               </div>
             </div>
           </aside>
-        )}
+        </div>
+      )}
 
       </div>
 
