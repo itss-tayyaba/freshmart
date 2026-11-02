@@ -23,6 +23,7 @@ import {
   FRESHMART_CATEGORIES,
   FRESHMART_BRANDS
 } from '../../data/freshMartData';
+import { matchesProductCategory } from '../../utils/categoryHelper';
 
 export const ShopPage = () => {
   const {
@@ -143,25 +144,9 @@ export const ShopPage = () => {
   const filteredProducts = useMemo(() => {
     let list = [...products];
 
-    // 1. Category Filter (Matches ID, slug, and display label)
+    // 1. Category Filter (Matches ID, slug, and display label with strict category isolation)
     if (activeCategory && activeCategory !== 'all') {
-      const cleanCat = String(activeCategory).toLowerCase().trim();
-      list = list.filter((p) => {
-        const pCat = String(p.category || '').toLowerCase().trim();
-        const pCatLabel = String(p.categoryLabel || '').toLowerCase().trim();
-        const pDeptId = String(p.departmentId || '').toLowerCase().trim();
-        const pDeptName = String(p.departmentName || '').toLowerCase().trim();
-        return (
-          pCat === cleanCat ||
-          pCatLabel === cleanCat ||
-          pDeptId === cleanCat ||
-          pDeptName === cleanCat ||
-          (cleanCat.includes(pCat) && pCat.length > 2) ||
-          (pCat.includes(cleanCat) && cleanCat.length > 2) ||
-          (cleanCat.includes(pDeptId) && pDeptId.length > 2) ||
-          (pDeptId.includes(cleanCat) && cleanCat.length > 2)
-        );
-      });
+      list = list.filter((p) => matchesProductCategory(p, activeCategory));
     }
 
     // 2. Brand Filter (Multi-brand checkbox selection)
@@ -318,39 +303,35 @@ export const ShopPage = () => {
                 <span className="text-[10px] opacity-80">{products.length}</span>
               </button>
 
-              {(categories || []).map((cat) => {
-                const cId = String(cat.id || '').toLowerCase().trim();
-                const cName = String(cat.name || '').toLowerCase().trim();
-                const count = (products || []).filter((p) => {
-                  const pCat = String(p.category || '').toLowerCase().trim();
-                  const pCatLabel = String(p.categoryLabel || '').toLowerCase().trim();
-                  const pDeptId = String(p.departmentId || '').toLowerCase().trim();
-                  const pDeptName = String(p.departmentName || '').toLowerCase().trim();
-                  return (
-                    pCat === cId ||
-                    pDeptId === cId ||
-                    pCatLabel === cName ||
-                    pDeptName === cName ||
-                    (pCat && cId && (cId.includes(pCat) || pCat.includes(cId))) ||
-                    (pDeptId && cId && (cId.includes(pDeptId) || pDeptId.includes(cId)))
-                  );
-                }).length;
+              {(categories || [])
+                .map((cat) => {
+                  const count = (products || []).filter((p) =>
+                    matchesProductCategory(p, cat.id || cat.slug || cat.departmentId || cat.name)
+                  ).length;
+                  return { ...cat, count };
+                })
+                .filter((cat) => cat.count > 0)
+                .map((cat) => {
+                  const isCatActive =
+                    activeCategory === cat.id ||
+                    activeCategory === cat.slug ||
+                    activeCategory === cat.departmentId;
 
-                return (
-                  <button
-                    key={cat.id || cat.name}
-                    onClick={() => setActiveCategory(cat.id)}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-between ${
-                      activeCategory === cat.id
-                        ? `${theme.primaryBg} text-white shadow-2xs`
-                        : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="truncate">{cat.name}</span>
-                    <span className="text-[10px] opacity-80">{count}</span>
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      key={cat.id || cat.name}
+                      onClick={() => setActiveCategory(cat.id || cat.slug)}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-between ${
+                        isCatActive
+                          ? `${theme.primaryBg} text-white shadow-2xs`
+                          : 'text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="truncate">{cat.name}</span>
+                      <span className="text-[10px] opacity-80">{cat.count}</span>
+                    </button>
+                  );
+                })}
             </div>
           </div>
 

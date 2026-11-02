@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ProductCard } from './ProductCard';
 import { PRODUCTS } from '../../data/groceryData';
 import { useStore } from '../../context/StoreContext';
+import { matchesProductCategory } from '../../utils/categoryHelper';
 import { SlidersHorizontal, Sparkles, Filter, Check } from 'lucide-react';
 
 const CATEGORY_TABS = [
@@ -25,7 +26,7 @@ export const ProductGrid = () => {
     let result = Array.isArray(products) && products.length > 0 ? [...products] : [...PRODUCTS];
 
     if (activeCategory && activeCategory !== 'all') {
-      result = result.filter((p) => p.category === activeCategory);
+      result = result.filter((p) => matchesProductCategory(p, activeCategory));
     }
 
     if (onlyOrganic) {

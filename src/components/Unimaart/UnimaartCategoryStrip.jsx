@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Carrot,
   Coffee,
@@ -9,87 +9,89 @@ import {
   Milk,
   Cookie,
   Wheat,
-  LayoutGrid,
-  ChevronRight
+  Droplets,
+  LayoutGrid
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { matchesProductCategory } from '../../utils/categoryHelper';
 
 export const UnimaartCategoryStrip = ({ activeCategory, onSelectCategory }) => {
-  const { navigateTo, setActiveCategory, activeCategory: storeActiveCategory } = useStore();
-  const [showMore, setShowMore] = useState(false);
+  const { setActiveCategory, activeCategory: storeActiveCategory, products } = useStore();
 
-  // Main primary 7 categories matching reference screenshot
-  const primaryCategories = [
+  const allPossibleCategories = [
     {
       id: 'fruits-veg',
       name: 'Vegetables & Fruit',
       icon: Carrot,
-      activeColor: 'bg-[#0284c7] text-white',
-      badge: '5 Items'
+      activeColor: 'bg-[#0284c7] text-white'
     },
     {
       id: 'beverages',
       name: 'Beverages',
       icon: Coffee,
-      activeColor: 'bg-[#0284c7] text-white',
-      badge: '5 Items'
+      activeColor: 'bg-[#0284c7] text-white'
     },
     {
-      id: 'meat-poultry',
-      name: 'Meats & Seafood',
-      icon: Beef,
-      activeColor: 'bg-[#0284c7] text-white',
-      badge: '5 Items'
+      id: 'dry-foods',
+      name: 'Dry Foods & Staples',
+      icon: Wheat,
+      activeColor: 'bg-[#0284c7] text-white'
     },
     {
-      id: 'frozen-foods',
-      name: 'Frozen Foods',
-      icon: Snowflake,
-      activeColor: 'bg-[#0284c7] text-white',
-      badge: '5 Items'
-    },
-    {
-      id: 'bakery',
-      name: 'Breakfast',
-      icon: Croissant,
-      activeColor: 'bg-[#0284c7] text-white',
-      badge: '5 Items'
-    },
-    {
-      id: 'pet-food',
-      name: 'Pet Food',
-      icon: PawPrint,
-      activeColor: 'bg-[#0284c7] text-white',
-      badge: '5 Items'
+      id: 'oil-ghee',
+      name: 'Cooking Oil & Ghee',
+      icon: Droplets,
+      activeColor: 'bg-[#0284c7] text-white'
     },
     {
       id: 'dairy-eggs',
       name: 'Milk & Dairies',
       icon: Milk,
-      activeColor: 'bg-[#0284c7] text-white',
-      badge: '5 Items'
-    }
-  ];
-
-  // Additional categories accessible via "More Options"
-  const extraCategories = [
+      activeColor: 'bg-[#0284c7] text-white'
+    },
+    {
+      id: 'meat-poultry',
+      name: 'Meats & Seafood',
+      icon: Beef,
+      activeColor: 'bg-[#0284c7] text-white'
+    },
     {
       id: 'snacks',
       name: 'Snacks & Munchies',
       icon: Cookie,
-      activeColor: 'bg-[#0284c7] text-white',
-      badge: '5 Items'
+      activeColor: 'bg-[#0284c7] text-white'
     },
     {
-      id: 'grocery-staples',
-      name: 'Grocery Staples',
-      icon: Wheat,
-      activeColor: 'bg-[#0284c7] text-white',
-      badge: '5 Items'
+      id: 'bakery',
+      name: 'Breakfast & Bakery',
+      icon: Croissant,
+      activeColor: 'bg-[#0284c7] text-white'
+    },
+    {
+      id: 'frozen-foods',
+      name: 'Frozen Foods',
+      icon: Snowflake,
+      activeColor: 'bg-[#0284c7] text-white'
+    },
+    {
+      id: 'pet-food',
+      name: 'Pet Food',
+      icon: PawPrint,
+      activeColor: 'bg-[#0284c7] text-white'
     }
   ];
 
-  const currentSelected = activeCategory || storeActiveCategory || 'fruits-veg';
+  // Strictly only show categories that are AVAILABLE in the active store
+  const availableCategories = useMemo(() => {
+    return allPossibleCategories
+      .map((cat) => {
+        const count = (products || []).filter((p) => matchesProductCategory(p, cat.id)).length;
+        return { ...cat, count, badge: `${count} Items` };
+      })
+      .filter((cat) => cat.count > 0);
+  }, [products]);
+
+  const currentSelected = activeCategory || storeActiveCategory || (availableCategories[0]?.id || 'all');
 
   const handleCategoryClick = (catId) => {
     if (onSelectCategory) {
@@ -106,35 +108,21 @@ export const UnimaartCategoryStrip = ({ activeCategory, onSelectCategory }) => {
     }
   };
 
-  const displayedCategories = showMore
-    ? [...primaryCategories, ...extraCategories]
-    : primaryCategories;
-
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="text-xs font-black uppercase tracking-wider text-slate-500">
-            Browse Categories (5 Items Each)
+            Available Categories ({availableCategories.length})
           </span>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-[#0284c7]">
-            Active: {displayedCategories.find((c) => c.id === currentSelected)?.name || 'Vegetables & Fruit'}
+            Active: {availableCategories.find((c) => c.id === currentSelected)?.name || 'All Items'}
           </span>
         </div>
-
-        {/* More Options Toggle Button */}
-        <button
-          type="button"
-          onClick={() => setShowMore(!showMore)}
-          className="text-xs font-bold text-[#0284c7] hover:text-[#0369a1] bg-sky-50 hover:bg-sky-100 px-3 py-1.5 rounded-xl border border-sky-200 transition-colors cursor-pointer flex items-center gap-1.5"
-        >
-          <LayoutGrid className="w-3.5 h-3.5" />
-          <span>{showMore ? 'Show Fewer Options' : '+ More Options (Snacks, Staples)'}</span>
-        </button>
       </div>
 
-      <div className={`grid grid-cols-2 sm:grid-cols-4 ${showMore ? 'lg:grid-cols-9' : 'lg:grid-cols-7'} gap-3 sm:gap-4 transition-all duration-300`}>
-        {displayedCategories.map((cat) => {
+      <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-${Math.min(availableCategories.length, 6)} gap-3 sm:gap-4 transition-all duration-300`}>
+        {availableCategories.map((cat) => {
           const Icon = cat.icon;
           const isActive = currentSelected === cat.id;
 
@@ -162,7 +150,7 @@ export const UnimaartCategoryStrip = ({ activeCategory, onSelectCategory }) => {
                   {cat.name}
                 </span>
                 <span className={`text-[9px] font-semibold block ${isActive ? 'text-sky-100' : 'text-slate-400'}`}>
-                  5 Curated Items
+                  {cat.count} Available {cat.count === 1 ? 'Item' : 'Items'}
                 </span>
               </div>
             </button>

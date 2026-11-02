@@ -20,6 +20,7 @@ import {
 
 import { useStore } from '../../context/StoreContext';
 import { FRESHMART_CATEGORIES } from '../../data/freshMartData';
+import { matchesProductCategory } from '../../utils/categoryHelper';
 
 export const FreshMartHeader = () => {
   const {
@@ -70,7 +71,14 @@ export const FreshMartHeader = () => {
     }));
   }, [getNearbyStores, deliveryLocation, tenants, allBranches]);
 
-  const categoriesList = (categories && categories.length > 0) ? categories : FRESHMART_CATEGORIES;
+  const rawCategories = (categories && categories.length > 0) ? categories : FRESHMART_CATEGORIES;
+  const categoriesList = useMemo(() => {
+    const available = (rawCategories || []).filter((cat) => {
+      const catKey = cat.id || cat.slug || cat.departmentId || cat.name;
+      return (products || []).some((p) => matchesProductCategory(p, catKey));
+    });
+    return available.length > 0 ? available : rawCategories.slice(0, 5);
+  }, [rawCategories, products]);
 
   const isAlFatah = currentTenant?.id === 'tenant-alfatah';
   const isChaseUp = currentTenant?.id === 'tenant-chaseup';

@@ -28,13 +28,13 @@ describe('Admin Product Persistence & Landing Page Verification', () => {
     fs.writeFileSync(PRODUCTS_FILE_PATH, originalDiskContent, 'utf-8');
   });
 
-  it('1. Initial catalog starts with only a few items per brand (5 items per brand, 20 total)', () => {
-    assert.equal(ALL_BRANCH_PRODUCTS.length, 20, 'Curated base catalog must have only 20 clean items');
+  it('1. Initial catalog starts with only a few items per brand (10 items per brand, 40 total)', () => {
+    assert.equal(ALL_BRANCH_PRODUCTS.length, 40, 'Curated base catalog must have only 40 clean items');
     
     const brands = ['tenant-alfatah', 'tenant-chasevalue', 'tenant-chaseup', 'tenant-freshmart'];
     brands.forEach((brand) => {
       const brandItems = ALL_BRANCH_PRODUCTS.filter((p) => p.tenantId === brand);
-      assert.equal(brandItems.length, 5, `Brand ${brand} must only have 5 initial items, not bloated`);
+      assert.equal(brandItems.length, 10, `Brand ${brand} must only have 10 initial items, not bloated`);
     });
   });
 
@@ -95,7 +95,7 @@ describe('Admin Product Persistence & Landing Page Verification', () => {
 
     await getProducts(mockReq, mockRes);
     assert.ok(responseData.success);
-    assert.ok(responseData.products.length >= 6, 'Al-Fatah catalog should now have 6 items (5 base + 1 admin)');
+    assert.ok(responseData.products.length >= 11, 'Al-Fatah catalog should now have 11 items (10 base + 1 admin)');
 
     // The newly created admin item should be in the returned list
     const found = responseData.products.find((p) => p.name === 'Organic Strawberry Jam Premium');

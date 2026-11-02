@@ -31,6 +31,12 @@ import {
 } from '../../data/freshMartData';
 import { ALL_BRANCH_PRODUCTS } from '../../data/branchCatalogData';
 import { isSameTenant } from '../../data/companyHierarchyData';
+import {
+  matchesProductCategory,
+  isOilProduct,
+  isBeverageProduct,
+  isDryFoodProduct
+} from '../../utils/categoryHelper';
 import { UnimaartHero } from '../Unimaart/UnimaartHero';
 import { UnimaartCategoryStrip } from '../Unimaart/UnimaartCategoryStrip';
 import { UnimaartTopSave } from '../Unimaart/UnimaartTopSave';
@@ -110,17 +116,29 @@ export const FreshMartHome = () => {
     const fallback = (ALL_BRANCH_PRODUCTS || []).filter((p) =>
       isSameTenant(p.tenantId, currentTenant?.id) || (!p.tenantId && isSameTenant(currentTenant?.id, 'tenant-freshmart'))
     );
-    return fallback.length > 0 ? fallback : (ALL_BRANCH_PRODUCTS || []).slice(0, 5);
+    return fallback.length > 0 ? fallback : (ALL_BRANCH_PRODUCTS || []).slice(0, 10);
   }, [products, currentTenant]);
 
-  // Dynamically derive category pills from the products currently present in the active store
+  // Dynamically derive available category pills from the products currently present in the active store
   const bestsellerTabs = useMemo(() => {
     const tabs = [{ id: 'all', label: 'All Products' }];
     const seen = new Set(['all']);
 
     storeCatalog.forEach((p) => {
-      const catId = p.category || p.departmentId;
-      const catLabel = p.categoryLabel || p.departmentName || p.category;
+      let catId = p.category || p.departmentId;
+      let catLabel = p.categoryLabel || p.departmentName || p.category;
+
+      if (isOilProduct(p)) {
+        catId = 'oil-ghee';
+        catLabel = 'Cooking Oil & Ghee';
+      } else if (isBeverageProduct(p)) {
+        catId = 'beverages';
+        catLabel = 'Beverages';
+      } else if (isDryFoodProduct(p)) {
+        catId = 'dry-foods';
+        catLabel = 'Dry Foods & Staples';
+      }
+
       if (catId && !seen.has(catId)) {
         seen.add(catId);
         tabs.push({ id: catId, label: catLabel });
@@ -130,28 +148,12 @@ export const FreshMartHome = () => {
     return tabs;
   }, [storeCatalog]);
 
-  // Dynamic Bestsellers list: shows all store products on 'all', or filters by category
+  // Dynamic Bestsellers list: shows all store products on 'all', or strictly filters by category
   const bestsellersList = useMemo(() => {
     if (!storeCatalog || storeCatalog.length === 0) return [];
     if (activeBestsellerTab === 'all') return storeCatalog;
 
-    const target = activeBestsellerTab.toLowerCase();
-    const matched = storeCatalog.filter((p) => {
-      const cat = (p.category || '').toLowerCase();
-      const deptId = (p.departmentId || '').toLowerCase();
-      const catLabel = (p.categoryLabel || '').toLowerCase();
-      const deptName = (p.departmentName || '').toLowerCase();
-      return (
-        cat === target ||
-        deptId === target ||
-        cat.includes(target) ||
-        target.includes(cat) ||
-        catLabel.includes(target) ||
-        deptName.includes(target)
-      );
-    });
-
-    return matched.length > 0 ? matched : storeCatalog;
+    return storeCatalog.filter((p) => matchesProductCategory(p, activeBestsellerTab));
   }, [storeCatalog, activeBestsellerTab]);
 
   const spotlightApple =

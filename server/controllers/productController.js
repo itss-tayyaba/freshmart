@@ -6,6 +6,7 @@ import { Product } from '../models/Product.js';
 import { ALL_BRANCH_PRODUCTS } from '../../src/data/branchCatalogData.js';
 import { resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyData.js';
 import { getDepartmentById } from '../../src/data/departmentData.js';
+import { matchesProductCategory } from '../../src/utils/categoryHelper.js';
 
 const PRODUCTS_FILE_PATH = path.resolve(process.cwd(), 'server/data/products_db.json');
 
@@ -236,7 +237,11 @@ export const getProducts = async (req, res) => {
 
     if (category && category !== 'all') {
       filtered = filtered.filter(
-        (p) => p.category === category || p.categoryId === category || p.departmentId === category
+        (p) =>
+          p.category === category ||
+          p.categoryId === category ||
+          p.departmentId === category ||
+          matchesProductCategory(p, category)
       );
     }
 

@@ -152,6 +152,24 @@ export const STORE_DEPARTMENTS = [
     subcategories: ['Artisan Sourdough Boules', 'French Butter Croissants', 'Fresh Baguettes', 'Belgian Chocolate Tarts', 'Brioche Buns'],
     featured: false
   },
+  {
+    departmentId: 'dept-af-oil',
+    id: 'alfatah-oil-ghee',
+    slug: 'oil-ghee',
+    departmentCode: 'DEPT-AF-09',
+    tenantId: 'tenant-alfatah',
+    companyId: 'company_001',
+    tenantName: 'Al-Fatah Supermarket',
+    name: 'Imported Olive Oils & Pure Fats',
+    shortName: 'Imported Oils\n& Fats',
+    icon: '🫒',
+    image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=400&q=80',
+    description: 'Cold-pressed extra virgin olive oils from Spain and Italy, avocado oils, and gourmet cooking fats.',
+    productCount: 18,
+    discountBadge: 'Cold Pressed',
+    subcategories: ['Borges Extra Virgin Olive Oil', 'Carbonell EVOO 1L', 'Avocado Cooking Oil', 'Gourmet Truffle Oil'],
+    featured: true
+  },
 
   // =========================================================================
   // 2. CHASE UP DEPARTMENTS (company_002 / tenant-chaseup)
@@ -300,6 +318,24 @@ export const STORE_DEPARTMENTS = [
     discountBadge: '100% Halal Slaughter',
     subcategories: ['Fresh Cut Halal Broiler Chicken', 'Ground Beef Mince (Qeema)', 'Bone-in Mutton Curry Cuts', 'Cleaned River Fish'],
     featured: false
+  },
+  {
+    departmentId: 'dept-cu-oil',
+    id: 'chaseup-oil-ghee',
+    slug: 'oil-ghee',
+    departmentCode: 'DEPT-CU-09',
+    tenantId: 'tenant-chaseup',
+    companyId: 'company_002',
+    tenantName: 'Chase Up',
+    name: 'Family Cooking Oils & Pure Ghee',
+    shortName: 'Cooking Oils\n& Ghee',
+    icon: '🛢️',
+    image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=400&q=80',
+    description: 'Dalda VTF canola and cooking oil multi-pouches, Habib cooking oil, and pure desi ghee family tins.',
+    productCount: 22,
+    discountBadge: 'Family Multi-Pack',
+    subcategories: ['Dalda Canola 5x1L Pouch Box', 'Habib Cooking Oil 5L Tin', 'Pure Desi Ghee 1kg Tin', 'Sunflower Light Oil'],
+    featured: true
   },
 
   // =========================================================================
@@ -580,6 +616,24 @@ export const STORE_DEPARTMENTS = [
     discountBadge: 'Daily Freshness',
     subcategories: ['Dove Deep Moisture Beauty Bar', 'Head & Shoulders Smooth 200ml', 'Sensodyne Herbal Multi-Care', 'Nivea Soft Moisturizing Cream'],
     featured: false
+  },
+  {
+    departmentId: 'dept-um-oil',
+    id: 'unimaart-oil-ghee',
+    slug: 'oil-ghee',
+    departmentCode: 'DEPT-UM-09',
+    tenantId: 'tenant-freshmart',
+    companyId: 'company_004',
+    tenantName: 'Unimaart',
+    name: 'Cold Pressed Cooking Oils & Desi Ghee',
+    shortName: 'Cooking Oils\n& Pure Ghee',
+    icon: '🫒',
+    image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=400&q=80',
+    description: 'Cold-pressed organic mustard oil (Kachi Ghani), cold-pressed sesame oil, and grass-fed desi ghee.',
+    productCount: 16,
+    discountBadge: 'Cold Pressed Wood Churn',
+    subcategories: ['Cold Pressed Mustard Oil 1L', 'Organic Desi Ghee 1kg', 'Extra Virgin Cold Pressed Olive Oil', 'Cold Pressed Sesame Oil'],
+    featured: true
   }
 ];
 

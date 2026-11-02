@@ -1,30 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
+import { matchesProductCategory } from '../../utils/categoryHelper';
 
 export const CASE_VALUE_CIRCULAR_CATEGORIES = [
   {
-    id: 'fruits-veg',
-    name: 'Fruits & Vegetables',
-    image: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=200&q=80',
-    fallbackEmoji: '🍊'
-  },
-  {
-    id: 'dairy-eggs',
-    name: 'Dairy & Eggs',
-    image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=200&q=80',
-    fallbackEmoji: '🥛'
-  },
-  {
-    id: 'bakery',
-    name: 'Bakery',
-    image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=200&q=80',
-    fallbackEmoji: '🍞'
-  },
-  {
-    id: 'snacks',
-    name: 'Snacks & Biscuits',
-    image: 'https://images.unsplash.com/photo-1599490659213-e2b9527bd087?auto=format&fit=crop&w=200&q=80',
-    fallbackEmoji: '🍪'
+    id: 'dry-foods',
+    name: 'Dry Foods & Staples',
+    image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=200&q=80',
+    fallbackEmoji: '🌾'
   },
   {
     id: 'beverages',
@@ -33,16 +16,34 @@ export const CASE_VALUE_CIRCULAR_CATEGORIES = [
     fallbackEmoji: '🍷'
   },
   {
-    id: 'cleaning',
-    name: 'Household',
+    id: 'oil-ghee',
+    name: 'Cooking Oil & Ghee',
+    image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=200&q=80',
+    fallbackEmoji: '🛢️'
+  },
+  {
+    id: 'dairy-eggs',
+    name: 'Dairy & Eggs',
+    image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=200&q=80',
+    fallbackEmoji: '🥛'
+  },
+  {
+    id: 'household',
+    name: 'Cleaning & Home',
     image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=200&q=80',
     fallbackEmoji: '🏠'
   },
   {
-    id: 'personal-care',
-    name: 'Personal Care',
-    image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=200&q=80',
-    fallbackEmoji: '🧴'
+    id: 'snacks',
+    name: 'Snacks & Biscuits',
+    image: 'https://images.unsplash.com/photo-1599490659213-e2b9527bd087?auto=format&fit=crop&w=200&q=80',
+    fallbackEmoji: '🍪'
+  },
+  {
+    id: 'fruits-veg',
+    name: 'Fruits & Vegetables',
+    image: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=200&q=80',
+    fallbackEmoji: '🍊'
   },
   {
     id: 'meat-poultry',
@@ -53,12 +54,19 @@ export const CASE_VALUE_CIRCULAR_CATEGORIES = [
 ];
 
 export const CaseValueCategoryStrip = () => {
-  const { setActiveCategory, navigateTo } = useStore();
+  const { setActiveCategory, navigateTo, products } = useStore();
+
+  // Only show categories that are currently AVAILABLE in the store
+  const availableCategories = useMemo(() => {
+    return CASE_VALUE_CIRCULAR_CATEGORIES.filter((cat) => {
+      return (products || []).some((p) => matchesProductCategory(p, cat.id));
+    });
+  }, [products]);
 
   return (
     <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto pt-2">
       <div className="flex items-center justify-between sm:justify-center gap-3 sm:gap-6 overflow-x-auto no-scrollbar py-3 px-1">
-        {CASE_VALUE_CIRCULAR_CATEGORIES.map((cat) => (
+        {availableCategories.map((cat) => (
           <div
             key={cat.id}
             onClick={() => {
@@ -67,7 +75,7 @@ export const CaseValueCategoryStrip = () => {
             }}
             className="flex flex-col items-center text-center cursor-pointer group min-w-[76px] sm:min-w-[96px] shrink-0"
           >
-            {/* Soft Cream Circular Disc matching screenshot */}
+            {/* Soft Cream Circular Disc */}
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#fdfaf4] border-2 border-[#ebdcc7] group-hover:border-[#8c532b] shadow-2xs group-hover:shadow-md transition-all duration-200 flex items-center justify-center p-2.5 overflow-hidden transform group-hover:scale-105">
               <img
                 src={cat.image}
@@ -77,7 +85,7 @@ export const CaseValueCategoryStrip = () => {
               />
             </div>
 
-            {/* Category Name matching screenshot */}
+            {/* Category Name */}
             <span className="text-[11px] sm:text-xs font-bold text-[#4a2e1b] mt-2 group-hover:text-[#8c532b] transition-colors leading-tight max-w-[84px] sm:max-w-[96px] line-clamp-2">
               {cat.name}
             </span>

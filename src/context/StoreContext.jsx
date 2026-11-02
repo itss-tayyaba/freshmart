@@ -1162,10 +1162,10 @@ export const StoreProvider = ({ children }) => {
   // Products Catalog - Seeded with multi-tenant branch catalogs with persistent admin edits
   const [allProducts, setAllProducts] = useState(() => {
     try {
-      const saved = localStorage.getItem('freshmart_all_products');
+      const saved = localStorage.getItem('freshmart_all_products_v4');
       if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed) && parsed.length >= ALL_BRANCH_PRODUCTS.length) {
           // Map saved items by ID and normalized name
           const savedMap = new Map();
           parsed.forEach((p) => {
@@ -1175,13 +1175,19 @@ export const StoreProvider = ({ children }) => {
             if (keyName) savedMap.set(keyName, p);
           });
 
-          // Merge saved edits over base branch products
+          // Merge saved edits over base branch products, maintaining clean category taxonomy
           const mergedBase = (ALL_BRANCH_PRODUCTS || []).map((baseP) => {
             const keyId = String(baseP.id || baseP.customId || '').toLowerCase().trim();
             const keyName = (baseP.name || '').toLowerCase().trim();
             const update = savedMap.get(keyId) || savedMap.get(keyName);
             if (update) {
-              return { ...baseP, ...update, id: baseP.id };
+              return {
+                ...baseP,
+                ...update,
+                id: baseP.id,
+                category: baseP.category,
+                categoryLabel: baseP.categoryLabel
+              };
             }
             return baseP;
           });
@@ -1205,7 +1211,7 @@ export const StoreProvider = ({ children }) => {
   // Automatically persist any updates to products catalog to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('freshmart_all_products', JSON.stringify(allProducts));
+      localStorage.setItem('freshmart_all_products_v4', JSON.stringify(allProducts));
     } catch (e) {}
   }, [allProducts]);
 
@@ -1250,7 +1256,7 @@ export const StoreProvider = ({ children }) => {
           });
 
           try {
-            localStorage.setItem('freshmart_all_products', JSON.stringify(updated));
+            localStorage.setItem('freshmart_all_products_v4', JSON.stringify(updated));
           } catch (e) {}
           return updated;
         });
@@ -1290,7 +1296,7 @@ export const StoreProvider = ({ children }) => {
       const nextBranchItems = typeof updater === 'function' ? updater(branchItems) : updater;
       const combined = [...nextBranchItems, ...otherItems];
       try {
-        localStorage.setItem('freshmart_all_products', JSON.stringify(combined));
+        localStorage.setItem('freshmart_all_products_v4', JSON.stringify(combined));
       } catch (e) {}
       return combined;
     });
@@ -1368,7 +1374,7 @@ export const StoreProvider = ({ children }) => {
         combined = [...existingBranch, ...formattedItems, ...otherItems];
       }
       try {
-        localStorage.setItem('freshmart_all_products', JSON.stringify(combined));
+        localStorage.setItem('freshmart_all_products_v4', JSON.stringify(combined));
       } catch (e) {}
       return combined;
     });
@@ -1397,7 +1403,7 @@ export const StoreProvider = ({ children }) => {
         );
       }
       try {
-        localStorage.setItem('freshmart_all_products', JSON.stringify(nextAll));
+        localStorage.setItem('freshmart_all_products_v4', JSON.stringify(nextAll));
       } catch (e) {}
       return nextAll;
     });
@@ -2848,7 +2854,7 @@ export const StoreProvider = ({ children }) => {
               }
             }
             try {
-              localStorage.setItem('freshmart_all_products', JSON.stringify(merged));
+              localStorage.setItem('freshmart_all_products_v4', JSON.stringify(merged));
             } catch (e) {}
             return merged;
           });
@@ -5406,7 +5412,7 @@ export const StoreProvider = ({ children }) => {
     setAllProducts((prev) => {
       const next = [fullProduct, ...prev.filter((p) => String(p.id || p.customId || p._id) !== String(fullProduct.id))];
       try {
-        localStorage.setItem('freshmart_all_products', JSON.stringify(next));
+        localStorage.setItem('freshmart_all_products_v4', JSON.stringify(next));
       } catch (e) {}
       return next;
     });
@@ -5426,7 +5432,7 @@ export const StoreProvider = ({ children }) => {
               : p
           );
           try {
-            localStorage.setItem('freshmart_all_products', JSON.stringify(updated));
+            localStorage.setItem('freshmart_all_products_v4', JSON.stringify(updated));
           } catch (e) {}
           return updated;
         });
@@ -5475,7 +5481,7 @@ export const StoreProvider = ({ children }) => {
       }
 
       try {
-        localStorage.setItem('freshmart_all_products', JSON.stringify(next));
+        localStorage.setItem('freshmart_all_products_v4', JSON.stringify(next));
       } catch (e) {}
       return next;
     });
@@ -5502,7 +5508,7 @@ export const StoreProvider = ({ children }) => {
         return true;
       });
       try {
-        localStorage.setItem('freshmart_all_products', JSON.stringify(next));
+        localStorage.setItem('freshmart_all_products_v4', JSON.stringify(next));
       } catch (e) {}
       return next;
     });

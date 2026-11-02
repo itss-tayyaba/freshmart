@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { get5ItemsForCategory } from '../../data/unimaartItemsData';
+import { matchesProductCategory } from '../../utils/categoryHelper';
 
 export const UnimaartTopSave = ({ activeCategory: propActiveCategory, onSelectCategory }) => {
   const {
@@ -66,33 +67,31 @@ export const UnimaartTopSave = ({ activeCategory: propActiveCategory, onSelectCa
 
   const format2 = (val) => String(val).padStart(2, '0');
 
-  // Live items strictly matching active store catalog (curated items + any newly added admin items)
+  // Live items strictly matching active store catalog and requested category
   const filteredItems = useMemo(() => {
-    if (!products || products.length === 0) return get5ItemsForCategory(selectedCategory);
+    if (!products || products.length === 0) return [];
     if (!selectedCategory || selectedCategory === 'all') return products;
-    const matched = products.filter(
-      (p) =>
-        p.category === selectedCategory ||
-        p.departmentId === selectedCategory ||
-        (p.category && selectedCategory.includes(p.category)) ||
-        (p.categoryLabel && p.categoryLabel.toLowerCase().includes(selectedCategory.toLowerCase()))
-    );
-    if (matched.length > 0) return matched;
-    return products;
+    return products.filter((p) => matchesProductCategory(p, selectedCategory));
   }, [products, selectedCategory]);
 
-  const sideCategories = [
-    { id: 'all', name: '⭐ All Top Deals', icon: Sparkles },
+  const allSideCategories = [
+    { id: 'all', name: '⭐ All Store Items', icon: Sparkles },
     { id: 'fruits-veg', name: 'Vegetables & Fruit', icon: Carrot },
     { id: 'beverages', name: 'Beverages', icon: Coffee },
-    { id: 'meat-poultry', name: 'Meats & Seafood', icon: Beef },
-    { id: 'frozen-foods', name: 'Frozen Foods', icon: Snowflake },
-    { id: 'bakery', name: 'Breakfast & Bakery', icon: Croissant },
-    { id: 'pet-food', name: 'Pet Food', icon: PawPrint },
+    { id: 'dry-foods', name: 'Dry Foods & Staples', icon: Wheat },
+    { id: 'oil-ghee', name: 'Cooking Oil & Ghee', icon: Sparkles },
     { id: 'dairy-eggs', name: 'Milk & Dairies', icon: Milk },
-    { id: 'snacks', name: 'Snacks & Munchies', icon: Cookie },
-    { id: 'grocery-staples', name: 'Grocery Staples', icon: Wheat }
+    { id: 'meat-poultry', name: 'Meats & Seafood', icon: Beef },
+    { id: 'snacks', name: 'Snacks & Munchies', icon: Cookie }
   ];
+
+  // Strictly show available categories
+  const sideCategories = useMemo(() => {
+    return allSideCategories.filter((cat) => {
+      if (cat.id === 'all') return true;
+      return (products || []).some((p) => matchesProductCategory(p, cat.id));
+    });
+  }, [products]);
 
   const handleSelect = (catId) => {
     setLocalSideCat(catId);
@@ -189,8 +188,9 @@ export const UnimaartTopSave = ({ activeCategory: propActiveCategory, onSelectCa
             </div>
           </div>
 
-          {/* Exactly 5 Product Cards Grid (Matching reference) */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3.5 sm:gap-4 pt-1">
+          {/* Product Cards Grid */}
+          {filteredItems.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3.5 sm:gap-4 pt-1">
             {filteredItems.map((prod) => {
               const inCart = (cart || []).some((item) => (item.product?.id || item.id) === prod.id);
 
@@ -284,7 +284,14 @@ export const UnimaartTopSave = ({ activeCategory: propActiveCategory, onSelectCa
                 </div>
               );
             })}
-          </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-200/70 p-10 text-center space-y-2">
+              <span className="text-3xl block">🛒</span>
+              <h4 className="font-bold text-slate-800 text-sm">No items in this category</h4>
+              <p className="text-xs text-slate-500">Try selecting another category from the sidebar.</p>
+            </div>
+          )}
 
         </div>
 

@@ -221,16 +221,14 @@ const StoreAdminConsole = () => {
   const getNavItems = () => {
     if (adminRole === 'rider') {
       return [
-        { label: 'Rider', icon: Truck, customName: 'Rider Dispatch & Deliveries', badge: pendingOrdersCount || null, badgeColor: 'bg-amber-500/20 text-amber-300' },
-        { label: 'Settings', icon: Settings, customName: 'Account Settings' }
+        { label: 'Rider', icon: Truck, customName: 'Rider Dispatch & Deliveries', badge: pendingOrdersCount || null, badgeColor: 'bg-amber-500/20 text-amber-300' }
       ];
     }
     if (adminRole === 'supplier') {
       return [
         { label: 'Inventory', icon: Boxes, customName: 'Stock & Restock', badge: lowStockCount > 0 ? lowStockCount : null, badgeColor: 'bg-rose-500/20 text-rose-300' },
         { label: 'Products', icon: Package, customName: 'Supplied Products', badge: totalProductsCount > 0 ? totalProductsCount : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
-        { label: 'Orders', icon: ShoppingBag, customName: 'Wholesale Orders', badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-amber-500/20 text-amber-300' },
-        { label: 'Settings', icon: Settings, customName: 'Account Settings' }
+        { label: 'Orders', icon: ShoppingBag, customName: 'Wholesale Orders', badge: pendingOrdersCount > 0 ? pendingOrdersCount : null, badgeColor: 'bg-amber-500/20 text-amber-300' }
       ];
     }
     return [
@@ -243,8 +241,7 @@ const StoreAdminConsole = () => {
       { label: 'Customers', icon: Users },
       { label: 'Inventory', icon: Boxes, badge: lowStockCount > 0 ? lowStockCount : null, badgeColor: 'bg-rose-500/20 text-rose-300' },
       { label: 'Promotions', icon: Tag },
-      { label: 'Reports', icon: BarChart3 },
-      { label: 'Settings', icon: Settings }
+      { label: 'Reports', icon: BarChart3 }
     ];
   };
 
