@@ -187,10 +187,10 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
       {/* 2. 4 Top Payment Method Selection Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { id: 'card', label: 'Debit / Credit Card', sub: 'Visa / MasterCard / UnionPay', icon: CreditCard, badge: 'Instant' },
-          { id: 'wallet_raast', label: 'Mobile Wallets & Raast', sub: 'JazzCash / EasyPaisa / SadaPay', icon: Smartphone, badge: 'Popular 🔥' },
-          { id: 'bank', label: 'Direct Bank Transfer', sub: 'Meezan / HBL / Alfalah IBAN', icon: Landmark, badge: 'IBAN' },
-          { id: 'cod', label: 'Cash on Delivery (COD)', sub: 'Pay with cash at doorstep', icon: Coins, badge: 'Easy' }
+          { id: 'cod', label: 'Cash on Delivery (COD)', sub: 'Pay at doorstep — zero card needed', icon: Coins, badge: 'Recommended ⭐' },
+          { id: 'wallet_raast', label: 'EasyPaisa / JazzCash / Raast', sub: 'Mobile wallet or scan upon arrival', icon: Smartphone, badge: 'Popular 🔥' },
+          { id: 'card', label: 'Debit / Credit Card', sub: 'Visa / MasterCard / POS swipe', icon: CreditCard, badge: 'Instant' },
+          { id: 'bank', label: 'Direct Bank Transfer', sub: 'Meezan / HBL / Alfalah IBAN', icon: Landmark, badge: 'IBAN' }
         ].map((m) => {
           const Icon = m.icon;
           const isSelected = selectedPayment === m.id;
@@ -347,10 +347,10 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-emerald-800 bg-emerald-50/80 p-3 rounded-2xl font-medium border border-emerald-100">
               <span className="flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Sandbox UI Simulation Mode. Raw card PAN/CVV are never sent, logged, or stored.</span>
+                <span>Card details are optional simulation. You can also swipe your card on our courier's POS machine upon delivery.</span>
               </span>
-              <span className="text-[10px] text-emerald-700 font-bold bg-white px-2 py-0.5 rounded-md border border-emerald-200">
-                PCI-DSS Compliant (Use Hosted Fields for Live Gateways)
+              <span className="text-[10px] text-emerald-700 font-bold bg-white px-2 py-0.5 rounded-md border border-emerald-200 shrink-0">
+                Doorstep POS Swipe
               </span>
             </div>
           </div>
@@ -437,13 +437,15 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Transaction ID (TID / Ref)</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Transaction ID (TID / Ref) <span className="text-[10px] text-slate-400 font-normal">(Optional — or pay courier on arrival)</span>
+                </label>
                 <input
                   type="text"
                   value={walletForm.transactionId}
                   onChange={(e) => setWalletForm({ ...walletForm, transactionId: e.target.value })}
                   className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-mono font-bold ${theme.primaryText} focus:ring-2 ${theme.focusRing} focus:outline-none`}
-                  placeholder="e.g. 984210482910"
+                  placeholder="e.g. 984210482910 (Leave blank to pay courier upon arrival)"
                 />
               </div>
             </div>
@@ -521,22 +523,22 @@ export const PaymentMethodCard = ({ selectedPayment, setSelectedPayment }) => {
         <div className="space-y-4 animate-in fade-in duration-200">
           <div className={`${theme.softBg} rounded-2xl p-5 border space-y-3`}>
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl ${theme.primaryBg} text-white flex items-center justify-center font-bold shadow-xs`}>
+              <div className={`w-11 h-11 rounded-2xl ${theme.primaryBg} text-white flex items-center justify-center font-bold shadow-xs text-xl shrink-0`}>
                 💵
               </div>
               <div>
-                <h4 className={`font-black text-sm ${theme.primaryText}`}>Cash on Delivery (Doorstep Payment)</h4>
-                <p className="text-xs opacity-90">Pay in cash or swipe card with our delivery rider upon grocery arrival.</p>
+                <h4 className={`font-black text-sm ${theme.primaryText}`}>Cash on Delivery (Pay at Doorstep)</h4>
+                <p className="text-xs opacity-90">Place your order immediately with zero advance payment. Pay when groceries arrive at your door.</p>
               </div>
             </div>
 
-            <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs space-y-1 text-slate-700">
+            <div className="p-3.5 bg-white rounded-xl border border-slate-200 text-xs space-y-2 text-slate-700">
               <div className={`flex items-center gap-1.5 font-bold ${theme.primaryText}`}>
-                <CheckCircle2 className={`w-4 h-4 ${theme.primaryText}`} />
-                <span>Exact cash or digital QR payment accepted at your doorstep.</span>
+                <CheckCircle2 className={`w-4 h-4 ${theme.primaryText} shrink-0`} />
+                <span>Zero advance payment — No card or bank account number required!</span>
               </div>
-              <p className="text-[11px] text-slate-500 pl-5">
-                Our rider will carry an automated digital POS terminal & receipt printer for your convenience.
+              <p className="text-[11px] text-slate-500 pl-5 leading-relaxed">
+                You can pay with cash, or ask the courier to scan an EasyPaisa / JazzCash QR code or card terminal when they arrive.
               </p>
             </div>
           </div>

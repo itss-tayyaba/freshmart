@@ -320,11 +320,19 @@ export const createOrder = async (req, res) => {
       ? Number(req.body.totalPrice)
       : Math.max(0, itemsPrice + deliveryPrice - discount);
 
-    // Cryptographically secure Order ID
-    const secureHex = crypto.randomBytes(3).toString('hex').toUpperCase();
-    const orderId = (isTestEnv && (req.body.orderId || req.body.id))
-      ? (req.body.orderId || req.body.id)
-      : `#FM-${Date.now().toString().slice(-4)}${secureHex}`;
+    // Clean, store-specific human-readable Order ID (e.g. #FM-8492, #AF-3921, #CU-5120, #CV-4819)
+    let orderId = req.body.orderId || req.body.id;
+    if (!orderId || String(orderId).length > 10 || /[A-F0-9]{6,}/i.test(String(orderId))) {
+      const rawTenant = req.body.tenantId || req.body.tenant || req.user?.tenantId || '';
+      const prefix = isSameTenant(rawTenant, 'tenant-alfatah') ? '#AF'
+        : isSameTenant(rawTenant, 'tenant-chaseup') ? '#CU'
+        : isSameTenant(rawTenant, 'tenant-chasevalue') ? '#CV'
+        : '#FM';
+      orderId = `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+    if (!orderId.startsWith('#')) {
+      orderId = `#${orderId}`;
+    }
 
     // Calculate destination coordinates and resolve store branch routing
     const destinationCoords = resolveDestinationCoords(shippingAddress);

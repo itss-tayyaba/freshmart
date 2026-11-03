@@ -170,7 +170,7 @@ export const CheckoutPage = () => {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedSlot, setSelectedSlot] = useState('⚡ Instant 10-15 Mins Express Delivery');
-  const [selectedPayment, setSelectedPayment] = useState('card'); // 'card' | 'wallet_raast' | 'bank' | 'cod'
+  const [selectedPayment, setSelectedPayment] = useState('cod'); // 'cod' | 'card' | 'wallet_raast' | 'bank'
   const [riderTip, setRiderTip] = useState(0);
   const [isEcoFriendly, setIsEcoFriendly] = useState(true);
   const [couponInput, setCouponInput] = useState('');
@@ -267,7 +267,7 @@ export const CheckoutPage = () => {
     const isOrderAlfatah = isSameTenant(finalTenantId, 'tenant-alfatah');
 
     const orderPrefix = isOrderChaseValue ? '#CV' : isOrderChaseUp ? '#CU' : isOrderAlfatah ? '#AF' : '#FM';
-    const orderId = orderPrefix + Math.floor(10000 + Math.random() * 90000);
+    const orderId = `${orderPrefix}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const cityOrAddr = `${addressData.address || ''} ${addressData.city || ''}`.toLowerCase();
     const isFaisalabad = cityOrAddr.includes('faisalabad') || cityOrAddr.includes('peoples colony') || cityOrAddr.includes('fsd');

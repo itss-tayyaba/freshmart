@@ -5195,7 +5195,7 @@ export const StoreProvider = ({ children }) => {
       isSameTenant(resolvedTenantId, 'tenant-chaseup') ? '#CU' :
       isSameTenant(resolvedTenantId, 'tenant-alfatah') ? '#AF' :
       '#FM';
-    const localOrderId = orderData.orderId || orderData.id || (orderPrefix + Math.floor(10000 + Math.random() * 90000));
+    const localOrderId = orderData.orderId || orderData.id || `${orderPrefix}-${Math.floor(1000 + Math.random() * 9000)}`;
     const paymentMethod = orderData.paymentMethod || orderData.payment || 'Cash on Delivery';
     const generatedOtp = String(Math.floor(1000 + Math.random() * 9000));
 
