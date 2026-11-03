@@ -268,7 +268,7 @@ export const isOrderVisibleToUser = (order, user, activeTenantId = null) => {
     const staffTenant = resolveTenantId(user?.tenantId || targetTenant);
     if (!isSameTenant(orderTenant, staffTenant)) return false;
 
-    // Field staff directly assigned to this order can always see it regardless of branch
+    // Field staff directly assigned to this order can always see it
     if (isOrderAssignedToPickupStaff(order, user)) return true;
 
     // If order was assigned to a different staff member, hide from this user
@@ -277,17 +277,13 @@ export const isOrderVisibleToUser = (order, user, activeTenantId = null) => {
       return false;
     }
 
-    // For unassigned pool, check branch
-    if (user?.branchId && user.branchId !== 'all' && order.branchId && order.branchId !== 'all') {
-      if (order.branchId !== user.branchId) return false;
-    }
+    // Pickup staff serve the entire store (not partitioned by branch)
     return true;
   }
 
   // Rider: directly assigned parcels are ALWAYS visible to the assigned courier!
   if (role === 'rider') {
     // 1. If this parcel is directly assigned to this rider, it is ALWAYS visible!
-    // Direct dispatch assignment guarantees the courier can view their active orders regardless of store/branch origin.
     if (isOrderAssignedToRider(order, user)) {
       return true;
     }
@@ -301,13 +297,8 @@ export const isOrderVisibleToUser = (order, user, activeTenantId = null) => {
       return false;
     }
 
-    // 3. For unassigned orders in the dispatch/ready pool: check store and branch
+    // 3. For unassigned orders in the dispatch/ready pool: check store (riders serve entire store, not partitioned by branch)
     if (!isSameTenant(orderTenant, targetTenant)) return false;
-    if (user?.branchId && user.branchId !== 'all' && user.branchId !== 'custom' && order.branchId && order.branchId !== 'all') {
-      if (order.branchId !== user.branchId) {
-        return false;
-      }
-    }
     return true;
   }
 
@@ -333,22 +324,23 @@ export const canAssignRiderToOrder = (order, rider) => {
   const orderTenant = normalizeOrderTenantId(order);
   const riderTenant = resolveTenantId(rider.tenantId);
 
-  // 1. Store / Tenant Matching:
-  // A rider is allowed if:
-  // - They belong to the same tenant, OR
-  // - They are flagged as global fleet courier (rider.isGlobal), OR
-  // - They have no store restriction (!rider.tenantId)
-  const isTenantMatch = !rider.tenantId || rider.isGlobal === true || isSameTenant(orderTenant, riderTenant);
+  // 1. Strict Store / Tenant Isolation:
+  // A rider must belong to the exact same supermarket chain (e.g. Unimart rider only for Unimart, Al-Fatah rider only for Al-Fatah).
+  // Cross-store assignment is strictly forbidden.
+  if (!orderTenant || !riderTenant || !isSameTenant(orderTenant, riderTenant)) {
+    return {
+      allowed: false,
+      reason: `Rider ${rider.name || rider.username || 'selected'} belongs to ${rider.tenantName || rider.tenantId || 'another store'} and cannot be assigned to orders for a different store.`
+    };
+  }
 
-  // 2. Resolve geographic area / city for order and rider
+  // 2. Resolve geographic area / city for order and rider (cross-city sanity check only)
   const getArea = (entity = {}) => {
     const s = [
       entity.city,
       entity.zone,
       entity.region,
       entity.serviceArea,
-      entity.branchName,
-      entity.branchId,
       entity.address,
       entity.shippingAddress?.city,
       entity.shippingAddress?.address
@@ -369,34 +361,15 @@ export const canAssignRiderToOrder = (order, rider) => {
   const orderArea = getArea(order);
   const riderArea = getArea(rider);
 
-  // Reject cross-city / cross-region assignment (e.g. rider in Karachi, order in Faisalabad)
+  // Reject cross-city assignment (e.g. rider in Karachi, order in Faisalabad)
   if (orderArea && riderArea && orderArea !== riderArea) {
     return {
       allowed: false,
-      reason: `Rider is based in [${rider.city || rider.zone || rider.region || riderArea}] but order is in [${order.city || order.branchName || orderArea}]`
+      reason: `Rider is based in [${rider.city || rider.zone || riderArea}] but order is in [${order.city || orderArea}]`
     };
   }
 
-  // Cross-store rejection (if rider is from another store and NOT in global fleet)
-  if (!isTenantMatch) {
-    return {
-      allowed: false,
-      reason: `Rider belongs to store [${rider.tenantId || 'unassigned'}] but order is for [${order.tenantId || 'unassigned'}]`
-    };
-  }
-
-  // Strict branch mismatch fallback (only if both have different explicit non-matching branch IDs and rider is not global)
-  if (order.branchId && rider.branchId && order.branchId !== 'all' && rider.branchId !== 'all' && order.branchId !== 'custom' && rider.branchId !== 'custom') {
-    if (String(order.branchId).toLowerCase() !== String(rider.branchId).toLowerCase()) {
-      if (!rider.isGlobal) {
-        return {
-          allowed: false,
-          reason: `Rider belongs to branch [${rider.branchName || rider.branchId}] but order is routed to branch [${order.branchName || order.branchId}]`
-        };
-      }
-    }
-  }
-
+  // NOTE: Riders serve the entire supermarket chain, NOT partitioned by branch.
   return { allowed: true };
 };
 
@@ -411,20 +384,15 @@ export const canAssignStaffToOrder = (order, staff) => {
   const orderTenant = normalizeOrderTenantId(order);
   const staffTenant = resolveTenantId(staff.tenantId);
 
-  if (!isSameTenant(orderTenant, staffTenant)) {
+  // Strict Store / Tenant Isolation
+  if (!orderTenant || !staffTenant || !isSameTenant(orderTenant, staffTenant)) {
     return {
       allowed: false,
-      reason: `Staff belongs to store [${staff.tenantId}] but order is for [${order.tenantId}]`
+      reason: `Staff ${staff.name || staff.username} belongs to ${staff.tenantName || staff.tenantId} but order is for a different store.`
     };
   }
 
-  if (order.branchId && staff.branchId && order.branchId !== staff.branchId) {
-    return {
-      allowed: false,
-      reason: `Staff belongs to branch [${staff.branchName || staff.branchId}] but order is in branch [${order.branchName || order.branchId}]`
-    };
-  }
-
+  // NOTE: Pickup staff serve the entire supermarket chain, NOT partitioned by branch.
   return { allowed: true };
 };
 

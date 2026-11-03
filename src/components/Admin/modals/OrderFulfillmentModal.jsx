@@ -28,6 +28,8 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
+import { isSameTenant } from '../../../data/companyHierarchyData';
+import { normalizeOrderTenantId } from '../../../utils/orderScope';
 
 export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
   const { riders, updateOrderFulfillment, addToast, currentTenant } = useStore();
@@ -87,23 +89,15 @@ export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
   const deliveryOtp = String(order.deliveryOtp || '7412');
   const storeName = order.tenantName || currentTenant?.name || 'FreshMart Central Superstore';
 
-  // Rider Matching Algorithm
+  // Rider Matching Algorithm (strictly isolated to this store's fleet, not partitioned by branch)
+  const orderTenant = normalizeOrderTenantId(order) || currentTenant?.id;
   const matchingRiders = useMemo(() => {
-    const list = Array.isArray(riders) ? riders : [];
+    const list = (Array.isArray(riders) ? riders : []).filter((r) => isSameTenant(r.tenantId, orderTenant));
     const customerZoneLower = (customerAddress + ' ' + customerCity).toLowerCase();
 
     return list.map((r) => {
-      let score = 70;
+      let score = 85;
       const riderZoneLower = (r.zone || '').toLowerCase();
-
-      const orderBranchId = order.branchId;
-      const orderBranchName = (order.branchName || order.branch || '').toLowerCase();
-      if (
-        (orderBranchId && r.branchId === orderBranchId) ||
-        (orderBranchName && r.branchName && r.branchName.toLowerCase() === orderBranchName)
-      ) {
-        score += 25;
-      }
 
       if (
         (customerZoneLower.includes('peoples colony') && riderZoneLower.includes('peoples colony')) ||
@@ -111,13 +105,13 @@ export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
         (customerZoneLower.includes('lahore') && riderZoneLower.includes('gulberg')) ||
         (customerZoneLower.includes('karachi') && riderZoneLower.includes('clifton'))
       ) {
-        score += 20;
+        score += 10;
       }
 
-      if (r.status === 'On-Duty') {
-        score += 10;
+      if (r.status === 'On-Duty' || r.status === 'Active') {
+        score += 5;
       } else {
-        score -= 40;
+        score -= 20;
       }
 
       const activeCount = Number(r.activeOrders || (r.id === selectedRider?.id ? 1 : 0));
@@ -133,7 +127,7 @@ export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
         distanceKm: (Math.random() * 2 + 0.8).toFixed(1)
       };
     }).sort((a, b) => b.matchScore - a.matchScore);
-  }, [riders, customerAddress, customerCity, selectedRider]);
+  }, [riders, customerAddress, customerCity, selectedRider, orderTenant]);
 
   // Handlers for advancing stages
   const goToStage = (targetStage) => {

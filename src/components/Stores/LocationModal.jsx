@@ -621,75 +621,7 @@ const LocationModalContent = () => {
           )}
         </div>
 
-        {/* 🏬 4. NEARBY GROCERY STORES & DISTANCE FROM CURRENT LOCATION */}
-        {nearbyStores && nearbyStores.length > 0 && (
-          <div className="mt-3 p-3 bg-slate-50/90 rounded-2xl border border-slate-200/90 text-left space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-black text-slate-800 flex items-center gap-1.5">
-                <Store className="w-3.5 h-3.5 text-emerald-600" />
-                Nearby Grocery Stores from Your Pin:
-              </span>
-              <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                Live Proximity
-              </span>
-            </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              {nearbyStores.map((store, idx) => {
-                const isSelectedStore = effectiveStore ? effectiveStore.id === store.id : (idx === 0);
-                const isClosest = idx === 0;
-
-                return (
-                  <div
-                    key={store.id}
-                    onClick={() => {
-                      setSelectedStoreId(store.id);
-                      addToast('Store Selected 🏬', `Selected ${store.displayName || store.name}`);
-                    }}
-                    className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-1.5 ${
-                      isSelectedStore
-                        ? 'bg-white border-emerald-500 shadow-xs ring-2 ring-emerald-500'
-                        : 'bg-white/80 hover:bg-white border-slate-200'
-                    }`}
-                    title={`Click to shop at ${store.displayName || store.name}`}
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <div
-                        style={{ backgroundColor: store.color || '#0284c7' }}
-                        className="w-6 h-6 rounded-lg flex items-center justify-center text-white text-[11px] shrink-0 font-bold shadow-2xs"
-                      >
-                        {store.logo || '🏬'}
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-[11px] font-bold text-slate-900 block truncate leading-tight">
-                          {store.displayName || store.name}
-                        </span>
-                        <span className="text-[9px] text-slate-400 block truncate">
-                          ⚡ {store.estimatedTime || '15-25 mins'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <span className="text-[11px] font-black text-emerald-700 block font-mono leading-tight">
-                        {store.distanceFormatted || '1.2 km'}
-                      </span>
-                      {isClosest ? (
-                        <span className="text-[8px] font-black uppercase text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
-                          Nearest
-                        </span>
-                      ) : isSelectedStore ? (
-                        <span className="text-[8px] font-black uppercase text-emerald-800 bg-emerald-100 px-1 py-0.2 rounded border border-emerald-300">
-                          Selected
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* 5. Full Street Address Input */}
         <div className="text-left mt-3">

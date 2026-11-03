@@ -44,12 +44,9 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
     () => pickupStaff.filter((staff) => {
       const sTenant = staff?.tenantId || staff?.companyId;
       if (!sTenant || !isSameTenant(sTenant, activeTenantId)) return false;
-      if (user?.branchId && staff.branchId && user.branchId !== staff.branchId) {
-        return false;
-      }
       return true;
     }),
-    [pickupStaff, activeTenantId, user?.branchId]
+    [pickupStaff, activeTenantId]
   );
 
   const orders = useMemo(() => {
@@ -150,12 +147,12 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
       return oId === cleanId || String(o.id || '').toLowerCase() === String(orderId || '').toLowerCase() || String(o.orderId || '').toLowerCase() === String(orderId || '').toLowerCase();
     });
 
+    const orderTenant = normalizeOrderTenantId(ord) || activeTenantId;
+    const storeRiders = (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
     const rawEligible = (ord && getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : []) || [];
-    let eligibleList = rawEligible.length > 0
-      ? rawEligible
-      : (riders || []).filter((r) => isSameTenant(r.tenantId, activeTenantId));
-    if (eligibleList.length === 0 && riders && riders.length > 0) {
-      eligibleList = riders;
+    let eligibleList = rawEligible.filter((r) => isSameTenant(r.tenantId, orderTenant));
+    if (eligibleList.length === 0) {
+      eligibleList = storeRiders;
     }
 
     const firstEligibleId = eligibleList[0]?.id || eligibleList[0]?._id || eligibleList[0]?.riderId;
@@ -166,18 +163,28 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
       ord?.assignedRider?.id ||
       ord?.assignedRider?._id ||
       firstEligibleId ||
-      riders?.[0]?.id ||
-      riders?.[0]?._id;
+      storeRiders?.[0]?.id ||
+      storeRiders?.[0]?._id;
 
     if (!riderId) {
-      addToast?.('Add Rider in Fleet View 🛵', 'No courier registered yet for this store. Please add a rider in the Delivery / Fleet tab first.', 'error');
+      addToast?.('No Rider Available 🛵', 'No courier registered yet for this store. Please add a rider in the Delivery / Fleet tab first.', 'error');
       return;
     }
+
+    const chosenRiderObj = storeRiders.find((r) =>
+      r.id === riderId || r._id === riderId || r.riderId === riderId || r.username === riderId
+    ) || (riders || []).find((r) =>
+      r.id === riderId || r._id === riderId || r.riderId === riderId || r.username === riderId
+    );
+
+    if (chosenRiderObj && !isSameTenant(chosenRiderObj.tenantId, orderTenant)) {
+      addToast?.('Cross-Store Assignment Blocked ❌', `Rider ${chosenRiderObj.name} belongs to another store and cannot be assigned to this order.`, 'error');
+      return;
+    }
+
     if (assignRiderToOrder) {
       await assignRiderToOrder(orderId, riderId, 'Out for Delivery', true);
-      const targetRider = (riders || []).find((r) =>
-        r.id === riderId || r._id === riderId || r.riderId === riderId || r.name === riderId
-      ) || (eligibleList && eligibleList[0]) || riders?.[0];
+      const targetRider = chosenRiderObj || storeRiders?.[0];
 
       addToast?.('Dispatched to Rider 🚀', `Order #${cleanId.toUpperCase()} assigned to ${targetRider?.name || 'Rider'} and is Out for Delivery.`);
     }
@@ -585,12 +592,11 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
                         }
 
                         if (isPrepared) {
+                          const orderTenant = normalizeOrderTenantId(order) || activeTenantId;
                           const rawEligible = (getEligibleRidersForOrder ? getEligibleRidersForOrder(order) : []) || [];
-                          let eligibleRiders = rawEligible.length > 0
-                            ? rawEligible
-                            : (riders || []).filter((r) => isSameTenant(r.tenantId, activeTenantId));
-                          if (eligibleRiders.length === 0 && riders && riders.length > 0) {
-                            eligibleRiders = riders;
+                          let eligibleRiders = rawEligible.filter((r) => isSameTenant(r.tenantId, orderTenant));
+                          if (eligibleRiders.length === 0) {
+                            eligibleRiders = (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
                           }
                           const defaultRiderId = eligibleRiders[0]?.id || eligibleRiders[0]?._id || eligibleRiders[0]?.riderId || '';
                           const cleanOrdId = String(orderId).replace(/^#/, '');

@@ -496,8 +496,11 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
       return oId === cleanId || String(o.id || '').toLowerCase() === String(orderId || '').toLowerCase() || String(o.orderId || '').toLowerCase() === String(orderId || '').toLowerCase();
     });
 
+    const orderTenant = normalizeOrderTenantId(ord);
+    const storeRiders = (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
     const eligible = (ord && getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : []) || [];
-    const firstEligibleId = eligible?.[0]?.id || eligible?.[0]?._id || eligible?.[0]?.riderId;
+    const eligibleForStore = eligible.filter((r) => isSameTenant(r.tenantId, orderTenant));
+    const fallbackStoreRiderId = eligibleForStore?.[0]?.id || eligibleForStore?.[0]?._id || storeRiders?.[0]?.id || storeRiders?.[0]?._id;
 
     const riderId =
       (explicitRiderId && explicitRiderId !== 'undefined' ? explicitRiderId : '') ||
@@ -506,19 +509,27 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
       selectedRiderMap[`#${cleanId}`] ||
       ord?.assignedRider?.id ||
       ord?.assignedRider?._id ||
-      firstEligibleId ||
-      riders?.[0]?.id ||
-      riders?.[0]?._id;
+      fallbackStoreRiderId;
 
     if (!riderId) {
-      addToast('Add Rider in Fleet View 🛵', 'No courier registered yet for this store. Please add a rider in the Delivery / Fleet tab first.', 'error');
+      addToast('No Rider Available 🛵', 'No courier registered yet for this store. Please add a rider in the Delivery / Fleet tab first.', 'error');
       return;
     }
+
+    const chosenRiderObj = storeRiders.find((r) =>
+      r.id === riderId || r._id === riderId || r.riderId === riderId || r.username === riderId
+    ) || (riders || []).find((r) =>
+      r.id === riderId || r._id === riderId || r.riderId === riderId || r.username === riderId
+    );
+
+    if (chosenRiderObj && !isSameTenant(chosenRiderObj.tenantId, orderTenant)) {
+      addToast('Cross-Store Assignment Blocked ❌', `Rider ${chosenRiderObj.name} belongs to another store and cannot be assigned to this order.`, 'error');
+      return;
+    }
+
     if (assignRiderToOrder) {
       await assignRiderToOrder(orderId, riderId, 'Out for Delivery', true);
-      const targetRider = (riders || []).find((r) =>
-        r.id === riderId || r._id === riderId || r.riderId === riderId || r.name === riderId
-      ) || (eligible && eligible[0]) || riders?.[0];
+      const targetRider = chosenRiderObj || storeRiders?.[0];
 
       if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderId === orderId || String(selectedOrder.id).replace(/^#/, '').toLowerCase().trim() === cleanId)) {
         if (targetRider) {
@@ -913,10 +924,10 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                   const rawEligible = getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : [];
                   const orderTenant = normalizeOrderTenantId(ord);
                   let eligibleRiders = (rawEligible && rawEligible.length > 0)
-                    ? rawEligible
+                    ? rawEligible.filter((r) => isSameTenant(r.tenantId, orderTenant))
                     : (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
-                  if (eligibleRiders.length === 0 && riders && riders.length > 0) {
-                    eligibleRiders = riders;
+                  if (eligibleRiders.length === 0) {
+                    eligibleRiders = (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
                   }
                   const s = String(ord.status || 'Pending').toLowerCase();
                   const isDeliveredState = s === 'delivered' || ord.isDelivered;
@@ -1184,10 +1195,10 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                     const rawEligible = getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : [];
                     const orderTenant = normalizeOrderTenantId(ord);
                     let eligibleRiders = (rawEligible && rawEligible.length > 0)
-                      ? rawEligible
+                      ? rawEligible.filter((r) => isSameTenant(r.tenantId, orderTenant))
                       : (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
-                    if (eligibleRiders.length === 0 && riders && riders.length > 0) {
-                      eligibleRiders = riders;
+                    if (eligibleRiders.length === 0) {
+                      eligibleRiders = (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
                     }
                     const s = String(ord.status || 'Pending').toLowerCase();
                     const isDeliveredState = s === 'delivered' || ord.isDelivered;
@@ -1826,10 +1837,10 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                   const rawList = (getEligibleRidersForOrder ? getEligibleRidersForOrder(selectedOrder) : []) || [];
                   const orderTenant = normalizeOrderTenantId(selectedOrder);
                   let eligibleList = rawList.length > 0
-                    ? rawList
+                    ? rawList.filter((r) => isSameTenant(r.tenantId, orderTenant))
                     : (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
-                  if (eligibleList.length === 0 && riders && riders.length > 0) {
-                    eligibleList = riders;
+                  if (eligibleList.length === 0) {
+                    eligibleList = (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
                   }
                   const defaultDrawerRiderId = eligibleList[0]?.id || eligibleList[0]?._id || eligibleList[0]?.riderId || '';
                   const currentDrawerRider =
@@ -1923,10 +1934,10 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                       const rawList = (getEligibleRidersForOrder ? getEligibleRidersForOrder(selectedOrder) : []) || [];
                       const orderTenant = normalizeOrderTenantId(selectedOrder);
                       let eligibleList = rawList.length > 0
-                        ? rawList
+                        ? rawList.filter((r) => isSameTenant(r.tenantId, orderTenant))
                         : (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
-                      if (eligibleList.length === 0 && riders && riders.length > 0) {
-                        eligibleList = riders;
+                      if (eligibleList.length === 0) {
+                        eligibleList = (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
                       }
                       const defaultDrawerRiderId = eligibleList[0]?.id || eligibleList[0]?._id || eligibleList[0]?.riderId || '';
                       const riderToAssign = selectedRiderMap[drawerKey] || defaultDrawerRiderId;

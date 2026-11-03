@@ -3062,7 +3062,20 @@ export const StoreProvider = ({ children }) => {
               merged.push(initR);
             }
           });
-          return merged;
+          return merged.map((r) => {
+            const matchedInit = (INITIAL_RIDERS || []).find(
+              (ir) => ir.id === r.id || (ir.username && ir.username === r.username) || (ir.phone && ir.phone === r.phone)
+            );
+            if (matchedInit) {
+              return {
+                ...r,
+                tenantId: matchedInit.tenantId,
+                tenantName: matchedInit.tenantName,
+                isGlobal: false
+              };
+            }
+            return { ...r, isGlobal: false };
+          });
         }
       }
     } catch (e) {}
@@ -3834,9 +3847,12 @@ export const StoreProvider = ({ children }) => {
     const isDispatched = true;
 
     const assignedInfo = {
-      id: targetRider.id || targetRider._id || 'RDR-ALFATAH',
+      id: targetRider.id || targetRider._id || targetRider.riderId || `RDR-${targetRider.username || 'STORE'}`,
       name: targetRider.name,
+      username: targetRider.username,
       phone: targetRider.phone,
+      tenantId: targetRider.tenantId,
+      tenantName: targetRider.tenantName,
       vehicle: targetRider.vehicleNumber || targetRider.vehicleType,
       zone: targetRider.zone || null,
       rating: targetRider.rating || 5.0,
@@ -6457,7 +6473,7 @@ export const StoreProvider = ({ children }) => {
 
     const staffCheck = canAssignStaffToOrder(current, staff);
     if (!staffCheck.allowed) {
-      addToast('Staff Assignment Denied ❌', staffCheck.reason || 'Staff must belong to the same branch and store as the order.', 'error');
+      addToast('Staff Assignment Denied ❌', staffCheck.reason || 'Staff must belong to the same supermarket store as the order.', 'error');
       return false;
     }
     const assignment = {

@@ -14,9 +14,8 @@ export const DeliverToStaffModal = ({ order, isOpen, onClose, onSuccess }) => {
   const staff = useMemo(() => pickupStaff.filter((member) => {
     if (!isSameTenant(member.tenantId || member.companyId, tenantId)) return false;
     if (member.status && member.status !== 'Active') return false;
-    if (order?.branchId && member.branchId && order.branchId !== member.branchId) return false;
     return true;
-  }), [pickupStaff, tenantId, order?.branchId]);
+  }), [pickupStaff, tenantId]);
   const [selectedStaffId, setSelectedStaffId] = useState(order?.pickupStaffId || '');
   useEffect(() => setSelectedStaffId(order?.pickupStaffId || ''), [order?.id, order?.pickupStaffId]);
 

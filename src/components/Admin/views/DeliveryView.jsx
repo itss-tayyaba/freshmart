@@ -40,6 +40,7 @@ import { useStore } from '../../../context/StoreContext';
 import { PAKISTAN_CITIES } from '../../../data/pakistanLocations';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 import { getWhatsAppDeliveryLink } from '../../../utils/whatsappHelper';
+import { normalizeOrderTenantId } from '../../../utils/orderScope';
 
 export const PAKISTAN_REGIONS = [
   // Lahore
@@ -973,17 +974,13 @@ export const DeliveryView = () => {
                 : Array.isArray(o.orderItems) && o.orderItems.length > 0 ? o.orderItems
                 : [];
               const amount = Number(o.totalAmount || o.totalPrice || o.total || 0);
-              const eligibleRiders = getEligibleRidersForOrder ? getEligibleRidersForOrder(o) : [];
+              const orderTenant = normalizeOrderTenantId(o) || currentTenant?.id || user?.tenantId;
+              const eligibleRiders = (getEligibleRidersForOrder ? getEligibleRidersForOrder(o) : []).filter((r) => isSameTenant(r.tenantId, orderTenant));
               const allAvailable = (eligibleRiders && eligibleRiders.length > 0)
                 ? eligibleRiders
                 : (storeRiders && storeRiders.length > 0)
-                  ? storeRiders
-                  : (riders && riders.length > 0)
-                    ? riders
-                    : [
-                        { id: 'RDR-ALI', name: 'Ali Khan', zone: 'D-Ground Commercial', status: 'Active', phone: '03001122334' },
-                        { id: 'RDR-AHMAD', name: 'Ahmad Khan', zone: 'Peoples Colony', status: 'Active', phone: '03206551696' }
-                      ];
+                  ? storeRiders.filter((r) => isSameTenant(r.tenantId, orderTenant))
+                  : (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
 
               return (
                 <aside className="w-full lg:w-[360px] shrink-0 bg-white rounded-3xl border border-stone-200/90 shadow-xs overflow-hidden flex flex-col animate-in slide-in-from-right duration-200">
