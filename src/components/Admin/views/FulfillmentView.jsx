@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Boxes, UserPlus, Trash2, Edit3, KeyRound, X, Eye, EyeOff, Clock, MapPin, PackageCheck, Lock, Zap, RefreshCw, CheckCircle2, Rocket, Truck, Phone } from 'lucide-react';
+import { Boxes, UserPlus, Trash2, Edit3, KeyRound, X, Eye, EyeOff, Clock, MapPin, PackageCheck, Lock, Zap, RefreshCw, CheckCircle2, Rocket, Truck, Phone, Smartphone } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 import { countPickupStaffTasks } from '../../../utils/pickupStaffAssignment';
@@ -201,9 +201,20 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
               {tenantStaff.length} staff members · max 10 active parcels each · Manage packing personnel for {currentTenant?.name || 'this supermarket'}.
             </p>
           </div>
-          <button onClick={() => setIsAddOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 shadow-sm cursor-pointer">
-            <UserPlus size={16} /> Add Staff Account
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href="/downloads/freshmart-staff.apk"
+              download="freshmart-staff.apk"
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-3.5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700 shadow-sm cursor-pointer border border-slate-700"
+              title="Download FreshMart Staff Android App (APK)"
+            >
+              <Smartphone size={16} className="text-emerald-400" />
+              Download Staff App (APK)
+            </a>
+            <button onClick={() => setIsAddOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 shadow-sm cursor-pointer">
+              <UserPlus size={16} /> Add Staff Account
+            </button>
+          </div>
         </div>
 
         {/* Staff Capacity Cards Grid */}

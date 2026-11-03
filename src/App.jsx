@@ -13,6 +13,7 @@ import { RecipesPage } from './components/Recipes/RecipesPage';
 import { CustomerPortal } from './components/CustomerPortal/CustomerPortal';
 import { DeliveryPortal } from './components/DeliveryPortal/DeliveryPortal';
 import { PickupStaffPortal } from './components/Admin/views/PickupStaffPortal';
+import { StaffAppDownload } from './components/Common/StaffAppDownload';
 import { Footer } from './components/Footer/Footer';
 
 
@@ -88,6 +89,11 @@ function FreshMartAppContent() {
         <PickupStaffPortal />
       </div>
     );
+  }
+
+  // If in Staff App download view, render the dedicated private staff download portal
+  if (activeView === 'staff-app' || (typeof window !== 'undefined' && window.location.pathname === '/staff-app')) {
+    return <StaffAppDownload />;
   }
 
   // If in Customer Portal view, render the dedicated customer dashboard experience

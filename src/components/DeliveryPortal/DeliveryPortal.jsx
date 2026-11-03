@@ -37,7 +37,8 @@ import {
   CheckCircle,
   XCircle,
   Receipt,
-  Radio
+  Radio,
+  Smartphone
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { apiService } from '../../services/api';
@@ -1653,6 +1654,20 @@ export const DeliveryPortal = () => {
           </div>
 
           <div className="space-y-1.5 pt-0.5">
+            {/* Download Staff Mobile App APK */}
+            <a
+              href="/downloads/freshmart-staff.apk"
+              download="freshmart-staff.apk"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-600/40 text-emerald-300 hover:text-white"
+              title="Download FreshMart Staff Android App (APK)"
+            >
+              <span className="flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-emerald-400" />
+                <span>Download Staff App</span>
+              </span>
+              <span className="text-[10px] bg-emerald-600/30 px-1.5 py-0.5 rounded text-emerald-200">APK</span>
+            </a>
+
             <button
               type="button"
               onClick={() => navigateTo('home')}

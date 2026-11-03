@@ -27,6 +27,11 @@ import {
 import {
   createOrder,
   getOrders,
+  getMyOrders,
+  getAssignedRiderOrders,
+  getPickupAssignedOrders,
+  updateOrderPickupStatus,
+  updateMyRiderLocation,
   trackOrder,
   updateOrderStatus,
   assignRiderToOrder,
@@ -149,10 +154,14 @@ router.delete('/categories/:id', protect, adminOnly, deleteCategory);
 // --- Orders Routes ---
 // Public: Shoppers place orders (validated) and track delivery status
 router.post('/orders', validate(createOrderSchema), createOrder);
+router.get('/orders/mine', protect, getMyOrders);
+router.get('/orders/assigned-to-me', protect, getAssignedRiderOrders);
+router.get('/orders/pickup-assigned-to-me', protect, getPickupAssignedOrders);
 router.get('/orders/track/:orderId', trackOrder);
-// Admin Only: Rider assignment authority belongs strictly to Store Admin
+// Admin & Staff Operations
 router.put('/orders/:id/assign-rider', protect, adminOnly, assignRiderToOrder);
 router.put('/orders/:id/rider-location', protect, updateRiderLocation);
+router.put('/orders/:id/pickup-status', protect, requireRoles('pickup_staff', 'staff', 'admin', 'superadmin', 'store admin'), updateOrderPickupStatus);
 router.post('/orders/:id/verify-delivery-otp', verifyDeliveryOtp);
 router.get('/orders', protect, getOrders);
 router.put('/orders/:id/status', protect, requireRoles('admin', 'superadmin', 'store admin', 'pickup_staff', 'staff', 'rider'), validate(updateOrderStatusSchema), updateOrderStatus);
@@ -180,7 +189,8 @@ router.post('/suppliers', protect, adminOnly, validate(createSupplierSchema), ad
 router.delete('/suppliers/:id', protect, adminOnly, deleteSupplier);
 
 // --- Riders Routes ---
-// Admin Locked & Validated: Delivery fleet management
+// Fleet location telemetry and courier management
+router.put('/riders/me/location', protect, updateMyRiderLocation);
 router.get('/riders', protect, adminOnly, getRiders);
 router.post('/riders', protect, adminOnly, validate(createRiderSchema), addRider);
 router.put('/riders/:id', protect, adminOrRiderSelf, updateRider);

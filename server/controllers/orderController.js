@@ -8,6 +8,7 @@ import { Rider } from '../models/ExtraModels.js';
 import { ADMIN_ORDERS_FULL } from '../../src/data/adminSuiteData.js';
 import { ORDERS, BRANCHES, resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyData.js';
 import { resolveOrderRouting, normalizeOrderTenantId } from '../../src/utils/orderScope.js';
+import { loadDiskRiders, saveAllDiskRiders } from './extraControllers.js';
 
 const ORDERS_FILE_PATH = path.resolve(process.cwd(), 'server/data/orders_db.json');
 
@@ -49,6 +50,8 @@ export const saveDiskOrder = (order) => {
       cleanId.includes('otp-test') ||
       cleanId.includes('assign-') ||
       cleanId.includes('mock') ||
+      cleanId.includes('test-mob') ||
+      cleanId.startsWith('test-') ||
       cleanId.startsWith('fm-live');
 
     if (isTestOrder) return;
@@ -1063,7 +1066,8 @@ export const updateOrderStatus = async (req, res) => {
       'Received by Pickup Staff', 'Picking', 'picking',
       'Preparing', 'preparing', 'Packed', 'packed',
       'Parcel Verified', 'Ready for Dispatch', 'Prepared', 'prepared',
-      'Ready', 'ready', 'Deliver to Staff', 'Delivered to Staff'
+      'Ready', 'ready', 'Deliver to Staff', 'Delivered to Staff',
+      'Ready for Pickup', 'ready for pickup'
     ]);
     const metadataFields = [
       'pickupStaffId', 'pickupStaffName', 'pickupStaffUsername', 'pickupAssignedAt', 'deliveredToStaffAt',
@@ -1339,6 +1343,422 @@ export const verifyDeliveryOtp = async (req, res) => {
       deliveredAt: deliveryTimestamp
     });
   } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get customer's own order history
+// @route   GET /api/orders/mine
+export const getMyOrders = async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?._id;
+    const userEmail = (req.user?.email || '').toLowerCase().trim();
+    const userPhone = (req.user?.phone || '').replace(/[^0-9]/g, '');
+
+    if (!userId && !userEmail && !userPhone) {
+      return res.status(401).json({ success: false, message: 'Authentication required to view order history' });
+    }
+
+    const matchesUser = (order) => {
+      if (!order) return false;
+      const oUserId = String(order.user?._id || order.user?.id || order.user || order.customerId || '');
+      if (userId && oUserId && (oUserId === String(userId) || oUserId === String(req.user?._id))) return true;
+
+      const oEmail = String(order.customerEmail || order.shippingAddress?.email || order.user?.email || '').toLowerCase().trim();
+      if (userEmail && oEmail && oEmail === userEmail) return true;
+
+      const oPhoneDigits = String(order.customerPhone || order.shippingAddress?.phone || order.user?.phone || '').replace(/[^0-9]/g, '');
+      if (userPhone && oPhoneDigits && userPhone.length >= 7 && (oPhoneDigits.includes(userPhone.slice(-7)) || userPhone.includes(oPhoneDigits.slice(-7)))) return true;
+
+      return false;
+    };
+
+    let userOrders = [];
+
+    if (isDbOnline()) {
+      const dbQuery = {
+        $or: [
+          ...(userId && String(userId).match(/^[0-9a-fA-F]{24}$/) ? [{ user: userId }] : []),
+          ...(userId ? [{ customerId: String(userId) }] : []),
+          ...(userEmail ? [{ 'shippingAddress.email': userEmail }, { customerEmail: userEmail }] : []),
+          ...(userPhone && userPhone.length >= 7 ? [{ 'shippingAddress.phone': new RegExp(userPhone.slice(-7)) }] : [])
+        ]
+      };
+      if (dbQuery.$or.length > 0) {
+        const found = await Order.find(dbQuery).sort({ createdAt: -1 });
+        userOrders = found.map((o) => (o.toObject ? o.toObject() : o));
+      }
+    }
+
+    const diskMap = new Map();
+    userOrders.forEach((o) => {
+      const idKey = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+      if (idKey) diskMap.set(idKey, o);
+    });
+
+    [...loadDiskOrders(), ...ADMIN_ORDERS_FULL].forEach((ord) => {
+      const idKey = String(ord.id || ord.orderId || ord._id || '').replace(/^#/, '').toLowerCase().trim();
+      if (idKey && !diskMap.has(idKey) && matchesUser(ord)) {
+        diskMap.set(idKey, ord);
+      }
+    });
+
+    const finalOrders = Array.from(diskMap.values()).sort(
+      (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+    );
+
+    return res.json({
+      success: true,
+      count: finalOrders.length,
+      orders: finalOrders
+    });
+  } catch (error) {
+    console.error('getMyOrders error:', error);
+    return res.status(500).json({ success: false, message: error.message, orders: [] });
+  }
+};
+
+// @desc    Get orders assigned to the logged-in rider
+// @route   GET /api/orders/assigned-to-me
+export const getAssignedRiderOrders = async (req, res) => {
+  try {
+    const riderId = String(req.user?.riderId || req.user?.id || req.user?._id || '').toLowerCase().trim();
+    const riderName = (req.user?.name || '').toLowerCase().trim();
+    const riderPhone = (req.user?.phone || '').replace(/[^0-9]/g, '');
+
+    const matchesRider = (order) => {
+      if (!order) return false;
+      const assigned = order.assignedRider;
+      if (assigned) {
+        const aId = String(assigned.id || assigned.riderId || assigned._id || '').toLowerCase().trim();
+        if (riderId && aId && aId === riderId) return true;
+        const aName = String(assigned.name || '').toLowerCase().trim();
+        if (riderName && aName && (aName === riderName || aName.includes(riderName) || riderName.includes(aName))) return true;
+        const aPhone = String(assigned.phone || '').replace(/[^0-9]/g, '');
+        if (riderPhone && aPhone && riderPhone.length >= 7 && aPhone.includes(riderPhone.slice(-7))) return true;
+      }
+      if (order.riderId && String(order.riderId).toLowerCase().trim() === riderId) return true;
+      return false;
+    };
+
+    let matched = [];
+    if (isDbOnline()) {
+      const query = {
+        $or: [
+          ...(riderId ? [
+            { 'assignedRider.id': { $regex: new RegExp(`^${riderId}$`, 'i') } },
+            { 'assignedRider.riderId': { $regex: new RegExp(`^${riderId}$`, 'i') } },
+            { riderId: { $regex: new RegExp(`^${riderId}$`, 'i') } }
+          ] : []),
+          ...(riderName ? [{ 'assignedRider.name': { $regex: new RegExp(riderName, 'i') } }] : [])
+        ]
+      };
+      if (query.$or.length > 0) {
+        const dbFound = await Order.find(query).sort({ createdAt: -1 });
+        matched = dbFound.map((o) => (o.toObject ? o.toObject() : o));
+      }
+    }
+
+    const orderMap = new Map();
+    matched.forEach((o) => {
+      const key = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+      if (key) orderMap.set(key, o);
+    });
+
+    [...loadDiskOrders(), ...ADMIN_ORDERS_FULL].forEach((ord) => {
+      const key = String(ord.id || ord.orderId || ord._id || '').replace(/^#/, '').toLowerCase().trim();
+      if (key && !orderMap.has(key) && matchesRider(ord)) {
+        orderMap.set(key, ord);
+      }
+    });
+
+    const orders = Array.from(orderMap.values()).sort(
+      (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+    );
+
+    return res.json({
+      success: true,
+      count: orders.length,
+      orders
+    });
+  } catch (error) {
+    console.error('getAssignedRiderOrders error:', error);
+    return res.status(500).json({ success: false, message: error.message, orders: [] });
+  }
+};
+
+// @desc    Get orders assigned to or queued for pickup staff
+// @route   GET /api/orders/pickup-assigned-to-me
+export const getPickupAssignedOrders = async (req, res) => {
+  try {
+    const staffId = String(req.user?.staffId || req.user?.id || req.user?._id || '').toLowerCase().trim();
+    const userTenantId = req.user?.tenantId;
+    const userBranchId = req.user?.branchId;
+
+    const matchesPickup = (order) => {
+      if (!order) return false;
+      const orderTenant = order.tenantId || order.companyId;
+      if (userTenantId && !isSameTenant(orderTenant, userTenantId)) return false;
+      if (userBranchId && order.branchId && order.branchId !== userBranchId && userBranchId !== 'all') return false;
+
+      // Specifically assigned to this staff member
+      if (order.pickupStaffId && String(order.pickupStaffId).toLowerCase().trim() === staffId) return true;
+
+      // Or unassigned and in active fulfillment stage
+      const status = (order.status || '').toLowerCase();
+      const isFulfillmentQueue = [
+        'pending', 'confirmed', 'processing', 'preparing',
+        'picking', 'packed', 'ready', 'ready for pickup', 'ready for dispatch', 'prepared'
+      ].includes(status);
+
+      return isFulfillmentQueue;
+    };
+
+    let matched = [];
+    if (isDbOnline()) {
+      const query = {
+        $or: [
+          ...(staffId ? [{ pickupStaffId: staffId }] : []),
+          { pickupStaffId: { $exists: false } },
+          { pickupStaffId: null },
+          { pickupStaffId: '' }
+        ]
+      };
+      const dbFound = await Order.find(query).sort({ createdAt: -1 });
+      matched = dbFound.map((o) => (o.toObject ? o.toObject() : o)).filter(matchesPickup);
+    }
+
+    const orderMap = new Map();
+    matched.forEach((o) => {
+      const key = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+      if (key) orderMap.set(key, o);
+    });
+
+    [...loadDiskOrders(), ...ADMIN_ORDERS_FULL].forEach((ord) => {
+      const key = String(ord.id || ord.orderId || ord._id || '').replace(/^#/, '').toLowerCase().trim();
+      if (key && !orderMap.has(key) && matchesPickup(ord)) {
+        orderMap.set(key, ord);
+      }
+    });
+
+    const orders = Array.from(orderMap.values()).sort(
+      (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+    );
+
+    return res.json({
+      success: true,
+      count: orders.length,
+      orders
+    });
+  } catch (error) {
+    console.error('getPickupAssignedOrders error:', error);
+    return res.status(500).json({ success: false, message: error.message, orders: [] });
+  }
+};
+
+// @desc    Update order pickup status (e.g. Preparing, Ready for Pickup)
+// @route   PUT /api/orders/:id/pickup-status
+export const updateOrderPickupStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let { status } = req.body;
+    if (!status) {
+      return res.status(400).json({ success: false, message: 'Pickup status is required' });
+    }
+
+    const normalized = String(status).trim();
+    const cleanId = String(id).replace(/^#/, '').toLowerCase().trim();
+
+    const staffId = req.user?.staffId || req.user?.id || req.user?._id;
+    const staffName = req.user?.name || req.user?.username || 'Pickup Staff';
+
+    const applyPickup = (order) => {
+      order.status = normalized;
+      order.pickupStatus = normalized;
+      order.fulfillmentStatus = normalized;
+      order.fulfillmentUpdatedAt = new Date().toISOString();
+      if (!order.pickupStaffId && staffId) {
+        order.pickupStaffId = String(staffId);
+        order.pickupStaffName = staffName;
+      }
+      if (normalized.toLowerCase() === 'preparing' || normalized.toLowerCase() === 'picking') {
+        order.fulfillmentStage = 2; // In preparation
+        order.preparingAt = order.preparingAt || new Date().toISOString();
+      } else if (
+        normalized.toLowerCase() === 'ready for pickup' ||
+        normalized.toLowerCase() === 'ready' ||
+        normalized.toLowerCase() === 'prepared' ||
+        normalized.toLowerCase() === 'ready for dispatch'
+      ) {
+        order.fulfillmentStage = 3; // Ready for pickup / dispatch
+        order.isDispatchedByStaff = true;
+        order.readyForPickupAt = new Date().toISOString();
+        order.readyForDispatchAt = new Date().toISOString();
+      }
+      order.timeline = buildDynamicTimeline(order);
+      return true;
+    };
+
+    let updatedOrder = null;
+
+    if (isDbOnline()) {
+      const order = await Order.findOne({
+        $or: [
+          ...(id && id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : []),
+          { orderId: id },
+          { id: id },
+          { orderId: `#${cleanId}` },
+          { orderId: cleanId }
+        ]
+      });
+
+      if (order) {
+        applyPickup(order);
+        updatedOrder = await order.save();
+        saveDiskOrder(updatedOrder);
+      }
+    }
+
+    if (!updatedOrder) {
+      const memOrder = ADMIN_ORDERS_FULL.find((o) => {
+        const oId = String(o.id || o.orderId || '').replace(/^#/, '').toLowerCase().trim();
+        return oId === cleanId || o.id === id || o.orderId === id;
+      });
+      if (memOrder) {
+        applyPickup(memOrder);
+        saveDiskOrder(memOrder);
+        updatedOrder = memOrder;
+      }
+    }
+
+    if (!updatedOrder) {
+      const diskOrder = loadDiskOrders().find((o) => {
+        const oId = String(o.id || o.orderId || '').replace(/^#/, '').toLowerCase().trim();
+        return oId === cleanId || o.id === id || o.orderId === id;
+      });
+      if (diskOrder) {
+        applyPickup(diskOrder);
+        saveDiskOrder(diskOrder);
+        updatedOrder = diskOrder;
+      }
+    }
+
+    if (!updatedOrder) {
+      return res.status(404).json({ success: false, message: `Order #${cleanId.toUpperCase()} not found` });
+    }
+
+    return res.json({
+      success: true,
+      message: `Pickup status updated to ${normalized}`,
+      order: updatedOrder
+    });
+  } catch (error) {
+    console.error('updateOrderPickupStatus error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Update current logged-in rider GPS location and synchronize active orders
+// @route   PUT /api/riders/me/location
+export const updateMyRiderLocation = async (req, res) => {
+  try {
+    const lat = req.body.lat !== undefined ? Number(req.body.lat) : req.body.latitude !== undefined ? Number(req.body.latitude) : undefined;
+    const lng = req.body.lng !== undefined ? Number(req.body.lng) : req.body.longitude !== undefined ? Number(req.body.longitude) : undefined;
+    const speed = req.body.speed !== undefined ? Number(req.body.speed) : 0;
+    const heading = req.body.heading !== undefined ? Number(req.body.heading) : 0;
+
+    if (lat === undefined || lng === undefined || isNaN(lat) || isNaN(lng)) {
+      return res.status(400).json({ success: false, message: 'Valid latitude and longitude are required' });
+    }
+
+    const riderId = String(req.user?.riderId || req.user?.id || req.user?._id || '').toLowerCase().trim();
+
+    // 1. Update Rider in Disk Storage
+    const diskRiders = loadDiskRiders();
+    const riderIdx = diskRiders.findIndex(
+      (r) =>
+        String(r.id || '').toLowerCase().trim() === riderId ||
+        String(r.riderId || '').toLowerCase().trim() === riderId ||
+        String(r.username || '').toLowerCase().trim() === riderId ||
+        String(r._id || '').toLowerCase().trim() === riderId
+    );
+
+    if (riderIdx >= 0) {
+      diskRiders[riderIdx].coordinates = { lat, lng };
+      diskRiders[riderIdx].latitude = lat;
+      diskRiders[riderIdx].longitude = lng;
+      diskRiders[riderIdx].speed = speed;
+      diskRiders[riderIdx].heading = heading;
+      diskRiders[riderIdx].lastLocationUpdate = new Date().toISOString();
+      saveAllDiskRiders(diskRiders);
+    }
+
+    // 2. Update in MongoDB if online
+    if (isDbOnline()) {
+      try {
+        await Rider.updateOne(
+          {
+            $or: [
+              ...(riderId ? [
+                { id: { $regex: new RegExp(`^${riderId}$`, 'i') } },
+                { username: { $regex: new RegExp(`^${riderId}$`, 'i') } }
+              ] : []),
+              ...(riderId.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: riderId }] : [])
+            ]
+          },
+          {
+            $set: {
+              coordinates: { lat, lng },
+              latitude: lat,
+              longitude: lng,
+              speed,
+              heading,
+              lastLocationUpdate: new Date().toISOString()
+            }
+          }
+        );
+      } catch (e) {}
+    }
+
+    // 3. Update any active order assigned to this rider in transit
+    const activeOrders = ADMIN_ORDERS_FULL.filter((o) => {
+      const aId = String(o.assignedRider?.id || o.assignedRider?.riderId || '').toLowerCase().trim();
+      const s = String(o.status || '').toLowerCase();
+      return (aId === riderId) && (s === 'out for delivery' || s === 'in transit' || s.includes('heading'));
+    });
+
+    activeOrders.forEach((ord) => {
+      if (ord.assignedRider) {
+        ord.assignedRider.coordinates = { lat, lng };
+        ord.assignedRider.currentLat = lat;
+        ord.assignedRider.currentLng = lng;
+        ord.assignedRider.speed = speed;
+        ord.assignedRider.heading = heading;
+
+        const destCoords = ord.destinationCoords || resolveDestinationCoords(ord.shippingAddress || { address: ord.address, city: ord.city });
+        const distanceKm = calculateDistanceKm(lat, lng, destCoords.lat, destCoords.lng);
+        const etaMinutes = calculateEtaMinutes(distanceKm);
+        const etaText = distanceKm <= 0.2 ? 'Arriving now (1-2 mins)' : `${etaMinutes} mins`;
+        ord.assignedRider.eta = etaText;
+        ord.assignedRider.etaMinutes = etaMinutes;
+        ord.distanceKm = distanceKm;
+        ord.eta = etaText;
+        ord.etaMinutes = etaMinutes;
+        ord.timeline = buildDynamicTimeline(ord);
+        saveDiskOrder(ord);
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Rider location telemetry updated successfully',
+      coordinates: { lat, lng },
+      speed,
+      heading,
+      updatedActiveOrdersCount: activeOrders.length
+    });
+  } catch (error) {
+    console.error('updateMyRiderLocation error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };

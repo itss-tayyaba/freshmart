@@ -175,29 +175,40 @@ export const Footer = () => {
             </p>
 
             <div className="space-y-2 pt-1">
-              {/* App Store button */}
-              <div className={`p-2 rounded-xl border flex items-center gap-3 cursor-pointer transition-colors ${
-                isUnimaart
-                  ? 'bg-slate-900/90 hover:bg-slate-900 border-sky-900/50'
-                  : 'bg-slate-900/90 hover:bg-slate-900 border-emerald-800'
-              }`}>
-                <Smartphone className="w-5 h-5 text-white" />
+              {/* Android APK Download button */}
+              <a
+                href="/downloads/freshmart-customer.apk"
+                download="freshmart-customer.apk"
+                className={`p-2 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${
+                  isUnimaart
+                    ? 'bg-slate-900/90 hover:bg-slate-900 border-sky-900/50 hover:border-sky-400 text-white'
+                    : 'bg-slate-900/90 hover:bg-slate-900 border-emerald-800 hover:border-emerald-400 text-white'
+                }`}
+                title="Download FreshMart Customer Android App APK"
+              >
+                <Smartphone className={`w-5 h-5 shrink-0 ${isUnimaart ? 'text-sky-400' : 'text-lime-400'}`} />
                 <div className="text-left">
-                  <span className="text-[9px] uppercase text-slate-400 block leading-none">Download on the</span>
-                  <span className="text-xs font-bold text-white leading-tight">Apple App Store</span>
+                  <span className="text-[9px] uppercase text-slate-400 block leading-none">Download for Android</span>
+                  <span className="text-xs font-bold text-white leading-tight">FreshMart APK (v1.0.0)</span>
                 </div>
-              </div>
+              </a>
 
-              {/* Google Play button */}
-              <div className={`p-2 rounded-xl border flex items-center gap-3 cursor-pointer transition-colors ${
-                isUnimaart
-                  ? 'bg-slate-900/90 hover:bg-slate-900 border-sky-900/50'
-                  : 'bg-slate-900/90 hover:bg-slate-900 border-emerald-800'
-              }`}>
-                <Smartphone className={`w-5 h-5 ${isUnimaart ? 'text-sky-400' : 'text-lime-400'}`} />
+              {/* iOS / PWA Button */}
+              <div
+                onClick={() => {
+                  alert('For iPhone / iOS: Open in Safari, tap Share, then select "Add to Home Screen" to install FreshMart directly.');
+                }}
+                className={`p-2 rounded-xl border flex items-center gap-3 cursor-pointer transition-colors ${
+                  isUnimaart
+                    ? 'bg-slate-900/90 hover:bg-slate-900 border-sky-900/50 hover:border-sky-400'
+                    : 'bg-slate-900/90 hover:bg-slate-900 border-emerald-800 hover:border-emerald-400'
+                }`}
+                title="iOS Web App (PWA)"
+              >
+                <Smartphone className="w-5 h-5 text-white shrink-0" />
                 <div className="text-left">
-                  <span className="text-[9px] uppercase text-slate-400 block leading-none">Get it on</span>
-                  <span className="text-xs font-bold text-white leading-tight">Google Play Store</span>
+                  <span className="text-[9px] uppercase text-slate-400 block leading-none">iOS / Safari PWA</span>
+                  <span className="text-xs font-bold text-white leading-tight">Add to Home Screen</span>
                 </div>
               </div>
             </div>
