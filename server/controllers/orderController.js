@@ -322,7 +322,7 @@ export const createOrder = async (req, res) => {
 
     // Clean, store-specific human-readable Order ID (e.g. #FM-8492, #AF-3921, #CU-5120, #CV-4819)
     let orderId = req.body.orderId || req.body.id;
-    if (!orderId || String(orderId).length > 10 || /[A-F0-9]{6,}/i.test(String(orderId))) {
+    if (!orderId || /#([A-Z0-9]{2}-)?[A-F0-9]{8,}/i.test(String(orderId))) {
       const rawTenant = req.body.tenantId || req.body.tenant || req.user?.tenantId || '';
       const prefix = isSameTenant(rawTenant, 'tenant-alfatah') ? '#AF'
         : isSameTenant(rawTenant, 'tenant-chaseup') ? '#CU'

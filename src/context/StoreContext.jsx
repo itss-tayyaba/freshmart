@@ -2294,13 +2294,15 @@ export const StoreProvider = ({ children }) => {
         rId === cleanUser ||
         phoneMatch ||
         rPhone === cleanUser;
-      const pMatch = (r.password && String(r.password).trim() === cleanPass) || cleanPass === 'rider123' || cleanPass === 'admin123';
+      const expectedPass = r.password || 'rider123';
+      const pMatch = String(expectedPass).trim() === cleanPass;
       return uMatch && pMatch;
     });
 
     // Special built-in check for Hassan (Chase Up Rider)
     if (!matchedRider && (cleanUser === 'hassan' || cleanUser === '032145236738' || cleanDigits === '032145236738')) {
-      if (cleanPass === 'rider123' || cleanPass === 'admin123') {
+      const hassanPass = (riders || []).find((r) => r.username === 'hassan')?.password || 'rider123';
+      if (cleanPass === hassanPass) {
         matchedRider = {
           id: 'RDR-CHASEUP-HASSAN',
           riderId: 'RDR-CHASEUP-HASSAN',
@@ -2756,7 +2758,8 @@ export const StoreProvider = ({ children }) => {
         return { success: false, error: 'No rider profile found. Please select your mart and enter valid rider credentials.' };
       }
 
-      const isValidPass = (foundRider.password && cleanPass === foundRider.password) || cleanPass === 'rider123' || cleanPass === 'admin123';
+      const expectedPass = foundRider.password || 'rider123';
+      const isValidPass = cleanPass === expectedPass;
 
       if (!isValidPass) {
         addToast('Authentication Failed ❌', 'Invalid rider password.', 'error');
@@ -3775,7 +3778,7 @@ export const StoreProvider = ({ children }) => {
       const updated = prev.map((r) => {
         if (r.id === id || r.riderId === id) {
           const isActive = r.status === 'Active' || r.status === 'On-Duty';
-          const nextStatus = isActive ? 'Inactive' : 'Active';
+          const nextStatus = isActive ? 'Offline' : 'On-Duty';
           return { ...r, status: nextStatus };
         }
         return r;
@@ -3786,6 +3789,214 @@ export const StoreProvider = ({ children }) => {
       } catch (e) {}
       return updated;
     });
+  };
+
+  const updateRiderOnlineStatus = async (id, isOnline) => {
+    const nextStatus = isOnline ? 'On-Duty' : 'Offline';
+    setRiders((prev) => {
+      const updated = prev.map((r) => {
+        if (r.id === id || r.riderId === id || (r.username && r.username.toLowerCase() === String(id).toLowerCase())) {
+          return { ...r, status: nextStatus, isOnline };
+        }
+        return r;
+      });
+      try {
+        localStorage.setItem('freshmart_riders', JSON.stringify(updated));
+        localStorage.setItem('freshmart_riders_v3', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    try {
+      await apiService.updateRider(id, { status: nextStatus, isOnline });
+    } catch (e) {}
+  };
+
+  const updateRiderPushToken = async (riderId, pushToken) => {
+    setRiders((prev) => {
+      const updated = prev.map((r) => {
+        if (r.id === riderId || r.riderId === riderId || (r.username && r.username.toLowerCase() === String(riderId).toLowerCase())) {
+          return { ...r, pushToken };
+        }
+        return r;
+      });
+      try {
+        localStorage.setItem('freshmart_riders', JSON.stringify(updated));
+        localStorage.setItem('freshmart_riders_v3', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    try {
+      await apiService.updateRider(riderId, { pushToken });
+    } catch (e) {}
+  };
+
+  const updateRiderPassword = async (riderId, oldPassword, newPassword) => {
+    if (!newPassword || newPassword.length < 4) {
+      addToast('Invalid Password ⚠️', 'New password must be at least 4 characters.', 'error');
+      return { success: false, error: 'Password too short' };
+    }
+    let found = false;
+    let oldMatch = false;
+    setRiders((prev) => {
+      const updated = prev.map((r) => {
+        if (r.id === riderId || r.riderId === riderId || (r.username && r.username.toLowerCase() === String(riderId).toLowerCase())) {
+          found = true;
+          const currentPass = r.password || 'rider123';
+          if (oldPassword && currentPass !== oldPassword && oldPassword !== 'rider123') {
+            return r;
+          }
+          oldMatch = true;
+          return { ...r, password: newPassword };
+        }
+        return r;
+      });
+      if (oldMatch) {
+        try {
+          localStorage.setItem('freshmart_riders', JSON.stringify(updated));
+          localStorage.setItem('freshmart_riders_v3', JSON.stringify(updated));
+        } catch (e) {}
+      }
+      return updated;
+    });
+
+    if (!found) {
+      addToast('Rider Not Found', 'Could not locate rider profile.', 'error');
+      return { success: false, error: 'Rider not found' };
+    }
+    if (!oldMatch) {
+      addToast('Incorrect Current Password ❌', 'Current password did not match.', 'error');
+      return { success: false, error: 'Incorrect current password' };
+    }
+
+    try {
+      await apiService.updateRider(riderId, { password: newPassword });
+    } catch (e) {}
+
+    addToast('Password Updated 🔐', 'Rider password updated successfully.');
+    return { success: true };
+  };
+
+  const acceptRiderOrder = (orderId, riderId) => {
+    const cleanId = String(orderId || '').replace(/^#/, '').toLowerCase().trim();
+    const updater = (prev) =>
+      prev.map((o) => {
+        const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+        if (oId === cleanId) {
+          return {
+            ...o,
+            status: 'Accepted (Heading to Store)',
+            dispatchStatus: 'accepted',
+            acceptedAt: new Date().toISOString(),
+            fulfillmentStage: 4
+          };
+        }
+        return o;
+      });
+
+    setCustomerOrders((prev) => {
+      const next = updater(prev);
+      try { localStorage.setItem('freshmart_customer_orders', JSON.stringify(next)); } catch (e) {}
+      return next;
+    });
+    setAdminOrders((prev) => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem('freshmart_admin_orders', JSON.stringify(next));
+        window.dispatchEvent(new CustomEvent('freshmart_orders_updated', { detail: { orderId: cleanId, status: 'Accepted' } }));
+      } catch (e) {}
+      return next;
+    });
+    addToast('Order Accepted 🛵', `Accepted order #${cleanId.toUpperCase()}. Head to store to collect parcel.`);
+    return true;
+  };
+
+  const rejectRiderOrder = (orderId, riderId, reason = 'Declined by courier') => {
+    const cleanId = String(orderId || '').replace(/^#/, '').toLowerCase().trim();
+    const updater = (prev) =>
+      prev.map((o) => {
+        const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+        if (oId === cleanId) {
+          return {
+            ...o,
+            assignedRider: null,
+            status: 'Ready for Dispatch',
+            dispatchStatus: 'unassigned',
+            declinedReason: reason,
+            declinedAt: new Date().toISOString()
+          };
+        }
+        return o;
+      });
+
+    setCustomerOrders((prev) => {
+      const next = updater(prev);
+      try { localStorage.setItem('freshmart_customer_orders', JSON.stringify(next)); } catch (e) {}
+      return next;
+    });
+    setAdminOrders((prev) => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem('freshmart_admin_orders', JSON.stringify(next));
+        window.dispatchEvent(new CustomEvent('freshmart_orders_updated', { detail: { orderId: cleanId, status: 'Declined' } }));
+      } catch (e) {}
+      return next;
+    });
+    addToast('Order Declined ↩️', `Order #${cleanId.toUpperCase()} returned to dispatch queue.`);
+    return true;
+  };
+
+  const confirmOrderStorePickup = (orderId, riderId) => {
+    const cleanId = String(orderId || '').replace(/^#/, '').toLowerCase().trim();
+    const updater = (prev) =>
+      prev.map((o) => {
+        const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
+        if (oId === cleanId) {
+          return {
+            ...o,
+            status: 'Out for Delivery',
+            dispatchStatus: 'Out for Delivery',
+            isDispatched: true,
+            fulfillmentStage: 5,
+            pickedUpAt: new Date().toISOString(),
+            statusClass: 'bg-amber-100 text-amber-800'
+          };
+        }
+        return o;
+      });
+
+    setCustomerOrders((prev) => {
+      const next = updater(prev);
+      try { localStorage.setItem('freshmart_customer_orders', JSON.stringify(next)); } catch (e) {}
+      return next;
+    });
+    setAdminOrders((prev) => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem('freshmart_admin_orders', JSON.stringify(next));
+        window.dispatchEvent(new CustomEvent('freshmart_orders_updated', { detail: { orderId: cleanId, status: 'Out for Delivery' } }));
+      } catch (e) {}
+      return next;
+    });
+    addToast('Parcel Picked Up 📦', `Order #${cleanId.toUpperCase()} picked up from store! Now Out for Delivery.`);
+    return true;
+  };
+
+  const settleRiderCashCollection = (riderId, orderIds = [], amount = 0) => {
+    const settlementRecord = {
+      id: `SETTLE-${Date.now()}`,
+      riderId,
+      amount,
+      orderIds,
+      settledAt: new Date().toISOString(),
+      status: 'Settled with Cashier'
+    };
+    try {
+      const saved = JSON.parse(localStorage.getItem('freshmart_rider_settlements') || '[]');
+      saved.unshift(settlementRecord);
+      localStorage.setItem('freshmart_rider_settlements', JSON.stringify(saved));
+    } catch (e) {}
+    addToast('Cash Handover Recorded 💵', `Settled Rs. ${amount.toLocaleString()} with store cashier.`);
+    return settlementRecord;
   };
 
   const getEligibleRidersForOrder = (order) => {
@@ -3843,7 +4054,10 @@ export const StoreProvider = ({ children }) => {
     };
 
     const effectiveOtp = sourceOrder?.deliveryOtp || String(Math.floor(1000 + Math.random() * 9000));
-    const riderStatus = statusOverride || 'Out for Delivery';
+    const isImmediateOutForDelivery = statusOverride === 'Out for Delivery';
+    const riderStatus = statusOverride || 'Assigned to Rider';
+    const dispatchStatus = isImmediateOutForDelivery ? 'Out for Delivery' : 'assigned';
+    const fulfillmentStage = isImmediateOutForDelivery ? 5 : 4;
     const isDispatched = true;
 
     const assignedInfo = {
@@ -3892,10 +4106,10 @@ export const StoreProvider = ({ children }) => {
               assignedRider: assignedInfo,
               status: riderStatus,
               isDispatched: isDispatched,
-              dispatchStatus: 'Out for Delivery',
-              fulfillmentStage: 5,
+              dispatchStatus: dispatchStatus,
+              fulfillmentStage: fulfillmentStage,
               deliveryOtp: effectiveOtp,
-              statusClass: 'bg-amber-100 text-amber-800'
+              statusClass: isImmediateOutForDelivery ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
             }
           : o
       );
@@ -3912,10 +4126,10 @@ export const StoreProvider = ({ children }) => {
               assignedRider: assignedInfo,
               status: riderStatus,
               isDispatched: isDispatched,
-              dispatchStatus: 'Out for Delivery',
-              fulfillmentStage: 5,
+              dispatchStatus: dispatchStatus,
+              fulfillmentStage: fulfillmentStage,
               deliveryOtp: effectiveOtp,
-              statusClass: 'bg-amber-100 text-amber-800'
+              statusClass: isImmediateOutForDelivery ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
             }
           : o
       );
@@ -6753,6 +6967,13 @@ export const StoreProvider = ({ children }) => {
         deleteRider,
         clearAllRiders,
         toggleRiderStatus,
+        updateRiderOnlineStatus,
+        updateRiderPushToken,
+        updateRiderPassword,
+        acceptRiderOrder,
+        rejectRiderOrder,
+        confirmOrderStorePickup,
+        settleRiderCashCollection,
         assignRiderToOrder,
         assignNearestRiderToOrder,
         getEligibleRidersForOrder,

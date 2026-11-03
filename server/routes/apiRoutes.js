@@ -97,7 +97,7 @@ import {
   getTenantPerformance,
   getPlatformOverview
 } from '../controllers/tenantController.js';
-import { protect, adminOnly, protectVendor, superAdminOnly, staffOrAdmin, requireRoles } from '../middleware/authMiddleware.js';
+import { protect, adminOnly, protectVendor, superAdminOnly, staffOrAdmin, requireRoles, adminOrRiderSelf } from '../middleware/authMiddleware.js';
 import { authLimiter } from '../middleware/rateLimitMiddleware.js';
 import {
   validate,
@@ -183,7 +183,7 @@ router.delete('/suppliers/:id', protect, adminOnly, deleteSupplier);
 // Admin Locked & Validated: Delivery fleet management
 router.get('/riders', protect, adminOnly, getRiders);
 router.post('/riders', protect, adminOnly, validate(createRiderSchema), addRider);
-router.put('/riders/:id', protect, adminOnly, updateRider);
+router.put('/riders/:id', protect, adminOrRiderSelf, updateRider);
 router.delete('/riders/:id', protect, adminOnly, deleteRider);
 router.delete('/riders', protect, adminOnly, clearAllRiders);
 

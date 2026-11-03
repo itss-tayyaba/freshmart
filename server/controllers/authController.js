@@ -323,11 +323,11 @@ export const loginUser = async (req, res) => {
       if (rider) {
         const isBcryptMatch = await rider.matchPassword(password);
         const isDemo = allowDemoAuth();
-        const isRawMatch = isDemo && rider.password === password;
-        const isDefaultRiderFallback = isDemo && (password === 'rider123' || password === 'admin123');
-        const isInitialRiderPass = (rider.plainPassword === 'rider123' || rider.password === 'rider123' || !rider.password) && password === 'rider123';
+        const isRawMatch = isDemo && (rider.password === password || rider.plainPassword === password);
+        const isDefaultRider = (!rider.password && !rider.plainPassword) || rider.password === 'rider123' || rider.plainPassword === 'rider123';
+        const isInitialRiderPass = isDefaultRider && password === 'rider123';
 
-        if (isBcryptMatch || isRawMatch || isDefaultRiderFallback || isInitialRiderPass) {
+        if (isBcryptMatch || isRawMatch || isInitialRiderPass) {
           const riderTenantId = rider.tenantId || req.body.tenantId || 'tenant-alfatah';
           const resolvedBranchId = req.body.branchId || rider.branchId || 'branch_001';
           const resolvedBranchName = rider.branchName || 'Main Branch';

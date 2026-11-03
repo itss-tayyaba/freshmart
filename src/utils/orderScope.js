@@ -369,6 +369,15 @@ export const canAssignRiderToOrder = (order, rider) => {
     };
   }
 
+  // 3. Online Availability Check:
+  const rStatus = String(rider.status || '').toLowerCase();
+  if (rStatus === 'offline' || rStatus === 'off-duty') {
+    return {
+      allowed: false,
+      reason: `Rider ${rider.name || rider.username} is currently Offline (Off-Duty).`
+    };
+  }
+
   // NOTE: Riders serve the entire supermarket chain, NOT partitioned by branch.
   return { allowed: true };
 };

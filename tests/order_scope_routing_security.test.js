@@ -140,25 +140,26 @@ test('4. canAssignRiderToOrder and getStrictEligibleRiders reject cross-store an
     branchId: 'branch_006'
   };
 
-  // Same store & branch: ALLOWED
+  // Same store: ALLOWED (riders belong to the store as a whole, not partitioned into branches)
   const check1 = canAssignRiderToOrder(alFatahOrder, sameBranchRider);
   assert.equal(check1.allowed, true);
 
-  // Cross-branch: REJECTED
+  // Store rider: ALLOWED
   const check2 = canAssignRiderToOrder(alFatahOrder, differentBranchRider);
-  assert.equal(check2.allowed, false);
+  assert.equal(check2.allowed, true);
 
-  // Cross-store: REJECTED
+  // Cross-store: REJECTED (Chase Up rider cannot serve Al-Fatah)
   const check3 = canAssignRiderToOrder(alFatahOrder, chaseUpRider);
   assert.equal(check3.allowed, false);
 
-  // getStrictEligibleRiders returns only eligible rider
+  // getStrictEligibleRiders returns only eligible riders of that store
   const eligible = getStrictEligibleRiders(alFatahOrder, [sameBranchRider, differentBranchRider, chaseUpRider]);
-  assert.equal(eligible.length, 1);
-  assert.equal(eligible[0].id, 'RDR-ALI');
+  assert.equal(eligible.length, 2);
+  assert.ok(eligible.some((r) => r.id === 'RDR-ALI'));
+  assert.ok(eligible.some((r) => r.id === 'RDR-AF-OTHER'));
 });
 
-test('5. canAssignStaffToOrder rejects cross-store and cross-branch staff', () => {
+test('5. canAssignStaffToOrder rejects cross-store staff while allowing store staff', () => {
   const alFatahOrder = {
     id: 'ORD-AF-001',
     tenantId: 'tenant-alfatah',
@@ -172,7 +173,7 @@ test('5. canAssignStaffToOrder rejects cross-store and cross-branch staff', () =
     branchId: 'branch_af_fsd'
   };
 
-  const crossBranchStaff = {
+  const otherBranchStaff = {
     id: 'PCK-LAHORE',
     name: 'Lahore Staff',
     tenantId: 'tenant-alfatah',
@@ -187,7 +188,7 @@ test('5. canAssignStaffToOrder rejects cross-store and cross-branch staff', () =
   };
 
   assert.equal(canAssignStaffToOrder(alFatahOrder, validStaff).allowed, true);
-  assert.equal(canAssignStaffToOrder(alFatahOrder, crossBranchStaff).allowed, false);
+  assert.equal(canAssignStaffToOrder(alFatahOrder, otherBranchStaff).allowed, true);
   assert.equal(canAssignStaffToOrder(alFatahOrder, crossStoreStaff).allowed, false);
 });
 

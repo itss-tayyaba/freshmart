@@ -25,9 +25,22 @@ import {
   Sparkles,
   Menu,
   X,
-  Copy
+  Copy,
+  Power,
+  Bell,
+  BellOff,
+  Lock,
+  DollarSign,
+  Shield,
+  KeyRound,
+  RotateCcw,
+  CheckCircle,
+  XCircle,
+  Receipt,
+  Radio
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { apiService } from '../../services/api';
 import { isSameTenant } from '../../data/companyHierarchyData';
 import { isOrderVisibleToUser, isOrderAssignedToRider } from '../../utils/orderScope';
 import {
@@ -129,6 +142,13 @@ export const DeliveryPortal = () => {
     assignRiderToOrder,
     updateRiderLiveLocation,
     verifyOrderDeliveryOtp,
+    updateRiderOnlineStatus,
+    updateRiderPushToken,
+    updateRiderPassword,
+    acceptRiderOrder,
+    rejectRiderOrder,
+    confirmOrderStorePickup,
+    settleRiderCashCollection,
     currency = 'Rs.',
     addToast,
     navigateTo,
@@ -153,10 +173,131 @@ export const DeliveryPortal = () => {
     return `${currencySymbol} ${num.toLocaleString()}`;
   };
 
-  // Active navigation tab
-  const [activeTab, setActiveTab] = useState('out-for-delivery'); // 'out-for-delivery' | 'delivered-today'
+  // Active navigation tab: 'out-for-delivery' | 'delivered-today' | 'earnings'
+  const [activeTab, setActiveTab] = useState('out-for-delivery');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const hasAutoSwitchedRef = useRef(false);
+
+  // Synthesized Dispatch Chime (Crystal Clear Courier Audio Chime via Web Audio API)
+  const playDispatchChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const t = ctx.currentTime;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, t); // D5
+      osc.frequency.setValueAtTime(880, t + 0.14); // A5
+      gain.gain.setValueAtTime(0.25, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+      osc.start(t);
+      osc.stop(t + 0.45);
+    } catch (e) {}
+  };
+
+  // Push Notification state & setup
+  const [notifPermission, setNotifPermission] = useState(() => {
+    return typeof Notification !== 'undefined' ? Notification.permission : 'default';
+  });
+
+  const handleEnableNotifications = async () => {
+    if (typeof Notification === 'undefined') {
+      addToast('Notifications Unsupported ⚠️', 'Your browser does not support web notifications.', 'error');
+      return;
+    }
+    try {
+      const perm = await Notification.requestPermission();
+      setNotifPermission(perm);
+      if (perm === 'granted') {
+        const token = `webpush_${activeRider?.id || 'rdr'}_${Date.now().toString(36)}`;
+        if (typeof updateRiderPushToken === 'function' && activeRider?.id) {
+          await updateRiderPushToken(activeRider.id, token);
+        }
+        playDispatchChime();
+        new Notification('Push Notifications Active 🔔', {
+          body: 'You will receive instant alerts for new grocery dispatch orders.',
+          icon: '/favicon.ico'
+        });
+        addToast('Push Notifications Active 🔔', 'Instant dispatch alerts enabled.');
+      } else {
+        addToast('Permission Denied', 'Browser notification permission was denied.', 'info');
+      }
+    } catch (e) {}
+  };
+
+  // Real Phone GPS Telemetry State (Accuracy, Speed, Heading)
+  const [gpsAccuracy, setGpsAccuracy] = useState(null);
+  const [gpsSpeed, setGpsSpeed] = useState(null);
+  const [gpsHeading, setGpsHeading] = useState(null);
+  const [gpsActive, setGpsActive] = useState(false);
+  const [gpsLastSyncTime, setGpsLastSyncTime] = useState(null);
+
+  // Change Password Modal State
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [oldPasswordInput, setOldPasswordInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
+  const handleChangePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (!newPasswordInput || newPasswordInput.trim().length < 4) {
+      setPasswordError('New password must be at least 4 characters long.');
+      return;
+    }
+    if (newPasswordInput !== confirmPasswordInput) {
+      setPasswordError('New password and confirmation do not match.');
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      const riderId = activeRider?.id || user?.riderId || user?.id;
+      const res = await updateRiderPassword(riderId, oldPasswordInput, newPasswordInput);
+      if (res?.success) {
+        setPasswordSuccess('Password successfully updated! 🔐');
+        setTimeout(() => {
+          setShowPasswordModal(false);
+          setOldPasswordInput('');
+          setNewPasswordInput('');
+          setConfirmPasswordInput('');
+          setPasswordSuccess('');
+        }, 1500);
+      } else {
+        setPasswordError(res?.error || 'Failed to update password.');
+      }
+    } catch (err) {
+      setPasswordError(err.message || 'Error updating password.');
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  // Decline Order Modal State
+  const [decliningOrder, setDecliningOrder] = useState(null);
+  const [declineReason, setDeclineReason] = useState('Courier busy / off route');
+
+  // Cashier Settlement State & Modal
+  const [settlementModalOpen, setSettlementModalOpen] = useState(false);
+  const [settlementRecords, setSettlementRecords] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_rider_settlements');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
 
   // Active selected courier rider (Ahmad Khan / logged in courier)
   const currentRider = useMemo(() => {
@@ -198,6 +339,30 @@ export const DeliveryPortal = () => {
 
   // Active courier is the authenticated/assigned rider profile
   const activeRider = currentRider;
+
+  // Rider Online / Offline status (Interactive On-Duty vs Off-Duty toggle)
+  const isRiderOnline = useMemo(() => {
+    if (!activeRider) return true;
+    const s = String(activeRider.status || '').toLowerCase();
+    if (s === 'offline' || s === 'off-duty') return false;
+    if (activeRider.isOnline === false) return false;
+    return true;
+  }, [activeRider]);
+
+  const handleToggleOnlineStatus = async () => {
+    const nextOnline = !isRiderOnline;
+    const riderId = activeRider?.id || user?.riderId || user?.id;
+    if (typeof updateRiderOnlineStatus === 'function' && riderId) {
+      await updateRiderOnlineStatus(riderId, nextOnline);
+    }
+    addToast(
+      nextOnline ? 'You are now Online 🟢' : 'You are now Offline ⚪',
+      nextOnline
+        ? 'On-Duty: Ready to accept order dispatches and track live deliveries.'
+        : 'Off-Duty: You will not receive new order assignments until you go back online.',
+      nextOnline ? 'success' : 'info'
+    );
+  };
 
 
   // Locally tracked completed orders to ensure immediate instant transition (persisted in localStorage)
@@ -438,7 +603,20 @@ export const DeliveryPortal = () => {
       );
       const s = String(o.status || '').toLowerCase();
       const isStatusDelivered = s === 'delivered' || s === 'completed' || Boolean(o.isDelivered);
-      const finalStatus = (isLocallyDone || isStatusDelivered) ? 'Delivered' : (o.status || 'Out for Delivery');
+      
+      let finalStatus = 'Assigned to Rider';
+      if (isLocallyDone || isStatusDelivered) {
+        finalStatus = 'Delivered';
+      } else if (s === 'out for delivery' || Boolean(o.pickedUpAt)) {
+        finalStatus = 'Out for Delivery';
+      } else if (s === 'accepted (heading to store)' || s === 'accepted' || s === 'heading to store' || o.riderAccepted === true) {
+        finalStatus = 'Accepted (Heading to Store)';
+      } else if (s === 'assigned to rider' || s === 'assigned' || o.dispatchStatus === 'assigned') {
+        finalStatus = 'Assigned to Rider';
+      } else {
+        finalStatus = o.status || 'Assigned to Rider';
+      }
+
       const finalOtp = String(o.deliveryOtp || '7412');
 
       const shipping = o.shippingAddress || {};
@@ -487,34 +665,126 @@ export const DeliveryPortal = () => {
     }, 0);
   }, [portalOrders]);
 
-  // Filter Out for Delivery vs Delivered Today
+  // 1. Pending Courier Acceptance (admin assigned, awaiting courier Accept or Reject)
+  const pendingAcceptanceOrders = useMemo(() => {
+    return portalOrders.filter((o) => {
+      const s = String(o.status || '').toLowerCase();
+      if (s === 'delivered' || s === 'completed' || o.isDelivered) return false;
+      return (
+        s === 'assigned to rider' ||
+        s === 'assigned' ||
+        o.dispatchStatus === 'assigned' ||
+        o.riderAccepted === false
+      );
+    });
+  }, [portalOrders]);
+
+  // 2. Heading to Store for Pickup (accepted by rider, travelling to store dispatch counter)
+  const headingToStoreOrders = useMemo(() => {
+    return portalOrders.filter((o) => {
+      const s = String(o.status || '').toLowerCase();
+      if (s === 'delivered' || s === 'completed' || o.isDelivered) return false;
+      const isPending = s === 'assigned to rider' || s === 'assigned' || o.dispatchStatus === 'assigned' || o.riderAccepted === false;
+      if (isPending) return false;
+      return (
+        s === 'accepted (heading to store)' ||
+        s === 'accepted' ||
+        s === 'heading to store' ||
+        (o.riderAccepted === true && !o.pickedUpAt && s !== 'out for delivery')
+      );
+    });
+  }, [portalOrders]);
+
+  // 3. Out for Delivery Orders (physically picked up from store, on route to customer doorstep)
   const outForDeliveryOrders = useMemo(() => {
     return portalOrders.filter((o) => {
       const bare = String(o.id || o.orderId || '').replace(/^#/, '').toLowerCase().trim();
       const s = String(o.status || '').toLowerCase();
-      const isDelivered = s === 'delivered' || s === 'completed' || Boolean(o.isDelivered) || locallyCompletedOrders.some((id) => String(id).replace(/^#/, '').toLowerCase().trim() === bare);
-      return !isDelivered;
+      const isDelivered =
+        s === 'delivered' ||
+        s === 'completed' ||
+        Boolean(o.isDelivered) ||
+        locallyCompletedOrders.some((id) => String(id).replace(/^#/, '').toLowerCase().trim() === bare);
+      if (isDelivered) return false;
+
+      const isPending = s === 'assigned to rider' || s === 'assigned' || o.dispatchStatus === 'assigned' || o.riderAccepted === false;
+      const isHeading = s === 'accepted (heading to store)' || s === 'accepted' || s === 'heading to store' || (o.riderAccepted === true && !o.pickedUpAt && s !== 'out for delivery');
+      if (isPending || isHeading) return false;
+
+      return s === 'out for delivery' || Boolean(o.pickedUpAt);
     });
   }, [portalOrders, locallyCompletedOrders]);
 
+  // 4. Delivered Today Orders (verified doorstep handovers)
   const deliveredTodayOrders = useMemo(() => {
     return portalOrders.filter((o) => {
       const bare = String(o.id || o.orderId || '').replace(/^#/, '').toLowerCase().trim();
       const s = String(o.status || '').toLowerCase();
-      const isDelivered = s === 'delivered' || s === 'completed' || Boolean(o.isDelivered) || locallyCompletedOrders.some((id) => String(id).replace(/^#/, '').toLowerCase().trim() === bare);
+      const isDelivered =
+        s === 'delivered' ||
+        s === 'completed' ||
+        Boolean(o.isDelivered) ||
+        locallyCompletedOrders.some((id) => String(id).replace(/^#/, '').toLowerCase().trim() === bare);
       return isDelivered;
     });
   }, [portalOrders, locallyCompletedOrders]);
 
-  // Active delivery in transit (first out-for-delivery order)
-  const activeOrder = outForDeliveryOrders[0] || null;
+  // Total active parcels requiring courier action
+  const activeOrdersCount = pendingAcceptanceOrders.length + headingToStoreOrders.length + outForDeliveryOrders.length;
+
+  // Active delivery in transit (first out-for-delivery order, or first heading to store)
+  const activeOrder = outForDeliveryOrders[0] || headingToStoreOrders[0] || null;
+
+  // Accept / Reject / Pickup Handlers
+  const handleAcceptIncomingOrder = async (order) => {
+    if (!isRiderOnline) {
+      addToast('You are Offline ⚠️', 'Please toggle Online (On-Duty) first to accept delivery assignments.', 'error');
+      return;
+    }
+    const rawId = order.id || order.orderId;
+    const bareId = String(rawId).replace(/^#/, '');
+    if (typeof acceptRiderOrder === 'function') {
+      await acceptRiderOrder(rawId, activeRider.id);
+    }
+    playDispatchChime();
+    addToast('Assignment Accepted 🛵', `Accepted Order #${bareId}! Head to store for parcel pickup.`);
+  };
+
+  const handleOpenDeclineModal = (order) => {
+    setDecliningOrder(order);
+  };
+
+  const handleConfirmDecline = async () => {
+    if (!decliningOrder) return;
+    const rawId = decliningOrder.id || decliningOrder.orderId;
+    const bareId = String(rawId).replace(/^#/, '');
+    if (typeof rejectRiderOrder === 'function') {
+      await rejectRiderOrder(rawId, activeRider.id, declineReason);
+    }
+    addToast('Order Declined ↩️', `Order #${bareId} returned to store dispatch pool.`);
+    setDecliningOrder(null);
+  };
+
+  const handleConfirmStorePickup = async (order) => {
+    const rawId = order.id || order.orderId;
+    const bareId = String(rawId).replace(/^#/, '');
+    if (typeof confirmOrderStorePickup === 'function') {
+      await confirmOrderStorePickup(rawId, activeRider.id);
+    }
+    playDispatchChime();
+    addToast('Parcel Picked Up! 📦', `Order #${bareId} picked up from store. Now Out for Delivery to doorstep.`);
+  };
 
   // Courier Parcel Acceptance (When pickup staff packs parcel and stages for dispatch)
   const handleAcceptDispatchOrder = async (order) => {
+    if (!isRiderOnline) {
+      addToast('You are Offline ⚠️', 'Please toggle Online first to accept dispatch parcels.', 'error');
+      return;
+    }
     const rawId = order.id || order.orderId;
     const bareId = String(rawId).replace(/^#/, '');
     if (typeof assignRiderToOrder === 'function') {
-      await assignRiderToOrder(rawId, activeRider.id, 'Out for Delivery', true);
+      await assignRiderToOrder(rawId, activeRider.id, 'Accepted (Heading to Store)', true);
     } else {
       const otp = order.deliveryOtp || '7412';
       const updated = {
@@ -526,10 +796,10 @@ export const DeliveryPortal = () => {
           vehicle: activeRider.vehicleNumber || activeRider.vehicleType,
           zone: activeRider.zone
         },
-        status: 'Out for Delivery',
+        status: 'Accepted (Heading to Store)',
         isDispatched: true,
-        dispatchStatus: 'Out for Delivery',
-        fulfillmentStage: 5,
+        dispatchStatus: 'assigned',
+        fulfillmentStage: 4,
         deliveryOtp: otp
       };
       if (typeof setCustomerOrders === 'function') {
@@ -539,8 +809,94 @@ export const DeliveryPortal = () => {
         setAdminOrders((prev) => prev.map((o) => (o.id === rawId || o.orderId === rawId || o.id === bareId ? updated : o)));
       }
     }
-    addToast('Parcel Accepted 🛵', `Order #${bareId} accepted! Navigation route and customer PIN are active.`);
+    playDispatchChime();
+    addToast('Parcel Accepted 🛵', `Order #${bareId} accepted! Proceed to store pickup desk.`);
   };
+
+  // Earnings & Cash-on-Delivery (COD) Ledger Calculations
+  const codDeliveredOrders = useMemo(() => {
+    return deliveredTodayOrders.filter((o) => {
+      const pm = String(o.paymentMethod || '').toLowerCase();
+      return !pm || pm.includes('cash') || pm.includes('cod') || pm.includes('delivery');
+    });
+  }, [deliveredTodayOrders]);
+
+  const prepaidDeliveredOrders = useMemo(() => {
+    return deliveredTodayOrders.filter((o) => {
+      const pm = String(o.paymentMethod || '').toLowerCase();
+      return pm.includes('card') || pm.includes('easypaisa') || pm.includes('jazzcash') || pm.includes('online') || pm.includes('prepaid') || pm.includes('wallet') || pm.includes('debit');
+    });
+  }, [deliveredTodayOrders]);
+
+  const totalCodCollectedToday = useMemo(() => {
+    return codDeliveredOrders.reduce((sum, ord) => sum + Number(ord.totalAmount || ord.total || ord.totalPrice || 0), 0);
+  }, [codDeliveredOrders]);
+
+  const totalPrepaidCollectedToday = useMemo(() => {
+    return prepaidDeliveredOrders.reduce((sum, ord) => sum + Number(ord.totalAmount || ord.total || ord.totalPrice || 0), 0);
+  }, [prepaidDeliveredOrders]);
+
+  const totalSettledWithCashier = useMemo(() => {
+    return settlementRecords
+      .filter((s) => !s.riderId || s.riderId === activeRider?.id)
+      .reduce((sum, s) => sum + Number(s.amount || 0), 0);
+  }, [settlementRecords, activeRider?.id]);
+
+  const netCashInHand = useMemo(() => {
+    return Math.max(0, totalCodCollectedToday - totalSettledWithCashier);
+  }, [totalCodCollectedToday, totalSettledWithCashier]);
+
+  const tripBaseFee = 150;
+  const totalTripEarningsToday = useMemo(() => {
+    return deliveredTodayOrders.length * tripBaseFee;
+  }, [deliveredTodayOrders.length]);
+
+  const totalTipsToday = useMemo(() => {
+    return deliveredTodayOrders.reduce((sum, o) => sum + Number(o.tipAmount || 0), 0);
+  }, [deliveredTodayOrders]);
+
+  const totalRiderEarningsToday = totalTripEarningsToday + totalTipsToday;
+
+  const handleConfirmCashierSettlement = () => {
+    if (netCashInHand <= 0) {
+      addToast('No Pending Cash', 'You have no pending cash-on-delivery collections to settle.', 'info');
+      setSettlementModalOpen(false);
+      return;
+    }
+    const orderIds = codDeliveredOrders.map((o) => o.id || o.orderId);
+    const rec = settleRiderCashCollection(activeRider?.id, orderIds, netCashInHand);
+    setSettlementRecords((prev) => [rec, ...prev]);
+    setSettlementModalOpen(false);
+  };
+
+  // Proactive New Assignment Watcher (Plays audio chime and emits push notification on incoming order)
+  const prevAssignedOrderIdsRef = useRef(new Set());
+  useEffect(() => {
+    const currentAssignedIds = new Set(
+      assignedOrders.map((o) => String(o.id || o.orderId || '').toLowerCase().trim())
+    );
+    for (const id of currentAssignedIds) {
+      if (prevAssignedOrderIdsRef.current.size > 0 && !prevAssignedOrderIdsRef.current.has(id)) {
+        const newOrder = assignedOrders.find((o) => String(o.id || o.orderId || '').toLowerCase().trim() === id);
+        const s = String(newOrder?.status || '').toLowerCase();
+        if (s !== 'delivered' && s !== 'completed' && !newOrder?.isDelivered) {
+          playDispatchChime();
+          if (navigator.vibrate) {
+            try { navigator.vibrate([200, 100, 200]); } catch (e) {}
+          }
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            try {
+              new Notification('⚡ New Delivery Assignment!', {
+                body: `Order #${newOrder?.orderId || newOrder?.id} (${newOrder?.customerName || 'Customer'}) - ${formatPrice(newOrder?.totalAmount)}`,
+                icon: '/favicon.ico'
+              });
+            } catch (e) {}
+          }
+        }
+      }
+    }
+    prevAssignedOrderIdsRef.current = currentAssignedIds;
+  }, [assignedOrders]);
 
   // OTP form state per order
   const [otpInputs, setOtpInputs] = useState({});
@@ -787,18 +1143,90 @@ export const DeliveryPortal = () => {
     }
   }, [riderCoords?.lat, riderCoords?.lng]);
 
-  // Toggle Live Location Sharing
-  const toggleLiveLocationSharing = () => {
-    if (isSharingLocation) {
-      // Stop sharing
+  // Real Phone GPS Telemetry Streamer: Automatically active when rider is Online
+  useEffect(() => {
+    if (!isRiderOnline) {
+      setGpsActive(false);
       setIsSharingLocation(false);
       if (locationWatchIdRef.current !== null) {
         navigator.geolocation?.clearWatch(locationWatchIdRef.current);
         locationWatchIdRef.current = null;
       }
-      if (simulationIntervalRef.current) {
-        clearInterval(simulationIntervalRef.current);
-        simulationIntervalRef.current = null;
+      return;
+    }
+
+    if (!('geolocation' in navigator)) {
+      console.warn('Geolocation API not supported in browser');
+      return;
+    }
+
+    setIsSharingLocation(true);
+
+    locationWatchIdRef.current = navigator.geolocation.watchPosition(
+      async (pos) => {
+        setGpsActive(true);
+        const newPos = {
+          lat: Number(pos.coords.latitude.toFixed(5)),
+          lng: Number(pos.coords.longitude.toFixed(5))
+        };
+        setRiderCoords(newPos);
+        setGpsAccuracy(Math.round(pos.coords.accuracy || 0));
+        const speedKmh = pos.coords.speed != null ? Math.round(pos.coords.speed * 3.6) : 0;
+        setGpsSpeed(speedKmh);
+        const headingDeg = pos.coords.heading != null ? Math.round(pos.coords.heading) : 0;
+        setGpsHeading(headingDeg);
+        setGpsLastSyncTime(new Date());
+
+        const riderMeta = {
+          name: activeRider?.name,
+          phone: activeRider?.phone,
+          vehicle: activeRider?.vehicleType || activeRider?.vehicleNumber,
+          accuracy: pos.coords.accuracy,
+          speed: speedKmh,
+          heading: headingDeg
+        };
+
+        // Feed real phone GPS telemetry to backend endpoint for all active orders
+        const activeOrdersForGps = [...outForDeliveryOrders, ...headingToStoreOrders];
+        activeOrdersForGps.forEach(async (ord) => {
+          const ordId = ord.id || ord.orderId;
+          try {
+            await apiService.updateRiderLocation(ordId, {
+              lat: newPos.lat,
+              lng: newPos.lng,
+              speed: speedKmh,
+              heading: headingDeg
+            });
+          } catch (e) {}
+          if (typeof updateRiderLiveLocation === 'function') {
+            updateRiderLiveLocation(ordId, newPos, true, riderMeta);
+          }
+        });
+      },
+      (err) => {
+        console.warn('Real GPS status:', err.message);
+        setGpsActive(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 2000 }
+    );
+
+    return () => {
+      if (locationWatchIdRef.current !== null) {
+        navigator.geolocation?.clearWatch(locationWatchIdRef.current);
+        locationWatchIdRef.current = null;
+      }
+    };
+  }, [isRiderOnline, outForDeliveryOrders.length, headingToStoreOrders.length, activeRider?.id]);
+
+  // Toggle Live Location Sharing
+  const toggleLiveLocationSharing = () => {
+    if (isSharingLocation) {
+      // Stop sharing
+      setIsSharingLocation(false);
+      setGpsActive(false);
+      if (locationWatchIdRef.current !== null) {
+        navigator.geolocation?.clearWatch(locationWatchIdRef.current);
+        locationWatchIdRef.current = null;
       }
       if (activeOrder) {
         updateRiderLiveLocation(activeOrder.id, riderCoords, false, {
@@ -811,7 +1239,12 @@ export const DeliveryPortal = () => {
       return;
     }
 
-    // Start sharing - accurate live GPS tracking without fake automatic movement
+    if (!isRiderOnline) {
+      addToast('You are Offline', 'Please toggle Online first to broadcast live GPS.', 'error');
+      return;
+    }
+
+    // Start sharing - accurate live GPS tracking
     setIsSharingLocation(true);
     addToast('Live Location Sharing Active 📡🛵', 'Accurate live GPS location shared with customer in real time!');
 
@@ -821,30 +1254,9 @@ export const DeliveryPortal = () => {
       vehicle: activeRider?.vehicleType
     };
 
-    // Broadcast accurate current coordinates immediately
     const initialPos = riderCoords || activeOrder?.pickupCoords || { lat: 31.4147, lng: 73.0872 };
     if (activeOrder) {
       updateRiderLiveLocation(activeOrder.id, initialPos, true, riderMeta);
-    }
-
-    // Real GPS hardware sensor via Geolocation API (Accurate and stays fixed unless rider physically moves)
-    if ('geolocation' in navigator) {
-      locationWatchIdRef.current = navigator.geolocation.watchPosition(
-        (pos) => {
-          const newPos = {
-            lat: Number(pos.coords.latitude.toFixed(5)),
-            lng: Number(pos.coords.longitude.toFixed(5))
-          };
-          setRiderCoords(newPos);
-          if (activeOrder) {
-            updateRiderLiveLocation(activeOrder.id, newPos, true, riderMeta);
-          }
-        },
-        (err) => {
-          console.warn('Real GPS status:', err.message);
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 2000 }
-      );
     }
   };
 
@@ -920,7 +1332,42 @@ export const DeliveryPortal = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          {/* Mobile Online / Offline Toggle */}
+          <button
+            type="button"
+            onClick={handleToggleOnlineStatus}
+            className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer shadow-xs ${
+              isRiderOnline
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+            }`}
+            title="Toggle On-Duty / Off-Duty"
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${isRiderOnline ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></span>
+            <span>{isRiderOnline ? 'Online' : 'Offline'}</span>
+          </button>
+
+          {/* Mobile Notification Alert Button */}
+          <button
+            type="button"
+            onClick={handleEnableNotifications}
+            className="p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition"
+            title={notifPermission === 'granted' ? 'Push alerts active' : 'Enable push alerts'}
+          >
+            {notifPermission === 'granted' ? <Bell className="w-4 h-4 text-emerald-400" /> : <BellOff className="w-4 h-4 text-slate-400" />}
+          </button>
+
+          {/* Change Password Shortcut */}
+          <button
+            type="button"
+            onClick={() => setShowPasswordModal(true)}
+            className="p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition"
+            title="Change Password"
+          >
+            <KeyRound className="w-4 h-4 text-amber-300" />
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -931,11 +1378,10 @@ export const DeliveryPortal = () => {
               }
               navigateTo('home');
             }}
-            className="text-xs text-rose-400 hover:text-white font-bold px-2.5 py-1.5 rounded-xl bg-rose-950/40 hover:bg-rose-950/80 border border-rose-800/40 transition flex items-center gap-1.5 cursor-pointer"
+            className="text-xs text-rose-400 hover:text-white font-bold px-2 py-1.5 rounded-xl bg-rose-950/40 hover:bg-rose-950/80 border border-rose-800/40 transition flex items-center gap-1 cursor-pointer"
             title="Log out"
           >
             <LogOut className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Log out</span>
           </button>
         </div>
       </div>
@@ -1083,6 +1529,46 @@ export const DeliveryPortal = () => {
                   {deliveredTodayOrders.length}
                 </span>
               </button>
+
+              {/* Earnings & COD Ledger Tab */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('earnings');
+                  setMobileSidebarOpen(false);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer group ${
+                  activeTab === 'earnings'
+                    ? 'text-white font-bold shadow-md'
+                    : 'text-slate-400 hover:bg-white/10 hover:text-white'
+                }`}
+                style={
+                  activeTab === 'earnings'
+                    ? {
+                        backgroundColor: storeTheme.activeBg,
+                        boxShadow: storeTheme.activeGlow,
+                        border: `1px solid ${storeTheme.primaryLight}50`
+                      }
+                    : {}
+                }
+              >
+                <div className="flex items-center gap-2.5">
+                  <Wallet
+                    className={`w-4 h-4 shrink-0 transition-colors ${
+                      activeTab === 'earnings' ? 'text-white' : 'text-slate-400 group-hover:text-white'
+                    }`}
+                  />
+                  <span>Earnings & COD</span>
+                </div>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${
+                    activeTab === 'earnings' ? 'bg-white/20 text-white font-bold' : 'bg-slate-800 text-emerald-400'
+                  }`}
+                >
+                  {formatPrice(totalRiderEarningsToday)}
+                </span>
+              </button>
             </nav>
           </div>
 
@@ -1096,37 +1582,73 @@ export const DeliveryPortal = () => {
             borderTop: `1px solid ${storeTheme.sidebarBorder}`
           }}
         >
+          {/* Profile Card with Online/Offline Switch */}
           <div
-            className="flex items-center gap-2.5 p-2 rounded-xl transition-colors"
+            className="p-2.5 rounded-xl transition-colors space-y-2"
             style={{
               backgroundColor: `${storeTheme.sidebarBg}bb`,
               border: `1px solid ${storeTheme.sidebarBorder}`
             }}
           >
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm uppercase shadow-sm shrink-0"
-              style={{
-                backgroundColor: `${storeTheme.primaryLight}25`,
-                border: `1px solid ${storeTheme.primaryLight}50`,
-                color: storeTheme.accentText
-              }}
-            >
-              {(activeRider?.name || 'A')[0]}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <h2 className="text-xs font-bold text-white truncate leading-tight capitalize">
-                  {activeRider?.name || 'Ahmad Khan'}
-                </h2>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 animate-pulse" title="Online & On Duty"></span>
+            <div className="flex items-center gap-2.5">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm uppercase shadow-sm shrink-0"
+                style={{
+                  backgroundColor: `${storeTheme.primaryLight}25`,
+                  border: `1px solid ${storeTheme.primaryLight}50`,
+                  color: storeTheme.accentText
+                }}
+              >
+                {(activeRider?.name || 'A')[0]}
               </div>
-              <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5 truncate">
-                <MapPin className="w-3 h-3 shrink-0" style={{ color: storeTheme.accentText }} />
-                <span className="truncate">{activeRider?.zone || 'Peoples Colony No. 1 (Faisalabad)'}</span>
-              </p>
-              <p className="text-[10px] font-semibold mt-0.5 truncate" style={{ color: storeTheme.accentText }}>
-                {activeRider?.vehicleType || '🏍️ Honda 125'} • {activeRider?.vehicleNumber || 'FSD-4821'}
-              </p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-bold text-white truncate leading-tight capitalize">
+                    {activeRider?.name || 'Ahmad Khan'}
+                  </h2>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                      isRiderOnline ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                    }`}
+                  >
+                    {isRiderOnline ? 'On-Duty' : 'Off-Duty'}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5 truncate">
+                  <MapPin className="w-3 h-3 shrink-0" style={{ color: storeTheme.accentText }} />
+                  <span className="truncate">{activeRider?.zone || 'Peoples Colony No. 1 (Faisalabad)'}</span>
+                </p>
+                <p className="text-[10px] font-semibold mt-0.5 truncate" style={{ color: storeTheme.accentText }}>
+                  {activeRider?.vehicleType || '🏍️ Honda 125'} • {activeRider?.vehicleNumber || 'FSD-4821'}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Online/Offline Toggle Button in Profile */}
+            <div className="pt-1 border-t border-slate-700/60 flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleToggleOnlineStatus}
+                className={`flex-1 py-1 px-2 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                  isRiderOnline
+                    ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-600/50'
+                    : 'bg-rose-600/30 text-rose-300 border border-rose-500/50 hover:bg-rose-600/50'
+                }`}
+                title="Toggle Online/Offline Duty"
+              >
+                <Power className="w-3 h-3" />
+                <span>{isRiderOnline ? 'Go Offline' : 'Go Online'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowPasswordModal(true)}
+                className="py-1 px-2 rounded-lg text-[10px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 flex items-center gap-1 cursor-pointer transition"
+                title="Change Rider Password"
+              >
+                <KeyRound className="w-3 h-3" />
+                <span>Password</span>
+              </button>
             </div>
           </div>
 
@@ -1181,15 +1703,28 @@ export const DeliveryPortal = () => {
               🛵
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
                   Parcel Delivery Operations
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  Online
-                </span>
+
+                {/* Interactive Online / Offline Status Toggle Pill */}
+                <button
+                  type="button"
+                  onClick={handleToggleOnlineStatus}
+                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
+                    isRiderOnline
+                      ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 hover:bg-emerald-200'
+                      : 'bg-rose-100 text-rose-900 border border-rose-300 hover:bg-rose-200'
+                  }`}
+                  title="Click to switch On-Duty (Online) vs Off-Duty (Offline)"
+                >
+                  <span className={`w-2 h-2 rounded-full ${isRiderOnline ? 'bg-emerald-600 animate-pulse' : 'bg-rose-500'}`}></span>
+                  <span>{isRiderOnline ? 'Online (On-Duty)' : 'Offline (Off-Duty)'}</span>
+                </button>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-1.5">
+
+              <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-1.5">
                 <span className="font-bold text-slate-700">{activeRider?.name || 'Ahmad Khan (Al-Fatah)'}</span>
                 <span>•</span>
                 <span className="text-rose-600 font-semibold flex items-center gap-1">
@@ -1202,13 +1737,240 @@ export const DeliveryPortal = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 self-start md:self-auto">
-            <div className="bg-slate-50 border border-slate-200/90 rounded-2xl px-3.5 py-2 text-xs font-bold text-slate-700 flex items-center gap-2 shadow-2xs">
+          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+            {/* Live GPS Telemetry Badge */}
+            <div
+              className={`px-3 py-1.5 rounded-2xl text-[11px] font-bold border flex items-center gap-1.5 shadow-2xs ${
+                gpsActive
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-slate-50 text-slate-600 border-slate-200'
+              }`}
+              title="Real-time smartphone GPS telemetry sensor"
+            >
+              <Radio className={`w-3.5 h-3.5 ${gpsActive ? 'text-emerald-600 animate-pulse' : 'text-slate-400'}`} />
+              <span>{gpsActive ? `🛰️ GPS Active ±${gpsAccuracy || 8}m (${gpsSpeed || 0} km/h)` : '🛰️ GPS Standby'}</span>
+            </div>
+
+            {/* Push Notifications Toggle */}
+            <button
+              type="button"
+              onClick={handleEnableNotifications}
+              className={`px-3 py-1.5 rounded-2xl text-[11px] font-bold border flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
+                notifPermission === 'granted'
+                  ? 'bg-sky-50 text-sky-800 border-sky-200 hover:bg-sky-100'
+                  : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+              }`}
+              title="Browser Push Notifications"
+            >
+              <Bell className="w-3.5 h-3.5 text-sky-600" />
+              <span>{notifPermission === 'granted' ? '🔔 Alerts On' : '🔔 Enable Alerts'}</span>
+            </button>
+
+            {/* Change Password Button */}
+            <button
+              type="button"
+              onClick={() => setShowPasswordModal(true)}
+              className="px-3 py-1.5 rounded-2xl text-[11px] font-bold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+              title="Change Rider Password"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+              <span>Password</span>
+            </button>
+
+            {/* Date */}
+            <div className="bg-slate-50 border border-slate-200/90 rounded-2xl px-3 py-1.5 text-xs font-bold text-slate-700 flex items-center gap-1.5 shadow-2xs">
               <Clock className="w-3.5 h-3.5 text-slate-400" />
               <span>{formattedToday}</span>
             </div>
           </div>
         </div>
+
+        {/* Offline Warning Banner */}
+        {!isRiderOnline && (
+          <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border-2 border-amber-400/80 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-in fade-in">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500/20 text-amber-900 border border-amber-500/40 flex items-center justify-center text-xl shrink-0">
+                ⚠️
+              </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-black text-amber-950 flex items-center gap-2">
+                  <span>You Are Currently Offline (Off-Duty)</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-200 text-amber-900">Off-Duty</span>
+                </h2>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  You will not receive any new order assignments from store dispatch or pickup staff until you go back online.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleToggleOnlineStatus}
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition shadow-md flex items-center justify-center gap-2 cursor-pointer shrink-0"
+            >
+              <Power className="w-4 h-4" />
+              <span>Go Online Now</span>
+            </button>
+          </div>
+        )}
+
+        {/* ⚡ INCOMING DELIVERY ASSIGNMENTS (AWAITING COURIER ACCEPT / DECLINE) */}
+        {pendingAcceptanceOrders.length > 0 && (
+          <section className="space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="w-3 h-3 rounded-full bg-amber-500 animate-ping"></span>
+                <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <span>New Delivery Assignments</span>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300">
+                    {pendingAcceptanceOrders.length} Awaiting Acceptance
+                  </span>
+                </h2>
+              </div>
+              <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 hidden sm:inline-block">
+                ⚡ Accept order to head to store for pickup
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {pendingAcceptanceOrders.map((ord) => {
+                const totalFormatted = formatPrice(ord.totalAmount);
+                const isCod = !ord.paymentMethod || ord.paymentMethod.toLowerCase().includes('cash') || ord.paymentMethod.toLowerCase().includes('cod');
+
+                return (
+                  <div
+                    key={ord.id}
+                    className="bg-white rounded-3xl p-5 sm:p-6 border-2 border-amber-400 shadow-md flex flex-col justify-between space-y-4 relative overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">⚡</span>
+                        <h3 className="text-base font-black text-slate-900 font-mono tracking-tight">
+                          Assignment #{ord.orderId || ord.id}
+                        </h3>
+                      </div>
+                      <span className="px-2.5 py-1 bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-black rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-2xs">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
+                        <span>Assigned to You</span>
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 space-y-1.5">
+                        <p className="flex items-center justify-between">
+                          <span className="text-slate-500 font-semibold">Store Hub:</span>
+                          <span className="font-bold text-slate-800">{ord.tenantName || storeBrandName} ({ord.branchName || 'D-Ground Main'})</span>
+                        </p>
+                        <p className="flex items-center justify-between">
+                          <span className="text-slate-500 font-semibold">Customer:</span>
+                          <span className="font-bold text-slate-900">{ord.customerName} ({ord.customerPhone})</span>
+                        </p>
+                        <p className="flex items-start justify-between gap-2">
+                          <span className="text-slate-500 font-semibold shrink-0">Drop-off:</span>
+                          <span className="font-medium text-slate-700 text-right">{ord.shippingAddress?.address || ord.address || 'Faisalabad'}</span>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between px-2 pt-1">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200">
+                            📦 {Array.isArray(ord.itemsList) ? ord.itemsList.length : 1} items
+                          </span>
+                          <span className={`px-2.5 py-1 rounded-xl text-xs font-bold border ${isCod ? 'bg-amber-50 text-amber-900 border-amber-200' : 'bg-emerald-50 text-emerald-900 border-emerald-200'}`}>
+                            {isCod ? '💵 Cash on Delivery' : '💳 Prepaid Order'}
+                          </span>
+                        </div>
+                        <span className="text-lg font-black text-slate-900 font-mono">
+                          {totalFormatted}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => handleAcceptIncomingOrder(ord)}
+                        className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>Accept Order</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDeclineModal(ord)}
+                        className="py-3 px-4 bg-white hover:bg-rose-50 text-rose-600 border border-rose-300 rounded-2xl text-xs font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                        <span>Decline</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* 🛵 ACCEPTED ORDERS: HEADING TO STORE (CONFIRM PICKUP FROM STORE) */}
+        {headingToStoreOrders.length > 0 && (
+          <section className="space-y-3.5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <Store className="w-5 h-5 text-sky-600" />
+                <span>En Route to Store for Pickup ({headingToStoreOrders.length})</span>
+              </h2>
+              <span className="text-xs font-bold text-sky-800 bg-sky-50 px-3 py-1 rounded-full border border-sky-200">
+                Confirm pickup when you collect items at store counter
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {headingToStoreOrders.map((ord) => (
+                <div
+                  key={ord.id}
+                  className="bg-white rounded-3xl p-5 sm:p-6 border-2 border-sky-300 shadow-md flex flex-col justify-between space-y-4"
+                >
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div>
+                      <h3 className="text-base font-black text-slate-900 font-mono">
+                        Parcel #{ord.orderId || ord.id}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Accepted by you • Proceed to {ord.tenantName || storeBrandName} counter
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 bg-sky-100 text-sky-900 border border-sky-300 text-[10px] font-black rounded-full uppercase tracking-wider">
+                      Heading to Store
+                    </span>
+                  </div>
+
+                  <div className="bg-sky-50/60 rounded-2xl p-3.5 border border-sky-200/80 text-xs space-y-1.5">
+                    <p className="text-slate-700">
+                      <span className="font-bold text-slate-900">Pickup Counter:</span> {ord.branchName || 'D-Ground Flagship Hub, Faisalabad'}
+                    </p>
+                    <p className="text-slate-700">
+                      <span className="font-bold text-slate-900">Customer Drop-off:</span> {ord.customerName} ({ord.shippingAddress?.address || ord.address || 'Faisalabad'})
+                    </p>
+                    <p className="text-slate-700">
+                      <span className="font-bold text-slate-900">Amount to Collect:</span> <b className="font-mono text-emerald-700">{formatPrice(ord.totalAmount)}</b>
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmStorePickup(ord)}
+                      className="flex-1 py-3 px-4 bg-sky-600 hover:bg-sky-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <PackageCheck className="w-4 h-4" />
+                      <span>Confirm Picked Up from Store</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* 4 Logistics KPI Stat Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5">
@@ -1234,10 +1996,10 @@ export const DeliveryPortal = () => {
             </div>
             <div className="mt-2.5">
               <p className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
-                {outForDeliveryOrders.length}
+                {activeOrdersCount}
               </p>
               <span className="text-[11px] text-emerald-800 font-bold block mt-0.5">
-                In courier bag • On-duty
+                {outForDeliveryOrders.length} in transit • {headingToStoreOrders.length} at store • {pendingAcceptanceOrders.length} assigned
               </span>
             </div>
           </button>
@@ -1980,6 +2742,263 @@ export const DeliveryPortal = () => {
           </div>
         </section>
 
+        {/* ===================================================================== */}
+        {/* SECTION: EARNINGS & CASH-ON-DELIVERY (COD) LEDGER                     */}
+        {/* ===================================================================== */}
+        {activeTab === 'earnings' && (
+          <section className="space-y-6 animate-in fade-in duration-200">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <Wallet className="w-6 h-6 text-emerald-600" />
+                  <span>Courier Earnings & COD Ledger</span>
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Track delivery trip payouts, cash collected from customers, and store cashier handovers
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSettlementModalOpen(true)}
+                  disabled={netCashInHand <= 0}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition shadow-md flex items-center gap-2 cursor-pointer"
+                >
+                  <Receipt className="w-4 h-4" />
+                  <span>Settle Cash with Cashier</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 4 Financial KPI Stat Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5">
+              {/* Stat 1: Total Earnings Today */}
+              <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Today's Payout</span>
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center">
+                    <DollarSign className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <p className="text-2xl sm:text-3xl font-black text-emerald-800 font-mono">
+                    {formatPrice(totalRiderEarningsToday)}
+                  </p>
+                  <span className="text-[11px] text-emerald-700 font-bold block mt-0.5">
+                    {deliveredTodayOrders.length} trips × Rs. 150 {totalTipsToday > 0 ? `+ Rs. ${totalTipsToday} tips` : ''}
+                  </span>
+                </div>
+              </div>
+
+              {/* Stat 2: Cash in Hand to Handover */}
+              <div className={`rounded-3xl p-5 border shadow-2xs relative overflow-hidden flex flex-col justify-between ${
+                netCashInHand > 0 ? 'bg-amber-50/70 border-amber-300' : 'bg-white border-slate-200/90'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Cash in Hand</span>
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                    netCashInHand > 0 ? 'bg-amber-500/20 text-amber-900' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    <Wallet className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <p className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
+                    {formatPrice(netCashInHand)}
+                  </p>
+                  <span className="text-[11px] font-bold block mt-0.5 text-amber-900">
+                    {netCashInHand > 0 ? 'To handover to store cashier' : 'All collections settled ✓'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Stat 3: Total COD Collected */}
+              <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">COD Collected</span>
+                  <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-700 flex items-center justify-center">
+                    <Receipt className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <p className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
+                    {formatPrice(totalCodCollectedToday)}
+                  </p>
+                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
+                    Across {codDeliveredOrders.length} cash deliveries
+                  </span>
+                </div>
+              </div>
+
+              {/* Stat 4: Total Settled with Cashier */}
+              <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Settled</span>
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <p className="text-2xl sm:text-3xl font-black text-emerald-800 font-mono">
+                    {formatPrice(totalSettledWithCashier)}
+                  </p>
+                  <span className="text-[11px] text-emerald-700 font-bold block mt-0.5">
+                    {settlementRecords.length} cashier settlement{settlementRecords.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Handover Notice Card */}
+            {netCashInHand > 0 && (
+              <div className="bg-amber-50 border border-amber-300 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">💵</span>
+                  <div>
+                    <h3 className="text-sm font-black text-amber-950">
+                      Pending Cash Handover: {formatPrice(netCashInHand)}
+                    </h3>
+                    <p className="text-xs text-amber-800 mt-0.5">
+                      Hand over physical cash collected from COD customers to the store head cashier at the end of your shift.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSettlementModalOpen(true)}
+                  className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Settle with Cashier</span>
+                </button>
+              </div>
+            )}
+
+            {/* Today's Delivered Orders Payment Breakdown */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden space-y-3 p-5 sm:p-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-emerald-600" />
+                  <span>Today's Order Collections Breakdown</span>
+                </h3>
+                <span className="text-xs text-slate-500 font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                  {deliveredTodayOrders.length} Completed Handover{deliveredTodayOrders.length === 1 ? '' : 's'}
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider bg-slate-50/70">
+                      <th className="py-3 px-4">ORDER ID</th>
+                      <th className="py-3 px-4">CUSTOMER</th>
+                      <th className="py-3 px-4">PAYMENT METHOD</th>
+                      <th className="py-3 px-4">COLLECTED BY</th>
+                      <th className="py-3 px-4">ORDER AMOUNT</th>
+                      <th className="py-3 px-4 text-right">STATUS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {deliveredTodayOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-xs text-slate-400 italic">
+                          No deliveries logged yet today.
+                        </td>
+                      </tr>
+                    ) : (
+                      deliveredTodayOrders.map((ord) => {
+                        const pm = String(ord.paymentMethod || '').toLowerCase();
+                        const isCod = !pm || pm.includes('cash') || pm.includes('cod') || pm.includes('delivery');
+                        return (
+                          <tr key={ord.id} className="hover:bg-slate-50/70 transition">
+                            <td className="py-3 px-4 font-black font-mono text-slate-900">
+                              #{String(ord.orderId || ord.id).replace(/^#/, '')}
+                            </td>
+                            <td className="py-3 px-4 font-bold text-slate-800">
+                              {ord.customerName}
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                                isCod ? 'bg-amber-50 text-amber-900 border-amber-200' : 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                              }`}>
+                                {isCod ? '💵 Cash on Delivery' : '💳 Prepaid (Online/Card)'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-slate-600 font-medium">
+                              {isCod ? 'Rider In-Hand' : 'Payment Gateway'}
+                            </td>
+                            <td className="py-3 px-4 font-black font-mono text-slate-900">
+                              {formatPrice(ord.totalAmount || ord.total || 0)}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <span className="text-emerald-700 font-bold flex items-center justify-end gap-1">
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                <span>Verified Handover</span>
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Cashier Settlement History Table */}
+            {settlementRecords.length > 0 && (
+              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden space-y-3 p-5 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Store Cashier Settlement History</span>
+                  </h3>
+                  <span className="text-xs text-emerald-800 font-bold bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                    {settlementRecords.length} Recorded Voucher{settlementRecords.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider bg-slate-50/70">
+                        <th className="py-3 px-4">SETTLEMENT ID</th>
+                        <th className="py-3 px-4">DATE & TIME</th>
+                        <th className="py-3 px-4">AMOUNT HANDED OVER</th>
+                        <th className="py-3 px-4">PARCELS INCLUDED</th>
+                        <th className="py-3 px-4 text-right">CASHIER STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {settlementRecords.map((s) => (
+                        <tr key={s.id} className="hover:bg-slate-50/70 transition">
+                          <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                            {s.id}
+                          </td>
+                          <td className="py-3 px-4 text-slate-600 font-medium">
+                            {new Date(s.settledAt || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - {new Date(s.settledAt || Date.now()).toLocaleDateString()}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-black text-emerald-700">
+                            {formatPrice(s.amount)}
+                          </td>
+                          <td className="py-3 px-4 text-slate-500">
+                            {Array.isArray(s.orderIds) ? `${s.orderIds.length} orders settled` : 'Batch Settlement'}
+                          </td>
+                          <td className="py-3 px-4 text-right font-bold text-emerald-800">
+                            ✓ Handed Over to Cashier
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
       </main>
 
       {/* ===================================================================== */}
@@ -2040,6 +3059,22 @@ export const DeliveryPortal = () => {
             </span>
           )}
           <span className="text-[10px] mt-0.5">Delivered</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('earnings');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className={`flex flex-col items-center py-1 px-3 rounded-xl relative transition cursor-pointer ${
+            activeTab === 'earnings'
+              ? 'text-emerald-700 dark:text-emerald-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400 font-medium'
+          }`}
+        >
+          <Wallet className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Earnings</span>
         </button>
 
         {activeOrder && (
@@ -2213,6 +3248,243 @@ export const DeliveryPortal = () => {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* CHANGE PASSWORD MODAL                                                 */}
+      {/* ===================================================================== */}
+      {showPasswordModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="bg-[#0b132b] text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center text-xl">
+                  🔐
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Change Rider Password</h3>
+                  <p className="text-xs text-slate-300">Set a clean personal password for your account</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setPasswordError('');
+                  setPasswordSuccess('');
+                }}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleChangePasswordSubmit} className="p-5 space-y-4 text-xs">
+              {passwordError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{passwordError}</span>
+                </div>
+              )}
+
+              {passwordSuccess && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                  <span>{passwordSuccess}</span>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-700">Current Password:</label>
+                <input
+                  type="password"
+                  placeholder="Enter current password (default: rider123)"
+                  value={oldPasswordInput}
+                  onChange={(e) => setOldPasswordInput(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-700">New Password:</label>
+                <input
+                  type="password"
+                  placeholder="New password (min 4 characters)"
+                  value={newPasswordInput}
+                  onChange={(e) => setNewPasswordInput(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-700">Confirm New Password:</label>
+                <input
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={confirmPasswordInput}
+                  onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordModal(false)}
+                  className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingPassword}
+                  className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black cursor-pointer transition shadow-md disabled:opacity-50"
+                >
+                  {isUpdatingPassword ? 'Saving...' : 'Update Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* DECLINE ORDER CONFIRMATION MODAL                                      */}
+      {/* ===================================================================== */}
+      {decliningOrder && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="bg-rose-950 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center justify-center text-xl">
+                  ✕
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Decline Assignment</h3>
+                  <p className="text-xs text-rose-200">Return parcel #{decliningOrder.orderId || decliningOrder.id} to dispatch queue</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDecliningOrder(null)}
+                className="w-8 h-8 rounded-full bg-rose-900 hover:bg-rose-800 text-rose-200 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs text-slate-700">
+              <p className="text-slate-600">
+                Are you sure you want to decline this delivery assignment? It will return to the store dispatch queue so another courier can take it.
+              </p>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-700">Reason for Declining:</label>
+                <select
+                  value={declineReason}
+                  onChange={(e) => setDeclineReason(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500 text-slate-900"
+                >
+                  <option value="Courier busy / off route">Courier busy / off route</option>
+                  <option value="Bike / vehicle issue">Bike / vehicle issue</option>
+                  <option value="Drop-off distance too far">Drop-off distance too far</option>
+                  <option value="Shift ending soon">Shift ending soon</option>
+                </select>
+              </div>
+
+              <div className="pt-2 flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setDecliningOrder(null)}
+                  className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition"
+                >
+                  Keep Order
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDecline}
+                  className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black cursor-pointer transition shadow-md"
+                >
+                  Confirm Decline
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* CASHIER SETTLEMENT CONFIRMATION MODAL                                  */}
+      {/* ===================================================================== */}
+      {settlementModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="bg-[#0b132b] text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center justify-center text-xl">
+                  💵
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Store Cashier Handover</h3>
+                  <p className="text-xs text-slate-300">Settle physical COD collections with store cashier</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSettlementModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs text-slate-700">
+              <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-4 text-center space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-900 block">Total Cash to Handover</span>
+                <p className="text-3xl font-black text-emerald-800 font-mono">
+                  {formatPrice(netCashInHand)}
+                </p>
+                <span className="text-[11px] text-emerald-700 font-medium block">
+                  Collected from {codDeliveredOrders.length} cash-on-delivery orders
+                </span>
+              </div>
+
+              <p className="text-slate-600 leading-relaxed">
+                Confirm that you have physically handed over <b>{formatPrice(netCashInHand)}</b> in cash to the store cashier counter. This will record an official settlement receipt and clear your pending cash-in-hand balance.
+              </p>
+
+              <div className="pt-2 flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setSettlementModalOpen(false)}
+                  className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmCashierSettlement}
+                  className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black cursor-pointer transition shadow-md flex items-center justify-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Confirm Handover</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

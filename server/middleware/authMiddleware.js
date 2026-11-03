@@ -196,6 +196,35 @@ export const adminOnly = (req, res, next) => {
   return res.status(403).json({ success: false, message: 'Access denied: Admin privileges required' });
 };
 
+// Admin Or Rider Self Guard: Allows rider to update their own telemetry, status, or profile
+export const adminOrRiderSelf = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: 'Not authorized: No session' });
+  }
+
+  const userRole = (req.user.role || '').toLowerCase();
+  if (userRole === 'admin' || userRole === 'superadmin' || userRole === 'store admin') {
+    return next();
+  }
+
+  if (userRole === 'rider') {
+    const cleanParamId = String(req.params.id || '').toLowerCase();
+    const cleanUserId = String(req.user.id || req.user.riderId || req.user._id || '').toLowerCase();
+    const cleanUserName = String(req.user.username || '').toLowerCase();
+    if (
+      !cleanParamId ||
+      cleanParamId === cleanUserId ||
+      cleanParamId === cleanUserName ||
+      cleanParamId.includes(cleanUserId) ||
+      cleanUserId.includes(cleanParamId)
+    ) {
+      return next();
+    }
+  }
+
+  return res.status(403).json({ success: false, message: 'Access denied: Admin or Rider self privileges required' });
+};
+
 // Super Admin Only Guard: Admits only Platform Super Admin
 export const superAdminOnly = (req, res, next) => {
   if (!req.user) {
