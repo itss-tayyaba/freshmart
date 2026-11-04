@@ -61,17 +61,42 @@ export const FreshMartHeader = () => {
   } = useStore();
 
   const nearbyStoreOptions = useMemo(() => {
-    const list = getNearbyStores ? getNearbyStores() : [];
+    const coords = deliveryLocation?.coords || deliveryLocation;
+    const list = getNearbyStores ? getNearbyStores(coords) : [];
+    // Strictly filter to stores that are inside active delivery zone for the customer's location
     const deliverable = (list || []).filter((s) => s.isDeliverable);
     if (deliverable.length > 0) return deliverable;
-    if (list && list.length > 0) return list;
-    return (tenants || []).map((t) => ({
-      id: t.id,
-      tenant: t,
-      displayName: t.displayName || t.name,
-      distanceFormatted: ''
-    }));
-  }, [getNearbyStores, deliveryLocation, tenants, allBranches]);
+
+    // If customer is outside all delivery zones, ONLY show the active tenant marked with Outside Zone
+    // NEVER show all 4 stores as selectable options
+    if (currentTenant) {
+      const match = (list || []).find((s) => s.id === currentTenant.id);
+      return [{
+        id: currentTenant.id,
+        tenant: currentTenant,
+        displayName: `${currentTenant.displayName || currentTenant.name} (Outside Zone)`,
+        distanceFormatted: match?.distanceFormatted || 'Outside Zone',
+        isDeliverable: false
+      }];
+    }
+    return [];
+  }, [getNearbyStores, deliveryLocation, currentTenant, tenants, allBranches]);
+
+  // Auto-switch to an in-zone deliverable store if the currently active store is outside delivery zone
+  useEffect(() => {
+    if (nearbyStoreOptions.length > 0) {
+      const isCurrentDeliverable = nearbyStoreOptions.some(
+        (s) => s.id === currentTenant?.id && s.isDeliverable !== false
+      );
+      if (!isCurrentDeliverable && nearbyStoreOptions[0]?.tenant && nearbyStoreOptions[0].isDeliverable !== false) {
+        if (selectStoreAndBranch) {
+          selectStoreAndBranch(nearbyStoreOptions[0].tenant, nearbyStoreOptions[0].nearestBranch);
+        } else if (setCurrentTenant) {
+          setCurrentTenant(nearbyStoreOptions[0].tenant);
+        }
+      }
+    }
+  }, [nearbyStoreOptions, currentTenant, selectStoreAndBranch, setCurrentTenant]);
 
   const rawCategories = (categories && categories.length > 0) ? categories : FRESHMART_CATEGORIES;
   const categoriesList = useMemo(() => {

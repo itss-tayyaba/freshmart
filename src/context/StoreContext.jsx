@@ -753,11 +753,31 @@ export const StoreProvider = ({ children }) => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const savedIds = new Set(parsed.map((b) => String(b._id || b.id || '').toLowerCase()));
+          const baseMap = new Map((BRANCHES || []).map((b) => [String(b._id || b.id || '').toLowerCase(), b]));
+          const updated = parsed.map((b) => {
+            const k = String(b._id || b.id || '').toLowerCase();
+            const canonical = baseMap.get(k);
+            if (canonical) {
+              return {
+                ...b,
+                latitude: canonical.latitude,
+                longitude: canonical.longitude,
+                deliveryRadiusKm: canonical.deliveryRadiusKm,
+                deliveryRadius: canonical.deliveryRadius,
+                deliveryStatus: canonical.deliveryStatus || b.deliveryStatus,
+                deliveryTiers: canonical.deliveryTiers || b.deliveryTiers
+              };
+            }
+            if (['branch_af_kohinoor', 'branch_cu_satiana', 'branch_cv_gmabad', 'branch_um_madina'].includes(k)) {
+              return { ...b, deliveryStatus: 'inactive', status: 'inactive' };
+            }
+            return b;
+          });
+          const savedIds = new Set(updated.map((b) => String(b._id || b.id || '').toLowerCase()));
           const missingBase = (BRANCHES || []).filter(
             (b) => !savedIds.has(String(b._id || b.id || '').toLowerCase())
           );
-          return [...parsed, ...missingBase];
+          return [...updated, ...missingBase];
         }
       }
     } catch (e) {}
@@ -779,18 +799,48 @@ export const StoreProvider = ({ children }) => {
           setAllBranches((prev) => {
             const seen = new Set();
             const merged = [];
+            const baseMap = new Map((BRANCHES || []).map((b) => [String(b._id || b.id || '').toLowerCase(), b]));
+
             res.branches.forEach((b) => {
               const k = String(b._id || b.id || '').toLowerCase();
               if (k && !seen.has(k)) {
                 seen.add(k);
-                merged.push(b);
+                const canonical = baseMap.get(k);
+                if (canonical) {
+                  merged.push({
+                    ...b,
+                    latitude: canonical.latitude,
+                    longitude: canonical.longitude,
+                    deliveryRadiusKm: canonical.deliveryRadiusKm,
+                    deliveryRadius: canonical.deliveryRadius,
+                    deliveryStatus: canonical.deliveryStatus || b.deliveryStatus
+                  });
+                } else if (['branch_af_kohinoor', 'branch_cu_satiana', 'branch_cv_gmabad', 'branch_um_madina'].includes(k)) {
+                  merged.push({ ...b, deliveryStatus: 'inactive', status: 'inactive' });
+                } else {
+                  merged.push(b);
+                }
               }
             });
             (prev || []).forEach((b) => {
               const k = String(b._id || b.id || '').toLowerCase();
               if (k && !seen.has(k)) {
                 seen.add(k);
-                merged.push(b);
+                const canonical = baseMap.get(k);
+                if (canonical) {
+                  merged.push({
+                    ...b,
+                    latitude: canonical.latitude,
+                    longitude: canonical.longitude,
+                    deliveryRadiusKm: canonical.deliveryRadiusKm,
+                    deliveryRadius: canonical.deliveryRadius,
+                    deliveryStatus: canonical.deliveryStatus || b.deliveryStatus
+                  });
+                } else if (['branch_af_kohinoor', 'branch_cu_satiana', 'branch_cv_gmabad', 'branch_um_madina'].includes(k)) {
+                  merged.push({ ...b, deliveryStatus: 'inactive', status: 'inactive' });
+                } else {
+                  merged.push(b);
+                }
               }
             });
             (BRANCHES || []).forEach((b) => {
@@ -1116,9 +1166,10 @@ export const StoreProvider = ({ children }) => {
       localStorage.setItem('freshmart_location_confirmed', 'true');
     } catch (e) {}
 
-    // Find and auto-route to closest store based on Haversine distance, or use explicitly selected preferred store
+    // Find and auto-route to closest store based on Haversine distance, prioritizing deliverable stores
     const nearby = getNearbyStores(resolved.coords);
-    const targetStore = preferredStore || (nearby && nearby.length > 0 ? nearby[0] : null);
+    const deliverableNearby = (nearby || []).filter((s) => s.isDeliverable);
+    const targetStore = preferredStore || (deliverableNearby.length > 0 ? deliverableNearby[0] : (nearby && nearby.length > 0 ? nearby[0] : null));
     const targetTenant = targetStore?.tenant || targetStore;
 
     if (targetStore && targetTenant) {
