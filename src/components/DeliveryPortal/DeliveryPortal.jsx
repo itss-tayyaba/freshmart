@@ -1390,7 +1390,7 @@ export const DeliveryPortal = () => {
       {/* 📱 MOBILE SIDEBAR DRAWER OVERLAY */}
       {mobileSidebarOpen && (
         <div
-          className="fixed inset-0 z-35 bg-slate-950/75 backdrop-blur-xs md:hidden animate-in fade-in duration-150"
+          className="fixed inset-0 z-40 bg-slate-950/75 backdrop-blur-xs md:hidden animate-in fade-in duration-150"
           onClick={() => setMobileSidebarOpen(false)}
         />
       )}
@@ -1399,7 +1399,7 @@ export const DeliveryPortal = () => {
       {/* 1. LEFT SIDEBAR (Store Themed Logistics Cockpit)                      */}
       {/* ===================================================================== */}
       <aside
-        className={`fixed md:sticky top-0 left-0 z-40 h-screen w-72 text-slate-300 flex flex-col justify-between transition-transform duration-200 shrink-0 shadow-xl select-none ${
+        className={`fixed md:sticky top-0 left-0 z-50 h-[100dvh] max-h-screen w-72 max-w-[85vw] text-slate-300 flex flex-col justify-between transition-transform duration-200 shrink-0 shadow-2xl select-none overflow-y-auto ${
           mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
         style={{
@@ -1407,40 +1407,52 @@ export const DeliveryPortal = () => {
           borderRight: `1px solid ${storeTheme.sidebarBorder}`
         }}
       >
-        <div className="p-4 space-y-5">
+        <div className="p-4 space-y-4">
           
-          {/* Logo & Portal Header */}
+          {/* Logo & Portal Header with Mobile Close button */}
           <div
-            className="p-2 rounded-2xl flex items-center gap-3 transition-colors"
+            className="p-2.5 rounded-2xl flex items-center justify-between gap-3 transition-colors"
             style={{
               backgroundColor: storeTheme.sidebarHeaderBg,
               border: `1px solid ${storeTheme.sidebarBorder}`
             }}
           >
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg shadow-sm shrink-0"
-              style={{
-                backgroundColor: `${storeTheme.primaryLight}25`,
-                border: `1px solid ${storeTheme.primaryLight}50`,
-                color: storeTheme.accentText
-              }}
-            >
-              {storeLogo}
-            </div>
-            <div className="min-w-0 flex-1 truncate">
-              <h1 className="text-sm font-black tracking-tight text-white leading-tight truncate">
-                {storeBrandName}
-              </h1>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <p
-                  className="text-[10px] font-bold uppercase tracking-wider truncate"
-                  style={{ color: storeTheme.accentText }}
-                >
-                  Express Parcel Dispatch
-                </p>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg shadow-sm shrink-0"
+                style={{
+                  backgroundColor: `${storeTheme.primaryLight}25`,
+                  border: `1px solid ${storeTheme.primaryLight}50`,
+                  color: storeTheme.accentText
+                }}
+              >
+                {storeLogo}
+              </div>
+              <div className="min-w-0 flex-1 truncate">
+                <h1 className="text-sm font-black tracking-tight text-white leading-tight truncate">
+                  {storeBrandName}
+                </h1>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <p
+                    className="text-[10px] font-bold uppercase tracking-wider truncate"
+                    style={{ color: storeTheme.accentText }}
+                  >
+                    Express Dispatch
+                  </p>
+                </div>
               </div>
             </div>
+
+            {/* Close Button on Mobile Drawer */}
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(false)}
+              className="md:hidden p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition shrink-0 cursor-pointer"
+              aria-label="Close menu"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Navigation Section */}
@@ -1643,7 +1655,10 @@ export const DeliveryPortal = () => {
 
               <button
                 type="button"
-                onClick={() => setShowPasswordModal(true)}
+                onClick={() => {
+                  setShowPasswordModal(true);
+                  setMobileSidebarOpen(false);
+                }}
                 className="py-1 px-2 rounded-lg text-[10px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 flex items-center gap-1 cursor-pointer transition"
                 title="Change Rider Password"
               >
@@ -1658,6 +1673,7 @@ export const DeliveryPortal = () => {
             <a
               href="/downloads/freshmart-staff.apk"
               download="freshmart-staff.apk"
+              onClick={() => setMobileSidebarOpen(false)}
               className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-600/40 text-emerald-300 hover:text-white"
               title="Download FreshMart Staff Android App (APK)"
             >
@@ -1670,7 +1686,10 @@ export const DeliveryPortal = () => {
 
             <button
               type="button"
-              onClick={() => navigateTo('home')}
+              onClick={() => {
+                setMobileSidebarOpen(false);
+                navigateTo('home');
+              }}
               className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
               style={{
                 color: storeTheme.accentText,
@@ -1689,6 +1708,7 @@ export const DeliveryPortal = () => {
             <button
               type="button"
               onClick={() => {
+                setMobileSidebarOpen(false);
                 if (typeof adminLogout === 'function') {
                   adminLogout();
                 } else if (typeof logoutAdmin === 'function') {

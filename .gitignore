@@ -42,3 +42,5 @@ server/data/orders_db.json
 Thumbs.db
 
 .vercel
+scratch/
+*.keystore

@@ -456,7 +456,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
           LEFT SIDEBAR: Store Themed Sidebar (Desktop Sticky / Mobile Drawer)
           ========================================================================= */}
       <aside
-        className={`fixed md:sticky top-0 left-0 z-50 h-screen w-72 md:w-64 lg:w-72 text-slate-300 flex flex-col justify-between shrink-0 select-none overflow-y-auto shadow-2xl transition-transform duration-200 ${
+        className={`fixed md:sticky top-0 left-0 z-50 h-[100dvh] max-h-screen w-72 max-w-[85vw] md:w-64 lg:w-72 text-slate-300 flex flex-col justify-between shrink-0 select-none overflow-y-auto shadow-2xl transition-transform duration-200 ${
           mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
         style={{
@@ -467,34 +467,46 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
         <div className="flex flex-col flex-1 min-h-0">
           {/* Logo Brand Header */}
           <div
-            className="p-4 shrink-0 transition-colors"
+            className="p-3.5 shrink-0 transition-colors"
             style={{
               backgroundColor: storeTheme.sidebarHeaderBg,
               borderBottom: `1px solid ${storeTheme.sidebarBorder}`
             }}
           >
-            <div className="flex items-center gap-2.5">
-              <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg shadow-sm shrink-0"
-                style={{
-                  backgroundColor: `${storeTheme.primaryLight}25`,
-                  border: `1px solid ${storeTheme.primaryLight}50`,
-                  color: storeTheme.accentText
-                }}
-              >
-                <ShoppingCart className="w-4 h-4" style={{ color: storeTheme.accentText }} />
-              </div>
-              <div className="min-w-0 flex-1 truncate">
-                <h2 className="text-sm font-black tracking-tight text-white leading-tight truncate">
-                  {storeBrandName}
-                </h2>
-                <span
-                  className="text-[10px] font-bold uppercase tracking-wider block truncate mt-0.5"
-                  style={{ color: storeTheme.accentText }}
+            <div className="flex items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg shadow-sm shrink-0"
+                  style={{
+                    backgroundColor: `${storeTheme.primaryLight}25`,
+                    border: `1px solid ${storeTheme.primaryLight}50`,
+                    color: storeTheme.accentText
+                  }}
                 >
-                  Pickup Staff
-                </span>
+                  <ShoppingCart className="w-4 h-4" style={{ color: storeTheme.accentText }} />
+                </div>
+                <div className="min-w-0 flex-1 truncate">
+                  <h2 className="text-sm font-black tracking-tight text-white leading-tight truncate">
+                    {storeBrandName}
+                  </h2>
+                  <span
+                    className="text-[10px] font-bold uppercase tracking-wider block truncate mt-0.5"
+                    style={{ color: storeTheme.accentText }}
+                  >
+                    Pickup Staff
+                  </span>
+                </div>
               </div>
+
+              {/* Close Button on Mobile Drawer */}
+              <button
+                type="button"
+                onClick={() => setMobileSidebarOpen(false)}
+                className="md:hidden p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition shrink-0 cursor-pointer"
+                aria-label="Close menu"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
@@ -595,9 +607,9 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             </div>
           </div>
 
-          {/* Decorative Grocery Crate */}
+          {/* Decorative Grocery Crate (Desktop only to conserve mobile height) */}
           <div
-            className="rounded-xl overflow-hidden shadow-sm relative group"
+            className="hidden sm:block rounded-xl overflow-hidden shadow-sm relative group"
             style={{ border: `1px solid ${storeTheme.sidebarBorder}` }}
           >
             <img
@@ -631,6 +643,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             <a
               href="/downloads/freshmart-staff.apk"
               download="freshmart-staff.apk"
+              onClick={() => setMobileSidebarOpen(false)}
               className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-600/40 text-emerald-300 hover:text-white"
               title="Download FreshMart Staff Android App (APK)"
             >
@@ -644,7 +657,10 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             {onBackToAdmin && (
               <button
                 type="button"
-                onClick={onBackToAdmin}
+                onClick={() => {
+                  setMobileSidebarOpen(false);
+                  onBackToAdmin();
+                }}
                 className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 style={{
                   color: storeTheme.accentText,
@@ -662,7 +678,10 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
 
             <button
               type="button"
-              onClick={adminLogout}
+              onClick={() => {
+                setMobileSidebarOpen(false);
+                adminLogout();
+              }}
               className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-950/40 transition cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -892,63 +911,114 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="text-slate-400 dark:text-slate-500 font-bold border-b border-slate-100 dark:border-slate-800 pb-2">
-                      <th className="py-2.5 font-bold">Order ID</th>
-                      <th className="py-2.5 font-bold">Customer</th>
-                      <th className="py-2.5 font-bold">Items</th>
-                      <th className="py-2.5 font-bold">Time</th>
-                      <th className="py-2.5 font-bold text-right pr-3">Status</th>
-                      <th className="py-2.5 w-6"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                    {displayAssignedOrders.map((ord) => {
-                      const orderId = ord.id || ord.orderId;
-                      const customer = ord.customerName || ord.customer || 'Customer';
-                      const itemsCount = resolveOrderItemsCount(ord);
-                      const time = ord.time || (ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '09:30 AM');
+              <div>
+                {/* 📱 Mobile Orders Card List (< sm screens) */}
+                <div className="block sm:hidden space-y-2.5">
+                  {displayAssignedOrders.map((ord) => {
+                    const orderId = ord.id || ord.orderId;
+                    const customer = ord.customerName || ord.customer || 'Customer';
+                    const itemsCount = resolveOrderItemsCount(ord);
+                    const time = ord.time || (ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '09:30 AM');
 
-                      return (
-                        <tr
-                          key={orderId}
-                          onClick={() => setSelectedOrderForPacking(ord)}
-                          className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer group"
-                        >
-                          <td className="py-3.5 font-mono font-bold text-slate-900 dark:text-white">
-                            <span>{orderId}</span>
-                          </td>
-                          <td className="py-3.5 font-medium text-slate-800 dark:text-slate-200">
-                            {customer}
-                          </td>
-                          <td className="py-3.5 text-slate-500 dark:text-slate-400 font-medium">
-                            {itemsCount} items
-                          </td>
-                          <td className="py-3.5 text-slate-500 dark:text-slate-400 font-medium">
+                    return (
+                      <div
+                        key={orderId}
+                        onClick={() => setSelectedOrderForPacking(ord)}
+                        className="p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 hover:border-emerald-500/50 transition cursor-pointer space-y-2.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-bold text-xs text-slate-900 dark:text-white">
+                            {orderId}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
                             {time}
-                          </td>
-                          <td className="py-3.5 text-right pr-3">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedOrderForPacking(ord);
-                              }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 hover:bg-emerald-100 transition shadow-2xs cursor-pointer"
-                            >
-                              <span>To Pack</span>
-                            </button>
-                          </td>
-                          <td className="py-3.5 text-slate-300 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition">
-                            <ChevronRight className="w-4 h-4" />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                              {customer}
+                            </p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                              {itemsCount} {itemsCount === 1 ? 'item' : 'items'} to pack
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedOrderForPacking(ord);
+                            }}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs cursor-pointer shrink-0"
+                          >
+                            <span>To Pack</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 🖥️ Desktop Orders Table (>= sm screens) */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="text-slate-400 dark:text-slate-500 font-bold border-b border-slate-100 dark:border-slate-800 pb-2">
+                        <th className="py-2.5 font-bold">Order ID</th>
+                        <th className="py-2.5 font-bold">Customer</th>
+                        <th className="py-2.5 font-bold">Items</th>
+                        <th className="py-2.5 font-bold">Time</th>
+                        <th className="py-2.5 font-bold text-right pr-3">Status</th>
+                        <th className="py-2.5 w-6"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                      {displayAssignedOrders.map((ord) => {
+                        const orderId = ord.id || ord.orderId;
+                        const customer = ord.customerName || ord.customer || 'Customer';
+                        const itemsCount = resolveOrderItemsCount(ord);
+                        const time = ord.time || (ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '09:30 AM');
+
+                        return (
+                          <tr
+                            key={orderId}
+                            onClick={() => setSelectedOrderForPacking(ord)}
+                            className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer group"
+                          >
+                            <td className="py-3.5 font-mono font-bold text-slate-900 dark:text-white">
+                              <span>{orderId}</span>
+                            </td>
+                            <td className="py-3.5 font-medium text-slate-800 dark:text-slate-200">
+                              {customer}
+                            </td>
+                            <td className="py-3.5 text-slate-500 dark:text-slate-400 font-medium">
+                              {itemsCount} items
+                            </td>
+                            <td className="py-3.5 text-slate-500 dark:text-slate-400 font-medium">
+                              {time}
+                            </td>
+                            <td className="py-3.5 text-right pr-3">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedOrderForPacking(ord);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 hover:bg-emerald-100 transition shadow-2xs cursor-pointer"
+                              >
+                                <span>To Pack</span>
+                              </button>
+                            </td>
+                            <td className="py-3.5 text-slate-300 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition">
+                              <ChevronRight className="w-4 h-4" />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </section>
@@ -978,41 +1048,76 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800 pb-2">
-                        <th className="py-2.5">Order ID</th>
-                        <th className="py-2.5">Customer</th>
-                        <th className="py-2.5">Parcel Code</th>
-                        <th className="py-2.5">Items</th>
-                        <th className="py-2.5 text-right pr-3">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {packedOrders.map((ord) => {
-                        const ordId = ord.id || ord.orderId;
-                        return (
-                          <tr key={ordId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                            <td className="py-3 font-mono font-bold text-slate-900 dark:text-white">{ordId}</td>
-                            <td className="py-3 font-medium text-slate-800 dark:text-slate-200">{ord.customerName || ord.customer || 'Customer'}</td>
-                            <td className="py-3 font-mono text-emerald-600 dark:text-emerald-400 font-bold">{ord.parcelCode || 'PRCL-STD'}</td>
-                            <td className="py-3 text-slate-500">{resolveOrderItemsCount(ord)} {resolveOrderItemsCount(ord) === 1 ? 'item' : 'items'}</td>
-                            <td className="py-3 text-right pr-3">
-                              <button
-                                type="button"
-                                onClick={() => handleMarkReadyForDispatch(ord)}
-                                className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1.5 ml-auto cursor-pointer"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span>Mark Ready for Delivery</span>
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                <div>
+                  {/* 📱 Mobile Packed Orders (< sm screens) */}
+                  <div className="block sm:hidden space-y-2.5">
+                    {packedOrders.map((ord) => {
+                      const ordId = ord.id || ord.orderId;
+                      return (
+                        <div
+                          key={ordId}
+                          className="p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 space-y-2.5"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono font-bold text-xs text-slate-900 dark:text-white">{ordId}</span>
+                            <span className="font-mono text-[11px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-300 dark:border-emerald-700/60">
+                              {ord.parcelCode || 'PRCL-STD'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <p className="font-bold text-slate-800 dark:text-slate-200">{ord.customerName || ord.customer || 'Customer'}</p>
+                            <span className="text-slate-500 text-[11px]">{resolveOrderItemsCount(ord)} {resolveOrderItemsCount(ord) === 1 ? 'item' : 'items'}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleMarkReadyForDispatch(ord)}
+                            className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Mark Ready for Delivery</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* 🖥️ Desktop Packed Orders Table (>= sm screens) */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800 pb-2">
+                          <th className="py-2.5">Order ID</th>
+                          <th className="py-2.5">Customer</th>
+                          <th className="py-2.5">Parcel Code</th>
+                          <th className="py-2.5">Items</th>
+                          <th className="py-2.5 text-right pr-3">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {packedOrders.map((ord) => {
+                          const ordId = ord.id || ord.orderId;
+                          return (
+                            <tr key={ordId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                              <td className="py-3 font-mono font-bold text-slate-900 dark:text-white">{ordId}</td>
+                              <td className="py-3 font-medium text-slate-800 dark:text-slate-200">{ord.customerName || ord.customer || 'Customer'}</td>
+                              <td className="py-3 font-mono text-emerald-600 dark:text-emerald-400 font-bold">{ord.parcelCode || 'PRCL-STD'}</td>
+                              <td className="py-3 text-slate-500">{resolveOrderItemsCount(ord)} {resolveOrderItemsCount(ord) === 1 ? 'item' : 'items'}</td>
+                              <td className="py-3 text-right pr-3">
+                                <button
+                                  type="button"
+                                  onClick={() => handleMarkReadyForDispatch(ord)}
+                                  className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1.5 ml-auto cursor-pointer"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Mark Ready for Delivery</span>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </section>
@@ -1046,50 +1151,47 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                   <p className="text-xs text-slate-400">Customer orders for {staffBranch.name} will appear here.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800 pb-2">
-                        <th className="py-2.5">Order ID</th>
-                        <th className="py-2.5">Customer</th>
-                        <th className="py-2.5">Total</th>
-                        <th className="py-2.5">Status</th>
-                        <th className="py-2.5 text-right pr-3">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {branchOrders
-                        .filter((o) => {
-                          if (!search) return true;
-                          const q = search.toLowerCase();
-                          return (o.id || o.orderId || '').toLowerCase().includes(q) ||
-                                 (o.customerName || o.customer || '').toLowerCase().includes(q);
-                        })
-                        .map((ord) => {
-                          const ordId = ord.id || ord.orderId;
-                          const isReady = isReadyStatus(ord);
-                          const isPacked = (ord.status || '').toLowerCase() === 'packed';
-                          const isPending = isPendingStatus(ord.status);
-                          return (
-                            <tr key={ordId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                              <td className="py-3 font-mono font-bold text-slate-900 dark:text-white">{ordId}</td>
-                              <td className="py-3 font-medium text-slate-800 dark:text-slate-200">{ord.customerName || ord.customer || 'Customer'}</td>
-                              <td className="py-3 font-bold text-slate-900 dark:text-white">{currency} {(ord.total || ord.totalAmount || 0).toLocaleString()}</td>
-                              <td className="py-3">
-                                <span className={"px-2.5 py-0.5 rounded-full text-[10px] font-bold " + (
-                                  isReady ? "bg-emerald-100 text-emerald-800" :
-                                  isPacked ? "bg-emerald-100 text-emerald-800" :
-                                  isPending ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"
-                                )}>
-                                  {ord.status || 'Pending'}
-                                </span>
-                              </td>
-                              <td className="py-3 text-right pr-3">
+                <div>
+                  {/* 📱 Mobile All Orders (< sm screens) */}
+                  <div className="block sm:hidden space-y-2.5">
+                    {branchOrders
+                      .filter((o) => {
+                        if (!search) return true;
+                        const q = search.toLowerCase();
+                        return (o.id || o.orderId || '').toLowerCase().includes(q) ||
+                               (o.customerName || o.customer || '').toLowerCase().includes(q);
+                      })
+                      .map((ord) => {
+                        const ordId = ord.id || ord.orderId;
+                        const isReady = isReadyStatus(ord);
+                        const isPacked = (ord.status || '').toLowerCase() === 'packed';
+                        const isPending = isPendingStatus(ord.status);
+                        return (
+                          <div
+                            key={ordId}
+                            className="p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 space-y-2.5"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono font-bold text-xs text-slate-900 dark:text-white">{ordId}</span>
+                              <span className={"px-2.5 py-0.5 rounded-full text-[10px] font-bold " + (
+                                isReady ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300" :
+                                isPacked ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300" :
+                                isPending ? "bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300" : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                              )}>
+                                {ord.status || 'Pending'}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <div>
+                                <p className="font-bold text-slate-800 dark:text-slate-200">{ord.customerName || ord.customer || 'Customer'}</p>
+                                <p className="font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{currency} {(ord.total || ord.totalAmount || 0).toLocaleString()}</p>
+                              </div>
+                              <div>
                                 {isPending ? (
                                   <button
                                     type="button"
                                     onClick={() => setSelectedOrderForPacking(ord)}
-                                    className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs"
                                   >
                                     To Pack
                                   </button>
@@ -1097,19 +1199,86 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                                   <button
                                     type="button"
                                     onClick={() => handleMarkReadyForDispatch(ord)}
-                                    className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs"
                                   >
                                     Mark Ready
                                   </button>
                                 ) : (
                                   <span className="text-[11px] text-slate-400 font-medium">Staged in Hub</span>
                                 )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  {/* 🖥️ Desktop All Orders Table (>= sm screens) */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800 pb-2">
+                          <th className="py-2.5">Order ID</th>
+                          <th className="py-2.5">Customer</th>
+                          <th className="py-2.5">Total</th>
+                          <th className="py-2.5">Status</th>
+                          <th className="py-2.5 text-right pr-3">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {branchOrders
+                          .filter((o) => {
+                            if (!search) return true;
+                            const q = search.toLowerCase();
+                            return (o.id || o.orderId || '').toLowerCase().includes(q) ||
+                                   (o.customerName || o.customer || '').toLowerCase().includes(q);
+                          })
+                          .map((ord) => {
+                            const ordId = ord.id || ord.orderId;
+                            const isReady = isReadyStatus(ord);
+                            const isPacked = (ord.status || '').toLowerCase() === 'packed';
+                            const isPending = isPendingStatus(ord.status);
+                            return (
+                              <tr key={ordId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                <td className="py-3 font-mono font-bold text-slate-900 dark:text-white">{ordId}</td>
+                                <td className="py-3 font-medium text-slate-800 dark:text-slate-200">{ord.customerName || ord.customer || 'Customer'}</td>
+                                <td className="py-3 font-bold text-slate-900 dark:text-white">{currency} {(ord.total || ord.totalAmount || 0).toLocaleString()}</td>
+                                <td className="py-3">
+                                  <span className={"px-2.5 py-0.5 rounded-full text-[10px] font-bold " + (
+                                    isReady ? "bg-emerald-100 text-emerald-800" :
+                                    isPacked ? "bg-emerald-100 text-emerald-800" :
+                                    isPending ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"
+                                  )}>
+                                    {ord.status || 'Pending'}
+                                  </span>
+                                </td>
+                                <td className="py-3 text-right pr-3">
+                                  {isPending ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedOrderForPacking(ord)}
+                                      className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                                    >
+                                      To Pack
+                                    </button>
+                                  ) : isPacked ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleMarkReadyForDispatch(ord)}
+                                      className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                                    >
+                                      Mark Ready
+                                    </button>
+                                  ) : (
+                                    <span className="text-[11px] text-slate-400 font-medium">Staged in Hub</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </section>
