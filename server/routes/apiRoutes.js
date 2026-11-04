@@ -286,7 +286,9 @@ import {
   getBranchInventory,
   updateBranchInventory,
   getBranchOrders,
-  createBranchOrder
+  createBranchOrder,
+  findAvailableRetailersController,
+  updateBranchDeliveryZone
 } from '../controllers/companyBranchController.js';
 import { enforceTenantBranchScope } from '../middleware/tenantBranchMiddleware.js';
 
@@ -300,5 +302,11 @@ router.get('/branches/:branchId/inventory', getBranchInventory);
 router.put('/branches/:branchId/inventory/:productId', updateBranchInventory);
 router.get('/branches/:branchId/orders', getBranchOrders);
 router.post('/branches/:branchId/orders', createBranchOrder);
+
+// Multi-Retailer Delivery Zones (Faisalabad Dynamic Discovery)
+router.post('/retailers/find-available', findAvailableRetailersController);
+router.get('/retailers/find-available', findAvailableRetailersController);
+router.get('/branches/available', findAvailableRetailersController);
+router.put('/branches/:id/delivery-zone', updateBranchDeliveryZone);
 
 export default router;

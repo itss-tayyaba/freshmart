@@ -19,6 +19,7 @@ import { Company } from '../models/Company.js';
 import { Order } from '../models/Order.js';
 import { isDbOnline } from '../config/db.js';
 import { loadDiskOrders } from './orderController.js';
+import { findAvailableRetailers } from '../utils/deliveryZoneHelper.js';
 
 const BRANCHES_FILE_PATH = path.resolve(process.cwd(), 'server/data/branches_db.json');
 
@@ -464,6 +465,171 @@ export const deleteBranch = async (req, res) => {
     return res.json({
       success: true,
       message: 'Branch removed'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Find all eligible multi-retailer branches for customer location
+// @route   POST /api/retailers/find-available or GET /api/branches/available
+export const findAvailableRetailersController = async (req, res) => {
+  try {
+    const lat = req.body?.latitude ?? req.body?.lat ?? req.query?.lat ?? req.query?.latitude;
+    const lng = req.body?.longitude ?? req.body?.lng ?? req.query?.lng ?? req.query?.longitude;
+    const maxSearchRadiusKm = Number(req.body?.maxSearchRadiusKm ?? req.query?.maxSearchRadiusKm ?? 25);
+    const useRoadDistance = req.body?.useRoadDistance ?? req.query?.useRoadDistance === 'true';
+
+    if (lat == null || lng == null || isNaN(Number(lat)) || isNaN(Number(lng))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid customer latitude and longitude coordinates are required.'
+      });
+    }
+
+    // Get all branches (DB + disk + memory)
+    let branchList = [];
+    if (isDbOnline()) {
+      try {
+        const dbBranches = await Branch.find({ status: 'active' });
+        if (dbBranches && dbBranches.length > 0) {
+          branchList = dbBranches.map((b) => (b.toObject ? b.toObject() : b));
+        }
+      } catch (e) {
+        console.warn('DB branch lookup:', e.message);
+      }
+    }
+
+    const diskBranches = loadDiskBranches();
+    const combinedBranches = [...branchList, ...diskBranches];
+    const seenBranchIds = new Set(
+      combinedBranches.map((b) => String(b._id || b.id || '').toLowerCase().trim())
+    );
+
+    BRANCHES.forEach((b) => {
+      const key = String(b._id || b.id || '').toLowerCase().trim();
+      if (!seenBranchIds.has(key)) {
+        combinedBranches.push(b);
+        seenBranchIds.add(key);
+      }
+    });
+
+    const result = findAvailableRetailers(
+      { lat: Number(lat), lng: Number(lng) },
+      combinedBranches,
+      { maxSearchRadiusKm, useRoadDistance }
+    );
+
+    // Enrich with company info
+    const enrichRetailer = (r) => {
+      const comp =
+        COMPANIES.find(
+          (c) =>
+            c.tenantId === r.tenantId ||
+            c.legacyId === r.tenantId ||
+            c._id === r.tenantId ||
+            (c.slug && r.tenantId.includes(c.slug))
+        ) || {};
+
+      return {
+        ...r,
+        name: comp.displayName || comp.name || r.name || r.tenantId,
+        slug: comp.slug || '',
+        logo: comp.logo || '🏪',
+        banner: comp.banner || '',
+        themeColor: comp.themeColor || '#10b981',
+        tagline: comp.tagline || ''
+      };
+    };
+
+    return res.json({
+      success: true,
+      customerLocation: { latitude: Number(lat), longitude: Number(lng) },
+      searchRadiusKm: result.searchRadiusKm,
+      searchStepsTaken: result.searchStepsTaken,
+      overlappingCount: result.overlappingRetailersCount,
+      hasOverlappingZones: result.hasOverlappingZones,
+      eligibleRetailers: result.eligibleRetailers.map(enrichRetailer),
+      unavailableRetailers: result.unavailableRetailers.map(enrichRetailer),
+      allDiscoveredBranches: result.allDiscoveredBranches
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Update delivery zone, radius, coordinates, or fee tiers for a branch
+// @route   PUT /api/branches/:id/delivery-zone
+export const updateBranchDeliveryZone = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      latitude,
+      longitude,
+      deliveryRadiusKm,
+      deliveryRadius,
+      deliveryStatus,
+      deliveryTiers,
+      deliveryPolygon,
+      supportsExtendedDelivery,
+      address,
+      name
+    } = req.body;
+
+    const updates = {};
+    if (latitude != null && !isNaN(Number(latitude))) updates.latitude = Number(latitude);
+    if (longitude != null && !isNaN(Number(longitude))) updates.longitude = Number(longitude);
+
+    const rad =
+      deliveryRadiusKm != null
+        ? Number(deliveryRadiusKm)
+        : deliveryRadius != null
+        ? Number(deliveryRadius)
+        : undefined;
+    if (rad != null && !isNaN(rad)) {
+      updates.deliveryRadiusKm = rad;
+      updates.deliveryRadius = rad;
+    }
+
+    if (deliveryStatus) updates.deliveryStatus = deliveryStatus;
+    if (Array.isArray(deliveryTiers)) updates.deliveryTiers = deliveryTiers;
+    if (Array.isArray(deliveryPolygon)) updates.deliveryPolygon = deliveryPolygon;
+    if (supportsExtendedDelivery !== undefined) updates.supportsExtendedDelivery = Boolean(supportsExtendedDelivery);
+    if (address) updates.address = address;
+    if (name) updates.name = name;
+
+    let updatedBranch = null;
+
+    if (isDbOnline()) {
+      try {
+        updatedBranch = await Branch.findOneAndUpdate(
+          { $or: [{ _id: id }, { id }] },
+          { $set: updates },
+          { new: true }
+        );
+      } catch (e) {
+        console.warn('Branch DB delivery-zone update error:', e.message);
+      }
+    }
+
+    // Persist to disk branches store
+    const diskList = loadDiskBranches();
+    const existing = diskList.find(
+      (b) => String(b._id || b.id || '').toLowerCase().trim() === String(id).toLowerCase().trim()
+    );
+    const merged = { ...(existing || {}), _id: id, id, ...updates };
+    saveDiskBranch(merged);
+
+    // Update in-memory fallback list
+    const memBranch = BRANCHES.find((b) => b._id === id || b.id === id);
+    if (memBranch) {
+      Object.assign(memBranch, updates);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Branch delivery zone updated successfully',
+      branch: updatedBranch || merged
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });

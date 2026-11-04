@@ -34,6 +34,11 @@ import {
 import { apiService } from '../services/api';
 import { parseRouteFromUrl, getSeoMetadata } from '../utils/routeUtils';
 import { calculateDistanceKm, findNearestCity, PAKISTAN_CITIES } from '../data/pakistanLocations';
+import {
+  findAvailableRetailers as evaluateAvailableRetailers,
+  calculateHaversineDistanceKm,
+  calculateRoadDistanceKm
+} from '../utils/distanceCalculator';
 import { resolveOrderRouting, isOrderVisibleToUser, canAssignRiderToOrder, canAssignStaffToOrder, getStrictEligibleRiders } from '../utils/orderScope';
 import {
   findProductSubstitutes,
@@ -974,46 +979,41 @@ export const StoreProvider = ({ children }) => {
     }
   }, [currentTenant, deliveryLocation, allBranches]);
 
-  // Dynamic calculation of all nearby supermarkets and dark store branches for the customer
-  const getNearbyStores = (coords) => {
+  // Dynamic calculation of all multi-retailer stores with delivery zones, progressive search, and fee tiers
+  const getNearbyStores = (coords, options = {}) => {
     const userLat = Number(coords?.lat || coords?.latitude || deliveryLocation?.lat || deliveryLocation?.coords?.lat || 31.4125);
     const userLng = Number(coords?.lng || coords?.longitude || deliveryLocation?.lng || deliveryLocation?.coords?.lng || 73.0995);
 
+    const branchesToEvaluate = (allBranches && allBranches.length > 0) ? allBranches : BRANCHES;
+    const discoveryResult = evaluateAvailableRetailers(
+      { lat: userLat, lng: userLng },
+      branchesToEvaluate,
+      { maxSearchRadiusKm: options.maxSearchRadiusKm || 25, useRoadDistance: options.useRoadDistance ?? false }
+    );
+
     const storeList = INITIAL_TENANTS.map((tenant) => {
       const tenantCanonicalId = resolveTenantId(tenant.id);
-      const tenantBranches = (allBranches || BRANCHES).filter(
-        (b) =>
-          isSameTenant(b.tenantId, tenant.id) ||
-          b.tenantId === tenantCanonicalId ||
-          (b.companyId && resolveTenantId(b.companyId) === tenantCanonicalId) ||
-          (tenant.slug && b.slug === tenant.slug)
+      const eligibleGroup = discoveryResult.eligibleRetailers.find(
+        (r) =>
+          isSameTenant(r.tenantId, tenant.id) ||
+          r.tenantId === tenantCanonicalId ||
+          (tenant.slug && r.tenantId.includes(tenant.slug))
+      );
+      const unavailableGroup = discoveryResult.unavailableRetailers.find(
+        (r) =>
+          isSameTenant(r.tenantId, tenant.id) ||
+          r.tenantId === tenantCanonicalId ||
+          (tenant.slug && r.tenantId.includes(tenant.slug))
       );
 
-      let nearestBranch = tenantBranches[0] || null;
-      let minDistance = Infinity;
-
-      for (const branch of tenantBranches) {
-        const bLat = Number(branch.latitude ?? branch.coordinates?.lat);
-        const bLng = Number(branch.longitude ?? branch.coordinates?.lng);
-        if (!isNaN(bLat) && !isNaN(bLng)) {
-          const dist = calculateDistanceKm(userLat, userLng, bLat, bLng);
-          if (dist < minDistance) {
-            minDistance = dist;
-            nearestBranch = branch;
-          }
-        }
-      }
-
-      let estimatedTime = '15-25 mins';
-      if (minDistance > 10) estimatedTime = '45-60 mins';
-      else if (minDistance > 5) estimatedTime = '35-45 mins';
-      else if (minDistance > 2) estimatedTime = '25-35 mins';
-      else if (minDistance > 1) estimatedTime = '20-30 mins';
-      else estimatedTime = '10-20 mins';
-
-      const isDeliverable = Number.isFinite(minDistance) && minDistance <= 35;
-      const freeDeliveryThreshold = 1000;
-      const deliveryFee = 100;
+      const matchedGroup = eligibleGroup || unavailableGroup;
+      const isDeliverable = Boolean(eligibleGroup && eligibleGroup.isEligible);
+      const bestBranch = matchedGroup?.bestBranch || null;
+      const distanceKm = matchedGroup?.distanceKm ?? null;
+      const deliveryFee = matchedGroup?.deliveryFee ?? 100;
+      const estimatedTime =
+        matchedGroup?.estimatedTime ||
+        (distanceKm ? `${Math.round(distanceKm * 5 + 15)} mins` : '20-30 mins');
 
       return {
         tenant,
@@ -1026,33 +1026,36 @@ export const StoreProvider = ({ children }) => {
         banner: tenant.banner,
         theme: tenant.theme,
         color: tenant.color,
-        nearestBranch,
-        distanceKm: Number.isFinite(minDistance) ? Number(minDistance.toFixed(1)) : null,
-        distanceFormatted: Number.isFinite(minDistance)
-          ? `${minDistance % 1 === 0 ? minDistance.toFixed(0) : minDistance.toFixed(1)} km`
+        nearestBranch: bestBranch,
+        distanceKm: Number.isFinite(distanceKm) ? Number(distanceKm.toFixed(1)) : null,
+        distanceFormatted: Number.isFinite(distanceKm)
+          ? `${distanceKm % 1 === 0 ? distanceKm.toFixed(0) : distanceKm.toFixed(1)} km`
           : 'Unavailable',
         estimatedTime,
         isDeliverable,
-        deliveryFeeText: `Free over Rs. ${freeDeliveryThreshold.toLocaleString()}`,
         deliveryFee,
+        deliveryFeeText: deliveryFee === 0 ? 'Free Delivery' : `Rs. ${deliveryFee} Delivery Fee`,
         rating: 4.8 + (tenant.id === 'tenant-alfatah' ? 0.1 : 0),
         reviewsCount: tenant.id === 'tenant-alfatah' ? '2.4k+' : tenant.id === 'tenant-chaseup' ? '1.8k+' : '1.2k+',
-        status: isDeliverable ? 'Open & Deliverable' : 'Regional Dispatch',
-        minOrder: 300
+        status: isDeliverable ? 'Open & Deliverable' : 'Outside Delivery Zone',
+        minOrder: 300,
+        searchRadiusKm: discoveryResult.searchRadiusKm,
+        hasOverlappingZones: discoveryResult.hasOverlappingZones,
+        overlappingRetailersCount: discoveryResult.overlappingRetailersCount
       };
     });
 
-    const deliverableStores = storeList
-      .filter((store) => store.isDeliverable && store.nearestBranch)
-      .sort((a, b) => (a.distanceKm || Infinity) - (b.distanceKm || Infinity));
+    return storeList.sort((a, b) => {
+      // Prioritize deliverable stores first, then sort by distance
+      if (a.isDeliverable && !b.isDeliverable) return -1;
+      if (!a.isDeliverable && b.isDeliverable) return 1;
+      return (a.distanceKm || Infinity) - (b.distanceKm || Infinity);
+    });
+  };
 
-    if (deliverableStores.length > 0) {
-      return deliverableStores;
-    }
-
-    return storeList
-      .filter((store) => store.nearestBranch)
-      .sort((a, b) => (a.distanceKm || Infinity) - (b.distanceKm || Infinity));
+  const findAvailableRetailersAcrossPlatform = (coords, options) => {
+    const branchesToEvaluate = (allBranches && allBranches.length > 0) ? allBranches : BRANCHES;
+    return evaluateAvailableRetailers(coords, branchesToEvaluate, options);
   };
 
   // Switch store and auto-select its closest branch
@@ -7165,6 +7168,7 @@ export const StoreProvider = ({ children }) => {
         getInventoryByBranch,
         getOrdersByBranch,
         getNearbyStores,
+        findAvailableRetailersAcrossPlatform,
         selectStoreAndBranch,
         // --- 🔄 Smart Product Substitution Exports ---
         findProductSubstitutes,

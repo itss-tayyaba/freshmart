@@ -76,10 +76,17 @@ while (pos < cdSize) {
 
 console.log(`Parsed ${entries.length} zip entries`);
 
-// Filter out old signature files in META-INF (.SF, .RSA, .DSA, .EC, MANIFEST.MF)
-const filteredEntries = entries.filter(e => {
+// Filter out old signature files in META-INF
+const filteredEntries = entries.filter((e) => {
   const upper = e.name.toUpperCase();
-  if (upper.startsWith('META-INF/') && (upper.endsWith('.SF') || upper.endsWith('.RSA') || upper.endsWith('.DSA') || upper.endsWith('.MF'))) {
+  if (
+    upper.startsWith('META-INF/') &&
+    (upper.endsWith('.SF') ||
+      upper.endsWith('.RSA') ||
+      upper.endsWith('.DSA') ||
+      upper.endsWith('.EC') ||
+      upper.endsWith('.MF'))
+  ) {
     return false;
   }
   return true;
@@ -89,6 +96,7 @@ console.log(`Retaining ${filteredEntries.length} entries for re-packaging`);
 
 // Create unaligned zip
 const unalignedPath = path.resolve(__dirname, '../scratch/freshmart_unaligned.apk');
+const alignedPath = path.resolve(__dirname, '../scratch/freshmart_aligned.apk');
 fs.mkdirSync(path.dirname(unalignedPath), { recursive: true });
 const outFd = fs.openSync(unalignedPath, 'w');
 
@@ -115,15 +123,33 @@ for (const entry of filteredEntries) {
     uncompressedData = rawData;
   }
 
-  // Compress with deflate
-  const deflated = zlib.deflateRawSync(uncompressedData, { level: 9 });
-  let finalMethod = 8;
-  let finalCompData = deflated;
+  // CRITICAL FIX: resources.arsc and uncompressed assets MUST NEVER be deflated
+  // Android PackageParser mmap's resources.arsc directly. Compressing it causes:
+  // "There was a problem while parsing the package."
+  const lowerName = entry.name.toLowerCase();
+  const mustStoreUncompressed =
+    lowerName === 'resources.arsc' ||
+    lowerName.endsWith('.arsc') ||
+    lowerName.endsWith('.png') ||
+    lowerName.endsWith('.jpg') ||
+    lowerName.endsWith('.jpeg') ||
+    lowerName.endsWith('.webp');
 
-  if (deflated.length >= uncompressedData.length) {
-    // Store uncompressed if deflation doesn't help
+  let finalMethod = 8;
+  let finalCompData = null;
+
+  if (mustStoreUncompressed) {
     finalMethod = 0;
     finalCompData = uncompressedData;
+  } else {
+    const deflated = zlib.deflateRawSync(uncompressedData, { level: 9 });
+    if (deflated.length >= uncompressedData.length) {
+      finalMethod = 0;
+      finalCompData = uncompressedData;
+    } else {
+      finalMethod = 8;
+      finalCompData = deflated;
+    }
   }
 
   const nameBuf = Buffer.from(entry.name, 'utf8');
@@ -132,7 +158,7 @@ for (const entry of filteredEntries) {
   const newLfh = Buffer.alloc(30);
   newLfh.writeUInt32LE(0x04034b50, 0);
   newLfh.writeUInt16LE(20, 4); // version needed
-  newLfh.writeUInt16LE(0, 6);  // flags
+  newLfh.writeUInt16LE(0, 6); // flags
   newLfh.writeUInt16LE(finalMethod, 8);
   newLfh.writeUInt16LE(entry.time, 10);
   newLfh.writeUInt16LE(entry.date, 12);
@@ -150,6 +176,7 @@ for (const entry of filteredEntries) {
 
   newCdEntries.push({
     nameBuf,
+    name: entry.name,
     method: finalMethod,
     time: entry.time,
     date: entry.date,
@@ -167,7 +194,7 @@ for (const cd of newCdEntries) {
   cdRecord.writeUInt32LE(0x02014b50, 0);
   cdRecord.writeUInt16LE(20, 4); // version made by
   cdRecord.writeUInt16LE(20, 6); // version needed
-  cdRecord.writeUInt16LE(0, 8);  // flags
+  cdRecord.writeUInt16LE(0, 8); // flags
   cdRecord.writeUInt16LE(cd.method, 10);
   cdRecord.writeUInt16LE(cd.time, 12);
   cdRecord.writeUInt16LE(cd.date, 14);
@@ -192,17 +219,50 @@ const newCdSize = outOffset - cdStartOffset;
 // Write EOCD
 const newEocd = Buffer.alloc(22);
 newEocd.writeUInt32LE(0x06054b50, 0);
-newEocd.writeUInt16LE(0, 4); // disk num
-newEocd.writeUInt16LE(0, 6); // start disk
+newEocd.writeUInt16LE(0, 4);
+newEocd.writeUInt16LE(0, 6);
 newEocd.writeUInt16LE(newCdEntries.length, 8);
 newEocd.writeUInt16LE(newCdEntries.length, 10);
 newEocd.writeUInt32LE(newCdSize, 12);
 newEocd.writeUInt32LE(cdStartOffset, 16);
-newEocd.writeUInt16LE(0, 20); // comment len
+newEocd.writeUInt16LE(0, 20);
 
 fs.writeSync(outFd, newEocd);
 fs.closeSync(outFd);
 fs.closeSync(inFd);
 
-const unalignedStat = fs.statSync(unalignedPath);
-console.log(`Unaligned compressed APK created: ${(unalignedStat.size / (1024*1024)).toFixed(2)} MB`);
+console.log('Unaligned APK created successfully.');
+
+// 1. Zipalign (4-byte alignment of uncompressed assets and SOs)
+const zipalignExe = 'D:/Android/sdk/build-tools/36.0.0/zipalign.exe';
+const apksignerBat = 'D:/Android/sdk/build-tools/36.0.0/apksigner.bat';
+const keystorePath = path.resolve(__dirname, '../freshmart.keystore');
+const javaHome = 'D:/jdk-17/jdk-17.0.21+9';
+
+console.log('Running zipalign...');
+if (fs.existsSync(alignedPath)) fs.unlinkSync(alignedPath);
+execSync(`"${zipalignExe}" -p -f 4 "${unalignedPath}" "${alignedPath}"`, { stdio: 'inherit' });
+
+// 2. Apksigner with v1 (JAR) + v2 (APK Signature Scheme v2) + v3
+console.log('Signing APK with v1 + v2 + v3 schemes...');
+const signCmd = `set JAVA_HOME=${javaHome}&& "${apksignerBat}" sign --ks "${keystorePath}" --ks-pass pass:freshmart123 --ks-key-alias freshmart --key-pass pass:freshmart123 --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true "${alignedPath}"`;
+execSync(signCmd, { stdio: 'inherit', shell: 'cmd.exe' });
+
+// 3. Verify signature
+console.log('Verifying APK signature...');
+const verifyCmd = `set JAVA_HOME=${javaHome}&& "${apksignerBat}" verify -v "${alignedPath}"`;
+execSync(verifyCmd, { stdio: 'inherit', shell: 'cmd.exe' });
+
+// 4. Distribute to public/downloads and dist/downloads
+const pubDownloads = path.resolve(__dirname, '../public/downloads');
+const distDownloads = path.resolve(__dirname, '../dist/downloads');
+fs.mkdirSync(pubDownloads, { recursive: true });
+fs.mkdirSync(distDownloads, { recursive: true });
+
+fs.copyFileSync(alignedPath, path.join(pubDownloads, 'freshmart-staff.apk'));
+fs.copyFileSync(alignedPath, path.join(pubDownloads, 'freshmart-customer.apk'));
+fs.copyFileSync(alignedPath, path.join(distDownloads, 'freshmart-staff.apk'));
+fs.copyFileSync(alignedPath, path.join(distDownloads, 'freshmart-customer.apk'));
+
+const finalStat = fs.statSync(alignedPath);
+console.log(`✅ Successfully generated, zip-aligned, and multi-scheme signed APKs! Size: ${(finalStat.size / (1024*1024)).toFixed(2)} MB`);

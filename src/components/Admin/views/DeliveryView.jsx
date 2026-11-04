@@ -41,6 +41,7 @@ import { PAKISTAN_CITIES } from '../../../data/pakistanLocations';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 import { getWhatsAppDeliveryLink } from '../../../utils/whatsappHelper';
 import { normalizeOrderTenantId } from '../../../utils/orderScope';
+import { DeliveryZoneView } from './DeliveryZoneView';
 
 export const PAKISTAN_REGIONS = [
   // Lahore
@@ -746,6 +747,7 @@ export const DeliveryView = () => {
           { id: 'fleet', label: 'Riders Fleet Manager', icon: Bike, count: storeRiders.length },
           { id: 'queue', label: 'Order Dispatch Queue', icon: Package, count: pendingDispatches.length },
           { id: 'delivered', label: 'Delivered / Completed Records', icon: CheckCircle2, count: completedDeliveries.length },
+          { id: 'zone', label: 'Área de Entrega (Delivery Zones)', icon: MapPin }
         ]).map((t) => {
           const Icon = t.icon;
           const isActive = activeSubTab === t.id;
@@ -1530,6 +1532,13 @@ export const DeliveryView = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* SUB-VIEW 4: ÁREA DE ENTREGA (CONCENTRIC RINGS & DELIVERY FEE TIERS)   */}
+      {/* ===================================================================== */}
+      {activeSubTab === 'zone' && (
+        <DeliveryZoneView />
       )}
 
       {/* ===================================================================== */}

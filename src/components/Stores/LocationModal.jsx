@@ -111,6 +111,7 @@ const LocationModalContent = () => {
   const tileLayerRef = useRef(null);
   const userMarkerRef = useRef(null);
   const storeMarkersRef = useRef([]);
+  const deliveryCirclesRef = useRef([]);
 
   const currentCityObj = PAKISTAN_CITIES.find((c) => c.id === selectedCityId) || PAKISTAN_CITIES[0];
 
@@ -248,19 +249,43 @@ const LocationModalContent = () => {
     }
   };
 
-  // Update store markers on the Leaflet Map
+  // Update store markers and delivery radius circles on the Leaflet Map
   useEffect(() => {
     if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
 
-    // Clear previous store markers
+    // Clear previous store markers and delivery circles
     storeMarkersRef.current.forEach((m) => map.removeLayer(m));
     storeMarkersRef.current = [];
+    deliveryCirclesRef.current.forEach((c) => map.removeLayer(c));
+    deliveryCirclesRef.current = [];
 
     nearbyStores.forEach((st) => {
       const bLat = Number(st.nearestBranch?.latitude || st.nearestBranch?.coordinates?.lat || 31.4125);
       const bLng = Number(st.nearestBranch?.longitude || st.nearestBranch?.coordinates?.lng || 73.0995);
       if (!bLat || !bLng) return;
+
+      const storeColor = st.color || st.theme?.primaryColor || '#0284c7';
+      const radiusKm = Number(st.nearestBranch?.deliveryRadiusKm || st.nearestBranch?.deliveryRadius || 5);
+      const radiusMeters = radiusKm * 1000;
+
+      // Draw semi-transparent delivery zone circle
+      const circle = L.circle([bLat, bLng], {
+        radius: radiusMeters,
+        color: storeColor,
+        weight: 1.5,
+        opacity: 0.6,
+        fillColor: storeColor,
+        fillOpacity: 0.12,
+        dashArray: st.isDeliverable ? null : '4, 4'
+      }).addTo(map);
+
+      circle.bindTooltip(`${st.displayName || st.name} (${radiusKm} km Delivery Zone)`, {
+        sticky: true,
+        className: 'delivery-zone-tooltip'
+      });
+
+      deliveryCirclesRef.current.push(circle);
 
       const marker = L.marker([bLat, bLng], {
         icon: createStorePin(st),
@@ -279,10 +304,13 @@ const LocationModalContent = () => {
             <strong style="color: #0f172a; font-size: 12px;">${st.displayName || st.name}</strong>
           </div>
           <div style="display: inline-block; padding: 2px 6px; border-radius: 9999px; background: #ecfdf5; color: #047857; font-weight: 800; font-size: 10px; margin-bottom: 3px;">
-            📍 ${st.distanceFormatted || '1.2 km'} away
+            📍 ${st.distanceFormatted || '1.2 km'} away (${st.isDeliverable ? 'Inside Delivery Zone' : 'Outside Zone'})
           </div>
           <p style="margin: 0; color: #475569; font-size: 10px;">
             ⚡ Fast Delivery: <strong>${st.estimatedTime || '15-25 mins'}</strong>
+          </p>
+          <p style="margin: 2px 0 0; color: #64748b; font-size: 9px;">
+            🛵 Radius: <strong>${radiusKm} km</strong> • Fee: <strong>${st.deliveryFee === 0 ? 'Free' : `Rs. ${st.deliveryFee}`}</strong>
           </p>
         </div>
       `);
@@ -612,16 +640,113 @@ const LocationModalContent = () => {
             <div className="mt-2.5 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2 text-left animate-in fade-in">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold block text-[11px]">Notice: Location is Outside Standard 35 km Delivery Zone</span>
+                <span className="font-bold block text-[11px]">Notice: Location is Outside Standard Delivery Zone</span>
                 <span className="text-[10px] text-amber-800 leading-tight block mt-0.5">
-                  Your pin is {closestStore?.distanceKm} km from the nearest store. Standard express delivery operates within 35 km.
+                  Your pin is {closestStore?.distanceKm} km from the nearest store. Standard express delivery operates within branch delivery zones.
                 </span>
               </div>
             </div>
           )}
         </div>
 
+        {/* 🏪 4. NEARBY GROCERY STORES FROM YOUR PIN (Matches Live Proximity & Overlapping Zones) */}
+        {nearbyStores && nearbyStores.length > 0 && (
+          <div className="mt-4 text-left p-3.5 sm:p-4 rounded-2xl bg-slate-50/90 border border-slate-200/90 shadow-2xs">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Store className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs sm:text-sm font-black text-slate-900">
+                  Nearby Grocery Stores from Your Pin:
+                </span>
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/90 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                LIVE PROXIMITY
+              </span>
+            </div>
 
+            {/* Overlapping Zones Notice (Multi-retailer deliverability) */}
+            {nearbyStores.filter((s) => s.isDeliverable).length > 1 && (
+              <div className="mb-2.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px] font-semibold flex items-center justify-between">
+                <span>🎯 In range of {nearbyStores.filter((s) => s.isDeliverable).length} overlapping delivery zones</span>
+                <span className="text-[10px] text-emerald-700 font-medium">Select your preferred store</span>
+              </div>
+            )}
+
+            {/* Progressive Search Expansion Banner */}
+            {closestStore?.searchRadiusKm > 5 && (
+              <div className="mb-2.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-[11px] font-semibold flex items-center justify-between">
+                <span>🔍 Progressive search expanded to {closestStore.searchRadiusKm} km</span>
+                <span className="text-[10px] text-blue-700 font-medium">Discovered stores in range</span>
+              </div>
+            )}
+
+            {/* 2x2 Interactive Retailer Selection Grid (Matching UI Layout) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {nearbyStores.map((store, idx) => {
+                const isSelected = selectedStoreId
+                  ? store.id === selectedStoreId
+                  : store.id === effectiveStore?.id;
+                const isNearest = idx === 0 && store.isDeliverable;
+
+                return (
+                  <button
+                    key={store.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedStoreId(store.id);
+                      addToast('Store Selected 🏬', `Selected ${store.displayName || store.name}`);
+                    }}
+                    className={`relative p-3 rounded-2xl text-left transition-all cursor-pointer border flex items-center gap-3 ${
+                      isSelected
+                        ? 'border-2 border-emerald-500 bg-white shadow-md ring-1 ring-emerald-500/20'
+                        : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/70'
+                    }`}
+                  >
+                    {/* Brand Emblem / Icon */}
+                    <div
+                      style={{ backgroundColor: store.color || '#0284c7' }}
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-base font-bold shrink-0 shadow-xs"
+                    >
+                      {store.logo && store.logo.startsWith('http') ? (
+                        <img src={store.logo} alt={store.name} className="w-6 h-6 object-contain" />
+                      ) : (
+                        <span>{store.logo || '🛒'}</span>
+                      )}
+                    </div>
+
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-xs font-black text-slate-900 truncate">
+                          {store.displayName || store.name}
+                        </span>
+                        <span className="text-xs font-black text-slate-800 shrink-0">
+                          {store.distanceFormatted}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-1 text-[11px]">
+                        <span className="text-amber-600 font-bold flex items-center gap-0.5">
+                          ⚡ {store.estimatedTime}
+                        </span>
+                        {isNearest && (
+                          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-700 border border-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                            NEAREST
+                          </span>
+                        )}
+                        {!store.isDeliverable && (
+                          <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded-md">
+                            Outside Zone
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* 5. Full Street Address Input */}
         <div className="text-left mt-3">
