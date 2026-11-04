@@ -62,6 +62,8 @@ export const FreshMartHeader = () => {
 
   const nearbyStoreOptions = useMemo(() => {
     const list = getNearbyStores ? getNearbyStores() : [];
+    const deliverable = (list || []).filter((s) => s.isDeliverable);
+    if (deliverable.length > 0) return deliverable;
     if (list && list.length > 0) return list;
     return (tenants || []).map((t) => ({
       id: t.id,

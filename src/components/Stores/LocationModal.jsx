@@ -123,17 +123,22 @@ const LocationModalContent = () => {
     return [];
   }, [getNearbyStores, currentCoords]);
 
-  const closestStore = nearbyStores && nearbyStores.length > 0 ? nearbyStores[0] : null;
-  const isOutsideDeliveryZone = closestStore ? closestStore.distanceKm > 35 : false;
+  // STRICT REQUIREMENT: Only display and allow selection of stores where customer is INSIDE delivery zone
+  const deliverableStores = useMemo(() => {
+    return (nearbyStores || []).filter((s) => s.isDeliverable);
+  }, [nearbyStores]);
 
-  // Dynamically resolve relative store: either manually selected or relative nearest for customer pin
+  const closestStore = deliverableStores && deliverableStores.length > 0 ? deliverableStores[0] : null;
+  const isOutsideDeliveryZone = deliverableStores.length === 0;
+
+  // Dynamically resolve relative store: strictly from DELIVERABLE stores
   const effectiveStore = useMemo(() => {
     if (selectedStoreId) {
-      const match = nearbyStores.find((s) => s.id === selectedStoreId);
+      const match = deliverableStores.find((s) => s.id === selectedStoreId);
       if (match) return match;
     }
     return closestStore || null;
-  }, [selectedStoreId, nearbyStores, closestStore]);
+  }, [selectedStoreId, deliverableStores, closestStore]);
 
   // Sync internal state when deliveryLocation changes
   useEffect(() => {
@@ -266,21 +271,24 @@ const LocationModalContent = () => {
       if (!bLat || !bLng) return;
 
       const storeColor = st.color || st.theme?.primaryColor || '#0284c7';
-      const radiusKm = Number(st.nearestBranch?.deliveryRadiusKm || st.nearestBranch?.deliveryRadius || 5);
+      const radiusKm = Number(st.nearestBranch?.deliveryRadiusKm || st.nearestBranch?.deliveryRadius || 3.5);
       const radiusMeters = radiusKm * 1000;
+      const isDeliverable = st.isDeliverable;
 
-      // Draw semi-transparent delivery zone circle
+      // Draw delivery zone circle with separate styling:
+      // Active in-range stores have distinct clean borders and fills;
+      // Outside stores have very soft subtle borders so they don't blob over the map
       const circle = L.circle([bLat, bLng], {
         radius: radiusMeters,
         color: storeColor,
-        weight: 1.5,
-        opacity: 0.6,
+        weight: isDeliverable ? 2 : 1,
+        opacity: isDeliverable ? 0.75 : 0.25,
         fillColor: storeColor,
-        fillOpacity: 0.12,
-        dashArray: st.isDeliverable ? null : '4, 4'
+        fillOpacity: isDeliverable ? 0.14 : 0.04,
+        dashArray: isDeliverable ? null : '6, 6'
       }).addTo(map);
 
-      circle.bindTooltip(`${st.displayName || st.name} (${radiusKm} km Delivery Zone)`, {
+      circle.bindTooltip(`${st.displayName || st.name} (${radiusKm} km Zone • ${isDeliverable ? 'Deliverable' : 'Outside Zone'})`, {
         sticky: true,
         className: 'delivery-zone-tooltip'
       });
@@ -289,10 +297,15 @@ const LocationModalContent = () => {
 
       const marker = L.marker([bLat, bLng], {
         icon: createStorePin(st),
-        zIndexOffset: 500
+        zIndexOffset: isDeliverable ? 600 : 300,
+        opacity: isDeliverable ? 1.0 : 0.65
       }).addTo(map);
 
       marker.on('click', () => {
+        if (!isDeliverable) {
+          addToast('Outside Delivery Zone ⚠️', `${st.displayName || st.name} does not deliver to your current pin (${st.distanceFormatted} away).`, 'warning');
+          return;
+        }
         setSelectedStoreId(st.id);
         addToast('Store Selected 🏬', `Selected ${st.displayName || st.name}`);
       });
@@ -303,8 +316,8 @@ const LocationModalContent = () => {
             <span style="font-size: 14px;">${st.logo || '🏬'}</span>
             <strong style="color: #0f172a; font-size: 12px;">${st.displayName || st.name}</strong>
           </div>
-          <div style="display: inline-block; padding: 2px 6px; border-radius: 9999px; background: #ecfdf5; color: #047857; font-weight: 800; font-size: 10px; margin-bottom: 3px;">
-            📍 ${st.distanceFormatted || '1.2 km'} away (${st.isDeliverable ? 'Inside Delivery Zone' : 'Outside Zone'})
+          <div style="display: inline-block; padding: 2px 6px; border-radius: 9999px; background: ${isDeliverable ? '#ecfdf5' : '#fef2f2'}; color: ${isDeliverable ? '#047857' : '#b91c1c'}; font-weight: 800; font-size: 10px; margin-bottom: 3px;">
+            📍 ${st.distanceFormatted || '1.2 km'} away (${isDeliverable ? 'Inside Delivery Zone' : 'Outside Zone'})
           </div>
           <p style="margin: 0; color: #475569; font-size: 10px;">
             ⚡ Fast Delivery: <strong>${st.estimatedTime || '15-25 mins'}</strong>
@@ -398,6 +411,10 @@ const LocationModalContent = () => {
   // Final confirmation: Locks location, saves to store and database, and auto-routes to relative nearest or chosen store
   const handleConfirmLocation = async (e) => {
     if (e) e.preventDefault();
+    if (deliverableStores.length === 0) {
+      addToast('Outside Delivery Zone ⚠️', 'No grocery stores deliver to this pin. Please drag your pin inside an active store zone.', 'warning');
+      return;
+    }
     setIsSaving(true);
 
     const nearest = findNearestCity(currentCoords.lat, currentCoords.lng);
@@ -649,14 +666,14 @@ const LocationModalContent = () => {
           )}
         </div>
 
-        {/* 🏪 4. NEARBY GROCERY STORES FROM YOUR PIN (Matches Live Proximity & Overlapping Zones) */}
-        {nearbyStores && nearbyStores.length > 0 && (
+        {/* 🏪 4. NEARBY GROCERY STORES FROM YOUR PIN (Strictly Deliverable Stores Only) */}
+        {deliverableStores.length > 0 ? (
           <div className="mt-4 text-left p-3.5 sm:p-4 rounded-2xl bg-slate-50/90 border border-slate-200/90 shadow-2xs">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Store className="w-4 h-4 text-emerald-600" />
                 <span className="text-xs sm:text-sm font-black text-slate-900">
-                  Nearby Grocery Stores from Your Pin:
+                  Nearby Grocery Stores Delivering to Your Pin:
                 </span>
               </div>
               <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/90 px-2.5 py-0.5 rounded-full border border-emerald-300">
@@ -665,9 +682,9 @@ const LocationModalContent = () => {
             </div>
 
             {/* Overlapping Zones Notice (Multi-retailer deliverability) */}
-            {nearbyStores.filter((s) => s.isDeliverable).length > 1 && (
+            {deliverableStores.length > 1 && (
               <div className="mb-2.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px] font-semibold flex items-center justify-between">
-                <span>🎯 In range of {nearbyStores.filter((s) => s.isDeliverable).length} overlapping delivery zones</span>
+                <span>🎯 In range of {deliverableStores.length} overlapping delivery zones</span>
                 <span className="text-[10px] text-emerald-700 font-medium">Select your preferred store</span>
               </div>
             )}
@@ -680,13 +697,13 @@ const LocationModalContent = () => {
               </div>
             )}
 
-            {/* 2x2 Interactive Retailer Selection Grid (Matching UI Layout) */}
+            {/* 2x2 Interactive Retailer Selection Grid (Deliverable Stores Only) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {nearbyStores.map((store, idx) => {
+              {deliverableStores.map((store, idx) => {
                 const isSelected = selectedStoreId
                   ? store.id === selectedStoreId
                   : store.id === effectiveStore?.id;
-                const isNearest = idx === 0 && store.isDeliverable;
+                const isNearest = idx === 0;
 
                 return (
                   <button
@@ -734,17 +751,22 @@ const LocationModalContent = () => {
                             NEAREST
                           </span>
                         )}
-                        {!store.isDeliverable && (
-                          <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded-md">
-                            Outside Zone
-                          </span>
-                        )}
                       </div>
                     </div>
                   </button>
                 );
               })}
             </div>
+          </div>
+        ) : (
+          <div className="mt-4 p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 text-left space-y-1 animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span className="font-bold text-xs">Outside Retailer Delivery Zones</span>
+            </div>
+            <p className="text-[11px] text-amber-800 leading-tight">
+              No grocery supermarkets currently deliver to this exact pin. Please drag your pin onto a nearby store's delivery circle on the map.
+            </p>
           </div>
         )}
 
@@ -767,12 +789,21 @@ const LocationModalContent = () => {
           <button
             type="button"
             onClick={handleConfirmLocation}
-            disabled={isSaving}
-            style={{ backgroundColor: tenantThemeColor }}
-            className="w-full py-3 px-6 text-white font-black text-sm rounded-xl shadow-md hover:shadow-lg hover:opacity-95 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-[0.99]"
+            disabled={isSaving || deliverableStores.length === 0}
+            style={{ backgroundColor: deliverableStores.length === 0 ? '#94a3b8' : tenantThemeColor }}
+            className={`w-full py-3 px-6 text-white font-black text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${
+              deliverableStores.length === 0
+                ? 'opacity-60 cursor-not-allowed'
+                : 'hover:shadow-lg hover:opacity-95 cursor-pointer active:scale-[0.99]'
+            }`}
           >
             {isSaving ? (
               <span>Saving Location to Store & Database...</span>
+            ) : deliverableStores.length === 0 ? (
+              <>
+                <AlertTriangle className="w-4 h-4 text-white" />
+                <span>Outside Delivery Zone • Drag Pin Closer</span>
+              </>
             ) : (
               <>
                 <Check className="w-4 h-4" />

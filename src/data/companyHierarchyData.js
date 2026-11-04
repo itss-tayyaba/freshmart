@@ -141,8 +141,8 @@ export const BRANCHES = [
     city: 'Faisalabad',
     latitude: 31.4382,
     longitude: 73.1292,
-    deliveryRadiusKm: 5,
-    deliveryRadius: 5,
+    deliveryRadiusKm: 3.5,
+    deliveryRadius: 3.5,
     deliveryStatus: 'active',
     deliveryTiers: [
       { distanceKm: 1, fee: 0 },
@@ -189,8 +189,8 @@ export const BRANCHES = [
     city: 'Faisalabad',
     latitude: 31.3965,
     longitude: 73.0505,
-    deliveryRadiusKm: 5,
-    deliveryRadius: 5,
+    deliveryRadiusKm: 5.2,
+    deliveryRadius: 5.2,
     deliveryStatus: 'active',
     deliveryTiers: [
       { distanceKm: 1, fee: 0 },
@@ -249,8 +249,8 @@ export const BRANCHES = [
     city: 'Faisalabad',
     latitude: 31.4360,
     longitude: 73.1795,
-    deliveryRadiusKm: 5,
-    deliveryRadius: 5,
+    deliveryRadiusKm: 4.0,
+    deliveryRadius: 4.0,
     deliveryStatus: 'active',
     deliveryTiers: [
       { distanceKm: 1, fee: 0 },
@@ -308,8 +308,8 @@ export const BRANCHES = [
     city: 'Faisalabad',
     latitude: 31.4015,
     longitude: 73.0830,
-    deliveryRadiusKm: 5,
-    deliveryRadius: 5,
+    deliveryRadiusKm: 3.5,
+    deliveryRadius: 3.5,
     deliveryStatus: 'active',
     deliveryTiers: [
       { distanceKm: 1, fee: 0 },

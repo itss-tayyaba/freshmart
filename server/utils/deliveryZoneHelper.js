@@ -195,16 +195,36 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
     }
   }
 
+  const normalizeTenantId = (raw) => {
+    if (!raw) return 'unknown';
+    const s = String(raw).toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (s.includes('alfatah') || s.includes('fatah') || s === 'company001') return 'tenant-alfatah';
+    if (s.includes('chaseup') || s.includes('caseup') || s === 'cu' || s === 'company002') return 'tenant-chaseup';
+    if (s.includes('chaseval') || s.includes('caseval') || s === 'cv' || s === 'company003') return 'tenant-chasevalue';
+    if (s.includes('freshmart') || s.includes('unimart') || s.includes('unimaart') || s === 'company004') return 'tenant-freshmart';
+    return String(raw);
+  };
+
   // Group by retailer (tenantId)
   const retailerMap = new Map();
   const unavailableRetailerMap = new Map();
 
   for (const branch of discoveredBranchesInRadius) {
-    const tId = String(branch.tenantId || branch.companyId || 'unknown');
+    const rawId = String(branch.tenantId || branch.companyId || 'unknown');
+    const tId = normalizeTenantId(rawId);
+    const tenantName = branch.tenantName || (
+      tId === 'tenant-alfatah' ? 'Al-Fatah Supermarket' :
+      tId === 'tenant-chaseup' ? 'Chase Up' :
+      tId === 'tenant-chasevalue' ? 'Chase Value' :
+      tId === 'tenant-freshmart' ? 'FreshMart Direct / UniMart' :
+      branch.name || tId
+    );
+
     if (branch.isEligibleForDelivery) {
       if (!retailerMap.has(tId)) {
         retailerMap.set(tId, {
           tenantId: tId,
+          tenantName,
           branches: [],
           bestBranch: branch,
           distanceKm: branch.distanceKm,
@@ -225,6 +245,7 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
       if (!unavailableRetailerMap.has(tId) && !retailerMap.has(tId)) {
         unavailableRetailerMap.set(tId, {
           tenantId: tId,
+          tenantName,
           branches: [branch],
           bestBranch: branch,
           distanceKm: branch.distanceKm,
