@@ -78,6 +78,7 @@ export const SuperAdminDashboard = () => {
     deleteCustomer,
     updateCustomer,
     adminLogout,
+    applyAuthSession,
     navigateTo,
     addToast,
     storeAdmins,
@@ -133,6 +134,8 @@ export const SuperAdminDashboard = () => {
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [tenantFilter, setTenantFilter] = useState('all');
+  const [tenantCityFilter, setTenantCityFilter] = useState('all');
+  const [adminCityFilter, setAdminCityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [orderSupermarketFilter, setOrderSupermarketFilter] = useState('all');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
@@ -554,6 +557,7 @@ export const SuperAdminDashboard = () => {
     name: '',
     email: '',
     phone: '',
+    city: 'Faisalabad',
     password: 'admin123'
   });
 
@@ -642,6 +646,52 @@ export const SuperAdminDashboard = () => {
     setIsEditTenantOpen(false);
   };
 
+  const handleOpenStoreDashboard = (store) => {
+    const matchedTenant =
+      (tenants || []).find((t) => isSameTenant(t.id, store.id) || t.slug === store.slug) ||
+      store;
+    setCurrentTenant(matchedTenant);
+
+    const matchedAdmin = (storeAdmins || []).find(
+      (a) =>
+        (isSameTenant(a.tenantId, store.id) || a.tenantId === store.id) &&
+        (!store.city || !a.city || a.city.toLowerCase() === store.city.toLowerCase())
+    ) || {
+      id: `admin_${store.id}`,
+      name: `${store.name || store.fullName} Admin`,
+      email: store.ownerEmail || `admin@${store.slug || 'store'}.pk`,
+      role: 'admin',
+      tenantId: store.id,
+      tenantName: store.name || store.fullName,
+      city: store.city || 'Faisalabad',
+      branchId: store.branchId || `branch_${store.id}`
+    };
+
+    applyAuthSession('admin', matchedAdmin, 'superadmin_switch_token');
+    navigateTo('admin');
+    addToast(
+      'Switched to Mart Console 🚀',
+      `Opened ${store.fullName || store.name} (${store.city || 'Faisalabad'}) as Store Admin.`,
+      'success'
+    );
+  };
+
+  const handleOpenAdminDashboard = (admin) => {
+    const matchedTenant =
+      (tenants || []).find((t) => isSameTenant(t.id, admin.tenantId)) ||
+      displayStores.find((s) => isSameTenant(s.id, admin.tenantId));
+    if (matchedTenant) {
+      setCurrentTenant(matchedTenant);
+    }
+    applyAuthSession('admin', admin, 'superadmin_switch_token');
+    navigateTo('admin');
+    addToast(
+      'Switched to Mart Console 🚀',
+      `Opened ${admin.tenantName || 'Mart'} (${admin.city || 'Faisalabad'}) console.`,
+      'success'
+    );
+  };
+
   const handleOpenEditAdmin = (admin) => {
     setEditAdminForm({
       id: admin.id || admin.email,
@@ -673,6 +723,7 @@ export const SuperAdminDashboard = () => {
     const targetStore = displayStores.find((s) => s.id === newAdminForm.tenantId);
     await addStoreAdmin({
       ...newAdminForm,
+      city: newAdminForm.city || targetStore?.city || 'Faisalabad',
       tenantName: targetStore?.fullName || 'Supermarket'
     });
     setIsAddAdminOpen(false);
@@ -681,6 +732,7 @@ export const SuperAdminDashboard = () => {
       name: '',
       email: '',
       phone: '',
+      city: 'Faisalabad',
       password: 'admin123'
     });
   };
@@ -1929,7 +1981,7 @@ export const SuperAdminDashboard = () => {
                     <span>Supermarket Tenants Registry</span>
                   </h2>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Managing Pakistani supermarket brands: Al-Fatah, Chase Up, Case Value, and Unimaart.
+                    Managing Pakistani supermarket brands: Al-Fatah, Chase Up, Case Value, and Unimaart across cities.
                   </p>
                 </div>
                 <button
@@ -1941,9 +1993,37 @@ export const SuperAdminDashboard = () => {
                 </button>
               </div>
 
+              {/* City Filter Pills */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-slate-500 mr-1">City Filter:</span>
+                {['all', 'faisalabad', 'lahore', 'islamabad', 'karachi'].map((cKey) => {
+                  const label = cKey === 'all' ? 'All Pakistani Cities' : `📍 ${cKey.charAt(0).toUpperCase() + cKey.slice(1)}`;
+                  const isSel = tenantCityFilter === cKey;
+                  return (
+                    <button
+                      key={cKey}
+                      type="button"
+                      onClick={() => setTenantCityFilter(cKey)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        isSel
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
               {/* Tenants Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                {displayStores.map((store) => (
+                {displayStores
+                  .filter((store) => {
+                    if (tenantCityFilter === 'all') return true;
+                    return (store.city || store.location || 'Faisalabad').toLowerCase().includes(tenantCityFilter.toLowerCase());
+                  })
+                  .map((store) => (
                   <div
                     key={store.id}
                     className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-4 flex flex-col justify-between"
@@ -1966,6 +2046,11 @@ export const SuperAdminDashboard = () => {
                       </div>
 
                       <div>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                            📍 {store.city || store.location || 'Faisalabad'}
+                          </span>
+                        </div>
                         <h3 className="font-black text-slate-900 text-base leading-tight">{store.fullName}</h3>
                         <p className="text-xs text-slate-500 mt-1">{store.tagline}</p>
                       </div>
@@ -1973,41 +2058,52 @@ export const SuperAdminDashboard = () => {
                       <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs space-y-1">
                         <p><strong className="text-slate-700">Owner:</strong> {store.ownerName}</p>
                         <p className="font-mono text-slate-500 truncate">{store.ownerEmail}</p>
-                        <p className="text-emerald-700 font-semibold text-[11px]">📍 {store.location}</p>
+                        <p className="text-emerald-700 font-semibold text-[11px]">📍 {store.location || store.city}</p>
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t border-slate-100 grid grid-cols-4 gap-1.5">
+                    <div className="space-y-2 pt-3 border-t border-slate-100">
+                      {/* 1-Click SuperAdmin Direct Open Mart Dashboard */}
                       <button
-                        onClick={() => handleOpenEditTenant(store)}
-                        className="py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer"
-                        title="Edit Supermarket Name & Profile"
+                        onClick={() => handleOpenStoreDashboard(store)}
+                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        title="Directly launch this mart dashboard console"
                       >
-                        <Edit2 className="w-3 h-3" />
-                        <span>Edit</span>
+                        <span>🚀 Open Mart Dashboard</span>
                       </button>
-                      <button
-                        onClick={() => handleOpenDetails(store)}
-                        className="py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition text-center cursor-pointer"
-                      >
-                        Profile
-                      </button>
-                      <button
-                        onClick={() => handleOpenPlan(store)}
-                        className="py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold transition text-center cursor-pointer"
-                      >
-                        Plan Tier
-                      </button>
-                      <button
-                        onClick={() => handleToggleStoreStatus(store)}
-                        className={`py-1.5 rounded-lg text-xs font-bold transition text-center cursor-pointer ${
-                          store.status === 'Active'
-                            ? 'bg-amber-50 hover:bg-amber-100 text-amber-700'
-                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
-                        }`}
-                      >
-                        {store.status === 'Active' ? 'Suspend' : 'Activate'}
-                      </button>
+
+                      <div className="grid grid-cols-4 gap-1.5">
+                        <button
+                          onClick={() => handleOpenEditTenant(store)}
+                          className="py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                          title="Edit Supermarket Name & Profile"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleOpenDetails(store)}
+                          className="py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition text-center cursor-pointer"
+                        >
+                          Profile
+                        </button>
+                        <button
+                          onClick={() => handleOpenPlan(store)}
+                          className="py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold transition text-center cursor-pointer"
+                        >
+                          Plan
+                        </button>
+                        <button
+                          onClick={() => handleToggleStoreStatus(store)}
+                          className={`py-1.5 rounded-lg text-xs font-bold transition text-center cursor-pointer ${
+                            store.status === 'Active'
+                              ? 'bg-amber-50 hover:bg-amber-100 text-amber-700'
+                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                          }`}
+                        >
+                          {store.status === 'Active' ? 'Pause' : 'Start'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -2088,7 +2184,7 @@ export const SuperAdminDashboard = () => {
                     <span>Mart Admins Credentials & Password Control</span>
                   </h2>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Every grocery shop has its dedicated Store Admin account and custom credentials assigned by Super Admin.
+                    Every grocery shop has its dedicated Store Admin account bound to its specific city and branch.
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -2102,11 +2198,34 @@ export const SuperAdminDashboard = () => {
                 </div>
               </div>
 
+              {/* City Filter Pills */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-slate-500 mr-1">City Filter:</span>
+                {['all', 'faisalabad', 'lahore', 'islamabad', 'karachi'].map((cKey) => {
+                  const label = cKey === 'all' ? 'All Pakistani Cities' : `📍 ${cKey.charAt(0).toUpperCase() + cKey.slice(1)}`;
+                  const isSel = adminCityFilter === cKey;
+                  return (
+                    <button
+                      key={cKey}
+                      type="button"
+                      onClick={() => setAdminCityFilter(cKey)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        isSel
+                          ? 'bg-amber-600 text-white shadow-xs'
+                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
               {/* Mart Admins Table */}
               <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
                 <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-700">
-                    {(storeAdmins || []).length} Registered Mart Admins
+                    {(storeAdmins || []).filter((a) => adminCityFilter === 'all' || (a.city || 'Faisalabad').toLowerCase() === adminCityFilter.toLowerCase()).length} Registered Mart Admins
                   </span>
                   <button
                     onClick={() => setIsAddAdminOpen(true)}
@@ -2118,7 +2237,9 @@ export const SuperAdminDashboard = () => {
                 </div>
 
                 <div className="divide-y divide-slate-100">
-                  {(storeAdmins || []).map((admin) => {
+                  {(storeAdmins || [])
+                    .filter((a) => adminCityFilter === 'all' || (a.city || 'Faisalabad').toLowerCase() === adminCityFilter.toLowerCase())
+                    .map((admin) => {
                     const isPasswordShown = !!showPasswordMap[admin.id];
                     return (
                       <div
@@ -2135,6 +2256,9 @@ export const SuperAdminDashboard = () => {
                               <span className="text-[10px] bg-slate-100 font-bold px-2 py-0.5 rounded-full text-slate-700">
                                 {admin.tenantName}
                               </span>
+                              <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                                📍 {admin.city || 'Faisalabad'}
+                              </span>
                               <span
                                 className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
                                   admin.status === 'Active'
@@ -2146,13 +2270,23 @@ export const SuperAdminDashboard = () => {
                               </span>
                             </div>
                             <div className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
-                              {admin.email} {admin.phone && `• ${admin.phone}`} {admin.location && `• 📍 ${admin.location}`}
+                              {admin.email} {admin.phone && `• ${admin.phone}`} • 📍 {admin.city || 'Faisalabad'}
                             </div>
                           </div>
                         </div>
 
                         {/* Password & Controls */}
                         <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                          {/* 1-Click Launch Dashboard */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAdminDashboard(admin)}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer transition shadow-xs flex items-center gap-1"
+                            title="Directly launch dashboard for this admin"
+                          >
+                            <span>🚀 Open Dashboard</span>
+                          </button>
+
                           <div className="bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 flex items-center gap-2">
                             <KeyRound className="w-3.5 h-3.5 text-slate-400" />
                             <span className="font-mono font-bold text-xs text-slate-800">
@@ -2854,6 +2988,22 @@ export const SuperAdminDashboard = () => {
               </div>
 
               <div>
+                <label className="font-bold text-slate-700 block mb-1">Assigned City Location</label>
+                <select
+                  value={newAdminForm.city || 'Faisalabad'}
+                  onChange={(e) => setNewAdminForm({ ...newAdminForm, city: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none"
+                >
+                  <option value="Faisalabad">📍 Faisalabad Hub</option>
+                  <option value="Lahore">📍 Lahore Hub</option>
+                  <option value="Islamabad">📍 Islamabad Hub</option>
+                  <option value="Karachi">📍 Karachi Hub</option>
+                  <option value="Rawalpindi">📍 Rawalpindi Hub</option>
+                  <option value="Multan">📍 Multan Hub</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="font-bold text-slate-700 block mb-1">Admin Full Name</label>
                 <input
                   type="text"
@@ -3184,13 +3334,18 @@ export const SuperAdminDashboard = () => {
                 const storeName = formData.get('name');
                 const ownerEmail = formData.get('email');
                 const plan = formData.get('plan') || 'Professional';
+                const city = formData.get('city') || 'Faisalabad';
+                const branchAddress = formData.get('branchAddress') || `${city} Main Hub`;
+                const adminPassword = formData.get('password') || 'admin123';
 
-                await addTenant({
+                const newTenant = await addTenant({
                   name: storeName,
                   slug: storeName.toLowerCase().replace(/\s+/g, '-'),
                   tagline: 'Quality Fresh Groceries & Household Essentials',
                   ownerName: formData.get('ownerName') || 'Store Partner',
                   ownerEmail: ownerEmail,
+                  city: city,
+                  location: `${city} Hub`,
                   color: '#0e7c66',
                   logo: '🏬',
                   subscription: {
@@ -3200,10 +3355,22 @@ export const SuperAdminDashboard = () => {
                     status: 'Active',
                     features: ['Store Admin Console', 'Unlimited Products', 'Fleet Dispatch']
                   },
-                  hubs: ['Main Hub (Faisalabad)']
+                  hubs: [`${city} Hub (${branchAddress})`]
                 });
 
-                addToast('Supermarket Registered 🎉', `${storeName} added with ${plan} subscription.`);
+                if (addStoreAdmin) {
+                  addStoreAdmin({
+                    name: `${storeName} (${city}) Admin`,
+                    email: ownerEmail,
+                    password: adminPassword,
+                    tenantId: newTenant?.id || `tenant-${storeName.toLowerCase().replace(/\s+/g, '-')}`,
+                    tenantName: `${storeName} (${city})`,
+                    city: city,
+                    status: 'Active'
+                  });
+                }
+
+                addToast('Supermarket Registered 🎉', `${storeName} (${city}) added with ${plan} subscription.`);
                 setIsAddTenantOpen(false);
               }}
               className="space-y-3 text-xs"
@@ -3219,15 +3386,55 @@ export const SuperAdminDashboard = () => {
                 />
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Owner / Manager Name</label>
-                <input
-                  type="text"
-                  name="ownerName"
-                  required
-                  placeholder="e.g. Imtiaz Abbasi"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Store City Location</label>
+                  <select
+                    name="city"
+                    defaultValue="Faisalabad"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none font-bold"
+                  >
+                    <option value="Faisalabad">📍 Faisalabad</option>
+                    <option value="Lahore">📍 Lahore</option>
+                    <option value="Islamabad">📍 Islamabad</option>
+                    <option value="Karachi">📍 Karachi</option>
+                    <option value="Rawalpindi">📍 Rawalpindi</option>
+                    <option value="Multan">📍 Multan</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Branch / Hub Address</label>
+                  <input
+                    type="text"
+                    name="branchAddress"
+                    placeholder="e.g. Main Commercial Hub"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Owner / Manager Name</label>
+                  <input
+                    type="text"
+                    name="ownerName"
+                    required
+                    placeholder="e.g. Imtiaz Abbasi"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Initial Admin Password</label>
+                  <input
+                    type="text"
+                    name="password"
+                    defaultValue="admin123"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono text-slate-800 focus:bg-white focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div>

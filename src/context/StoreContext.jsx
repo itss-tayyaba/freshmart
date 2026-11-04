@@ -547,6 +547,7 @@ export const StoreProvider = ({ children }) => {
 
   // --- 🛡️ Multi-Tenant Mart Admins State (Each Mart has its own Admin & Password assigned by Super Admin) ---
   const DEFAULT_STORE_ADMINS = [
+    // --- Al-Fatah City Admins ---
     {
       id: 'admin_alfatah',
       name: 'Sheikh Tariq Al-Fatah',
@@ -555,13 +556,51 @@ export const StoreProvider = ({ children }) => {
       password: 'admin123',
       phone: '+92 300 8441122',
       tenantId: 'tenant-alfatah',
-      tenantName: 'Al-Fatah Supermarket',
+      tenantName: 'Al-Fatah Supermarket (Faisalabad)',
+      city: 'Faisalabad',
+      branchId: 'branch_af_fsd',
       role: 'admin',
       status: 'Active',
-      location: 'D-Ground Flagship Hub (Faisalabad)',
+      location: 'East Canal Road Flagship Hub (Faisalabad)',
       createdAt: '2026-08-01T10:00:00.000Z',
       lastLogin: 'Today'
     },
+    {
+      id: 'admin_alfatah_lhr',
+      name: 'Mian Bilal Al-Fatah',
+      email: 'admin.lhr@alfatah.pk',
+      username: 'admin.lhr@alfatah.pk',
+      password: 'admin123',
+      phone: '+92 300 8443355',
+      tenantId: 'tenant-alfatah',
+      tenantName: 'Al-Fatah Supermarket (Lahore)',
+      city: 'Lahore',
+      branchId: 'branch_001',
+      role: 'admin',
+      status: 'Active',
+      location: 'DHA Phase 5 Mall Flagship (Lahore)',
+      createdAt: '2026-08-01T10:00:00.000Z',
+      lastLogin: 'Today'
+    },
+    {
+      id: 'admin_alfatah_isb',
+      name: 'Raja Kamran Al-Fatah',
+      email: 'admin.isb@alfatah.pk',
+      username: 'admin.isb@alfatah.pk',
+      password: 'admin123',
+      phone: '+92 300 8446677',
+      tenantId: 'tenant-alfatah',
+      tenantName: 'Al-Fatah Supermarket (Islamabad)',
+      city: 'Islamabad',
+      branchId: 'branch_003',
+      role: 'admin',
+      status: 'Active',
+      location: 'Centaurus Mall Megastore (Islamabad)',
+      createdAt: '2026-08-01T10:00:00.000Z',
+      lastLogin: 'Today'
+    },
+
+    // --- Chase Up City Admins ---
     {
       id: 'admin_chaseup',
       name: 'Muhammad Salman Chase',
@@ -570,13 +609,34 @@ export const StoreProvider = ({ children }) => {
       password: 'admin123',
       phone: '+92 300 7654321',
       tenantId: 'tenant-chaseup',
-      tenantName: 'Chase Up',
+      tenantName: 'Chase Up (Faisalabad)',
+      city: 'Faisalabad',
+      branchId: 'branch_006',
       role: 'admin',
       status: 'Active',
       location: 'Clock Tower Hub (Faisalabad)',
       createdAt: '2026-08-05T10:00:00.000Z',
       lastLogin: 'Today'
     },
+    {
+      id: 'admin_chaseup_khi',
+      name: 'Zubair Chase Karachi',
+      email: 'admin.khi@chaseup.pk',
+      username: 'admin.khi@chaseup.pk',
+      password: 'admin123',
+      phone: '+92 321 3456789',
+      tenantId: 'tenant-chaseup',
+      tenantName: 'Chase Up (Karachi)',
+      city: 'Karachi',
+      branchId: 'branch_004',
+      role: 'admin',
+      status: 'Active',
+      location: 'Clifton Marine Promenade (Karachi)',
+      createdAt: '2026-08-05T10:00:00.000Z',
+      lastLogin: 'Today'
+    },
+
+    // --- Chase Value City Admins ---
     {
       id: 'admin_chasevalue',
       name: 'Farhan Case Value',
@@ -585,13 +645,34 @@ export const StoreProvider = ({ children }) => {
       password: 'admin123',
       phone: '+92 321 9876543',
       tenantId: 'tenant-chasevalue',
-      tenantName: 'Chase Value (Case Value)',
+      tenantName: 'Chase Value (Faisalabad)',
+      city: 'Faisalabad',
+      branchId: 'branch_cv_fsd',
       role: 'admin',
       status: 'Active',
-      location: 'Wholesale Express Hub (Faisalabad)',
+      location: 'Wholesale Express Terminal (Faisalabad)',
       createdAt: '2026-08-10T10:00:00.000Z',
       lastLogin: 'Today'
     },
+    {
+      id: 'admin_chasevalue_khi',
+      name: 'Tariq Case Value Karachi',
+      email: 'admin.khi@chasevalue.pk',
+      username: 'admin.khi@chasevalue.pk',
+      password: 'admin123',
+      phone: '+92 321 8765432',
+      tenantId: 'tenant-chasevalue',
+      tenantName: 'Chase Value (Karachi)',
+      city: 'Karachi',
+      branchId: 'branch_007',
+      role: 'admin',
+      status: 'Active',
+      location: 'Shaheed-e-Millat Main Hub (Karachi)',
+      createdAt: '2026-08-10T10:00:00.000Z',
+      lastLogin: 'Today'
+    },
+
+    // --- Unimaart / FreshMart City Admins ---
     {
       id: 'admin_unimart',
       name: 'Aimen Yasin',
@@ -600,10 +681,29 @@ export const StoreProvider = ({ children }) => {
       password: 'admin123',
       phone: '+92 300 1234567',
       tenantId: 'tenant-freshmart',
-      tenantName: 'Unimaart (Market Store)',
+      tenantName: 'Unimaart (Faisalabad)',
+      city: 'Faisalabad',
+      branchId: 'branch_um_fsd',
       role: 'admin',
       status: 'Active',
       location: 'Peoples Colony Dark Store (Faisalabad)',
+      createdAt: '2026-08-12T10:00:00.000Z',
+      lastLogin: 'Today'
+    },
+    {
+      id: 'admin_unimart_lhr',
+      name: 'Usman Ghani Unimaart',
+      email: 'admin.lhr@unimart.pk',
+      username: 'admin.lhr@unimart.pk',
+      password: 'admin123',
+      phone: '+92 300 2345678',
+      tenantId: 'tenant-freshmart',
+      tenantName: 'Unimaart (Lahore)',
+      city: 'Lahore',
+      branchId: 'branch_010',
+      role: 'admin',
+      status: 'Active',
+      location: 'Gulberg SuperHub (Lahore)',
       createdAt: '2026-08-12T10:00:00.000Z',
       lastLogin: 'Today'
     }
@@ -7139,6 +7239,7 @@ export const StoreProvider = ({ children }) => {
         adminRole,
         setAdminRole,
         switchAdminPortal,
+        applyAuthSession,
         adminLogin,
         adminLogout,
         logoutAdmin: adminLogout,

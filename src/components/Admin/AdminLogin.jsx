@@ -38,6 +38,7 @@ export const AdminLogin = () => {
 
   const [selectedRole, setSelectedRole] = useState('superadmin');
   const [selectedMartId, setSelectedMartId] = useState('tenant-alfatah');
+  const [selectedCity, setSelectedCity] = useState('Faisalabad');
   const [selectedBranchId, setSelectedBranchId] = useState('all');
   const [username, setUsername] = useState('superadmin');
   const [password, setPassword] = useState('superadmin123');
@@ -168,18 +169,26 @@ export const AdminLogin = () => {
 
   const currentRoleConfig = roles.find((r) => r.id === selectedRole) || roles[0];
 
-  const handleSelectMart = (martId, role = selectedRole) => {
+  const handleSelectMart = (martId, role = selectedRole, city = selectedCity) => {
     setSelectedMartId(martId);
     setErrorMessage('');
     
     const martConfig = availableMarts.find((m) => m.id === martId);
 
     if (role === 'admin') {
-      const martAdmin = (storeAdmins || []).find((sa) => sa.tenantId === martId);
+      const targetCity = city || selectedCity || 'Faisalabad';
+      const martAdmin = (storeAdmins || []).find(
+        (sa) => (sa.tenantId === martId || sa.companyId === martId) &&
+                sa.city?.toLowerCase() === targetCity.toLowerCase()
+      ) || (storeAdmins || []).find((sa) => sa.tenantId === martId);
+
       if (martAdmin) {
         setUsername(martAdmin.email || martAdmin.username);
         setPassword(martAdmin.password || 'admin123');
-        showFeedback(`Loaded ${martAdmin.tenantName || 'Mart'} Admin credentials`);
+        if (martAdmin.branchId) {
+          setSelectedBranchId(martAdmin.branchId);
+        }
+        showFeedback(`Loaded ${martAdmin.name || martAdmin.tenantName} (${martAdmin.city || targetCity}) credentials`);
       } else if (martConfig) {
         setUsername(martConfig.defaultEmail);
         setPassword('admin123');
@@ -538,6 +547,45 @@ export const AdminLogin = () => {
                   );
                 })}
               </div>
+
+              {/* City Hub Selection for Store Admin Isolation */}
+              {selectedRole === 'admin' && (
+                <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span>Mart City Location:</span>
+                    <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold border border-emerald-200">
+                      📍 {selectedCity} Hub
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    {[
+                      { city: 'Faisalabad', label: '📍 Faisalabad' },
+                      { city: 'Lahore', label: '📍 Lahore' },
+                      { city: 'Islamabad', label: '📍 Islamabad' },
+                      { city: 'Karachi', label: '📍 Karachi' }
+                    ].map((c) => {
+                      const isCityActive = selectedCity.toLowerCase() === c.city.toLowerCase();
+                      return (
+                        <button
+                          key={c.city}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCity(c.city);
+                            handleSelectMart(selectedMartId, 'admin', c.city);
+                          }}
+                          className={`py-1.5 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                            isCityActive
+                              ? 'bg-slate-900 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {c.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

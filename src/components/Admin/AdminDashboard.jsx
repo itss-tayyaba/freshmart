@@ -43,6 +43,7 @@ import { SettingsView } from './views/SettingsView';
 import { FulfillmentView } from './views/FulfillmentView';
 import { PickupStaffPortal } from './views/PickupStaffPortal';
 import { DeliveryView } from './views/DeliveryView';
+import { DeliveryZoneView } from './views/DeliveryZoneView';
 
 import { AdminModals } from './modals/AdminModals';
 import { AdminLogin } from './AdminLogin';
@@ -277,6 +278,7 @@ const StoreAdminConsole = () => {
       { label: 'Orders', icon: ShoppingBag, badge: pendingOrdersCount > 0 ? pendingOrdersCount : (unifiedTenantOrders.length > 0 ? `${unifiedTenantOrders.length}` : null), badgeColor: pendingOrdersCount > 0 ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300' },
       { label: 'Pickup Staff', icon: Boxes, badge: pendingPickupStaffCount > 0 ? pendingPickupStaffCount : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { label: 'Riders', icon: Truck, customName: 'Rider Fleet & Assignments' },
+      { label: 'Delivery Zones', icon: MapPin, customName: 'Área de Entrega' },
       { label: 'Customers', icon: Users },
       { label: 'Inventory', icon: Boxes, badge: lowStockCount > 0 ? lowStockCount : null, badgeColor: 'bg-rose-500/20 text-rose-300' },
       { label: 'Promotions', icon: Tag },
@@ -715,6 +717,7 @@ const StoreAdminConsole = () => {
           {activeTab === 'Pickup Staff' && <FulfillmentView orders={unifiedTenantOrders} />}
           {activeTab === 'Rider' && <DeliveryView />}
           {activeTab === 'Riders' && <DeliveryView />}
+          {activeTab === 'Delivery Zones' && <DeliveryZoneView />}
           {activeTab === 'Customers' && (
             <CustomersView onOpenAddCustomerModal={() => setIsAddCustomerOpen(true)} />
           )}
