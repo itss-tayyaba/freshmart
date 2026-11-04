@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { calculateDistanceKm, findNearestCity, PAKISTAN_CITIES } from '../src/data/pakistanLocations.js';
+import { cleanAdministrativeName } from '../src/utils/geolocationHelper.js';
 import { INITIAL_TENANTS } from '../src/data/tenantData.js';
 import { BRANCHES, resolveTenantId } from '../src/data/companyHierarchyData.js';
 
@@ -103,5 +104,12 @@ describe('Leaflet GPS Map & Multi-Stage Location Detection Pipeline', () => {
 
     const resKhi = findNearestCity(24.8190, 67.0320);
     assert.equal(resKhi.city.id, 'karachi');
+  });
+
+  it('6. cleanAdministrativeName strips government Tehsil/District jargon and deduplicates', () => {
+    assert.equal(cleanAdministrativeName('Faisalabad Saddar Tehsil'), 'Faisalabad');
+    assert.equal(cleanAdministrativeName('Faisalabad City Tehsil'), 'Faisalabad');
+    assert.equal(cleanAdministrativeName('Lahore Cantonment Tehsil'), 'Lahore');
+    assert.equal(cleanAdministrativeName('Rawalpindi District'), 'Rawalpindi');
   });
 });

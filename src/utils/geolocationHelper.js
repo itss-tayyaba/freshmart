@@ -193,13 +193,26 @@ async function getIPCoordinates() {
 }
 
 /**
- * Reverse geocodes latitude & longitude into an exact readable address using OpenStreetMap Nominatim
- * with comprehensive Pakistani administrative hierarchy resolution (street, village, tehsil, city, district)
- * and intelligent local fallback (never outputs just 'Pakistan').
+ * Strips government administrative suffixes (City Tehsil, Saddar Tehsil, Tehsil, District, Division)
+ * to return clean, natural Pakistani city and locality names.
+ */
+export function cleanAdministrativeName(val) {
+  if (!val || typeof val !== 'string') return '';
+  return val
+    .replace(/\s*(City Tehsil|Saddar Tehsil|Tehsil|District|Division|Subdistrict|Sub-District|Cantonment|Cantt)\b/gi, '')
+    .replace(/,\s*Pakistan\b/gi, '')
+    .trim();
+}
+
+/**
+ * Reverse geocodes latitude & longitude into an exact, clean, human-readable address
+ * using OpenStreetMap Nominatim with strict de-duplication and Pakistani geographic intelligence.
+ * Never outputs repetitive administrative tokens like "Faisalabad Saddar Tehsil, Muradabad, Muradabad".
  */
 export async function reverseGeocodeAddress(lat, lng) {
   const nearest = findNearestCity(lat, lng);
-  const nearestCityName = nearest?.city?.city ? nearest.city.city.split(',')[0].trim() : 'Faisalabad';
+  const nearestCityRaw = nearest?.city?.city ? nearest.city.city.split(',')[0].trim() : 'Faisalabad';
+  const cleanBaseCity = cleanAdministrativeName(nearestCityRaw) || 'Faisalabad';
 
   try {
     const controller = new AbortController();
@@ -221,87 +234,141 @@ export async function reverseGeocodeAddress(lat, lng) {
       const data = await res.json();
       if (data && data.address) {
         const addr = data.address;
-        const street =
+
+        // Specific landmark / point of interest
+        const landmark =
+          addr.amenity ||
+          addr.tourism ||
+          addr.building ||
+          addr.shop ||
+          addr.commercial ||
+          addr.office ||
+          addr.leisure ||
+          '';
+
+        // Specific street or road
+        const road =
           addr.road ||
           addr.street ||
           addr.pedestrian ||
           addr.footway ||
           addr.path ||
           addr.highway ||
-          addr.amenity ||
-          addr.shop ||
           '';
-        const houseNum = addr.house_number || addr.building || '';
+        const houseNum = addr.house_number || '';
+        let streetPart = '';
+        if (houseNum && road) streetPart = `${houseNum}, ${road}`;
+        else if (road) streetPart = road;
+
+        // Neighborhood / Locality / Suburb / Village
         const locality =
           addr.suburb ||
           addr.neighbourhood ||
           addr.residential ||
           addr.village ||
           addr.hamlet ||
-          addr.locality ||
           addr.subdivision ||
           addr.quarter ||
-          addr.commercial ||
-          addr.industrial ||
+          addr.locality ||
           '';
-        const tehsil = addr.subdistrict || addr.city_district || addr.county || '';
-        const cityCandidate = addr.city || addr.town || addr.municipality || addr.district || nearestCityName;
-        const cleanCity = cityCandidate.toLowerCase().includes('pakistan')
-          ? cityCandidate.replace(/,\s*Pakistan/i, '').trim()
-          : cityCandidate;
 
+        // City resolution (clean out any "Tehsil" or "District" strings)
+        const cityCandidate = addr.city || addr.town || addr.municipality || cleanBaseCity;
+        const resolvedCity = cleanAdministrativeName(cityCandidate) || cleanBaseCity;
+
+        // Collect and de-duplicate parts
         const parts = [];
-        if (houseNum && street) parts.push(`${houseNum}, ${street}`);
-        else if (street) parts.push(street);
+        const seen = new Set();
 
-        if (locality && !parts.some((p) => p.toLowerCase() === locality.toLowerCase())) {
-          parts.push(locality);
-        }
-        if (
-          tehsil &&
-          !parts.some((p) => p.toLowerCase().includes(tehsil.toLowerCase())) &&
-          !tehsil.toLowerCase().includes(cleanCity.toLowerCase())
-        ) {
-          parts.push(tehsil);
-        }
-        if (cleanCity && !parts.some((p) => p.toLowerCase().includes(cleanCity.toLowerCase()))) {
-          parts.push(cleanCity);
+        const addPart = (rawVal) => {
+          if (!rawVal) return;
+          const cleaned = cleanAdministrativeName(rawVal);
+          if (!cleaned) return;
+          const lower = cleaned.toLowerCase();
+
+          if (lower === 'pakistan' || /^\d{5}$/.test(cleaned)) return;
+
+          // Check for exact match or full substring match
+          for (const s of seen) {
+            if (s === lower || s.includes(lower) || lower.includes(s)) {
+              return;
+            }
+          }
+
+          seen.add(lower);
+          parts.push(cleaned);
+        };
+
+        addPart(landmark);
+        addPart(streetPart);
+        addPart(locality);
+
+        // Always append the clean city name if not already in parts
+        if (!parts.some((p) => p.toLowerCase().includes(resolvedCity.toLowerCase()))) {
+          parts.push(resolvedCity);
         }
 
-        // Filter out any naked 'Pakistan'
-        const cleanParts = parts.filter((p) => p.trim().toLowerCase() !== 'pakistan');
-
-        if (cleanParts.length > 0) {
+        if (parts.length > 0) {
+          const areaName = cleanAdministrativeName(locality || landmark || streetPart) || resolvedCity;
           return {
-            formatted: `${cleanParts.join(', ')}, ${cleanCity}`,
-            area: locality || street || tehsil || 'Local Area',
-            city: `${cleanCity}, Pakistan`,
-            state: addr.state || nearest.city.province || 'Punjab'
+            formatted: parts.join(', '),
+            area: areaName,
+            city: `${resolvedCity}, Pakistan`,
+            state: addr.state || nearest.city.province || 'Punjab',
+            coords: { lat, lng }
           };
         }
       }
 
-      // If address object didn't yield clean parts, try cleaning data.display_name
+      // If data.address didn't yield clean parts, parse display_name
       if (data && data.display_name) {
-        const nameParts = data.display_name
+        const rawTokens = data.display_name
           .split(',')
-          .map((s) => s.trim())
-          .filter((s) => s.toLowerCase() !== 'pakistan' && !/^\d{4,6}$/.test(s));
-        if (nameParts.length > 0) {
+          .map((s) => cleanAdministrativeName(s.trim()))
+          .filter(
+            (s) =>
+              s &&
+              s.toLowerCase() !== 'pakistan' &&
+              !/^\d{4,6}$/.test(s) &&
+              !/division|district|tehsil/i.test(s)
+          );
+
+        const uniqueTokens = [];
+        const tokenSeen = new Set();
+        for (const t of rawTokens) {
+          const tLower = t.toLowerCase();
+          let duplicate = false;
+          for (const s of tokenSeen) {
+            if (s === tLower || s.includes(tLower) || tLower.includes(s)) {
+              duplicate = true;
+              break;
+            }
+          }
+          if (!duplicate) {
+            tokenSeen.add(tLower);
+            uniqueTokens.push(t);
+          }
+        }
+
+        if (uniqueTokens.length > 0) {
+          if (!uniqueTokens.some((t) => t.toLowerCase().includes(cleanBaseCity.toLowerCase()))) {
+            uniqueTokens.push(cleanBaseCity);
+          }
           return {
-            formatted: nameParts.slice(0, 3).join(', '),
-            area: nameParts[0] || 'Local Area',
-            city: `${nearestCityName}, Pakistan`,
-            state: nearest.city.province || 'Punjab'
+            formatted: uniqueTokens.slice(0, 4).join(', '),
+            area: uniqueTokens[0] || 'Local Area',
+            city: `${cleanBaseCity}, Pakistan`,
+            state: nearest.city.province || 'Punjab',
+            coords: { lat, lng }
           };
         }
       }
     }
   } catch (e) {
-    // Ignore reverse geocode network failures and proceed to local geographic resolution
+    // Network fallback
   }
 
-  // Fallback to local Pakistan geography & distance resolution (never outputs just 'Pakistan')
+  // Fallback to local Pakistani neighborhood data by distance
   let closestNeigh = null;
   let minD = Infinity;
   for (const n of nearest.city.neighborhoods || []) {
@@ -314,24 +381,27 @@ export async function reverseGeocodeAddress(lat, lng) {
 
   if (closestNeigh && minD <= 2.5) {
     return {
-      formatted: closestNeigh.defaultAddress || `${closestNeigh.name}, ${nearestCityName}`,
+      formatted: `${closestNeigh.name}, ${cleanBaseCity}`,
       area: closestNeigh.name,
-      city: `${nearestCityName}, Pakistan`,
-      state: nearest.city.province || 'Punjab'
+      city: `${cleanBaseCity}, Pakistan`,
+      state: nearest.city.province || 'Punjab',
+      coords: { lat, lng }
     };
   } else if (closestNeigh && minD <= 8) {
     return {
-      formatted: `Near ${closestNeigh.name}, ${nearestCityName}`,
+      formatted: `Near ${closestNeigh.name}, ${cleanBaseCity}`,
       area: closestNeigh.name,
-      city: `${nearestCityName}, Pakistan`,
-      state: nearest.city.province || 'Punjab'
+      city: `${cleanBaseCity}, Pakistan`,
+      state: nearest.city.province || 'Punjab',
+      coords: { lat, lng }
     };
   } else {
     return {
-      formatted: `${nearestCityName} Outskirts (~${nearest.distanceKm.toFixed(1)} km from ${nearestCityName} Center)`,
-      area: `${nearestCityName} Outskirts`,
-      city: `${nearestCityName}, Pakistan`,
-      state: nearest.city.province || 'Punjab'
+      formatted: `${cleanBaseCity} Hub (~${nearest.distanceKm.toFixed(1)} km from ${cleanBaseCity} Center)`,
+      area: `${cleanBaseCity} Area`,
+      city: `${cleanBaseCity}, Pakistan`,
+      state: nearest.city.province || 'Punjab',
+      coords: { lat, lng }
     };
   }
 }

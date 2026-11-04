@@ -211,6 +211,15 @@ const LocationModalContent = () => {
         const rev = await reverseGeocodeAddress(fixedLat, fixedLng);
         if (rev && rev.formatted) {
           setAddressInput(rev.formatted);
+          userMarker.bindPopup(`
+            <div style="font-family: inherit; font-size: 11px;">
+              <strong style="color: #059669; font-size: 13px;">📍 ${rev.area || 'Pinned Location'}</strong>
+              <p style="margin: 3px 0 0; color: #475569;">${rev.formatted}</p>
+              <div style="margin-top: 4px; font-weight: 700; color: #0284c7;">
+                GPS: ${fixedLat.toFixed(4)}°N, ${fixedLng.toFixed(4)}°E
+              </div>
+            </div>
+          `).openPopup();
         }
       } catch (err) {
         // preserve current input

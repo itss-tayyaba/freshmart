@@ -52,6 +52,22 @@ export const PAKISTAN_CITIES = [
         coords: { lat: 31.4082, lng: 73.1145 },
         defaultAddress: 'Kohinoor City, Jaranwala Road, Faisalabad',
         postalCode: '38000'
+      },
+      {
+        id: 'fsd-muradabad',
+        name: 'Muradabad',
+        area: 'Muradabad / Sardar Pura',
+        coords: { lat: 31.3950, lng: 73.0650 },
+        defaultAddress: 'Muradabad, Faisalabad',
+        postalCode: '38023'
+      },
+      {
+        id: 'fsd-clocktower',
+        name: 'Clock Tower',
+        area: 'Clock Tower / Eight Bazaars',
+        coords: { lat: 31.4187, lng: 73.0791 },
+        defaultAddress: 'Clock Tower, Downtown, Faisalabad',
+        postalCode: '38023'
       }
     ]
   },
