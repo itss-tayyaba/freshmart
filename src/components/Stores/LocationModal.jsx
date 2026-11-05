@@ -274,10 +274,14 @@ const LocationModalContent = () => {
     deliveryCirclesRef.current.forEach((c) => map.removeLayer(c));
     deliveryCirclesRef.current = [];
 
-    nearbyStores.forEach((st) => {
-      const bLat = Number(st.nearestBranch?.latitude || st.nearestBranch?.coordinates?.lat || 31.4125);
-      const bLng = Number(st.nearestBranch?.longitude || st.nearestBranch?.coordinates?.lng || 73.0995);
-      if (!bLat || !bLng) return;
+    // Render store markers and delivery radius circles on the Leaflet Map
+    // Strictly show in-zone deliverable stores to prevent cluttering or placing out-of-zone stores on the map
+    const storesToRender = deliverableStores.length > 0 ? deliverableStores : (closestStore ? [closestStore] : []);
+
+    storesToRender.forEach((st) => {
+      const bLat = Number(st.nearestBranch?.latitude ?? st.nearestBranch?.coordinates?.lat);
+      const bLng = Number(st.nearestBranch?.longitude ?? st.nearestBranch?.coordinates?.lng);
+      if (!Number.isFinite(bLat) || !Number.isFinite(bLng)) return;
 
       const storeColor = st.color || st.theme?.primaryColor || '#0284c7';
       const radiusKm = Number(st.nearestBranch?.deliveryRadiusKm || st.nearestBranch?.deliveryRadius || 3.5);
@@ -339,7 +343,7 @@ const LocationModalContent = () => {
 
       storeMarkersRef.current.push(marker);
     });
-  }, [nearbyStores]);
+  }, [deliverableStores, closestStore]);
 
   // 🎯 DETECT CURRENT LOCATION (Auto-Locate GPS)
   const handleDetectLocation = async () => {
@@ -699,10 +703,10 @@ const LocationModalContent = () => {
             )}
 
             {/* Progressive Search Expansion Banner */}
-            {closestStore?.searchRadiusKm > 5 && (
+            {closestStore?.searchRadiusKm > 1 && (
               <div className="mb-2.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-[11px] font-semibold flex items-center justify-between">
-                <span>🔍 Progressive search expanded to {closestStore.searchRadiusKm} km</span>
-                <span className="text-[10px] text-blue-700 font-medium">Discovered stores in range</span>
+                <span>🔍 Progressive search: Found in-range stores at {closestStore.searchRadiusKm} km</span>
+                <span className="text-[10px] text-blue-700 font-medium">Expanded from 1 km</span>
               </div>
             )}
 

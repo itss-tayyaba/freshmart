@@ -126,8 +126,9 @@ export const NearbyStoresSection = ({ nearbyStores = [], onSelectStore }) => {
 
     // 2. Add Supermarket Store Markers
     nearbyStores.forEach((store) => {
-      const bLat = Number(store.nearestBranch?.latitude || store.nearestBranch?.coordinates?.lat || 31.4125);
-      const bLng = Number(store.nearestBranch?.longitude || store.nearestBranch?.coordinates?.lng || 73.0995);
+      const bLat = Number(store.nearestBranch?.latitude ?? store.nearestBranch?.coordinates?.lat);
+      const bLng = Number(store.nearestBranch?.longitude ?? store.nearestBranch?.coordinates?.lng);
+      if (!Number.isFinite(bLat) || !Number.isFinite(bLng)) return;
       const isSelected = activeStore?.id === store.id;
 
       const storeMarker = L.marker([bLat, bLng], {
@@ -301,8 +302,8 @@ export const NearbyStoresSection = ({ nearbyStores = [], onSelectStore }) => {
         {nearbyStores.map((store, idx) => {
           const isSelected = currentTenant?.id === store.id || (currentTenant?.slug && currentTenant.slug === store.tenant.slug);
           const isNearest = idx === 0;
-          const bLat = Number(store.nearestBranch?.latitude || store.nearestBranch?.coordinates?.lat || 31.4125);
-          const bLng = Number(store.nearestBranch?.longitude || store.nearestBranch?.coordinates?.lng || 73.0995);
+          const bLat = Number(store.nearestBranch?.latitude ?? store.nearestBranch?.coordinates?.lat);
+          const bLng = Number(store.nearestBranch?.longitude ?? store.nearestBranch?.coordinates?.lng);
           
           return (
             <div

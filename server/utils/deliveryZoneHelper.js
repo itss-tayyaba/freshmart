@@ -154,7 +154,8 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
         ? isPointInPolygon({ lat: userLat, lng: userLng }, b.deliveryPolygon)
         : false;
 
-      const insideDeliveryZone = insidePolygon || effectiveDistKm <= configuredRadius;
+      // Deliverable if inside custom polygon, within configured radius, or within 3 km of store
+      const insideDeliveryZone = insidePolygon || effectiveDistKm <= configuredRadius || effectiveDistKm <= 3.0;
       const isEligible = insideDeliveryZone || (b.supportsExtendedDelivery && effectiveDistKm <= 20);
 
       const fee = calculateBranchDeliveryFee(b, effectiveDistKm);
@@ -175,8 +176,8 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
     })
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
-  // Progressive Expansion Loop: 5 km -> 10 km -> 15 km -> 20 km -> 25 km
-  let searchRadiusKm = 5;
+  // Progressive Expansion Loop: 1 km -> 3 km -> 5 km -> 10 km -> 15 km -> 20 km -> 25 km
+  let searchRadiusKm = SEARCH_STEPS_KM[0] || 1;
   const searchStepsTaken = [];
   let discoveredBranchesInRadius = [];
   let eligibleBranchesInRadius = [];

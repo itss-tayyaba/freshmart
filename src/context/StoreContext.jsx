@@ -1158,12 +1158,45 @@ export const StoreProvider = ({ children }) => {
 
       const matchedGroup = eligibleGroup || unavailableGroup;
       const isDeliverable = Boolean(eligibleGroup && eligibleGroup.isEligible);
-      const bestBranch = matchedGroup?.bestBranch || null;
-      const distanceKm = matchedGroup?.distanceKm ?? null;
-      const deliveryFee = matchedGroup?.deliveryFee ?? 100;
+      
+      // Always resolve authentic physical branch with exact coordinates for this tenant
+      let bestBranch = matchedGroup?.bestBranch || null;
+      if (!bestBranch) {
+        const tenantBranches = branchesToEvaluate.filter(
+          (b) => isSameTenant(b.tenantId, tenant.id) || b.tenantId === tenantCanonicalId
+        );
+        if (tenantBranches.length > 0) {
+          let minB = tenantBranches[0];
+          let minBDist = Infinity;
+          for (const b of tenantBranches) {
+            const bLat = Number(b.latitude ?? b.coordinates?.lat);
+            const bLng = Number(b.longitude ?? b.coordinates?.lng);
+            if (!isNaN(bLat) && !isNaN(bLng)) {
+              const d = calculateHaversineDistanceKm(userLat, userLng, bLat, bLng);
+              if (d < minBDist) {
+                minBDist = d;
+                minB = b;
+              }
+            }
+          }
+          bestBranch = minB;
+        }
+      }
+
+      const branchLat = Number(bestBranch?.latitude ?? bestBranch?.coordinates?.lat);
+      const branchLng = Number(bestBranch?.longitude ?? bestBranch?.coordinates?.lng);
+      const calcDist = (Number.isFinite(branchLat) && Number.isFinite(branchLng))
+        ? calculateHaversineDistanceKm(userLat, userLng, branchLat, branchLng)
+        : null;
+
+      const effectiveDistance = Number.isFinite(matchedGroup?.distanceKm)
+        ? matchedGroup.distanceKm
+        : calcDist;
+
+      const deliveryFee = matchedGroup?.deliveryFee ?? (bestBranch ? calculateBranchDeliveryFee(bestBranch, effectiveDistance || 5) : 100);
       const estimatedTime =
         matchedGroup?.estimatedTime ||
-        (distanceKm ? `${Math.round(distanceKm * 5 + 15)} mins` : '20-30 mins');
+        (effectiveDistance ? estimateDeliveryTime(effectiveDistance) : '20-30 mins');
 
       return {
         tenant,
@@ -1177,9 +1210,9 @@ export const StoreProvider = ({ children }) => {
         theme: tenant.theme,
         color: tenant.color,
         nearestBranch: bestBranch,
-        distanceKm: Number.isFinite(distanceKm) ? Number(distanceKm.toFixed(1)) : null,
-        distanceFormatted: Number.isFinite(distanceKm)
-          ? `${distanceKm % 1 === 0 ? distanceKm.toFixed(0) : distanceKm.toFixed(1)} km`
+        distanceKm: Number.isFinite(effectiveDistance) ? Number(effectiveDistance.toFixed(1)) : null,
+        distanceFormatted: Number.isFinite(effectiveDistance)
+          ? `${effectiveDistance % 1 === 0 ? effectiveDistance.toFixed(0) : effectiveDistance.toFixed(1)} km`
           : 'Unavailable',
         estimatedTime,
         isDeliverable,

@@ -287,9 +287,11 @@ export const LeafletLocationPicker = ({
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {nearbyStores.map((st, idx) => {
-              const bLat = Number(st.nearestBranch?.latitude || st.nearestBranch?.coordinates?.lat || 31.4125);
-              const bLng = Number(st.nearestBranch?.longitude || st.nearestBranch?.coordinates?.lng || 73.0995);
-              const realDist = calculateDistanceKm(currentLat, currentLng, bLat, bLng);
+              const bLat = Number(st.nearestBranch?.latitude ?? st.nearestBranch?.coordinates?.lat);
+              const bLng = Number(st.nearestBranch?.longitude ?? st.nearestBranch?.coordinates?.lng);
+              const realDist = (Number.isFinite(bLat) && Number.isFinite(bLng))
+                ? calculateDistanceKm(currentLat, currentLng, bLat, bLng)
+                : st.distanceKm;
               const isClosest = idx === 0;
 
               return (
