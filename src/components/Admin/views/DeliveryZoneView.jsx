@@ -43,7 +43,7 @@ const createStoreBranchPin = (name, color = '#059669') =>
   });
 
 export const DeliveryZoneView = () => {
-  const { currentTenant, allBranches, BRANCHES, addToast } = useStore();
+  const { currentTenant, allBranches, BRANCHES, addToast, updateBranch } = useStore();
 
   // 1. Get branches belonging to current tenant
   const tenantBranches = useMemo(() => {
@@ -240,7 +240,7 @@ export const DeliveryZoneView = () => {
         fillOpacity: Math.min(0.25, opacityStep)
       }).addTo(map);
 
-      circle.bindTooltip(`Raio ${tier.distanceKm} km • Taxa: Rs. ${tier.fee}`, {
+      circle.bindTooltip(`Radius ${tier.distanceKm} km • Fee: Rs. ${tier.fee}`, {
         sticky: true,
         className: 'concentric-radius-tooltip'
       });
@@ -256,7 +256,7 @@ export const DeliveryZoneView = () => {
     }
   };
 
-  // Add new tier (+ Novo raio)
+  // Add new tier (+ Add Radius Tier)
   const handleAddTier = () => {
     const nextDistance =
       deliveryTiers.length > 0
@@ -276,7 +276,7 @@ export const DeliveryZoneView = () => {
   // Remove tier
   const handleRemoveTier = (index) => {
     if (deliveryTiers.length <= 1) {
-      addToast('Aviso', 'A loja deve ter pelo menos uma faixa de raio.', 'info');
+      addToast('Warning', 'The store must have at least one delivery radius tier.', 'info');
       return;
     }
     const updated = deliveryTiers.filter((_, idx) => idx !== index);
@@ -293,24 +293,36 @@ export const DeliveryZoneView = () => {
     setDeliveryTiers(updated);
   };
 
-  // Save changes to backend
+  // Save changes to backend and sync with StoreContext
   const handleSaveDeliveryZone = async () => {
     setIsSaving(true);
     const branchId = activeBranch._id || activeBranch.id;
+
+    const maxTierDist = deliveryTiers.length > 0
+      ? Math.max(...deliveryTiers.map((t) => Number(t.distanceKm) || 0))
+      : Number(deliveryRadiusKm);
 
     const payload = {
       name: branchName,
       address,
       latitude: lat,
       longitude: lng,
-      deliveryRadiusKm: Number(deliveryRadiusKm),
-      deliveryRadius: Number(deliveryRadiusKm),
+      deliveryRadiusKm: Math.max(Number(deliveryRadiusKm), maxTierDist),
+      deliveryRadius: Math.max(Number(deliveryRadiusKm), maxTierDist),
       deliveryStatus,
       deliveryTiers: [...deliveryTiers].sort((a, b) => a.distanceKm - b.distanceKm)
     };
 
+    // 1. Immediately update local StoreContext and allBranches state
+    if (typeof updateBranch === 'function') {
+      try {
+        await updateBranch(branchId, payload);
+      } catch (e) {}
+    }
+
+    // 2. Persist to backend delivery-zone API endpoint
     try {
-      const response = await fetch(`/api/branches/${branchId}/delivery-zone`, {
+      const response = await fetch(`/api/branches/${encodeURIComponent(branchId)}/delivery-zone`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -321,15 +333,15 @@ export const DeliveryZoneView = () => {
       }
 
       addToast(
-        'Área de Entrega Salva! 💾',
-        `Configurações salvas com sucesso para ${branchName} (${deliveryRadiusKm} km raio).`
+        'Delivery Zones Saved! 💾',
+        `Settings successfully saved for ${branchName} (${payload.deliveryRadiusKm} km coverage radius).`
       );
     } catch (err) {
       // Local fallback
       Object.assign(activeBranch, payload);
       addToast(
-        'Área de Entrega Salva! 💾',
-        `Configurações salvas localmente para ${branchName}.`
+        'Delivery Zones Saved! 💾',
+        `Settings saved locally for ${branchName} (${payload.deliveryRadiusKm} km coverage radius).`
       );
     } finally {
       setIsSaving(false);
@@ -338,37 +350,37 @@ export const DeliveryZoneView = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Header & Breadcrumbs matching user image: Área de Entrega | Home / Locais */}
+      {/* Top Header & Breadcrumbs: Delivery Zones | Home / Locations */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
         <div>
           <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
             <MapPin className="w-6 h-6 text-emerald-600" />
-            <span>Área de Entrega</span>
+            <span>Delivery Zones</span>
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Gerenciamento de Raio de Cobertura, Zonas de Entrega e Taxas por Distância (Faisalabad Hubs)
+            Coverage Radius, Delivery Zones & Distance-Based Pricing (Faisalabad Hubs)
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400">Home / Locais</span>
+          <span className="text-xs text-slate-400 font-medium">Home / Locations</span>
 
-          {/* Status Toggle matching user image: Loja Aberta (09:30 - 23:30) */}
+          {/* Status Toggle: Store Open / Store Closed */}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className={`w-2 h-2 rounded-full ${deliveryStatus === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
             <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
-              {deliveryStatus === 'active' ? 'Loja Aberta (Express Delivery)' : 'Loja Fechada'}
+              {deliveryStatus === 'active' ? 'Store Open (Express Delivery)' : 'Store Closed'}
             </span>
             <button
               type="button"
               onClick={() => setDeliveryStatus(deliveryStatus === 'active' ? 'inactive' : 'active')}
-              className={`ml-1 text-[10px] px-2 py-0.5 rounded-full font-bold transition-all ${
+              className={`ml-1 text-[10px] px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
                 deliveryStatus === 'active'
                   ? 'bg-emerald-600 text-white'
-                  : 'bg-slate-300 text-slate-700'
+                  : 'bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
               }`}
             >
-              {deliveryStatus === 'active' ? 'Ativo' : 'Pausar'}
+              {deliveryStatus === 'active' ? 'Active' : 'Pause'}
             </button>
           </div>
         </div>
@@ -381,10 +393,10 @@ export const DeliveryZoneView = () => {
             <Store className="w-5 h-5 text-emerald-600" />
             <div>
               <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-                Filial / Hub Selecionado:
+                Selected Branch / Hub:
               </span>
               <span className="text-[11px] text-slate-500">
-                Alterne entre filiais físicas para ajustar as zonas de cada loja
+                Switch between physical branches to customize zone & pricing for each location
               </span>
             </div>
           </div>
@@ -412,7 +424,7 @@ export const DeliveryZoneView = () => {
         </div>
       )}
 
-      {/* Main Grid matching User Image: Map on Left (concentric circles) | Table on Right (Distância e Taxa) */}
+      {/* Main Grid: Map on Left (concentric circles) | Table on Right (Distance & Delivery Fee) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* Left Column: Interactive Leaflet Map with Concentric Rings */}
@@ -421,7 +433,7 @@ export const DeliveryZoneView = () => {
             <div className="flex items-center gap-2">
               <Compass className="w-4 h-4 text-emerald-600" />
               <span className="text-xs sm:text-sm font-black text-slate-800 dark:text-white">
-                Mapa Interativo de Entrega (Leaflet)
+                Interactive Delivery Map (Leaflet)
               </span>
             </div>
 
@@ -430,35 +442,35 @@ export const DeliveryZoneView = () => {
               <button
                 type="button"
                 onClick={() => handleLayerChange('street')}
-                className={`px-2.5 py-1 rounded-lg transition-all ${
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
                   mapViewMode === 'street'
                     ? 'bg-emerald-600 text-white shadow-2xs'
                     : 'text-slate-600 dark:text-slate-300'
                 }`}
               >
-                Rua
+                Street
               </button>
               <button
                 type="button"
                 onClick={() => handleLayerChange('satellite')}
-                className={`px-2.5 py-1 rounded-lg transition-all ${
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
                   mapViewMode === 'satellite'
                     ? 'bg-emerald-600 text-white shadow-2xs'
                     : 'text-slate-600 dark:text-slate-300'
                 }`}
               >
-                Satélite
+                Satellite
               </button>
               <button
                 type="button"
                 onClick={() => handleLayerChange('hybrid')}
-                className={`px-2.5 py-1 rounded-lg transition-all ${
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
                   mapViewMode === 'hybrid'
                     ? 'bg-emerald-600 text-white shadow-2xs'
                     : 'text-slate-600 dark:text-slate-300'
                 }`}
               >
-                Híbrido
+                Hybrid
               </button>
             </div>
           </div>
@@ -477,7 +489,7 @@ export const DeliveryZoneView = () => {
 
             {/* Help tip */}
             <div className="absolute top-2 left-2 z-[1000] bg-white/95 dark:bg-slate-900/95 text-slate-700 dark:text-slate-200 text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-xs pointer-events-none">
-              👆 Clique no mapa para mover o Hub
+              👆 Click on map or drag pin to position Hub
             </div>
           </div>
 
@@ -485,7 +497,7 @@ export const DeliveryZoneView = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
             <div>
               <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                Nome da Filial / Ponto de Despacho
+                Branch Name / Dispatch Hub
               </label>
               <input
                 type="text"
@@ -496,7 +508,7 @@ export const DeliveryZoneView = () => {
             </div>
             <div>
               <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                Endereço Físico (Faisalabad)
+                Physical Street Address (Faisalabad)
               </label>
               <input
                 type="text"
@@ -508,29 +520,29 @@ export const DeliveryZoneView = () => {
           </div>
         </div>
 
-        {/* Right Column: Distância e Taxa de Entrega Table (Matching user screenshot) */}
+        {/* Right Column: Distance & Delivery Fee Table */}
         <div className="lg:col-span-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
             <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-              Distância e Taxa de Entrega
+              Distance & Delivery Fee Pricing
             </h3>
             <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-              {deliveryTiers.length} Raios Ativos
+              {deliveryTiers.length} Active Tiers
             </span>
           </div>
 
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Defina o preço cobrado em cada faixa de distância a partir deste hub físico.
+            Configure delivery fees for each distance tier from this physical hub location.
           </p>
 
-          {/* Table matching user image: Distância (km) | Taxa (Rs) | Ações */}
+          {/* Table: Distance (km) | Delivery Fee (Rs.) | Actions */}
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-black">
-                  <th className="py-3 px-4">Distância (km)</th>
-                  <th className="py-3 px-4">Taxa (Rs)</th>
-                  <th className="py-3 px-4 text-center">Ações</th>
+                  <th className="py-3 px-4">Distance (km)</th>
+                  <th className="py-3 px-4">Fee (Rs.)</th>
+                  <th className="py-3 px-4 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-semibold">
@@ -567,7 +579,7 @@ export const DeliveryZoneView = () => {
                         type="button"
                         onClick={() => handleRemoveTier(idx)}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
-                        title="Excluir faixa"
+                        title="Delete tier"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -578,7 +590,7 @@ export const DeliveryZoneView = () => {
             </table>
           </div>
 
-          {/* Action Buttons matching user screenshot: [+ Novo raio] [Salvar] */}
+          {/* Action Buttons: [+ Add Radius Tier] [Save Delivery Zones] */}
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
@@ -586,7 +598,7 @@ export const DeliveryZoneView = () => {
               className="px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>+ Novo raio</span>
+              <span>+ Add Radius Tier</span>
             </button>
 
             <button
@@ -596,7 +608,7 @@ export const DeliveryZoneView = () => {
               className="px-5 py-2.5 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow-sm flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              <span>{isSaving ? 'Salvando...' : 'Salvar'}</span>
+              <span>{isSaving ? 'Saving...' : 'Save Delivery Zones'}</span>
             </button>
           </div>
 
@@ -604,7 +616,7 @@ export const DeliveryZoneView = () => {
           <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-400 flex items-start gap-2">
             <Info className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             <span>
-              Clientes dentro do raio máximo configurado ({Math.max(...deliveryTiers.map((t) => Number(t.distanceKm) || 5))} km) verão esta loja como elegível para entrega expressa. Se várias lojas cobrirem a mesma área, todas serão exibidas simultaneamente.
+              Customers located within the maximum delivery radius ({deliveryTiers.length > 0 ? Math.max(...deliveryTiers.map((t) => Number(t.distanceKm) || 5)) : deliveryRadiusKm} km) will see this store as eligible for delivery. When multiple retailer zones overlap, all eligible stores are displayed together for customer choice.
             </span>
           </div>
 

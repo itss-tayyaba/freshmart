@@ -177,6 +177,24 @@ export const OrderTrackerModal = () => {
     };
   };
 
+  // Compare order essentials to prevent wasteful re-renders & flickering
+  const isOrderIdentical = (prev, nextRaw) => {
+    if (!prev && !nextRaw) return true;
+    if (!prev || !nextRaw) return false;
+    const nextId = String(nextRaw.id || nextRaw.orderId || nextRaw._id || '');
+    if (String(prev.orderId || '') !== nextId) return false;
+    if (String(prev.status || '').toLowerCase() !== String(nextRaw.status || '').toLowerCase()) return false;
+    if (Number(prev.fulfillmentStage || 0) !== Number(nextRaw.fulfillmentStage || 0)) return false;
+    const isPrevDelivered = Boolean(prev.isDelivered);
+    const isNextDelivered = nextRaw.status === 'Delivered' || nextRaw.status === 'Completed' || Boolean(nextRaw.isDelivered);
+    if (isPrevDelivered !== isNextDelivered) return false;
+    const prevRider = prev.driverName || '';
+    const nextRider = nextRaw.assignedRider?.name || nextRaw.assignedRider?.riderName || 'Awaiting Courier Assignment';
+    if (prevRider !== nextRider) return false;
+    if (String(prev.deliveryOtp || '') !== String(nextRaw.deliveryOtp || '')) return false;
+    return true;
+  };
+
   // Live update the currently tracked order whenever orders change
   useEffect(() => {
     if (!isOrderTrackerOpen) return;
@@ -197,8 +215,13 @@ export const OrderTrackerModal = () => {
     }
 
     if (chosen) {
-      setOrderInput(chosen.id || chosen.orderId || '');
-      setCurrentOrder(formatOrderForTracking(chosen));
+      if (!orderInput) {
+        setOrderInput(chosen.id || chosen.orderId || '');
+      }
+      setCurrentOrder((prev) => {
+        if (isOrderIdentical(prev, chosen)) return prev;
+        return formatOrderForTracking(chosen);
+      });
     }
   }, [isOrderTrackerOpen, allOrders, currentTenant?.id]);
 
@@ -211,7 +234,10 @@ export const OrderTrackerModal = () => {
       if (targetQuery) {
         const matched = findMatchingOrder(targetQuery);
         if (matched) {
-          setCurrentOrder(formatOrderForTracking(matched));
+          setCurrentOrder((prev) => {
+            if (isOrderIdentical(prev, matched)) return prev;
+            return formatOrderForTracking(matched);
+          });
         }
       }
     };
@@ -224,7 +250,7 @@ export const OrderTrackerModal = () => {
     };
   }, [isOrderTrackerOpen, orderInput, allOrders]);
 
-  // Live background sync: check local state and fetch latest order status from backend while tracker is open
+  // Live background sync: check local state and fetch latest order status from backend while tracker is open (ZERO FLICKER)
   useEffect(() => {
     if (!isOrderTrackerOpen || !orderInput) return;
     const interval = setInterval(async () => {
@@ -234,7 +260,10 @@ export const OrderTrackerModal = () => {
       // 1. Keep in sync with local memory/storage
       const local = findMatchingOrder(cleanId);
       if (local) {
-        setCurrentOrder(formatOrderForTracking(local));
+        setCurrentOrder((prev) => {
+          if (isOrderIdentical(prev, local)) return prev;
+          return formatOrderForTracking(local);
+        });
       }
 
       // 2. Poll remote backend API
@@ -242,16 +271,16 @@ export const OrderTrackerModal = () => {
         const res = await apiService.trackOrder(cleanId);
         if (res && res.success && res.order) {
           setCurrentOrder((prev) => {
-            if (!prev) return formatOrderForTracking(res.order);
+            if (isOrderIdentical(prev, res.order)) return prev;
             const backendDelivered = res.order.status === 'Delivered' || res.order.isDelivered;
-            if (prev.isDelivered && !backendDelivered) return prev;
+            if (prev?.isDelivered && !backendDelivered) return prev;
             return formatOrderForTracking(res.order);
           });
         }
       } catch (e) {}
     }, 3000);
     return () => clearInterval(interval);
-  }, [isOrderTrackerOpen, orderInput, allOrders]);
+  }, [isOrderTrackerOpen, orderInput]);
 
   const handleSearch = async (e) => {
     if (e) e.preventDefault();

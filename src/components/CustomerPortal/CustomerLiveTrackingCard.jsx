@@ -94,6 +94,7 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
   const riderMarkerRef = useRef(null);
   const routePolylineRef = useRef(null);
   const lastOrderIdRef = useRef(null);
+  const hasFittedBoundsRef = useRef(false);
 
   const handleLayerChange = (layerKey) => {
     setMapViewMode(layerKey);
@@ -156,14 +157,14 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
   // Accurate OTP PIN
   const deliveryOtp = String(activeOrder?.deliveryOtp || '7412');
 
-  // Coords fallback (Faisalabad digital hub)
-  const pickup = useMemo(() => {
-    return activeOrder?.pickupCoords || { lat: 31.4147, lng: 73.0872 };
-  }, [activeOrder]);
+  // Coords fallback (Faisalabad digital hub) - stable primitive memoization to prevent object churn
+  const pLat = Number(activeOrder?.pickupCoords?.lat || activeOrder?.hubCoords?.lat || 31.4147);
+  const pLng = Number(activeOrder?.pickupCoords?.lng || activeOrder?.hubCoords?.lng || 73.0872);
+  const dLat = Number(activeOrder?.dropoffCoords?.lat || activeOrder?.destinationCoords?.lat || 31.4082);
+  const dLng = Number(activeOrder?.dropoffCoords?.lng || activeOrder?.destinationCoords?.lng || 73.1023);
 
-  const dropoff = useMemo(() => {
-    return activeOrder?.dropoffCoords || activeOrder?.destinationCoords || { lat: 31.4082, lng: 73.1023 };
-  }, [activeOrder]);
+  const pickup = useMemo(() => ({ lat: pLat, lng: pLng }), [pLat, pLng]);
+  const dropoff = useMemo(() => ({ lat: dLat, lng: dLng }), [dLat, dLng]);
 
   // Current live rider position
   const riderCoords = useMemo(() => {
@@ -210,6 +211,12 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
   // Initialize Map ONCE & Update smoothly without recreation (ZERO FLICKER)
   useEffect(() => {
     if (!mapContainerRef.current) return;
+
+    // Reset initial bounds fit flag if the user switches to track a different order
+    if (lastOrderIdRef.current !== cleanId) {
+      hasFittedBoundsRef.current = false;
+      lastOrderIdRef.current = cleanId;
+    }
 
     if (!mapInstanceRef.current) {
       const centerCoords = isRiderAssigned && riderCoords ? [riderCoords.lat, riderCoords.lng] : [pickup.lat, pickup.lng];
@@ -261,6 +268,7 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
         routePolylineRef.current = polyline;
 
         map.fitBounds(L.latLngBounds([pickup, riderCoords, dropoff]), { padding: [35, 35] });
+        hasFittedBoundsRef.current = true;
       } else {
         // No rider assigned yet: Parcel is being packed in dark store
         const routeCoords = [
@@ -277,14 +285,14 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
         routePolylineRef.current = polyline;
 
         map.fitBounds(L.latLngBounds([pickup, dropoff]), { padding: [40, 40] });
+        hasFittedBoundsRef.current = true;
       }
 
-      lastOrderIdRef.current = cleanId;
       setTimeout(() => {
         map.invalidateSize();
       }, 250);
     } else {
-      // Map instance exists: update positions and markers reactively
+      // Map instance exists: update positions and markers reactively with ZERO FLICKER
       const map = mapInstanceRef.current;
       pickupMarkerRef.current?.setLatLng([pickup.lat, pickup.lng]);
       dropoffMarkerRef.current?.setLatLng([dropoff.lat, dropoff.lng]);
@@ -295,7 +303,13 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
             icon: createRiderPin(riderName),
             zIndexOffset: 1000
           }).addTo(map);
+          // Only fit bounds on first rider appearance so map does not jerk/flicker
+          if (!hasFittedBoundsRef.current) {
+            map.fitBounds(L.latLngBounds([pickup, riderCoords, dropoff]), { padding: [35, 35] });
+            hasFittedBoundsRef.current = true;
+          }
         } else {
+          // Smooth glide position update (no zoom or viewport jumping)
           riderMarkerRef.current.setLatLng([riderCoords.lat, riderCoords.lng]);
         }
 
@@ -305,7 +319,6 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
           [dropoff.lat, dropoff.lng]
         ]);
         routePolylineRef.current?.setStyle({ color: '#0284c7', weight: 4, opacity: 0.85 });
-        map.fitBounds(L.latLngBounds([pickup, riderCoords, dropoff]), { padding: [35, 35] });
       } else {
         if (riderMarkerRef.current) {
           map.removeLayer(riderMarkerRef.current);
@@ -316,10 +329,13 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
           [dropoff.lat, dropoff.lng]
         ]);
         routePolylineRef.current?.setStyle({ color: '#94a3b8', weight: 3, opacity: 0.6 });
-        map.fitBounds(L.latLngBounds([pickup, dropoff]), { padding: [40, 40] });
+        if (!hasFittedBoundsRef.current) {
+          map.fitBounds(L.latLngBounds([pickup, dropoff]), { padding: [40, 40] });
+          hasFittedBoundsRef.current = true;
+        }
       }
     }
-  }, [cleanId, isRiderAssigned, riderName, riderCoords?.lat, riderCoords?.lng]);
+  }, [cleanId, isRiderAssigned, riderName, riderCoords?.lat, riderCoords?.lng, pickup.lat, pickup.lng, dropoff.lat, dropoff.lng]);
 
   // Clean up map only on component unmount
   useEffect(() => {
@@ -330,21 +346,6 @@ export const CustomerLiveTrackingCard = ({ activeOrder }) => {
       }
     };
   }, []);
-
-  // Smooth position update on live telemetry
-  useEffect(() => {
-    if (!isRiderAssigned || !riderCoords) return;
-    if (riderMarkerRef.current) {
-      riderMarkerRef.current.setLatLng([riderCoords.lat, riderCoords.lng]);
-    }
-    if (routePolylineRef.current) {
-      routePolylineRef.current.setLatLngs([
-        [pickup.lat, pickup.lng],
-        [riderCoords.lat, riderCoords.lng],
-        [dropoff.lat, dropoff.lng]
-      ]);
-    }
-  }, [riderCoords?.lat, riderCoords?.lng, isRiderAssigned]);
 
   return (
     <div className="bg-white rounded-3xl border border-sky-100 shadow-xl overflow-hidden space-y-4">
