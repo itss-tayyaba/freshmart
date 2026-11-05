@@ -99,8 +99,13 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     getProductSubstitutes,
     substituteOrderItem,
     addToast,
-    currency = 'Rs.'
+    currency
   } = useStore();
+
+  const currencySymbol =
+    typeof currency === 'object' && currency?.symbol
+      ? currency.symbol
+      : (typeof currency === 'string' ? currency : 'Rs. ');
 
   // Active navigation sidebar tab: 'Dashboard' | 'Assigned Orders' | 'All Orders' | 'Packed Orders' | 'Ready for Delivery' | 'History'
   const [activeNav, setActiveNav] = useState('Dashboard');
@@ -250,15 +255,23 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     return ['dispatched', 'out for delivery', 'delivered'].includes(lower) || o?.isDispatched;
   };
 
+  const isPackedStatus = (o) => {
+    if (!o) return false;
+    if (isReadyStatus(o) || isDispatchedStatus(o)) return false;
+    const s = String(o?.status || '').toLowerCase().trim();
+    const step = String(o?.pickupStep || '').toLowerCase().trim();
+    return s === 'packed' || s.includes('packed') || step === 'packed' || o?.fulfillmentStage === 3;
+  };
+
   const assignedOrders = useMemo(() => {
     return branchOrders.filter((o) => {
-      if (isReadyStatus(o) || isDispatchedStatus(o) || (o.status || '').toLowerCase() === 'packed') return false;
+      if (isReadyStatus(o) || isDispatchedStatus(o) || isPackedStatus(o)) return false;
       return isPendingStatus(o.status) || (o.status || '').toLowerCase() === 'preparing' || (o.status || '').toLowerCase() === 'picking';
     });
   }, [branchOrders]);
 
   const packedOrders = useMemo(() => {
-    return branchOrders.filter((o) => (o.status || '').toLowerCase() === 'packed');
+    return branchOrders.filter((o) => isPackedStatus(o));
   }, [branchOrders]);
 
   const readyOrders = useMemo(() => {
@@ -360,6 +373,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     });
     addToast?.('Order Packed 📦', `Order ${orderId} sealed with code ${parcelCode}`);
     setSelectedOrderForPacking(null);
+    setActiveNav('Packed Orders');
   };
 
   // Ready for Delivery
@@ -1184,7 +1198,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                             <div className="flex items-center justify-between text-xs">
                               <div>
                                 <p className="font-bold text-slate-800 dark:text-slate-200">{ord.customerName || ord.customer || 'Customer'}</p>
-                                <p className="font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{currency} {(ord.total || ord.totalAmount || 0).toLocaleString()}</p>
+                                <p className="font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{currencySymbol} {(ord.total || ord.totalAmount || 0).toLocaleString()}</p>
                               </div>
                               <div>
                                 {isPending ? (
@@ -1242,7 +1256,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                               <tr key={ordId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                 <td className="py-3 font-mono font-bold text-slate-900 dark:text-white">{ordId}</td>
                                 <td className="py-3 font-medium text-slate-800 dark:text-slate-200">{ord.customerName || ord.customer || 'Customer'}</td>
-                                <td className="py-3 font-bold text-slate-900 dark:text-white">{currency} {(ord.total || ord.totalAmount || 0).toLocaleString()}</td>
+                                <td className="py-3 font-bold text-slate-900 dark:text-white">{currencySymbol} {(ord.total || ord.totalAmount || 0).toLocaleString()}</td>
                                 <td className="py-3">
                                   <span className={"px-2.5 py-0.5 rounded-full text-[10px] font-bold " + (
                                     isReady ? "bg-emerald-100 text-emerald-800" :
@@ -1653,7 +1667,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                 {substitutionModal.item.name || substitutionModal.item.productName}
               </p>
               <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                Qty: {substitutionModal.item.quantity || 1} &bull; {currency} {substitutionModal.item.price}
+                Qty: {substitutionModal.item.quantity || 1} &bull; {currencySymbol} {substitutionModal.item.price}
               </p>
             </div>
 
@@ -1677,7 +1691,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                         <img src={cand.image} alt={cand.name} className="w-8 h-8 rounded-lg object-cover" />
                         <div className="min-w-0">
                           <p className="text-xs font-bold truncate text-slate-900 dark:text-white">{cand.name}</p>
-                          <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold">{currency} {cand.price}</p>
+                          <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold">{currencySymbol} {cand.price}</p>
                         </div>
                       </div>
                       <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
