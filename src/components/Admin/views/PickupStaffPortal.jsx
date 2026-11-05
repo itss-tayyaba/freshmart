@@ -255,7 +255,8 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     return ['dispatched', 'out for delivery', 'delivered'].includes(lower) || o?.isDispatched;
   };
 
-  const isPackedStatus = (o) => {
+  // Orders freshly packed & sealed at the desk, waiting to be staged
+  const isAwaitingStagingStatus = (o) => {
     if (!o) return false;
     if (isReadyStatus(o) || isDispatchedStatus(o)) return false;
     const s = String(o?.status || '').toLowerCase().trim();
@@ -263,9 +264,17 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
     return s === 'packed' || s.includes('packed') || step === 'packed' || o?.fulfillmentStage === 3;
   };
 
+  // Packed orders: includes both newly packed parcels awaiting staging AND parcels staged in the hub for rider
+  const isPackedStatus = (o) => {
+    if (!o || isDispatchedStatus(o)) return false;
+    if (isAwaitingStagingStatus(o)) return true;
+    if (isReadyStatus(o)) return true;
+    return false;
+  };
+
   const assignedOrders = useMemo(() => {
     return branchOrders.filter((o) => {
-      if (isReadyStatus(o) || isDispatchedStatus(o) || isPackedStatus(o)) return false;
+      if (isReadyStatus(o) || isDispatchedStatus(o) || isAwaitingStagingStatus(o)) return false;
       return isPendingStatus(o.status) || (o.status || '').toLowerCase() === 'preparing' || (o.status || '').toLowerCase() === 'picking';
     });
   }, [branchOrders]);
@@ -1052,14 +1061,24 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                 </h3>
               </div>
               {packedOrders.length === 0 ? (
-                <div className="text-center py-12 px-4 space-y-2">
+                <div className="text-center py-12 px-4 space-y-3">
                   <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto text-xl">
                     📦
                   </div>
                   <p className="text-sm font-bold text-slate-700 dark:text-slate-200">No Packed Orders</p>
                   <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                    Orders that you pack and seal will show here before being staged for delivery.
+                    Orders that you pick and pack will appear here before and during staging for courier delivery.
                   </p>
+                  {displayAssignedOrders.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveNav('Assigned Orders')}
+                      className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-xs cursor-pointer"
+                    >
+                      <ClipboardList className="w-3.5 h-3.5" />
+                      <span>Start Packing Assigned Orders ({displayAssignedOrders.length})</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div>
@@ -1067,6 +1086,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                   <div className="block sm:hidden space-y-2.5">
                     {packedOrders.map((ord) => {
                       const ordId = ord.id || ord.orderId;
+                      const isReady = isReadyStatus(ord);
                       return (
                         <div
                           key={ordId}
@@ -1082,14 +1102,30 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                             <p className="font-bold text-slate-800 dark:text-slate-200">{ord.customerName || ord.customer || 'Customer'}</p>
                             <span className="text-slate-500 text-[11px]">{resolveOrderItemsCount(ord)} {resolveOrderItemsCount(ord) === 1 ? 'item' : 'items'}</span>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleMarkReadyForDispatch(ord)}
-                            className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span>Mark Ready for Delivery</span>
-                          </button>
+                          {!isReady ? (
+                            <button
+                              type="button"
+                              onClick={() => handleMarkReadyForDispatch(ord)}
+                              className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>Mark Ready for Delivery</span>
+                            </button>
+                          ) : (
+                            <div className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+                              <span className="flex items-center gap-1.5">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                <span>Staged in Hub &bull; Ready</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setActiveNav('Ready for Delivery')}
+                                className="text-[11px] text-emerald-700 dark:text-emerald-300 underline font-semibold cursor-pointer"
+                              >
+                                View Staging &rarr;
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1104,27 +1140,53 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                           <th className="py-2.5">Customer</th>
                           <th className="py-2.5">Parcel Code</th>
                           <th className="py-2.5">Items</th>
+                          <th className="py-2.5">Fulfillment Status</th>
                           <th className="py-2.5 text-right pr-3">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {packedOrders.map((ord) => {
                           const ordId = ord.id || ord.orderId;
+                          const isReady = isReadyStatus(ord);
                           return (
                             <tr key={ordId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                               <td className="py-3 font-mono font-bold text-slate-900 dark:text-white">{ordId}</td>
                               <td className="py-3 font-medium text-slate-800 dark:text-slate-200">{ord.customerName || ord.customer || 'Customer'}</td>
                               <td className="py-3 font-mono text-emerald-600 dark:text-emerald-400 font-bold">{ord.parcelCode || 'PRCL-STD'}</td>
                               <td className="py-3 text-slate-500">{resolveOrderItemsCount(ord)} {resolveOrderItemsCount(ord) === 1 ? 'item' : 'items'}</td>
+                              <td className="py-3">
+                                {!isReady ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60">
+                                    <Package className="w-3 h-3" />
+                                    <span>Sealed &bull; Ready to Stage</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60">
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    <span>Staged in Hub (Ready)</span>
+                                  </span>
+                                )}
+                              </td>
                               <td className="py-3 text-right pr-3">
-                                <button
-                                  type="button"
-                                  onClick={() => handleMarkReadyForDispatch(ord)}
-                                  className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1.5 ml-auto cursor-pointer"
-                                >
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                  <span>Mark Ready for Delivery</span>
-                                </button>
+                                {!isReady ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMarkReadyForDispatch(ord)}
+                                    className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1.5 ml-auto cursor-pointer"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>Mark Ready</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveNav('Ready for Delivery')}
+                                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition inline-flex items-center gap-1 ml-auto cursor-pointer"
+                                  >
+                                    <span>View in Staging</span>
+                                    <ChevronRight className="w-3 h-3" />
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           );
@@ -1356,8 +1418,14 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                         {/* Right Side: Order Info */}
                         <div className="min-w-0 flex-1 space-y-1">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-bold text-slate-900 dark:text-white font-mono">
-                              Order ID: <b className="text-slate-900 dark:text-white">{orderId}</b>
+                            <span className="text-xs font-bold text-slate-900 dark:text-white font-mono flex items-center gap-1.5">
+                              <span>Order:</span>
+                              <b className="text-slate-900 dark:text-white">{orderId}</b>
+                              {ord.parcelCode && (
+                                <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-700/60">
+                                  {ord.parcelCode}
+                                </span>
+                              )}
                             </span>
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                               Ready

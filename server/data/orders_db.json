@@ -24,12 +24,12 @@
       "coverageRadiusKm": 25,
       "currentLat": 31.48,
       "currentLng": 74.29,
-      "assignedAt": "2026-11-04T06:39:19.873Z",
+      "assignedAt": "2026-11-05T07:56:45.792Z",
       "status": "On-Duty",
       "eta": "7 mins",
       "etaMinutes": 22
     },
-    "deliveryOtp": "1151",
+    "deliveryOtp": "3067",
     "isDispatched": true,
     "dispatchStatus": "Out for Delivery",
     "statusClass": "bg-amber-100 text-amber-800",
@@ -43,13 +43,13 @@
     "timeline": [
       {
         "title": "Order Confirmed",
-        "time": "11:39 AM",
+        "time": "12:56 PM",
         "completed": true,
         "desc": "Payment method: Cash on Delivery"
       },
       {
         "title": "Dark Store Packed & Verified",
-        "time": "11:43 AM",
+        "time": "01:00 PM",
         "completed": true,
         "desc": "Quality checked and sealed in chilled thermal insulation"
       },
@@ -132,13 +132,13 @@
     "payment": "Credit / Debit Card",
     "paymentMethod": "Credit / Debit Card",
     "time": "Just now",
-    "createdAt": "2026-11-04T06:39:18.986Z",
+    "createdAt": "2026-11-05T07:56:44.830Z",
     "assignedRider": null,
-    "deliveryOtp": "8161",
+    "deliveryOtp": "5831",
     "timeline": [
       {
         "title": "Order Confirmed",
-        "time": "11:39 AM",
+        "time": "12:56 PM",
         "completed": true,
         "desc": "Payment method: Credit / Debit Card"
       },
@@ -227,13 +227,13 @@
     "payment": "Cash on Delivery",
     "paymentMethod": "Cash on Delivery",
     "time": "Just now",
-    "createdAt": "2026-11-04T06:39:18.906Z",
+    "createdAt": "2026-11-05T07:56:44.732Z",
     "assignedRider": null,
-    "deliveryOtp": "2525",
+    "deliveryOtp": "3549",
     "timeline": [
       {
         "title": "Order Confirmed",
-        "time": "11:39 AM",
+        "time": "12:56 PM",
         "completed": true,
         "desc": "Payment method: Cash on Delivery"
       },
@@ -338,13 +338,13 @@
     "payment": "Cash on Delivery",
     "paymentMethod": "Cash on Delivery",
     "time": "Just now",
-    "createdAt": "2026-11-04T06:39:14.608Z",
+    "createdAt": "2026-11-05T07:56:41.334Z",
     "assignedRider": null,
-    "deliveryOtp": "1344",
+    "deliveryOtp": "7872",
     "timeline": [
       {
         "title": "Order Confirmed",
-        "time": "11:39 AM",
+        "time": "12:56 PM",
         "completed": true,
         "desc": "Payment method: Cash on Delivery"
       },
@@ -367,5 +367,74 @@
         "desc": "Contactless handover at House 55, Street 8, Sector Y, DHA Phase 3"
       }
     ]
+  },
+  {
+    "id": "#CU-TEST-9003",
+    "orderId": "#CU-TEST-9003",
+    "tenantId": "tenant-chaseup",
+    "tenantName": "Chase Up",
+    "branchId": "branch_006",
+    "branchName": "Faisalabad Clock Tower Hub",
+    "customerId": "CUST-GUEST",
+    "customer": "Ali Raza",
+    "customerName": "Ali Raza",
+    "customerPhone": "+92 333 1234567",
+    "address": "House 12, Clock Tower Bazar, Faisalabad",
+    "city": "Faisalabad",
+    "deliverySlot": "⚡ 15-25 Mins Express Delivery",
+    "shippingAddress": {
+      "address": "House 12, Clock Tower Bazar, Faisalabad",
+      "city": "Faisalabad",
+      "deliverySlot": "⚡ 15-25 Mins Express Delivery"
+    },
+    "destinationCoords": {
+      "lat": 31.415,
+      "lng": 73.078
+    },
+    "hubCoords": {
+      "lat": 31.3965,
+      "lng": 73.0505
+    },
+    "distanceKm": 2.1,
+    "eta": "15 mins (Upon dispatch)",
+    "etaMinutes": 15,
+    "orderItems": [
+      {
+        "name": "Olpers Milk 1L Pack",
+        "price": 310,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "rawItems": [
+      {
+        "name": "Olpers Milk 1L Pack",
+        "price": 310,
+        "quantity": 2,
+        "unit": "1 unit",
+        "image": "",
+        "vendorId": "VND-101"
+      }
+    ],
+    "items": "2 Items",
+    "total": 620,
+    "totalPrice": 620,
+    "totalAmount": 620,
+    "subtotal": 620,
+    "itemsPrice": 620,
+    "deliveryPrice": 0,
+    "deliveryCharges": 0,
+    "discountPrice": 0,
+    "discountAmount": 0,
+    "status": "Pending",
+    "statusClass": "bg-amber-100 text-amber-800",
+    "payment": "Cash on Delivery",
+    "paymentMethod": "Cash on Delivery",
+    "time": "Just now",
+    "createdAt": "2026-11-05T07:00:00.000Z",
+    "assignedRider": null,
+    "deliveryOtp": "4921"
   }
 ]
