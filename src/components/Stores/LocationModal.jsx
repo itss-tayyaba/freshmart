@@ -128,6 +128,10 @@ const LocationModalContent = () => {
     return (nearbyStores || []).filter((s) => s.isDeliverable);
   }, [nearbyStores]);
 
+  const outsideStores = useMemo(() => {
+    return (nearbyStores || []).filter((s) => !s.isDeliverable);
+  }, [nearbyStores]);
+
   const closestStore = deliverableStores && deliverableStores.length > 0 ? deliverableStores[0] : null;
   const isOutsideDeliveryZone = deliverableStores.length === 0;
 
@@ -275,8 +279,8 @@ const LocationModalContent = () => {
     deliveryCirclesRef.current = [];
 
     // Render store markers and delivery radius circles on the Leaflet Map
-    // Strictly show in-zone deliverable stores to prevent cluttering or placing out-of-zone stores on the map
-    const storesToRender = deliverableStores.length > 0 ? deliverableStores : (closestStore ? [closestStore] : []);
+    // Displays all supermarket branches in the city at their authentic physical coordinates
+    const storesToRender = nearbyStores;
 
     storesToRender.forEach((st) => {
       const bLat = Number(st.nearestBranch?.latitude ?? st.nearestBranch?.coordinates?.lat);
@@ -290,14 +294,14 @@ const LocationModalContent = () => {
 
       // Draw delivery zone circle with separate styling:
       // Active in-range stores have distinct clean borders and fills;
-      // Outside stores have very soft subtle borders so they don't blob over the map
+      // Outside stores have soft dashed borders so they don't blob over the map
       const circle = L.circle([bLat, bLng], {
         radius: radiusMeters,
         color: storeColor,
         weight: isDeliverable ? 2 : 1,
-        opacity: isDeliverable ? 0.75 : 0.25,
+        opacity: isDeliverable ? 0.75 : 0.35,
         fillColor: storeColor,
-        fillOpacity: isDeliverable ? 0.14 : 0.04,
+        fillOpacity: isDeliverable ? 0.14 : 0.05,
         dashArray: isDeliverable ? null : '6, 6'
       }).addTo(map);
 
@@ -316,7 +320,11 @@ const LocationModalContent = () => {
 
       marker.on('click', () => {
         if (!isDeliverable) {
-          addToast('Outside Delivery Zone ⚠️', `${st.displayName || st.name} does not deliver to your current pin (${st.distanceFormatted} away).`, 'warning');
+          addToast(
+            `${st.displayName || st.name} 📍`,
+            `Branch located at ${st.nearestBranch?.name || 'Hub'} (${st.distanceFormatted} away). Your current pin is outside its ${radiusKm} km delivery zone.`,
+            'info'
+          );
           return;
         }
         setSelectedStoreId(st.id);
@@ -324,10 +332,13 @@ const LocationModalContent = () => {
       });
 
       marker.bindPopup(`
-        <div style="font-family: inherit; font-size: 11px; line-height: 1.4; min-width: 140px;">
+        <div style="font-family: inherit; font-size: 11px; line-height: 1.4; min-width: 150px;">
           <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 2px;">
             <span style="font-size: 14px;">${st.logo || '🏬'}</span>
             <strong style="color: #0f172a; font-size: 12px;">${st.displayName || st.name}</strong>
+          </div>
+          <div style="margin-bottom: 3px; font-size: 10px; color: #64748b; font-weight: 600;">
+            🏢 ${st.nearestBranch?.name || 'Branch'}
           </div>
           <div style="display: inline-block; padding: 2px 6px; border-radius: 9999px; background: ${isDeliverable ? '#ecfdf5' : '#fef2f2'}; color: ${isDeliverable ? '#047857' : '#b91c1c'}; font-weight: 800; font-size: 10px; margin-bottom: 3px;">
             📍 ${st.distanceFormatted || '1.2 km'} away (${isDeliverable ? 'Inside Delivery Zone' : 'Outside Zone'})
@@ -336,14 +347,14 @@ const LocationModalContent = () => {
             ⚡ Fast Delivery: <strong>${st.estimatedTime || '15-25 mins'}</strong>
           </p>
           <p style="margin: 2px 0 0; color: #64748b; font-size: 9px;">
-            🛵 Radius: <strong>${radiusKm} km</strong> • Fee: <strong>${st.deliveryFee === 0 ? 'Free' : `Rs. ${st.deliveryFee}`}</strong>
+            🛵 Delivery Radius: <strong>${radiusKm} km</strong> • Fee: <strong>${st.deliveryFee === 0 ? 'Free' : `Rs. ${st.deliveryFee}`}</strong>
           </p>
         </div>
       `);
 
       storeMarkersRef.current.push(marker);
     });
-  }, [deliverableStores, closestStore]);
+  }, [nearbyStores]);
 
   // 🎯 DETECT CURRENT LOCATION (Auto-Locate GPS)
   const handleDetectLocation = async () => {
@@ -770,6 +781,46 @@ const LocationModalContent = () => {
                 );
               })}
             </div>
+
+            {/* Informative: Other stores in city outside current delivery zone */}
+            {outsideStores && outsideStores.length > 0 && (
+              <div className="mt-3 p-2.5 rounded-xl bg-slate-100/90 border border-slate-200/90 text-left">
+                <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 mb-1.5">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-xs">📍</span>
+                    <span>Other Stores in {currentCityObj.city.split(',')[0]} ({outsideStores.length}):</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-medium">Click to view on map</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {outsideStores.map((os) => (
+                    <button
+                      key={os.id}
+                      type="button"
+                      onClick={() => {
+                        if (mapInstanceRef.current && os.nearestBranch) {
+                          const bLat = Number(os.nearestBranch.latitude ?? os.nearestBranch.coordinates?.lat);
+                          const bLng = Number(os.nearestBranch.longitude ?? os.nearestBranch.coordinates?.lng);
+                          if (Number.isFinite(bLat) && Number.isFinite(bLng)) {
+                            mapInstanceRef.current.setView([bLat, bLng], 14, { animate: true });
+                            addToast(
+                              `${os.displayName || os.name} 📍`,
+                              `${os.nearestBranch.name || 'Branch'} is ${os.distanceFormatted} away (${os.nearestBranch.address || ''}). Drag your pin inside its circle to order.`,
+                              'info'
+                            );
+                          }
+                        }
+                      }}
+                      className="text-[10px] font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                    >
+                      <span>{os.logo || '🏬'}</span>
+                      <span className="font-bold">{os.displayName || os.name}</span>
+                      <span className="text-slate-400">({os.distanceFormatted} • {os.nearestBranch?.name || 'Hub'})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="mt-4 p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 text-left space-y-1 animate-in fade-in">
