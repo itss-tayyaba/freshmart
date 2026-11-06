@@ -13,7 +13,8 @@ import {
   Building2,
   Store,
   ChevronDown,
-  X
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { PAKISTAN_CITIES, findNearestCity, calculateDistanceKm } from '../../data/pakistanLocations';
@@ -27,6 +28,7 @@ export const CustomerLocationBanner = ({ onLocationConfirmed }) => {
     currentBranch,
     setIsLocationModalOpen,
     confirmDeliveryLocation,
+    isOutsideDeliveryZone,
     addToast
   } = useStore();
 
@@ -326,6 +328,32 @@ export const CustomerLocationBanner = ({ onLocationConfirmed }) => {
                 <span className="shrink-0 px-2.5 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-bold">
                   Active Delivery Pin
                 </span>
+              </div>
+            )}
+
+            {/* Out of Delivery Zone Alert */}
+            {isOutsideDeliveryZone && (
+              <div className="p-3 sm:p-3.5 rounded-xl bg-rose-950/90 border-2 border-rose-500/80 text-white text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-rose-900 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-5 h-5 text-rose-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-black text-rose-200 block text-xs">
+                      Choose different location (no store found)
+                    </span>
+                    <span className="text-[11px] text-rose-300 block">
+                      Your current location is outside our retailer delivery zone. Please choose a different location.
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsLocationModalOpen(true)}
+                  className="w-full sm:w-auto px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow shrink-0 cursor-pointer"
+                >
+                  Change Location
+                </button>
               </div>
             )}
 

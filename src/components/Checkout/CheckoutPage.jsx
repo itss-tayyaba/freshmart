@@ -17,6 +17,7 @@ import {
   Plus,
   Tag,
   AlertCircle,
+  AlertTriangle,
   Copy,
   Home,
   Building,
@@ -50,7 +51,9 @@ export const CheckoutPage = () => {
     placeCustomerOrder,
     currentTenant,
     currentBranch,
-    getNearbyStores
+    getNearbyStores,
+    isOutsideDeliveryZone,
+    setIsLocationModalOpen
   } = useStore();
 
   const isCaseValue = isSameTenant(currentTenant?.id, 'tenant-chasevalue');
@@ -248,6 +251,16 @@ export const CheckoutPage = () => {
   const handlePlaceOrder = async () => {
     if (cart.length === 0) {
       addToast('Cart is Empty', 'Please add grocery items before checkout.', 'error');
+      return;
+    }
+
+    if (isOutsideDeliveryZone) {
+      addToast(
+        'Choose different location (no store found) ⚠️',
+        'Your location is outside our retailer delivery zone. Please change your location so that you fall in the retailer delivery zone.',
+        'error'
+      );
+      setIsLocationModalOpen(true);
       return;
     }
 
@@ -619,6 +632,33 @@ export const CheckoutPage = () => {
           
           {/* Left Column: Form Steps (8 Columns) */}
           <div className="lg:col-span-8 space-y-6">
+
+            {/* Out of Delivery Zone Alert: Prompt Customer to Change Location */}
+            {isOutsideDeliveryZone && (
+              <div className="bg-rose-50 border-2 border-rose-300 rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-left animate-in fade-in">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-200/80 text-rose-700 flex items-center justify-center shrink-0 mt-0.5">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-rose-950">
+                      Choose different location (no store found)
+                    </h3>
+                    <p className="text-xs text-rose-800 mt-1 leading-relaxed">
+                      We cannot deliver to your current location because it is outside our retailer delivery zone. Please change your delivery location so that you may fall in the retailer delivery zone.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsLocationModalOpen(true)}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Change Location</span>
+                </button>
+              </div>
+            )}
             
             {/* Mobile / Tablet Quick Items Summary (Visible on small screens where right column is below) */}
             {Array.isArray(cart) && cart.length > 0 && (
@@ -675,10 +715,21 @@ export const CheckoutPage = () => {
                   </div>
                 </div>
 
-                <div className={`flex items-center gap-1.5 text-xs font-bold ${theme.softBg} px-3 py-1 rounded-full border`}>
-                  <MapPin className={`w-3.5 h-3.5 ${theme.primaryText}`} />
-                  <span>Doorstep Delivery</span>
-                </div>
+                {isOutsideDeliveryZone ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsLocationModalOpen(true)}
+                    className="flex items-center gap-1.5 text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 px-3 py-1 rounded-full cursor-pointer hover:bg-rose-200 transition"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Outside Delivery Zone • Change Location</span>
+                  </button>
+                ) : (
+                  <div className={`flex items-center gap-1.5 text-xs font-bold ${theme.softBg} px-3 py-1 rounded-full border`}>
+                    <MapPin className={`w-3.5 h-3.5 ${theme.primaryText}`} />
+                    <span>Doorstep Delivery</span>
+                  </div>
+                )}
               </div>
 
               {/* Fulfilling Store & Branch Routing Banner */}
@@ -920,10 +971,24 @@ export const CheckoutPage = () => {
               {/* Big Shimmering CTA Button */}
               <button
                 onClick={handlePlaceOrder}
-                className={`w-full py-4 ${theme.primaryBg} text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-xl hover:shadow-2xl transition-all cursor-pointer transform hover:-translate-y-0.5`}
+                disabled={isOutsideDeliveryZone}
+                className={`w-full py-4 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-xl transition-all ${
+                  isOutsideDeliveryZone
+                    ? 'bg-rose-600 opacity-90 cursor-not-allowed shadow-none'
+                    : `${theme.primaryBg} hover:shadow-2xl cursor-pointer transform hover:-translate-y-0.5`
+                }`}
               >
-                <ShieldCheck className="w-5 h-5 opacity-80" />
-                <span>Place Order • {currency.symbol}{grandTotalWithTip.toLocaleString()}</span>
+                {isOutsideDeliveryZone ? (
+                  <>
+                    <AlertTriangle className="w-5 h-5 text-white" />
+                    <span>Choose different location (no store found)</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-5 h-5 opacity-80" />
+                    <span>Place Order • {currency.symbol}{grandTotalWithTip.toLocaleString()}</span>
+                  </>
+                )}
               </button>
 
               {/* Safety Badges */}

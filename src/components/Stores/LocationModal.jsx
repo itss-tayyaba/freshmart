@@ -436,7 +436,7 @@ const LocationModalContent = () => {
   const handleConfirmLocation = async (e) => {
     if (e) e.preventDefault();
     if (deliverableStores.length === 0) {
-      addToast('Outside Delivery Zone ⚠️', 'No grocery stores deliver to this pin. Please drag your pin inside an active store zone.', 'warning');
+      addToast('Choose different location (no store found) ⚠️', 'Your location is outside our retailer delivery zones. Please change your location so that you fall in the retailer delivery zone.', 'warning');
       return;
     }
     setIsSaving(true);
@@ -678,12 +678,14 @@ const LocationModalContent = () => {
 
           {/* Delivery Zone Notice for Far Locations */}
           {isOutsideDeliveryZone && (
-            <div className="mt-2.5 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2 text-left animate-in fade-in">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="mt-2.5 p-3 rounded-2xl bg-rose-50 border-2 border-rose-200 text-rose-900 text-xs flex items-start gap-2.5 text-left animate-in fade-in">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold block text-[11px]">Notice: Location is Outside Standard Delivery Zone</span>
-                <span className="text-[10px] text-amber-800 leading-tight block mt-0.5">
-                  Your pin is {closestStore?.distanceKm} km from the nearest store. Standard express delivery operates within branch delivery zones.
+                <span className="font-black block text-xs text-rose-950">
+                  Choose different location (no store found)
+                </span>
+                <span className="text-[11px] text-rose-800 leading-tight block mt-0.5">
+                  Your pin is {closestStore?.distanceKm ? `${closestStore.distanceKm} km` : 'far away'} from the nearest store and outside retailer delivery zones. Please change your location or drag your pin closer so that you fall in the retailer delivery zone.
                 </span>
               </div>
             </div>
@@ -823,14 +825,35 @@ const LocationModalContent = () => {
             )}
           </div>
         ) : (
-          <div className="mt-4 p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 text-left space-y-1 animate-in fade-in">
+          <div className="mt-4 p-4 rounded-2xl bg-rose-50/90 border-2 border-rose-200 text-rose-900 text-left space-y-2.5 animate-in fade-in">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-              <span className="font-bold text-xs">Outside Retailer Delivery Zones</span>
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span className="font-black text-xs text-rose-950">
+                Choose different location (no store found)
+              </span>
             </div>
-            <p className="text-[11px] text-amber-800 leading-tight">
-              No grocery supermarkets currently deliver to this exact pin. Please drag your pin onto a nearby store's delivery circle on the map.
+            <p className="text-[11px] text-rose-800 leading-tight">
+              No grocery supermarkets currently deliver to this pin. Please choose a different location or select an area below so that you fall in the retailer delivery zone.
             </p>
+            {/* Quick Suggestions to Fall into Delivery Zone */}
+            <div className="pt-1">
+              <span className="text-[10px] font-bold text-rose-900 uppercase tracking-wider block mb-1.5">
+                Suggested Deliverable Areas in {currentCityObj.city.split(',')[0]}:
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {currentCityObj.neighborhoods.slice(0, 4).map((n) => (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => handleSelectArea(n)}
+                    className="text-[10px] font-bold bg-white hover:bg-rose-100 text-rose-900 border border-rose-300 px-2.5 py-1 rounded-lg transition-all cursor-pointer shadow-2xs flex items-center gap-1"
+                  >
+                    <span>📍</span>
+                    <span>{n.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -854,10 +877,10 @@ const LocationModalContent = () => {
             type="button"
             onClick={handleConfirmLocation}
             disabled={isSaving || deliverableStores.length === 0}
-            style={{ backgroundColor: deliverableStores.length === 0 ? '#94a3b8' : tenantThemeColor }}
+            style={{ backgroundColor: deliverableStores.length === 0 ? '#e11d48' : tenantThemeColor }}
             className={`w-full py-3 px-6 text-white font-black text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${
               deliverableStores.length === 0
-                ? 'opacity-60 cursor-not-allowed'
+                ? 'opacity-90 cursor-not-allowed bg-rose-600'
                 : 'hover:shadow-lg hover:opacity-95 cursor-pointer active:scale-[0.99]'
             }`}
           >
@@ -866,7 +889,7 @@ const LocationModalContent = () => {
             ) : deliverableStores.length === 0 ? (
               <>
                 <AlertTriangle className="w-4 h-4 text-white" />
-                <span>Outside Delivery Zone • Drag Pin Closer</span>
+                <span>Choose different location (no store found)</span>
               </>
             ) : (
               <>

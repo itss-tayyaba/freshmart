@@ -16,7 +16,8 @@ import {
   ChevronRight,
   Check,
   Layers,
-  Crosshair
+  Crosshair,
+  AlertTriangle
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { MAP_LAYERS, switchMapTileLayer } from '../../utils/mapTiles';
@@ -54,7 +55,7 @@ const createStorePin = (logo = '🏬', color = '#10b981', isSelected = false) =>
   });
 
 export const NearbyStoresSection = ({ nearbyStores = [], onSelectStore }) => {
-  const { currentTenant, deliveryLocation } = useStore();
+  const { currentTenant, deliveryLocation, isOutsideDeliveryZone, setIsLocationModalOpen } = useStore();
 
   const [mapViewMode, setMapViewMode] = useState('street'); // 'street' | 'satellite' | 'hybrid'
   const mapContainerRef = useRef(null);
@@ -296,6 +297,33 @@ export const NearbyStoresSection = ({ nearbyStores = [], onSelectStore }) => {
           </button>
         </div>
       </div>
+
+      {/* Out of Delivery Zone Alert Banner */}
+      {isOutsideDeliveryZone && (
+        <div className="p-4 sm:p-5 rounded-3xl bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-rose-200 dark:bg-rose-900/80 flex items-center justify-center shrink-0 text-rose-700 dark:text-rose-300">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-black text-sm sm:text-base text-rose-950 dark:text-rose-100">
+                Choose different location (no store found)
+              </h4>
+              <p className="text-xs text-rose-800 dark:text-rose-300 mt-0.5">
+                Your current location is far away and outside our retailer delivery zone. Please change your location so that you may fall in the retailer delivery zone.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsLocationModalOpen && setIsLocationModalOpen(true)}
+            className="w-full sm:w-auto px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center justify-center gap-1.5"
+          >
+            <MapPin className="w-3.5 h-3.5" />
+            <span>Change Location</span>
+          </button>
+        </div>
+      )}
 
       {/* Grid of Nearby Grocery Stores */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">

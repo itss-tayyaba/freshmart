@@ -15,7 +15,8 @@ import {
   Bike,
   Truck,
   Sun,
-  Moon
+  Moon,
+  AlertTriangle
 } from 'lucide-react';
 
 import { useStore } from '../../context/StoreContext';
@@ -28,6 +29,7 @@ export const FreshMartHeader = () => {
     navigateTo,
     deliveryLocation,
     setIsLocationModalOpen,
+    isOutsideDeliveryZone,
     searchQuery,
     setSearchQuery,
     selectedSearchCategory,
@@ -343,21 +345,41 @@ export const FreshMartHeader = () => {
         {/* Location Picker displaying active address (Desktop / Tablet) */}
         <div
           onClick={() => setIsLocationModalOpen(true)}
-          className="hidden md:flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-emerald-500 hover:bg-emerald-50/30 dark:hover:bg-slate-800 cursor-pointer transition-colors shrink-0 max-w-[180px] lg:max-w-[230px]"
-          title={deliveryLocation?.address ? `${deliveryLocation.address}, ${deliveryLocation.city}` : (deliveryLocation?.city || 'Lahore, Pakistan')}
+          className={`hidden md:flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border transition-colors shrink-0 max-w-[200px] lg:max-w-[250px] cursor-pointer ${
+            isOutsideDeliveryZone
+              ? 'border-rose-400 bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 hover:border-rose-500'
+              : 'border-slate-200 dark:border-slate-700 hover:border-emerald-500 hover:bg-emerald-50/30 dark:hover:bg-slate-800'
+          }`}
+          title={isOutsideDeliveryZone ? 'Choose different location (no store found) - Outside retailer delivery zone' : (deliveryLocation?.address ? `${deliveryLocation.address}, ${deliveryLocation.city}` : (deliveryLocation?.city || 'Lahore, Pakistan'))}
         >
-          <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <MapPin className="w-4 h-4" />
+          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+            isOutsideDeliveryZone
+              ? 'bg-rose-200 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 animate-pulse'
+              : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
+          }`}>
+            {isOutsideDeliveryZone ? (
+              <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-300" />
+            ) : (
+              <MapPin className="w-4 h-4" />
+            )}
           </div>
           <div className="text-left leading-tight min-w-0">
-            <span className="text-[10px] font-semibold text-slate-400 block uppercase">
-              Deliver to
+            <span className={`text-[10px] block uppercase ${
+              isOutsideDeliveryZone
+                ? 'font-black text-rose-600 dark:text-rose-400'
+                : 'font-semibold text-slate-400'
+            }`}>
+              {isOutsideDeliveryZone ? 'No Store Found' : 'Deliver to'}
             </span>
             <div className="flex items-center gap-1 min-w-0">
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-                {deliveryLocation?.address
-                  ? (deliveryLocation.label ? `${deliveryLocation.label}: ${deliveryLocation.address}` : deliveryLocation.address)
-                  : (deliveryLocation?.city || 'Lahore, Pakistan')}
+              <span className={`text-xs font-bold truncate ${
+                isOutsideDeliveryZone ? 'text-rose-700 dark:text-rose-300 font-extrabold' : 'text-slate-800 dark:text-slate-200'
+              }`}>
+                {isOutsideDeliveryZone
+                  ? 'Choose different location (no store found)'
+                  : (deliveryLocation?.address
+                    ? (deliveryLocation.label ? `${deliveryLocation.label}: ${deliveryLocation.address}` : deliveryLocation.address)
+                    : (deliveryLocation?.city || 'Lahore, Pakistan'))}
               </span>
               <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
             </div>
@@ -618,13 +640,24 @@ export const FreshMartHeader = () => {
         <button
           type="button"
           onClick={() => setIsLocationModalOpen(true)}
-          className="flex items-center gap-1 min-w-0 max-w-[48%] shrink-0 text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer text-left pl-2 border-l border-slate-200 dark:border-slate-700"
+          className={`flex items-center gap-1 min-w-0 max-w-[50%] shrink-0 cursor-pointer text-left pl-2 border-l border-slate-200 dark:border-slate-700 ${
+            isOutsideDeliveryZone
+              ? 'text-rose-600 dark:text-rose-400 font-bold'
+              : 'text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400'
+          }`}
+          title={isOutsideDeliveryZone ? 'Choose different location (no store found)' : 'Change delivery address'}
         >
-          <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          {isOutsideDeliveryZone ? (
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+          ) : (
+            <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          )}
           <span className="truncate font-semibold text-[11px]">
-            {deliveryLocation?.address
-              ? (deliveryLocation.label ? `${deliveryLocation.label}: ${deliveryLocation.address}` : deliveryLocation.address)
-              : (deliveryLocation?.city || 'Faisalabad')}
+            {isOutsideDeliveryZone
+              ? 'Choose different location (no store found)'
+              : (deliveryLocation?.address
+                ? (deliveryLocation.label ? `${deliveryLocation.label}: ${deliveryLocation.address}` : deliveryLocation.address)
+                : (deliveryLocation?.city || 'Faisalabad'))}
           </span>
           <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
         </button>
@@ -890,16 +923,32 @@ export const FreshMartHeader = () => {
                   setIsLocationModalOpen(true);
                   setMobileMenuOpen(false);
                 }}
-                className="w-full p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between text-xs cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                className={`w-full p-3 border rounded-xl flex items-center justify-between text-xs cursor-pointer transition ${
+                  isOutsideDeliveryZone
+                    ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800'
+                    : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+                  {isOutsideDeliveryZone ? (
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  ) : (
+                    <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+                  )}
                   <div className="text-left min-w-0">
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">Deliver to</span>
-                    <span className="font-bold text-slate-900 dark:text-white truncate block">
-                      {deliveryLocation?.address
-                        ? (deliveryLocation.label ? `${deliveryLocation.label}: ${deliveryLocation.address}` : `${deliveryLocation.address}, ${deliveryLocation.city}`)
-                        : (deliveryLocation?.city || 'Faisalabad, Pakistan')}
+                    <span className={`text-[10px] block font-bold ${
+                      isOutsideDeliveryZone ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'
+                    }`}>
+                      {isOutsideDeliveryZone ? 'No Store Found' : 'Deliver to'}
+                    </span>
+                    <span className={`font-bold truncate block ${
+                      isOutsideDeliveryZone ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-white'
+                    }`}>
+                      {isOutsideDeliveryZone
+                        ? 'Choose different location (no store found)'
+                        : (deliveryLocation?.address
+                          ? (deliveryLocation.label ? `${deliveryLocation.label}: ${deliveryLocation.address}` : `${deliveryLocation.address}, ${deliveryLocation.city}`)
+                          : (deliveryLocation?.city || 'Faisalabad, Pakistan'))}
                     </span>
                   </div>
                 </div>

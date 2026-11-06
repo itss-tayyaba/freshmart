@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, Tag, Sparkles, Check, Truck } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, Tag, Sparkles, Check, Truck, AlertTriangle, MapPin } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 
 export const CartDrawer = () => {
@@ -24,7 +24,10 @@ export const CartDrawer = () => {
     isProductOutOfStock,
     substituteCartItem,
     setSelectedProductForQuickView,
-    currentTenant
+    currentTenant,
+    isOutsideDeliveryZone,
+    setIsLocationModalOpen,
+    addToast
   } = useStore();
 
   const [couponInput, setCouponInput] = useState('');
@@ -355,18 +358,63 @@ export const CartDrawer = () => {
               </div>
             </div>
 
+            {/* Out of Delivery Zone Notice */}
+            {isOutsideDeliveryZone && (
+              <div className="p-3 rounded-2xl bg-rose-50 border-2 border-rose-200 text-rose-900 text-xs flex items-start gap-2.5 text-left mb-2 animate-in fade-in">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <span className="font-black block text-xs text-rose-950">
+                    Choose different location (no store found)
+                  </span>
+                  <span className="text-[11px] text-rose-800 leading-tight block mt-0.5">
+                    Your location is outside our retailer delivery zone. Please change your location so that you fall in the retailer delivery zone.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCartOpen(false);
+                      setIsLocationModalOpen(true);
+                    }}
+                    className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-black text-rose-700 hover:text-rose-950 underline cursor-pointer"
+                  >
+                    <MapPin className="w-3 h-3" />
+                    <span>Change Location Now</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="space-y-2">
               <button
                 onClick={() => {
+                  if (isOutsideDeliveryZone) {
+                    addToast(
+                      'Choose different location (no store found) ⚠️',
+                      'Your location is outside our retailer delivery zone. Please change your location to proceed.',
+                      'error'
+                    );
+                    setIsCartOpen(false);
+                    setIsLocationModalOpen(true);
+                    return;
+                  }
                   setIsCartOpen(false);
                   navigateTo('checkout');
                 }}
-                style={{ backgroundColor: tenantThemeColor }}
+                style={{ backgroundColor: isOutsideDeliveryZone ? '#e11d48' : tenantThemeColor }}
                 className="w-full py-3.5 px-4 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:opacity-95 transition-all cursor-pointer"
               >
-                <span>Proceed to Checkout</span>
-                <ArrowRight className="w-4 h-4" />
+                {isOutsideDeliveryZone ? (
+                  <>
+                    <AlertTriangle className="w-4 h-4" />
+                    <span>Choose different location (no store found)</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Proceed to Checkout</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
 
               <button

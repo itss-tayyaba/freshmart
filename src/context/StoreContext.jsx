@@ -1279,13 +1279,35 @@ export const StoreProvider = ({ children }) => {
     addToast('Store Activated 🛒', `Now shopping at ${resolvedTenant.displayName || resolvedTenant.name}`);
   };
 
+  // Dynamic list of deliverable stores & deliverability status for active customer location
+  const currentNearbyStores = useMemo(() => {
+    const coords = deliveryLocation?.coords || deliveryLocation;
+    return getNearbyStores(coords);
+  }, [deliveryLocation, allBranches]);
+
+  const deliverableStores = useMemo(() => {
+    return (currentNearbyStores || []).filter((s) => s.isDeliverable);
+  }, [currentNearbyStores]);
+
+  const isOutsideDeliveryZone = useMemo(() => {
+    return (deliverableStores || []).length === 0;
+  }, [deliverableStores]);
+
   // Confirm customer delivery location, lock coordinates, persist to database & store, and auto-route
   const confirmDeliveryLocation = (newLoc, preferredStore = null) => {
     if (!newLoc) return;
+    const nearby = getNearbyStores(newLoc.coords || {
+      lat: Number(newLoc.lat || 31.4125),
+      lng: Number(newLoc.lng || 73.0995)
+    });
+    const deliverableNearby = (nearby || []).filter((s) => s.isDeliverable);
+    const isDeliverableLocation = deliverableNearby.length > 0;
+
     const resolved = {
       ...deliveryLocation,
       ...newLoc,
       orderType: 'Delivery',
+      isDeliverable: isDeliverableLocation,
       coords: newLoc.coords || {
         lat: Number(newLoc.lat || 31.4125),
         lng: Number(newLoc.lng || 73.0995)
@@ -1302,8 +1324,6 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
 
     // Find and auto-route to closest store based on Haversine distance, prioritizing deliverable stores
-    const nearby = getNearbyStores(resolved.coords);
-    const deliverableNearby = (nearby || []).filter((s) => s.isDeliverable);
     const targetStore = preferredStore || (deliverableNearby.length > 0 ? deliverableNearby[0] : (nearby && nearby.length > 0 ? nearby[0] : null));
     const targetTenant = targetStore?.tenant || targetStore;
 
@@ -1325,14 +1345,23 @@ export const StoreProvider = ({ children }) => {
         phone: resolved.phone || '',
         tenantId: targetTenant?.id || currentTenant?.id || 'tenant-freshmart',
         tenantName: targetTenant?.displayName || targetTenant?.name || currentTenant?.name || 'FreshMart',
-        orderType: 'Delivery'
+        orderType: 'Delivery',
+        isDeliverable: isDeliverableLocation
       });
     } catch (e) {}
 
-    addToast(
-      'Location Confirmed 📍',
-      `Delivering to: ${resolved.address || resolved.city}. Selected ${targetTenant?.displayName || targetTenant?.name || 'Store'}!`
-    );
+    if (!isDeliverableLocation) {
+      addToast(
+        'Choose different location (no store found) ⚠️',
+        'Your selected location is outside our retailer delivery zone. Please choose a different location to order.',
+        'warning'
+      );
+    } else {
+      addToast(
+        'Location Confirmed 📍',
+        `Delivering to: ${resolved.address || resolved.city}. Selected ${targetTenant?.displayName || targetTenant?.name || 'Store'}!`
+      );
+    }
   };
 
   // Master Branch Inventory & Branch Orders State
@@ -7213,6 +7242,8 @@ export const StoreProvider = ({ children }) => {
         confirmDeliveryLocation,
         isLocationModalOpen,
         setIsLocationModalOpen,
+        deliverableStores,
+        isOutsideDeliveryZone,
         cart,
         addToCart,
         updateCartQuantity,

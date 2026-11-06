@@ -14,6 +14,7 @@ import { CustomerPortal } from './components/CustomerPortal/CustomerPortal';
 import { DeliveryPortal } from './components/DeliveryPortal/DeliveryPortal';
 import { PickupStaffPortal } from './components/Admin/views/PickupStaffPortal';
 import { StaffAppDownload } from './components/Common/StaffAppDownload';
+import { OutOfDeliveryZoneBanner } from './components/Common/OutOfDeliveryZoneBanner';
 import { Footer } from './components/Footer/Footer';
 
 
@@ -113,6 +114,9 @@ function FreshMartAppContent() {
     <div className="min-h-screen flex flex-col bg-[#f8fafc] dark:bg-[#0b0f19] font-sans antialiased text-slate-800 dark:text-slate-100 w-full max-w-full overflow-x-hidden">
       {/* Top Header & Navigation Bar */}
       <FreshMartHeader />
+
+      {/* Out of Delivery Zone Alert Banner */}
+      <OutOfDeliveryZoneBanner />
 
       {/* Main Page View Switching */}
       <main className="flex-1">
