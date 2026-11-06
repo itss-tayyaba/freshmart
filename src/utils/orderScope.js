@@ -315,11 +315,25 @@ export const isOrderVisibleToUser = (order, user, activeTenantId = null) => {
 
 /**
  * Check if a rider can be assigned to an order (must be same tenant and same branch)
+ * Accepts either (order, rider) or (rider, order) polymorphically.
  */
-export const canAssignRiderToOrder = (order, rider) => {
-  if (!order || !rider) {
+export const canAssignRiderToOrder = (arg1, arg2) => {
+  if (!arg1 || !arg2) {
     return { allowed: false, reason: 'Missing order or rider data' };
   }
+
+  const isArg1Rider = Boolean(
+    arg1.vehicleType ||
+    arg1.vehicleNumber ||
+    arg1.riderId ||
+    arg1.role === 'rider' ||
+    arg1.deliveriesCount !== undefined ||
+    arg1.rating !== undefined ||
+    (arg1.status && ['on-duty', 'off-duty'].includes(String(arg1.status).toLowerCase()))
+  );
+
+  const order = isArg1Rider ? arg2 : arg1;
+  const rider = isArg1Rider ? arg1 : arg2;
 
   const orderTenant = normalizeOrderTenantId(order);
   const riderTenant = resolveTenantId(rider.tenantId);
@@ -371,7 +385,7 @@ export const canAssignRiderToOrder = (order, rider) => {
 
   // 3. Online Availability Check:
   const rStatus = String(rider.status || '').toLowerCase();
-  if (rStatus === 'offline' || rStatus === 'off-duty') {
+  if (rStatus === 'offline' || rStatus === 'off-duty' || rider.isOnline === false) {
     return {
       allowed: false,
       reason: `Rider ${rider.name || rider.username} is currently Offline (Off-Duty).`

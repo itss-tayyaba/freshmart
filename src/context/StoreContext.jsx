@@ -3310,6 +3310,61 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   }, [riders]);
 
+  // Real-time synchronization of rider status between Rider Portal and Admin Console
+  useEffect(() => {
+    const handleRiderStorageSync = (e) => {
+      if (!e) return;
+      if (e.key === 'freshmart_riders' || e.key === 'freshmart_riders_v3' || e.key === 'freshmart_rider_status_event') {
+        try {
+          const saved = localStorage.getItem('freshmart_riders_v3') || localStorage.getItem('freshmart_riders');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setRiders(parsed);
+            }
+          }
+        } catch (err) {}
+
+        if (e.key === 'freshmart_rider_status_event' && e.newValue) {
+          try {
+            const eventData = JSON.parse(e.newValue);
+            if (eventData && eventData.name) {
+              const isOffDuty = eventData.status === 'Off-Duty' || eventData.status === 'Offline' || eventData.isOnline === false;
+              addToast(
+                'Rider Duty Alert 🛵',
+                `Rider ${eventData.name} has marked their status as ${isOffDuty ? 'OFF-DUTY 🔴' : 'ON-DUTY 🟢'}.`,
+                isOffDuty ? 'warning' : 'success'
+              );
+            }
+          } catch (err) {}
+        }
+      }
+    };
+
+    const handleCustomRiderUpdate = (e) => {
+      const detail = e?.detail;
+      if (detail && detail.name) {
+        const isCurrentAdmin = isAdminLoggedIn || ['admin', 'superadmin', 'store admin'].includes(String(adminRole || '').toLowerCase());
+        if (isCurrentAdmin) {
+          const isOffDuty = detail.status === 'Off-Duty' || detail.status === 'Offline' || detail.isOnline === false;
+          addToast(
+            'Rider Duty Alert 🛵',
+            `Rider ${detail.name} has marked their status as ${isOffDuty ? 'OFF-DUTY 🔴' : 'ON-DUTY 🟢'}.`,
+            isOffDuty ? 'warning' : 'success'
+          );
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleRiderStorageSync);
+    window.addEventListener('freshmart_riders_updated', handleCustomRiderUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleRiderStorageSync);
+      window.removeEventListener('freshmart_riders_updated', handleCustomRiderUpdate);
+    };
+  }, [isAdminLoggedIn, adminRole]);
+
   const [pickupStaff, setPickupStaff] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_pickup_staff');
@@ -3992,28 +4047,51 @@ export const StoreProvider = ({ children }) => {
   };
 
   const toggleRiderStatus = async (id) => {
+    let changedRiderName = '';
+    let targetNextStatus = '';
+    let targetIsOnline = false;
     setRiders((prev) => {
       const updated = prev.map((r) => {
-        if (r.id === id || r.riderId === id) {
-          const isActive = r.status === 'Active' || r.status === 'On-Duty';
-          const nextStatus = isActive ? 'Offline' : 'On-Duty';
-          return { ...r, status: nextStatus };
+        if (r.id === id || r.riderId === id || (r.username && r.username.toLowerCase() === String(id).toLowerCase())) {
+          const isOnDuty = r.status === 'On-Duty' || r.status === 'Active';
+          const nextStatus = isOnDuty ? 'Off-Duty' : 'On-Duty';
+          changedRiderName = r.name || r.username || 'Rider';
+          targetNextStatus = nextStatus;
+          targetIsOnline = !isOnDuty;
+          return { ...r, status: nextStatus, isOnline: targetIsOnline };
         }
         return r;
       });
       try {
         localStorage.setItem('freshmart_riders', JSON.stringify(updated));
         localStorage.setItem('freshmart_riders_v3', JSON.stringify(updated));
+        localStorage.setItem('freshmart_rider_status_event', JSON.stringify({
+          id,
+          name: changedRiderName,
+          status: targetNextStatus,
+          isOnline: targetIsOnline,
+          timestamp: Date.now()
+        }));
       } catch (e) {}
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('freshmart_riders_updated', {
+          detail: { id, name: changedRiderName, status: targetNextStatus, isOnline: targetIsOnline }
+        }));
+      }
       return updated;
     });
+    try {
+      await apiService.updateRider(id, { status: targetNextStatus, isOnline: targetIsOnline });
+    } catch (e) {}
   };
 
   const updateRiderOnlineStatus = async (id, isOnline) => {
-    const nextStatus = isOnline ? 'On-Duty' : 'Offline';
+    const nextStatus = isOnline ? 'On-Duty' : 'Off-Duty';
+    let changedRiderName = '';
     setRiders((prev) => {
       const updated = prev.map((r) => {
         if (r.id === id || r.riderId === id || (r.username && r.username.toLowerCase() === String(id).toLowerCase())) {
+          changedRiderName = r.name || r.username || 'Rider';
           return { ...r, status: nextStatus, isOnline };
         }
         return r;
@@ -4021,7 +4099,19 @@ export const StoreProvider = ({ children }) => {
       try {
         localStorage.setItem('freshmart_riders', JSON.stringify(updated));
         localStorage.setItem('freshmart_riders_v3', JSON.stringify(updated));
+        localStorage.setItem('freshmart_rider_status_event', JSON.stringify({
+          id,
+          name: changedRiderName,
+          status: nextStatus,
+          isOnline,
+          timestamp: Date.now()
+        }));
       } catch (e) {}
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('freshmart_riders_updated', {
+          detail: { id, name: changedRiderName, status: nextStatus, isOnline }
+        }));
+      }
       return updated;
     });
     try {

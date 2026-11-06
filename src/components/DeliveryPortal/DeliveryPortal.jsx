@@ -357,10 +357,10 @@ export const DeliveryPortal = () => {
       await updateRiderOnlineStatus(riderId, nextOnline);
     }
     addToast(
-      nextOnline ? 'You are now Online 🟢' : 'You are now Offline ⚪',
+      nextOnline ? 'You are now Online (On-Duty) 🟢' : 'You are now Off-Duty 🔴',
       nextOnline
-        ? 'On-Duty: Ready to accept order dispatches and track live deliveries.'
-        : 'Off-Duty: You will not receive new order assignments until you go back online.',
+        ? 'On-Duty: Store Admin has been notified that you are On-Duty and available for deliveries.'
+        : 'Off-Duty: Store Admin has been informed that you are now Off-Duty. You will not receive new order assignments.',
       nextOnline ? 'success' : 'info'
     );
   };
@@ -2512,23 +2512,52 @@ export const DeliveryPortal = () => {
         {/* STANDBY / IDLE ON-DUTY STATE (When rider has 0 active or ready parcels)*/}
         {/* ===================================================================== */}
         {!activeOrder && readyForDispatchOrders.length === 0 && preparingOrders.length === 0 && (
-          <section className="bg-white rounded-2xl border border-stone-200/90 shadow-2xs p-6 text-center space-y-3">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-2xl shadow-2xs">
-              🛵
-            </div>
-            <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                <span>ON-DUTY & ONLINE</span>
+          !isRiderOnline ? (
+            <section className="bg-rose-50/80 rounded-2xl border-2 border-dashed border-rose-300 shadow-2xs p-6 text-center space-y-3">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 border border-rose-300 text-2xl shadow-2xs">
+                ⏸️
               </div>
-              <h3 className="text-base font-black text-slate-900">
-                Awaiting Store Dispatch Orders
-              </h3>
-              <p className="text-xs text-slate-500 max-w-md mx-auto">
-                You are on standby in <b>{activeRider?.zone || 'Store Delivery Zone'}</b> for {storeBrandName}. When store pickup staff packs and marks a parcel ready, it will appear here in real-time.
-              </p>
-            </div>
-          </section>
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 text-rose-800 text-xs font-black border border-rose-200">
+                  <span className="w-2 h-2 rounded-full bg-rose-600"></span>
+                  <span>YOU ARE CURRENTLY OFF-DUTY</span>
+                </div>
+                <h3 className="text-base font-black text-rose-950">
+                  Off-Duty Mode Active
+                </h3>
+                <p className="text-xs text-rose-800 max-w-md mx-auto">
+                  Your store admin has been notified that you are now <b>Off-Duty</b>. You will not receive new order dispatches until you switch back to On-Duty.
+                </p>
+              </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={handleToggleOnlineStatus}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs rounded-xl shadow-md transition cursor-pointer"
+                >
+                  Switch to On-Duty
+                </button>
+              </div>
+            </section>
+          ) : (
+            <section className="bg-white rounded-2xl border border-stone-200/90 shadow-2xs p-6 text-center space-y-3">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-2xl shadow-2xs">
+                🛵
+              </div>
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                  <span>ON-DUTY & ONLINE</span>
+                </div>
+                <h3 className="text-base font-black text-slate-900">
+                  Awaiting Store Dispatch Orders
+                </h3>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  You are on standby in <b>{activeRider?.zone || 'Store Delivery Zone'}</b> for {storeBrandName}. When store pickup staff packs and marks a parcel ready, it will appear here in real-time.
+                </p>
+              </div>
+            </section>
+          )
         )}
 
         {/* ===================================================================== */}

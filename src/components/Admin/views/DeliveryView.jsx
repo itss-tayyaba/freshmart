@@ -259,6 +259,7 @@ export const DeliveryView = () => {
 
   // Selected rider for mobile app simulator
   const [simulatedRiderId, setSimulatedRiderId] = useState(riders[0]?.id || '');
+  const [dutyFilter, setDutyFilter] = useState('All'); // 'All' | 'On-Duty' | 'Off-Duty'
 
   // Filter riders - strictly scoped to store tenant or all active registered riders
   const storeRiders = useMemo(() => {
@@ -273,8 +274,15 @@ export const DeliveryView = () => {
     return tenantMatched;
   }, [riders, currentTenant?.id, user?.tenantId, adminRole]);
 
-  // Filter riders based on search and branch/zone
+  // Filter riders based on search, branch/zone, and duty status
   const filteredRiders = storeRiders.filter((r) => {
+    const rStatusLower = String(r.status || '').toLowerCase();
+    const isOffDuty = rStatusLower === 'off-duty' || rStatusLower === 'offline' || rStatusLower === 'inactive' || r.isOnline === false;
+    const isOnDuty = !isOffDuty;
+
+    if (dutyFilter === 'On-Duty' && !isOnDuty) return false;
+    if (dutyFilter === 'Off-Duty' && !isOffDuty) return false;
+
     const query = searchRider.toLowerCase().trim();
     if (!query) return true;
     const riderRegion = String(r.branchName || r.region || r.zone || '').toLowerCase();
@@ -338,7 +346,15 @@ export const DeliveryView = () => {
   }, [customerOrders, adminOrders, currentTenant?.id, user?.tenantId]);
 
   // KPI Metrics scoped to this store
-  const activeRidersCount = storeRiders.filter((r) => r.status === 'On-Duty' || r.status === 'Busy').length;
+  const onDutyRidersCount = storeRiders.filter((r) => {
+    const s = String(r.status || '').toLowerCase();
+    return (s === 'on-duty' || s === 'active' || s === 'busy') && r.isOnline !== false;
+  }).length;
+  const offDutyRidersCount = storeRiders.filter((r) => {
+    const s = String(r.status || '').toLowerCase();
+    return s === 'off-duty' || s === 'offline' || s === 'inactive' || r.isOnline === false;
+  }).length;
+  const activeRidersCount = onDutyRidersCount;
   const totalDeliveries = storeRiders.reduce((sum, r) => sum + (r.deliveriesCount || 0), 0);
 
   const pendingDispatches = useMemo(() => {
@@ -386,6 +402,12 @@ export const DeliveryView = () => {
       addToast('Select Rider', 'Please choose an available courier from the list.', 'error');
       return;
     }
+    const chosenRider = (riders || []).find((r) => r.id === rId);
+    const rStatus = String(chosenRider?.status || '').toLowerCase();
+    if (chosenRider && (rStatus === 'off-duty' || rStatus === 'offline' || chosenRider.isOnline === false)) {
+      addToast('Rider Off-Duty 🔴', `${chosenRider.name || 'This rider'} is currently Off-Duty and cannot accept dispatches.`, 'warning');
+      return;
+    }
     assignRiderToOrder(orderId, rId);
     setSelectedRiderMap((prev) => ({ ...prev, [orderId]: '' }));
   };
@@ -394,6 +416,12 @@ export const DeliveryView = () => {
   const handleSidebarAssign = async () => {
     if (!sidebarOrder || !sidebarRiderId) {
       addToast('Select Rider', 'Please choose a rider first.', 'error');
+      return;
+    }
+    const chosenRider = (riders || []).find((r) => r.id === sidebarRiderId);
+    const rStatus = String(chosenRider?.status || '').toLowerCase();
+    if (chosenRider && (rStatus === 'off-duty' || rStatus === 'offline' || chosenRider.isOnline === false)) {
+      addToast('Rider Off-Duty 🔴', `${chosenRider.name || 'This rider'} is currently Off-Duty and cannot accept dispatches.`, 'warning');
       return;
     }
     setSidebarAssigning(true);
@@ -701,13 +729,22 @@ export const DeliveryView = () => {
           </div>
           <div>
             <div className="text-3xl font-black text-slate-900 font-mono">
-              {activeRidersCount} <span className="text-sm font-bold text-slate-400">/ {riders.length}</span>
+              {onDutyRidersCount} <span className="text-sm font-bold text-slate-400">/ {storeRiders.length}</span>
             </div>
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">Fleet On-Duty & Available</p>
+            <p className="text-[11px] font-bold text-slate-500 mt-0.5">
+              <span className="text-emerald-700 font-black">{onDutyRidersCount} On-Duty</span> • <span className="text-rose-600 font-black">{offDutyRidersCount} Off-Duty</span>
+            </p>
           </div>
-          <div className="pt-2 border-t border-emerald-200/60 flex items-center gap-1 text-[10px] font-bold text-emerald-700">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>Instant Dispatch Ready</span>
+          <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between text-[10px] font-bold">
+            <div className="flex items-center gap-1.5 text-emerald-700">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Instant Dispatch Ready</span>
+            </div>
+            {offDutyRidersCount > 0 && (
+              <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 font-bold">
+                {offDutyRidersCount} Off-Duty
+              </span>
+            )}
           </div>
         </div>
 
@@ -1075,7 +1112,9 @@ export const DeliveryView = () => {
                           <p className="text-xs text-stone-400 italic p-3 bg-stone-50 rounded-xl">No riders available right now.</p>
                         ) : (
                           allAvailable.map((r) => {
-                            const rActive = r.status === 'Active' || r.status === 'On-Duty';
+                            const rStatusLower = String(r.status || '').toLowerCase();
+                            const isOffDuty = rStatusLower === 'off-duty' || rStatusLower === 'offline' || rStatusLower === 'inactive' || r.isOnline === false;
+                            const isOnDuty = !isOffDuty;
                             const isChosen = sidebarRiderId === r.id;
                             const activeOrders = (allOrdersList || []).filter((ord) => {
                               const s = String(ord.status || '').toLowerCase();
@@ -1088,19 +1127,30 @@ export const DeliveryView = () => {
                               <button
                                 key={r.id}
                                 type="button"
-                                onClick={() => setSidebarRiderId(r.id)}
+                                onClick={() => {
+                                  if (isOffDuty) {
+                                    addToast('Rider Off-Duty 🔴', `${r.name} is currently marked as Off-Duty and cannot accept dispatches.`, 'warning');
+                                    return;
+                                  }
+                                  setSidebarRiderId(r.id);
+                                }}
                                 className={`w-full text-left px-3.5 py-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                                  isChosen
+                                  isOffDuty
+                                    ? 'bg-stone-50 border-stone-200 opacity-60 hover:opacity-85'
+                                    : isChosen
                                     ? 'bg-stone-900 border-stone-900 text-white'
                                     : 'bg-white border-stone-200 hover:border-stone-400 text-stone-800'
                                 }`}
                               >
                                 <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0 ${isChosen ? 'bg-white/20' : 'bg-stone-100'}`}>
-                                    🛵
+                                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0 ${isChosen ? 'bg-white/20' : isOffDuty ? 'bg-rose-100 text-rose-700' : 'bg-stone-100'}`}>
+                                    {isOffDuty ? '🛑' : '🛵'}
                                   </div>
                                   <div className="min-w-0">
-                                    <p className={`font-bold text-sm truncate ${isChosen ? 'text-white' : 'text-stone-900'}`}>{r.name}</p>
+                                    <p className={`font-bold text-sm truncate ${isChosen ? 'text-white' : 'text-stone-900'}`}>
+                                      {r.name}
+                                      {isOffDuty && <span className="ml-1.5 text-[10px] text-rose-600 font-extrabold">(Off-Duty)</span>}
+                                    </p>
                                     <p className={`text-[10px] truncate ${isChosen ? 'text-stone-300' : 'text-stone-400'}`}>
                                       {r.servedAreaLabel || r.serviceArea || r.zone || r.region || 'General Area'}
                                       {r.isDirectAreaMatch ? ' ⭐ (Area Match)' : ''}
@@ -1110,10 +1160,14 @@ export const DeliveryView = () => {
                                 <div className="text-right shrink-0">
                                   <p className={`text-[10px] font-black ${isChosen ? 'text-stone-300' : 'text-stone-500'}`}>{activeOrders}/5</p>
                                   <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                                    isChosen ? 'bg-white/20 text-white' : rActive ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500'
+                                    isChosen
+                                      ? 'bg-white/20 text-white'
+                                      : isOnDuty
+                                      ? 'bg-emerald-100 text-emerald-700'
+                                      : 'bg-rose-100 text-rose-700 border border-rose-200'
                                   }`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full ${rActive ? 'bg-emerald-500' : 'bg-stone-400'}`}></span>
-                                    {rActive ? 'Active' : 'Inactive'}
+                                    <span className={`w-1.5 h-1.5 rounded-full ${isOnDuty ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                                    {isOnDuty ? 'On-Duty' : 'Off-Duty'}
                                   </div>
                                 </div>
                               </button>
@@ -1335,6 +1389,45 @@ export const DeliveryView = () => {
             )}
           </div>
 
+          {/* Duty Status Filter Tabs */}
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setDutyFilter('All')}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                dutyFilter === 'All'
+                  ? 'bg-stone-900 text-white shadow-xs'
+                  : 'bg-stone-100 hover:bg-stone-200 text-stone-600'
+              }`}
+            >
+              All Couriers ({storeRiders.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setDutyFilter('On-Duty')}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                dutyFilter === 'On-Duty'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>On-Duty ({onDutyRidersCount})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDutyFilter('Off-Duty')}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                dutyFilter === 'Off-Duty'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+              <span>Off-Duty ({offDutyRidersCount})</span>
+            </button>
+          </div>
+
           {/* Clean Delivery Riders Table */}
           <div className="bg-white rounded-3xl border border-stone-200/90 shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
@@ -1405,13 +1498,22 @@ export const DeliveryView = () => {
                       });
 
                       const activeCount = activeOrdersForRider.length;
-                      const isActive = rider.status === 'Active' || rider.status === 'On-Duty';
+                      const riderStatusLower = String(rider.status || '').toLowerCase();
+                      const isOffDuty = riderStatusLower === 'off-duty' || riderStatusLower === 'offline' || riderStatusLower === 'inactive' || rider.isOnline === false;
+                      const isOnDuty = !isOffDuty;
 
                       return (
                         <tr key={rider.id} className="hover:bg-stone-50/60 transition-colors">
                           {/* NAME */}
                           <td className="py-4 px-6 font-semibold text-stone-900 text-xs">
-                            {rider.name}
+                            <div className="flex items-center gap-2">
+                              <span>{rider.name}</span>
+                              {isOffDuty && (
+                                <span className="text-[10px] bg-rose-50 text-rose-700 border border-rose-200 px-1.5 py-0.2 rounded font-bold">
+                                  Off-Duty
+                                </span>
+                              )}
+                            </div>
                           </td>
 
                           {/* USERNAME */}
@@ -1444,13 +1546,13 @@ export const DeliveryView = () => {
                           <td className="py-4 px-4">
                             <span
                               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                                isActive
+                                isOnDuty
                                   ? 'bg-[#e2ede2] text-[#366838] border border-[#ceead6]'
-                                  : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
                               }`}
                             >
-                              <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-[#2e7d32]' : 'bg-slate-400'}`}></span>
-                              <span>{isActive ? 'Active' : 'Inactive'}</span>
+                              <span className={`w-2 h-2 rounded-full ${isOnDuty ? 'bg-[#2e7d32] animate-pulse' : 'bg-rose-500'}`}></span>
+                              <span>{isOnDuty ? '🟢 On-Duty' : '🔴 Off-Duty'}</span>
                             </span>
                           </td>
 
@@ -1486,9 +1588,14 @@ export const DeliveryView = () => {
                                 <button
                                   type="button"
                                   onClick={() => toggleRiderStatus(rider.id)}
-                                  className="px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                                  className={`px-3 py-1 border rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-2xs ${
+                                    isOnDuty
+                                      ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
+                                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                                  }`}
+                                  title={isOnDuty ? 'Mark rider off-duty' : 'Mark rider on-duty'}
                                 >
-                                  {isActive ? 'Deactivate' : 'Activate'}
+                                  {isOnDuty ? 'Mark Off-Duty' : 'Mark On-Duty'}
                                 </button>
                               )}
 

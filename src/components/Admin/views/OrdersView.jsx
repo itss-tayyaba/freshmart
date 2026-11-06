@@ -522,6 +522,14 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
       r.id === riderId || r._id === riderId || r.riderId === riderId || r.username === riderId
     );
 
+    if (chosenRiderObj) {
+      const rStatus = String(chosenRiderObj.status || '').toLowerCase();
+      if (rStatus === 'off-duty' || rStatus === 'offline' || chosenRiderObj.isOnline === false) {
+        addToast('Rider is Off-Duty 🔴', `${chosenRiderObj.name} is currently Off-Duty and cannot accept order assignments.`, 'warning');
+        return;
+      }
+    }
+
     if (chosenRiderObj && !isSameTenant(chosenRiderObj.tenantId, orderTenant)) {
       addToast('Cross-Store Assignment Blocked ❌', `Rider ${chosenRiderObj.name} belongs to another store and cannot be assigned to this order.`, 'error');
       return;
@@ -1208,7 +1216,11 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
 
                     const orderKey = ord.id || ord.orderId || ord._id;
                     const cleanOrderKey = String(orderKey).replace(/^#/, '').trim();
-                    const defaultRiderId = eligibleRiders?.[0]?.id || eligibleRiders?.[0]?._id || eligibleRiders?.[0]?.riderId || '';
+                    const firstOnDuty = eligibleRiders.find((r) => {
+                      const st = String(r.status || '').toLowerCase();
+                      return st !== 'off-duty' && st !== 'offline' && st !== 'inactive' && r.isOnline !== false;
+                    });
+                    const defaultRiderId = firstOnDuty?.id || eligibleRiders?.[0]?.id || eligibleRiders?.[0]?._id || eligibleRiders?.[0]?.riderId || '';
                     const currentChosenRider =
                       selectedRiderMap[orderKey] ||
                       selectedRiderMap[cleanOrderKey] ||
@@ -1369,11 +1381,13 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                                         {eligibleRiders.length === 0 && <option value="">No riders available</option>}
                                         {eligibleRiders.map((r) => {
                                           const rId = r.id || r._id || r.riderId;
+                                          const rStatus = String(r.status || '').toLowerCase();
+                                          const isOffDuty = rStatus === 'off-duty' || rStatus === 'offline' || rStatus === 'inactive' || r.isOnline === false;
                                           const area = r.servedAreaLabel || r.region || r.zone || r.city || '';
-                                          const badge = r.isDirectAreaMatch ? ' ⭐ (Area Match)' : '';
+                                          const badge = isOffDuty ? ' [OFF-DUTY 🔴]' : (r.isDirectAreaMatch ? ' ⭐ (Area Match)' : '');
                                           return (
-                                            <option key={rId} value={rId}>
-                                              🛵 {r.name} {area ? `· ${area}` : ''}{badge}
+                                            <option key={rId} value={rId} disabled={isOffDuty}>
+                                              {isOffDuty ? '🛑' : '🛵'} {r.name} {area ? `· ${area}` : ''}{badge}
                                             </option>
                                           );
                                         })}
@@ -1842,7 +1856,11 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                   if (eligibleList.length === 0) {
                     eligibleList = (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
                   }
-                  const defaultDrawerRiderId = eligibleList[0]?.id || eligibleList[0]?._id || eligibleList[0]?.riderId || '';
+                  const firstOnDutyInDrawer = eligibleList.find((r) => {
+                    const st = String(r.status || '').toLowerCase();
+                    return st !== 'off-duty' && st !== 'offline' && st !== 'inactive' && r.isOnline !== false;
+                  });
+                  const defaultDrawerRiderId = firstOnDutyInDrawer?.id || eligibleList[0]?.id || eligibleList[0]?._id || eligibleList[0]?.riderId || '';
                   const currentDrawerRider =
                     selectedRiderMap[drawerKey] ||
                     selectedRiderMap[cleanDrawerKey] ||
@@ -1867,12 +1885,14 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
                         {eligibleList.length === 0 && <option value="">No riders available</option>}
                         {eligibleList.map((r) => {
                           const rId = r.id || r._id || r.riderId;
+                          const rStatus = String(r.status || '').toLowerCase();
+                          const isOffDuty = rStatus === 'off-duty' || rStatus === 'offline' || rStatus === 'inactive' || r.isOnline === false;
                           const area = r.servedAreaLabel || r.region || r.zone || r.city || '';
-                          const badge = r.isDirectAreaMatch ? ' ⭐ (Area Match)' : '';
+                          const badge = isOffDuty ? ' [OFF-DUTY 🔴]' : (r.isDirectAreaMatch ? ' ⭐ (Area Match)' : '');
                           const dist = r.distanceKm > 0 ? ` · ${r.distanceKm.toFixed(1)}km` : '';
                           return (
-                            <option key={rId} value={rId}>
-                              🛵 {r.name} {area ? `· ${area}` : ''}{badge}{dist}
+                            <option key={rId} value={rId} disabled={isOffDuty}>
+                              {isOffDuty ? '🛑' : '🛵'} {r.name} {area ? `· ${area}` : ''}{badge}{dist}
                             </option>
                           );
                         })}

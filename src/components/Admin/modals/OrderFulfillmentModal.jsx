@@ -108,10 +108,13 @@ export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
         score += 10;
       }
 
-      if (r.status === 'On-Duty' || r.status === 'Active') {
-        score += 5;
+      const rStatus = String(r.status || '').toLowerCase();
+      const isOffDuty = rStatus === 'off-duty' || rStatus === 'offline' || rStatus === 'inactive' || r.isOnline === false;
+
+      if (!isOffDuty) {
+        score += 15;
       } else {
-        score -= 20;
+        score -= 40;
       }
 
       const activeCount = Number(r.activeOrders || (r.id === selectedRider?.id ? 1 : 0));
@@ -663,31 +666,43 @@ export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
                 ) : (
                   matchingRiders.map((r) => {
                     const isSelected = selectedRider?.id === r.id;
+                    const rStatus = String(r.status || '').toLowerCase();
+                    const isOffDuty = rStatus === 'off-duty' || rStatus === 'offline' || rStatus === 'inactive' || r.isOnline === false;
+                    const isOnDuty = !isOffDuty;
+
                     return (
                       <div
                         key={r.id}
-                        onClick={() => setSelectedRider(r)}
+                        onClick={() => {
+                          if (isOffDuty) {
+                            addToast('Rider Off-Duty 🔴', `${r.name} is currently marked as Off-Duty and cannot accept dispatches.`, 'warning');
+                            return;
+                          }
+                          setSelectedRider(r);
+                        }}
                         className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                          isSelected
+                          isOffDuty
+                            ? 'bg-slate-50/60 border-slate-200 opacity-60 hover:opacity-85'
+                            : isSelected
                             ? 'bg-purple-50/80 border-purple-400 ring-2 ring-purple-400/40 shadow-sm'
                             : 'bg-white border-slate-200 hover:border-slate-300 shadow-2xs'
                         }`}
                       >
                         <div className="flex items-center gap-3.5">
-                          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-100 to-indigo-100 text-purple-800 font-black text-sm flex items-center justify-center shrink-0 border border-purple-200">
-                            🛵
+                          <div className={`w-10 h-10 rounded-2xl ${isOffDuty ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-gradient-to-br from-purple-100 to-indigo-100 text-purple-800 border border-purple-200'} font-black text-sm flex items-center justify-center shrink-0`}>
+                            {isOffDuty ? '🛑' : '🛵'}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-black text-slate-900 text-sm">{r.name}</span>
                               <span
-                                className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                                  r.status === 'On-Duty'
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : 'bg-slate-100 text-slate-500'
+                                className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
+                                  isOnDuty
+                                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                    : 'bg-rose-100 text-rose-700 border-rose-200'
                                 }`}
                               >
-                                {r.status}
+                                {isOnDuty ? '🟢 On-Duty' : '🔴 Off-Duty'}
                               </span>
                               <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
                                 ⭐ {r.rating || '4.9'}
@@ -705,7 +720,11 @@ export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
                             <span className="text-[10px] uppercase font-bold text-slate-400 block">Match Score</span>
                             <span
                               className={`font-mono font-black text-sm ${
-                                r.matchScore >= 80 ? 'text-emerald-600' : 'text-amber-600'
+                                isOffDuty
+                                  ? 'text-slate-400'
+                                  : r.matchScore >= 80
+                                  ? 'text-emerald-600'
+                                  : 'text-amber-600'
                               }`}
                             >
                               {r.matchScore}% Fit
@@ -713,13 +732,16 @@ export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
                           </div>
                           <button
                             type="button"
+                            disabled={isOffDuty}
                             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                              isSelected
+                              isOffDuty
+                                ? 'bg-rose-50 text-rose-600 border border-rose-200 cursor-not-allowed opacity-80'
+                                : isSelected
                                 ? 'bg-purple-600 text-white shadow-xs'
                                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                             }`}
                           >
-                            {isSelected ? '✓ Assigned' : 'Select'}
+                            {isOffDuty ? 'Off-Duty' : isSelected ? '✓ Assigned' : 'Select'}
                           </button>
                         </div>
                       </div>
@@ -738,9 +760,21 @@ export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
                 </button>
                 <button
                   onClick={() => {
-                    if (!selectedRider) {
-                      setSelectedRider(matchingRiders[0]);
+                    const candidate = selectedRider || matchingRiders.find(r => {
+                      const st = String(r.status || '').toLowerCase();
+                      return st !== 'off-duty' && st !== 'offline' && st !== 'inactive' && r.isOnline !== false;
+                    }) || matchingRiders[0];
+
+                    if (!candidate) {
+                      addToast('No Rider Available', 'No couriers are registered for this store.', 'error');
+                      return;
                     }
+                    const cStatus = String(candidate?.status || '').toLowerCase();
+                    if (cStatus === 'off-duty' || cStatus === 'offline' || candidate.isOnline === false) {
+                      addToast('Selected Rider is Off-Duty 🔴', `${candidate.name} is currently off-duty. Please choose an on-duty courier.`, 'warning');
+                      return;
+                    }
+                    setSelectedRider(candidate);
                     goToStage(4);
                   }}
                   className="px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm shadow-md flex items-center gap-2 transition cursor-pointer"
