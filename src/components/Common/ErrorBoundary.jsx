@@ -1,26 +1,45 @@
 import React from 'react';
 import { AlertCircle, RefreshCw, Home, RotateCcw } from 'lucide-react';
 
+// Inline fallback so it's always available even before orderScope module loads
+const _fallbackNormalize = (order) => {
+  if (!order) return null;
+  const raw = order.tenantId || order.companyId || order.tenant || order.storeId;
+  if (raw) {
+    const l = String(raw).toLowerCase();
+    if (l.includes('alfatah') || l.includes('company_001')) return 'company_001';
+    if (l.includes('chaseup') || l.includes('company_002')) return 'company_002';
+    if (l.includes('chasevalue') || l.includes('company_003')) return 'company_003';
+    if (l.includes('freshmart') || l.includes('unimaart') || l.includes('company_004')) return 'company_004';
+    return raw;
+  }
+  return null;
+};
+
+// Register immediately — before any component mounts
+if (typeof window !== 'undefined' && !window.normalizeOrderTenantId) {
+  try { window.normalizeOrderTenantId = _fallbackNormalize; } catch (e) {}
+}
+if (typeof globalThis !== 'undefined' && !globalThis.normalizeOrderTenantId) {
+  try { globalThis.normalizeOrderTenantId = _fallbackNormalize; } catch (e) {}
+}
+
 export class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
+    this.state = { hasError: false, error: null, errorInfo: null, retryCount: 0 };
   }
 
   static getDerivedStateFromError(error) {
     if (error?.message && error.message.includes('normalizeOrderTenantId')) {
-      if (typeof window !== 'undefined') {
-        window.normalizeOrderTenantId = (order) => {
-          if (!order) return null;
-          return order.tenantId || order.companyId || 'company_004';
-        };
-      }
-      if (typeof globalThis !== 'undefined') {
-        globalThis.normalizeOrderTenantId = (order) => {
-          if (!order) return null;
-          return order.tenantId || order.companyId || 'company_004';
-        };
-      }
+      // Patch the global immediately
+      const patch = (order) => {
+        if (!order) return null;
+        return order.tenantId || order.companyId || 'company_004';
+      };
+      if (typeof window !== 'undefined') window.normalizeOrderTenantId = patch;
+      if (typeof globalThis !== 'undefined') globalThis.normalizeOrderTenantId = patch;
+      // Return no-error state → React will re-render children automatically
       return { hasError: false, error: null };
     }
     return { hasError: true, error };
@@ -29,10 +48,17 @@ export class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     console.error('FreshMart Application ErrorBoundary caught:', error, errorInfo);
     if (error?.message && error.message.includes('normalizeOrderTenantId')) {
-      if (typeof window !== 'undefined') {
-        window.normalizeOrderTenantId = (order) => order?.tenantId || order?.companyId || 'company_004';
+      const patch = (order) => order?.tenantId || order?.companyId || 'company_004';
+      if (typeof window !== 'undefined') window.normalizeOrderTenantId = patch;
+      if (typeof globalThis !== 'undefined') globalThis.normalizeOrderTenantId = patch;
+      // Auto-recover: schedule retry without user clicking anything
+      const retryCount = (this.state.retryCount || 0) + 1;
+      if (retryCount <= 3) {
+        setTimeout(() => this.setState({ hasError: false, error: null, retryCount }), 100);
+      } else {
+        // After 3 auto-retries, show the error UI with the reload button
+        this.setState({ error, errorInfo, retryCount });
       }
-      this.setState({ hasError: false, error: null });
       return;
     }
     this.setState({ error, errorInfo });
@@ -85,7 +111,7 @@ export class ErrorBoundary extends React.Component {
                 className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition cursor-pointer"
               >
                 <RefreshCw className="w-4 h-4" />
-                <span>Reload & Restore FreshMart</span>
+                <span>Reload &amp; Restore FreshMart</span>
               </button>
 
               <button
@@ -111,7 +137,7 @@ export class ErrorBoundary extends React.Component {
                 className="w-full py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset Cache & Refresh</span>
+                <span>Reset Cache &amp; Refresh</span>
               </button>
             </div>
           </div>
