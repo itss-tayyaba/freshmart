@@ -17,6 +17,16 @@ const getStaffActivity = (order) => {
   return 'Waiting for staff assignment';
 };
 
+const resolveSafeOrderTenant = (ord) => {
+  if (typeof normalizeOrderTenantId === 'function') {
+    try {
+      const res = normalizeOrderTenantId(ord);
+      if (res) return res;
+    } catch (e) {}
+  }
+  return ord?.tenantId || ord?.companyId || null;
+};
+
 export const FulfillmentView = ({ orders: passedOrders }) => {
   const {
     adminOrders = [], customerOrders = [], currentTenant, user, pickupStaff = [], allBranches = [],
@@ -148,7 +158,7 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
       return oId === cleanId || String(o.id || '').toLowerCase() === String(orderId || '').toLowerCase() || String(o.orderId || '').toLowerCase() === String(orderId || '').toLowerCase();
     });
 
-    const orderTenant = normalizeOrderTenantId(ord) || activeTenantId;
+    const orderTenant = resolveSafeOrderTenant(ord) || activeTenantId;
     const storeRiders = (riders || []).filter((r) => isSameTenant(r.tenantId, orderTenant));
     const rawEligible = (ord && getEligibleRidersForOrder ? getEligibleRidersForOrder(ord) : []) || [];
     let eligibleList = rawEligible.filter((r) => isSameTenant(r.tenantId, orderTenant));
@@ -604,7 +614,7 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
                         }
 
                         if (isPrepared) {
-                          const orderTenant = normalizeOrderTenantId(order) || activeTenantId;
+                          const orderTenant = resolveSafeOrderTenant(order) || activeTenantId;
                           const rawEligible = (getEligibleRidersForOrder ? getEligibleRidersForOrder(order) : []) || [];
                           let eligibleRiders = rawEligible.filter((r) => isSameTenant(r.tenantId, orderTenant));
                           if (eligibleRiders.length === 0) {

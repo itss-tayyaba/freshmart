@@ -63,6 +63,13 @@ export const normalizeOrderTenantId = (order) => {
   return null;
 };
 
+if (typeof window !== 'undefined') {
+  try { window.normalizeOrderTenantId = normalizeOrderTenantId; } catch (e) {}
+}
+if (typeof globalThis !== 'undefined') {
+  try { globalThis.normalizeOrderTenantId = normalizeOrderTenantId; } catch (e) {}
+}
+
 /**
  * Resolve order routing to ensure an order is assigned to a branch that actually belongs
  * to the order's store. If an order has a branch from another store or missing branch,

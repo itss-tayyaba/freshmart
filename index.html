@@ -42,6 +42,34 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Global Runtime Resiliency Helpers -->
+    <script>
+      (function() {
+        var normalize = function(order) {
+          if (!order) return null;
+          var raw = order.tenantId || order.companyId || order.tenant || order.storeId || order.tenantName || order.storeName || (order.items && order.items[0] && order.items[0].tenantId) || (order.rawItems && order.rawItems[0] && order.rawItems[0].tenantId) || (order.orderItems && order.orderItems[0] && order.orderItems[0].tenantId);
+          if (raw) {
+            var lower = String(raw).toLowerCase().trim();
+            if (lower.includes('alfatah') || lower.includes('company_001')) return 'company_001';
+            if (lower.includes('chaseup') || lower.includes('caseup') || lower.includes('company_002')) return 'company_002';
+            if (lower.includes('chasevalue') || lower.includes('caseval') || lower.includes('company_003')) return 'company_003';
+            if (lower.includes('freshmart') || lower.includes('unimaart') || lower.includes('company_004')) return 'company_004';
+            return raw;
+          }
+          var idLower = String(order.id || order.orderId || order._id || '').toLowerCase().trim();
+          if (idLower.includes('fm') || idLower.includes('83459') || idLower.includes('unimaart') || idLower.includes('freshmart')) return 'company_004';
+          if (idLower.includes('af') || idLower.includes('701') || idLower.includes('alfatah')) return 'company_001';
+          if (idLower.includes('cu') || idLower.includes('caseup') || idLower.includes('chaseup')) return 'company_002';
+          if (idLower.includes('cv') || idLower.includes('caseval') || idLower.includes('chasevalue')) return 'company_003';
+          return null;
+        };
+        try {
+          window.normalizeOrderTenantId = normalize;
+          if (typeof globalThis !== 'undefined') globalThis.normalizeOrderTenantId = normalize;
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body class="bg-[#f8fafc] text-slate-800 font-sans antialiased selection:bg-brand-emerald selection:text-white">
     <div id="root"></div>
