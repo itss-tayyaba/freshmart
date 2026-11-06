@@ -1296,23 +1296,23 @@ export const DeliveryPortal = () => {
       {/* MOBILE TOP BAR                                                        */}
       {/* ===================================================================== */}
       <div
-        className="md:hidden text-slate-200 px-4 py-3 flex items-center justify-between shrink-0 shadow-md transition-colors"
+        className="md:hidden text-slate-200 px-3.5 py-2.5 flex items-center justify-between shrink-0 shadow-md transition-colors sticky top-0 z-40"
         style={{
           backgroundColor: storeTheme.sidebarHeaderBg,
           borderBottom: `1px solid ${storeTheme.sidebarBorder}`
         }}
       >
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition"
+            className="p-2 -ml-1 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition cursor-pointer shrink-0"
             aria-label="Toggle menu"
           >
             {mobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 min-w-0">
             <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-base shadow-xs"
+              className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-base shadow-xs shrink-0"
               style={{
                 backgroundColor: `${storeTheme.primaryLight}25`,
                 border: `1px solid ${storeTheme.primaryLight}50`,
@@ -1321,10 +1321,10 @@ export const DeliveryPortal = () => {
             >
               {storeLogo}
             </div>
-            <div>
-              <h1 className="text-sm font-bold tracking-tight text-white">{storeBrandName}</h1>
+            <div className="min-w-0">
+              <h1 className="text-sm font-bold tracking-tight text-white leading-tight truncate">{storeBrandName}</h1>
               <p
-                className="text-[10px] font-bold uppercase tracking-wider"
+                className="text-[10px] font-bold uppercase tracking-wider truncate"
                 style={{ color: storeTheme.accentText }}
               >
                 Parcel Dispatch
@@ -1729,7 +1729,7 @@ export const DeliveryPortal = () => {
       {/* ===================================================================== */}
       {/* 2. MAIN CONTENT AREA (Modern Slate Parcel Delivery Operations Console) */}
       {/* ===================================================================== */}
-      <main className="flex-1 min-w-0 p-3 sm:p-7 lg:p-8 pb-24 md:pb-8 space-y-4 sm:space-y-7 overflow-y-auto max-w-7xl mx-auto">
+      <main className="flex-1 min-w-0 p-3 sm:p-7 lg:p-8 pb-28 md:pb-8 space-y-4 sm:space-y-7 overflow-y-auto max-w-7xl mx-auto">
         
         {/* Top Header: Courier Operations Console */}
         <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -2136,11 +2136,11 @@ export const DeliveryPortal = () => {
               </div>
 
               {/* Live Sharing Status & GPS Navigation Buttons */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={toggleLiveLocationSharing}
-                  className={`py-2 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-2xs ${
+                  className={`flex-1 sm:flex-none py-2 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-2xs ${
                     isSharingLocation
                       ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20'
                       : 'bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800'
@@ -2155,7 +2155,7 @@ export const DeliveryPortal = () => {
                   href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(activeOrder.shippingAddress?.address || activeOrder.address || 'Peoples Colony No. 1, Faisalabad')}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="py-2 px-3.5 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white transition flex items-center gap-1.5 shadow-2xs"
+                  className="flex-1 sm:flex-none py-2 px-3.5 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white transition flex items-center justify-center gap-1.5 shadow-2xs"
                   title="Open in Google Maps Navigation"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -2732,77 +2732,127 @@ export const DeliveryPortal = () => {
             </div>
           </div>
 
-          {/* Delivered Audit Table */}
+          {/* Delivered Audit Table & Mobile Card View */}
           <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider bg-slate-50/70">
-                    <th className="py-3.5 px-6">PARCEL ID</th>
-                    <th className="py-3.5 px-6">CUSTOMER</th>
-                    <th className="py-3.5 px-6">DESTINATION</th>
-                    <th className="py-3.5 px-6">ITEMS</th>
-                    <th className="py-3.5 px-6">TOTAL</th>
-                    <th className="py-3.5 px-6">HANDOVER TIME</th>
-                    <th className="py-3.5 px-6 text-right">WHATSAPP NOTIFY</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {deliveredTodayOrders.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-12 text-center text-xs text-slate-400 italic">
-                        No parcels delivered yet today.
-                      </td>
-                    </tr>
-                  ) : (
-                    deliveredTodayOrders.map((order) => {
-                      const totalFormatted = formatPrice(order.totalAmount || order.total || order.totalPrice || 0);
+            {deliveredTodayOrders.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-400 italic">
+                No parcels delivered yet today.
+              </div>
+            ) : (
+              <>
+                {/* 📱 Mobile Delivered Orders List (< sm screens) */}
+                <div className="block sm:hidden divide-y divide-slate-100 p-3.5 space-y-3.5">
+                  {deliveredTodayOrders.map((order) => {
+                    const totalFormatted = formatPrice(order.totalAmount || order.total || order.totalPrice || 0);
+                    const deliveredTime = order.deliveredAt
+                      ? new Date(order.deliveredAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                      : '12:36 PM';
+                    const itemsDesc = Array.isArray(order.itemsList) && order.itemsList.length > 0
+                      ? order.itemsList.map((i) => `${i.name || i.productName || 'Item'} (x${i.quantity || 1})`).join(', ')
+                      : (typeof order.items === 'string' ? order.items : '1 Item');
 
-                      const deliveredTime = order.deliveredAt
-                        ? new Date(order.deliveredAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-                        : '12:36 PM';
+                    return (
+                      <div key={order.id} className="pt-3.5 first:pt-0 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-black text-sm text-slate-900">
+                            #{String(order.orderId || order.id || '').replace(/^#/, '')}
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <span>✓</span>
+                            <span>{deliveredTime}</span>
+                          </span>
+                        </div>
+                        <div className="text-xs space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-800">{order.customerName}</span>
+                            <span className="font-black text-slate-900 font-mono text-sm">{totalFormatted}</span>
+                          </div>
+                          <p className="text-slate-500 text-[11px] truncate">
+                            📍 {order.shippingAddress?.address || order.address || 'Faisalabad'}
+                          </p>
+                          <p className="text-slate-400 text-[10px] truncate">
+                            📦 {itemsDesc}
+                          </p>
+                        </div>
+                        <a
+                          href={getWhatsAppDeliveryLink(order, activeRider)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full py-2.5 bg-[#25D366] hover:bg-[#20ba5a] text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                          title="Send delivery receipt to customer on WhatsApp"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                          <span>Notify WhatsApp Receipt</span>
+                        </a>
+                      </div>
+                    );
+                  })}
+                </div>
 
-                      return (
-                        <tr key={order.id} className="hover:bg-slate-50/70 transition">
-                          <td className="py-3.5 px-6 font-black text-slate-900 font-mono">
-                            {String(order.orderId || order.id || '').replace(/^#/, '')}
-                          </td>
-                          <td className="py-3.5 px-6 font-bold text-slate-900">
-                            {order.customerName}
-                          </td>
-                          <td className="py-3.5 px-6 text-slate-600 text-xs">
-                            {order.shippingAddress?.address || order.address || 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad'}
-                          </td>
-                          <td className="py-3.5 px-6 text-slate-500">
-                            {Array.isArray(order.itemsList) && order.itemsList.length > 0
-                              ? order.itemsList.map((i) => `${i.name || i.productName || i.title || 'Item'} (x${i.quantity || i.qty || 1})`).join(', ')
-                              : (typeof order.items === 'string' ? order.items : '1 Item')}
-                          </td>
-                          <td className="py-3.5 px-6 font-black text-slate-900 font-mono">
-                            {totalFormatted}
-                          </td>
-                          <td className="py-3.5 px-6 font-medium text-emerald-700">
-                            ✓ {deliveredTime}
-                          </td>
-                          <td className="py-3.5 px-6 text-right">
-                            <a
-                              href={getWhatsAppDeliveryLink(order, activeRider)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366] hover:bg-[#20ba5a] text-white rounded-xl text-xs font-bold transition shadow-2xs hover:scale-[1.02]"
-                              title="Send delivery receipt to customer on WhatsApp"
-                            >
-                              <MessageCircle className="w-3.5 h-3.5" />
-                              <span>Notify WhatsApp</span>
-                            </a>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                {/* 🖥️ Desktop Delivered Orders Table (>= sm screens) */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider bg-slate-50/70">
+                        <th className="py-3.5 px-6">PARCEL ID</th>
+                        <th className="py-3.5 px-6">CUSTOMER</th>
+                        <th className="py-3.5 px-6">DESTINATION</th>
+                        <th className="py-3.5 px-6">ITEMS</th>
+                        <th className="py-3.5 px-6">TOTAL</th>
+                        <th className="py-3.5 px-6">HANDOVER TIME</th>
+                        <th className="py-3.5 px-6 text-right">WHATSAPP NOTIFY</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {deliveredTodayOrders.map((order) => {
+                        const totalFormatted = formatPrice(order.totalAmount || order.total || order.totalPrice || 0);
+
+                        const deliveredTime = order.deliveredAt
+                          ? new Date(order.deliveredAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                          : '12:36 PM';
+
+                        return (
+                          <tr key={order.id} className="hover:bg-slate-50/70 transition">
+                            <td className="py-3.5 px-6 font-black text-slate-900 font-mono">
+                              {String(order.orderId || order.id || '').replace(/^#/, '')}
+                            </td>
+                            <td className="py-3.5 px-6 font-bold text-slate-900">
+                              {order.customerName}
+                            </td>
+                            <td className="py-3.5 px-6 text-slate-600 text-xs">
+                              {order.shippingAddress?.address || order.address || 'House 88, Main D-Ground, Peoples Colony 1, Faisalabad'}
+                            </td>
+                            <td className="py-3.5 px-6 text-slate-500">
+                              {Array.isArray(order.itemsList) && order.itemsList.length > 0
+                                ? order.itemsList.map((i) => `${i.name || i.productName || i.title || 'Item'} (x${i.quantity || i.qty || 1})`).join(', ')
+                                : (typeof order.items === 'string' ? order.items : '1 Item')}
+                            </td>
+                            <td className="py-3.5 px-6 font-black text-slate-900 font-mono">
+                              {totalFormatted}
+                            </td>
+                            <td className="py-3.5 px-6 font-medium text-emerald-700">
+                              ✓ {deliveredTime}
+                            </td>
+                            <td className="py-3.5 px-6 text-right">
+                              <a
+                                href={getWhatsAppDeliveryLink(order, activeRider)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366] hover:bg-[#20ba5a] text-white rounded-xl text-xs font-bold transition shadow-2xs hover:scale-[1.02]"
+                                title="Send delivery receipt to customer on WhatsApp"
+                              >
+                                <MessageCircle className="w-3.5 h-3.5" />
+                                <span>Notify WhatsApp</span>
+                              </a>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         </section>
 
@@ -2952,7 +3002,47 @@ export const DeliveryPortal = () => {
                 </span>
               </div>
 
-              <div className="overflow-x-auto">
+              {/* 📱 Mobile Collections Card View (< sm screens) */}
+              <div className="block sm:hidden divide-y divide-slate-100">
+                {deliveredTodayOrders.length === 0 ? (
+                  <p className="py-6 text-center text-xs text-slate-400 italic">No deliveries logged yet today.</p>
+                ) : (
+                  deliveredTodayOrders.map((ord) => {
+                    const pm = String(ord.paymentMethod || '').toLowerCase();
+                    const isCod = !pm || pm.includes('cash') || pm.includes('cod') || pm.includes('delivery');
+                    return (
+                      <div key={ord.id} className="py-3 first:pt-0 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-black text-xs text-slate-900">
+                            #{String(ord.orderId || ord.id).replace(/^#/, '')}
+                          </span>
+                          <span className="font-mono font-black text-sm text-slate-900">
+                            {formatPrice(ord.totalAmount || ord.total || 0)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-800">{ord.customerName}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                            isCod ? 'bg-amber-50 text-amber-900 border-amber-200' : 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                          }`}>
+                            {isCod ? '💵 COD' : '💳 Prepaid'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-slate-500">
+                          <span>{isCod ? 'Rider In-Hand' : 'Payment Gateway'}</span>
+                          <span className="text-emerald-700 font-bold flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" />
+                            <span>Verified</span>
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* 🖥️ Desktop Collections Table (>= sm screens) */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider bg-slate-50/70">
@@ -3024,7 +3114,27 @@ export const DeliveryPortal = () => {
                   </span>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* 📱 Mobile Settlements List (< sm screens) */}
+                <div className="block sm:hidden divide-y divide-slate-100">
+                  {settlementRecords.map((s) => (
+                    <div key={s.id} className="py-3 first:pt-0 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-xs text-slate-900">{s.id}</span>
+                        <span className="font-mono font-black text-emerald-700 text-sm">{formatPrice(s.amount)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-slate-500">
+                        <span>{new Date(s.settledAt || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - {new Date(s.settledAt || Date.now()).toLocaleDateString()}</span>
+                        <span className="text-emerald-700 font-bold">✓ Cashier Received</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        {Array.isArray(s.orderIds) ? `${s.orderIds.length} orders settled` : 'Batch Settlement'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 🖥️ Desktop Settlements Table (>= sm screens) */}
+                <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider bg-slate-50/70">
@@ -3288,7 +3398,14 @@ export const DeliveryPortal = () => {
             </div>
 
             {/* Modal Actions */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200/80 flex items-center gap-2.5">
+            <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200/80 flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5">
+              <button
+                type="button"
+                onClick={() => setDeliveredOrderForWhatsApp(null)}
+                className="w-full sm:w-auto px-4 py-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition cursor-pointer text-center"
+              >
+                Done
+              </button>
               <a
                 href={getWhatsAppDeliveryLink(deliveredOrderForWhatsApp, activeRider, customWhatsAppNote)}
                 target="_blank"
@@ -3302,14 +3419,6 @@ export const DeliveryPortal = () => {
                 <span>Notify Customer on WhatsApp</span>
                 <ExternalLink className="w-3.5 h-3.5 opacity-80" />
               </a>
-
-              <button
-                type="button"
-                onClick={() => setDeliveredOrderForWhatsApp(null)}
-                className="px-4 py-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition cursor-pointer"
-              >
-                Done
-              </button>
             </div>
 
           </div>
@@ -3397,18 +3506,18 @@ export const DeliveryPortal = () => {
                 />
               </div>
 
-              <div className="pt-2 flex items-center gap-2.5">
+              <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5">
                 <button
                   type="button"
                   onClick={() => setShowPasswordModal(false)}
-                  className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition"
+                  className="w-full sm:flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition text-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isUpdatingPassword}
-                  className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black cursor-pointer transition shadow-md disabled:opacity-50"
+                  className="w-full sm:flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black cursor-pointer transition shadow-md disabled:opacity-50 text-center"
                 >
                   {isUpdatingPassword ? 'Saving...' : 'Update Password'}
                 </button>
@@ -3466,18 +3575,18 @@ export const DeliveryPortal = () => {
                 </select>
               </div>
 
-              <div className="pt-2 flex items-center gap-2.5">
+              <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5">
                 <button
                   type="button"
                   onClick={() => setDecliningOrder(null)}
-                  className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition"
+                  className="w-full sm:flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition text-center"
                 >
                   Keep Order
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirmDecline}
-                  className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black cursor-pointer transition shadow-md"
+                  className="w-full sm:flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black cursor-pointer transition shadow-md text-center"
                 >
                   Confirm Decline
                 </button>
@@ -3531,18 +3640,18 @@ export const DeliveryPortal = () => {
                 Confirm that you have physically handed over <b>{formatPrice(netCashInHand)}</b> in cash to the store cashier counter. This will record an official settlement receipt and clear your pending cash-in-hand balance.
               </p>
 
-              <div className="pt-2 flex items-center gap-2.5">
+              <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5">
                 <button
                   type="button"
                   onClick={() => setSettlementModalOpen(false)}
-                  className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition"
+                  className="w-full sm:flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition text-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirmCashierSettlement}
-                  className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black cursor-pointer transition shadow-md flex items-center justify-center gap-1.5"
+                  className="w-full sm:flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black cursor-pointer transition shadow-md flex items-center justify-center gap-1.5"
                 >
                   <Check className="w-4 h-4" />
                   <span>Confirm Handover</span>
@@ -3552,6 +3661,100 @@ export const DeliveryPortal = () => {
           </div>
         </div>
       )}
+
+      {/* ===================================================================== */}
+      {/* 📱 MOBILE BOTTOM NAVIGATION BAR (< md screens)                         */}
+      {/* ===================================================================== */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#0b132b]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800 flex items-center justify-around py-1.5 px-2 md:hidden shadow-lg select-none">
+        {/* Tab 1: Active Run */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('out-for-delivery');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl relative transition cursor-pointer ${
+            activeTab === 'out-for-delivery'
+              ? 'text-emerald-700 dark:text-emerald-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400 font-medium'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          {outForDeliveryOrders.length > 0 && (
+            <span className="absolute top-0 right-1 px-1 min-w-[14px] h-3.5 bg-emerald-600 text-white rounded-full text-[9px] font-black flex items-center justify-center">
+              {outForDeliveryOrders.length}
+            </span>
+          )}
+          <span className="text-[10px] mt-0.5">Active Run</span>
+        </button>
+
+        {/* Tab 2: Delivered Today */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('delivered-today');
+            const el = document.getElementById('delivered-parcels-today-section');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl relative transition cursor-pointer ${
+            activeTab === 'delivered-today'
+              ? 'text-emerald-700 dark:text-emerald-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400 font-medium'
+          }`}
+        >
+          <CheckCircle2 className="w-4 h-4" />
+          {deliveredTodayOrders.length > 0 && (
+            <span className="absolute top-0 right-1 px-1 min-w-[14px] h-3.5 bg-blue-600 text-white rounded-full text-[9px] font-black flex items-center justify-center">
+              {deliveredTodayOrders.length}
+            </span>
+          )}
+          <span className="text-[10px] mt-0.5">Delivered</span>
+        </button>
+
+        {/* Tab 3: Earnings & COD */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('earnings');
+            const el = document.getElementById('earnings-cod-ledger-section');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl relative transition cursor-pointer ${
+            activeTab === 'earnings'
+              ? 'text-emerald-700 dark:text-emerald-400 font-bold'
+              : 'text-slate-500 dark:text-slate-400 font-medium'
+          }`}
+        >
+          <Wallet className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Earnings</span>
+        </button>
+
+        {/* Quick Duty Status Toggle Button */}
+        <button
+          type="button"
+          onClick={handleToggleOnlineStatus}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl transition cursor-pointer ${
+            isRiderOnline ? 'text-emerald-600 font-bold' : 'text-rose-500 font-bold'
+          }`}
+          title="Toggle Duty Status"
+        >
+          <Power className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5 flex items-center gap-1">
+            <span className={`w-1.5 h-1.5 rounded-full ${isRiderOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+            <span>{isRiderOnline ? 'Online' : 'Offline'}</span>
+          </span>
+        </button>
+
+        {/* Menu Drawer Toggle */}
+        <button
+          type="button"
+          onClick={() => setMobileSidebarOpen(true)}
+          className="flex flex-col items-center py-1 px-2.5 rounded-xl text-slate-500 dark:text-slate-400 font-medium transition cursor-pointer"
+        >
+          <Menu className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Menu</span>
+        </button>
+      </nav>
 
     </div>
   );

@@ -717,10 +717,10 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
       {/* =========================================================================
           MAIN WORKSPACE AREA
           ========================================================================= */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto pb-16 md:pb-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto pb-24 md:pb-6">
         
         {/* Top Header Row with Welcome Text, Branch ID Scoping Pill & Notification Bell */}
-        <header className="bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-800 px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 z-30 shadow-2xs">
+        <header className="bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-800 px-4 sm:px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 static md:sticky md:top-0 z-30 shadow-2xs">
           <div>
             <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
               Pickup Staff Dashboard
@@ -1673,18 +1673,18 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                   </div>
 
                   {/* Actions */}
-                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
+                  <div className="pt-3.5 sm:pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-2.5 w-full">
                     <button
                       type="button"
                       onClick={() => setSelectedOrderForPacking(null)}
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition cursor-pointer"
+                      className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition cursor-pointer text-center"
                     >
                       Close
                     </button>
                     <button
                       type="button"
                       onClick={() => handlePackItems(selectedOrderForPacking, items.length)}
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <Package className="w-4 h-4" />
                       <span>Pack & Seal Order</span>
@@ -1692,7 +1692,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                     <button
                       type="button"
                       onClick={() => handleMarkReadyForDispatch(selectedOrderForPacking)}
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <CheckCircle2 className="w-4 h-4" />
                       <span>Mark Ready for Delivery</span>
