@@ -860,14 +860,19 @@ export const StoreProvider = ({ children }) => {
             const k = String(b._id || b.id || '').toLowerCase();
             const canonical = baseMap.get(k);
             if (canonical) {
+              const bLat = Number(b.latitude ?? b.coordinates?.lat);
+              const bLng = Number(b.longitude ?? b.coordinates?.lng);
+              const bRadius = Number(b.deliveryRadiusKm ?? b.deliveryRadius);
               return {
+                ...canonical,
                 ...b,
-                latitude: canonical.latitude,
-                longitude: canonical.longitude,
-                deliveryRadiusKm: canonical.deliveryRadiusKm,
-                deliveryRadius: canonical.deliveryRadius,
-                deliveryStatus: canonical.deliveryStatus || b.deliveryStatus,
-                deliveryTiers: canonical.deliveryTiers || b.deliveryTiers
+                latitude: (!isNaN(bLat) && bLat !== 0) ? bLat : canonical.latitude,
+                longitude: (!isNaN(bLng) && bLng !== 0) ? bLng : canonical.longitude,
+                deliveryRadiusKm: (!isNaN(bRadius) && bRadius > 0) ? bRadius : (canonical.deliveryRadiusKm || 5),
+                deliveryRadius: (!isNaN(bRadius) && bRadius > 0) ? bRadius : (canonical.deliveryRadius || 5),
+                deliveryPolygon: Array.isArray(b.deliveryPolygon) && b.deliveryPolygon.length >= 3 ? b.deliveryPolygon : (canonical.deliveryPolygon || null),
+                deliveryStatus: b.deliveryStatus || canonical.deliveryStatus || 'active',
+                deliveryTiers: (Array.isArray(b.deliveryTiers) && b.deliveryTiers.length > 0) ? b.deliveryTiers : (canonical.deliveryTiers || [])
               };
             }
             if (['branch_af_kohinoor', 'branch_cu_satiana', 'branch_cv_gmabad', 'branch_um_madina'].includes(k)) {
@@ -909,13 +914,19 @@ export const StoreProvider = ({ children }) => {
                 seen.add(k);
                 const canonical = baseMap.get(k);
                 if (canonical) {
+                  const bLat = Number(b.latitude ?? b.coordinates?.lat);
+                  const bLng = Number(b.longitude ?? b.coordinates?.lng);
+                  const bRadius = Number(b.deliveryRadiusKm ?? b.deliveryRadius);
                   merged.push({
+                    ...canonical,
                     ...b,
-                    latitude: canonical.latitude,
-                    longitude: canonical.longitude,
-                    deliveryRadiusKm: canonical.deliveryRadiusKm,
-                    deliveryRadius: canonical.deliveryRadius,
-                    deliveryStatus: canonical.deliveryStatus || b.deliveryStatus
+                    latitude: (!isNaN(bLat) && bLat !== 0) ? bLat : canonical.latitude,
+                    longitude: (!isNaN(bLng) && bLng !== 0) ? bLng : canonical.longitude,
+                    deliveryRadiusKm: (!isNaN(bRadius) && bRadius > 0) ? bRadius : (canonical.deliveryRadiusKm || 5),
+                    deliveryRadius: (!isNaN(bRadius) && bRadius > 0) ? bRadius : (canonical.deliveryRadius || 5),
+                    deliveryPolygon: Array.isArray(b.deliveryPolygon) && b.deliveryPolygon.length >= 3 ? b.deliveryPolygon : (canonical.deliveryPolygon || null),
+                    deliveryStatus: b.deliveryStatus || canonical.deliveryStatus || 'active',
+                    deliveryTiers: (Array.isArray(b.deliveryTiers) && b.deliveryTiers.length > 0) ? b.deliveryTiers : (canonical.deliveryTiers || [])
                   });
                 } else if (['branch_af_kohinoor', 'branch_cu_satiana', 'branch_cv_gmabad', 'branch_um_madina'].includes(k)) {
                   merged.push({ ...b, deliveryStatus: 'inactive', status: 'inactive' });
@@ -930,13 +941,19 @@ export const StoreProvider = ({ children }) => {
                 seen.add(k);
                 const canonical = baseMap.get(k);
                 if (canonical) {
+                  const bLat = Number(b.latitude ?? b.coordinates?.lat);
+                  const bLng = Number(b.longitude ?? b.coordinates?.lng);
+                  const bRadius = Number(b.deliveryRadiusKm ?? b.deliveryRadius);
                   merged.push({
+                    ...canonical,
                     ...b,
-                    latitude: canonical.latitude,
-                    longitude: canonical.longitude,
-                    deliveryRadiusKm: canonical.deliveryRadiusKm,
-                    deliveryRadius: canonical.deliveryRadius,
-                    deliveryStatus: canonical.deliveryStatus || b.deliveryStatus
+                    latitude: (!isNaN(bLat) && bLat !== 0) ? bLat : canonical.latitude,
+                    longitude: (!isNaN(bLng) && bLng !== 0) ? bLng : canonical.longitude,
+                    deliveryRadiusKm: (!isNaN(bRadius) && bRadius > 0) ? bRadius : (canonical.deliveryRadiusKm || 5),
+                    deliveryRadius: (!isNaN(bRadius) && bRadius > 0) ? bRadius : (canonical.deliveryRadius || 5),
+                    deliveryPolygon: Array.isArray(b.deliveryPolygon) && b.deliveryPolygon.length >= 3 ? b.deliveryPolygon : (canonical.deliveryPolygon || null),
+                    deliveryStatus: b.deliveryStatus || canonical.deliveryStatus || 'active',
+                    deliveryTiers: (Array.isArray(b.deliveryTiers) && b.deliveryTiers.length > 0) ? b.deliveryTiers : (canonical.deliveryTiers || [])
                   });
                 } else if (['branch_af_kohinoor', 'branch_cu_satiana', 'branch_cv_gmabad', 'branch_um_madina'].includes(k)) {
                   merged.push({ ...b, deliveryStatus: 'inactive', status: 'inactive' });

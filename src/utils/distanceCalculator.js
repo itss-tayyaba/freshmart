@@ -48,15 +48,21 @@ export function isPointInPolygon(point, polygon) {
     return false;
   }
 
-  const x = Number(point.lng ?? point.longitude);
-  const y = Number(point.lat ?? point.latitude);
+  const x = Number(point.lng ?? point.longitude ?? (Array.isArray(point) ? point[1] : NaN));
+  const y = Number(point.lat ?? point.latitude ?? (Array.isArray(point) ? point[0] : NaN));
+  if (isNaN(x) || isNaN(y)) return false;
+
   let inside = false;
 
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = Number(polygon[i].lng ?? polygon[i].longitude);
-    const yi = Number(polygon[i].lat ?? polygon[i].latitude);
-    const xj = Number(polygon[j].lng ?? polygon[j].longitude);
-    const yj = Number(polygon[j].lat ?? polygon[j].latitude);
+    const ptI = polygon[i];
+    const ptJ = polygon[j];
+    const xi = Number(Array.isArray(ptI) ? ptI[1] : (ptI?.lng ?? ptI?.longitude));
+    const yi = Number(Array.isArray(ptI) ? ptI[0] : (ptI?.lat ?? ptI?.latitude));
+    const xj = Number(Array.isArray(ptJ) ? ptJ[1] : (ptJ?.lng ?? ptJ?.longitude));
+    const yj = Number(Array.isArray(ptJ) ? ptJ[0] : (ptJ?.lat ?? ptJ?.latitude));
+
+    if (isNaN(xi) || isNaN(yi) || isNaN(xj) || isNaN(yj)) continue;
 
     const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
     if (intersect) inside = !inside;
@@ -138,12 +144,15 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
         : straightLineKm;
 
       const configuredRadius = Number(b.deliveryRadiusKm ?? b.deliveryRadius ?? 5);
-      const insidePolygon = Array.isArray(b.deliveryPolygon) && b.deliveryPolygon.length >= 3
+      const hasPolygon = Array.isArray(b.deliveryPolygon) && b.deliveryPolygon.length >= 3;
+      const insidePolygon = hasPolygon
         ? isPointInPolygon({ lat: userLat, lng: userLng }, b.deliveryPolygon)
         : false;
 
-      // Deliverable if inside custom polygon, within configured radius, or within 3 km of store
-      const insideDeliveryZone = insidePolygon || effectiveDistKm <= configuredRadius || effectiveDistKm <= 3.0;
+      // When super admin draws a custom boundary polygon, the polygon governs eligibility; otherwise radius is used
+      const insideDeliveryZone = hasPolygon
+        ? insidePolygon
+        : (effectiveDistKm <= configuredRadius);
       const isEligible = insideDeliveryZone || (b.supportsExtendedDelivery && effectiveDistKm <= 20);
 
       const fee = calculateBranchDeliveryFee(b, effectiveDistKm);

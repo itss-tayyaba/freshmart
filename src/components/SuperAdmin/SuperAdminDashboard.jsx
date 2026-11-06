@@ -52,6 +52,7 @@ import {
 import { useStore } from '../../context/StoreContext';
 import { SUBSCRIPTION_PLANS, INITIAL_TENANTS } from '../../data/tenantData';
 import { isSameTenant } from '../../data/companyHierarchyData';
+import { DeliveryZoneView } from '../Admin/views/DeliveryZoneView';
 
 export const SuperAdminDashboard = () => {
   const {
@@ -1022,6 +1023,16 @@ export const SuperAdminDashboard = () => {
               Platform Governance
             </div>
             <div className="space-y-1">
+              <button
+                onClick={() => setActiveNav('zones')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('zones')}`}
+              >
+                <MapPin className="w-4 h-4 text-teal-400" />
+                <span>Delivery Zones</span>
+                <span className="ml-auto text-[9px] bg-teal-900/60 text-teal-300 border border-teal-700/50 px-1.5 py-0.5 rounded font-bold">
+                  ZONES
+                </span>
+              </button>
               <button
                 onClick={() => setActiveNav('reports')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('reports')}`}
@@ -2791,6 +2802,10 @@ export const SuperAdminDashboard = () => {
           {/* ===================================================================== */}
           {/* SUB-DASHBOARD: 9. PLATFORM SETTINGS (EDITABLE & PERSISTENT)           */}
           {/* ===================================================================== */}
+          {activeNav === 'zones' && (
+            <DeliveryZoneView isSuperAdmin={true} />
+          )}
+
           {activeNav === 'settings' && (
             <div className="space-y-6">
               <div>
