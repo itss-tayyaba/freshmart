@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Boxes, UserPlus, Trash2, Edit3, KeyRound, X, Eye, EyeOff, Clock, MapPin, PackageCheck, Lock, Zap, RefreshCw, CheckCircle2, Rocket, Truck, Phone, Smartphone } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
+import { normalizeOrderTenantId } from '../../../utils/orderScope';
 import { countPickupStaffTasks } from '../../../utils/pickupStaffAssignment';
 
 const getItems = (order) => [order.rawItems, order.items, order.orderItems].find(Array.isArray) || [];

@@ -14,7 +14,8 @@ export const MobileNav = () => {
     setIsCartOpen,
     setIsAuthOpen,
     setActiveCategory,
-    categories
+    categories,
+    products = []
   } = useStore();
 
   if (!isMobileMenuOpen) return null;
