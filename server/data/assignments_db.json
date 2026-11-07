@@ -5,7 +5,7 @@
     "tenantId": "tenant-alfatah",
     "isActive": true,
     "priority": 1,
-    "assignedAt": "2026-11-07T06:49:22.767Z"
+    "assignedAt": "2026-11-07T07:08:34.180Z"
   },
   {
     "zoneId": "ZONE-FSD-CANAL",
@@ -13,6 +13,12 @@
     "tenantId": "tenant-alfatah",
     "isActive": true,
     "priority": 1,
-    "assignedAt": "2026-11-07T06:49:22.788Z"
+    "assignedAt": "2026-11-07T07:08:34.190Z"
+  },
+  {
+    "zoneId": "ZONE-TEST-DGROUND",
+    "storeId": "STR-UM-DARKSTORE-TEST",
+    "isActive": false,
+    "unassignedAt": "2026-11-07T07:08:34.304Z"
   }
 ]

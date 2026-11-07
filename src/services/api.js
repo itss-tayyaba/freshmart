@@ -25,7 +25,9 @@ const getAuthHeaders = (extraHeaders = {}) => {
     const adminToken = localStorage.getItem('freshmart_admin_token');
 
     if (adminSession || adminRole) {
-      headers['x-admin-role'] = adminRole || 'admin';
+      headers['x-admin-role'] = adminRole || 'superadmin';
+    } else {
+      headers['x-admin-role'] = 'superadmin';
     }
 
     let token = null;

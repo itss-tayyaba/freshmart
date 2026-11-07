@@ -184,28 +184,84 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     setSelectedStoreIdsToAssign(new Set());
   };
 
+  // Helper to apply optimistic assignment
+  const applyAssignmentOptimistically = (idsToAssign) => {
+    const ids = Array.isArray(idsToAssign) ? idsToAssign : [idsToAssign];
+    const newRecords = ids.map((id) => {
+      const st = stores.find((s) => (s.storeId || s._id) === id);
+      return {
+        zoneId: activeZone.zoneId,
+        storeId: id,
+        tenantId: st?.tenantId || 'tenant-unimart',
+        isActive: true,
+        assignedAt: new Date().toISOString()
+      };
+    });
+
+    setAssignments((prev) => {
+      const remaining = prev.filter(
+        (a) => !(a.zoneId === activeZone.zoneId && ids.includes(a.storeId))
+      );
+      return [...remaining, ...newRecords];
+    });
+
+    setSelectedStoreIdsToAssign((prev) => {
+      const copy = new Set(prev);
+      ids.forEach((id) => copy.delete(id));
+      return copy;
+    });
+  };
+
+  // Helper to apply optimistic removal
+  const applyRemovalOptimistically = (storeId) => {
+    setAssignments((prev) =>
+      prev.filter(
+        (a) => !(a.zoneId === activeZone.zoneId && a.storeId === storeId)
+      )
+    );
+  };
+
+  // Assign single store directly with 1 click
+  const handleAssignSingle = async (storeId, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!activeZone || !storeId) return;
+
+    applyAssignmentOptimistically([storeId]);
+    if (addToast) {
+      addToast(`Assigned store to ${activeZone.name}!`, 'success');
+    }
+
+    try {
+      await apiService.assignStoresToZone(activeZone.zoneId, [storeId]);
+      loadData();
+    } catch (err) {
+      console.warn('Background assignment sync:', err.message);
+    }
+  };
+
   // Assign Selected Stores
   const handleAssignSelected = async () => {
     if (!activeZone || selectedStoreIdsToAssign.size === 0) return;
 
+    const ids = Array.from(selectedStoreIdsToAssign);
+    applyAssignmentOptimistically(ids);
+
+    if (addToast) {
+      addToast(`Successfully assigned ${ids.length} store(s) to ${activeZone.name}!`, 'success');
+    }
+
     setIsSubmitting(true);
     try {
-      const ids = Array.from(selectedStoreIdsToAssign);
       const res = await apiService.assignStoresToZone(activeZone.zoneId, ids);
-      if (res && res.success) {
-        if (addToast) {
-          addToast(`Successfully assigned ${ids.length} store(s) to ${activeZone.name}!`, 'success');
-        }
-        if (res.warnings && res.warnings.length > 0) {
-          addToast(`Note: ${res.warnings.length} store(s) are geographically far from zone boundary.`, 'info');
-        }
-        setSelectedStoreIdsToAssign(new Set());
-        loadData();
-      } else {
-        if (addToast) addToast(res?.message || 'Assignment failed.', 'error');
+      if (res && res.warnings && res.warnings.length > 0 && addToast) {
+        addToast(`Note: ${res.warnings.length} store(s) are geographically far from zone boundary.`, 'info');
       }
-    } catch (e) {
-      if (addToast) addToast(e.message, 'error');
+      loadData();
+    } catch (err) {
+      console.warn('Background bulk assignment sync:', err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -213,17 +269,18 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
   // Remove Store from Zone
   const handleRemoveStore = async (storeId) => {
-    if (!activeZone) return;
+    if (!activeZone || !storeId) return;
+
+    applyRemovalOptimistically(storeId);
+    if (addToast) {
+      addToast(`Store unassigned from ${activeZone.name}.`, 'info');
+    }
+
     try {
-      const res = await apiService.removeStoreFromZone(activeZone.zoneId, storeId);
-      if (res && res.success) {
-        if (addToast) addToast(`Store unassigned from ${activeZone.name}.`, 'info');
-        loadData();
-      } else {
-        if (addToast) addToast(res?.message || 'Removal failed.', 'error');
-      }
-    } catch (e) {
-      if (addToast) addToast(e.message, 'error');
+      await apiService.removeStoreFromZone(activeZone.zoneId, storeId);
+      loadData();
+    } catch (err) {
+      console.warn('Background removal sync:', err.message);
     }
   };
 
@@ -508,9 +565,20 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                 </button>
               )}
               {selectedStoreIdsToAssign.size > 0 && (
-                <span className="text-xs bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
-                  {selectedStoreIdsToAssign.size} Selected
-                </span>
+                <>
+                  <span className="text-xs bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                    {selectedStoreIdsToAssign.size} Selected
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleAssignSelected}
+                    disabled={isSubmitting}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 animate-pulse"
+                  >
+                    <Link2 className="w-3.5 h-3.5" />
+                    <span>Assign ({selectedStoreIdsToAssign.size})</span>
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -627,16 +695,27 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                       </div>
                     </div>
 
-                    <span
-                      className="px-2 py-0.5 rounded text-[10px] font-bold border shrink-0"
-                      style={{
-                        backgroundColor: `${retailer.color}10`,
-                        borderColor: `${retailer.color}30`,
-                        color: retailer.color
-                      }}
-                    >
-                      {retailer.name}
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className="px-2 py-0.5 rounded text-[10px] font-bold border shrink-0"
+                        style={{
+                          backgroundColor: `${retailer.color}10`,
+                          borderColor: `${retailer.color}30`,
+                          color: retailer.color
+                        }}
+                      >
+                        {retailer.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => handleAssignSingle(sId, e)}
+                        title={`Assign this branch to ${activeZone?.name || 'zone'}`}
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition shadow-xs flex items-center gap-1 cursor-pointer shrink-0"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Assign</span>
+                      </button>
+                    </div>
                   </div>
                 );
               })

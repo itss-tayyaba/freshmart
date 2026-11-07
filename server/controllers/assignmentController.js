@@ -72,7 +72,7 @@ export const getAllAssignmentsMerged = async () => {
     map.set(`${a.zoneId}__${a.storeId}`, a);
   });
 
-  return Array.from(map.values());
+  return Array.from(map.values()).filter((a) => a.isActive !== false);
 };
 
 // @desc    Get all zone-store assignments across platform
@@ -236,12 +236,22 @@ export const removeStoreFromZone = async (req, res) => {
 
     if (isDbOnline()) {
       try {
-        await ZoneStore.findOneAndDelete({ zoneId, storeId });
+        await ZoneStore.findOneAndUpdate(
+          { zoneId, storeId },
+          { isActive: false, unassignedAt: new Date() },
+          { upsert: true }
+        );
       } catch (e) {}
     }
 
     const disk = loadDiskAssignments();
     const filtered = disk.filter((a) => !(a.zoneId === zoneId && a.storeId === storeId));
+    filtered.push({
+      zoneId,
+      storeId,
+      isActive: false,
+      unassignedAt: new Date().toISOString()
+    });
     saveDiskAssignments(filtered);
 
     return res.json({
