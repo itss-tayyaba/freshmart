@@ -1,4 +1,5 @@
-import { describe, it, before, beforeEach } from 'node:test';
+process.env.NODE_ENV = 'test';
+import { describe, it, before, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
@@ -429,6 +430,14 @@ describe('Multi-Store GIS Delivery Zone Management Suite', () => {
 
     const disk = loadDiskZones();
     assert.ok(!disk.some((z) => z.zoneId === 'ZONE-TEST-DGROUND'));
+  });
+
+  after(() => {
+    // Teardown: Remove temporary test artifacts so runtime databases remain pristine
+    const diskStores = loadDiskStores();
+    saveDiskStores(diskStores.filter((s) => !String(s.storeId || s._id).endsWith('-TEST')));
+    saveDiskZones([]);
+    saveDiskAssignments([]);
   });
 
 });

@@ -1,5 +1,5 @@
 import { isPointInsideZone, calculateZoneDeliveryFee } from '../utils/gisValidator.js';
-import { getZones, loadDiskZones } from './zoneController.js';
+import { getZones, loadDiskZones, getAllZonesMerged } from './zoneController.js';
 import { getAllAssignmentsMerged } from './assignmentController.js';
 import { loadDiskStores } from './storeController.js';
 import { resolveRetailerId, getRetailerDetails, PLATFORM_RETAILERS } from '../utils/retailerHelper.js';
@@ -56,17 +56,8 @@ export const checkDeliveryAvailability = async (req, res) => {
     }
 
     // Retrieve active delivery zones
-    let dbZones = [];
-    if (isDbOnline()) {
-      try {
-        dbZones = await DeliveryZone.find({
-          $or: [{ isActive: true }, { status: 'active' }]
-        }).lean();
-      } catch (err) {}
-    }
-
-    const diskZones = loadDiskZones().filter((z) => z.isActive !== false && String(z.status).toLowerCase() !== 'inactive');
-    const allActiveZones = [...diskZones, ...dbZones];
+    const allMerged = await getAllZonesMerged();
+    const allActiveZones = allMerged.filter((z) => z.isActive !== false && String(z.status).toLowerCase() !== 'inactive');
 
     // Deduplicate zones
     const zoneMap = new Map();
@@ -128,19 +119,11 @@ export const getEligibleStores = async (req, res) => {
     }
 
     // 1. Retrieve all active zones
-    let dbZones = [];
-    if (isDbOnline()) {
-      try {
-        dbZones = await DeliveryZone.find({
-          $or: [{ isActive: true }, { status: 'active' }]
-        }).lean();
-      } catch (e) {}
-    }
-    const diskZones = loadDiskZones().filter((z) => z.isActive !== false && String(z.status).toLowerCase() !== 'inactive');
-    const combinedZones = [...diskZones, ...dbZones];
+    const allMerged = await getAllZonesMerged();
+    const activeZones = allMerged.filter((z) => z.isActive !== false && String(z.status).toLowerCase() !== 'inactive');
 
     const uniqueZones = new Map();
-    combinedZones.forEach((z) => {
+    activeZones.forEach((z) => {
       if (!uniqueZones.has(z.zoneId)) uniqueZones.set(z.zoneId, z);
     });
 
@@ -280,21 +263,14 @@ export const calculateFee = async (req, res) => {
 
     let targetZone = null;
 
+    const allMerged = await getAllZonesMerged();
     if (zoneId) {
-      const diskZones = loadDiskZones();
-      let dbZone = null;
-      if (isDbOnline()) {
-        try {
-          dbZone = await DeliveryZone.findOne({ zoneId }).lean();
-        } catch (e) {}
-      }
-      targetZone = dbZone || diskZones.find((z) => z.zoneId === zoneId);
+      targetZone = allMerged.find((z) => z.zoneId === zoneId);
     }
 
     // Fallback if coordinates provided instead of zoneId
     if (!targetZone && latitude !== undefined && longitude !== undefined) {
-      const diskZones = loadDiskZones();
-      targetZone = diskZones.find((z) => z.geometry && isPointInsideZone(Number(latitude), Number(longitude), z.geometry));
+      targetZone = allMerged.find((z) => z.geometry && isPointInsideZone(Number(latitude), Number(longitude), z.geometry));
     }
 
     if (!targetZone) {

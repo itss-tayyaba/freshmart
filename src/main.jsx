@@ -8,29 +8,42 @@ import './index.css';
 import 'leaflet/dist/leaflet.css';
 
 // Global Leaflet LatLng safety wrapper: Prevents "Invalid LatLng object: (NaN, NaN)" from crashing React
-if (L && L.latLng) {
-  const origLatLng = L.latLng;
-  L.latLng = function (a, b, c) {
-    try {
-      if (Array.isArray(a)) {
-        const safeLat = (Number.isFinite(Number(a[0])) && !isNaN(Number(a[0]))) ? Number(a[0]) : 31.4125;
-        const safeLng = (Number.isFinite(Number(a[1])) && !isNaN(Number(a[1]))) ? Number(a[1]) : 73.0995;
-        return origLatLng.call(this, safeLat, safeLng, a[2]);
+if (L) {
+  if (L.LatLng) {
+    const OrigLatLngClass = L.LatLng;
+    const SafeLatLng = function (lat, lng, alt) {
+      const safeLat = (Number.isFinite(Number(lat)) && !isNaN(Number(lat))) ? Number(lat) : 31.4125;
+      const safeLng = (Number.isFinite(Number(lng)) && !isNaN(Number(lng))) ? Number(lng) : 73.0995;
+      return new OrigLatLngClass(safeLat, safeLng, alt);
+    };
+    SafeLatLng.prototype = OrigLatLngClass.prototype;
+    L.LatLng = SafeLatLng;
+  }
+
+  if (L.latLng) {
+    const origLatLng = L.latLng;
+    L.latLng = function (a, b, c) {
+      try {
+        if (Array.isArray(a)) {
+          const safeLat = (Number.isFinite(Number(a[0])) && !isNaN(Number(a[0]))) ? Number(a[0]) : 31.4125;
+          const safeLng = (Number.isFinite(Number(a[1])) && !isNaN(Number(a[1]))) ? Number(a[1]) : 73.0995;
+          return origLatLng.call(this, safeLat, safeLng, a[2]);
+        }
+        if (typeof a === 'object' && a !== null) {
+          const rawLat = Number(a.lat ?? a.latitude);
+          const rawLng = Number(a.lng ?? a.longitude);
+          const safeLat = (Number.isFinite(rawLat) && !isNaN(rawLat)) ? rawLat : 31.4125;
+          const safeLng = (Number.isFinite(rawLng) && !isNaN(rawLng)) ? rawLng : 73.0995;
+          return origLatLng.call(this, safeLat, safeLng, a.alt);
+        }
+        const safeA = (Number.isFinite(Number(a)) && !isNaN(Number(a))) ? Number(a) : 31.4125;
+        const safeB = (Number.isFinite(Number(b)) && !isNaN(Number(b))) ? Number(b) : 73.0995;
+        return origLatLng.call(this, safeA, safeB, c);
+      } catch {
+        return origLatLng.call(this, 31.4125, 73.0995);
       }
-      if (typeof a === 'object' && a !== null) {
-        const rawLat = Number(a.lat ?? a.latitude);
-        const rawLng = Number(a.lng ?? a.longitude);
-        const safeLat = (Number.isFinite(rawLat) && !isNaN(rawLat)) ? rawLat : 31.4125;
-        const safeLng = (Number.isFinite(rawLng) && !isNaN(rawLng)) ? rawLng : 73.0995;
-        return origLatLng.call(this, safeLat, safeLng, a.alt);
-      }
-      const safeA = (Number.isFinite(Number(a)) && !isNaN(Number(a))) ? Number(a) : 31.4125;
-      const safeB = (Number.isFinite(Number(b)) && !isNaN(Number(b))) ? Number(b) : 73.0995;
-      return origLatLng.call(this, safeA, safeB, c);
-    } catch {
-      return origLatLng.call(this, 31.4125, 73.0995);
-    }
-  };
+    };
+  }
 }
 
 // Global failsafe helpers

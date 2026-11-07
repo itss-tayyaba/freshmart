@@ -197,6 +197,33 @@ export const StoreManagementView = () => {
     }
   ];
 
+  // Deduplicate stores by storeId and tenant+branchName to avoid ghost duplicates
+  const deduplicateStores = (storesList = []) => {
+    const seenIds = new Set();
+    const seenTenantBranches = new Set();
+    const result = [];
+
+    for (const s of storesList) {
+      if (!s) continue;
+      const sId = String(s.storeId || s._id || '').trim();
+      // Exclude test artifacts in normal platform runtime
+      if (sId.endsWith('-TEST')) continue;
+
+      const tId = String(s.tenantId || '').toLowerCase();
+      const bName = String(s.branchName || s.name || '').toLowerCase().trim();
+      const key = `${tId}__${bName}`;
+
+      if (sId && seenIds.has(sId)) continue;
+      if (key && seenTenantBranches.has(key)) continue;
+
+      if (sId) seenIds.add(sId);
+      if (key) seenTenantBranches.add(key);
+      result.push(s);
+    }
+
+    return result;
+  };
+
   // Fetch stores and master polygons from backend
   const fetchStoresList = async () => {
     setIsLoading(true);
@@ -235,16 +262,15 @@ export const StoreManagementView = () => {
         fetched = [...BASELINE_FOUR_STORES];
       }
 
-      // Always guarantee the 4 core Faisalabad stores exist as minimum foundation
-      const mergedMap = new Map();
-      BASELINE_FOUR_STORES.forEach((s) => mergedMap.set(s.storeId || s._id, s));
-      fetched.forEach((s) => mergedMap.set(s.storeId || s._id, s));
+      // Clean local storage if it had -TEST stores
+      const localCustom = loadLocalCustomStores().filter((s) => !String(s.storeId || s._id).endsWith('-TEST'));
+      try {
+        localStorage.setItem('freshmart_custom_stores', JSON.stringify(localCustom));
+      } catch {}
 
-      // Merge with custom stores stored in localStorage
-      const localCustom = loadLocalCustomStores();
-      localCustom.forEach((s) => mergedMap.set(s.storeId || s._id, s));
-
-      setStores(Array.from(mergedMap.values()));
+      const allMerged = [...BASELINE_FOUR_STORES, ...fetched, ...localCustom];
+      const deduped = deduplicateStores(allMerged);
+      setStores(deduped);
 
       if (zonesRes && zonesRes.success && Array.isArray(zonesRes.zones)) {
         setZones(zonesRes.zones);
@@ -530,7 +556,7 @@ export const StoreManagementView = () => {
         // Create new store
         let serverCreated = null;
         try {
-          const res = await apiService.createStore(formData);
+          const res = await apiService.createStore(storeRecord);
           if (res && res.success && res.store) {
             serverCreated = res.store;
           }
@@ -1231,7 +1257,7 @@ export const StoreManagementView = () => {
                   Cancel
                 </button>
                 <button
-                  type="submit"
+                  type="button"
                   onClick={handleSaveStore}
                   disabled={isSubmitting}
                   className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs transition shadow-md shadow-emerald-950/10 flex items-center gap-2 cursor-pointer active:scale-95"

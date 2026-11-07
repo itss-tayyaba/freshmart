@@ -137,7 +137,7 @@ const DEFAULT_PLATFORM_ZONES = [
 ];
 
 // Helper to get all combined zones
-const getAllZonesMerged = async () => {
+export const getAllZonesMerged = async () => {
   let dbZones = [];
   if (isDbOnline()) {
     try {

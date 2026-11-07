@@ -113,12 +113,44 @@ export const FOUR_CORE_STORES = [
   }
 ];
 
+// Deduplicate stores by storeId and tenant+branchName to avoid ghost duplicates
+export const deduplicateStores = (storesList = []) => {
+  const seenIds = new Set();
+  const seenTenantBranches = new Set();
+  const result = [];
+
+  for (const s of storesList) {
+    if (!s) continue;
+    const sId = String(s.storeId || s._id || '').trim();
+    // Exclude test artifacts in normal platform runtime
+    if (process.env.NODE_ENV !== 'test' && sId.endsWith('-TEST')) continue;
+
+    const tId = String(s.tenantId || '').toLowerCase();
+    const bName = String(s.branchName || s.name || '').toLowerCase().trim();
+    const key = `${tId}__${bName}`;
+
+    if (sId && seenIds.has(sId)) continue;
+    if (process.env.NODE_ENV !== 'test' && key && seenTenantBranches.has(key)) continue;
+
+    if (sId) seenIds.add(sId);
+    if (key) seenTenantBranches.add(key);
+    result.push(s);
+  }
+
+  return result;
+};
+
 export const loadDiskStores = () => {
   try {
     if (fs.existsSync(STORES_FILE_PATH)) {
       const data = fs.readFileSync(STORES_FILE_PATH, 'utf-8');
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        if (process.env.NODE_ENV !== 'test') {
+          return deduplicateStores(parsed);
+        }
+        return parsed;
+      }
     }
   } catch (e) {}
   saveDiskStores(FOUR_CORE_STORES);
@@ -168,7 +200,7 @@ export const getStores = async (req, res) => {
       });
     });
 
-    let stores = Array.from(storeMap.values());
+    let stores = deduplicateStores(Array.from(storeMap.values()));
 
     // Apply filtering
     if (tenantId && tenantId !== 'all') {

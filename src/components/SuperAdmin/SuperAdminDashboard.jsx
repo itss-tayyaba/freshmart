@@ -119,7 +119,17 @@ export const SuperAdminDashboard = () => {
           apiService.getAllAssignments()
         ]);
         if (zRes?.success && Array.isArray(zRes.zones)) setLiveZones(zRes.zones);
-        if (sRes?.success && Array.isArray(sRes.stores)) setLiveStores(sRes.stores);
+        if (sRes?.success && Array.isArray(sRes.stores)) {
+          const seen = new Set();
+          const cleanStores = sRes.stores.filter((s) => {
+            if (!s || String(s.storeId || s._id).endsWith('-TEST')) return false;
+            const k = `${s.tenantId}__${s.branchName || s.name}`.toLowerCase();
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return true;
+          });
+          setLiveStores(cleanStores);
+        }
         if (aRes?.success && Array.isArray(aRes.assignments)) setLiveAssignments(aRes.assignments);
       } catch (e) {}
     };

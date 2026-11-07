@@ -139,7 +139,15 @@ export const ZoneManagementView = () => {
       }
 
       if (storesRes && storesRes.success && Array.isArray(storesRes.stores)) {
-        setStores(storesRes.stores);
+        const seen = new Set();
+        const cleanStores = storesRes.stores.filter((s) => {
+          if (!s || String(s.storeId || s._id).endsWith('-TEST')) return false;
+          const k = `${s.tenantId}__${s.branchName || s.name}`.toLowerCase();
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+        setStores(cleanStores);
       }
 
       if (assignRes && assignRes.success && Array.isArray(assignRes.assignments)) {
