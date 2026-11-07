@@ -75,7 +75,10 @@ export const getStores = async (req, res) => {
     }
 
     const diskStores = loadDiskStores();
-    const baseStores = getBaseStores();
+    // User requested to remove all dummy/seed branches and add their own from scratch
+    const isTest = process.env.NODE_ENV === 'test';
+    const isExplicitSeed = req.query.includeSeed === 'true';
+    const baseStores = (isTest || isExplicitSeed) ? getBaseStores() : [];
 
     // Deduplicate stores by storeId / _id
     const storeMap = new Map();
@@ -412,7 +415,10 @@ export const getRetailerStores = async (req, res) => {
 
     // Call getStores logic scoped to this tenant
     const diskStores = loadDiskStores();
-    const baseStores = getBaseStores();
+    // User requested to remove all dummy/seed branches and add their own from scratch
+    const isTest = process.env.NODE_ENV === 'test';
+    const isExplicitSeed = req.query.includeSeed === 'true';
+    const baseStores = (isTest || isExplicitSeed) ? getBaseStores() : [];
     let dbStores = [];
 
     if (isDbOnline()) {

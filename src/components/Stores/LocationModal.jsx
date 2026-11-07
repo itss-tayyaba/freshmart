@@ -84,6 +84,7 @@ const LocationModalContent = () => {
   const [isLocating, setIsLocating] = useState(false);
   const [locateStatus, setLocateStatus] = useState('');
   const [selectedStoreId, setSelectedStoreId] = useState(null);
+  const [isRegionExpanded, setIsRegionExpanded] = useState(false);
 
   // Editable coordinates state (defaults to Muhammad Nagar, Faisalabad: 31.3973, 73.1180)
   const [currentCoords, setCurrentCoords] = useState(() => ({
@@ -123,10 +124,26 @@ const LocationModalContent = () => {
     return [];
   }, [getNearbyStores, currentCoords]);
 
+  // Reset expanded region when user picks new pin
+  useEffect(() => {
+    setIsRegionExpanded(false);
+  }, [currentCoords.lat, currentCoords.lng]);
+
   // STRICT REQUIREMENT: Only display and allow selection of stores where customer is INSIDE delivery zone
+  // When isRegionExpanded is true (InDrive logic), allow nearest stores up to 25 km with regional delivery SLA
   const deliverableStores = useMemo(() => {
-    return (nearbyStores || []).filter((s) => s.isDeliverable);
-  }, [nearbyStores]);
+    const direct = (nearbyStores || []).filter((s) => s.isDeliverable);
+    if (direct.length > 0) return direct;
+    if (isRegionExpanded) {
+      return (nearbyStores || []).slice(0, 4).map((s) => ({
+        ...s,
+        isDeliverable: true,
+        isExpandedRegion: true,
+        estimatedTime: '45-60 mins (Regional Delivery)'
+      }));
+    }
+    return [];
+  }, [nearbyStores, isRegionExpanded]);
 
   const outsideStores = useMemo(() => {
     return (nearbyStores || []).filter((s) => !s.isDeliverable);
@@ -835,6 +852,21 @@ const LocationModalContent = () => {
             <p className="text-[11px] text-rose-800 leading-tight">
               No grocery supermarkets currently deliver to this pin. Please choose a different location or select an area below so that you fall in the retailer delivery zone.
             </p>
+
+            {/* InDrive-style Expand Delivery Region Option */}
+            <div className="pt-1.5 pb-1">
+              <button
+                type="button"
+                onClick={() => setIsRegionExpanded(true)}
+                className="w-full py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+              >
+                <Compass className="w-4 h-4 text-emerald-200" />
+                <span>Expand Delivery Region (+10 km Regional Delivery)</span>
+              </button>
+              <p className="text-[10px] text-slate-500 text-center mt-1">
+                Dispatches riders from regional fulfillment hubs with extended delivery radius.
+              </p>
+            </div>
             {/* Quick Suggestions to Fall into Delivery Zone */}
             <div className="pt-1">
               <span className="text-[10px] font-bold text-rose-900 uppercase tracking-wider block mb-1.5">

@@ -110,33 +110,5 @@
     "operatingStatus": "Open",
     "manager": "Al-Fatah Manager",
     "deliveryRadiusKm": 5
-  },
-  {
-    "_id": "STR-TENANT-ALF-4853",
-    "storeId": "STR-TENANT-ALF-4853",
-    "tenantId": "tenant-alfatah",
-    "tenantName": "Al-Fatah",
-    "name": "Al-Fatah Test Branch",
-    "branchName": "Test Branch",
-    "address": "123 Test St",
-    "city": "Faisalabad",
-    "latitude": 31.4125,
-    "longitude": 73.0995,
-    "location": {
-      "type": "Point",
-      "coordinates": [
-        73.0995,
-        31.4125
-      ]
-    },
-    "contactNumber": "+92 300 1234567",
-    "openingHours": "08:00 AM",
-    "closingHours": "11:00 PM",
-    "storeImage": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80",
-    "status": "active",
-    "isActive": true,
-    "operatingStatus": "Open",
-    "manager": "Al-Fatah Manager",
-    "deliveryRadiusKm": 5
   }
 ]
