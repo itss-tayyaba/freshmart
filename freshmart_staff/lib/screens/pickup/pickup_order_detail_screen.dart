@@ -54,7 +54,7 @@ class PickupOrderDetailScreen extends ConsumerWidget {
               border: Border.all(color: Colors.grey.shade200),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.between,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

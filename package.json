@@ -12,6 +12,8 @@
     "seed": "node server/seeder.js"
   },
   "dependencies": {
+    "@geoman-io/leaflet-geoman-free": "^2.20.6",
+    "@turf/turf": "^7.4.0",
     "bcryptjs": "^3.0.3",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",

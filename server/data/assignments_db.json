@@ -1,0 +1,18 @@
+[
+  {
+    "zoneId": "ZONE-TEST-DGROUND",
+    "storeId": "STR-AF-PEOPLES-TEST",
+    "tenantId": "tenant-alfatah",
+    "isActive": true,
+    "priority": 1,
+    "assignedAt": "2026-11-07T06:01:35.875Z"
+  },
+  {
+    "zoneId": "ZONE-FSD-CANAL",
+    "storeId": "STR-AF-PEOPLES-TEST",
+    "tenantId": "tenant-alfatah",
+    "isActive": true,
+    "priority": 1,
+    "assignedAt": "2026-11-07T06:01:35.887Z"
+  }
+]

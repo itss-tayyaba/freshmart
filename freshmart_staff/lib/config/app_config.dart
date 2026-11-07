@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class AppConfig {
   static const String apiUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: 'http://10.0.2.2:5000/api',
+    defaultValue: 'http://192.168.0.113:5000/api',
   );
 
   static const Color primaryColor = Color(0xFF059669); // Brand Emerald #059669

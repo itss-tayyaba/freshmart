@@ -205,7 +205,7 @@ class _RiderOrderDetailScreenState extends ConsumerState<RiderOrderDetailScreen>
               border: Border.all(color: Colors.grey.shade200),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.between,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,7 +252,7 @@ class _RiderOrderDetailScreenState extends ConsumerState<RiderOrderDetailScreen>
                 const Text('Customer Info', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.between,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -332,7 +332,7 @@ class _RiderOrderDetailScreenState extends ConsumerState<RiderOrderDetailScreen>
                     (it) => Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.between,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
                             child: Text('${it.quantity}x ${it.name}', style: const TextStyle(fontSize: 13)),
@@ -344,7 +344,7 @@ class _RiderOrderDetailScreenState extends ConsumerState<RiderOrderDetailScreen>
                   ),
                 const Divider(height: 20),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.between,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('Total Cash to Collect', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                     Text(

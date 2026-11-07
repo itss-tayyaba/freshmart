@@ -39,7 +39,7 @@ export const OutOfDeliveryZoneBanner = () => {
                 </span>
               </p>
               <p className="text-[11px] sm:text-xs text-amber-100 font-medium leading-tight line-clamp-1 sm:line-clamp-none mt-0.5">
-                We couldn't find any retailer delivering to <strong className="text-white font-bold">{currentArea}</strong>. Please change your location so that you may fall in the retailer delivery zone.
+                Sorry, delivery is currently unavailable at your location. We couldn't find any retailer delivering to <strong className="text-white font-bold">{currentArea}</strong>. Please change your location so that you fall in an active retailer delivery zone.
               </p>
             </div>
           </div>

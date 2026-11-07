@@ -257,7 +257,7 @@ export const CheckoutPage = () => {
     if (isOutsideDeliveryZone) {
       addToast(
         'Choose different location (no store found) ⚠️',
-        'Your location is outside our retailer delivery zone. Please change your location so that you fall in the retailer delivery zone.',
+        'Sorry, delivery is currently unavailable at your location. Please change your location so that you fall in the retailer delivery zone.',
         'error'
       );
       setIsLocationModalOpen(true);

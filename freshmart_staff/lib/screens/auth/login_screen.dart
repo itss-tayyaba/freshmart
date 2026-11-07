@@ -43,6 +43,63 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  void _showServerConfigDialog() {
+    final apiService = ref.read(apiServiceProvider);
+    final urlController = TextEditingController(text: apiService.dio.options.baseUrl);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Server Connection', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter backend API URL (e.g. http://192.168.0.113:5000/api or https://your-domain.vercel.app/api):',
+              style: TextStyle(fontSize: 12, color: AppConfig.textMuted),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: urlController,
+              decoration: const InputDecoration(
+                labelText: 'API Base URL',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppConfig.primaryColor, foregroundColor: Colors.white),
+            onPressed: () async {
+              final newUrl = urlController.text.trim();
+              if (newUrl.isNotEmpty) {
+                await apiService.updateBaseUrl(newUrl);
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Server URL updated to $newUrl'),
+                      backgroundColor: Colors.green.shade700,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
@@ -225,6 +282,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             fontSize: 11,
                             color: AppConfig.textMuted,
                             height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: _showServerConfigDialog,
+                            icon: const Icon(Icons.dns_rounded, size: 14, color: AppConfig.textMuted),
+                            label: const Text(
+                              'Server Connection Settings',
+                              style: TextStyle(fontSize: 11, color: AppConfig.textMuted),
+                            ),
                           ),
                         ),
                       ],

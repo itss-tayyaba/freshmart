@@ -20,6 +20,13 @@ class ApiService {
       ),
     );
 
+    // Initialize custom server URL if previously configured
+    storage.read(key: 'custom_api_url').then((saved) {
+      if (saved != null && saved.trim().isNotEmpty) {
+        dio.options.baseUrl = saved.trim();
+      }
+    });
+
     // Auth & Error Interceptor
     dio.interceptors.add(
       InterceptorsWrapper(
@@ -39,6 +46,14 @@ class ApiService {
         },
       ),
     );
+  }
+
+  Future<void> updateBaseUrl(String newUrl) async {
+    final clean = newUrl.trim();
+    if (clean.isNotEmpty) {
+      dio.options.baseUrl = clean;
+      await storage.write(key: 'custom_api_url', value: clean);
+    }
   }
 
   // --- Auth ---

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../config/app_config.dart';
 import '../../models/order_model.dart';
 import '../../providers/auth_provider.dart';
@@ -101,7 +100,7 @@ class PickupHomeScreen extends ConsumerWidget {
 
                   // Section Title
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.between,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
                         'Packing Queue',
@@ -217,7 +216,7 @@ class PickupHomeScreen extends ConsumerWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: Border.all(color: Colors.grey.shade200),
+        side: BorderSide(color: Colors.grey.shade200),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -226,7 +225,7 @@ class PickupHomeScreen extends ConsumerWidget {
           children: [
             // Top Row: Order ID & Status
             Row(
-              mainAxisAlignment: MainAxisAlignment.between,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   order.orderId.isNotEmpty ? order.orderId : '#${order.id}',

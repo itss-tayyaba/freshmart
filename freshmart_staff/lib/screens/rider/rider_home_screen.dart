@@ -116,7 +116,7 @@ class RiderHomeScreen extends ConsumerWidget {
 
                   // Section Title
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.between,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
                         'Assigned Deliveries',
@@ -236,7 +236,7 @@ class RiderHomeScreen extends ConsumerWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: Border.all(color: Colors.grey.shade200),
+        side: BorderSide(color: Colors.grey.shade200),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -247,7 +247,7 @@ class RiderHomeScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.between,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     order.orderId.isNotEmpty ? order.orderId : '#${order.id}',
@@ -295,7 +295,7 @@ class RiderHomeScreen extends ConsumerWidget {
               ),
               const Divider(height: 20),
               Row(
-                mainAxisAlignment: MainAxisAlignment.between,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     '${order.items.length} Item${order.items.length > 1 ? 's' : ''}',

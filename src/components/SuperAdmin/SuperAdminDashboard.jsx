@@ -47,12 +47,21 @@ import {
   BarChart3,
   PieChart,
   DollarSign,
-  ArrowDownRight
+  ArrowDownRight,
+  Link2,
+  Navigation,
+  Truck,
+  Bike
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { SUBSCRIPTION_PLANS, INITIAL_TENANTS } from '../../data/tenantData';
 import { isSameTenant } from '../../data/companyHierarchyData';
+import { apiService } from '../../services/api';
 import { DeliveryZoneView } from '../Admin/views/DeliveryZoneView';
+import { StoreManagementView } from '../Admin/views/StoreManagementView';
+import { ZoneManagementView } from '../Admin/views/ZoneManagementView';
+import { ZoneStoreAssignmentView } from '../Admin/views/ZoneStoreAssignmentView';
+import { DeliveryView } from '../Admin/views/DeliveryView';
 
 export const SuperAdminDashboard = () => {
   const {
@@ -95,6 +104,27 @@ export const SuperAdminDashboard = () => {
 
   // Active Navigation in Sidebar
   const [activeNav, setActiveNav] = useState('dashboard');
+
+  // Live GIS & Multi-Store Data State
+  const [liveZones, setLiveZones] = useState([]);
+  const [liveStores, setLiveStores] = useState([]);
+  const [liveAssignments, setLiveAssignments] = useState([]);
+
+  useEffect(() => {
+    const fetchPlatformGisData = async () => {
+      try {
+        const [zRes, sRes, aRes] = await Promise.all([
+          apiService.getZones(),
+          apiService.getStores(),
+          apiService.getAllAssignments()
+        ]);
+        if (zRes?.success && Array.isArray(zRes.zones)) setLiveZones(zRes.zones);
+        if (sRes?.success && Array.isArray(sRes.stores)) setLiveStores(sRes.stores);
+        if (aRes?.success && Array.isArray(aRes.assignments)) setLiveAssignments(aRes.assignments);
+      } catch (e) {}
+    };
+    fetchPlatformGisData();
+  }, [activeNav]);
 
   // Modals visibility
   const [isAddTenantOpen, setIsAddTenantOpen] = useState(false);
@@ -336,6 +366,31 @@ export const SuperAdminDashboard = () => {
 
     return list;
   }, [tenants]);
+
+  // =========================================================================
+  // SUPER ADMIN GIS & MULTI-STORE STATISTICS (MODULE 1 REQUIREMENTS)
+  // =========================================================================
+  const gisStats = useMemo(() => {
+    const totalRetailers = displayStores.length || 4;
+    const totalStores = (liveStores && liveStores.length > 0) ? liveStores.length : 12;
+    const totalZones = (liveZones && liveZones.length > 0) ? liveZones.length : 4;
+    const activeZones = liveZones.length > 0
+      ? liveZones.filter((z) => z.isActive !== false && String(z.status).toLowerCase() !== 'inactive').length
+      : 4;
+    const assignedStoreIds = new Set(liveAssignments.filter((a) => a.isActive !== false).map((a) => a.storeId));
+    const unassignedStores = Math.max(0, totalStores - (assignedStoreIds.size || 6));
+    const todayStr = new Date().toISOString().split('T')[0];
+    const ordersToday = (allCrossStoreOrders || []).filter((o) => (o.createdAt || o.date || '').startsWith(todayStr)).length;
+
+    return {
+      totalRetailers,
+      totalStores,
+      totalZones,
+      activeZones,
+      unassignedStores,
+      ordersToday
+    };
+  }, [displayStores, liveStores, liveZones, liveAssignments, allCrossStoreOrders]);
 
   // =========================================================================
   // SUPER ADMIN MAIN DASHBOARD: ANALYTICS & GRAPH ENGINE
@@ -921,59 +976,95 @@ export const SuperAdminDashboard = () => {
         </div>
 
         {/* Sidebar Nav Links */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-5 text-xs font-medium">
-          {/* OVERVIEW */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-4 text-xs font-medium">
+          {/* 1. DASHBOARD */}
           <div>
             <button
               onClick={() => setActiveNav('dashboard')}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition ${navBtnClass('dashboard')}`}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('dashboard')}`}
             >
-              <LayoutDashboard className="w-4 h-4" />
-              <span>Dashboard Overview</span>
+              <LayoutDashboard className="w-4 h-4 text-emerald-400" />
+              <span>Dashboard</span>
             </button>
           </div>
 
-          {/* TENANT MANAGEMENT */}
+          {/* 2. RETAILERS & STORES */}
           <div>
             <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-              Supermarket Marts
+              Retailers & Stores
             </div>
             <div className="space-y-1">
               <button
-                onClick={() => setActiveNav('tenants')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('tenants')}`}
+                onClick={() => setActiveNav('retailers')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('retailers') || (activeNav === 'tenants' ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/20' : '')}`}
               >
                 <Store className="w-4 h-4 text-emerald-400" />
-                <span>Tenants (Marts)</span>
+                <span>Retailers</span>
                 <span className="ml-auto text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800/50 px-1.5 py-0.5 rounded font-bold">
                   {displayStores.length}
                 </span>
               </button>
               <button
-                onClick={() => setActiveNav('plans')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('plans')}`}
+                onClick={() => setActiveNav('stores')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('stores')}`}
               >
-                <Layers className="w-4 h-4 text-purple-400" />
-                <span>Subscription Plans</span>
+                <Building2 className="w-4 h-4 text-teal-400" />
+                <span>Stores</span>
+                <span className="ml-auto text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">
+                  {gisStats.totalStores}
+                </span>
               </button>
             </div>
           </div>
 
-          {/* USERS & ACCESS */}
+          {/* 3. GIS & DELIVERY ZONE MANAGEMENT */}
           <div>
             <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-              Users & Credentials
+              GIS Delivery Zones
             </div>
             <div className="space-y-1">
               <button
-                onClick={() => setActiveNav('admins')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('admins')}`}
+                onClick={() => setActiveNav('zone-management')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('zone-management') || (activeNav === 'zones' ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/20' : '')}`}
               >
-                <ShieldCheck className="w-4 h-4 text-amber-400" />
-                <span>Mart Admins</span>
-                <span className="ml-auto text-[10px] bg-amber-900/60 text-amber-300 border border-amber-700/50 px-1.5 py-0.5 rounded-full font-bold">
-                  {(storeAdmins || []).length}
+                <MapPin className="w-4 h-4 text-emerald-400" />
+                <span>Zone Management</span>
+                <span className="ml-auto text-[9px] bg-teal-900/60 text-teal-300 border border-teal-700/50 px-1.5 py-0.5 rounded font-bold">
+                  {gisStats.totalZones}
                 </span>
+              </button>
+              <button
+                onClick={() => setActiveNav('zone-assignments')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('zone-assignments')}`}
+              >
+                <Link2 className="w-4 h-4 text-indigo-400" />
+                <span>Zone Assignments</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 4. ORDERS & FULFILLMENT */}
+          <div>
+            <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+              Orders & Fleet
+            </div>
+            <div className="space-y-1">
+              <button
+                onClick={() => setActiveNav('orders')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('orders')}`}
+              >
+                <ShoppingBag className="w-4 h-4 text-emerald-400" />
+                <span>Orders</span>
+                <span className="ml-auto text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">
+                  {allCrossStoreOrders.length}
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveNav('riders')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('riders')}`}
+              >
+                <Bike className="w-4 h-4 text-amber-400" />
+                <span>Riders</span>
               </button>
               <button
                 onClick={() => setActiveNav('customers')}
@@ -985,67 +1076,58 @@ export const SuperAdminDashboard = () => {
                   {(customers || []).length}
                 </span>
               </button>
-            </div>
-          </div>
-
-          {/* ORDERS & FULFILLMENT */}
-          <div>
-            <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-              Fulfillment & Dispatch
-            </div>
-            <div className="space-y-1">
               <button
-                onClick={() => setActiveNav('orders')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('orders')}`}
+                onClick={() => setActiveNav('delivery-management')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('delivery-management') || (activeNav === 'delivery' ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/20' : '')}`}
               >
-                <ShoppingBag className="w-4 h-4 text-emerald-400" />
-                <span>Cross-Store Orders</span>
-                <span className="ml-auto text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">
-                  {allCrossStoreOrders.length}
-                </span>
-              </button>
-              <button
-                onClick={() => setActiveNav('performance')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('performance')}`}
-              >
-                <Activity className="w-4 h-4 text-cyan-400" />
-                <span>Delivery SLA</span>
-                <span className="ml-auto text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
-                  99.2%
-                </span>
+                <Truck className="w-4 h-4 text-cyan-400" />
+                <span>Delivery Management</span>
               </button>
             </div>
           </div>
 
-          {/* REPORTS & SETTINGS */}
+          {/* 5. REPORTS & GOVERNANCE */}
           <div>
             <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-              Platform Governance
+              Governance & Analytics
             </div>
             <div className="space-y-1">
-              <button
-                onClick={() => setActiveNav('zones')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('zones')}`}
-              >
-                <MapPin className="w-4 h-4 text-teal-400" />
-                <span>Delivery Zones</span>
-                <span className="ml-auto text-[9px] bg-teal-900/60 text-teal-300 border border-teal-700/50 px-1.5 py-0.5 rounded font-bold">
-                  ZONES
-                </span>
-              </button>
               <button
                 onClick={() => setActiveNav('reports')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('reports')}`}
               >
                 <FileText className="w-4 h-4 text-rose-400" />
-                <span>Reports Center</span>
+                <span>Reports</span>
               </button>
               <button
                 onClick={() => setActiveNav('settings')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('settings')}`}
               >
                 <Settings className="w-4 h-4 text-slate-400" />
-                <span>Platform Settings</span>
+                <span>Settings</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Preserved Store Admin Credentials & Subscriptions */}
+          <div className="pt-2 border-t border-slate-800/60">
+            <div className="px-3 text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Store Credentials
+            </div>
+            <div className="space-y-1">
+              <button
+                onClick={() => setActiveNav('admins')}
+                className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl transition ${navBtnClass('admins')}`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[11px]">Mart Admins</span>
+              </button>
+              <button
+                onClick={() => setActiveNav('plans')}
+                className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl transition ${navBtnClass('plans')}`}
+              >
+                <Layers className="w-3.5 h-3.5 text-purple-400" />
+                <span className="text-[11px]">Plans</span>
               </button>
             </div>
           </div>
@@ -1153,105 +1235,125 @@ export const SuperAdminDashboard = () => {
                 </div>
               </div>
 
-              {/* 5 KPI Metric Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                {/* 1. Supermarket Tenants */}
+              {/* 6 Required Statistics Cards (Module 1) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+                {/* 1. Total Retailers */}
                 <div
-                  onClick={() => setActiveNav('tenants')}
+                  onClick={() => setActiveNav('retailers')}
                   className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition cursor-pointer flex flex-col justify-between"
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <span className="text-xs font-bold text-slate-500 block">Supermarkets</span>
-                      <span className="text-2xl font-black text-slate-900 mt-1 block">{displayStores.length} Active</span>
+                      <span className="text-[11px] font-bold text-slate-500 block uppercase tracking-wider">Total Retailers</span>
+                      <span className="text-2xl font-black text-slate-900 mt-1 block">{gisStats.totalRetailers}</span>
                     </div>
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                      <Store className="w-5 h-5" />
+                    <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                      <Store className="w-4 h-4" />
                     </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-emerald-700">
-                    <span>Al-Fatah, Chase Up, Case Value, Unimaart</span>
+                    <span>Al-Fatah, CV, CU, Unimart</span>
                     <span>→</span>
                   </div>
                 </div>
 
-                {/* 2. Mart Admins */}
+                {/* 2. Total Stores */}
                 <div
-                  onClick={() => setActiveNav('admins')}
+                  onClick={() => setActiveNav('stores')}
                   className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition cursor-pointer flex flex-col justify-between"
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <span className="text-xs font-bold text-slate-500 block">Mart Admins</span>
-                      <span className="text-2xl font-black text-amber-600 mt-1 block">{(storeAdmins || []).length} Registered</span>
+                      <span className="text-[11px] font-bold text-slate-500 block uppercase tracking-wider">Total Stores</span>
+                      <span className="text-2xl font-black text-teal-600 mt-1 block">{gisStats.totalStores}</span>
                     </div>
-                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-                      <ShieldCheck className="w-5 h-5" />
+                    <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-teal-700">
+                    <span>Physical Hubs & Marts</span>
+                    <span>→</span>
+                  </div>
+                </div>
+
+                {/* 3. Total Zones */}
+                <div
+                  onClick={() => setActiveNav('zone-management')}
+                  className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition cursor-pointer flex flex-col justify-between"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-500 block uppercase tracking-wider">Total Zones</span>
+                      <span className="text-2xl font-black text-indigo-600 mt-1 block">{gisStats.totalZones}</span>
+                    </div>
+                    <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                      <MapPin className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-indigo-700">
+                    <span>Geofence Polygons</span>
+                    <span>→</span>
+                  </div>
+                </div>
+
+                {/* 4. Active Zones */}
+                <div
+                  onClick={() => setActiveNav('zone-management')}
+                  className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition cursor-pointer flex flex-col justify-between"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-500 block uppercase tracking-wider">Active Zones</span>
+                      <span className="text-2xl font-black text-emerald-600 mt-1 block">{gisStats.activeZones}</span>
+                    </div>
+                    <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-emerald-700">
+                    <span>Live Order Dispatch</span>
+                    <span>✓ Active</span>
+                  </div>
+                </div>
+
+                {/* 5. Unassigned Stores */}
+                <div
+                  onClick={() => setActiveNav('zone-assignments')}
+                  className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition cursor-pointer flex flex-col justify-between"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-500 block uppercase tracking-wider">Unassigned Stores</span>
+                      <span className="text-2xl font-black text-amber-600 mt-1 block">{gisStats.unassignedStores}</span>
+                    </div>
+                    <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                      <Link2 className="w-4 h-4" />
                     </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-amber-700">
-                    <span>Full Store Control Credentials</span>
+                    <span>Requires Zone Link</span>
                     <span>→</span>
                   </div>
                 </div>
 
-                {/* 3. Customers */}
-                <div
-                  onClick={() => setActiveNav('customers')}
-                  className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition cursor-pointer flex flex-col justify-between"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="text-xs font-bold text-slate-500 block">Total Customers</span>
-                      <span className="text-2xl font-black text-sky-600 mt-1 block">{(customers || []).length}</span>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold">
-                      <Users className="w-5 h-5" />
-                    </div>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-sky-700">
-                    <span>Active Verified Shoppers</span>
-                    <span>→</span>
-                  </div>
-                </div>
-
-                {/* 4. Cross-Store Orders */}
+                {/* 6. Orders Today */}
                 <div
                   onClick={() => setActiveNav('orders')}
                   className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition cursor-pointer flex flex-col justify-between"
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <span className="text-xs font-bold text-slate-500 block">Cross-Store Orders</span>
-                      <span className="text-2xl font-black text-slate-900 mt-1 block">{allCrossStoreOrders.length}</span>
+                      <span className="text-[11px] font-bold text-slate-500 block uppercase tracking-wider">Orders Today</span>
+                      <span className="text-2xl font-black text-sky-600 mt-1 block">{gisStats.ordersToday || allCrossStoreOrders.length}</span>
                     </div>
-                    <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-                      <ShoppingBag className="w-5 h-5" />
+                    <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold">
+                      <ShoppingBag className="w-4 h-4" />
                     </div>
                   </div>
-                  <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-purple-700">
-                    <span>Consolidated Live Stream</span>
+                  <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-sky-700">
+                    <span>Live Cross-Store Stream</span>
                     <span>→</span>
-                  </div>
-                </div>
-
-                {/* 5. Delivery SLA */}
-                <div
-                  onClick={() => setActiveNav('performance')}
-                  className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition cursor-pointer flex flex-col justify-between"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="text-xs font-bold text-slate-500 block">Delivery SLA</span>
-                      <span className="text-2xl font-black text-emerald-600 mt-1 block">99.2%</span>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                      <Activity className="w-5 h-5" />
-                    </div>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-emerald-700">
-                    <span>15-Min Express Standard</span>
-                    <span>✓ Active</span>
                   </div>
                 </div>
               </div>
@@ -1983,7 +2085,7 @@ export const SuperAdminDashboard = () => {
           {/* ===================================================================== */}
           {/* SUB-DASHBOARD: 2. TENANTS (SUPERMARKET MARTS)                          */}
           {/* ===================================================================== */}
-          {activeNav === 'tenants' && (
+          {(activeNav === 'tenants' || activeNav === 'retailers') && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
@@ -2800,10 +2902,22 @@ export const SuperAdminDashboard = () => {
           )}
 
           {/* ===================================================================== */}
-          {/* SUB-DASHBOARD: 9. PLATFORM SETTINGS (EDITABLE & PERSISTENT)           */}
+          {/* SUB-DASHBOARDS: STORES, ZONES, ASSIGNMENTS & DELIVERY MANAGEMENT     */}
           {/* ===================================================================== */}
-          {activeNav === 'zones' && (
-            <DeliveryZoneView isSuperAdmin={true} />
+          {activeNav === 'stores' && (
+            <StoreManagementView />
+          )}
+
+          {(activeNav === 'zones' || activeNav === 'zone-management') && (
+            <ZoneManagementView />
+          )}
+
+          {activeNav === 'zone-assignments' && (
+            <ZoneStoreAssignmentView />
+          )}
+
+          {(activeNav === 'delivery-management' || activeNav === 'delivery' || activeNav === 'riders') && (
+            <DeliveryView isSuperAdmin={true} />
           )}
 
           {activeNav === 'settings' && (

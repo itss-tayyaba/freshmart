@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
 
-final apiServiceProvider = Provider<ApiService>((ref) {
+final Provider<ApiService> apiServiceProvider = Provider<ApiService>((ref) {
   final api = ApiService(
     onUnauthorized: () {
       ref.read(authNotifierProvider.notifier).logout();
@@ -93,7 +93,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 }
 
-final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+final StateNotifierProvider<AuthNotifier, AuthState> authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final api = ref.watch(apiServiceProvider);
   return AuthNotifier(api);
 });

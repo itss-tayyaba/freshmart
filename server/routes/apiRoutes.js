@@ -309,4 +309,80 @@ router.get('/retailers/find-available', findAvailableRetailersController);
 router.get('/branches/available', findAvailableRetailersController);
 router.put('/branches/:id/delivery-zone', updateBranchDeliveryZone);
 
+// ============================================================
+// 📍 MULTI-STORE GIS DELIVERY PLATFORM APIS (MODULES 1 - 10)
+// ============================================================
+import {
+  getRetailers,
+  createRetailer,
+  updateRetailer,
+  toggleRetailerStatus
+} from '../controllers/retailerController.js';
+import {
+  getStores,
+  getStoreById,
+  createStore,
+  updateStore,
+  deleteStore,
+  toggleStoreStatus,
+  getRetailerStores
+} from '../controllers/storeController.js';
+import {
+  getZones,
+  getZoneById,
+  createZone,
+  updateZone,
+  deleteZone,
+  toggleZoneStatus
+} from '../controllers/zoneController.js';
+import {
+  getAllAssignments,
+  getZoneStores,
+  assignStoresToZone,
+  removeStoreFromZone
+} from '../controllers/assignmentController.js';
+import {
+  checkDeliveryAvailability,
+  getEligibleStores,
+  calculateFee
+} from '../controllers/deliveryEligibilityController.js';
+
+// --- Retailers Management ---
+router.get('/admin/retailers', getRetailers);
+router.post('/admin/retailers', protect, superAdminOnly, createRetailer);
+router.put('/admin/retailers/:id', protect, superAdminOnly, updateRetailer);
+router.patch('/admin/retailers/:id/status', protect, superAdminOnly, toggleRetailerStatus);
+
+// --- Stores Management ---
+router.get('/admin/stores', getStores);
+router.post('/admin/stores', protect, adminOnly, createStore);
+router.get('/admin/stores/:id', getStoreById);
+router.put('/admin/stores/:id', protect, adminOnly, updateStore);
+router.delete('/admin/stores/:id', protect, adminOnly, deleteStore);
+router.patch('/admin/stores/:id/status', protect, adminOnly, toggleStoreStatus);
+router.get('/retailer/stores', protect, getRetailerStores);
+
+// --- Delivery Zones Management ---
+router.get('/admin/zones', getZones);
+router.post('/admin/zones', protect, adminOnly, createZone);
+router.get('/admin/zones/:id', getZoneById);
+router.put('/admin/zones/:id', protect, adminOnly, updateZone);
+router.delete('/admin/zones/:id', protect, adminOnly, deleteZone);
+router.patch('/admin/zones/:id/status', protect, adminOnly, toggleZoneStatus);
+
+// --- Zone-Store Assignments ---
+router.get('/admin/assignments', getAllAssignments);
+router.get('/admin/zones/:id/stores', getZoneStores);
+router.post('/admin/zones/:id/stores', protect, adminOnly, assignStoresToZone);
+router.delete('/admin/zones/:id/stores/:storeId', protect, adminOnly, removeStoreFromZone);
+
+// --- Customer Delivery Geovalidation & Calculation ---
+router.post('/delivery/check-availability', authLimiter, checkDeliveryAvailability);
+router.post('/delivery/eligible-stores', authLimiter, getEligibleStores);
+router.post('/delivery/calculate-fee', authLimiter, calculateFee);
+
+// --- Orders Aliases for Admin & Retailer ---
+router.get('/admin/orders', protect, adminOnly, getOrders);
+router.get('/retailer/orders', protect, getOrders);
+
 export default router;

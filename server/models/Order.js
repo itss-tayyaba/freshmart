@@ -76,6 +76,20 @@ const orderSchema = new mongoose.Schema(
     branchName: {
       type: String
     },
+    storeId: {
+      type: String,
+      index: true
+    },
+    storeName: {
+      type: String
+    },
+    zoneId: {
+      type: String,
+      index: true
+    },
+    zoneName: {
+      type: String
+    },
     customerId: {
       type: String,
       index: true
@@ -131,9 +145,17 @@ const orderSchema = new mongoose.Schema(
       required: true,
       default: 0.0
     },
+    subtotal: {
+      type: Number,
+      default: 0.0
+    },
     deliveryPrice: {
       type: Number,
       required: true,
+      default: 100.0
+    },
+    deliveryFee: {
+      type: Number,
       default: 100.0
     },
     discountPrice: {
@@ -187,5 +209,34 @@ const orderSchema = new mongoose.Schema(
     bufferCommands: false
   }
 );
+
+// Pre-save hook to ensure backward and forward compatibility between storeId and branchId, subtotal, and deliveryFee
+orderSchema.pre('validate', function (next) {
+  if (!this.storeId && this.branchId) {
+    this.storeId = this.branchId;
+  }
+  if (!this.branchId && this.storeId) {
+    this.branchId = this.storeId;
+  }
+  if (!this.storeName && this.branchName) {
+    this.storeName = this.branchName;
+  }
+  if (!this.branchName && this.storeName) {
+    this.branchName = this.storeName;
+  }
+  if ((this.subtotal === undefined || this.subtotal === 0) && this.itemsPrice) {
+    this.subtotal = this.itemsPrice;
+  }
+  if ((this.itemsPrice === undefined || this.itemsPrice === 0) && this.subtotal) {
+    this.itemsPrice = this.subtotal;
+  }
+  if ((this.deliveryFee === undefined || this.deliveryFee === 0) && this.deliveryPrice !== undefined) {
+    this.deliveryFee = this.deliveryPrice;
+  }
+  if ((this.deliveryPrice === undefined || this.deliveryPrice === 0) && this.deliveryFee !== undefined) {
+    this.deliveryPrice = this.deliveryFee;
+  }
+  if (typeof next === 'function') next();
+});
 
 export const Order = mongoose.model('Order', orderSchema);

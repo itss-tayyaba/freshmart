@@ -63,10 +63,7 @@ class LocationTelemetryService {
 
     try {
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: 5,
-        ),
+        desiredAccuracy: LocationAccuracy.high,
       );
 
       // Send to order GPS channel

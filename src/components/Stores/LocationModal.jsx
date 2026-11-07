@@ -436,7 +436,7 @@ const LocationModalContent = () => {
   const handleConfirmLocation = async (e) => {
     if (e) e.preventDefault();
     if (deliverableStores.length === 0) {
-      addToast('Choose different location (no store found) ⚠️', 'Your location is outside our retailer delivery zones. Please change your location so that you fall in the retailer delivery zone.', 'warning');
+      addToast('Choose different location (no store found) ⚠️', 'Sorry, delivery is currently unavailable at your location. Please change your location so that you fall in the retailer delivery zone.', 'warning');
       return;
     }
     setIsSaving(true);

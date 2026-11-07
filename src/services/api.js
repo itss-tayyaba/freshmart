@@ -1205,5 +1205,310 @@ export const apiService = {
     } catch (e) {
       return { success: false, error: e.message };
     }
+  },
+
+  // ============================================================
+  // 📍 MULTI-STORE & GIS ZONE MANAGEMENT APIS
+  // ============================================================
+
+  // Retailers
+  async getRetailers() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/retailers`, { headers: getAuthHeaders() });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async createRetailer(data) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/retailers`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateRetailer(id, data) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/retailers/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async toggleRetailerStatus(id, status) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/retailers/${encodeURIComponent(id)}/status`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status })
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // Stores
+  async getStores(params = {}) {
+    try {
+      const query = new URLSearchParams(params).toString();
+      const res = await fetch(`${API_BASE_URL}/admin/stores${query ? `?${query}` : ''}`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getStoreById(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/stores/${encodeURIComponent(id)}`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async createStore(storeData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/stores`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(storeData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateStore(id, storeData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/stores/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(storeData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteStore(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/stores/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async toggleStoreStatus(id, status, operatingStatus) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/stores/${encodeURIComponent(id)}/status`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status, operatingStatus })
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getRetailerStores() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/retailer/stores`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // Zones
+  async getZones(params = {}) {
+    try {
+      const query = new URLSearchParams(params).toString();
+      const res = await fetch(`${API_BASE_URL}/admin/zones${query ? `?${query}` : ''}`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getZoneById(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/zones/${encodeURIComponent(id)}`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async createZone(zoneData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/zones`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(zoneData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateZone(id, zoneData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/zones/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(zoneData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteZone(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/zones/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async toggleZoneStatus(id, isActive) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/zones/${encodeURIComponent(id)}/status`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ isActive })
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // Assignments
+  async getAllAssignments() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/assignments`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getZoneStores(zoneId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/zones/${encodeURIComponent(zoneId)}/stores`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async assignStoresToZone(zoneId, storeIds) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/zones/${encodeURIComponent(zoneId)}/stores`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ storeIds: Array.isArray(storeIds) ? storeIds : [storeIds] })
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async removeStoreFromZone(zoneId, storeId) {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/admin/zones/${encodeURIComponent(zoneId)}/stores/${encodeURIComponent(storeId)}`,
+        {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        }
+      );
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // Customer Eligibility & Delivery Calculation
+  async checkDeliveryAvailability(coords) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/delivery/check-availability`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(coords)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getEligibleStores(data) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/delivery/eligible-stores`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async calculateDeliveryFee(data) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/delivery/calculate-fee`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
   }
 };
