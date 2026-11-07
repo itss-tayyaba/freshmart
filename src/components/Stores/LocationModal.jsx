@@ -396,7 +396,11 @@ const LocationModalContent = () => {
 
       deliveryZones.forEach((z) => {
         if (!z.geometry?.coordinates?.[0]) return;
-        const latLngs = z.geometry.coordinates[0].map(([lng, lat]) => [lat, lng]);
+        const latLngs = (z.geometry.coordinates[0] || [])
+          .map(([lng, lat]) => [Number(lat), Number(lng)])
+          .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && !isNaN(lat) && !isNaN(lng));
+        if (latLngs.length < 3) return;
+
         const color = z.color || '#10b981';
         const isCustomerInside = isPointInPolygon({ lat: currentCoords.lat, lng: currentCoords.lng }, latLngs);
 

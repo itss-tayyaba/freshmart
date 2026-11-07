@@ -593,7 +593,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
     // 1. Draw Active Zone Polygon
     if (activeZone.geometry?.coordinates?.[0]) {
-      const latLngs = activeZone.geometry.coordinates[0].map(([lng, lat]) => [lat, lng]);
+      const latLngs = (activeZone.geometry.coordinates[0] || [])
+        .map(([lng, lat]) => [Number(lat), Number(lng)])
+        .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && !isNaN(lat) && !isNaN(lng));
+      if (latLngs.length < 3) return;
       const color = activeZone.color || '#10b981';
 
       const polygon = L.polygon(latLngs, {

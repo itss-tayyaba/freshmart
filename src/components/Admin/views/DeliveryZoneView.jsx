@@ -58,6 +58,7 @@ const createStoreBranchPin = (name, color = '#059669') =>
 export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initialTenantId = null }) => {
   const {
     currentTenant,
+    currentBranch,
     allBranches = [],
     BRANCHES = [],
     addToast,
@@ -115,18 +116,28 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
 
   // Selected Branch ID
   const [selectedBranchId, setSelectedBranchId] = useState(() => {
+    if (currentBranch?._id || currentBranch?.id) return currentBranch._id || currentBranch.id;
     return tenantBranches[0]?._id || tenantBranches[0]?.id || 'branch_default';
   });
 
   // Keep selected branch valid when retailer changes
   useEffect(() => {
     if (tenantBranches.length > 0) {
+      if (currentBranch?._id || currentBranch?.id) {
+        const matchesCurrent = tenantBranches.find(
+          (b) => (b._id || b.id) === (currentBranch._id || currentBranch.id)
+        );
+        if (matchesCurrent) {
+          setSelectedBranchId(matchesCurrent._id || matchesCurrent.id);
+          return;
+        }
+      }
       const exists = tenantBranches.some((b) => (b._id || b.id) === selectedBranchId);
       if (!exists) {
         setSelectedBranchId(tenantBranches[0]._id || tenantBranches[0].id);
       }
     }
-  }, [tenantBranches, selectedBranchId]);
+  }, [tenantBranches, selectedBranchId, currentBranch]);
 
   const activeBranch = useMemo(() => {
     const found = tenantBranches.find((b) => (b._id || b.id) === selectedBranchId);
@@ -154,12 +165,18 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     };
   }, [tenantBranches, selectedBranchId, selectedTenantId, activeRetailer]);
 
+  // Safe coordinate parser
+  const getSafeCoord = (val, fallback) => {
+    const num = Number(val);
+    return Number.isFinite(num) && !isNaN(num) ? num : fallback;
+  };
+
   // Form states
   const [branchName, setBranchName] = useState(activeBranch.name || '');
   const [branchCity, setBranchCity] = useState(activeBranch.city || 'Faisalabad');
   const [address, setAddress] = useState(activeBranch.address || '');
-  const [lat, setLat] = useState(Number(activeBranch.latitude || 31.4087));
-  const [lng, setLng] = useState(Number(activeBranch.longitude || 73.1118));
+  const [lat, setLat] = useState(() => getSafeCoord(activeBranch.latitude, 31.4087));
+  const [lng, setLng] = useState(() => getSafeCoord(activeBranch.longitude, 73.1118));
   const [deliveryRadiusKm, setDeliveryRadiusKm] = useState(
     Number(activeBranch.deliveryRadiusKm || activeBranch.deliveryRadius || 5)
   );
@@ -176,13 +193,24 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     ];
   });
 
-  // Custom Polygon Boundary State
-  // Array of [lat, lng] pairs
+  // Custom Polygon Boundary State (Array of [lat, lng] pairs)
   const [polygonPoints, setPolygonPoints] = useState(() => {
     if (Array.isArray(activeBranch.deliveryPolygon) && activeBranch.deliveryPolygon.length >= 3) {
-      return activeBranch.deliveryPolygon.map((pt) =>
-        Array.isArray(pt) ? pt : [Number(pt.lat ?? pt.latitude), Number(pt.lng ?? pt.longitude)]
-      );
+      const sanitized = [];
+      activeBranch.deliveryPolygon.forEach((pt) => {
+        let pLat, pLng;
+        if (Array.isArray(pt)) {
+          pLat = Number(pt[0]);
+          pLng = Number(pt[1]);
+        } else if (typeof pt === 'object' && pt !== null) {
+          pLat = Number(pt.lat ?? pt.latitude);
+          pLng = Number(pt.lng ?? pt.longitude);
+        }
+        if (Number.isFinite(pLat) && Number.isFinite(pLng) && !isNaN(pLat) && !isNaN(pLng)) {
+          sanitized.push([pLat, pLng]);
+        }
+      });
+      return sanitized;
     }
     return [];
   });
@@ -218,8 +246,8 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     setBranchName(activeBranch.name || '');
     setBranchCity(activeBranch.city || 'Faisalabad');
     setAddress(activeBranch.address || '');
-    setLat(Number(activeBranch.latitude || 31.4087));
-    setLng(Number(activeBranch.longitude || 73.1118));
+    setLat(getSafeCoord(activeBranch.latitude, 31.4087));
+    setLng(getSafeCoord(activeBranch.longitude, 73.1118));
     setDeliveryRadiusKm(Number(activeBranch.deliveryRadiusKm || activeBranch.deliveryRadius || 5));
     setDeliveryStatus(activeBranch.deliveryStatus || 'active');
     setDeliveryTiers(
@@ -233,16 +261,47 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
           ]
     );
     if (Array.isArray(activeBranch.deliveryPolygon) && activeBranch.deliveryPolygon.length >= 3) {
-      setPolygonPoints(
-        activeBranch.deliveryPolygon.map((pt) =>
-          Array.isArray(pt) ? pt : [Number(pt.lat ?? pt.latitude), Number(pt.lng ?? pt.longitude)]
-        )
-      );
+      const sanitized = [];
+      activeBranch.deliveryPolygon.forEach((pt) => {
+        let pLat, pLng;
+        if (Array.isArray(pt)) {
+          pLat = Number(pt[0]);
+          pLng = Number(pt[1]);
+        } else if (typeof pt === 'object' && pt !== null) {
+          pLat = Number(pt.lat ?? pt.latitude);
+          pLng = Number(pt.lng ?? pt.longitude);
+        }
+        if (Number.isFinite(pLat) && Number.isFinite(pLng) && !isNaN(pLat) && !isNaN(pLng)) {
+          sanitized.push([pLat, pLng]);
+        }
+      });
+      setPolygonPoints(sanitized.length >= 3 ? sanitized : []);
     } else {
       setPolygonPoints([]);
     }
     setMapDrawMode('center');
   }, [activeBranch]);
+
+  // Helper to reorder points around their geometric centroid into a clean non-crossing perimeter
+  const untanglePoints = (pts) => {
+    if (!pts || pts.length < 3) return pts;
+    const cLat = pts.reduce((sum, p) => sum + p[0], 0) / pts.length;
+    const cLng = pts.reduce((sum, p) => sum + p[1], 0) / pts.length;
+    return [...pts].sort((a, b) => {
+      const angleA = Math.atan2(a[0] - cLat, a[1] - cLng);
+      const angleB = Math.atan2(b[0] - cLat, b[1] - cLng);
+      return angleA - angleB;
+    });
+  };
+
+  const handleUntanglePoints = () => {
+    if (polygonPoints.length < 3) return;
+    const clean = untanglePoints(polygonPoints);
+    setPolygonPoints(clean);
+    if (addToast) {
+      addToast('Perimeter Untangled ✨', 'Boundary vertices aligned smoothly without crossing lines.', 'info');
+    }
+  };
 
   // Initialize Leaflet Map
   useEffect(() => {
@@ -253,8 +312,11 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
       mapInstanceRef.current = null;
     }
 
+    const safeMapLat = getSafeCoord(lat, 31.4087);
+    const safeMapLng = getSafeCoord(lng, 73.1118);
+
     const map = L.map(mapContainerRef.current, {
-      center: [lat, lng],
+      center: [safeMapLat, safeMapLng],
       zoom: 14,
       zoomControl: true
     });
@@ -262,7 +324,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     switchMapTileLayer(map, mapViewMode, tileLayerRef);
 
     const themeColor = activeRetailer?.color || '#059669';
-    const marker = L.marker([lat, lng], {
+    const marker = L.marker([safeMapLat, safeMapLng], {
       icon: createStoreBranchPin(branchName || 'Branch Hub', themeColor),
       draggable: true,
       zIndexOffset: 1000
@@ -334,8 +396,10 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
 
   // Update Center Marker position when lat or lng change
   useEffect(() => {
+    const sLat = getSafeCoord(lat, 31.4087);
+    const sLng = getSafeCoord(lng, 73.1118);
     if (branchMarkerRef.current) {
-      branchMarkerRef.current.setLatLng([lat, lng]);
+      branchMarkerRef.current.setLatLng([sLat, sLng]);
     }
   }, [lat, lng]);
 
@@ -355,12 +419,14 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
 
     // If custom polygon is drawn, render circles with softer dashed style
     const isPolyActive = polygonPoints.length >= 3;
+    const sLat = getSafeCoord(lat, 31.4087);
+    const sLng = getSafeCoord(lng, 73.1118);
 
     sortedTiers.forEach((tier, idx) => {
       const radiusMeters = Number(tier.distanceKm) * 1000;
       if (isNaN(radiusMeters) || radiusMeters <= 0) return;
 
-      const circle = L.circle([lat, lng], {
+      const circle = L.circle([sLat, sLng], {
         radius: radiusMeters,
         color: themeColor,
         weight: idx === sortedTiers.length - 1 ? (isPolyActive ? 1.5 : 2.5) : 1,
@@ -394,13 +460,17 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     });
     vertexMarkersRef.current = [];
 
-    if (polygonPoints.length < 2) return;
+    const cleanPolyPoints = polygonPoints.filter(
+      (pt) => Array.isArray(pt) && Number.isFinite(pt[0]) && Number.isFinite(pt[1]) && !isNaN(pt[0]) && !isNaN(pt[1])
+    );
+
+    if (cleanPolyPoints.length < 2) return;
 
     const themeColor = activeRetailer?.color || '#059669';
 
-    if (polygonPoints.length >= 3) {
+    if (cleanPolyPoints.length >= 3) {
       // Draw closed polygon
-      const poly = L.polygon(polygonPoints, {
+      const poly = L.polygon(cleanPolyPoints, {
         color: themeColor,
         weight: 3,
         fillColor: themeColor,
@@ -408,13 +478,13 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
         dashArray: mapDrawMode === 'polygon' ? '6, 4' : null
       }).addTo(map);
 
-      poly.bindTooltip(`${branchName} Custom Boundary Zone (${polygonPoints.length} vertices)`, {
+      poly.bindTooltip(`${branchName} Custom Boundary Zone (${cleanPolyPoints.length} vertices)`, {
         sticky: true
       });
       polygonLayerRef.current = poly;
-    } else if (polygonPoints.length === 2) {
+    } else if (cleanPolyPoints.length === 2) {
       // Draw temporary polyline while drawing
-      const line = L.polyline(polygonPoints, {
+      const line = L.polyline(cleanPolyPoints, {
         color: themeColor,
         weight: 2.5,
         dashArray: '6, 4'
@@ -423,7 +493,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     }
 
     // Add small interactive handles at each vertex
-    polygonPoints.forEach((pt, idx) => {
+    cleanPolyPoints.forEach((pt, idx) => {
       const handle = L.circleMarker(pt, {
         radius: 6,
         color: '#ffffff',

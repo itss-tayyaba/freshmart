@@ -1057,10 +1057,18 @@ export const DeliveryView = () => {
                         </div>
                         <div className="flex items-start gap-1.5 pt-1 border-t border-stone-100">
                           <MapPin className="w-3.5 h-3.5 text-stone-400 mt-0.5 shrink-0" />
-                          <p className="text-xs text-stone-700 leading-snug">
-                            {o.address || o.shippingAddress?.address || 'Address not set'}
-                            {(o.city || o.shippingAddress?.city) && <span className="text-stone-400">, {o.city || o.shippingAddress?.city}</span>}
-                          </p>
+                          <div className="min-w-0">
+                            <p className="text-xs text-stone-700 leading-snug">
+                              {o.address || o.shippingAddress?.address || 'Address not set'}
+                              {(o.city || o.shippingAddress?.city) && <span className="text-stone-400">, {o.city || o.shippingAddress?.city}</span>}
+                            </p>
+                            {(o.branchName || o.branchHub || o.zone) && (
+                              <p className="text-[10px] text-emerald-700 font-bold mt-0.5 flex items-center gap-1">
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span>Delivery Zone: {o.branchName || o.branchHub || o.zone}</span>
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1153,7 +1161,7 @@ export const DeliveryView = () => {
                                     </p>
                                     <p className={`text-[10px] truncate ${isChosen ? 'text-stone-300' : 'text-stone-400'}`}>
                                       {r.servedAreaLabel || r.serviceArea || r.zone || r.region || 'General Area'}
-                                      {r.isDirectAreaMatch ? ' ⭐ (Area Match)' : ''}
+                                      {r.isPolygonMatch ? ' 🎯 (Zone Polygon Match)' : r.isDirectAreaMatch ? ' ⭐ (Area Match)' : ''}
                                     </p>
                                   </div>
                                 </div>

@@ -493,9 +493,48 @@ export const getStrictEligibleRiders = (order, ridersList = []) => {
         }
       }
 
+      // Check branch delivery polygon match
+      let isPolygonMatch = false;
+      const orderLat = Number(
+        order.shippingAddress?.coordinates?.lat ??
+        order.shippingAddress?.latitude ??
+        order.latitude ??
+        order.lat
+      );
+      const orderLng = Number(
+        order.shippingAddress?.coordinates?.lng ??
+        order.shippingAddress?.longitude ??
+        order.longitude ??
+        order.lng
+      );
+
+      const branchPolygon = order.branch?.deliveryPolygon || order.deliveryPolygon;
+      if (
+        Number.isFinite(orderLat) &&
+        Number.isFinite(orderLng) &&
+        Array.isArray(branchPolygon) &&
+        branchPolygon.length >= 3
+      ) {
+        let inside = false;
+        for (let i = 0, j = branchPolygon.length - 1; i < branchPolygon.length; j = i++) {
+          const yi = Array.isArray(branchPolygon[i]) ? branchPolygon[i][0] : branchPolygon[i].lat;
+          const xi = Array.isArray(branchPolygon[i]) ? branchPolygon[i][1] : branchPolygon[i].lng;
+          const yj = Array.isArray(branchPolygon[j]) ? branchPolygon[j][0] : branchPolygon[j].lat;
+          const xj = Array.isArray(branchPolygon[j]) ? branchPolygon[j][1] : branchPolygon[j].lng;
+          const intersect =
+            yi > orderLat !== yj > orderLat &&
+            orderLng < ((xj - xi) * (orderLat - yi)) / (yj - yi) + xi;
+          if (intersect) inside = !inside;
+        }
+        if (inside) {
+          isPolygonMatch = true;
+          score += 150;
+        }
+      }
+
       // Branch match
       if (order.branchId && rider.branchId && String(order.branchId).toLowerCase() === String(rider.branchId).toLowerCase()) {
-        score += 50;
+        score += 80;
       }
 
       // City match
@@ -518,6 +557,7 @@ export const getStrictEligibleRiders = (order, ridersList = []) => {
         ...rider,
         relevanceScore: score,
         isDirectAreaMatch,
+        isPolygonMatch,
         servedAreaLabel: servedLabel
       };
     })

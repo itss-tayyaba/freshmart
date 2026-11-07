@@ -278,7 +278,10 @@ export const ZoneManagementView = () => {
       const color = z.color || '#10b981';
       const isActive = z.isActive !== false && String(z.status).toLowerCase() !== 'inactive';
 
-      const latLngs = z.geometry.coordinates[0].map(([lng, lat]) => [lat, lng]);
+      const latLngs = (z.geometry.coordinates[0] || [])
+        .map(([lng, lat]) => [Number(lat), Number(lng)])
+        .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && !isNaN(lat) && !isNaN(lng));
+      if (latLngs.length < 3) return;
 
       const polygon = L.polygon(latLngs, {
         color: color,
