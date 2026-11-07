@@ -5,7 +5,7 @@
     "tenantId": "tenant-alfatah",
     "isActive": true,
     "priority": 1,
-    "assignedAt": "2026-11-07T06:01:35.875Z"
+    "assignedAt": "2026-11-07T06:34:03.483Z"
   },
   {
     "zoneId": "ZONE-FSD-CANAL",
@@ -13,6 +13,6 @@
     "tenantId": "tenant-alfatah",
     "isActive": true,
     "priority": 1,
-    "assignedAt": "2026-11-07T06:01:35.887Z"
+    "assignedAt": "2026-11-07T06:34:03.513Z"
   }
 ]

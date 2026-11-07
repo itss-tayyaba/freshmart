@@ -2,6 +2,10 @@ import mongoose from 'mongoose';
 
 const storeSchema = new mongoose.Schema(
   {
+    _id: {
+      type: String,
+      trim: true
+    },
     storeId: {
       type: String,
       required: true,

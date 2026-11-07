@@ -23,7 +23,7 @@ import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
 import { calculateDistanceKm } from '../../../data/pakistanLocations';
 
-export const ZoneStoreAssignmentView = () => {
+export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   const { addToast } = useStore();
 
   const [zones, setZones] = useState([]);
@@ -495,11 +495,23 @@ export const ZoneStoreAssignmentView = () => {
                 Filter by retailer and select stores to link to {activeZone?.name}.
               </p>
             </div>
-            {selectedStoreIdsToAssign.size > 0 && (
-              <span className="text-xs bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
-                {selectedStoreIdsToAssign.size} Selected
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {onNavigateToStores && (
+                <button
+                  type="button"
+                  onClick={onNavigateToStores}
+                  className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Add Store</span>
+                </button>
+              )}
+              {selectedStoreIdsToAssign.size > 0 && (
+                <span className="text-xs bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                  {selectedStoreIdsToAssign.size} Selected
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Filters Toolbar */}

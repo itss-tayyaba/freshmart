@@ -2913,7 +2913,7 @@ export const SuperAdminDashboard = () => {
           )}
 
           {activeNav === 'zone-assignments' && (
-            <ZoneStoreAssignmentView />
+            <ZoneStoreAssignmentView onNavigateToStores={() => setActiveNav('stores')} />
           )}
 
           {(activeNav === 'delivery-management' || activeNav === 'delivery' || activeNav === 'riders') && (

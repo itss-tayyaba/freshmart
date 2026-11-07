@@ -28,6 +28,7 @@ import { switchMapTileLayer } from '../../../utils/mapTiles';
 export const StoreManagementView = () => {
   const {
     allBranches = [],
+    setAllBranches,
     tenants = [],
     addToast
   } = useStore();
@@ -178,6 +179,9 @@ export const StoreManagementView = () => {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
+      if (mapContainerRef.current._leaflet_id) {
+        delete mapContainerRef.current._leaflet_id;
+      }
 
       const initialLat = Number(formData.latitude) || 31.4125;
       const initialLng = Number(formData.longitude) || 73.0995;
@@ -313,8 +317,25 @@ export const StoreManagementView = () => {
           if (addToast) addToast(`Store ${formData.name} created successfully with genuine GPS coordinates.`, 'success');
           setIsAddModalOpen(false);
           fetchStoresList();
+          if (setAllBranches && res.store) {
+            setAllBranches((prev) => [
+              {
+                _id: res.store.storeId || res.store._id,
+                id: res.store.storeId || res.store._id,
+                tenantId: res.store.tenantId,
+                name: res.store.branchName || res.store.name,
+                address: res.store.address,
+                city: res.store.city,
+                latitude: res.store.latitude,
+                longitude: res.store.longitude,
+                phone: res.store.contactNumber,
+                status: res.store.status
+              },
+              ...(prev || [])
+            ]);
+          }
         } else {
-          if (addToast) addToast(res?.message || 'Failed to create store.', 'error');
+          if (addToast) addToast(res?.message || res?.error || 'Failed to create store.', 'error');
         }
       }
     } catch (err) {

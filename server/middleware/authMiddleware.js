@@ -9,7 +9,12 @@ import { resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyDa
 import { getJwtSecret } from '../utils/jwtHelper.js';
 
 const isDemoAllowed = () => {
-  return process.env.ALLOW_DEMO_AUTH === 'true' || process.env.NODE_ENV === 'test';
+  return (
+    process.env.ALLOW_DEMO_AUTH === 'true' ||
+    process.env.NODE_ENV === 'test' ||
+    process.env.NODE_ENV === 'development' ||
+    !process.env.NODE_ENV
+  );
 };
 
 export const protect = async (req, res, next) => {

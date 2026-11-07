@@ -2,6 +2,10 @@ import mongoose from 'mongoose';
 
 const deliveryZoneSchema = new mongoose.Schema(
   {
+    _id: {
+      type: String,
+      trim: true
+    },
     zoneId: {
       type: String,
       required: true,
