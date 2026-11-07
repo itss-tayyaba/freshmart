@@ -372,11 +372,11 @@ export const SuperAdminDashboard = () => {
   // =========================================================================
   const gisStats = useMemo(() => {
     const totalRetailers = displayStores.length || 4;
-    const totalStores = (liveStores && liveStores.length > 0) ? liveStores.length : (displayStores.length || 4);
-    const totalZones = (liveZones && liveZones.length > 0) ? liveZones.length : 4;
-    const activeZones = liveZones.length > 0
+    const totalStores = (liveStores && liveStores.length > 0) ? liveStores.length : 4;
+    const totalZones = (liveZones && Array.isArray(liveZones)) ? liveZones.length : 0;
+    const activeZones = (liveZones && Array.isArray(liveZones))
       ? liveZones.filter((z) => z.isActive !== false && String(z.status).toLowerCase() !== 'inactive').length
-      : (liveZones.length || 4);
+      : 0;
     const assignedStoreIds = new Set(liveAssignments.filter((a) => a.isActive !== false).map((a) => a.storeId));
     const unassignedStores = Math.max(0, totalStores - assignedStoreIds.size);
     const todayStr = new Date().toISOString().split('T')[0];

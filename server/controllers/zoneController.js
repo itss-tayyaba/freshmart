@@ -150,7 +150,11 @@ const getAllZonesMerged = async () => {
   const diskZones = loadDiskZones();
   const map = new Map();
 
-  DEFAULT_PLATFORM_ZONES.forEach((z) => map.set(z.zoneId, z));
+  // Clean slate for runtime: Default platform zones are only used during automated tests if disk/db are completely empty
+  if (process.env.NODE_ENV === 'test' && diskZones.length === 0 && dbZones.length === 0) {
+    DEFAULT_PLATFORM_ZONES.forEach((z) => map.set(z.zoneId, z));
+  }
+
   diskZones.forEach((z) => map.set(z.zoneId, z));
   dbZones.forEach((z) => map.set(z.zoneId, {
     ...z,

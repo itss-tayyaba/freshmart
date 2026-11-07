@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  AlertTriangle,
   RefreshCw,
   Building2,
   SlidersHorizontal,
@@ -108,6 +109,94 @@ export const StoreManagementView = () => {
     { id: 'tenant-unimart', name: 'Unimart', color: '#0284c7', logo: '🥬' }
   ];
 
+  // 4 Core Baseline Physical Stores in Faisalabad
+  const BASELINE_FOUR_STORES = [
+    {
+      _id: 'STR-AF-001',
+      storeId: 'STR-AF-001',
+      tenantId: 'tenant-alfatah',
+      tenantName: 'Al-Fatah',
+      name: 'Al-Fatah - Peoples Colony Mega Store',
+      branchName: 'Peoples Colony Mega Store',
+      address: 'Main Commercial Avenue, Peoples Colony 1, Faisalabad',
+      city: 'Faisalabad',
+      latitude: 31.4125,
+      longitude: 73.0995,
+      contactNumber: '+92 300 8441122',
+      openingHours: '08:00 AM',
+      closingHours: '11:00 PM',
+      storeImage: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
+      status: 'active',
+      isActive: true,
+      operatingStatus: 'Open',
+      manager: 'Al-Fatah Manager',
+      deliveryRadiusKm: 6
+    },
+    {
+      _id: 'STR-CV-001',
+      storeId: 'STR-CV-001',
+      tenantId: 'tenant-chasevalue',
+      tenantName: 'Chase Value',
+      name: 'Chase Value - Jaranwala Road Hub',
+      branchName: 'Jaranwala Road Hub',
+      address: 'Jaranwala Road, Near Kohinoor City, Faisalabad',
+      city: 'Faisalabad',
+      latitude: 31.418,
+      longitude: 73.118,
+      contactNumber: '+92 300 0000000',
+      openingHours: '08:00 AM',
+      closingHours: '11:00 PM',
+      storeImage: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80',
+      status: 'active',
+      isActive: true,
+      operatingStatus: 'Open',
+      manager: 'Chase Value Manager',
+      deliveryRadiusKm: 6
+    },
+    {
+      _id: 'STR-CU-001',
+      storeId: 'STR-CU-001',
+      tenantId: 'tenant-chaseup',
+      tenantName: 'Chase Up',
+      name: 'Chase Up - Clock Tower Center',
+      branchName: 'Clock Tower Center',
+      address: 'Clock Tower Bazar, Faisalabad',
+      city: 'Faisalabad',
+      latitude: 31.415,
+      longitude: 73.078,
+      contactNumber: '+92 300 0000000',
+      openingHours: '08:00 AM',
+      closingHours: '11:00 PM',
+      storeImage: 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=1200&q=80',
+      status: 'active',
+      isActive: true,
+      operatingStatus: 'Open',
+      manager: 'Chase Up Manager',
+      deliveryRadiusKm: 6
+    },
+    {
+      _id: 'STR-UM-001',
+      storeId: 'STR-UM-001',
+      tenantId: 'tenant-unimart',
+      tenantName: 'Unimart',
+      name: 'Unimart - D-Ground Express Dark Store',
+      branchName: 'D-Ground Express Dark Store',
+      address: 'House 88, D-Ground, Peoples Colony 1, Faisalabad',
+      city: 'Faisalabad',
+      latitude: 31.4015,
+      longitude: 73.083,
+      contactNumber: '+92 300 0000000',
+      openingHours: '08:00 AM',
+      closingHours: '11:00 PM',
+      storeImage: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=1200&q=80',
+      status: 'active',
+      isActive: true,
+      operatingStatus: 'Open',
+      manager: 'Unimart Manager',
+      deliveryRadiusKm: 5
+    }
+  ];
+
   // Fetch stores and master polygons from backend
   const fetchStoresList = async () => {
     setIsLoading(true);
@@ -118,11 +207,11 @@ export const StoreManagementView = () => {
       ]);
 
       let fetched = [];
-      if (res && res.success && Array.isArray(res.stores)) {
+      if (res && res.success && Array.isArray(res.stores) && res.stores.length > 0) {
         fetched = res.stores;
-      } else {
+      } else if (allBranches && allBranches.length > 0) {
         // Fallback to allBranches formatted
-        fetched = (allBranches || []).map((b) => ({
+        fetched = allBranches.map((b) => ({
           storeId: b._id || b.id,
           _id: b._id || b.id,
           tenantId: b.tenantId,
@@ -142,18 +231,18 @@ export const StoreManagementView = () => {
           isActive: String(b.status || 'active').toLowerCase() === 'active',
           operatingStatus: 'Open'
         }));
+      } else {
+        fetched = [...BASELINE_FOUR_STORES];
       }
+
+      // Always guarantee the 4 core Faisalabad stores exist as minimum foundation
+      const mergedMap = new Map();
+      BASELINE_FOUR_STORES.forEach((s) => mergedMap.set(s.storeId || s._id, s));
+      fetched.forEach((s) => mergedMap.set(s.storeId || s._id, s));
 
       // Merge with custom stores stored in localStorage
       const localCustom = loadLocalCustomStores();
-      const mergedMap = new Map();
       localCustom.forEach((s) => mergedMap.set(s.storeId || s._id, s));
-      fetched.forEach((s) => {
-        const id = s.storeId || s._id;
-        if (!mergedMap.has(id)) {
-          mergedMap.set(id, s);
-        }
-      });
 
       setStores(Array.from(mergedMap.values()));
 
@@ -162,6 +251,7 @@ export const StoreManagementView = () => {
       }
     } catch (e) {
       console.warn('Stores fetch error:', e.message);
+      setStores([...BASELINE_FOUR_STORES]);
     } finally {
       setIsLoading(false);
     }
@@ -383,55 +473,21 @@ export const StoreManagementView = () => {
     if (e) e.preventDefault();
     setFormError(null);
 
-    const nameVal = String(formData.name || '').trim();
-    const branchVal = String(formData.branchName || '').trim();
-    const addressVal = String(formData.address || '').trim();
-    const cityVal = String(formData.city || '').trim();
+    const canonicalTenant = formData.tenantId || 'tenant-chasevalue';
+    const retailerObj = CORE_RETAILERS.find((r) => r.id === canonicalTenant) || CORE_RETAILERS[0];
+    const timestamp = Date.now().toString().slice(-4);
 
-    if (!nameVal) {
-      const msg = 'Please enter the Full Store Display Name.';
-      setFormError(msg);
-      if (addToast) addToast('Missing Store Name', msg, 'error');
-      if (formRef.current) formRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
+    const branchVal = String(formData.branchName || '').trim() || `Commercial Hub ${timestamp}`;
+    const nameVal = String(formData.name || '').trim() || `${retailerObj.name} - ${branchVal}`;
+    const addressVal = String(formData.address || '').trim() || `Main Commercial Avenue, ${formData.city || 'Faisalabad'}, Pakistan`;
+    const cityVal = String(formData.city || '').trim() || 'Faisalabad';
 
-    if (!branchVal) {
-      const msg = 'Please enter the Branch / Location Name.';
-      setFormError(msg);
-      if (addToast) addToast('Missing Branch Name', msg, 'error');
-      if (formRef.current) formRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-
-    if (!addressVal) {
-      const msg = 'Please enter the Physical Street Address.';
-      setFormError(msg);
-      if (addToast) addToast('Missing Address', msg, 'error');
-      if (formRef.current) formRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-
-    if (!cityVal) {
-      const msg = 'Please enter the City.';
-      setFormError(msg);
-      if (addToast) addToast('Missing City', msg, 'error');
-      if (formRef.current) formRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-
-    if (isNaN(Number(formData.latitude)) || isNaN(Number(formData.longitude))) {
-      const msg = 'Valid numerical coordinates are required.';
-      setFormError(msg);
-      if (addToast) addToast('Invalid Coordinates', msg, 'error');
-      return;
-    }
+    const latVal = (Number.isFinite(Number(formData.latitude)) && !isNaN(Number(formData.latitude))) ? Number(formData.latitude) : 31.4125;
+    const lngVal = (Number.isFinite(Number(formData.longitude)) && !isNaN(Number(formData.longitude))) ? Number(formData.longitude) : 73.0995;
 
     setIsSubmitting(true);
     try {
-      const canonicalTenant = formData.tenantId || 'tenant-chasevalue';
-      const retailerObj = CORE_RETAILERS.find((r) => r.id === canonicalTenant) || CORE_RETAILERS[0];
-      const sId = formData.storeId || `STR-${canonicalTenant.replace('tenant-', '').substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+      const sId = formData.storeId || `STR-${canonicalTenant.replace('tenant-', '').substring(0, 3).toUpperCase()}-${timestamp}`;
 
       const storeRecord = {
         _id: sId,
@@ -442,8 +498,8 @@ export const StoreManagementView = () => {
         branchName: branchVal,
         address: addressVal,
         city: cityVal,
-        latitude: Number(formData.latitude),
-        longitude: Number(formData.longitude),
+        latitude: latVal,
+        longitude: lngVal,
         contactNumber: formData.contactNumber || '+92 300 0000000',
         openingHours: formData.openingHours || '08:00 AM',
         closingHours: formData.closingHours || '11:00 PM',

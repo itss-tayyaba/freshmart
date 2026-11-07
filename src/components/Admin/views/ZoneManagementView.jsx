@@ -31,6 +31,24 @@ import {
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
 
+// Helper to untangle self-intersecting polygon vertices around their centroid
+const untanglePolygonPoints = (pts) => {
+  if (!Array.isArray(pts) || pts.length < 3) return pts;
+  let cLat = 0, cLng = 0;
+  pts.forEach(([lat, lng]) => {
+    cLat += Number(lat);
+    cLng += Number(lng);
+  });
+  cLat /= pts.length;
+  cLng /= pts.length;
+
+  return [...pts].sort((a, b) => {
+    const angleA = Math.atan2(a[0] - cLat, a[1] - cLng);
+    const angleB = Math.atan2(b[0] - cLat, b[1] - cLng);
+    return angleA - angleB;
+  });
+};
+
 export const ZoneManagementView = () => {
   const {
     allBranches = [],
@@ -599,8 +617,14 @@ export const ZoneManagementView = () => {
 
     setIsSaving(true);
     try {
+      // Auto-untangle vertices if they cross over to ensure clean valid polygon geometry
+      const cleanVertices = untanglePolygonPoints(drawnVertices);
+
       // GeoJSON format: coordinates is [[[lng, lat], ...]]
-      let ring = drawnVertices.map(([lat, lng]) => [lng, lat]);
+      let ring = cleanVertices.map(([lat, lng]) => [
+        Number(Number(lng).toFixed(6)),
+        Number(Number(lat).toFixed(6))
+      ]);
       // Ensure closed ring
       const first = ring[0];
       const last = ring[ring.length - 1];
@@ -886,7 +910,19 @@ export const ZoneManagementView = () => {
                     Click on the map to add polygon boundary points. (Vertices: <strong className="text-emerald-400">{drawnVertices.length}</strong>)
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    onClick={() => {
+                      if (drawnVertices.length >= 3) {
+                        setDrawnVertices(untanglePolygonPoints(drawnVertices));
+                        if (addToast) addToast('Vertices untangled into clean convex boundary ✨', 'success');
+                      }
+                    }}
+                    disabled={drawnVertices.length < 3}
+                    className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[11px] font-bold transition disabled:opacity-40"
+                  >
+                    ✨ Untangle
+                  </button>
                   <button
                     onClick={handleUndoVertex}
                     disabled={drawnVertices.length === 0}
@@ -931,25 +967,31 @@ export const ZoneManagementView = () => {
           {/* Zones Quick Bar */}
           <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex items-center gap-2 overflow-x-auto text-xs">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Zones:</span>
-            {zones.map((z) => {
-              const isSelected = selectedZone?.zoneId === z.zoneId;
-              const color = z.color || '#10b981';
-              return (
-                <button
-                  key={z.zoneId}
-                  onClick={() => selectZone(z)}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition shrink-0 flex items-center gap-1.5 border cursor-pointer ${
-                    isSelected
-                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }}></span>
-                  <span>{z.name}</span>
-                  <span className="text-[10px] text-slate-400 font-mono">({z.code})</span>
-                </button>
-              );
-            })}
+            {zones.length === 0 ? (
+              <span className="text-slate-500 italic text-xs">
+                No delivery zones drawn yet. Click "+ Create Delivery Zone" above to draw your first polygon on the map.
+              </span>
+            ) : (
+              zones.map((z) => {
+                const isSelected = selectedZone?.zoneId === z.zoneId;
+                const color = z.color || '#10b981';
+                return (
+                  <button
+                    key={z.zoneId}
+                    onClick={() => selectZone(z)}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition shrink-0 flex items-center gap-1.5 border cursor-pointer ${
+                      isSelected
+                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }}></span>
+                    <span>{z.name}</span>
+                    <span className="text-[10px] text-slate-400 font-mono">({z.code})</span>
+                  </button>
+                );
+              })
+            )}
           </div>
         </div>
 

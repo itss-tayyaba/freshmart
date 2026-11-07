@@ -550,6 +550,44 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         ring.push([first[0], first[1]]);
       }
 
+      if (!activeZone) {
+        // Create brand new master delivery polygon on demand
+        const newZonePayload = {
+          zoneId: `ZONE-FSD-MASTER-${Date.now().toString().slice(-4)}`,
+          name: 'Faisalabad Master Delivery Region',
+          code: 'FSD-MASTER',
+          city: 'Faisalabad',
+          area: 'Faisalabad Core Region',
+          description: 'Master Supermarket Delivery Region covering flagship partner hubs.',
+          deliveryCharge: 80,
+          minOrderAmount: 400,
+          freeDeliveryThreshold: 2000,
+          color: '#10b981',
+          isActive: true,
+          status: 'active',
+          geometry: {
+            type: 'Polygon',
+            coordinates: [ring]
+          }
+        };
+
+        const createRes = await apiService.createZone(newZonePayload);
+        if (createRes && createRes.success) {
+          const created = createRes.zone || newZonePayload;
+          if (addToast) addToast('Master Polygon Created ✨', `Delivery zone "${created.name}" created and applied!`, 'success');
+          setZones((prev) => [created, ...(prev || [])]);
+          setSelectedZoneId(created.zoneId);
+          setIsDrawingPolygon(false);
+          setDrawnPoints([]);
+          if (drawingLayerRef.current) drawingLayerRef.current.clearLayers();
+          loadData();
+          return;
+        } else {
+          if (addToast) addToast('Creation Failed', createRes?.message || 'Failed to create new zone', 'error');
+          return;
+        }
+      }
+
       const payload = {
         ...activeZone,
         geometry: {
@@ -589,7 +627,63 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     polygonLayerRef.current.clearLayers();
     storeMarkersGroupRef.current.clearLayers();
 
-    if (!activeZone) return;
+    if (!activeZone) {
+      // Draw all stores with their authentic delivery radius regions so users see the store locations/areas even before polygons exist
+      stores.forEach((store) => {
+        const sLat = Number(store.latitude);
+        const sLng = Number(store.longitude);
+        if (isNaN(sLat) || isNaN(sLng) || !Number.isFinite(sLat) || !Number.isFinite(sLng)) return;
+
+        const retailer = CORE_RETAILERS.find((r) =>
+          String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
+        ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
+
+        const radiusKm = Number(store.deliveryRadiusKm || 5);
+        const circle = L.circle([sLat, sLng], {
+          radius: radiusKm * 1000,
+          color: retailer.color,
+          weight: 1.5,
+          opacity: 0.65,
+          fillColor: retailer.color,
+          fillOpacity: 0.08,
+          dashArray: '4, 4'
+        });
+        circle.bindTooltip(`${store.name} (${radiusKm} km Store Region)`, { sticky: true });
+        storeMarkersGroupRef.current.addLayer(circle);
+
+        const pinIcon = L.divIcon({
+          className: 'custom-unassigned-store-pin',
+          html: `
+            <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer;">
+              <div style="width: 32px; height: 32px; border-radius: 10px; background: ${retailer.color}; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">
+                ${retailer.logo}
+              </div>
+              <div style="margin-top: 2px; padding: 1px 6px; border-radius: 9999px; background: #0f172a; color: white; font-size: 9px; font-weight: 700; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                ${store.branchName || store.name}
+              </div>
+            </div>
+          `,
+          iconSize: [32, 48],
+          iconAnchor: [16, 40]
+        });
+
+        const marker = L.marker([sLat, sLng], { icon: pinIcon, interactive: !isDrawingPolygon });
+        marker.bindPopup(`
+          <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
+            <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
+            <p style="color: #64748b; font-size: 10px; margin: 2px 0 4px 0;">${store.address}</p>
+            <div style="font-size: 10px; color: #475569; margin-bottom: 6px;">
+              Retailer Delivery Radius: <strong>${radiusKm} km</strong>
+            </div>
+            <div style="font-size: 9px; color: #059669; font-weight: bold;">
+              Draw polygon above or select/create zone to assign store
+            </div>
+          </div>
+        `);
+        storeMarkersGroupRef.current.addLayer(marker);
+      });
+      return;
+    }
 
     // 1. Draw Active Zone Polygon
     if (activeZone.geometry?.coordinates?.[0]) {
@@ -784,49 +878,77 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
-          {zones.map((zone) => {
-            const isSelected = activeZone?.zoneId === zone.zoneId;
-            const assignedCount = assignments.filter((a) => a.zoneId === zone.zoneId && a.isActive !== false).length;
-            const color = zone.color || '#10b981';
+        {zones.length === 0 ? (
+          <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-sm shrink-0">
+                📍
+              </span>
+              <div>
+                <h4 className="font-bold text-slate-900 text-sm">No Master Delivery Polygons Created Yet</h4>
+                <p className="text-slate-600 text-[11px]">
+                  All store locations and regions are visible on the map below. Super Admin can click "✏️ Draw Master Polygon" to outline the region.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsDrawingPolygon(true);
+                setDrawnPoints([]);
+                if (addToast) addToast('Click map around stores to place at least 3 points, then click "Save Polygon".', 'info');
+              }}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition shadow-sm shrink-0 flex items-center gap-1.5 cursor-pointer"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>+ Draw Master Polygon</span>
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+            {zones.map((zone) => {
+              const isSelected = activeZone?.zoneId === zone.zoneId;
+              const assignedCount = assignments.filter((a) => a.zoneId === zone.zoneId && a.isActive !== false).length;
+              const color = zone.color || '#10b981';
 
-            return (
-              <button
-                key={zone.zoneId}
-                onClick={() => setSelectedZoneId(zone.zoneId)}
-                className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
-                  isSelected
-                    ? 'bg-slate-900 text-white border-slate-900 shadow-md'
-                    : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }}></span>
-                    <span className="font-bold text-xs truncate">{zone.name}</span>
+              return (
+                <button
+                  key={zone.zoneId}
+                  onClick={() => setSelectedZoneId(zone.zoneId)}
+                  className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                    isSelected
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-md'
+                      : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }}></span>
+                      <span className="font-bold text-xs truncate">{zone.name}</span>
+                    </div>
+                    <span
+                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                        isSelected ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600 border border-slate-200'
+                      }`}
+                    >
+                      {zone.code}
+                    </span>
                   </div>
-                  <span
-                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                      isSelected ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600 border border-slate-200'
-                    }`}
-                  >
-                    {zone.code}
-                  </span>
-                </div>
-                <div className="mt-2.5 flex items-center justify-between text-[11px] font-medium">
-                  <span className={isSelected ? 'text-slate-400' : 'text-slate-500'}>Assigned Stores:</span>
-                  <span
-                    className={`font-bold px-1.5 py-0.2 rounded ${
-                      isSelected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
-                    }`}
-                  >
-                    {assignedCount} Store(s)
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                  <div className="mt-2.5 flex items-center justify-between text-[11px] font-medium">
+                    <span className={isSelected ? 'text-slate-400' : 'text-slate-500'}>Assigned Stores:</span>
+                    <span
+                      className={`font-bold px-1.5 py-0.2 rounded ${
+                        isSelected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
+                      }`}
+                    >
+                      {assignedCount} Store(s)
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Main 2-Column Interface: Left Map & Assigned Stores, Right Store Picker */}
