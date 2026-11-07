@@ -62,6 +62,10 @@ export const ZoneManagementView = () => {
   // Drawing & Editing State
   // Mode: 'view' | 'draw' | 'edit'
   const [mapMode, setMapMode] = useState('view');
+  const mapModeRef = useRef(mapMode);
+  useEffect(() => {
+    mapModeRef.current = mapMode;
+  }, [mapMode]);
   const [drawnVertices, setDrawnVertices] = useState([]); // Array of [lat, lng]
   const [isSaving, setIsSaving] = useState(false);
   const [zoneToDelete, setZoneToDelete] = useState(null);
@@ -242,17 +246,12 @@ export const ZoneManagementView = () => {
 
     // Handle map click during Drawing mode
     map.on('click', (e) => {
-      const { lat, lng } = e.latlng;
-      const roundedLat = Number(lat.toFixed(6));
-      const roundedLng = Number(lng.toFixed(6));
-
-      // Access latest state via functional dispatch
-      setMapMode((currentMode) => {
-        if (currentMode === 'draw') {
-          setDrawnVertices((prev) => [...prev, [roundedLat, roundedLng]]);
-        }
-        return currentMode;
-      });
+      if (mapModeRef.current === 'draw') {
+        const { lat, lng } = e.latlng;
+        const roundedLat = Number(lat.toFixed(6));
+        const roundedLng = Number(lng.toFixed(6));
+        setDrawnVertices((prev) => [...prev, [roundedLat, roundedLng]]);
+      }
     });
 
     setTimeout(() => {
@@ -309,7 +308,14 @@ export const ZoneManagementView = () => {
         </div>
       `);
 
-      polygon.on('click', () => {
+      polygon.on('click', (e) => {
+        if (mapModeRef.current === 'draw') {
+          const { lat, lng } = e.latlng;
+          const roundedLat = Number(lat.toFixed(6));
+          const roundedLng = Number(lng.toFixed(6));
+          setDrawnVertices((prev) => [...prev, [roundedLat, roundedLng]]);
+          return;
+        }
         selectZone(z);
       });
 
@@ -350,8 +356,9 @@ export const ZoneManagementView = () => {
       });
 
       const marker = L.marker([lat, lng], { icon: pinIcon });
+      const storeIdForClick = store.storeId || store._id;
       marker.bindPopup(`
-        <div style="font-family: inherit; font-size: 12px; min-width: 160px;">
+        <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
           <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
           <p style="color: #64748b; font-size: 10px; margin: 2px 0 6px 0;">${store.address}</p>
           <div style="font-size: 10px; color: #334155;">
@@ -360,8 +367,23 @@ export const ZoneManagementView = () => {
           <div style="font-size: 10px; color: #334155; margin-top: 2px;">
             <strong>Status:</strong> <span style="color: ${store.isActive ? '#059669' : '#e11d48'}; font-weight: bold;">${store.isActive ? 'Active' : 'Inactive'}</span>
           </div>
+          <button
+            onclick="window.__createZoneAroundStore && window.__createZoneAroundStore('${storeIdForClick}')"
+            style="margin-top: 8px; width: 100%; padding: 5px 8px; background: #059669; color: white; border: none; border-radius: 8px; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;"
+          >
+            <span>+ Create Zone Around Store</span>
+          </button>
         </div>
       `);
+
+      marker.on('click', (e) => {
+        if (mapModeRef.current === 'draw') {
+          const { lat: mLat, lng: mLng } = e.latlng;
+          const roundedLat = Number(mLat.toFixed(6));
+          const roundedLng = Number(mLng.toFixed(6));
+          setDrawnVertices((prev) => [...prev, [roundedLat, roundedLng]]);
+        }
+      });
 
       storeMarkersGroupRef.current.addLayer(marker);
     });
@@ -460,6 +482,54 @@ export const ZoneManagementView = () => {
     }
   };
 
+  // Preset polygon around a store (e.g. Chase Up Clock Tower)
+  const handlePresetZoneAroundStore = (store) => {
+    const sLat = Number(store.latitude);
+    const sLng = Number(store.longitude);
+    if (isNaN(sLat) || isNaN(sLng)) return;
+
+    const deltaLat = 0.018;
+    const deltaLng = 0.022;
+    const preset = [
+      [Number((sLat - deltaLat).toFixed(6)), Number((sLng - deltaLng).toFixed(6))],
+      [Number((sLat - deltaLat).toFixed(6)), Number((sLng + deltaLng).toFixed(6))],
+      [Number((sLat + deltaLat).toFixed(6)), Number((sLng + deltaLng).toFixed(6))],
+      [Number((sLat + deltaLat).toFixed(6)), Number((sLng - deltaLng).toFixed(6))],
+      [Number((sLat - deltaLat).toFixed(6)), Number((sLng - deltaLng).toFixed(6))]
+    ];
+
+    setDrawnVertices(preset);
+    const generatedId = `ZONE-FSD-${Date.now().toString().slice(-4)}`;
+    setZoneForm({
+      zoneId: generatedId,
+      name: `${store.branchName || store.name} Delivery Zone`,
+      code: `Z-${Date.now().toString().slice(-3)}`,
+      description: `Delivery polygon covering ${store.name} and neighboring areas.`,
+      city: store.city || 'Faisalabad',
+      area: store.branchName || store.name,
+      color: '#8b5cf6',
+      deliveryCharge: 70,
+      minOrderAmount: 400,
+      freeDeliveryThreshold: 2000,
+      estimatedDeliveryTime: '20-30 mins',
+      isActive: true,
+      status: 'active'
+    });
+    setSelectedZone(null);
+    setMapMode('edit');
+    if (addToast) addToast(`Polygon created around ${store.name}! Adjust points if desired, then click Save.`, 'success');
+  };
+
+  useEffect(() => {
+    window.__createZoneAroundStore = (sId) => {
+      const found = stores.find((s) => (s.storeId || s._id) === sId);
+      if (found) handlePresetZoneAroundStore(found);
+    };
+    return () => {
+      delete window.__createZoneAroundStore;
+    };
+  }, [stores]);
+
   // Start Drawing Mode
   const handleStartDraw = () => {
     setMapMode('draw');
@@ -543,6 +613,18 @@ export const ZoneManagementView = () => {
           coordinates: [ring]
         }
       };
+
+      // Optimistic update
+      setZones((prev) => {
+        const idx = prev.findIndex((z) => z.zoneId === payload.zoneId);
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = payload;
+          return copy;
+        }
+        return [payload, ...prev];
+      });
+      setSelectedZone(payload);
 
       if (selectedZone && selectedZone.zoneId === zoneForm.zoneId) {
         // Update existing zone
