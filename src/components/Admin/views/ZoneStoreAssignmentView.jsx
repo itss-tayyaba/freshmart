@@ -18,13 +18,15 @@ import {
   X,
   Compass,
   Sparkles,
-  Plus
+  Plus,
+  Edit3,
+  Sliders
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
 import { calculateDistanceKm } from '../../../data/pakistanLocations';
 
-export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
+export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateToZones = null }) => {
   const { addToast } = useStore();
 
   const [zones, setZones] = useState([]);
@@ -32,6 +34,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   const [assignments, setAssignments] = useState([]);
   const [selectedZoneId, setSelectedZoneId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+
+  // Edit Assignment Modal State
+  const [editingStore, setEditingStore] = useState(null);
+  const [editPriority, setEditPriority] = useState(1);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Store Filters
   const [retailerFilter, setRetailerFilter] = useState('all');
@@ -284,6 +291,54 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     }
   };
 
+  // Save Edited Assignment Priority
+  const handleSaveAssignmentEdit = async () => {
+    if (!editingStore || !activeZone) return;
+    const sId = editingStore.storeId || editingStore._id;
+    setIsSavingEdit(true);
+    try {
+      const res = await apiService.assignStoresToZone(activeZone.zoneId, [sId], editPriority);
+      if (res && res.success) {
+        if (addToast) addToast(`Updated fulfillment priority for ${editingStore.name} to Priority ${editPriority}!`, 'success');
+        setEditingStore(null);
+        loadData();
+      } else {
+        if (addToast) addToast(res?.message || 'Update failed', 'error');
+      }
+    } catch (e) {
+      if (addToast) addToast(e.message, 'error');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  // Global window helpers for interactive Leaflet map popups
+  useEffect(() => {
+    window.__assignStoreFromMap = (sId) => {
+      handleAssignSingle(sId);
+    };
+    window.__removeStoreFromMap = (sId) => {
+      handleRemoveStore(sId);
+    };
+    window.__editStoreFromMap = (sId) => {
+      const found = stores.find((s) => (s.storeId || s._id) === sId);
+      if (found) {
+        setEditingStore(found);
+        const curr = assignments.find((a) => a.zoneId === activeZone?.zoneId && a.storeId === sId);
+        setEditPriority(curr?.priority || 1);
+      }
+    };
+    window.__editZoneFromMap = () => {
+      if (onNavigateToZones) onNavigateToZones();
+    };
+    return () => {
+      delete window.__assignStoreFromMap;
+      delete window.__removeStoreFromMap;
+      delete window.__editStoreFromMap;
+      delete window.__editZoneFromMap;
+    };
+  }, [stores, assignments, activeZone, onNavigateToZones]);
+
   // Leaflet Map Initialization
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -340,7 +395,28 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
         fillColor: color,
         fillOpacity: 0.35
       });
-      polygon.bindPopup(`<strong>${activeZone.name}</strong><br/>Delivery Fee: Rs. ${activeZone.deliveryCharge}`);
+      polygon.bindPopup(`
+        <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+            <strong style="color: #0f172a; font-size: 13px;">${activeZone.name}</strong>
+            <span style="font-size: 10px; background: ${color}20; color: ${color}; padding: 2px 6px; border-radius: 6px; font-weight: 800;">
+              ${activeZone.code}
+            </span>
+          </div>
+          <div style="font-size: 11px; color: #475569; margin: 4px 0;">
+            Delivery Fee: <strong style="color: #059669;">Rs. ${activeZone.deliveryCharge}</strong>
+          </div>
+          <div style="font-size: 11px; color: #475569; margin-bottom: 8px;">
+            Free Delivery Over: <strong>Rs. ${activeZone.freeDeliveryThreshold}</strong>
+          </div>
+          <button
+            onclick="window.__editZoneFromMap && window.__editZoneFromMap()"
+            style="width: 100%; padding: 4px 8px; background: #0f172a; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+          >
+            ✏️ Edit Zone Polygon & Rates
+          </button>
+        </div>
+      `);
       polygonLayerRef.current.addLayer(polygon);
 
       if (latLngs.length > 0) {
@@ -349,7 +425,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       }
     }
 
-    // 2. Draw Assigned Stores Markers
+    // 2. Draw Assigned Stores Markers (Solid Green Pins)
     assignedStores.forEach((store) => {
       const sLat = Number(store.latitude);
       const sLng = Number(store.longitude);
@@ -358,6 +434,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       const retailer = CORE_RETAILERS.find((r) =>
         String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
       ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
+
+      const sId = store.storeId || store._id;
+      const curr = assignments.find((a) => a.zoneId === activeZone.zoneId && a.storeId === sId);
+      const priorityLabel = curr?.priority === 1 ? 'Priority 1 (Primary)' : `Priority ${curr?.priority || 1}`;
 
       const pinIcon = L.divIcon({
         className: 'custom-assigned-store-pin',
@@ -377,10 +457,73 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
       const marker = L.marker([sLat, sLng], { icon: pinIcon });
       marker.bindPopup(`
-        <div style="font-family: inherit; font-size: 11px;">
-          <strong style="color: ${retailer.color}; font-size: 12px;">${store.name}</strong>
-          <p style="color: #64748b; margin: 2px 0 4px 0;">${store.address}</p>
-          <span style="color: #059669; font-weight: bold;">Assigned to this zone</span>
+        <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
+          <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
+          <p style="color: #64748b; font-size: 10px; margin: 2px 0 4px 0;">${store.address}</p>
+          <div style="display: flex; align-items: center; justify-content: space-between; font-size: 10px; margin-bottom: 6px;">
+            <span style="color: #059669; font-weight: bold;">✓ Serving this zone</span>
+            <span style="background: #ecfdf5; color: #047857; padding: 1px 5px; border-radius: 4px; font-weight: 700;">${priorityLabel}</span>
+          </div>
+          <div style="display: flex; gap: 4px;">
+            <button
+              onclick="window.__editStoreFromMap && window.__editStoreFromMap('${sId}')"
+              style="flex: 1; padding: 4px 6px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+            >
+              ⚙️ Edit Priority
+            </button>
+            <button
+              onclick="window.__removeStoreFromMap && window.__removeStoreFromMap('${sId}')"
+              style="padding: 4px 6px; background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+            >
+              ✕ Unlink
+            </button>
+          </div>
+        </div>
+      `);
+      storeMarkersGroupRef.current.addLayer(marker);
+    });
+
+    // 3. Draw Nearby Available Stores (Dashed Pins clickable to assign from map)
+    storesWithDistance.slice(0, 10).forEach((store) => {
+      const sLat = Number(store.latitude);
+      const sLng = Number(store.longitude);
+      if (isNaN(sLat) || isNaN(sLng)) return;
+
+      const retailer = CORE_RETAILERS.find((r) =>
+        String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
+      ) || { name: 'Retailer', color: '#64748b', logo: '🏬' };
+
+      const sId = store.storeId || store._id;
+      const pinIcon = L.divIcon({
+        className: 'custom-available-store-pin',
+        html: `
+          <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer; opacity: 0.9;">
+            <div style="width: 28px; height: 28px; border-radius: 8px; background: #ffffff; border: 2px dashed ${retailer.color}; box-shadow: 0 2px 6px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; color: ${retailer.color}; font-size: 12px;">
+              ${retailer.logo}
+            </div>
+            <div style="margin-top: 1px; padding: 1px 5px; border-radius: 9999px; background: #ffffff; color: #475569; border: 1px solid #cbd5e1; font-size: 8px; font-weight: 700; white-space: nowrap;">
+              + ${store.branchName || store.name} (~${store.distanceToZoneCentroidKm} km)
+            </div>
+          </div>
+        `,
+        iconSize: [28, 42],
+        iconAnchor: [14, 36]
+      });
+
+      const marker = L.marker([sLat, sLng], { icon: pinIcon });
+      marker.bindPopup(`
+        <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
+          <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
+          <p style="color: #64748b; font-size: 10px; margin: 2px 0 4px 0;">${store.address}</p>
+          <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;">
+            Distance to zone: <strong>~${store.distanceToZoneCentroidKm} km</strong>
+          </div>
+          <button
+            onclick="window.__assignStoreFromMap && window.__assignStoreFromMap('${sId}')"
+            style="width: 100%; padding: 4px 8px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+          >
+            + Assign Store to ${activeZone.name}
+          </button>
         </div>
       `);
       storeMarkersGroupRef.current.addLayer(marker);
@@ -477,7 +620,19 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                 <MapPin className="w-4 h-4 text-emerald-600" />
                 <span>Zone Coverage & Assigned Stores Map</span>
               </span>
-              <span className="text-[10px] text-slate-400">Stores do not need to be inside polygon</span>
+              <div className="flex items-center gap-2">
+                {onNavigateToZones && (
+                  <button
+                    type="button"
+                    onClick={onNavigateToZones}
+                    className="px-2.5 py-1 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                  >
+                    <Edit3 className="w-3 h-3 text-emerald-600" />
+                    <span>Edit Zone</span>
+                  </button>
+                )}
+                <span className="text-[10px] text-slate-400 hidden sm:inline">Stores do not need to be inside polygon</span>
+              </div>
             </div>
             <div ref={mapContainerRef} className="w-full h-72 z-10" style={{ minHeight: '280px' }}></div>
           </div>
@@ -529,13 +684,29 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                           </p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleRemoveStore(sId)}
-                        className="px-2.5 py-1 text-rose-600 hover:bg-rose-50 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1 shrink-0"
-                      >
-                        <Unlink className="w-3.5 h-3.5" />
-                        <span>Remove</span>
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingStore(store);
+                            const curr = assignments.find((a) => a.zoneId === activeZone?.zoneId && a.storeId === sId);
+                            setEditPriority(curr?.priority || 1);
+                          }}
+                          className="px-2.5 py-1 text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1 border border-slate-200"
+                          title="Edit fulfillment priority & assignment settings"
+                        >
+                          <Sliders className="w-3 h-3 text-slate-500" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveStore(sId)}
+                          className="px-2 py-1 text-rose-600 hover:bg-rose-50 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
+                        >
+                          <Unlink className="w-3 h-3" />
+                          <span>Remove</span>
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -739,6 +910,99 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
           </div>
         </div>
       </div>
+
+      {/* Edit Assignment Modal */}
+      {editingStore && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Edit Store Assignment</h3>
+                  <p className="text-[11px] text-slate-400">Configure fulfillment parameters for this zone</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingStore(null)}
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center cursor-pointer transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900 text-xs">{editingStore.name}</span>
+                  <span className="text-[10px] bg-white border border-slate-200 px-2 py-0.5 rounded-full font-bold text-slate-600">
+                    {editingStore.city}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">{editingStore.address}</p>
+                <p className="text-[10px] text-emerald-700 font-semibold pt-1">
+                  Target Zone: {activeZone?.name} ({activeZone?.code})
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1.5">
+                  Fulfillment Priority Level
+                </label>
+                <select
+                  value={editPriority}
+                  onChange={(e) => setEditPriority(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-hidden"
+                >
+                  <option value={1}>Priority 1 - Primary Store (Default dispatch choice for this zone)</option>
+                  <option value={2}>Priority 2 - Secondary Store (Alternate fulfillment when Primary is busy)</option>
+                  <option value={3}>Priority 3 - Backup Hub (Overflow dispatch only)</option>
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Higher priority stores are selected first when customers order within this zone.
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-between border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const sId = editingStore.storeId || editingStore._id;
+                    handleRemoveStore(sId);
+                    setEditingStore(null);
+                  }}
+                  className="px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-xl font-bold transition flex items-center gap-1 cursor-pointer text-xs"
+                >
+                  <Unlink className="w-3.5 h-3.5" />
+                  <span>Unlink Store</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingStore(null)}
+                    className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-bold transition cursor-pointer text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveAssignmentEdit}
+                    disabled={isSavingEdit}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition cursor-pointer text-xs shadow-md shadow-emerald-950/10 flex items-center gap-1.5 disabled:opacity-40"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{isSavingEdit ? 'Saving...' : 'Save Changes'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

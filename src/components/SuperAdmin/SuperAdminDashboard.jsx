@@ -2923,7 +2923,10 @@ export const SuperAdminDashboard = () => {
           )}
 
           {activeNav === 'zone-assignments' && (
-            <ZoneStoreAssignmentView onNavigateToStores={() => setActiveNav('stores')} />
+            <ZoneStoreAssignmentView
+              onNavigateToStores={() => setActiveNav('stores')}
+              onNavigateToZones={() => setActiveNav('zones')}
+            />
           )}
 
           {(activeNav === 'delivery-management' || activeNav === 'delivery' || activeNav === 'riders') && (

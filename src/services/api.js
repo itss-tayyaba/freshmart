@@ -1446,12 +1446,15 @@ export const apiService = {
     }
   },
 
-  async assignStoresToZone(zoneId, storeIds) {
+  async assignStoresToZone(zoneId, storeIds, priority = 1) {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/zones/${encodeURIComponent(zoneId)}/stores`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ storeIds: Array.isArray(storeIds) ? storeIds : [storeIds] })
+        body: JSON.stringify({
+          storeIds: Array.isArray(storeIds) ? storeIds : [storeIds],
+          priority: Number(priority || 1)
+        })
       });
       return await handleResponse(res);
     } catch (e) {
