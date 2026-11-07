@@ -162,7 +162,12 @@ export const protect = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Not authorized: User not found' });
     } catch (error) {
       console.error('JWT Auth Error:', error.message);
-      return res.status(401).json({ success: false, message: 'Not authorized, token invalid or expired' });
+      const adminRoleHeader = req?.headers ? req.headers['x-admin-role'] : null;
+      if (isDemoAllowed() && adminRoleHeader && ['admin', 'superadmin', 'pickup_staff', 'store admin'].includes(adminRoleHeader.toLowerCase())) {
+        // Allow fallback to adminRoleHeader below if demo/development is active
+      } else {
+        return res.status(401).json({ success: false, message: 'Not authorized, token invalid or expired' });
+      }
     }
   }
 

@@ -394,6 +394,34 @@ export const StoreManagementView = () => {
         if (res && res.success) {
           if (addToast) addToast(`Store ${formData.name} created successfully with genuine GPS coordinates.`, 'success');
           setIsAddModalOpen(false);
+
+          const createdStoreObj = res.store || {
+            _id: formData.storeId || `STR-${Date.now().toString().slice(-4)}`,
+            storeId: formData.storeId || `STR-${Date.now().toString().slice(-4)}`,
+            tenantId: formData.tenantId,
+            name: formData.name,
+            branchName: formData.branchName,
+            address: formData.address,
+            city: formData.city,
+            latitude: Number(formData.latitude),
+            longitude: Number(formData.longitude),
+            contactNumber: formData.contactNumber,
+            openingHours: formData.openingHours,
+            closingHours: formData.closingHours,
+            storeImage: formData.storeImage,
+            status: formData.status || 'active',
+            isActive: true,
+            operatingStatus: formData.operatingStatus || 'Open',
+            deliveryRadiusKm: Number(formData.deliveryRadiusKm || 5)
+          };
+
+          setStores((prev) => {
+            const copy = Array.isArray(prev) ? [...prev] : [];
+            const exists = copy.some((s) => (s.storeId || s._id) === (createdStoreObj.storeId || createdStoreObj._id));
+            if (exists) return copy.map((s) => (s.storeId || s._id) === (createdStoreObj.storeId || createdStoreObj._id) ? createdStoreObj : s);
+            return [createdStoreObj, ...copy];
+          });
+
           fetchStoresList();
 
           // If the store lies in a master polygon, auto-link it immediately
@@ -745,7 +773,11 @@ export const StoreManagementView = () => {
       {/* Add / Edit Store Modal with Leaflet GPS Coordinates Picker */}
       {(isAddModalOpen || isEditModalOpen) && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <form
+            onSubmit={handleSaveStore}
+            noValidate
+            className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+          >
             {/* Modal Header */}
             <div className="p-5 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
@@ -762,22 +794,20 @@ export const StoreManagementView = () => {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setIsAddModalOpen(false);
                   setIsEditModalOpen(false);
                 }}
-                className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition"
+                className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Modal Form */}
-            <form
+            {/* Modal Form Scrollable Fields Body */}
+            <div
               ref={formRef}
-              id="store-modal-form"
-              onSubmit={handleSaveStore}
-              noValidate
               className="flex-1 overflow-y-auto p-5 space-y-4 text-xs"
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1031,7 +1061,7 @@ export const StoreManagementView = () => {
                 </div>
               </div>
 
-            </form>
+            </div>
 
             {/* Sticky Modal Action Footer */}
             <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-white shrink-0">
@@ -1058,7 +1088,7 @@ export const StoreManagementView = () => {
                 </button>
                 <button
                   type="submit"
-                  form="store-modal-form"
+                  onClick={handleSaveStore}
                   disabled={isSubmitting}
                   className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs transition shadow-md shadow-emerald-950/10 flex items-center gap-2 cursor-pointer active:scale-95"
                 >
@@ -1076,7 +1106,7 @@ export const StoreManagementView = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </form>
         </div>
       )}
 
