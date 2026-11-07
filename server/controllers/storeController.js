@@ -9,15 +9,120 @@ import { resolveRetailerId, getRetailerDetails } from '../utils/retailerHelper.j
 const STORES_FILE_PATH = path.resolve(process.cwd(), 'server/data/stores_db.json');
 const BRANCHES_FILE_PATH = path.resolve(process.cwd(), 'server/data/branches_db.json');
 
+// The 4 Core Supermarket Stores (1 for each of the 4 Pakistani retail partners)
+export const FOUR_CORE_STORES = [
+  {
+    _id: 'STR-AF-001',
+    storeId: 'STR-AF-001',
+    tenantId: 'tenant-alfatah',
+    tenantName: 'Al-Fatah',
+    name: 'Al-Fatah - Peoples Colony Mega Store',
+    branchName: 'Peoples Colony Mega Store',
+    address: 'Main Commercial Avenue, Peoples Colony 1, Faisalabad',
+    city: 'Faisalabad',
+    latitude: 31.4125,
+    longitude: 73.0995,
+    location: {
+      type: 'Point',
+      coordinates: [73.0995, 31.4125]
+    },
+    contactNumber: '+92 300 8441122',
+    openingHours: '08:00 AM',
+    closingHours: '11:00 PM',
+    storeImage: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
+    status: 'active',
+    isActive: true,
+    operatingStatus: 'Open',
+    manager: 'Al-Fatah Manager',
+    deliveryRadiusKm: 6
+  },
+  {
+    _id: 'STR-CV-001',
+    storeId: 'STR-CV-001',
+    tenantId: 'tenant-chasevalue',
+    tenantName: 'Chase Value',
+    name: 'Chase Value - Jaranwala Road Hub',
+    branchName: 'Jaranwala Road Hub',
+    address: 'Jaranwala Road, Near Kohinoor City, Faisalabad',
+    city: 'Faisalabad',
+    latitude: 31.4180,
+    longitude: 73.1180,
+    location: {
+      type: 'Point',
+      coordinates: [73.1180, 31.4180]
+    },
+    contactNumber: '+92 300 0000000',
+    openingHours: '08:00 AM',
+    closingHours: '11:00 PM',
+    storeImage: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80',
+    status: 'active',
+    isActive: true,
+    operatingStatus: 'Open',
+    manager: 'Chase Value Manager',
+    deliveryRadiusKm: 6
+  },
+  {
+    _id: 'STR-CU-001',
+    storeId: 'STR-CU-001',
+    tenantId: 'tenant-chaseup',
+    tenantName: 'Chase Up',
+    name: 'Chase Up - Clock Tower Center',
+    branchName: 'Clock Tower Center',
+    address: 'Clock Tower Bazar, Faisalabad',
+    city: 'Faisalabad',
+    latitude: 31.4150,
+    longitude: 73.0780,
+    location: {
+      type: 'Point',
+      coordinates: [73.0780, 31.4150]
+    },
+    contactNumber: '+92 300 0000000',
+    openingHours: '08:00 AM',
+    closingHours: '11:00 PM',
+    storeImage: 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=1200&q=80',
+    status: 'active',
+    isActive: true,
+    operatingStatus: 'Open',
+    manager: 'Chase Up Manager',
+    deliveryRadiusKm: 6
+  },
+  {
+    _id: 'STR-UM-001',
+    storeId: 'STR-UM-001',
+    tenantId: 'tenant-unimart',
+    tenantName: 'Unimart',
+    name: 'Unimart - D-Ground Express Dark Store',
+    branchName: 'D-Ground Express Dark Store',
+    address: 'House 88, D-Ground, Peoples Colony 1, Faisalabad',
+    city: 'Faisalabad',
+    latitude: 31.4015,
+    longitude: 73.0830,
+    location: {
+      type: 'Point',
+      coordinates: [73.0830, 31.4015]
+    },
+    contactNumber: '+92 300 0000000',
+    openingHours: '08:00 AM',
+    closingHours: '11:00 PM',
+    storeImage: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=1200&q=80',
+    status: 'active',
+    isActive: true,
+    operatingStatus: 'Open',
+    manager: 'Unimart Manager',
+    deliveryRadiusKm: 5
+  }
+];
+
 export const loadDiskStores = () => {
   try {
     if (fs.existsSync(STORES_FILE_PATH)) {
       const data = fs.readFileSync(STORES_FILE_PATH, 'utf-8');
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (e) {}
-  return [];
+  saveDiskStores(FOUR_CORE_STORES);
+  return FOUR_CORE_STORES;
 };
 
 export const saveDiskStores = (stores) => {
@@ -28,35 +133,7 @@ export const saveDiskStores = (stores) => {
 
 // Map base platform BRANCHES to Store format
 const getBaseStores = () => {
-  return BRANCHES.map((b) => {
-    const canonicalTenant = resolveRetailerId(b.tenantId);
-    const retailer = getRetailerDetails(canonicalTenant);
-    return {
-      _id: b._id,
-      storeId: b._id,
-      tenantId: canonicalTenant,
-      tenantName: retailer.name,
-      name: `${retailer.name} - ${b.name}`,
-      branchName: b.name,
-      address: b.address || `${b.name}, ${b.city}, Pakistan`,
-      city: b.city || 'Faisalabad',
-      latitude: Number(b.latitude),
-      longitude: Number(b.longitude),
-      location: {
-        type: 'Point',
-        coordinates: [Number(b.longitude), Number(b.latitude)]
-      },
-      contactNumber: b.phone || '+92 300 0000000',
-      openingHours: b.operatingHours ? b.operatingHours.split('-')[0].trim() : '08:00 AM',
-      closingHours: b.operatingHours ? b.operatingHours.split('-')[1]?.trim() || '11:00 PM' : '11:00 PM',
-      storeImage: b.banner || retailer.banner || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
-      status: b.status || 'active',
-      isActive: String(b.status || 'active').toLowerCase() === 'active',
-      operatingStatus: 'Open',
-      manager: b.manager || `${retailer.name} Branch Manager`,
-      deliveryRadiusKm: Number(b.deliveryRadiusKm || b.deliveryRadius || 5)
-    };
-  });
+  return FOUR_CORE_STORES;
 };
 
 // @desc    Get all stores with filters (tenantId, city, search, active)
@@ -75,10 +152,7 @@ export const getStores = async (req, res) => {
     }
 
     const diskStores = loadDiskStores();
-    // User requested to remove all dummy/seed branches and add their own from scratch
-    const isTest = process.env.NODE_ENV === 'test';
-    const isExplicitSeed = req.query.includeSeed === 'true';
-    const baseStores = (isTest || isExplicitSeed) ? getBaseStores() : [];
+    const baseStores = FOUR_CORE_STORES;
 
     // Deduplicate stores by storeId / _id
     const storeMap = new Map();

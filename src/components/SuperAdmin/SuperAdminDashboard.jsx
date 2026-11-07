@@ -372,13 +372,13 @@ export const SuperAdminDashboard = () => {
   // =========================================================================
   const gisStats = useMemo(() => {
     const totalRetailers = displayStores.length || 4;
-    const totalStores = (liveStores && liveStores.length > 0) ? liveStores.length : 12;
+    const totalStores = (liveStores && liveStores.length > 0) ? liveStores.length : (displayStores.length || 4);
     const totalZones = (liveZones && liveZones.length > 0) ? liveZones.length : 4;
     const activeZones = liveZones.length > 0
       ? liveZones.filter((z) => z.isActive !== false && String(z.status).toLowerCase() !== 'inactive').length
-      : 4;
+      : (liveZones.length || 4);
     const assignedStoreIds = new Set(liveAssignments.filter((a) => a.isActive !== false).map((a) => a.storeId));
-    const unassignedStores = Math.max(0, totalStores - (assignedStoreIds.size || 6));
+    const unassignedStores = Math.max(0, totalStores - assignedStoreIds.size);
     const todayStr = new Date().toISOString().split('T')[0];
     const ordersToday = (allCrossStoreOrders || []).filter((o) => (o.createdAt || o.date || '').startsWith(todayStr)).length;
 
