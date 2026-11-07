@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MapPin,
   Navigation,
@@ -19,6 +19,7 @@ import {
 import { useStore } from '../../context/StoreContext';
 import { PAKISTAN_CITIES, findNearestCity, calculateDistanceKm } from '../../data/pakistanLocations';
 import { detectUserLocation } from '../../utils/geolocationHelper';
+import { apiService } from '../../services/api';
 
 export const CustomerLocationBanner = ({ onLocationConfirmed }) => {
   const {
@@ -46,6 +47,62 @@ export const CustomerLocationBanner = ({ onLocationConfirmed }) => {
   const [isEditingAddress, setIsEditingAddress] = useState(false);
 
   const currentCityObj = PAKISTAN_CITIES.find((c) => c.id === selectedCityId) || PAKISTAN_CITIES[0];
+
+  const [deliveryZones, setDeliveryZones] = useState([]);
+
+  // Fetch active delivery polygons so landing page shows master delivery regions
+  useEffect(() => {
+    let isMounted = true;
+    apiService.getZones().then((res) => {
+      if (isMounted && res?.success && Array.isArray(res.zones)) {
+        setDeliveryZones(res.zones);
+      }
+    }).catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleSelectZone = (zone) => {
+    const coords = zone.geometry?.coordinates?.[0];
+    if (coords && coords.length > 0) {
+      let sumLat = 0;
+      let sumLng = 0;
+      coords.forEach(([lng, lat]) => {
+        sumLat += lat;
+        sumLng += lng;
+      });
+      const cLat = sumLat / coords.length;
+      const cLng = sumLng / coords.length;
+
+      const newLoc = {
+        city: zone.city || currentCityObj.city,
+        address: `${zone.name}, ${zone.city || 'Faisalabad'}`,
+        neighborhood: zone.name,
+        area: zone.area || zone.name,
+        lat: cLat,
+        lng: cLng,
+        coords: { lat: cLat, lng: cLng },
+        hubName: currentCityObj.hubName,
+        label: zone.name,
+        zoneId: zone.zoneId
+      };
+
+      if (confirmDeliveryLocation) {
+        confirmDeliveryLocation(newLoc);
+      } else {
+        setDeliveryLocation(newLoc);
+        try {
+          localStorage.setItem('freshmart_delivery_location', JSON.stringify(newLoc));
+          localStorage.setItem('freshmart_location_confirmed', 'true');
+        } catch (e) {}
+      }
+
+      setIsEditingAddress(false);
+      addToast('Delivery Region Selected 🎯', `Serving: ${zone.name}`);
+      if (onLocationConfirmed) onLocationConfirmed(newLoc);
+    }
+  };
 
   // Quick GPS + IP multi-layer detection
   const handleDetectGPS = async () => {
@@ -372,6 +429,29 @@ export const CustomerLocationBanner = ({ onLocationConfirmed }) => {
                 </button>
               ))}
             </div>
+
+            {/* Active Delivery Regions (Master Polygons drawn by Super Admin) */}
+            {deliveryZones.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-white/10 mt-1">
+                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mr-1 flex items-center gap-1 shrink-0">
+                  <Compass className="w-3 h-3" />
+                  <span>Delivery Regions:</span>
+                </span>
+                {deliveryZones.map((z) => (
+                  <button
+                    key={z.zoneId}
+                    type="button"
+                    onClick={() => handleSelectZone(z)}
+                    className="px-2.5 py-1 bg-white/5 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-[11px] font-semibold text-emerald-300 hover:text-white transition cursor-pointer flex items-center gap-1.5"
+                    title={`Click to set delivery location to ${z.name}`}
+                  >
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: z.color || '#10b981' }} />
+                    <span>{z.name}</span>
+                    <span className="text-[9px] text-emerald-400 font-mono">Rs. {z.deliveryCharge}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

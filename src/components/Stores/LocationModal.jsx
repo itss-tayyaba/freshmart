@@ -16,6 +16,7 @@ import { PAKISTAN_CITIES, findNearestCity } from '../../data/pakistanLocations';
 import { detectUserLocation, reverseGeocodeAddress } from '../../utils/geolocationHelper';
 import { apiService } from '../../services/api';
 import { switchMapTileLayer } from '../../utils/mapTiles';
+import { isPointInPolygon } from '../../utils/distanceCalculator';
 
 // Custom Modern SVG Pin for User Location to guarantee zero missing asset issues in Vite
 const createUserPin = () =>
@@ -113,6 +114,22 @@ const LocationModalContent = () => {
   const userMarkerRef = useRef(null);
   const storeMarkersRef = useRef([]);
   const deliveryCirclesRef = useRef([]);
+
+  const [deliveryZones, setDeliveryZones] = useState([]);
+  const zonesLayerGroupRef = useRef(null);
+
+  // Fetch active delivery polygons so customers can see delivery boundaries on map
+  useEffect(() => {
+    let isMounted = true;
+    apiService.getZones().then((res) => {
+      if (isMounted && res?.success && Array.isArray(res.zones)) {
+        setDeliveryZones(res.zones);
+      }
+    }).catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const currentCityObj = PAKISTAN_CITIES.find((c) => c.id === selectedCityId) || PAKISTAN_CITIES[0];
 
@@ -258,6 +275,7 @@ const LocationModalContent = () => {
       handleUpdateCoords(e.latlng.lat, e.latlng.lng);
     });
 
+    zonesLayerGroupRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
     userMarkerRef.current = userMarker;
 
@@ -371,7 +389,45 @@ const LocationModalContent = () => {
 
       storeMarkersRef.current.push(marker);
     });
-  }, [nearbyStores]);
+
+    // Render Master Delivery Polygons on the Leaflet Map
+    if (zonesLayerGroupRef.current) {
+      zonesLayerGroupRef.current.clearLayers();
+
+      deliveryZones.forEach((z) => {
+        if (!z.geometry?.coordinates?.[0]) return;
+        const latLngs = z.geometry.coordinates[0].map(([lng, lat]) => [lat, lng]);
+        const color = z.color || '#10b981';
+        const isCustomerInside = isPointInPolygon({ lat: currentCoords.lat, lng: currentCoords.lng }, latLngs);
+
+        const polygon = L.polygon(latLngs, {
+          color: color,
+          weight: isCustomerInside ? 3.5 : 2,
+          opacity: isCustomerInside ? 0.95 : 0.6,
+          fillColor: color,
+          fillOpacity: isCustomerInside ? 0.35 : 0.18,
+          dashArray: isCustomerInside ? null : '4, 4'
+        });
+
+        polygon.bindTooltip(
+          `<div style="font-family: inherit; font-size: 11px;">
+             <strong style="color: ${color}; font-size: 12px;">📍 ${z.name}</strong>
+             <div style="font-size: 10px; color: #334155;">Delivery: Rs. ${z.deliveryCharge} • ${z.estimatedDeliveryTime || '30 mins'}</div>
+             <div style="font-size: 9px; color: ${isCustomerInside ? '#059669' : '#64748b'}; font-weight: bold; margin-top: 2px;">
+               ${isCustomerInside ? '✓ Your pin is in this delivery region' : 'Click to drop pin in this region'}
+             </div>
+           </div>`,
+          { sticky: true }
+        );
+
+        polygon.on('click', (e) => {
+          handleUpdateCoords(e.latlng.lat, e.latlng.lng);
+        });
+
+        zonesLayerGroupRef.current.addLayer(polygon);
+      });
+    }
+  }, [nearbyStores, deliveryZones, currentCoords]);
 
   // 🎯 DETECT CURRENT LOCATION (Auto-Locate GPS)
   const handleDetectLocation = async () => {
@@ -644,6 +700,14 @@ const LocationModalContent = () => {
           <div className="rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-xs bg-slate-100 dark:bg-slate-900 relative isolate z-0">
             <div ref={mapContainerRef} className="w-full h-48 sm:h-56 z-0" />
 
+            {/* Delivery Zones Legend Badge */}
+            {deliveryZones.length > 0 && (
+              <div className="absolute top-2 left-2 z-[1000] bg-slate-900/85 backdrop-blur-xs text-white px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1.5 shadow-md">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>{deliveryZones.length} Delivery Zones Shown</span>
+              </div>
+            )}
+
             {/* 🛰️ Top-Right Map Layer Controls: Street View vs Satellite View vs Hybrid */}
             <div className="absolute top-2 right-2 z-[1000] flex items-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl p-0.5 shadow-md border border-slate-200/90 dark:border-slate-700 text-[10px] font-bold gap-0.5">
               <button
@@ -692,6 +756,67 @@ const LocationModalContent = () => {
               👆 Drag pin or click map
             </div>
           </div>
+
+          {/* Active Delivery Regions Selection Chips */}
+          {deliveryZones.length > 0 && (
+            <div className="mt-2.5 space-y-1.5">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                  <Compass className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Click Delivery Region to Snap Location:</span>
+                </span>
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                  {deliveryZones.length} Region{deliveryZones.length === 1 ? '' : 's'} Drawn
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                {deliveryZones.map((z) => {
+                  const latLngs = z.geometry?.coordinates?.[0]?.map(([lng, lat]) => [lat, lng]) || [];
+                  const isPinInZone = latLngs.length > 0 && isPointInPolygon({ lat: currentCoords.lat, lng: currentCoords.lng }, latLngs);
+                  const color = z.color || '#10b981';
+
+                  return (
+                    <button
+                      key={z.zoneId}
+                      type="button"
+                      onClick={() => {
+                        if (latLngs.length > 0) {
+                          let sumLat = 0, sumLng = 0;
+                          latLngs.forEach(([lt, lg]) => { sumLat += lt; sumLng += lg; });
+                          const cLat = sumLat / latLngs.length;
+                          const cLng = sumLng / latLngs.length;
+                          handleUpdateCoords(cLat, cLng);
+                          if (mapInstanceRef.current) {
+                            mapInstanceRef.current.flyTo([cLat, cLng], 14, { duration: 0.8 });
+                          }
+                        }
+                      }}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+                        isPinInZone
+                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
+                          : 'bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                      }`}
+                      title={`Deliver to ${z.name} (Delivery: Rs. ${z.deliveryCharge})`}
+                    >
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: isPinInZone ? '#ffffff' : color }}
+                      />
+                      <span>{z.name}</span>
+                      <span
+                        className={`text-[9px] font-mono px-1 py-0.2 rounded ${
+                          isPinInZone ? 'bg-emerald-700 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        Rs. {z.deliveryCharge}
+                      </span>
+                      {isPinInZone && <Check className="w-3 h-3 text-white" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Delivery Zone Notice for Far Locations */}
           {isOutsideDeliveryZone && (

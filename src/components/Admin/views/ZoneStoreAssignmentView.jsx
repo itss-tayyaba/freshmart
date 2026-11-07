@@ -40,6 +40,16 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   const [editPriority, setEditPriority] = useState(1);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
+  // In-Place Polygon Drawing Mode in Zone Assignments
+  const [isDrawingPolygon, setIsDrawingPolygon] = useState(false);
+  const isDrawingPolygonRef = useRef(false);
+  useEffect(() => {
+    isDrawingPolygonRef.current = isDrawingPolygon;
+  }, [isDrawingPolygon]);
+  const [drawnPoints, setDrawnPoints] = useState([]);
+  const [isSavingPolygon, setIsSavingPolygon] = useState(false);
+  const drawingLayerRef = useRef(null);
+
   // Store Filters
   const [retailerFilter, setRetailerFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -331,11 +341,16 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     window.__editZoneFromMap = () => {
       if (onNavigateToZones) onNavigateToZones();
     };
+    window.__startDrawingFromMap = () => {
+      setIsDrawingPolygon(true);
+      setDrawnPoints([]);
+    };
     return () => {
       delete window.__assignStoreFromMap;
       delete window.__removeStoreFromMap;
       delete window.__editStoreFromMap;
       delete window.__editZoneFromMap;
+      delete window.__startDrawingFromMap;
     };
   }, [stores, assignments, activeZone, onNavigateToZones]);
 
@@ -361,6 +376,14 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
     polygonLayerRef.current = L.layerGroup().addTo(map);
     storeMarkersGroupRef.current = L.layerGroup().addTo(map);
+    drawingLayerRef.current = L.layerGroup().addTo(map);
+
+    // Map click adds polygon vertices when drawing mode is active
+    map.on('click', (e) => {
+      if (isDrawingPolygonRef.current) {
+        setDrawnPoints((prev) => [...prev, [e.latlng.lat, e.latlng.lng]]);
+      }
+    });
 
     mapInstanceRef.current = map;
 
@@ -375,6 +398,126 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       }
     };
   }, []);
+
+  // Update Drawing Layer Preview whenever drawnPoints change
+  useEffect(() => {
+    if (!mapInstanceRef.current || !drawingLayerRef.current) return;
+    drawingLayerRef.current.clearLayers();
+
+    if (!isDrawingPolygon || drawnPoints.length === 0) return;
+
+    const color = activeZone?.color || '#10b981';
+
+    // 1. Draw each vertex point with number indicator
+    drawnPoints.forEach(([lat, lng], idx) => {
+      const isFirst = idx === 0;
+      const vertexIcon = L.divIcon({
+        className: 'custom-drawing-vertex',
+        html: `
+          <div style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 9999px; background: ${isFirst ? '#059669' : color}; color: #ffffff; border: 2.5px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.35); font-size: 11px; font-weight: 900; font-family: monospace;">
+            ${idx + 1}
+          </div>
+        `,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+
+      const marker = L.marker([lat, lng], { icon: vertexIcon, interactive: false });
+      drawingLayerRef.current.addLayer(marker);
+    });
+
+    // 2. Draw connecting polyline
+    if (drawnPoints.length >= 2) {
+      const line = L.polyline(drawnPoints, {
+        color: color,
+        weight: 3.5,
+        dashArray: '6, 6'
+      });
+      drawingLayerRef.current.addLayer(line);
+    }
+
+    // 3. Draw closing preview if 3 or more points
+    if (drawnPoints.length >= 3) {
+      const previewPolygon = L.polygon(drawnPoints, {
+        color: color,
+        weight: 2,
+        fillColor: color,
+        fillOpacity: 0.25,
+        dashArray: '4, 4',
+        interactive: false
+      });
+      drawingLayerRef.current.addLayer(previewPolygon);
+    }
+  }, [drawnPoints, isDrawingPolygon, activeZone]);
+
+  // Polygon Drawing Handlers
+  const handleUndoPoint = () => {
+    setDrawnPoints((prev) => prev.slice(0, prev.length - 1));
+  };
+
+  const handleClearDrawing = () => {
+    setDrawnPoints([]);
+    if (drawingLayerRef.current) drawingLayerRef.current.clearLayers();
+  };
+
+  const handleCancelDrawing = () => {
+    setIsDrawingPolygon(false);
+    setDrawnPoints([]);
+    if (drawingLayerRef.current) drawingLayerRef.current.clearLayers();
+  };
+
+  const handleSaveDrawnPolygon = async () => {
+    if (!activeZone) return;
+    if (drawnPoints.length < 3) {
+      if (addToast) addToast('Please place at least 3 points on the map to form a valid polygon.', 'warning');
+      return;
+    }
+
+    setIsSavingPolygon(true);
+    try {
+      const ring = drawnPoints.map(([lat, lng]) => [
+        Number(Number(lng).toFixed(6)),
+        Number(Number(lat).toFixed(6))
+      ]);
+      // Ensure linear ring is closed (first coord matches last coord)
+      const first = ring[0];
+      const last = ring[ring.length - 1];
+      if (first[0] !== last[0] || first[1] !== last[1]) {
+        ring.push([first[0], first[1]]);
+      }
+
+      const payload = {
+        ...activeZone,
+        geometry: {
+          type: 'Polygon',
+          coordinates: [ring]
+        }
+      };
+
+      const res = await apiService.updateZone(activeZone.zoneId, payload);
+      if (res && res.success) {
+        if (addToast) addToast(`Polygon boundary for "${activeZone.name}" saved successfully!`, 'success');
+
+        // Optimistically update local state
+        setZones((prev) =>
+          prev.map((z) => (z.zoneId === activeZone.zoneId ? { ...z, geometry: payload.geometry } : z))
+        );
+
+        setIsDrawingPolygon(false);
+        setDrawnPoints([]);
+        if (drawingLayerRef.current) drawingLayerRef.current.clearLayers();
+
+        // Refresh zone data in background
+        loadData();
+      } else {
+        if (addToast) addToast(res?.message || 'Failed to save zone polygon', 'error');
+      }
+    } catch (err) {
+      if (addToast) addToast(`Save polygon error: ${err.message}`, 'error');
+    } finally {
+      setIsSavingPolygon(false);
+    }
+  };
 
   // Sync Map when activeZone or assigned stores change
   useEffect(() => {
@@ -391,9 +534,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
       const polygon = L.polygon(latLngs, {
         color: color,
-        weight: 3,
+        weight: isDrawingPolygon ? 1.5 : 3,
         fillColor: color,
-        fillOpacity: 0.35
+        fillOpacity: isDrawingPolygon ? 0.08 : 0.35,
+        dashArray: isDrawingPolygon ? '4, 4' : null,
+        interactive: !isDrawingPolygon
       });
       polygon.bindPopup(`
         <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
@@ -409,17 +554,25 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
           <div style="font-size: 11px; color: #475569; margin-bottom: 8px;">
             Free Delivery Over: <strong>Rs. ${activeZone.freeDeliveryThreshold}</strong>
           </div>
-          <button
-            onclick="window.__editZoneFromMap && window.__editZoneFromMap()"
-            style="width: 100%; padding: 4px 8px; background: #0f172a; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-          >
-            ✏️ Edit Zone Polygon & Rates
-          </button>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <button
+              onclick="window.__startDrawingFromMap && window.__startDrawingFromMap()"
+              style="width: 100%; padding: 4px 8px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+            >
+              ✏️ Redraw Zone Polygon
+            </button>
+            <button
+              onclick="window.__editZoneFromMap && window.__editZoneFromMap()"
+              style="width: 100%; padding: 4px 8px; background: #0f172a; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+            >
+              ⚙️ Edit Zone Details & Rates
+            </button>
+          </div>
         </div>
       `);
       polygonLayerRef.current.addLayer(polygon);
 
-      if (latLngs.length > 0) {
+      if (latLngs.length > 0 && !isDrawingPolygon) {
         const bounds = L.latLngBounds(latLngs);
         mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
       }
@@ -455,7 +608,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         iconAnchor: [16, 40]
       });
 
-      const marker = L.marker([sLat, sLng], { icon: pinIcon });
+      const marker = L.marker([sLat, sLng], { icon: pinIcon, interactive: !isDrawingPolygon });
       marker.bindPopup(`
         <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
           <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
@@ -510,7 +663,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         iconAnchor: [14, 36]
       });
 
-      const marker = L.marker([sLat, sLng], { icon: pinIcon });
+      const marker = L.marker([sLat, sLng], { icon: pinIcon, interactive: !isDrawingPolygon });
       marker.bindPopup(`
         <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
           <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
@@ -528,7 +681,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       `);
       storeMarkersGroupRef.current.addLayer(marker);
     });
-  }, [activeZone, assignedStores]);
+  }, [activeZone, assignedStores, isDrawingPolygon]);
 
   return (
     <div className="space-y-6">
@@ -621,6 +774,26 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                 <span>Zone Coverage & Assigned Stores Map</span>
               </span>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isDrawingPolygon) {
+                      setIsDrawingPolygon(true);
+                      setDrawnPoints([]);
+                      if (addToast) addToast(`Click map points to draw new polygon for ${activeZone?.name || 'zone'}. Need at least 3 points.`, 'info');
+                    } else {
+                      handleCancelDrawing();
+                    }
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer border ${
+                    isDrawingPolygon
+                      ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 shadow-sm animate-pulse'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                  }`}
+                >
+                  <Edit3 className="w-3 h-3" />
+                  <span>{isDrawingPolygon ? 'Exit Drawing' : '✏️ Draw Polygon'}</span>
+                </button>
                 {onNavigateToZones && (
                   <button
                     type="button"
@@ -634,7 +807,79 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                 <span className="text-[10px] text-slate-400 hidden sm:inline">Stores do not need to be inside polygon</span>
               </div>
             </div>
-            <div ref={mapContainerRef} className="w-full h-72 z-10" style={{ minHeight: '280px' }}></div>
+            <div className="relative">
+              <div
+                ref={mapContainerRef}
+                className={`w-full h-80 z-10 transition-all ${isDrawingPolygon ? 'cursor-crosshair ring-2 ring-emerald-500 ring-inset' : ''}`}
+                style={{ minHeight: '320px' }}
+              />
+
+              {/* Drawing Mode Overlay Banner */}
+              {isDrawingPolygon && (
+                <div className="absolute top-2.5 left-2.5 right-2.5 z-[1000] bg-slate-900/95 backdrop-blur-md text-white rounded-2xl p-3 border border-emerald-500/60 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping shrink-0" />
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>Drawing Region: {activeZone?.name}</span>
+                        <span className="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
+                          {drawnPoints.length} Point{drawnPoints.length === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-300">
+                        {drawnPoints.length < 3
+                          ? `Click map to place ${3 - drawnPoints.length} more point(s) to form polygon.`
+                          : 'Click map for more points, then click "Save Polygon" to apply.'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleUndoPoint}
+                      disabled={drawnPoints.length === 0}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-lg text-xs font-semibold transition cursor-pointer"
+                    >
+                      Undo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearDrawing}
+                      disabled={drawnPoints.length === 0}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-lg text-xs font-semibold transition cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelDrawing}
+                      className="px-2.5 py-1 bg-rose-900/60 hover:bg-rose-800/80 text-rose-200 border border-rose-700/60 rounded-lg text-xs font-semibold transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveDrawnPolygon}
+                      disabled={drawnPoints.length < 3 || isSavingPolygon}
+                      className="px-3 py-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-50 text-slate-950 font-black rounded-lg text-xs transition shadow-sm flex items-center gap-1 cursor-pointer"
+                    >
+                      {isSavingPolygon ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Save Polygon</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Currently Assigned Stores List */}
