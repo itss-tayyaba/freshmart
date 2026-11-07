@@ -88,7 +88,19 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       }
 
       if (storesRes?.success && Array.isArray(storesRes.stores)) {
-        setStores(storesRes.stores);
+        let storeList = storesRes.stores;
+        try {
+          const raw = localStorage.getItem('freshmart_custom_stores');
+          const localCustom = raw ? JSON.parse(raw) : [];
+          const m = new Map();
+          localCustom.forEach((s) => m.set(s.storeId || s._id, s));
+          storeList.forEach((s) => {
+            const id = s.storeId || s._id;
+            if (!m.has(id)) m.set(id, s);
+          });
+          storeList = Array.from(m.values());
+        } catch {}
+        setStores(storeList);
       }
 
       if (assignRes?.success && Array.isArray(assignRes.assignments)) {
@@ -450,6 +462,55 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     }
   }, [drawnPoints, isDrawingPolygon, activeZone]);
 
+  // Helper to reorder points around their geometric centroid into a clean non-crossing perimeter
+  const untanglePoints = (pts) => {
+    if (!pts || pts.length < 3) return pts;
+    const cLat = pts.reduce((sum, p) => sum + p[0], 0) / pts.length;
+    const cLng = pts.reduce((sum, p) => sum + p[1], 0) / pts.length;
+    return [...pts].sort((a, b) => {
+      const angleA = Math.atan2(a[0] - cLat, a[1] - cLng);
+      const angleB = Math.atan2(b[0] - cLat, b[1] - cLng);
+      return angleA - angleB;
+    });
+  };
+
+  // Helper to detect if line segments cross each other
+  const hasCrossingSegments = (pts) => {
+    if (!pts || pts.length < 4) return false;
+    const n = pts.length;
+    const ccw = (a, b, c) => (c[0] - a[0]) * (b[1] - a[1]) > (b[0] - a[0]) * (c[1] - a[1]);
+    const intersect = (p1, p2, p3, p4) =>
+      ccw(p1, p3, p4) !== ccw(p2, p3, p4) && ccw(p1, p2, p3) !== ccw(p1, p2, p4);
+    for (let i = 0; i < n; i++) {
+      const p1 = pts[i];
+      const p2 = pts[(i + 1) % n];
+      for (let j = i + 2; j < n; j++) {
+        if (i === 0 && j === n - 1) continue;
+        const p3 = pts[j];
+        const p4 = pts[(j + 1) % n];
+        if (intersect(p1, p2, p3, p4)) return true;
+      }
+    }
+    return false;
+  };
+
+  const isTangled = useMemo(() => {
+    return hasCrossingSegments(drawnPoints);
+  }, [drawnPoints]);
+
+  const handleUntanglePoints = () => {
+    if (drawnPoints.length < 3) return;
+    const untangled = untanglePoints(drawnPoints);
+    setDrawnPoints(untangled);
+    if (addToast) {
+      addToast(
+        'Perimeter Untangled ✨',
+        'Boundary vertices reordered smoothly around the perimeter.',
+        'info'
+      );
+    }
+  };
+
   // Polygon Drawing Handlers
   const handleUndoPoint = () => {
     setDrawnPoints((prev) => prev.slice(0, prev.length - 1));
@@ -469,13 +530,16 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   const handleSaveDrawnPolygon = async () => {
     if (!activeZone) return;
     if (drawnPoints.length < 3) {
-      if (addToast) addToast('Please place at least 3 points on the map to form a valid polygon.', 'warning');
+      if (addToast) addToast('Missing Vertices', 'Please place at least 3 points on the map to form a valid polygon.', 'warning');
       return;
     }
 
     setIsSavingPolygon(true);
     try {
-      const ring = drawnPoints.map(([lat, lng]) => [
+      // Auto-untangle if vertices cross each other so geometry is guaranteed valid
+      const cleanPoints = hasCrossingSegments(drawnPoints) ? untanglePoints(drawnPoints) : drawnPoints;
+
+      const ring = cleanPoints.map(([lat, lng]) => [
         Number(Number(lng).toFixed(6)),
         Number(Number(lat).toFixed(6))
       ]);
@@ -496,7 +560,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
       const res = await apiService.updateZone(activeZone.zoneId, payload);
       if (res && res.success) {
-        if (addToast) addToast(`Polygon boundary for "${activeZone.name}" saved successfully!`, 'success');
+        if (addToast) addToast('Polygon Saved ✅', `Polygon boundary for "${activeZone.name}" saved successfully!`, 'success');
 
         // Optimistically update local state
         setZones((prev) =>
@@ -510,10 +574,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         // Refresh zone data in background
         loadData();
       } else {
-        if (addToast) addToast(res?.message || 'Failed to save zone polygon', 'error');
+        if (addToast) addToast('Save Failed', res?.message || 'Failed to save zone polygon', 'error');
       }
     } catch (err) {
-      if (addToast) addToast(`Save polygon error: ${err.message}`, 'error');
+      if (addToast) addToast('Save Error', `Save polygon error: ${err.message}`, 'error');
     } finally {
       setIsSavingPolygon(false);
     }
@@ -816,53 +880,76 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
               {/* Drawing Mode Overlay Banner */}
               {isDrawingPolygon && (
-                <div className="absolute top-2.5 left-2.5 right-2.5 z-[1000] bg-slate-900/95 backdrop-blur-md text-white rounded-2xl p-3 border border-emerald-500/60 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping shrink-0" />
-                    <div>
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <span>Drawing Region: {activeZone?.name}</span>
-                        <span className="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
-                          {drawnPoints.length} Point{drawnPoints.length === 1 ? '' : 's'}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-slate-300">
-                        {drawnPoints.length < 3
-                          ? `Click map to place ${3 - drawnPoints.length} more point(s) to form polygon.`
-                          : 'Click map for more points, then click "Save Polygon" to apply.'}
+                <div className="absolute top-2 left-2 right-2 z-[1000] bg-slate-900/95 backdrop-blur-md text-white rounded-2xl p-2.5 sm:p-3 border border-emerald-500/60 shadow-2xl flex flex-col gap-2 animate-in fade-in max-w-full">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
+                          <span className="truncate">Drawing: {activeZone?.name}</span>
+                          <span className="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
+                            {drawnPoints.length} Point{drawnPoints.length === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-300">
+                          {drawnPoints.length < 3
+                            ? `Click map to place ${3 - drawnPoints.length} more point(s) to form polygon.`
+                            : 'Click map for more points, then click "Save Polygon" to apply.'}
+                        </div>
                       </div>
                     </div>
+
+                    {isTangled && (
+                      <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 animate-pulse shrink-0">
+                        <AlertTriangle className="w-3 h-3 text-amber-400" />
+                        <span>Lines cross over</span>
+                      </span>
+                    )}
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleUndoPoint}
-                      disabled={drawnPoints.length === 0}
-                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-lg text-xs font-semibold transition cursor-pointer"
-                    >
-                      Undo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleClearDrawing}
-                      disabled={drawnPoints.length === 0}
-                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-lg text-xs font-semibold transition cursor-pointer"
-                    >
-                      Clear
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCancelDrawing}
-                      className="px-2.5 py-1 bg-rose-900/60 hover:bg-rose-800/80 text-rose-200 border border-rose-700/60 rounded-lg text-xs font-semibold transition cursor-pointer"
-                    >
-                      Cancel
-                    </button>
+                  <div className="flex items-center justify-between gap-1.5 flex-wrap pt-1.5 border-t border-slate-800">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={handleUndoPoint}
+                        disabled={drawnPoints.length === 0}
+                        className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-lg text-[11px] font-semibold transition cursor-pointer"
+                      >
+                        Undo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleClearDrawing}
+                        disabled={drawnPoints.length === 0}
+                        className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-lg text-[11px] font-semibold transition cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                      {drawnPoints.length >= 3 && (
+                        <button
+                          type="button"
+                          onClick={handleUntanglePoints}
+                          title="Untangle crossed lines into a smooth perimeter"
+                          className="px-2.5 py-1 bg-indigo-900/70 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/60 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <Sparkles className="w-3 h-3 text-indigo-300" />
+                          <span>Untangle</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleCancelDrawing}
+                        className="px-2 py-1 bg-rose-900/60 hover:bg-rose-800/80 text-rose-200 border border-rose-700/60 rounded-lg text-[11px] font-semibold transition cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+
                     <button
                       type="button"
                       onClick={handleSaveDrawnPolygon}
                       disabled={drawnPoints.length < 3 || isSavingPolygon}
-                      className="px-3 py-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-50 text-slate-950 font-black rounded-lg text-xs transition shadow-sm flex items-center gap-1 cursor-pointer"
+                      className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-40 text-slate-950 font-black rounded-xl text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer shrink-0 ml-auto"
                     >
                       {isSavingPolygon ? (
                         <>
@@ -969,30 +1056,31 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                 Filter by retailer and select stores to link to {activeZone?.name}.
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {onNavigateToStores && (
                 <button
                   type="button"
                   onClick={onNavigateToStores}
-                  className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                  title="Create a new physical store branch in Store Management"
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition flex items-center gap-1 cursor-pointer shrink-0"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>+ Add Store</span>
+                  <span>+ Create Store Branch</span>
                 </button>
               )}
               {selectedStoreIdsToAssign.size > 0 && (
                 <>
-                  <span className="text-xs bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                  <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-300 shrink-0">
                     {selectedStoreIdsToAssign.size} Selected
                   </span>
                   <button
                     type="button"
                     onClick={handleAssignSelected}
                     disabled={isSubmitting}
-                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 animate-pulse"
+                    className="px-3.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black transition shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 animate-pulse shrink-0"
                   >
-                    <Link2 className="w-3.5 h-3.5" />
-                    <span>Assign ({selectedStoreIdsToAssign.size})</span>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>✓ Link to Zone ({selectedStoreIdsToAssign.size})</span>
                   </button>
                 </>
               )}
@@ -1129,7 +1217,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                         className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition shadow-xs flex items-center gap-1 cursor-pointer shrink-0"
                       >
                         <Plus className="w-3 h-3" />
-                        <span>Assign</span>
+                        <span>+ Link</span>
                       </button>
                     </div>
                   </div>

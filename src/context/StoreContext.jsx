@@ -288,17 +288,21 @@ const riderBaseCoordinates = (rider) => {
 export const StoreProvider = ({ children }) => {
   // Toast notifications state & helpers (available across the whole provider)
   const [toasts, setToasts] = useState([]);
-  const addToast = (title, message, type = 'success') => {
-    // Suppress green notifications and cart/basket notifications completely
+  const addToast = (title, messageOrType, explicitType = 'success') => {
+    let message = messageOrType || '';
+    let type = explicitType;
+    if (['error', 'warning', 'info', 'success'].includes(String(messageOrType).toLowerCase()) && explicitType === 'success') {
+      type = String(messageOrType).toLowerCase();
+      message = '';
+    }
+
+    // Suppress cart/basket notifications completely
     const tLower = String(title || '').toLowerCase();
     const mLower = String(message || '').toLowerCase();
     if (
-      type === 'success' ||
-      !type ||
       tLower.includes('basket') ||
       tLower.includes('cart') ||
-      tLower.includes('added') ||
-      mLower.includes('added')
+      (tLower.includes('added to basket') && type === 'success')
     ) {
       return;
     }
@@ -307,7 +311,7 @@ export const StoreProvider = ({ children }) => {
     setToasts([{ id, title, message, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3500);
+    }, 4000);
   };
   const removeToast = (id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
