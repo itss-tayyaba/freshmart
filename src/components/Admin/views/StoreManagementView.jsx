@@ -47,6 +47,8 @@ export const StoreManagementView = () => {
   const [selectedStore, setSelectedStore] = useState(null);
   const [storeToDelete, setStoreToDelete] = useState(null);
 
+  const [zones, setZones] = useState([]);
+
   // Form State
   const [formData, setFormData] = useState({
     storeId: '',
@@ -60,6 +62,9 @@ export const StoreManagementView = () => {
     contactNumber: '+92 300 1234567',
     openingHours: '08:00 AM',
     closingHours: '11:00 PM',
+    deliveryRadiusKm: 5,
+    managerEmail: '',
+    managerPassword: '',
     storeImage: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
     status: 'active',
     operatingStatus: 'Open',
@@ -80,11 +85,14 @@ export const StoreManagementView = () => {
     { id: 'tenant-unimart', name: 'Unimart', color: '#0284c7', logo: '🥬' }
   ];
 
-  // Fetch stores from backend
+  // Fetch stores and master polygons from backend
   const fetchStoresList = async () => {
     setIsLoading(true);
     try {
-      const res = await apiService.getStores();
+      const [res, zonesRes] = await Promise.all([
+        apiService.getStores(),
+        apiService.getZones()
+      ]);
       if (res && res.success && Array.isArray(res.stores)) {
         setStores(res.stores);
       } else {
@@ -103,6 +111,7 @@ export const StoreManagementView = () => {
           contactNumber: b.phone || '+92 300 0000000',
           openingHours: '08:00 AM',
           closingHours: '11:00 PM',
+          deliveryRadiusKm: Number(b.deliveryRadiusKm || b.deliveryRadius || 5),
           storeImage: b.banner || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
           status: b.status || 'active',
           isActive: String(b.status || 'active').toLowerCase() === 'active',
@@ -110,11 +119,35 @@ export const StoreManagementView = () => {
         }));
         setStores(fallback);
       }
+
+      if (zonesRes && zonesRes.success && Array.isArray(zonesRes.zones)) {
+        setZones(zonesRes.zones);
+      }
     } catch (e) {
       console.warn('Stores fetch error:', e.message);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Helper to detect which master polygon a store point lies inside
+  const getZoneContainingPoint = (lat, lng) => {
+    if (!lat || !lng || !zones || zones.length === 0) return null;
+    const x = Number(lng);
+    const y = Number(lat);
+    for (const z of zones) {
+      if (!z.geometry || !z.geometry.coordinates || !z.geometry.coordinates[0]) continue;
+      const poly = z.geometry.coordinates[0];
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i][0], yi = poly[i][1];
+        const xj = poly[j][0], yj = poly[j][1];
+        const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      if (inside) return z;
+    }
+    return null;
   };
 
   useEffect(() => {
@@ -263,6 +296,9 @@ export const StoreManagementView = () => {
       contactNumber: '+92 300 8441122',
       openingHours: '08:00 AM',
       closingHours: '11:00 PM',
+      deliveryRadiusKm: 5,
+      managerEmail: '',
+      managerPassword: '',
       storeImage: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
       status: 'active',
       operatingStatus: 'Open',
@@ -285,6 +321,9 @@ export const StoreManagementView = () => {
       contactNumber: store.contactNumber || store.phone || '+92 300 1234567',
       openingHours: store.openingHours || '08:00 AM',
       closingHours: store.closingHours || '11:00 PM',
+      deliveryRadiusKm: Number(store.deliveryRadiusKm || store.deliveryRadius || 5),
+      managerEmail: store.managerEmail || '',
+      managerPassword: '',
       storeImage: store.storeImage || store.banner || '',
       status: store.status || (store.isActive ? 'active' : 'inactive'),
       operatingStatus: store.operatingStatus || 'Open',
@@ -292,6 +331,10 @@ export const StoreManagementView = () => {
     });
     setIsEditModalOpen(true);
   };
+
+  const detectedZone = useMemo(() => {
+    return getZoneContainingPoint(formData.latitude, formData.longitude);
+  }, [formData.latitude, formData.longitude, zones]);
 
   const handleSaveStore = async (e) => {
     e.preventDefault();
@@ -317,6 +360,17 @@ export const StoreManagementView = () => {
           if (addToast) addToast(`Store ${formData.name} created successfully with genuine GPS coordinates.`, 'success');
           setIsAddModalOpen(false);
           fetchStoresList();
+
+          // If the store lies in a master polygon, auto-link it immediately
+          if (detectedZone && res.store) {
+            try {
+              const newStoreId = res.store.storeId || res.store._id;
+              await apiService.assignStoresToZone(detectedZone.zoneId, [newStoreId]);
+            } catch (assignErr) {
+              console.warn('Auto zone link:', assignErr.message);
+            }
+          }
+
           if (setAllBranches && res.store) {
             setAllBranches((prev) => [
               {
@@ -557,6 +611,18 @@ export const StoreManagementView = () => {
                             <MapPin className="w-3 h-3 text-emerald-500" />
                             {Number(store.latitude).toFixed(4)}, {Number(store.longitude).toFixed(4)}
                           </p>
+                          {(() => {
+                            const matchedZ = getZoneContainingPoint(store.latitude, store.longitude);
+                            return matchedZ ? (
+                              <span className="inline-block mt-1 text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                                📍 In: {matchedZ.code}
+                              </span>
+                            ) : (
+                              <span className="inline-block mt-1 text-[9px] font-medium text-slate-400">
+                                🛵 {store.deliveryRadiusKm || 5} km Radius
+                              </span>
+                            );
+                          })()}
                         </div>
                       </td>
                       <td className="py-3 px-4">
@@ -785,6 +851,61 @@ export const StoreManagementView = () => {
                       required
                       className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
                     />
+                  </div>
+                </div>
+
+                {/* Master Polygon Detection */}
+                <div className={`mt-2.5 p-2.5 rounded-xl border flex items-center justify-between text-xs transition ${
+                  detectedZone ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-700'
+                }`}>
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Lies In Master Polygon:</span>
+                  </div>
+                  <div className="font-extrabold flex items-center gap-1.5">
+                    {detectedZone ? (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span className="text-emerald-800">✅ {detectedZone.name} ({detectedZone.code})</span>
+                      </>
+                    ) : (
+                      <span className="text-slate-500 font-semibold">📍 Outside defined master polygons</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Retailer Delivery Zone Configuration */}
+                <div className="mt-2.5 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                      <span>🛵 Retailer Delivery Zone (Store Coverage Radius)</span>
+                    </label>
+                    <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                      {formData.deliveryRadiusKm || 5} km Delivery Radius
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">Store Delivery Radius (km)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={formData.deliveryRadiusKm || 5}
+                        onChange={(e) => setFormData({ ...formData, deliveryRadiusKm: Number(e.target.value) })}
+                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">Store Admin Email / Username</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. manager@alfatah.pk"
+                        value={formData.managerEmail || ''}
+                        onChange={(e) => setFormData({ ...formData, managerEmail: e.target.value })}
+                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

@@ -1014,6 +1014,16 @@ export const SuperAdminDashboard = () => {
                   {gisStats.totalStores}
                 </span>
               </button>
+              <button
+                onClick={() => setActiveNav('admins')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('admins')}`}
+              >
+                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                <span>Branch Admins</span>
+                <span className="ml-auto text-[9px] bg-amber-950 text-amber-300 border border-amber-800/50 px-1.5 py-0.5 rounded font-bold">
+                  Passwords
+                </span>
+              </button>
             </div>
           </div>
 
