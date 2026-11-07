@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   X,
   Compass,
-  Sparkles
+  Sparkles,
+  Plus
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
