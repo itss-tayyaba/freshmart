@@ -16,10 +16,22 @@
     "deliveryRadius": 3.5,
     "deliveryStatus": "active",
     "deliveryTiers": [
-      { "distanceKm": 1, "fee": 0 },
-      { "distanceKm": 2, "fee": 50 },
-      { "distanceKm": 3, "fee": 100 },
-      { "distanceKm": 5, "fee": 150 }
+      {
+        "distanceKm": 1,
+        "fee": 0
+      },
+      {
+        "distanceKm": 2,
+        "fee": 50
+      },
+      {
+        "distanceKm": 3,
+        "fee": 100
+      },
+      {
+        "distanceKm": 5,
+        "fee": 150
+      }
     ],
     "operatingHours": "09:00 AM - 11:30 PM",
     "status": "active"
@@ -36,14 +48,23 @@
     "manager": "Usman Ghani",
     "phone": "+92 41 8543344",
     "latitude": 31.4055,
-    "longitude": 73.1190,
-    "deliveryRadiusKm": 3.0,
-    "deliveryRadius": 3.0,
+    "longitude": 73.119,
+    "deliveryRadiusKm": 3,
+    "deliveryRadius": 3,
     "deliveryStatus": "inactive",
     "deliveryTiers": [
-      { "distanceKm": 1, "fee": 0 },
-      { "distanceKm": 3, "fee": 80 },
-      { "distanceKm": 5, "fee": 150 }
+      {
+        "distanceKm": 1,
+        "fee": 0
+      },
+      {
+        "distanceKm": 3,
+        "fee": 80
+      },
+      {
+        "distanceKm": 5,
+        "fee": 150
+      }
     ],
     "operatingHours": "09:00 AM - 11:30 PM",
     "status": "active"
@@ -65,10 +86,22 @@
     "deliveryRadius": 5.2,
     "deliveryStatus": "active",
     "deliveryTiers": [
-      { "distanceKm": 1, "fee": 0 },
-      { "distanceKm": 2, "fee": 50 },
-      { "distanceKm": 3, "fee": 100 },
-      { "distanceKm": 5, "fee": 150 }
+      {
+        "distanceKm": 1,
+        "fee": 0
+      },
+      {
+        "distanceKm": 2,
+        "fee": 50
+      },
+      {
+        "distanceKm": 3,
+        "fee": 100
+      },
+      {
+        "distanceKm": 5,
+        "fee": 150
+      }
     ],
     "operatingHours": "09:30 AM - 11:00 PM",
     "status": "active"
@@ -86,13 +119,22 @@
     "phone": "+92 41 8712200",
     "latitude": 31.3932,
     "longitude": 73.0975,
-    "deliveryRadiusKm": 3.0,
-    "deliveryRadius": 3.0,
+    "deliveryRadiusKm": 3,
+    "deliveryRadius": 3,
     "deliveryStatus": "inactive",
     "deliveryTiers": [
-      { "distanceKm": 1, "fee": 0 },
-      { "distanceKm": 2, "fee": 50 },
-      { "distanceKm": 5, "fee": 140 }
+      {
+        "distanceKm": 1,
+        "fee": 0
+      },
+      {
+        "distanceKm": 2,
+        "fee": 50
+      },
+      {
+        "distanceKm": 5,
+        "fee": 140
+      }
     ],
     "operatingHours": "09:30 AM - 11:00 PM",
     "status": "active"
@@ -108,15 +150,24 @@
     "address": "Jaranwala Road Wholesale Terminal, Near D-Ground, Faisalabad",
     "manager": "Farhan Case Value",
     "phone": "+92 41 8729900",
-    "latitude": 31.4360,
+    "latitude": 31.436,
     "longitude": 73.1795,
-    "deliveryRadiusKm": 4.0,
-    "deliveryRadius": 4.0,
+    "deliveryRadiusKm": 4,
+    "deliveryRadius": 4,
     "deliveryStatus": "active",
     "deliveryTiers": [
-      { "distanceKm": 1, "fee": 0 },
-      { "distanceKm": 2, "fee": 40 },
-      { "distanceKm": 5, "fee": 120 }
+      {
+        "distanceKm": 1,
+        "fee": 0
+      },
+      {
+        "distanceKm": 2,
+        "fee": 40
+      },
+      {
+        "distanceKm": 5,
+        "fee": 120
+      }
     ],
     "operatingHours": "10:00 AM - 11:00 PM",
     "status": "active"
@@ -132,15 +183,24 @@
     "address": "Main Commercial Market, Ghulam Muhammad Abad, Faisalabad",
     "manager": "Khurram Shehzad",
     "phone": "+92 41 2684400",
-    "latitude": 31.4360,
-    "longitude": 73.0650,
-    "deliveryRadiusKm": 3.0,
-    "deliveryRadius": 3.0,
+    "latitude": 31.436,
+    "longitude": 73.065,
+    "deliveryRadiusKm": 3,
+    "deliveryRadius": 3,
     "deliveryStatus": "inactive",
     "deliveryTiers": [
-      { "distanceKm": 1, "fee": 0 },
-      { "distanceKm": 3, "fee": 60 },
-      { "distanceKm": 5, "fee": 120 }
+      {
+        "distanceKm": 1,
+        "fee": 0
+      },
+      {
+        "distanceKm": 3,
+        "fee": 60
+      },
+      {
+        "distanceKm": 5,
+        "fee": 120
+      }
     ],
     "operatingHours": "10:00 AM - 11:00 PM",
     "status": "active"
@@ -157,15 +217,27 @@
     "manager": "Aimen Yasin",
     "phone": "+92 41 8540099",
     "latitude": 31.4015,
-    "longitude": 73.0830,
+    "longitude": 73.083,
     "deliveryRadiusKm": 3.5,
     "deliveryRadius": 3.5,
     "deliveryStatus": "active",
     "deliveryTiers": [
-      { "distanceKm": 1, "fee": 0 },
-      { "distanceKm": 2, "fee": 30 },
-      { "distanceKm": 3, "fee": 60 },
-      { "distanceKm": 5, "fee": 100 }
+      {
+        "distanceKm": 1,
+        "fee": 0
+      },
+      {
+        "distanceKm": 2,
+        "fee": 30
+      },
+      {
+        "distanceKm": 3,
+        "fee": 60
+      },
+      {
+        "distanceKm": 5,
+        "fee": 100
+      }
     ],
     "operatingHours": "07:30 AM - 12:00 AM",
     "status": "active"
@@ -183,15 +255,57 @@
     "phone": "+92 41 8731155",
     "latitude": 31.4286,
     "longitude": 73.1235,
-    "deliveryRadiusKm": 3.0,
-    "deliveryRadius": 3.0,
+    "deliveryRadiusKm": 3,
+    "deliveryRadius": 3,
     "deliveryStatus": "inactive",
     "deliveryTiers": [
-      { "distanceKm": 1, "fee": 0 },
-      { "distanceKm": 3, "fee": 50 },
-      { "distanceKm": 5, "fee": 100 }
+      {
+        "distanceKm": 1,
+        "fee": 0
+      },
+      {
+        "distanceKm": 3,
+        "fee": 50
+      },
+      {
+        "distanceKm": 5,
+        "fee": 100
+      }
     ],
     "operatingHours": "07:30 AM - 12:00 AM",
+    "status": "active"
+  },
+  {
+    "_id": "STR-CHA-3330",
+    "id": "STR-CHA-3330",
+    "tenantId": "tenant-chasevalue",
+    "companyId": "company_003",
+    "code": "CV-FSD-03",
+    "name": "Chase Value - main",
+    "city": "Faisalabad",
+    "address": "main, Faisalabad, Pakistan",
+    "manager": "Chase Value Manager",
+    "phone": "+92 300 0000000",
+    "latitude": 31.425,
+    "longitude": 73.09,
+    "deliveryRadiusKm": 5,
+    "deliveryRadius": 5,
+    "deliveryStatus": "active",
+    "deliveryTiers": [
+      {
+        "distanceKm": 1,
+        "fee": 0
+      },
+      {
+        "distanceKm": 3,
+        "fee": 50
+      },
+      {
+        "distanceKm": 5,
+        "fee": 100
+      }
+    ],
+    "operatingHours": "08:00 AM - 11:00 PM",
     "status": "active"
   }
 ]

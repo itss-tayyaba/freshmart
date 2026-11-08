@@ -25,12 +25,13 @@ import {
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
 import { calculateDistanceKm } from '../../../data/pakistanLocations';
+import { getAllUnifiedStores } from '../../../utils/storeHelper';
 
 export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateToZones = null }) => {
-  const { addToast } = useStore();
+  const { allBranches = [], addToast } = useStore();
 
   const [zones, setZones] = useState([]);
-  const [stores, setStores] = useState([]);
+  const [stores, setStores] = useState(() => getAllUnifiedStores([], allBranches));
   const [assignments, setAssignments] = useState([]);
   const [selectedZoneId, setSelectedZoneId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -126,31 +127,15 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         }
       }
 
-      if (storesRes?.success && Array.isArray(storesRes.stores)) {
-        let storeList = storesRes.stores;
-        try {
-          const raw = localStorage.getItem('freshmart_custom_stores');
-          const localCustom = (raw ? JSON.parse(raw) : []).filter((s) => !String(s.storeId || s._id).endsWith('-TEST'));
-          try {
-            localStorage.setItem('freshmart_custom_stores', JSON.stringify(localCustom));
-          } catch {}
-
-          const m = new Map();
-          storeList.forEach((s) => m.set(s.storeId || s._id, s));
-          localCustom.forEach((s) => {
-            const id = s.storeId || s._id;
-            if (!m.has(id)) m.set(id, s);
-          });
-          storeList = Array.from(m.values());
-        } catch {}
-        setStores(deduplicateStores(storeList));
-      }
+      const unifiedStores = getAllUnifiedStores(storesRes?.stores, allBranches);
+      setStores(unifiedStores);
 
       if (assignRes?.success && Array.isArray(assignRes.assignments)) {
         setAssignments(assignRes.assignments);
       }
     } catch (err) {
       console.warn('Assignments load error:', err.message);
+      setStores(getAllUnifiedStores([], allBranches));
     } finally {
       setIsLoading(false);
     }
@@ -158,7 +143,15 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [allBranches]);
+
+  useEffect(() => {
+    const handleStoresUpdated = () => {
+      setStores(getAllUnifiedStores([], allBranches));
+    };
+    window.addEventListener('freshmart_stores_updated', handleStoresUpdated);
+    return () => window.removeEventListener('freshmart_stores_updated', handleStoresUpdated);
+  }, [allBranches]);
 
   // Currently selected Zone Object
   const activeZone = useMemo(() => {

@@ -25,6 +25,13 @@ import {
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
 import { switchMapTileLayer } from '../../../utils/mapTiles';
+import {
+  getAllUnifiedStores,
+  saveLocalCustomStore,
+  removeLocalCustomStore,
+  CORE_RETAILERS,
+  BASELINE_FIVE_STORES
+} from '../../../utils/storeHelper';
 
 export const StoreManagementView = () => {
   const {
@@ -34,7 +41,7 @@ export const StoreManagementView = () => {
     addToast
   } = useStore();
 
-  const [stores, setStores] = useState([]);
+  const [stores, setStores] = useState(() => getAllUnifiedStores([], allBranches));
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRetailerFilter, setSelectedRetailerFilter] = useState('all');
@@ -233,51 +240,15 @@ export const StoreManagementView = () => {
         apiService.getZones()
       ]);
 
-      let fetched = [];
-      if (res && res.success && Array.isArray(res.stores) && res.stores.length > 0) {
-        fetched = res.stores;
-      } else if (allBranches && allBranches.length > 0) {
-        // Fallback to allBranches formatted
-        fetched = allBranches.map((b) => ({
-          storeId: b._id || b.id,
-          _id: b._id || b.id,
-          tenantId: b.tenantId,
-          tenantName: b.tenantName || b.name,
-          name: b.name,
-          branchName: b.name,
-          address: b.address || `${b.city}, Pakistan`,
-          city: b.city || 'Faisalabad',
-          latitude: Number(b.latitude || 31.4125),
-          longitude: Number(b.longitude || 73.0995),
-          contactNumber: b.phone || '+92 300 0000000',
-          openingHours: '08:00 AM',
-          closingHours: '11:00 PM',
-          deliveryRadiusKm: Number(b.deliveryRadiusKm || b.deliveryRadius || 5),
-          storeImage: b.banner || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
-          status: b.status || 'active',
-          isActive: String(b.status || 'active').toLowerCase() === 'active',
-          operatingStatus: 'Open'
-        }));
-      } else {
-        fetched = [...BASELINE_FOUR_STORES];
-      }
-
-      // Clean local storage if it had -TEST stores
-      const localCustom = loadLocalCustomStores().filter((s) => !String(s.storeId || s._id).endsWith('-TEST'));
-      try {
-        localStorage.setItem('freshmart_custom_stores', JSON.stringify(localCustom));
-      } catch {}
-
-      const allMerged = [...BASELINE_FOUR_STORES, ...fetched, ...localCustom];
-      const deduped = deduplicateStores(allMerged);
-      setStores(deduped);
+      const allMerged = getAllUnifiedStores(res?.stores, allBranches);
+      setStores(allMerged);
 
       if (zonesRes && zonesRes.success && Array.isArray(zonesRes.zones)) {
         setZones(zonesRes.zones);
       }
     } catch (e) {
       console.warn('Stores fetch error:', e.message);
-      setStores([...BASELINE_FOUR_STORES]);
+      setStores(getAllUnifiedStores([], allBranches));
     } finally {
       setIsLoading(false);
     }
@@ -645,13 +616,18 @@ export const StoreManagementView = () => {
     if (!storeToDelete) return;
     try {
       const id = storeToDelete.storeId || storeToDelete._id;
+      removeLocalCustomStore(id);
       const res = await apiService.deleteStore(id);
       if (res && res.success) {
         if (addToast) addToast(`Store ${storeToDelete.name} deleted successfully.`, 'success');
-        setStores((prev) => prev.filter((s) => s.storeId !== id && s._id !== id));
-        setStoreToDelete(null);
       }
+      setStores((prev) => prev.filter((s) => s.storeId !== id && s._id !== id));
+      setStoreToDelete(null);
     } catch (e) {
+      const id = storeToDelete.storeId || storeToDelete._id;
+      removeLocalCustomStore(id);
+      setStores((prev) => prev.filter((s) => s.storeId !== id && s._id !== id));
+      setStoreToDelete(null);
       if (addToast) addToast(e.message, 'error');
     }
   };

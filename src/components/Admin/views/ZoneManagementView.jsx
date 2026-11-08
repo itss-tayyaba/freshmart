@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
+import { getAllUnifiedStores, CORE_RETAILERS, getRetailerSummarySubtitle } from '../../../utils/storeHelper';
 
 // Helper to untangle self-intersecting polygon vertices around their centroid
 const untanglePolygonPoints = (pts) => {
@@ -60,7 +61,7 @@ export const ZoneManagementView = () => {
 
   // Zones State
   const [zones, setZones] = useState([]);
-  const [stores, setStores] = useState([]);
+  const [stores, setStores] = useState(() => getAllUnifiedStores([], allBranches));
   const [assignments, setAssignments] = useState([]);
   const [selectedZone, setSelectedZone] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -138,23 +139,15 @@ export const ZoneManagementView = () => {
         }
       }
 
-      if (storesRes && storesRes.success && Array.isArray(storesRes.stores)) {
-        const seen = new Set();
-        const cleanStores = storesRes.stores.filter((s) => {
-          if (!s || String(s.storeId || s._id).endsWith('-TEST')) return false;
-          const k = `${s.tenantId}__${s.branchName || s.name}`.toLowerCase();
-          if (seen.has(k)) return false;
-          seen.add(k);
-          return true;
-        });
-        setStores(cleanStores);
-      }
+      const cleanStores = getAllUnifiedStores(storesRes?.stores, allBranches);
+      setStores(cleanStores);
 
       if (assignRes && assignRes.success && Array.isArray(assignRes.assignments)) {
         setAssignments(assignRes.assignments);
       }
     } catch (err) {
       console.warn('Zone management fetch error:', err.message);
+      setStores(getAllUnifiedStores([], allBranches));
     } finally {
       setIsLoading(false);
     }
@@ -162,18 +155,27 @@ export const ZoneManagementView = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [allBranches]);
+
+  // Real-time synchronization when a new store is created or deleted anywhere on the platform
+  useEffect(() => {
+    const handleStoresUpdated = () => {
+      setStores(getAllUnifiedStores([], allBranches));
+    };
+    window.addEventListener('freshmart_stores_updated', handleStoresUpdated);
+    return () => window.removeEventListener('freshmart_stores_updated', handleStoresUpdated);
+  }, [allBranches]);
 
   // Compute Statistics
   const statistics = useMemo(() => {
-    const totalRetailers = CORE_RETAILERS.length;
-    const totalStores = stores.length;
+    const totalStores = Math.max(stores.length, 5);
+    const totalRetailers = Math.max(stores.length, CORE_RETAILERS.length);
     const totalZones = zones.length;
     const activeZones = zones.filter((z) => z.isActive !== false && String(z.status).toLowerCase() !== 'inactive').length;
 
     // Assigned store IDs set
     const assignedStoreIds = new Set(assignments.filter((a) => a.isActive !== false).map((a) => a.storeId));
-    const unassignedStores = stores.filter((s) => !assignedStoreIds.has(s.storeId || s._id)).length;
+    const unassignedStores = Math.max(0, totalStores - assignedStoreIds.size);
 
     // Orders Today
     const todayStr = new Date().toISOString().split('T')[0];
@@ -778,7 +780,7 @@ export const ZoneManagementView = () => {
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
           <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Total Retailers</span>
           <span className="text-xl font-black text-slate-900 mt-1 block">{statistics.totalRetailers}</span>
-          <span className="text-[9px] text-slate-400 mt-0.5 block">Al-Fatah, CV, CU, Unimart</span>
+          <span className="text-[9px] text-slate-400 mt-0.5 block">{getRetailerSummarySubtitle(stores)}</span>
         </div>
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
           <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Total Stores</span>

@@ -62,6 +62,7 @@ import { StoreManagementView } from '../Admin/views/StoreManagementView';
 import { ZoneManagementView } from '../Admin/views/ZoneManagementView';
 import { ZoneStoreAssignmentView } from '../Admin/views/ZoneStoreAssignmentView';
 import { DeliveryView } from '../Admin/views/DeliveryView';
+import { getAllUnifiedStores, BASELINE_FIVE_STORES } from '../../utils/storeHelper';
 
 export const SuperAdminDashboard = () => {
   const {
@@ -69,6 +70,7 @@ export const SuperAdminDashboard = () => {
     setTenants,
     currentTenant,
     setCurrentTenant,
+    allBranches = [],
     addTenant,
     inviteTenant,
     approveTenant,
@@ -107,7 +109,7 @@ export const SuperAdminDashboard = () => {
 
   // Live GIS & Multi-Store Data State
   const [liveZones, setLiveZones] = useState([]);
-  const [liveStores, setLiveStores] = useState([]);
+  const [liveStores, setLiveStores] = useState(() => getAllUnifiedStores([], allBranches));
   const [liveAssignments, setLiveAssignments] = useState([]);
 
   useEffect(() => {
@@ -119,22 +121,24 @@ export const SuperAdminDashboard = () => {
           apiService.getAllAssignments()
         ]);
         if (zRes?.success && Array.isArray(zRes.zones)) setLiveZones(zRes.zones);
-        if (sRes?.success && Array.isArray(sRes.stores)) {
-          const seen = new Set();
-          const cleanStores = sRes.stores.filter((s) => {
-            if (!s || String(s.storeId || s._id).endsWith('-TEST')) return false;
-            const k = `${s.tenantId}__${s.branchName || s.name}`.toLowerCase();
-            if (seen.has(k)) return false;
-            seen.add(k);
-            return true;
-          });
-          setLiveStores(cleanStores);
-        }
+        const cleanStores = getAllUnifiedStores(sRes?.stores, allBranches);
+        setLiveStores(cleanStores);
         if (aRes?.success && Array.isArray(aRes.assignments)) setLiveAssignments(aRes.assignments);
-      } catch (e) {}
+      } catch (e) {
+        setLiveStores(getAllUnifiedStores([], allBranches));
+      }
     };
     fetchPlatformGisData();
-  }, [activeNav]);
+  }, [activeNav, allBranches]);
+
+  // Real-time synchronization when a store is added or removed across the application
+  useEffect(() => {
+    const handleStoresUpdated = () => {
+      setLiveStores(getAllUnifiedStores([], allBranches));
+    };
+    window.addEventListener('freshmart_stores_updated', handleStoresUpdated);
+    return () => window.removeEventListener('freshmart_stores_updated', handleStoresUpdated);
+  }, [allBranches]);
 
   // Modals visibility
   const [isAddTenantOpen, setIsAddTenantOpen] = useState(false);
@@ -381,8 +385,8 @@ export const SuperAdminDashboard = () => {
   // SUPER ADMIN GIS & MULTI-STORE STATISTICS (MODULE 1 REQUIREMENTS)
   // =========================================================================
   const gisStats = useMemo(() => {
-    const totalRetailers = displayStores.length || 4;
-    const totalStores = (liveStores && liveStores.length > 0) ? liveStores.length : 4;
+    const totalStores = Math.max(liveStores.length, 5);
+    const totalRetailers = Math.max(displayStores.length, totalStores);
     const totalZones = (liveZones && Array.isArray(liveZones)) ? liveZones.length : 0;
     const activeZones = (liveZones && Array.isArray(liveZones))
       ? liveZones.filter((z) => z.isActive !== false && String(z.status).toLowerCase() !== 'inactive').length
@@ -1011,7 +1015,7 @@ export const SuperAdminDashboard = () => {
                 <Store className="w-4 h-4 text-emerald-400" />
                 <span>Retailers</span>
                 <span className="ml-auto text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800/50 px-1.5 py-0.5 rounded font-bold">
-                  {displayStores.length}
+                  {gisStats.totalRetailers}
                 </span>
               </button>
               <button
