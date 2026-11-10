@@ -402,13 +402,13 @@ const LocationModalContent = () => {
           `<div style="font-family: inherit; font-size: 11px; max-width: 240px;">
              <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 2px;">
                <span style="font-size: 14px;">🏬</span>
-               <strong style="color: ${color}; font-size: 12px;">Store Area Polygon: ${z.name}</strong>
+               <strong style="color: ${color}; font-size: 12px;">Delivery Zone: ${z.name}</strong>
              </div>
              <div style="font-size: 10px; color: #475569; margin-top: 2px;">
-               📍 <strong>Where partner stores lie:</strong> ${storesServingText}
+               📍 <strong>Serving Stores:</strong> ${storesServingText}
              </div>
              <div style="font-size: 9px; color: #0284c7; font-weight: bold; margin-top: 3px;">
-               ${isCustomerInside ? '✓ Your pin is within this store cluster area' : 'Supermarket Commercial Area • Base Delivery: Rs. ' + (z.deliveryCharge || 70)}
+               ${isCustomerInside ? '✓ Your pin is inside this delivery zone' : 'Delivery Rate: Rs. ' + (z.deliveryCharge || 70)}
              </div>
            </div>`,
           { sticky: true }
@@ -751,150 +751,7 @@ const LocationModalContent = () => {
             </div>
           </div>
 
-          {/* 📐 TWO CORE GEOFENCE CONCEPTS: 1. STORE AREA POLYGON vs 2. STORE DELIVERY ZONES */}
-          <div className="mt-2.5 space-y-2.5 bg-slate-50/90 dark:bg-slate-900/60 p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-            {/* Concept 1: Store Area Polygon (Where stores lie) */}
-            {deliveryZones.length > 0 && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                    <span className="text-amber-600">🏬</span>
-                    <span>1. Store Area Polygon (Where stores lie):</span>
-                  </span>
-                  <span className="text-[10px] text-amber-700 font-bold bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
-                    Store Hub Area
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
-                  {deliveryZones.map((z) => {
-                    const rawRing = z.geometry?.coordinates?.[0] || z.coordinates?.[0] || z.coordinates || [];
-                    const latLngs = (Array.isArray(rawRing) ? rawRing : [])
-                      .map(normalizeLatLng)
-                      .filter(Boolean)
-                      .map((p) => [p.lat, p.lng]);
-                    const isPinInZone = latLngs.length > 0 && isPointInPolygon({ lat: currentCoords.lat, lng: currentCoords.lng }, latLngs);
-                    const color = z.color || '#10b981';
 
-                    return (
-                      <button
-                        key={z.zoneId}
-                        type="button"
-                        onClick={() => {
-                          if (latLngs.length > 0) {
-                            let sumLat = 0, sumLng = 0;
-                            latLngs.forEach(([lt, lg]) => { sumLat += lt; sumLng += lg; });
-                            const cLat = sumLat / latLngs.length;
-                            const cLng = sumLng / latLngs.length;
-                            handleUpdateCoords(cLat, cLng);
-                            if (mapInstanceRef.current) {
-                              mapInstanceRef.current.flyTo([cLat, cLng], 14, { duration: 0.8 });
-                            }
-                            addToast('Store Area Polygon 🏬', `Centered at ${z.name} (Where partner stores lie)`);
-                          }
-                        }}
-                        className={`px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
-                          isPinInZone
-                            ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
-                            : 'bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
-                        }`}
-                        title={`Store Area Polygon: ${z.name} (Where partner stores lie)`}
-                      >
-                        <span
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: isPinInZone ? '#ffffff' : color }}
-                        />
-                        <span>{z.name}</span>
-                        <span
-                          className={`text-[9px] font-mono px-1 py-0.2 rounded ${
-                            isPinInZone ? 'bg-amber-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                          }`}
-                        >
-                          Hub
-                        </span>
-                        {isPinInZone && <Check className="w-3 h-3 text-white" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Concept 2: Store Delivery Zones (Where each store delivers) */}
-            <div className="space-y-1 pt-0.5">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <span className="text-emerald-600">🛵</span>
-                  <span>2. Store Delivery Zones (Where each store delivers):</span>
-                </span>
-                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                  Customer Reach
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
-                {(nearbyStores || []).map((st) => {
-                  const rawPoly = st.nearestBranch?.deliveryPolygon;
-                  const ring = (Array.isArray(rawPoly?.[0]) && Array.isArray(rawPoly[0][0])) ? rawPoly[0] : rawPoly;
-                  const polyLatLngs = (Array.isArray(ring) && ring.length >= 3)
-                    ? ring.map(normalizeLatLng).filter(Boolean).map((p) => [p.lat, p.lng])
-                    : [];
-                  
-                  const isPinInZone = st.isDeliverable;
-                  const color = st.color || '#0284c7';
-
-                  return (
-                    <button
-                      key={st.id}
-                      type="button"
-                      onClick={() => {
-                        // Snap user directly inside this store's delivery zone
-                        let targetLat, targetLng;
-                        if (polyLatLngs.length >= 3) {
-                          let sumLat = 0, sumLng = 0;
-                          polyLatLngs.forEach(([lt, lg]) => { sumLat += lt; sumLng += lg; });
-                          targetLat = Number((sumLat / polyLatLngs.length).toFixed(5));
-                          targetLng = Number((sumLng / polyLatLngs.length).toFixed(5));
-                        } else {
-                          const bLat = Number(st.nearestBranch?.latitude ?? st.nearestBranch?.coordinates?.lat);
-                          const bLng = Number(st.nearestBranch?.longitude ?? st.nearestBranch?.coordinates?.lng);
-                          if (Number.isFinite(bLat) && Number.isFinite(bLng)) {
-                            targetLat = Number((bLat + 0.005).toFixed(5));
-                            targetLng = Number((bLng + 0.005).toFixed(5));
-                          }
-                        }
-
-                        if (Number.isFinite(targetLat) && Number.isFinite(targetLng)) {
-                          handleUpdateCoords(targetLat, targetLng);
-                          setSelectedStoreId(st.id);
-                          if (mapInstanceRef.current) {
-                            mapInstanceRef.current.flyTo([targetLat, targetLng], 14, { duration: 0.8 });
-                          }
-                          addToast('Store Delivery Zone 🛵', `Moved location inside ${st.displayName || st.name} delivery zone. Ready to order!`);
-                        }
-                      }}
-                      className={`px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
-                        isPinInZone
-                          ? 'text-white shadow-xs'
-                          : 'bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
-                      }`}
-                      style={isPinInZone ? { backgroundColor: color, borderColor: color } : {}}
-                      title={`Deliver from ${st.displayName || st.name} (Coverage reach to customer doorsteps)`}
-                    >
-                      <span>{st.logo || '🏬'}</span>
-                      <span>{st.displayName || st.name} Delivery Zone</span>
-                      {isPinInZone ? (
-                        <span className="flex items-center gap-0.5 text-[9px] bg-black/25 px-1 py-0.2 rounded font-mono">
-                          <Check className="w-2.5 h-2.5 text-white" />
-                          <span>Inside</span>
-                        </span>
-                      ) : (
-                        <span className="text-[9px] text-slate-400 font-mono">Snap Pin</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
 
           {/* Delivery Zone Notice for Far Locations */}
           {isOutsideDeliveryZone && (
