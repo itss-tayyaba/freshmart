@@ -380,7 +380,7 @@ const LocationModalContent = () => {
         const isCustomerInside = isPointInPolygon({ lat: currentCoords.lat, lng: currentCoords.lng }, latLngs);
 
         // Find which stores lie within or serve this master polygon
-        const storesInZone = storesToRender.filter((st) => {
+        const storesInZone = (nearbyStores || []).filter((st) => {
           const bLat = Number(st.nearestBranch?.latitude ?? st.nearestBranch?.coordinates?.lat);
           const bLng = Number(st.nearestBranch?.longitude ?? st.nearestBranch?.coordinates?.lng);
           return isPointInPolygon({ lat: bLat, lng: bLng }, latLngs);
