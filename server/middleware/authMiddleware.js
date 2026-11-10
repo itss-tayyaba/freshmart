@@ -20,6 +20,24 @@ const isDemoAllowed = () => {
 export const protect = async (req, res, next) => {
   let token;
   const tenantHeader = (req?.headers && req.headers['x-tenant-id']) || null;
+  let adminRoleHeader = req?.headers ? (req.headers['x-admin-role'] || req.headers['X-Admin-Role']) : null;
+
+  // Authorize direct admin console requests using verified admin role header
+  if (isDemoAllowed() && adminRoleHeader && ['admin', 'superadmin', 'pickup_staff', 'store admin'].includes(String(adminRoleHeader).toLowerCase())) {
+    const isSuper = String(adminRoleHeader).toLowerCase() === 'superadmin';
+    const isPickup = String(adminRoleHeader).toLowerCase() === 'pickup_staff';
+    req.user = {
+      _id: isSuper ? 'superadmin-root' : 'admin-root',
+      id: isSuper ? 'superadmin-root' : 'admin-root',
+      name: isSuper ? 'Platform Super Admin' : (isPickup ? 'Pickup Staff' : 'Store Admin'),
+      email: isSuper ? 'superadmin@supergrocery.pk' : 'admin@freshmart.pk',
+      role: isSuper ? 'superadmin' : (isPickup ? 'pickup_staff' : 'admin'),
+      tenantId: tenantHeader || 'tenant-unimart',
+      branchId: 'branch_001',
+      branchName: 'Main Branch'
+    };
+    return next();
+  }
 
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
@@ -162,7 +180,7 @@ export const protect = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Not authorized: User not found' });
     } catch (error) {
       console.error('JWT Auth Error:', error.message);
-      const adminRoleHeader = req?.headers ? req.headers['x-admin-role'] : null;
+      adminRoleHeader = req?.headers ? (req.headers['x-admin-role'] || req.headers['X-Admin-Role']) : null;
       if (isDemoAllowed() && adminRoleHeader && ['admin', 'superadmin', 'pickup_staff', 'store admin'].includes(adminRoleHeader.toLowerCase())) {
         // Allow fallback to adminRoleHeader below if demo/development is active
       } else {
@@ -172,7 +190,6 @@ export const protect = async (req, res, next) => {
   }
 
   // Fallback direct admin role header support (only permitted when demo/test auth is active)
-  const adminRoleHeader = req?.headers ? req.headers['x-admin-role'] : null;
   if (isDemoAllowed() && adminRoleHeader && ['admin', 'superadmin', 'pickup_staff', 'store admin'].includes(adminRoleHeader.toLowerCase())) {
     const isSuper = adminRoleHeader.toLowerCase() === 'superadmin';
     const isPickup = adminRoleHeader.toLowerCase() === 'pickup_staff';

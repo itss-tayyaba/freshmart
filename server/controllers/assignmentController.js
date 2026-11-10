@@ -4,8 +4,8 @@ import { ZoneStore } from '../models/ZoneStore.js';
 import { Store } from '../models/Store.js';
 import { DeliveryZone } from '../models/DeliveryZone.js';
 import { isDbOnline } from '../config/db.js';
-import { loadDiskStores } from './storeController.js';
-import { loadDiskZones } from './zoneController.js';
+import { loadDiskStores, saveDiskStores } from './storeController.js';
+import { loadDiskZones, saveDiskZones } from './zoneController.js';
 import { calculateDistanceToZoneKm } from '../utils/gisValidator.js';
 import { resolveRetailerId, getRetailerDetails } from '../utils/retailerHelper.js';
 import { BRANCHES } from '../../src/data/companyHierarchyData.js';
@@ -152,19 +152,30 @@ export const assignStoresToZone = async (req, res) => {
     let dbZone = null;
     if (isDbOnline()) {
       try {
-        dbZone = await DeliveryZone.findOne({ zoneId }).lean();
+        dbZone = await DeliveryZone.findOne({
+          $or: [{ zoneId }, { _id: zoneId }, { code: zoneId }]
+        }).lean();
       } catch (e) {}
     }
-    const zone = dbZone || diskZones.find((z) => z.zoneId === zoneId);
+    const zone = dbZone || diskZones.find((z) =>
+      z.zoneId === zoneId || z._id === zoneId || z.code === zoneId ||
+      String(z.zoneId || '').toLowerCase() === String(zoneId || '').toLowerCase()
+    );
 
-    const allStores = [...BRANCHES, ...loadDiskStores()];
+    const diskStores = loadDiskStores();
+    const allStores = [...BRANCHES, ...diskStores];
     const currentAssignments = await getAllAssignmentsMerged();
 
     const results = [];
     const warnings = [];
 
     for (const sId of idsToAssign) {
-      const store = allStores.find((s) => (s.storeId || s._id || s.id) === sId);
+      const cleanSId = String(sId || '').toLowerCase();
+      const store = allStores.find((s) =>
+        (s.storeId || s._id || s.id) === sId ||
+        String(s.storeId || '').toLowerCase() === cleanSId ||
+        String(s._id || '').toLowerCase() === cleanSId
+      );
       const tenantId = resolveRetailerId(store?.tenantId || 'tenant-unimart');
 
       // Proximity check: warn if store is > 12 km from zone polygon
@@ -180,12 +191,8 @@ export const assignStoresToZone = async (req, res) => {
         }
       }
 
-      // Check if assignment already exists
-      const key = `${zoneId}__${sId}`;
-      const existing = currentAssignments.find((a) => a.zoneId === zoneId && a.storeId === sId);
-
       const assignmentRecord = {
-        zoneId,
+        zoneId: zone?.zoneId || zoneId,
         storeId: sId,
         tenantId,
         isActive: true,
@@ -196,7 +203,7 @@ export const assignStoresToZone = async (req, res) => {
       if (isDbOnline()) {
         try {
           await ZoneStore.findOneAndUpdate(
-            { zoneId, storeId: sId },
+            { zoneId: assignmentRecord.zoneId, storeId: sId },
             assignmentRecord,
             { upsert: true, new: true }
           );
@@ -211,7 +218,10 @@ export const assignStoresToZone = async (req, res) => {
     // Save to disk assignments
     const disk = loadDiskAssignments();
     for (const r of results) {
-      const idx = disk.findIndex((a) => a.zoneId === r.zoneId && a.storeId === r.storeId);
+      const idx = disk.findIndex((a) =>
+        (a.zoneId === r.zoneId || String(a.zoneId).toLowerCase() === String(r.zoneId).toLowerCase()) &&
+        (a.storeId === r.storeId || String(a.storeId).toLowerCase() === String(r.storeId).toLowerCase())
+      );
       if (idx >= 0) {
         disk[idx] = r;
       } else {
@@ -219,6 +229,32 @@ export const assignStoresToZone = async (req, res) => {
       }
     }
     saveDiskAssignments(disk);
+
+    // Also update zone.assignedStoreId in zones_db.json
+    if (zone && idsToAssign.length > 0) {
+      const targetZoneId = zone.zoneId || zoneId;
+      const zoneIdx = diskZones.findIndex((z) => z.zoneId === targetZoneId || z._id === targetZoneId);
+      if (zoneIdx >= 0) {
+        diskZones[zoneIdx].assignedStoreId = idsToAssign[0];
+        saveDiskZones(diskZones);
+      }
+    }
+
+    // Also update store.assignedZoneId in stores_db.json
+    if (diskStores.length > 0) {
+      let storeUpdated = false;
+      for (const sId of idsToAssign) {
+        const cleanSId = String(sId).toLowerCase();
+        const sIdx = diskStores.findIndex((s) =>
+          String(s.storeId || s._id || '').toLowerCase() === cleanSId
+        );
+        if (sIdx >= 0) {
+          diskStores[sIdx].assignedZoneId = zone?.zoneId || zoneId;
+          storeUpdated = true;
+        }
+      }
+      if (storeUpdated) saveDiskStores(diskStores);
+    }
 
     return res.status(201).json({
       success: true,

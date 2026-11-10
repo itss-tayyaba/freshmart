@@ -150,8 +150,19 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     const handleStoresUpdated = () => {
       setStores(getAllUnifiedStores([], allBranches));
     };
+    const handleAssignmentsUpdated = (e) => {
+      if (e?.detail && Array.isArray(e.detail)) {
+        setAssignments(e.detail);
+      } else {
+        loadData();
+      }
+    };
     window.addEventListener('freshmart_stores_updated', handleStoresUpdated);
-    return () => window.removeEventListener('freshmart_stores_updated', handleStoresUpdated);
+    window.addEventListener('freshmart_assignments_updated', handleAssignmentsUpdated);
+    return () => {
+      window.removeEventListener('freshmart_stores_updated', handleStoresUpdated);
+      window.removeEventListener('freshmart_assignments_updated', handleAssignmentsUpdated);
+    };
   }, [allBranches]);
 
   // Currently selected Zone Object
@@ -162,17 +173,64 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   // Stores currently assigned to the active zone
   const assignedStoreIdsSet = useMemo(() => {
     if (!activeZone) return new Set();
-    const list = assignments.filter((a) => a.zoneId === activeZone.zoneId && a.isActive !== false);
-    return new Set(list.map((a) => a.storeId));
-  }, [assignments, activeZone]);
+    const targetZoneId = String(activeZone.zoneId || activeZone._id || activeZone.id || '').toLowerCase();
+    const targetCode = String(activeZone.code || '').toLowerCase();
+
+    const set = new Set();
+    assignments.forEach((a) => {
+      const aZoneId = String(a.zoneId || a._id || '').toLowerCase();
+      if ((aZoneId === targetZoneId || aZoneId === targetCode) && a.isActive !== false) {
+        if (a.storeId) set.add(String(a.storeId).toLowerCase());
+        if (a._id) set.add(String(a._id).toLowerCase());
+      }
+    });
+
+    if (activeZone.assignedStoreId) {
+      set.add(String(activeZone.assignedStoreId).toLowerCase());
+    }
+
+    stores.forEach((s) => {
+      if (s.assignedZoneId) {
+        const sZone = String(s.assignedZoneId).toLowerCase();
+        if (sZone === targetZoneId || sZone === targetCode) {
+          if (s.storeId) set.add(String(s.storeId).toLowerCase());
+          if (s._id) set.add(String(s._id).toLowerCase());
+        }
+      }
+    });
+
+    return set;
+  }, [assignments, activeZone, stores]);
+
+  const isStoreAssigned = (store) => {
+    if (!store || !activeZone) return false;
+    const sId = String(store.storeId || store._id || store.id || '').toLowerCase();
+    const directId = store._id ? String(store._id).toLowerCase() : null;
+    const directStoreId = store.storeId ? String(store.storeId).toLowerCase() : null;
+
+    if (
+      assignedStoreIdsSet.has(sId) ||
+      (directId && assignedStoreIdsSet.has(directId)) ||
+      (directStoreId && assignedStoreIdsSet.has(directStoreId))
+    ) {
+      return true;
+    }
+    if (store.assignedZoneId) {
+      const targetZoneId = String(activeZone.zoneId || activeZone._id || activeZone.id || '').toLowerCase();
+      const targetCode = String(activeZone.code || '').toLowerCase();
+      const sZone = String(store.assignedZoneId).toLowerCase();
+      if (sZone === targetZoneId || sZone === targetCode) return true;
+    }
+    return false;
+  };
 
   const assignedStores = useMemo(() => {
-    return stores.filter((s) => assignedStoreIdsSet.has(s.storeId || s._id));
-  }, [stores, assignedStoreIdsSet]);
+    return stores.filter(isStoreAssigned);
+  }, [stores, assignedStoreIdsSet, activeZone]);
 
   const unassignedStores = useMemo(() => {
-    return stores.filter((s) => !assignedStoreIdsSet.has(s.storeId || s._id));
-  }, [stores, assignedStoreIdsSet]);
+    return stores.filter((s) => !isStoreAssigned(s));
+  }, [stores, assignedStoreIdsSet, activeZone]);
 
   // Filtered Unassigned Stores available to assign
   const filteredUnassignedStores = useMemo(() => {
@@ -1058,7 +1116,25 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
             {zones.map((zone) => {
               const isSelected = activeZone?.zoneId === zone.zoneId;
-              const assignedCount = assignments.filter((a) => a.zoneId === zone.zoneId && a.isActive !== false).length;
+              const zId = String(zone.zoneId || zone._id || zone.id || '').toLowerCase();
+              const zCode = String(zone.code || '').toLowerCase();
+              const zoneAssignedSet = new Set();
+              assignments.forEach((a) => {
+                const aZ = String(a.zoneId || a._id || '').toLowerCase();
+                if ((aZ === zId || aZ === zCode) && a.isActive !== false && a.storeId) {
+                  zoneAssignedSet.add(String(a.storeId).toLowerCase());
+                }
+              });
+              if (zone.assignedStoreId) zoneAssignedSet.add(String(zone.assignedStoreId).toLowerCase());
+              stores.forEach((s) => {
+                if (s.assignedZoneId) {
+                  const sZ = String(s.assignedZoneId).toLowerCase();
+                  if (sZ === zId || sZ === zCode) {
+                    zoneAssignedSet.add(String(s.storeId || s._id).toLowerCase());
+                  }
+                }
+              });
+              const assignedCount = zoneAssignedSet.size;
               const color = zone.color || '#10b981';
 
               return (
@@ -1327,7 +1403,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                 String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
               ) || { name: 'Supermarket', color: '#059669', logo: '🏬' };
 
-              const isAssigned = assignedStoreIdsSet.has(sId);
+              const isAssigned = isStoreAssigned(store);
               const currAssignment = assignments.find((a) => a.zoneId === activeZone?.zoneId && a.storeId === sId);
 
               // Check if store physically lies inside active polygon

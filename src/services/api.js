@@ -1507,7 +1507,14 @@ export const apiService = {
       const data = await handleResponse(res);
       if (data && data.success && Array.isArray(data.assignments)) {
         try {
-          localStorage.setItem('freshmart_assignments', JSON.stringify(data.assignments));
+          const saved = localStorage.getItem('freshmart_assignments');
+          const local = saved ? JSON.parse(saved) : [];
+          const mergedMap = new Map();
+          local.forEach((a) => mergedMap.set(`${a.zoneId}__${a.storeId}`, a));
+          data.assignments.forEach((a) => mergedMap.set(`${a.zoneId}__${a.storeId}`, a));
+          const merged = Array.from(mergedMap.values());
+          localStorage.setItem('freshmart_assignments', JSON.stringify(merged));
+          data.assignments = merged;
         } catch (e) {}
       }
       return data;
@@ -1552,6 +1559,9 @@ export const apiService = {
         }
       }
       localStorage.setItem('freshmart_assignments', JSON.stringify(updated));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('freshmart_assignments_updated', { detail: updated }));
+      }
     } catch (e) {}
 
     try {
@@ -1576,6 +1586,9 @@ export const apiService = {
         const assignments = JSON.parse(saved);
         const updated = assignments.filter((a) => !(a.zoneId === zoneId && a.storeId === storeId));
         localStorage.setItem('freshmart_assignments', JSON.stringify(updated));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('freshmart_assignments_updated', { detail: updated }));
+        }
       }
     } catch (e) {}
     try {
