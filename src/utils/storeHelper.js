@@ -10,103 +10,103 @@ export const CORE_RETAILERS = [
 
 export const BASELINE_FOUR_STORES = [
   {
-    _id: 'STR-AF-001',
-    storeId: 'STR-AF-001',
-    tenantId: 'tenant-alfatah',
-    tenantName: 'Al-Fatah',
-    name: 'Al-Fatah - Peoples Colony Mega Store',
-    branchName: 'Peoples Colony Mega Store',
-    address: 'Main Commercial Avenue, Peoples Colony 1, Faisalabad',
-    city: 'Faisalabad',
-    latitude: 31.4125,
-    longitude: 73.0995,
-    location: {
-      type: 'Point',
-      coordinates: [73.0995, 31.4125]
-    },
-    contactNumber: '+92 300 8441122',
-    openingHours: '08:00 AM',
-    closingHours: '11:00 PM',
-    storeImage: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
-    status: 'active',
-    isActive: true,
-    operatingStatus: 'Open',
-    manager: 'Al-Fatah Manager',
-    deliveryRadiusKm: 6
-  },
-  {
-    _id: 'STR-CV-001',
-    storeId: 'STR-CV-001',
-    tenantId: 'tenant-chasevalue',
-    tenantName: 'Chase Value',
-    name: 'Chase Value - Jaranwala Road Hub',
-    branchName: 'Jaranwala Road Hub',
-    address: 'Jaranwala Road, Near Kohinoor City, Faisalabad',
-    city: 'Faisalabad',
-    latitude: 31.418,
-    longitude: 73.118,
-    location: {
-      type: 'Point',
-      coordinates: [73.118, 31.418]
-    },
-    contactNumber: '+92 300 0000000',
-    openingHours: '08:00 AM',
-    closingHours: '11:00 PM',
-    storeImage: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80',
-    status: 'active',
-    isActive: true,
-    operatingStatus: 'Open',
-    manager: 'Chase Value Manager',
-    deliveryRadiusKm: 6
-  },
-  {
-    _id: 'STR-CU-001',
-    storeId: 'STR-CU-001',
-    tenantId: 'tenant-chaseup',
-    tenantName: 'Chase Up',
-    name: 'Chase Up - Clock Tower Center',
-    branchName: 'Clock Tower Center',
-    address: 'Clock Tower Bazar, Faisalabad',
-    city: 'Faisalabad',
-    latitude: 31.415,
-    longitude: 73.078,
-    location: {
-      type: 'Point',
-      coordinates: [73.078, 31.415]
-    },
-    contactNumber: '+92 300 0000000',
-    openingHours: '08:00 AM',
-    closingHours: '11:00 PM',
-    storeImage: 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=1200&q=80',
-    status: 'active',
-    isActive: true,
-    operatingStatus: 'Open',
-    manager: 'Chase Up Manager',
-    deliveryRadiusKm: 6
-  },
-  {
     _id: 'STR-UM-001',
     storeId: 'STR-UM-001',
     tenantId: 'tenant-unimart',
     tenantName: 'Unimart',
-    name: 'Unimart - D-Ground Express Dark Store',
-    branchName: 'D-Ground Express Dark Store',
-    address: 'House 88, D-Ground, Peoples Colony 1, Faisalabad',
+    name: 'Store A – D-Ground Branch',
+    branchName: 'D-Ground Branch',
+    address: 'D-Ground Commercial Area, Peoples Colony 1, Faisalabad',
     city: 'Faisalabad',
-    latitude: 31.4015,
-    longitude: 73.083,
+    latitude: 31.4125,
+    longitude: 73.0830,
     location: {
       type: 'Point',
-      coordinates: [73.083, 31.4015]
+      coordinates: [73.0830, 31.4125]
     },
-    contactNumber: '+92 300 0000000',
+    contactNumber: '+92 300 8441122',
     openingHours: '08:00 AM',
     closingHours: '11:00 PM',
     storeImage: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=1200&q=80',
     status: 'active',
     isActive: true,
     operatingStatus: 'Open',
-    manager: 'Unimart Manager',
+    manager: 'Unimart Store Manager',
+    deliveryRadiusKm: 5
+  },
+  {
+    _id: 'STR-AF-001',
+    storeId: 'STR-AF-001',
+    tenantId: 'tenant-alfatah',
+    tenantName: 'Al-Fatah',
+    name: 'Store B – People\'s Colony Branch',
+    branchName: 'People\'s Colony Branch',
+    address: 'Main Commercial Avenue, People\'s Colony, Faisalabad',
+    city: 'Faisalabad',
+    latitude: 31.4150,
+    longitude: 73.0995,
+    location: {
+      type: 'Point',
+      coordinates: [73.0995, 31.4150]
+    },
+    contactNumber: '+92 300 8442233',
+    openingHours: '08:00 AM',
+    closingHours: '11:00 PM',
+    storeImage: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
+    status: 'active',
+    isActive: true,
+    operatingStatus: 'Open',
+    manager: 'Al-Fatah Store Manager',
+    deliveryRadiusKm: 5
+  },
+  {
+    _id: 'STR-CV-001',
+    storeId: 'STR-CV-001',
+    tenantId: 'tenant-chasevalue',
+    tenantName: 'Chase Value',
+    name: 'Store C – Susan Road Branch',
+    branchName: 'Susan Road Branch',
+    address: 'Susan Road, Madina Town, Faisalabad',
+    city: 'Faisalabad',
+    latitude: 31.4280,
+    longitude: 73.1200,
+    location: {
+      type: 'Point',
+      coordinates: [73.1200, 31.4280]
+    },
+    contactNumber: '+92 300 8443344',
+    openingHours: '08:00 AM',
+    closingHours: '11:00 PM',
+    storeImage: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80',
+    status: 'active',
+    isActive: true,
+    operatingStatus: 'Open',
+    manager: 'Chase Value Store Manager',
+    deliveryRadiusKm: 5
+  },
+  {
+    _id: 'STR-CU-001',
+    storeId: 'STR-CU-001',
+    tenantId: 'tenant-chaseup',
+    tenantName: 'Chase Up',
+    name: 'Store D – Samanabad Branch',
+    branchName: 'Samanabad Branch',
+    address: 'Main Samanabad Road, Near Roundabout, Faisalabad',
+    city: 'Faisalabad',
+    latitude: 31.3920,
+    longitude: 73.0650,
+    location: {
+      type: 'Point',
+      coordinates: [73.0650, 31.3920]
+    },
+    contactNumber: '+92 300 8444455',
+    openingHours: '08:00 AM',
+    closingHours: '11:00 PM',
+    storeImage: 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=1200&q=80',
+    status: 'active',
+    isActive: true,
+    operatingStatus: 'Open',
+    manager: 'Chase Up Store Manager',
     deliveryRadiusKm: 5
   }
 ];
@@ -245,6 +245,11 @@ export const getAllUnifiedStores = (apiStores = [], extraBranches = [], targetCi
     if (userBranches.length > 0) {
       combined.push(...mappedBranches.filter((mb) => userBranches.some((ub) => (ub._id || ub.id) === mb.storeId)));
     }
+  }
+
+  // If still empty, supply the baseline 4 stores firmly located at D-Ground, Peoples Colony, Susan Road, and Samanabad
+  if (combined.length === 0) {
+    combined.push(...BASELINE_FOUR_STORES);
   }
 
   return deduplicateStores(combined);

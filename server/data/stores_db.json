@@ -1,1 +1,114 @@
-[]
+[
+  {
+    "_id": "STR-UM-001",
+    "storeId": "STR-UM-001",
+    "tenantId": "tenant-unimart",
+    "tenantName": "Unimart",
+    "name": "Store A – D-Ground Branch",
+    "branchName": "D-Ground Branch",
+    "address": "D-Ground Commercial Area, Peoples Colony 1, Faisalabad",
+    "city": "Faisalabad",
+    "latitude": 31.4125,
+    "longitude": 73.083,
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        73.083,
+        31.4125
+      ]
+    },
+    "contactNumber": "+92 300 8441122",
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "storeImage": "https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=1200&q=80",
+    "status": "active",
+    "isActive": true,
+    "operatingStatus": "Open",
+    "manager": "Unimart Store Manager",
+    "deliveryRadiusKm": 5
+  },
+  {
+    "_id": "STR-AF-001",
+    "storeId": "STR-AF-001",
+    "tenantId": "tenant-alfatah",
+    "tenantName": "Al-Fatah",
+    "name": "Store B – People's Colony Branch",
+    "branchName": "People's Colony Branch",
+    "address": "Main Commercial Avenue, People's Colony, Faisalabad",
+    "city": "Faisalabad",
+    "latitude": 31.415,
+    "longitude": 73.0995,
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        73.0995,
+        31.415
+      ]
+    },
+    "contactNumber": "+92 300 8442233",
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "storeImage": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80",
+    "status": "active",
+    "isActive": true,
+    "operatingStatus": "Open",
+    "manager": "Al-Fatah Store Manager",
+    "deliveryRadiusKm": 5
+  },
+  {
+    "_id": "STR-CV-001",
+    "storeId": "STR-CV-001",
+    "tenantId": "tenant-chasevalue",
+    "tenantName": "Chase Value",
+    "name": "Store C – Susan Road Branch",
+    "branchName": "Susan Road Branch",
+    "address": "Susan Road, Madina Town, Faisalabad",
+    "city": "Faisalabad",
+    "latitude": 31.428,
+    "longitude": 73.12,
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        73.12,
+        31.428
+      ]
+    },
+    "contactNumber": "+92 300 8443344",
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "storeImage": "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80",
+    "status": "active",
+    "isActive": true,
+    "operatingStatus": "Open",
+    "manager": "Chase Value Store Manager",
+    "deliveryRadiusKm": 5
+  },
+  {
+    "_id": "STR-CU-001",
+    "storeId": "STR-CU-001",
+    "tenantId": "tenant-chaseup",
+    "tenantName": "Chase Up",
+    "name": "Store D – Samanabad Branch",
+    "branchName": "Samanabad Branch",
+    "address": "Main Samanabad Road, Near Roundabout, Faisalabad",
+    "city": "Faisalabad",
+    "latitude": 31.392,
+    "longitude": 73.065,
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        73.065,
+        31.392
+      ]
+    },
+    "contactNumber": "+92 300 8444455",
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "storeImage": "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=1200&q=80",
+    "status": "active",
+    "isActive": true,
+    "operatingStatus": "Open",
+    "manager": "Chase Up Store Manager",
+    "deliveryRadiusKm": 5
+  }
+]

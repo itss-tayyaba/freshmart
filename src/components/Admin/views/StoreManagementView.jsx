@@ -326,6 +326,24 @@ export const StoreManagementView = () => {
     };
   }, [isAddModalOpen, isEditModalOpen]);
 
+  const applyLocationPreset = (presetName, address, lat, lng) => {
+    setFormData((prev) => {
+      const retailer = CORE_RETAILERS.find((r) => r.id === prev.tenantId) || CORE_RETAILERS[0];
+      return {
+        ...prev,
+        branchName: `${presetName} Branch`,
+        name: `${retailer.name} - ${presetName} Branch`,
+        address: address || prev.address,
+        latitude: lat,
+        longitude: lng
+      };
+    });
+    if (mapInstanceRef.current && markerRef.current) {
+      mapInstanceRef.current.setView([lat, lng], 15);
+      markerRef.current.setLatLng([lat, lng]);
+    }
+  };
+
   // Handlers
   const handleOpenAdd = () => {
     setFormError(null);
@@ -985,8 +1003,30 @@ export const StoreManagementView = () => {
                     <MapPin className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Exact Store Geographical Coordinates (Interactive Leaflet Map)</span>
                   </label>
-                  <span className="text-[10px] text-slate-400">Click map or drag the pin to position</span>
+                  <span className="text-[10px] text-slate-400">Click map or drag pin to position</span>
                 </div>
+
+                {/* Quick Faisalabad Location Presets */}
+                <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Quick Locations:</span>
+                  {[
+                    { label: '📍 D-Ground', name: 'D-Ground', address: 'D-Ground Commercial Area, Peoples Colony 1, Faisalabad', lat: 31.4125, lng: 73.0830 },
+                    { label: '📍 People\'s Colony', name: 'People\'s Colony', address: 'Main Commercial Avenue, People\'s Colony, Faisalabad', lat: 31.4150, lng: 73.0995 },
+                    { label: '📍 Susan Road', name: 'Susan Road', address: 'Susan Road, Madina Town, Faisalabad', lat: 31.4280, lng: 73.1200 },
+                    { label: '📍 Samanabad', name: 'Samanabad', address: 'Main Samanabad Road, Near Roundabout, Faisalabad', lat: 31.3920, lng: 73.0650 },
+                    { label: '📍 Kohinoor City', name: 'Kohinoor City', address: 'Jaranwala Road, Near Kohinoor City, Faisalabad', lat: 31.4055, lng: 73.1190 },
+                  ].map((loc) => (
+                    <button
+                      key={loc.label}
+                      type="button"
+                      onClick={() => applyLocationPreset(loc.name, loc.address, loc.lat, loc.lng)}
+                      className="px-2 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200 text-slate-700 rounded-md text-[10px] font-semibold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      {loc.label}
+                    </button>
+                  ))}
+                </div>
+
                 <div
                   ref={mapContainerRef}
                   className="w-full h-48 rounded-xl border border-slate-200 overflow-hidden relative shadow-inner"
@@ -999,7 +1039,14 @@ export const StoreManagementView = () => {
                       type="number"
                       step="0.000001"
                       value={formData.latitude}
-                      onChange={(e) => setFormData({ ...formData, latitude: Number(e.target.value) })}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setFormData({ ...formData, latitude: val });
+                        if (markerRef.current && !isNaN(val) && Number.isFinite(val)) {
+                          markerRef.current.setLatLng([val, formData.longitude]);
+                          if (mapInstanceRef.current) mapInstanceRef.current.panTo([val, formData.longitude]);
+                        }
+                      }}
                       required
                       className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
                     />
@@ -1010,7 +1057,14 @@ export const StoreManagementView = () => {
                       type="number"
                       step="0.000001"
                       value={formData.longitude}
-                      onChange={(e) => setFormData({ ...formData, longitude: Number(e.target.value) })}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setFormData({ ...formData, longitude: val });
+                        if (markerRef.current && !isNaN(val) && Number.isFinite(val)) {
+                          markerRef.current.setLatLng([formData.latitude, val]);
+                          if (mapInstanceRef.current) mapInstanceRef.current.panTo([formData.latitude, val]);
+                        }
+                      }}
                       required
                       className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
                     />

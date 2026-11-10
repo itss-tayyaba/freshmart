@@ -156,11 +156,56 @@ export const getEligibleStores = async (req, res) => {
     const diskStores = loadDiskStores();
     const allStores = [...BRANCHES, ...diskStores];
 
+    // Collect all candidate assigned stores for matching zones
+    const candidateStoreEntries = [];
+
+    // From explicit assignments table
+    for (const a of activeAssignments) {
+      const store = allStores.find((s) => (s.storeId || s._id || s.id) === a.storeId);
+      if (store) {
+        candidateStoreEntries.push({ store, zoneId: a.zoneId, tenantId: a.tenantId || store.tenantId });
+      }
+    }
+
+    // From zone.assignedStoreId property
+    for (const z of matchingZones) {
+      if (z.assignedStoreId) {
+        const store = allStores.find((s) => (s.storeId || s._id || s.id) === z.assignedStoreId);
+        if (store && !candidateStoreEntries.some((c) => (c.store.storeId || c.store._id) === (store.storeId || store._id))) {
+          candidateStoreEntries.push({ store, zoneId: z.zoneId, tenantId: store.tenantId });
+        }
+      }
+    }
+
+    // From store.assignedZoneId property
+    for (const s of allStores) {
+      if (s.assignedZoneId && matchingZoneIds.has(s.assignedZoneId)) {
+        if (!candidateStoreEntries.some((c) => (c.store.storeId || c.store._id) === (s.storeId || s._id))) {
+          candidateStoreEntries.push({ store: s, zoneId: s.assignedZoneId, tenantId: s.tenantId });
+        }
+      }
+    }
+
+    // Fallback: If a zone has no assigned store yet, check stores whose physical coordinates lie inside that zone polygon
+    if (candidateStoreEntries.length === 0) {
+      for (const z of matchingZones) {
+        for (const s of allStores) {
+          const sLat = Number(s.latitude);
+          const sLng = Number(s.longitude);
+          if (!isNaN(sLat) && !isNaN(sLng) && isPointInsideZone(sLat, sLng, z.geometry)) {
+            if (!candidateStoreEntries.some((c) => (c.store.storeId || c.store._id) === (s.storeId || s._id))) {
+              candidateStoreEntries.push({ store: s, zoneId: z.zoneId, tenantId: s.tenantId });
+            }
+          }
+        }
+      }
+    }
+
     // 5. Build eligible stores list
     const eligibleStoreMap = new Map();
 
-    for (const assignment of activeAssignments) {
-      const store = allStores.find((s) => (s.storeId || s._id || s.id) === assignment.storeId);
+    for (const entry of candidateStoreEntries) {
+      const { store, zoneId } = entry;
       if (!store) continue;
 
       // Check store active status
@@ -168,14 +213,14 @@ export const getEligibleStores = async (req, res) => {
       if (!isStoreActive) continue;
 
       // Check tenant active status
-      const tenantId = resolveRetailerId(assignment.tenantId || store.tenantId);
+      const tenantId = resolveRetailerId(entry.tenantId || store.tenantId);
       const retailer = getRetailerDetails(tenantId);
       if (retailer.status && String(retailer.status).toLowerCase() === 'suspended') {
         continue;
       }
 
       // Find the matched zone for delivery charges
-      const matchedZone = matchingZones.find((z) => z.zoneId === assignment.zoneId) || matchingZones[0];
+      const matchedZone = matchingZones.find((z) => z.zoneId === zoneId) || matchingZones[0];
       const feeDetails = calculateZoneDeliveryFee(matchedZone, cartTotal);
 
       // Check operating hours

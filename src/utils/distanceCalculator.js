@@ -189,13 +189,17 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
           if (z.isActive === false || String(z.status).toLowerCase() === 'inactive') continue;
           const rawRing = z.geometry?.coordinates?.[0] || z.coordinates?.[0] || z.coordinates;
           if (Array.isArray(rawRing) && rawRing.length >= 3) {
-            // Check if store physically lies in this polygon
+            // Check if store physically lies in this polygon or is assigned to this zone
             const bInZone = isPointInPolygon({ lat: bLat, lng: bLng }, rawRing);
-            const branchId = String(b._id || b.id || '').toLowerCase();
+            const branchId = String(b._id || b.id || b.storeId || '').toLowerCase();
             const isAssigned = (options.assignments || []).some(
               (a) => a.zoneId === z.zoneId && String(a.storeId || '').toLowerCase() === branchId
-            );
-            if (bInZone || isAssigned || (z.city && String(b.city || '').toLowerCase() === String(z.city).toLowerCase())) {
+            ) || (z.assignedStoreId && String(z.assignedStoreId).toLowerCase() === branchId) ||
+                 (b.assignedZoneId && String(b.assignedZoneId).toLowerCase() === String(z.zoneId || '').toLowerCase());
+
+            const isStoreAssociatedWithZone = isAssigned || bInZone;
+
+            if (isStoreAssociatedWithZone) {
               if (!storeAreaPolygon) {
                 storeAreaPolygon = {
                   zoneId: z.zoneId,
@@ -208,7 +212,7 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
 
             // Check if customer doorstep is also in this polygon
             const userInZone = isPointInPolygon({ lat: userLat, lng: userLng }, rawRing);
-            if (userInZone && (bInZone || isAssigned || (z.city && String(b.city || '').toLowerCase() === String(z.city).toLowerCase()))) {
+            if (userInZone && isStoreAssociatedWithZone) {
               insideMasterZone = true;
             }
           }

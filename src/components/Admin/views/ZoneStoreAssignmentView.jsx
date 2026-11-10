@@ -799,6 +799,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
           String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
         ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
 
+        const radiusKm = Number(store.deliveryRadiusKm || store.deliveryRadius || 5);
+
         const pinIcon = L.divIcon({
           className: 'custom-unassigned-store-pin',
           html: `
