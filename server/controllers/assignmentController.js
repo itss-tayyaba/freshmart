@@ -231,11 +231,25 @@ export const assignStoresToZone = async (req, res) => {
     saveDiskAssignments(disk);
 
     // Also update zone.assignedStoreId in zones_db.json
-    if (zone && idsToAssign.length > 0) {
-      const targetZoneId = zone.zoneId || zoneId;
-      const zoneIdx = diskZones.findIndex((z) => z.zoneId === targetZoneId || z._id === targetZoneId);
+    if (idsToAssign.length > 0) {
+      const targetZoneId = zone?.zoneId || zoneId;
+      const zoneIdx = diskZones.findIndex((z) =>
+        z.zoneId === targetZoneId || z._id === targetZoneId || z.code === targetZoneId ||
+        String(z.zoneId || '').toLowerCase() === String(targetZoneId || '').toLowerCase()
+      );
       if (zoneIdx >= 0) {
         diskZones[zoneIdx].assignedStoreId = idsToAssign[0];
+        saveDiskZones(diskZones);
+      } else {
+        const placeholderZone = {
+          _id: targetZoneId,
+          zoneId: targetZoneId,
+          name: zone?.name || req.body.zoneName || `Zone ${targetZoneId}`,
+          code: zone?.code || req.body.zoneCode || targetZoneId.slice(-6).toUpperCase(),
+          assignedStoreId: idsToAssign[0],
+          isActive: true
+        };
+        diskZones.unshift(placeholderZone);
         saveDiskZones(diskZones);
       }
     }
@@ -293,6 +307,22 @@ export const removeStoreFromZone = async (req, res) => {
       unassignedAt: new Date().toISOString()
     });
     saveDiskAssignments(filtered);
+
+    // Clear zone.assignedStoreId in zones_db.json if it was assigned to this store
+    const diskZones = loadDiskZones();
+    const zIdx = diskZones.findIndex((z) => z.zoneId === zoneId || z._id === zoneId);
+    if (zIdx >= 0 && (diskZones[zIdx].assignedStoreId === storeId || String(diskZones[zIdx].assignedStoreId).toLowerCase() === String(storeId).toLowerCase())) {
+      diskZones[zIdx].assignedStoreId = null;
+      saveDiskZones(diskZones);
+    }
+
+    // Clear store.assignedZoneId in stores_db.json
+    const diskStores = loadDiskStores();
+    const sIdx = diskStores.findIndex((s) => (s.storeId === storeId || s._id === storeId));
+    if (sIdx >= 0 && (diskStores[sIdx].assignedZoneId === zoneId || String(diskStores[sIdx].assignedZoneId).toLowerCase() === String(zoneId).toLowerCase())) {
+      diskStores[sIdx].assignedZoneId = null;
+      saveDiskStores(diskStores);
+    }
 
     return res.json({
       success: true,
