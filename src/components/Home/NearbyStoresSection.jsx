@@ -125,55 +125,11 @@ export const NearbyStoresSection = ({ nearbyStores = [], onSelectStore }) => {
     markersGroupRef.current.push(userMarker);
     bounds.extend([customerLat, customerLng]);
 
-    // 2. Add Supermarket Store Markers
-    nearbyStores.forEach((store) => {
-      const bLat = Number(store.nearestBranch?.latitude ?? store.nearestBranch?.coordinates?.lat);
-      const bLng = Number(store.nearestBranch?.longitude ?? store.nearestBranch?.coordinates?.lng);
-      if (!Number.isFinite(bLat) || !Number.isFinite(bLng)) return;
-      const isSelected = activeStore?.id === store.id;
-
-      const storeMarker = L.marker([bLat, bLng], {
-        icon: createStorePin(store.logo, store.color, isSelected),
-        zIndexOffset: isSelected ? 800 : 500
-      }).addTo(map);
-
-      storeMarker.bindPopup(`
-        <div style="font-family: inherit; font-size: 11px; line-height: 1.4;">
-          <strong style="color: ${store.color || '#0f172a'}; font-size: 13px;">${store.logo} ${store.name}</strong>
-          <p style="margin: 2px 0 0; font-weight: 600; color: #334155;">Branch: ${store.nearestBranch?.name || 'Main Hub'}</p>
-          <p style="margin: 2px 0 0; color: #059669; font-weight: bold;">📍 ${store.distanceFormatted} away • ~${store.estimatedTime}</p>
-        </div>
-      `);
-
-      storeMarker.on('click', () => {
-        if (onSelectStore) {
-          onSelectStore(store.tenant, store.nearestBranch);
-        }
-      });
-
-      markersGroupRef.current.push(storeMarker);
-      bounds.extend([bLat, bLng]);
-
-      // Draw route connecting customer to active store
-      if (isSelected) {
-        const polyline = L.polyline(
-          [
-            [bLat, bLng],
-            [customerLat, customerLng]
-          ],
-          {
-            color: store.color || '#10b981',
-            weight: 3.5,
-            opacity: 0.85,
-            dashArray: '8, 8'
-          }
-        ).addTo(map);
-        routeLineRef.current = polyline;
-      }
-    });
+    // Customer map: Stores are NOT rendered on the map canvas itself.
+    // The map is dedicated to customer delivery location pin, and stores are displayed in the list below.
 
     if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+      map.setView([customerLat, customerLng], 14);
     }
 
     // Call invalidateSize after slight delay to guarantee tiles are 100% visible
@@ -215,7 +171,7 @@ export const NearbyStoresSection = ({ nearbyStores = [], onSelectStore }) => {
           <h3 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-1 flex items-center gap-2">
             <span>Nearby / Deliverable Stores</span>
             <span className="text-sm font-bold text-slate-500 dark:text-slate-400">
-              ({nearbyStores.length} Stores Available)
+              ({nearbyStores.length} Store{nearbyStores.length === 1 ? '' : 's'} in Your Location)
             </span>
           </h3>
         </div>

@@ -168,38 +168,7 @@ export const LeafletLocationPicker = ({
     storeMarkersRef.current.forEach((m) => map.removeLayer(m));
     storeMarkersRef.current = [];
 
-    nearbyStores.forEach((store) => {
-      const bLat = Number(store.nearestBranch?.latitude || store.nearestBranch?.coordinates?.lat);
-      const bLng = Number(store.nearestBranch?.longitude || store.nearestBranch?.coordinates?.lng);
-
-      if (!bLat || !bLng) return;
-
-      const dist = calculateDistanceKm(currentLat, currentLng, bLat, bLng);
-      const marker = L.marker([bLat, bLng], {
-        icon: createStoreIcon(store),
-        zIndexOffset: 500
-      }).addTo(map);
-
-      marker.bindPopup(`
-        <div style="font-family: inherit; font-size: 12px; line-height: 1.4; min-width: 170px;">
-          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-            <span style="font-size: 16px;">${store.logo || '🛒'}</span>
-            <strong style="color: #0f172a; font-size: 13px;">${store.displayName || store.name}</strong>
-          </div>
-          <p style="margin: 0 0 4px; color: #64748b; font-size: 11px;">
-            Branch: <strong>${store.nearestBranch?.name || 'Local Hub'}</strong>
-          </p>
-          <div style="display: inline-block; padding: 2px 8px; border-radius: 9999px; background: #ecfdf5; color: #047857; font-weight: 800; font-size: 11px; margin-bottom: 6px;">
-            📍 ${dist} km from you
-          </div>
-          <p style="margin: 0; color: #334155; font-size: 10px;">
-            ⚡ Delivery: <strong>${store.estimatedTime || '15-25 mins'}</strong>
-          </p>
-        </div>
-      `);
-
-      storeMarkersRef.current.push(marker);
-    });
+    // Customer map: Stores are not rendered on the map canvas itself.
   }, [nearbyStores, currentLat, currentLng]);
 
   return (

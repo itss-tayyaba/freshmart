@@ -359,131 +359,9 @@ const LocationModalContent = () => {
     deliveryCirclesRef.current.forEach((c) => map.removeLayer(c));
     deliveryCirclesRef.current = [];
 
-    // Render store markers and delivery boundaries on the Leaflet Map
-    const storesToRender = nearbyStores;
-
-    storesToRender.forEach((st) => {
-      const bLat = Number(st.nearestBranch?.latitude ?? st.nearestBranch?.coordinates?.lat);
-      const bLng = Number(st.nearestBranch?.longitude ?? st.nearestBranch?.coordinates?.lng);
-      if (!Number.isFinite(bLat) || !Number.isFinite(bLng)) return;
-
-      const storeColor = st.color || st.theme?.primaryColor || '#0284c7';
-      const radiusKm = Number(st.nearestBranch?.deliveryRadiusKm || st.nearestBranch?.deliveryRadius || 3.5);
-      const radiusMeters = radiusKm * 1000;
-      const isDeliverable = st.isDeliverable;
-
-      // Check if store branch has an authentic custom polygon drawn in Admin / SuperAdmin
-      const rawPoly = st.nearestBranch?.deliveryPolygon;
-      let cleanPolyPoints = [];
-      if (Array.isArray(rawPoly) && rawPoly.length >= 3) {
-        const ring = (Array.isArray(rawPoly[0]) && Array.isArray(rawPoly[0][0])) ? rawPoly[0] : rawPoly;
-        cleanPolyPoints = ring
-          .map(normalizeLatLng)
-          .filter(Boolean)
-          .map((p) => [p.lat, p.lng]);
-      }
-
-      if (cleanPolyPoints.length >= 3) {
-        // Render Authentic Store Custom Polygon Boundary
-        const isCustomerInStoreZone = isPointInPolygon(
-          { lat: currentCoords.lat, lng: currentCoords.lng },
-          cleanPolyPoints
-        );
-
-        const storePolygon = L.polygon(cleanPolyPoints, {
-          color: storeColor,
-          weight: isCustomerInStoreZone ? 3.5 : 2,
-          opacity: isCustomerInStoreZone ? 0.95 : 0.65,
-          fillColor: storeColor,
-          fillOpacity: isCustomerInStoreZone ? 0.32 : 0.12,
-          dashArray: isCustomerInStoreZone ? null : '5, 5'
-        }).addTo(map);
-
-        storePolygon.bindTooltip(
-          `<div style="font-family: inherit; font-size: 11px;">
-             <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 2px;">
-               <span style="font-size: 13px;">${st.logo || '🏬'}</span>
-               <strong style="color: ${storeColor}; font-size: 12px;">${st.displayName || st.name} Delivery Zone</strong>
-             </div>
-             <div style="font-size: 10px; color: #334155; margin-top: 2px;">
-               🛵 Customer Doorstep Delivery • ⚡ ${st.estimatedTime || '20-30 mins'}
-             </div>
-             <div style="font-size: 9px; color: ${isCustomerInStoreZone ? '#059669' : '#b91c1c'}; font-weight: bold; margin-top: 3px;">
-               ${isCustomerInStoreZone ? '✓ Your pin is inside this store delivery zone' : 'Click to move your delivery pin inside'}
-             </div>
-           </div>`,
-          { sticky: true }
-        );
-
-        storePolygon.on('click', (e) => {
-          handleUpdateCoords(e.latlng.lat, e.latlng.lng);
-          setSelectedStoreId(st.id);
-          addToast('Store Selected 🏬', `Selected ${st.displayName || st.name}`);
-        });
-
-        storePolygonsRef.current.push(storePolygon);
-      } else {
-        // Fallback: Circular boundary when store has no custom polygon
-        const circle = L.circle([bLat, bLng], {
-          radius: radiusMeters,
-          color: storeColor,
-          weight: isDeliverable ? 2 : 1,
-          opacity: isDeliverable ? 0.75 : 0.35,
-          fillColor: storeColor,
-          fillOpacity: isDeliverable ? 0.14 : 0.05,
-          dashArray: isDeliverable ? null : '6, 6'
-        }).addTo(map);
-
-        circle.bindTooltip(`${st.displayName || st.name} (${radiusKm} km Zone • ${isDeliverable ? 'Deliverable' : 'Outside Zone'})`, {
-          sticky: true,
-          className: 'delivery-zone-tooltip'
-        });
-
-        deliveryCirclesRef.current.push(circle);
-      }
-
-      const marker = L.marker([bLat, bLng], {
-        icon: createStorePin(st),
-        zIndexOffset: isDeliverable ? 600 : 300,
-        opacity: isDeliverable ? 1.0 : 0.65
-      }).addTo(map);
-
-      marker.on('click', () => {
-        if (!isDeliverable) {
-          addToast(
-            `${st.displayName || st.name} 📍`,
-            `Branch located at ${st.nearestBranch?.name || 'Hub'} (${st.distanceFormatted} away). Your current pin is outside its delivery zone.`,
-            'info'
-          );
-          return;
-        }
-        setSelectedStoreId(st.id);
-        addToast('Store Selected 🏬', `Selected ${st.displayName || st.name}`);
-      });
-
-      marker.bindPopup(`
-        <div style="font-family: inherit; font-size: 11px; line-height: 1.4; min-width: 150px;">
-          <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 2px;">
-            <span style="font-size: 14px;">${st.logo || '🏬'}</span>
-            <strong style="color: #0f172a; font-size: 12px;">${st.displayName || st.name}</strong>
-          </div>
-          <div style="margin-bottom: 3px; font-size: 10px; color: #64748b; font-weight: 600;">
-            🏢 ${st.nearestBranch?.name || 'Branch'}
-          </div>
-          <div style="display: inline-block; padding: 2px 6px; border-radius: 9999px; background: ${isDeliverable ? '#ecfdf5' : '#fef2f2'}; color: ${isDeliverable ? '#047857' : '#b91c1c'}; font-weight: 800; font-size: 10px; margin-bottom: 3px;">
-            📍 ${st.distanceFormatted || '1.2 km'} away (${isDeliverable ? 'Inside Delivery Zone' : 'Outside Zone'})
-          </div>
-          <p style="margin: 0; color: #475569; font-size: 10px;">
-            ⚡ Fast Delivery: <strong>${st.estimatedTime || '15-25 mins'}</strong>
-          </p>
-          <p style="margin: 2px 0 0; color: #64748b; font-size: 9px;">
-            🛵 Delivery Radius: <strong>${radiusKm} km</strong> • Fee: <strong>${st.deliveryFee === 0 ? 'Free' : `Rs. ${st.deliveryFee}`}</strong>
-          </p>
-        </div>
-      `);
-
-      storeMarkersRef.current.push(marker);
-    });
+    // On customer map, stores are NOT shown on the map itself.
+    // The map is kept clean, displaying only the customer's delivery pin and active delivery zone polygons.
+    // Stores in this location are clearly listed below the map.
 
     // Render Master Delivery Polygons on the Leaflet Map
     if (zonesLayerGroupRef.current) {
@@ -1041,19 +919,19 @@ const LocationModalContent = () => {
               <div className="flex items-center gap-2">
                 <Store className="w-4 h-4 text-emerald-600" />
                 <span className="text-xs sm:text-sm font-black text-slate-900">
-                  Nearby Grocery Stores Delivering to Your Pin:
+                  {deliverableStores.length} Store{deliverableStores.length === 1 ? '' : 's'} Delivering to Your Location:
                 </span>
               </div>
               <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/90 px-2.5 py-0.5 rounded-full border border-emerald-300">
-                LIVE PROXIMITY
+                DELIVERING TO YOU
               </span>
             </div>
 
             {/* Overlapping Zones Notice (Multi-retailer deliverability) */}
             {deliverableStores.length > 1 && (
               <div className="mb-2.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px] font-semibold flex items-center justify-between">
-                <span>🎯 In range of {deliverableStores.length} overlapping delivery zones</span>
-                <span className="text-[10px] text-emerald-700 font-medium">Select your preferred store</span>
+                <span>🎯 {deliverableStores.length} stores can deliver to your doorstep</span>
+                <span className="text-[10px] text-emerald-700 font-medium">Select preferred store</span>
               </div>
             )}
 
@@ -1143,57 +1021,17 @@ const LocationModalContent = () => {
                 );
               })}
             </div>
-
-            {/* Informative: Other stores in city outside current delivery zone */}
-            {outsideStores && outsideStores.length > 0 && (
-              <div className="mt-3 p-2.5 rounded-xl bg-slate-100/90 border border-slate-200/90 text-left">
-                <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 mb-1.5">
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-xs">📍</span>
-                    <span>Other Stores in {currentCityObj.city.split(',')[0]} ({outsideStores.length}):</span>
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-medium">Click to view on map</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {outsideStores.map((os) => (
-                    <button
-                      key={os.id}
-                      type="button"
-                      onClick={() => {
-                        if (mapInstanceRef.current && os.nearestBranch) {
-                          const bLat = Number(os.nearestBranch.latitude ?? os.nearestBranch.coordinates?.lat);
-                          const bLng = Number(os.nearestBranch.longitude ?? os.nearestBranch.coordinates?.lng);
-                          if (Number.isFinite(bLat) && Number.isFinite(bLng)) {
-                            mapInstanceRef.current.setView([bLat, bLng], 14, { animate: true });
-                            addToast(
-                              `${os.displayName || os.name} 📍`,
-                              `${os.nearestBranch.name || 'Branch'} is ${os.distanceFormatted} away (${os.nearestBranch.address || ''}). Drag your pin inside its circle to order.`,
-                              'info'
-                            );
-                          }
-                        }
-                      }}
-                      className="text-[10px] font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                    >
-                      <span>{os.logo || '🏬'}</span>
-                      <span className="font-bold">{os.displayName || os.name}</span>
-                      <span className="text-slate-400">({os.distanceFormatted} • {os.nearestBranch?.name || 'Hub'})</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         ) : (
           <div className="mt-4 p-4 rounded-2xl bg-rose-50/90 border-2 border-rose-200 text-rose-900 text-left space-y-2.5 animate-in fade-in">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
               <span className="font-black text-xs text-rose-950">
-                Choose different location (no store found)
+                0 Stores Found (Outside Delivery Zone)
               </span>
             </div>
             <p className="text-[11px] text-rose-800 leading-tight">
-              No grocery supermarkets currently deliver to this pin. Please choose a different location or select an area below so that you fall in the retailer delivery zone.
+              No grocery supermarkets currently deliver to this pin. Please choose a different location or drag your pin inside an active delivery zone on the map.
             </p>
 
             {/* InDrive-style Expand Delivery Region Option */}
