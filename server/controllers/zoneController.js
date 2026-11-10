@@ -25,118 +25,8 @@ export const saveDiskZones = (zones) => {
   } catch (e) {}
 };
 
-// Default delivery zones for Faisalabad so the platform starts with realistic delivery coverage
-const DEFAULT_PLATFORM_ZONES = [
-  {
-    zoneId: 'ZONE-FSD-DGROUND',
-    name: 'D-Ground Commercial & Peoples Colony Hub',
-    code: 'FSD-DGR',
-    description: 'Premier commercial, dining, and central residential zone surrounding D-Ground and Peoples Colony 1 & 2.',
-    city: 'Faisalabad',
-    area: 'D-Ground / Peoples Colony',
-    color: '#10b981', // Emerald Green
-    deliveryCharge: 60,
-    minOrderAmount: 400,
-    freeDeliveryThreshold: 2000,
-    estimatedDeliveryTime: '15-25 mins',
-    isActive: true,
-    status: 'active',
-    geometry: {
-      type: 'Polygon',
-      coordinates: [
-        [
-          [73.0700, 31.3900],
-          [73.1150, 31.3900],
-          [73.1250, 31.4250],
-          [73.0800, 31.4300],
-          [73.0650, 31.4050],
-          [73.0700, 31.3900]
-        ]
-      ]
-    }
-  },
-  {
-    zoneId: 'ZONE-FSD-CANAL',
-    name: 'Canal Road & Kohinoor Express Zone',
-    code: 'FSD-CNR',
-    description: 'High-density urban residential corridor along East Canal Road, Jaranwala Road, and Kohinoor City.',
-    city: 'Faisalabad',
-    area: 'East Canal Road / Kohinoor',
-    color: '#6366f1', // Indigo Purple
-    deliveryCharge: 80,
-    minOrderAmount: 500,
-    freeDeliveryThreshold: 2500,
-    estimatedDeliveryTime: '20-35 mins',
-    isActive: true,
-    status: 'active',
-    geometry: {
-      type: 'Polygon',
-      coordinates: [
-        [
-          [73.0900, 31.4100],
-          [73.1600, 31.4200],
-          [73.1750, 31.4650],
-          [73.1150, 31.4550],
-          [73.0900, 31.4100]
-        ]
-      ]
-    }
-  },
-  {
-    zoneId: 'ZONE-FSD-CLOCKTOWER',
-    name: 'Clock Tower & Eight Bazars Historic Zone',
-    code: 'FSD-CTW',
-    description: 'Central historic trading district covering Ghanta Ghar, Katchery Bazar, Rail Bazar, and Kotwali Road.',
-    city: 'Faisalabad',
-    area: 'Ghanta Ghar / 8 Bazars',
-    color: '#f59e0b', // Amber Orange
-    deliveryCharge: 90,
-    minOrderAmount: 500,
-    freeDeliveryThreshold: 2500,
-    estimatedDeliveryTime: '25-40 mins',
-    isActive: true,
-    status: 'active',
-    geometry: {
-      type: 'Polygon',
-      coordinates: [
-        [
-          [73.0450, 31.3900],
-          [73.0950, 31.3900],
-          [73.0950, 31.4300],
-          [73.0450, 31.4300],
-          [73.0450, 31.3900]
-        ]
-      ]
-    }
-  },
-  {
-    zoneId: 'ZONE-FSD-MADINA',
-    name: 'Madina Town & Susan Road Hub',
-    code: 'FSD-MDN',
-    description: 'Bustling retail and residential sectors of Madina Town, Susan Road, and Officer Colony.',
-    city: 'Faisalabad',
-    area: 'Madina Town / Susan Road',
-    color: '#06b6d4', // Cyan
-    deliveryCharge: 70,
-    minOrderAmount: 450,
-    freeDeliveryThreshold: 2200,
-    estimatedDeliveryTime: '20-30 mins',
-    isActive: true,
-    status: 'active',
-    geometry: {
-      type: 'Polygon',
-      coordinates: [
-        [
-          [73.1000, 31.4200],
-          [73.1450, 31.4200],
-          [73.1500, 31.4500],
-          [73.0950, 31.4450],
-          [73.1000, 31.4200]
-        ]
-      ]
-    }
-  }
-];
+// Delivery zones are created solely by the admin drawing polygons on the map
+const DEFAULT_PLATFORM_ZONES = [];
 
 // Helper to get all combined zones
 export const getAllZonesMerged = async () => {
@@ -151,11 +41,6 @@ export const getAllZonesMerged = async () => {
 
   const diskZones = loadDiskZones();
   const map = new Map();
-
-  // Default platform zones provide baseline coverage if disk and db are completely empty
-  if (diskZones.length === 0 && dbZones.length === 0) {
-    DEFAULT_PLATFORM_ZONES.forEach((z) => map.set(z.zoneId, z));
-  }
 
   diskZones.forEach((z) => map.set(z.zoneId, z));
   dbZones.forEach((z) => map.set(z.zoneId, {
