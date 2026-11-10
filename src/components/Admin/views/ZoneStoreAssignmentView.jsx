@@ -992,7 +992,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       `);
       storeMarkersGroupRef.current.addLayer(marker);
     });
-  }, [activeZone, assignedStores, isDrawingPolygon]);
+  }, [activeZone, assignedStores, isDrawingPolygon, stores, storesWithDistance, assignments]);
 
   return (
     <div className="space-y-6">
