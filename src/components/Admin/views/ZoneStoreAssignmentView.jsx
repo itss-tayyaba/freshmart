@@ -20,7 +20,9 @@ import {
   Sparkles,
   Plus,
   Edit3,
-  Sliders
+  Sliders,
+  Square,
+  Box
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
@@ -42,15 +44,26 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   const [editPriority, setEditPriority] = useState(1);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-  // In-Place Polygon Drawing Mode in Zone Assignments
+  // In-Place Polygon & Box Drawing Mode in Zone Assignments
   const [isDrawingPolygon, setIsDrawingPolygon] = useState(false);
   const isDrawingPolygonRef = useRef(false);
   useEffect(() => {
     isDrawingPolygonRef.current = isDrawingPolygon;
   }, [isDrawingPolygon]);
+  const [drawingTool, setDrawingTool] = useState('box'); // 'box' | 'polygon'
+  const drawingToolRef = useRef('box');
+  useEffect(() => {
+    drawingToolRef.current = drawingTool;
+  }, [drawingTool]);
+  const [boxCorner1, setBoxCorner1] = useState(null);
+  const boxCorner1Ref = useRef(null);
+  useEffect(() => {
+    boxCorner1Ref.current = boxCorner1;
+  }, [boxCorner1]);
   const [drawnPoints, setDrawnPoints] = useState([]);
   const [isSavingPolygon, setIsSavingPolygon] = useState(false);
   const drawingLayerRef = useRef(null);
+  const boxPreviewLayerRef = useRef(null);
 
   // Quick Store Branch Modal
   const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false);
@@ -487,7 +500,12 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     };
     window.__startDrawingFromMap = () => {
       setIsDrawingPolygon(true);
+      setDrawingTool('box');
       setDrawnPoints([]);
+    };
+    window.__createBoxAroundStore = (sId) => {
+      const s = stores.find((st) => (st.storeId || st._id) === sId);
+      if (s) handleCreateBoxAroundStore(s);
     };
     return () => {
       delete window.__assignStoreFromMap;
@@ -495,6 +513,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       delete window.__editStoreFromMap;
       delete window.__editZoneFromMap;
       delete window.__startDrawingFromMap;
+      delete window.__createBoxAroundStore;
     };
   }, [stores, assignments, activeZone, onNavigateToZones]);
 
@@ -577,12 +596,90 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     polygonLayerRef.current = L.layerGroup().addTo(map);
     storeMarkersGroupRef.current = L.layerGroup().addTo(map);
     drawingLayerRef.current = L.layerGroup().addTo(map);
+    boxPreviewLayerRef.current = L.layerGroup().addTo(map);
 
-    // Map click adds polygon vertices when drawing mode is active
+    // Map click adds polygon vertices or box corners
     map.on('click', (e) => {
-      if (isDrawingPolygonRef.current) {
-        setDrawnPoints((prev) => [...prev, [e.latlng.lat, e.latlng.lng]]);
+      if (!isDrawingPolygonRef.current) return;
+      const lat = Number(e.latlng.lat.toFixed(6));
+      const lng = Number(e.latlng.lng.toFixed(6));
+
+      if (drawingToolRef.current === 'box') {
+        if (!boxCorner1Ref.current) {
+          // Set first corner
+          boxCorner1Ref.current = [lat, lng];
+          setBoxCorner1([lat, lng]);
+          if (boxPreviewLayerRef.current) boxPreviewLayerRef.current.clearLayers();
+          if (drawingLayerRef.current) {
+            drawingLayerRef.current.clearLayers();
+            const startIcon = L.divIcon({
+              className: 'box-corner-start',
+              html: `
+                <div style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; background: #059669; color: #ffffff; border: 2.5px solid #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.4); font-size: 11px; font-weight: 900;">
+                  1
+                </div>
+              `,
+              iconSize: [28, 28],
+              iconAnchor: [14, 14]
+            });
+            drawingLayerRef.current.addLayer(L.marker([lat, lng], { icon: startIcon }));
+          }
+        } else {
+          // Set second corner: complete rectangular box!
+          const p1 = boxCorner1Ref.current;
+          const p2 = [lat, lng];
+          const minLat = Math.min(p1[0], p2[0]);
+          const maxLat = Math.max(p1[0], p2[0]);
+          const minLng = Math.min(p1[1], p2[1]);
+          const maxLng = Math.max(p1[1], p2[1]);
+
+          const box = [
+            [Number(maxLat.toFixed(6)), Number(minLng.toFixed(6))], // NW (1)
+            [Number(maxLat.toFixed(6)), Number(maxLng.toFixed(6))], // NE (2)
+            [Number(minLat.toFixed(6)), Number(maxLng.toFixed(6))], // SE (3)
+            [Number(minLat.toFixed(6)), Number(minLng.toFixed(6))]  // SW (4)
+          ];
+
+          boxCorner1Ref.current = null;
+          setBoxCorner1(null);
+          if (boxPreviewLayerRef.current) boxPreviewLayerRef.current.clearLayers();
+          setDrawnPoints(box);
+        }
+      } else {
+        // Freehand / Polygon mode: auto-order to prevent self-crossing
+        setDrawnPoints((prev) => {
+          const next = [...prev, [lat, lng]];
+          if (next.length >= 3 && hasCrossingSegments(next)) {
+            return untanglePoints(next);
+          }
+          return next;
+        });
       }
+    });
+
+    // Real-time rectangle hover preview in Box Mode
+    map.on('mousemove', (e) => {
+      if (!isDrawingPolygonRef.current || drawingToolRef.current !== 'box' || !boxCorner1Ref.current) {
+        if (boxPreviewLayerRef.current) boxPreviewLayerRef.current.clearLayers();
+        return;
+      }
+      if (!boxPreviewLayerRef.current) return;
+      boxPreviewLayerRef.current.clearLayers();
+
+      const p1 = boxCorner1Ref.current;
+      const p2 = [e.latlng.lat, e.latlng.lng];
+      const bounds = L.latLngBounds(p1, p2);
+      const color = '#10b981';
+
+      const rect = L.rectangle(bounds, {
+        color: color,
+        weight: 2.5,
+        fillColor: color,
+        fillOpacity: 0.25,
+        dashArray: '6, 6',
+        interactive: false
+      });
+      boxPreviewLayerRef.current.addLayer(rect);
     });
 
     mapInstanceRef.current = map;
@@ -592,6 +689,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     }, 200);
 
     return () => {
+      if (boxPreviewLayerRef.current) {
+        boxPreviewLayerRef.current.clearLayers();
+      }
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -608,27 +708,47 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
     const color = activeZone?.color || '#10b981';
 
-    // 1. Draw each vertex point with number indicator
-    drawnPoints.forEach(([lat, lng], idx) => {
+    // Auto-untangle if crossing lines exist so preview NEVER looks like a twisted hourglass
+    const cleanPoints = hasCrossingSegments(drawnPoints) ? untanglePoints(drawnPoints) : drawnPoints;
+
+    // 1. Draw each vertex point with corner / number badge
+    cleanPoints.forEach(([lat, lng], idx) => {
       const isFirst = idx === 0;
+      const isBox = cleanPoints.length === 4;
+      const cornerLabel = isBox ? ['NW', 'NE', 'SE', 'SW'][idx] : `${idx + 1}`;
+
       const vertexIcon = L.divIcon({
         className: 'custom-drawing-vertex',
         html: `
-          <div style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 9999px; background: ${isFirst ? '#059669' : color}; color: #ffffff; border: 2.5px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.35); font-size: 11px; font-weight: 900; font-family: monospace;">
-            ${idx + 1}
+          <div style="display: flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 4px; border-radius: ${isBox ? '6px' : '9999px'}; background: ${isFirst ? '#059669' : color}; color: #ffffff; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.35); font-size: 10px; font-weight: 900; font-family: monospace;">
+            ${cornerLabel}
           </div>
         `,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
+        iconSize: [26, 26],
+        iconAnchor: [13, 13]
       });
 
-      const marker = L.marker([lat, lng], { icon: vertexIcon, interactive: false });
+      const marker = L.marker([lat, lng], {
+        icon: vertexIcon,
+        draggable: true
+      });
+
+      marker.on('dragend', (e) => {
+        const newPos = e.target.getLatLng();
+        setDrawnPoints((prev) => {
+          const updated = [...prev];
+          updated[idx] = [Number(newPos.lat.toFixed(6)), Number(newPos.lng.toFixed(6))];
+          return updated;
+        });
+      });
+
       drawingLayerRef.current.addLayer(marker);
     });
 
-    // 2. Draw connecting polyline
-    if (drawnPoints.length >= 2) {
-      const line = L.polyline(drawnPoints, {
+    // 2. Draw connecting polyline loop around perimeter
+    if (cleanPoints.length >= 2) {
+      const loop = cleanPoints.length >= 3 ? [...cleanPoints, cleanPoints[0]] : cleanPoints;
+      const line = L.polyline(loop, {
         color: color,
         weight: 3.5,
         dashArray: '6, 6'
@@ -637,8 +757,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     }
 
     // 3. Draw closing preview if 3 or more points
-    if (drawnPoints.length >= 3) {
-      const previewPolygon = L.polygon(drawnPoints, {
+    if (cleanPoints.length >= 3) {
+      const previewPolygon = L.polygon(cleanPoints, {
         color: color,
         weight: 2,
         fillColor: color,
@@ -650,14 +770,16 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     }
   }, [drawnPoints, isDrawingPolygon, activeZone]);
 
-  // Helper to reorder points around their geometric centroid into a clean non-crossing perimeter
+  // Helper to reorder points clockwise around their geometric centroid into a clean non-crossing perimeter
   const untanglePoints = (pts) => {
     if (!pts || pts.length < 3) return pts;
     const cLat = pts.reduce((sum, p) => sum + p[0], 0) / pts.length;
     const cLng = pts.reduce((sum, p) => sum + p[1], 0) / pts.length;
     return [...pts].sort((a, b) => {
-      const angleA = Math.atan2(a[0] - cLat, a[1] - cLng);
-      const angleB = Math.atan2(b[0] - cLat, b[1] - cLng);
+      let angleA = Math.atan2(a[1] - cLng, a[0] - cLat);
+      let angleB = Math.atan2(b[1] - cLng, b[0] - cLat);
+      if (angleA < 0) angleA += 2 * Math.PI;
+      if (angleB < 0) angleB += 2 * Math.PI;
       return angleA - angleB;
     });
   };
@@ -699,20 +821,83 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     }
   };
 
-  // Polygon Drawing Handlers
+  // Helper to snap current points into a clean rectangular bounding box
+  const handleSnapToBox = () => {
+    if (drawnPoints.length < 2) return;
+    const lats = drawnPoints.map((p) => p[0]);
+    const lngs = drawnPoints.map((p) => p[1]);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+
+    const box = [
+      [Number(maxLat.toFixed(6)), Number(minLng.toFixed(6))], // NW
+      [Number(maxLat.toFixed(6)), Number(maxLng.toFixed(6))], // NE
+      [Number(minLat.toFixed(6)), Number(maxLng.toFixed(6))], // SE
+      [Number(minLat.toFixed(6)), Number(minLng.toFixed(6))]  // SW
+    ];
+    setDrawnPoints(box);
+    if (addToast) {
+      addToast('Converted to Box 📦', 'Boundary vertices aligned into a clean rectangular box.', 'info');
+    }
+  };
+
+  // Helper to create an instant delivery box centered around any store
+  const handleCreateBoxAroundStore = (store, radiusKm = 2.5) => {
+    if (!store) return;
+    const sLat = Number(store.latitude);
+    const sLng = Number(store.longitude);
+    if (isNaN(sLat) || isNaN(sLng) || !Number.isFinite(sLat) || !Number.isFinite(sLng)) return;
+
+    const latDelta = radiusKm / 111.0;
+    const lngDelta = radiusKm / (111.0 * Math.cos((sLat * Math.PI) / 180));
+
+    const box = [
+      [Number((sLat + latDelta).toFixed(6)), Number((sLng - lngDelta).toFixed(6))], // NW
+      [Number((sLat + latDelta).toFixed(6)), Number((sLng + lngDelta).toFixed(6))], // NE
+      [Number((sLat - latDelta).toFixed(6)), Number((sLng + lngDelta).toFixed(6))], // SE
+      [Number((sLat - latDelta).toFixed(6)), Number((sLng - lngDelta).toFixed(6))]  // SW
+    ];
+
+    setIsDrawingPolygon(true);
+    setDrawingTool('box');
+    boxCorner1Ref.current = null;
+    setBoxCorner1(null);
+    setDrawnPoints(box);
+
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.fitBounds(L.latLngBounds(box), { padding: [40, 40] });
+    }
+    if (addToast) {
+      addToast(
+        'Delivery Box Created 📦',
+        `Clean ${radiusKm * 2}x${radiusKm * 2}km box placed around ${store.name || store.branchName}. Click "Save Polygon" to apply.`,
+        'success'
+      );
+    }
+  };
+
+  // Polygon & Box Drawing Handlers
   const handleUndoPoint = () => {
     setDrawnPoints((prev) => prev.slice(0, prev.length - 1));
   };
 
   const handleClearDrawing = () => {
+    boxCorner1Ref.current = null;
+    setBoxCorner1(null);
     setDrawnPoints([]);
     if (drawingLayerRef.current) drawingLayerRef.current.clearLayers();
+    if (boxPreviewLayerRef.current) boxPreviewLayerRef.current.clearLayers();
   };
 
   const handleCancelDrawing = () => {
     setIsDrawingPolygon(false);
+    boxCorner1Ref.current = null;
+    setBoxCorner1(null);
     setDrawnPoints([]);
     if (drawingLayerRef.current) drawingLayerRef.current.clearLayers();
+    if (boxPreviewLayerRef.current) boxPreviewLayerRef.current.clearLayers();
   };
 
   const handleSaveDrawnPolygon = async () => {
@@ -986,12 +1171,18 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
             <span style="color: #059669; font-weight: bold;">✓ Serving this zone</span>
             <span style="background: #ecfdf5; color: #047857; padding: 1px 5px; border-radius: 4px; font-weight: 700;">${priorityLabel}</span>
           </div>
-          <div style="display: flex; gap: 4px;">
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            <button
+              onclick="window.__createBoxAroundStore && window.__createBoxAroundStore('${sId}')"
+              style="flex: 1; padding: 4px 6px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+            >
+              📦 Fit Box
+            </button>
             <button
               onclick="window.__editStoreFromMap && window.__editStoreFromMap('${sId}')"
               style="flex: 1; padding: 4px 6px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
             >
-              ⚙️ Edit Priority
+              ⚙️ Priority
             </button>
             <button
               onclick="window.__removeStoreFromMap && window.__removeStoreFromMap('${sId}')"
@@ -1040,12 +1231,20 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
           <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;">
             Distance to zone: <strong>~${store.distanceToZoneCentroidKm} km</strong>
           </div>
-          <button
-            onclick="window.__assignStoreFromMap && window.__assignStoreFromMap('${sId}')"
-            style="width: 100%; padding: 4px 8px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-          >
-            + Assign Store to ${activeZone.name}
-          </button>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <button
+              onclick="window.__createBoxAroundStore && window.__createBoxAroundStore('${sId}')"
+              style="width: 100%; padding: 4px 8px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+            >
+              📦 Fit 2.5km Box Around Store
+            </button>
+            <button
+              onclick="window.__assignStoreFromMap && window.__assignStoreFromMap('${sId}')"
+              style="width: 100%; padding: 4px 8px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+            >
+              + Assign Store to ${activeZone.name}
+            </button>
+          </div>
         </div>
       `);
       storeMarkersGroupRef.current.addLayer(marker);
@@ -1188,27 +1387,57 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                 <MapPin className="w-4 h-4 text-emerald-600" />
                 <span>Delivery Coverage & Supermarkets Map</span>
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <button
                   type="button"
                   onClick={() => {
-                    if (!isDrawingPolygon) {
-                      setIsDrawingPolygon(true);
-                      setDrawnPoints([]);
-                      if (addToast) addToast(`Click map points around stores to draw polygon. Need at least 3 points.`, 'info');
-                    } else {
+                    if (isDrawingPolygon && drawingTool === 'box') {
                       handleCancelDrawing();
+                    } else {
+                      setIsDrawingPolygon(true);
+                      setDrawingTool('box');
+                      boxCorner1Ref.current = null;
+                      setBoxCorner1(null);
+                      setDrawnPoints([]);
+                      if (boxPreviewLayerRef.current) boxPreviewLayerRef.current.clearLayers();
+                      if (addToast) addToast('📦 Draw Box Mode', 'Click Corner 1 on the map, then click the opposite corner to form a rectangular box.', 'info');
                     }
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border shadow-xs ${
-                    isDrawingPolygon
+                    isDrawingPolygon && drawingTool === 'box'
                       ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 animate-pulse'
                       : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700'
                   }`}
                 >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>{isDrawingPolygon ? 'Exit Drawing' : '✏️ Draw Polygon'}</span>
+                  <Square className="w-3.5 h-3.5" />
+                  <span>{isDrawingPolygon && drawingTool === 'box' ? 'Exit Box' : '📦 Draw Box'}</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isDrawingPolygon && drawingTool === 'polygon') {
+                      handleCancelDrawing();
+                    } else {
+                      setIsDrawingPolygon(true);
+                      setDrawingTool('polygon');
+                      boxCorner1Ref.current = null;
+                      setBoxCorner1(null);
+                      setDrawnPoints([]);
+                      if (boxPreviewLayerRef.current) boxPreviewLayerRef.current.clearLayers();
+                      if (addToast) addToast('✏️ Draw Polygon Mode', 'Click points around the area on map to define custom boundary.', 'info');
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border shadow-xs ${
+                    isDrawingPolygon && drawingTool === 'polygon'
+                      ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 animate-pulse'
+                      : 'bg-slate-800 hover:bg-slate-900 text-white border-slate-900'
+                  }`}
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>{isDrawingPolygon && drawingTool === 'polygon' ? 'Exit Polygon' : '✏️ Draw Polygon'}</span>
+                </button>
+
                 {onNavigateToZones && (
                   <button
                     type="button"
@@ -1235,25 +1464,70 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
                       <div className="min-w-0">
                         <div className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
-                          <span className="truncate">Drawing: {activeZone?.name || 'New Master Polygon'}</span>
+                          <span className="truncate">Drawing: {activeZone?.name || 'New Delivery Boundary'}</span>
                           <span className="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
-                            {drawnPoints.length} Point{drawnPoints.length === 1 ? '' : 's'}
+                            {drawingTool === 'box'
+                              ? drawnPoints.length === 4
+                                ? '📦 Box Ready (4 Corners)'
+                                : boxCorner1
+                                ? '📍 Corner 1 Placed (Click Corner 2)'
+                                : '📦 Click 1st Corner'
+                              : `${drawnPoints.length} Point${drawnPoints.length === 1 ? '' : 's'}`}
                           </span>
                         </div>
                         <div className="text-[10px] text-slate-300">
-                          {drawnPoints.length < 3
-                            ? `Click map to place ${3 - drawnPoints.length} more point(s) to form polygon.`
-                            : 'Click map for more points, then click "Save Polygon" to apply.'}
+                          {drawingTool === 'box' ? (
+                            drawnPoints.length === 4 ? (
+                              <span className="text-emerald-300 font-semibold">
+                                ✓ Box completed! Drag corners to resize, or click "Save Box" below.
+                              </span>
+                            ) : boxCorner1 ? (
+                              <span className="text-amber-300 font-semibold">
+                                📍 Corner 1 set! Move mouse and click opposite corner to form box.
+                              </span>
+                            ) : (
+                              'Click anywhere on map to set 1st corner of your box.'
+                            )
+                          ) : drawnPoints.length < 3 ? (
+                            `Click map to place ${3 - drawnPoints.length} more point(s) to form polygon.`
+                          ) : (
+                            'Click map for more points, or click "Save Polygon" to apply.'
+                          )}
                         </div>
                       </div>
                     </div>
 
-                    {isTangled && (
-                      <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 animate-pulse shrink-0">
-                        <AlertTriangle className="w-3 h-3 text-amber-400" />
-                        <span>Lines cross over</span>
-                      </span>
-                    )}
+                    {/* Quick Mode Switcher */}
+                    <div className="flex items-center gap-1 bg-slate-800/90 p-1 rounded-xl shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDrawingTool('box');
+                          boxCorner1Ref.current = null;
+                          setBoxCorner1(null);
+                        }}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                          drawingTool === 'box' ? 'bg-emerald-500 text-slate-950 shadow-xs' : 'text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        <Square className="w-3 h-3" />
+                        <span>Box (2 Clicks)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDrawingTool('polygon');
+                          boxCorner1Ref.current = null;
+                          setBoxCorner1(null);
+                        }}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                          drawingTool === 'polygon' ? 'bg-emerald-500 text-slate-950 shadow-xs' : 'text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        <span>Polygon</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between gap-1.5 flex-wrap pt-1.5 border-t border-slate-800">
@@ -1269,20 +1543,45 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                       <button
                         type="button"
                         onClick={handleClearDrawing}
-                        disabled={drawnPoints.length === 0}
+                        disabled={drawnPoints.length === 0 && !boxCorner1}
                         className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-lg text-xs font-semibold transition cursor-pointer"
                       >
                         Clear
                       </button>
+                      {drawnPoints.length >= 2 && (
+                        <button
+                          type="button"
+                          onClick={handleSnapToBox}
+                          title="Snap current shape into a clean rectangular box"
+                          className="px-2.5 py-1 bg-blue-900/70 hover:bg-blue-800 text-blue-200 border border-blue-700/60 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <Square className="w-3 h-3 text-blue-300" />
+                          <span>Snap to Box 📦</span>
+                        </button>
+                      )}
                       {drawnPoints.length >= 3 && (
                         <button
                           type="button"
                           onClick={handleUntanglePoints}
-                          title="Untangle crossed lines into a smooth perimeter"
+                          title="Untangle points into a smooth perimeter"
                           className="px-2.5 py-1 bg-indigo-900/70 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/60 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                         >
                           <Sparkles className="w-3 h-3 text-indigo-300" />
-                          <span>Untangle</span>
+                          <span>Untangle ✨</span>
+                        </button>
+                      )}
+                      {stores.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const targetStore = assignedStores[0] || storesWithDistance[0] || stores[0];
+                            if (targetStore) handleCreateBoxAroundStore(targetStore, 2.5);
+                          }}
+                          title="Place clean 2.5km box around target store"
+                          className="px-2.5 py-1 bg-amber-900/70 hover:bg-amber-800 text-amber-200 border border-amber-700/60 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <Store className="w-3 h-3 text-amber-300" />
+                          <span>Box Around Store 🏬</span>
                         </button>
                       )}
                       <button
@@ -1308,7 +1607,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                       ) : (
                         <>
                           <Check className="w-3.5 h-3.5" />
-                          <span>Save Polygon</span>
+                          <span>Save {drawnPoints.length === 4 ? 'Box' : 'Polygon'}</span>
                         </>
                       )}
                     </button>
@@ -1484,14 +1783,25 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                           </button>
                         </div>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => handleAssignSingle(sId, e)}
-                          className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Link to Zone</span>
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleCreateBoxAroundStore(store, 2.5)}
+                            title="Draw a 2.5km delivery box around this store on the map"
+                            className="px-2 py-1 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                          >
+                            <Square className="w-3 h-3 text-emerald-600" />
+                            <span>Box</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleAssignSingle(sId, e)}
+                            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Link to Zone</span>
+                          </button>
+                        </div>
                       )
                     ) : (
                       <span className="text-[10px] text-slate-400 font-medium italic">

@@ -26,14 +26,36 @@ import {
   ExternalLink,
   ChevronRight,
   Eye,
-  EyeOff
+  EyeOff,
+  Square,
+  Sparkles
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
 import { getAllUnifiedStores, CORE_RETAILERS, getRetailerSummarySubtitle } from '../../../utils/storeHelper';
 import { isPointInPolygon } from '../../../utils/distanceCalculator';
 
-// Helper to untangle self-intersecting polygon vertices around their centroid
+// Helper to detect if line segments cross each other
+const hasCrossingSegments = (pts) => {
+  if (!Array.isArray(pts) || pts.length < 4) return false;
+  const n = pts.length;
+  const ccw = (a, b, c) => (c[0] - a[0]) * (b[1] - a[1]) > (b[0] - a[0]) * (c[1] - a[1]);
+  const intersect = (p1, p2, p3, p4) =>
+    ccw(p1, p3, p4) !== ccw(p2, p3, p4) && ccw(p1, p2, p3) !== ccw(p1, p2, p4);
+  for (let i = 0; i < n; i++) {
+    const p1 = pts[i];
+    const p2 = pts[(i + 1) % n];
+    for (let j = i + 2; j < n; j++) {
+      if (i === 0 && j === n - 1) continue;
+      const p3 = pts[j];
+      const p4 = pts[(j + 1) % n];
+      if (intersect(p1, p2, p3, p4)) return true;
+    }
+  }
+  return false;
+};
+
+// Helper to untangle self-intersecting polygon vertices clockwise around their centroid
 const untanglePolygonPoints = (pts) => {
   if (!Array.isArray(pts) || pts.length < 3) return pts;
   let cLat = 0, cLng = 0;
@@ -45,8 +67,10 @@ const untanglePolygonPoints = (pts) => {
   cLng /= pts.length;
 
   return [...pts].sort((a, b) => {
-    const angleA = Math.atan2(a[0] - cLat, a[1] - cLng);
-    const angleB = Math.atan2(b[0] - cLat, b[1] - cLng);
+    let angleA = Math.atan2(a[1] - cLng, a[0] - cLat);
+    let angleB = Math.atan2(b[1] - cLng, b[0] - cLat);
+    if (angleA < 0) angleA += 2 * Math.PI;
+    if (angleB < 0) angleB += 2 * Math.PI;
     return angleA - angleB;
   });
 };
@@ -80,15 +104,21 @@ export const ZoneManagementView = () => {
   const [isGeocoding, setIsGeocoding] = useState(false);
 
   // Drawing & Editing State
-  // Mode: 'view' | 'draw' | 'edit'
+  // Mode: 'view' | 'box' | 'draw' | 'edit'
   const [mapMode, setMapMode] = useState('view');
   const mapModeRef = useRef(mapMode);
   useEffect(() => {
     mapModeRef.current = mapMode;
   }, [mapMode]);
+  const [boxCorner1, setBoxCorner1] = useState(null);
+  const boxCorner1Ref = useRef(null);
+  useEffect(() => {
+    boxCorner1Ref.current = boxCorner1;
+  }, [boxCorner1]);
   const [drawnVertices, setDrawnVertices] = useState([]); // Array of [lat, lng]
   const [isSaving, setIsSaving] = useState(false);
   const [zoneToDelete, setZoneToDelete] = useState(null);
+  const boxPreviewGroupRef = useRef(null);
 
   // Right Panel Form State
   const [zoneForm, setZoneForm] = useState({
@@ -273,17 +303,89 @@ export const ZoneManagementView = () => {
     polygonsLayerGroupRef.current = L.layerGroup().addTo(map);
     storeMarkersGroupRef.current = L.layerGroup().addTo(map);
     drawingLayerGroupRef.current = L.layerGroup().addTo(map);
+    boxPreviewGroupRef.current = L.layerGroup().addTo(map);
 
     mapInstanceRef.current = map;
 
-    // Handle map click during Drawing mode
+    // Handle map click during Drawing & Box mode
     map.on('click', (e) => {
-      if (mapModeRef.current === 'draw') {
-        const { lat, lng } = e.latlng;
-        const roundedLat = Number(lat.toFixed(6));
-        const roundedLng = Number(lng.toFixed(6));
-        setDrawnVertices((prev) => [...prev, [roundedLat, roundedLng]]);
+      const roundedLat = Number(e.latlng.lat.toFixed(6));
+      const roundedLng = Number(e.latlng.lng.toFixed(6));
+
+      if (mapModeRef.current === 'box') {
+        if (!boxCorner1Ref.current) {
+          boxCorner1Ref.current = [roundedLat, roundedLng];
+          setBoxCorner1([roundedLat, roundedLng]);
+          if (boxPreviewGroupRef.current) boxPreviewGroupRef.current.clearLayers();
+          if (drawingLayerGroupRef.current) {
+            drawingLayerGroupRef.current.clearLayers();
+            const startIcon = L.divIcon({
+              className: 'box-corner-start',
+              html: `
+                <div style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; background: #059669; color: #ffffff; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.35); font-size: 11px; font-weight: 900;">
+                  1
+                </div>
+              `,
+              iconSize: [26, 26],
+              iconAnchor: [13, 13]
+            });
+            drawingLayerGroupRef.current.addLayer(L.marker([roundedLat, roundedLng], { icon: startIcon }));
+          }
+        } else {
+          const p1 = boxCorner1Ref.current;
+          const p2 = [roundedLat, roundedLng];
+          const minLat = Math.min(p1[0], p2[0]);
+          const maxLat = Math.max(p1[0], p2[0]);
+          const minLng = Math.min(p1[1], p2[1]);
+          const maxLng = Math.max(p1[1], p2[1]);
+
+          const box = [
+            [Number(maxLat.toFixed(6)), Number(minLng.toFixed(6))], // NW
+            [Number(maxLat.toFixed(6)), Number(maxLng.toFixed(6))], // NE
+            [Number(minLat.toFixed(6)), Number(maxLng.toFixed(6))], // SE
+            [Number(minLat.toFixed(6)), Number(minLng.toFixed(6))]  // SW
+          ];
+
+          boxCorner1Ref.current = null;
+          setBoxCorner1(null);
+          if (boxPreviewGroupRef.current) boxPreviewGroupRef.current.clearLayers();
+          setDrawnVertices(box);
+          setMapMode('edit');
+        }
+      } else if (mapModeRef.current === 'draw') {
+        setDrawnVertices((prev) => {
+          const next = [...prev, [roundedLat, roundedLng]];
+          if (next.length >= 3 && hasCrossingSegments(next)) {
+            return untanglePolygonPoints(next);
+          }
+          return next;
+        });
       }
+    });
+
+    // Real-time rectangle hover preview in Box Mode
+    map.on('mousemove', (e) => {
+      if (mapModeRef.current !== 'box' || !boxCorner1Ref.current) {
+        if (boxPreviewGroupRef.current) boxPreviewGroupRef.current.clearLayers();
+        return;
+      }
+      if (!boxPreviewGroupRef.current) return;
+      boxPreviewGroupRef.current.clearLayers();
+
+      const p1 = boxCorner1Ref.current;
+      const p2 = [e.latlng.lat, e.latlng.lng];
+      const bounds = L.latLngBounds(p1, p2);
+      const color = '#10b981';
+
+      const rect = L.rectangle(bounds, {
+        color: color,
+        weight: 2.5,
+        fillColor: color,
+        fillOpacity: 0.25,
+        dashArray: '6, 6',
+        interactive: false
+      });
+      boxPreviewGroupRef.current.addLayer(rect);
     });
 
     setTimeout(() => {
@@ -291,6 +393,9 @@ export const ZoneManagementView = () => {
     }, 200);
 
     return () => {
+      if (boxPreviewGroupRef.current) {
+        boxPreviewGroupRef.current.clearLayers();
+      }
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -431,18 +536,21 @@ export const ZoneManagementView = () => {
 
     if (drawnVertices.length === 0) return;
 
+    const cleanVertices = hasCrossingSegments(drawnVertices) ? untanglePolygonPoints(drawnVertices) : drawnVertices;
+
     // Draw lines connecting points
-    if (drawnVertices.length >= 2) {
-      const line = L.polyline(drawnVertices, {
+    if (cleanVertices.length >= 2) {
+      const loop = cleanVertices.length >= 3 ? [...cleanVertices, cleanVertices[0]] : cleanVertices;
+      const line = L.polyline(loop, {
         color: zoneForm.color || '#10b981',
         weight: 3,
-        dashArray: mapMode === 'draw' ? '5, 5' : null
+        dashArray: mapMode === 'draw' || mapMode === 'box' ? '5, 5' : null
       });
       drawingLayerGroupRef.current.addLayer(line);
 
       // If closed (or 3+ points in edit/view), show filled polygon preview
-      if (drawnVertices.length >= 3) {
-        const previewPoly = L.polygon(drawnVertices, {
+      if (cleanVertices.length >= 3) {
+        const previewPoly = L.polygon(cleanVertices, {
           color: zoneForm.color || '#10b981',
           weight: 2,
           fillColor: zoneForm.color || '#10b981',
@@ -565,10 +673,62 @@ export const ZoneManagementView = () => {
     };
   }, [stores]);
 
+  // Start Box Drawing Mode
+  const handleStartBox = () => {
+    setMapMode('box');
+    boxCorner1Ref.current = null;
+    setBoxCorner1(null);
+    setDrawnVertices([]);
+    if (boxPreviewGroupRef.current) boxPreviewGroupRef.current.clearLayers();
+    if (drawingLayerGroupRef.current) drawingLayerGroupRef.current.clearLayers();
+    setZoneForm({
+      zoneId: `ZONE-FSD-${Date.now().toString().slice(-4)}`,
+      name: 'New Delivery Zone',
+      code: `Z-${Date.now().toString().slice(-3)}`,
+      description: 'Custom rectangular box delivery boundary',
+      city: 'Faisalabad',
+      area: 'Central Commercial Area',
+      color: '#059669',
+      deliveryCharge: 80,
+      minOrderAmount: 450,
+      freeDeliveryThreshold: 2200,
+      estimatedDeliveryTime: '20-35 mins',
+      isActive: true,
+      status: 'active',
+      assignedStoreId: ''
+    });
+    setSelectedZone(null);
+    if (addToast) addToast('📦 Box Mode: Click Corner 1 on map, then click opposite corner to create box.', 'info');
+  };
+
+  const handleSnapToBox = () => {
+    if (drawnVertices.length < 2) return;
+    const lats = drawnVertices.map((p) => p[0]);
+    const lngs = drawnVertices.map((p) => p[1]);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+
+    const box = [
+      [Number(maxLat.toFixed(6)), Number(minLng.toFixed(6))], // NW
+      [Number(maxLat.toFixed(6)), Number(maxLng.toFixed(6))], // NE
+      [Number(minLat.toFixed(6)), Number(maxLng.toFixed(6))], // SE
+      [Number(minLat.toFixed(6)), Number(minLng.toFixed(6))]  // SW
+    ];
+    setDrawnVertices(box);
+    setMapMode('edit');
+    if (addToast) addToast('Converted to Box 📦', 'Boundary vertices aligned into a clean rectangular box.', 'info');
+  };
+
   // Start Drawing Mode
   const handleStartDraw = () => {
     setMapMode('draw');
+    boxCorner1Ref.current = null;
+    setBoxCorner1(null);
     setDrawnVertices([]);
+    if (boxPreviewGroupRef.current) boxPreviewGroupRef.current.clearLayers();
+    if (drawingLayerGroupRef.current) drawingLayerGroupRef.current.clearLayers();
     setZoneForm({
       zoneId: `ZONE-FSD-${Date.now().toString().slice(-4)}`,
       name: 'New Delivery Zone',
@@ -612,7 +772,11 @@ export const ZoneManagementView = () => {
 
   // Clear Drawn Points
   const handleClearDrawing = () => {
+    boxCorner1Ref.current = null;
+    setBoxCorner1(null);
     setDrawnVertices([]);
+    if (drawingLayerGroupRef.current) drawingLayerGroupRef.current.clearLayers();
+    if (boxPreviewGroupRef.current) boxPreviewGroupRef.current.clearLayers();
     if (addToast) addToast('Drawing cleared.', 'info');
   };
 
@@ -891,6 +1055,15 @@ export const ZoneManagementView = () => {
                 <span>View</span>
               </button>
               <button
+                onClick={handleStartBox}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                  mapMode === 'box' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Square className="w-3.5 h-3.5" />
+                <span>Draw Box</span>
+              </button>
+              <button
                 onClick={handleStartDraw}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
                   mapMode === 'draw' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
@@ -954,6 +1127,38 @@ export const ZoneManagementView = () => {
               style={{ minHeight: '520px' }}
             ></div>
 
+            {/* Box Mode Banner */}
+            {mapMode === 'box' && (
+              <div className="absolute top-4 left-4 right-4 z-20 bg-slate-900/95 backdrop-blur-xs text-white p-3 rounded-2xl shadow-xl flex items-center justify-between gap-3 text-xs border border-emerald-500/40">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+                  <span>
+                    {boxCorner1 ? (
+                      <span className="text-amber-300 font-bold">
+                        📍 Corner 1 set! Move cursor and click opposite corner to create box.
+                      </span>
+                    ) : (
+                      '📦 Click anywhere on map to set Corner 1 of your delivery box.'
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    onClick={handleClearDrawing}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={() => setMapMode('view')}
+                    className="px-2.5 py-1 bg-rose-900/60 hover:bg-rose-800 text-rose-200 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* In-Map Drawing Notification / Vertex Actions Banner */}
             {mapMode === 'draw' && (
               <div className="absolute top-4 left-4 right-4 z-20 bg-slate-900/90 backdrop-blur-xs text-white p-3 rounded-2xl shadow-xl flex items-center justify-between gap-3 text-xs">
@@ -964,6 +1169,16 @@ export const ZoneManagementView = () => {
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
+                  {drawnVertices.length >= 2 && (
+                    <button
+                      onClick={handleSnapToBox}
+                      title="Convert vertices to a clean rectangular box"
+                      className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
+                    >
+                      <Square className="w-3 h-3" />
+                      <span>Snap to Box</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       if (drawnVertices.length >= 3) {
@@ -1007,12 +1222,24 @@ export const ZoneManagementView = () => {
                   <Sliders className="w-4 h-4 text-amber-400" />
                   <span>Drag vertex handles on the map to reshape the delivery polygon boundary.</span>
                 </div>
-                <button
-                  onClick={() => setMapMode('view')}
-                  className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-[11px] font-bold transition"
-                >
-                  Done Editing
-                </button>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {drawnVertices.length >= 2 && (
+                    <button
+                      onClick={handleSnapToBox}
+                      title="Snap to clean box"
+                      className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
+                    >
+                      <Square className="w-3 h-3" />
+                      <span>Snap to Box</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setMapMode('view')}
+                    className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-[11px] font-bold transition"
+                  >
+                    Done Editing
+                  </button>
+                </div>
               </div>
             )}
           </div>
