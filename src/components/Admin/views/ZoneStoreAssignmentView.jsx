@@ -129,7 +129,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       }
 
       const unifiedStores = getAllUnifiedStores(storesRes?.stores, allBranches);
-      setStores(unifiedStores);
+      setStores(deduplicateStores(unifiedStores));
 
       if (assignRes?.success && Array.isArray(assignRes.assignments)) {
         setAssignments(assignRes.assignments);
