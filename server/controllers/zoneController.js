@@ -2,9 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DeliveryZone } from '../models/DeliveryZone.js';
 import { ZoneStore } from '../models/ZoneStore.js';
+import { Branch } from '../models/Branch.js';
 import { isDbOnline } from '../config/db.js';
 import { validateAndNormalizePolygon } from '../utils/gisValidator.js';
 import { loadDiskAssignments, saveDiskAssignments } from './assignmentController.js';
+import { loadDiskBranches, saveDiskBranch } from './companyBranchController.js';
+import { loadDiskStores, saveDiskStores } from './storeController.js';
 
 const ZONES_FILE_PATH = path.resolve(process.cwd(), 'server/data/zones_db.json');
 
@@ -13,10 +16,10 @@ export const loadDiskZones = () => {
     if (fs.existsSync(ZONES_FILE_PATH)) {
       const data = fs.readFileSync(ZONES_FILE_PATH, 'utf-8');
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (e) {}
-  return [];
+  return [...DEFAULT_PLATFORM_ZONES];
 };
 
 export const saveDiskZones = (zones) => {
@@ -25,8 +28,117 @@ export const saveDiskZones = (zones) => {
   } catch (e) {}
 };
 
-// Delivery zones are created solely by the admin drawing polygons on the map
-const DEFAULT_PLATFORM_ZONES = [];
+// Default platform delivery zones associated 1-to-1 with flagship supermarket branches
+const DEFAULT_PLATFORM_ZONES = [
+  {
+    _id: 'ZONE-FSD-DGROUND',
+    zoneId: 'ZONE-FSD-DGROUND',
+    name: 'D-Ground Commercial & Peoples Colony Hub',
+    code: 'FSD-DGR',
+    city: 'Faisalabad',
+    area: 'D-Ground / Peoples Colony',
+    description: 'Premier commercial, dining, and central residential zone surrounding D-Ground and Peoples Colony 1 & 2.',
+    color: '#0284c7',
+    deliveryCharge: 60,
+    minOrderAmount: 400,
+    freeDeliveryThreshold: 2000,
+    estimatedDeliveryTime: '15-25 mins',
+    assignedStoreId: 'branch_um_fsd',
+    status: 'active',
+    isActive: true,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.0650, 31.4250],
+        [73.0950, 31.4250],
+        [73.0950, 31.3950],
+        [73.0650, 31.3950],
+        [73.0650, 31.4250]
+      ]]
+    }
+  },
+  {
+    _id: 'ZONE-FSD-CANAL',
+    zoneId: 'ZONE-FSD-CANAL',
+    name: 'Canal Road & Kohinoor Express Zone',
+    code: 'FSD-CNR',
+    city: 'Faisalabad',
+    area: 'East Canal Road / Kohinoor',
+    description: 'High-density residential corridor covering Kohinoor City, Canal Road gated communities, and Medina Commercial.',
+    color: '#2563eb',
+    deliveryCharge: 80,
+    minOrderAmount: 500,
+    freeDeliveryThreshold: 2500,
+    estimatedDeliveryTime: '20-30 mins',
+    assignedStoreId: 'branch_af_kohinoor',
+    status: 'active',
+    isActive: true,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.0900, 31.4350],
+        [73.1250, 31.4350],
+        [73.1250, 31.4050],
+        [73.0900, 31.4050],
+        [73.0900, 31.4350]
+      ]]
+    }
+  },
+  {
+    _id: 'ZONE-FSD-MADINA',
+    zoneId: 'ZONE-FSD-MADINA',
+    name: 'Madina Town & Susan Road Commercial Zone',
+    code: 'FSD-MDN',
+    city: 'Faisalabad',
+    area: 'Madina Town / Susan Road',
+    description: 'Thriving retail and grocery market hub spanning Susan Road, Madina Town, and adjacent shopping centers.',
+    color: '#059669',
+    deliveryCharge: 70,
+    minOrderAmount: 450,
+    freeDeliveryThreshold: 2200,
+    estimatedDeliveryTime: '20-35 mins',
+    assignedStoreId: 'branch_cv_fsd',
+    status: 'active',
+    isActive: true,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.0950, 31.4450],
+        [73.1300, 31.4450],
+        [73.1300, 31.4150],
+        [73.0950, 31.4150],
+        [73.0950, 31.4450]
+      ]]
+    }
+  },
+  {
+    _id: 'ZONE-FSD-CLOCKTOWER',
+    zoneId: 'ZONE-FSD-CLOCKTOWER',
+    name: 'Clock Tower & Eight Bazaars Central Zone',
+    code: 'FSD-CTW',
+    city: 'Faisalabad',
+    area: 'Old City / Clock Tower / Samanabad',
+    description: 'Historical heart of Faisalabad covering the 8 famous bazaars and surrounding wholesale networks.',
+    color: '#d97706',
+    deliveryCharge: 75,
+    minOrderAmount: 450,
+    freeDeliveryThreshold: 2200,
+    estimatedDeliveryTime: '25-35 mins',
+    assignedStoreId: 'branch_006',
+    status: 'active',
+    isActive: true,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.0500, 31.4200],
+        [73.0800, 31.4200],
+        [73.0800, 31.3900],
+        [73.0500, 31.3900],
+        [73.0500, 31.4200]
+      ]]
+    }
+  }
+];
 
 // Helper to get all combined zones
 export const getAllZonesMerged = async () => {
@@ -205,6 +317,36 @@ export const createZone = async (req, res) => {
             await ZoneStore.findOneAndUpdate({ zoneId: generatedId, storeId: targetStoreId }, assignRecord, { upsert: true });
           } catch (e) {}
         }
+
+        // Bidirectional sync: propagate delivery polygon & assignedZoneId to branch
+        let polygonLatLngs = null;
+        if (normalizedGeometry && Array.isArray(normalizedGeometry.coordinates?.[0])) {
+          polygonLatLngs = normalizedGeometry.coordinates[0].map(([lng, lat]) => [Number(lat), Number(lng)]);
+        }
+        const cleanStoreId = String(targetStoreId).toLowerCase().trim();
+        const diskBranches = loadDiskBranches();
+        const bIdx = diskBranches.findIndex((b) => String(b._id || b.id || '').toLowerCase().trim() === cleanStoreId);
+        if (bIdx >= 0) {
+          diskBranches[bIdx].assignedZoneId = generatedId;
+          if (polygonLatLngs && polygonLatLngs.length >= 3) {
+            diskBranches[bIdx].deliveryPolygon = polygonLatLngs;
+          }
+          saveDiskBranch(diskBranches[bIdx]);
+        }
+        if (isDbOnline()) {
+          try {
+            const bUpdates = { assignedZoneId: generatedId };
+            if (polygonLatLngs && polygonLatLngs.length >= 3) bUpdates.deliveryPolygon = polygonLatLngs;
+            await Branch.findOneAndUpdate({ $or: [{ _id: targetStoreId }, { id: targetStoreId }] }, { $set: bUpdates });
+          } catch (mErr) {}
+        }
+        const diskStores = loadDiskStores();
+        const sIdx = diskStores.findIndex((s) => String(s.storeId || s._id || '').toLowerCase().trim() === cleanStoreId);
+        if (sIdx >= 0) {
+          diskStores[sIdx].assignedZoneId = generatedId;
+          if (polygonLatLngs && polygonLatLngs.length >= 3) diskStores[sIdx].deliveryPolygon = polygonLatLngs;
+          saveDiskStores(diskStores);
+        }
       } catch (e) {}
     }
 
@@ -292,6 +434,59 @@ export const updateZone = async (req, res) => {
           }
         }
       } catch (e) {}
+    }
+
+    // Bidirectional sync: propagate delivery polygon & zone id to the assigned branch & store
+    let polygonLatLngs = null;
+    if (updates.geometry && Array.isArray(updates.geometry.coordinates?.[0])) {
+      polygonLatLngs = updates.geometry.coordinates[0].map(([lng, lat]) => [Number(lat), Number(lng)]);
+    }
+    const storeToSync = targetStoreId || disk[index]?.assignedStoreId || updates.assignedStoreId;
+    if (storeToSync) {
+      try {
+        const cleanStoreId = String(storeToSync).toLowerCase().trim();
+        const diskBranches = loadDiskBranches();
+        const bIdx = diskBranches.findIndex(
+          (b) => String(b._id || b.id || '').toLowerCase().trim() === cleanStoreId
+        );
+        if (bIdx >= 0) {
+          diskBranches[bIdx].assignedZoneId = id;
+          if (polygonLatLngs && polygonLatLngs.length >= 3) {
+            diskBranches[bIdx].deliveryPolygon = polygonLatLngs;
+          }
+          if (updates.deliveryCharge != null) {
+            diskBranches[bIdx].deliveryTiers = [
+              { distanceKm: 2, fee: Number(updates.deliveryCharge) }
+            ];
+          }
+          saveDiskBranch(diskBranches[bIdx]);
+        }
+
+        if (isDbOnline()) {
+          try {
+            const bUpdates = { assignedZoneId: id };
+            if (polygonLatLngs && polygonLatLngs.length >= 3) {
+              bUpdates.deliveryPolygon = polygonLatLngs;
+            }
+            await Branch.findOneAndUpdate(
+              { $or: [{ _id: storeToSync }, { id: storeToSync }] },
+              { $set: bUpdates }
+            );
+          } catch (mErr) {}
+        }
+
+        const diskStores = loadDiskStores();
+        const sIdx = diskStores.findIndex((s) => String(s.storeId || s._id || '').toLowerCase().trim() === cleanStoreId);
+        if (sIdx >= 0) {
+          diskStores[sIdx].assignedZoneId = id;
+          if (polygonLatLngs && polygonLatLngs.length >= 3) {
+            diskStores[sIdx].deliveryPolygon = polygonLatLngs;
+          }
+          saveDiskStores(diskStores);
+        }
+      } catch (syncErr) {
+        console.warn('Zone-to-Branch sync error:', syncErr.message);
+      }
     }
 
     return res.json({

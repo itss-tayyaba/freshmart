@@ -232,14 +232,29 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
 
   // SuperAdmin Master Delivery Zones (Geofence Boundaries)
   const [masterZones, setMasterZones] = useState([]);
-  useEffect(() => {
-    let isMounted = true;
+  const refreshMasterZones = () => {
     apiService.getZones().then((res) => {
-      if (isMounted && res?.success && Array.isArray(res.zones)) {
+      if (res?.success && Array.isArray(res.zones)) {
         setMasterZones(res.zones);
       }
     }).catch(() => {});
-    return () => { isMounted = false; };
+  };
+
+  useEffect(() => {
+    refreshMasterZones();
+    const handleZonesUpdated = (e) => {
+      if (e?.detail && Array.isArray(e.detail)) {
+        setMasterZones(e.detail);
+      } else {
+        refreshMasterZones();
+      }
+    };
+    window.addEventListener('freshmart_zones_updated', handleZonesUpdated);
+    window.addEventListener('freshmart_branches_updated', refreshMasterZones);
+    return () => {
+      window.removeEventListener('freshmart_zones_updated', handleZonesUpdated);
+      window.removeEventListener('freshmart_branches_updated', refreshMasterZones);
+    };
   }, []);
 
   // New Zone Form State (for adding a new branch/zone)
@@ -269,8 +284,26 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     if (!masterZones || masterZones.length === 0) return null;
     const storeLat = getSafeCoord(lat, 31.4087);
     const storeLng = getSafeCoord(lng, 73.1118);
+    const bId = String(activeBranch._id || activeBranch.id || '').toLowerCase().trim();
+    const assignedZId = String(activeBranch.assignedZoneId || '').toLowerCase().trim();
 
-    // 1. Check if store center coordinates lie inside any SuperAdmin geofence polygon
+    // 1. Direct binding: check if zone was explicitly assigned to this store or created for this store
+    for (const z of masterZones) {
+      if (z.isActive === false || String(z.status).toLowerCase() === 'inactive') continue;
+      const zStoreId = String(z.assignedStoreId || '').toLowerCase().trim();
+      const zId = String(z.zoneId || z._id || z.id || '').toLowerCase().trim();
+      const zCode = String(z.code || '').toLowerCase().trim();
+      if ((bId && zStoreId === bId) || (assignedZId && (assignedZId === zId || assignedZId === zCode))) {
+        const rawRing = z.geometry?.coordinates?.[0] || z.coordinates?.[0] || z.coordinates || [];
+        const latLngs = (Array.isArray(rawRing) ? rawRing : [])
+          .map(normalizeLatLng)
+          .filter(Boolean)
+          .map((p) => [p.lat, p.lng]);
+        if (latLngs.length >= 3) return { ...z, latLngs };
+      }
+    }
+
+    // 2. Check if store center coordinates lie inside any SuperAdmin geofence polygon
     for (const z of masterZones) {
       if (z.isActive === false || String(z.status).toLowerCase() === 'inactive') continue;
       const rawRing = z.geometry?.coordinates?.[0] || z.coordinates?.[0] || z.coordinates || [];
@@ -282,7 +315,8 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
         return { ...z, latLngs };
       }
     }
-    // 2. Fallback: match by city
+
+    // 3. Fallback: match by city
     const byCity = masterZones.find(
       (z) => String(z.city || '').toLowerCase() === String(branchCity || '').toLowerCase() && (z.isActive !== false)
     );
@@ -295,7 +329,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
       if (latLngs.length >= 3) return { ...byCity, latLngs };
     }
     return null;
-  }, [masterZones, lat, lng, branchCity]);
+  }, [masterZones, lat, lng, branchCity, activeBranch]);
 
   // Sync internal state when active branch changes
   useEffect(() => {
@@ -333,11 +367,13 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
         }
       });
       setPolygonPoints(sanitized.length >= 3 ? sanitized : []);
+    } else if (matchingMasterZone && matchingMasterZone.latLngs && matchingMasterZone.latLngs.length >= 3) {
+      setPolygonPoints(matchingMasterZone.latLngs);
     } else {
       setPolygonPoints([]);
     }
     setMapDrawMode('center');
-  }, [activeBranch]);
+  }, [activeBranch, matchingMasterZone]);
 
   // Adopt SuperAdmin Master Geofence boundary into store's custom delivery zone
   const handleAdoptMasterZone = () => {
@@ -783,6 +819,49 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
         body: JSON.stringify(payload)
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      // Also sync delivery zone in localStorage and dispatch freshmart_zones_updated
+      try {
+        const savedZones = localStorage.getItem('freshmart_zones');
+        const localZones = savedZones ? JSON.parse(savedZones) : [];
+        const zId = activeBranch.assignedZoneId || `ZONE-${String(branchId).toUpperCase()}`;
+        let cleanRing = null;
+        if (payload.deliveryPolygon && payload.deliveryPolygon.length >= 3) {
+          cleanRing = payload.deliveryPolygon.map(([pLat, pLng]) => [Number(Number(pLng).toFixed(6)), Number(Number(pLat).toFixed(6))]);
+          const first = cleanRing[0];
+          const last = cleanRing[cleanRing.length - 1];
+          if (first[0] !== last[0] || first[1] !== last[1]) {
+            cleanRing.push([first[0], first[1]]);
+          }
+        }
+        const updatedZone = {
+          zoneId: zId,
+          _id: zId,
+          name: `${branchName} Delivery Zone`,
+          code: `Z-${String(branchId).slice(-4).toUpperCase()}`,
+          city: branchCity,
+          area: address || branchName,
+          description: `Dedicated delivery zone for ${branchName}`,
+          color: activeRetailer?.color || '#059669',
+          deliveryCharge: Number(payload.deliveryTiers?.[0]?.fee || 60),
+          minOrderAmount: 400,
+          freeDeliveryThreshold: 2000,
+          estimatedDeliveryTime: '20-30 mins',
+          assignedStoreId: branchId,
+          isActive: deliveryStatus !== 'inactive',
+          status: deliveryStatus,
+          ...(cleanRing ? { geometry: { type: 'Polygon', coordinates: [cleanRing] }, coordinates: [cleanRing] } : {})
+        };
+        const existingZIdx = localZones.findIndex((z) => z.zoneId === zId || z.assignedStoreId === branchId);
+        if (existingZIdx >= 0) {
+          localZones[existingZIdx] = { ...localZones[existingZIdx], ...updatedZone };
+        } else {
+          localZones.unshift(updatedZone);
+        }
+        localStorage.setItem('freshmart_zones', JSON.stringify(localZones));
+        window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: localZones }));
+      } catch (localErr) {}
+
       addToast(
         'Delivery Zone Saved! 💾',
         `Successfully saved zone for ${branchName} (GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)}${payload.deliveryPolygon ? ` • ${polygonPoints.length}-pt Polygon` : ''}).`

@@ -561,7 +561,7 @@ export const ZoneManagementView = () => {
     }
 
     // Draw vertex handles
-    drawnVertices.forEach(([vLat, vLng], idx) => {
+    cleanVertices.forEach(([vLat, vLng], idx) => {
       const handleIcon = L.divIcon({
         className: 'vertex-handle',
         html: `
@@ -681,24 +681,25 @@ export const ZoneManagementView = () => {
     setDrawnVertices([]);
     if (boxPreviewGroupRef.current) boxPreviewGroupRef.current.clearLayers();
     if (drawingLayerGroupRef.current) drawingLayerGroupRef.current.clearLayers();
-    setZoneForm({
-      zoneId: `ZONE-FSD-${Date.now().toString().slice(-4)}`,
-      name: 'New Delivery Zone',
-      code: `Z-${Date.now().toString().slice(-3)}`,
-      description: 'Custom rectangular box delivery boundary',
-      city: 'Faisalabad',
-      area: 'Central Commercial Area',
-      color: '#059669',
-      deliveryCharge: 80,
-      minOrderAmount: 450,
-      freeDeliveryThreshold: 2200,
-      estimatedDeliveryTime: '20-35 mins',
-      isActive: true,
-      status: 'active',
-      assignedStoreId: ''
-    });
-    setSelectedZone(null);
-    if (addToast) addToast('📦 Box Mode: Click Corner 1 on map, then click opposite corner to create box.', 'info');
+    if (!selectedZone) {
+      setZoneForm({
+        zoneId: `ZONE-FSD-${Date.now().toString().slice(-4)}`,
+        name: 'New Delivery Zone',
+        code: `Z-${Date.now().toString().slice(-3)}`,
+        description: 'Custom rectangular box delivery boundary',
+        city: 'Faisalabad',
+        area: 'Central Commercial Area',
+        color: '#059669',
+        deliveryCharge: 80,
+        minOrderAmount: 450,
+        freeDeliveryThreshold: 2200,
+        estimatedDeliveryTime: '20-35 mins',
+        isActive: true,
+        status: 'active',
+        assignedStoreId: ''
+      });
+    }
+    if (addToast) addToast(`📦 Box Mode: Click Corner 1 on map, then click opposite corner to create box for ${selectedZone ? selectedZone.name : 'delivery zone'}.`, 'info');
   };
 
   const handleSnapToBox = () => {
@@ -729,24 +730,25 @@ export const ZoneManagementView = () => {
     setDrawnVertices([]);
     if (boxPreviewGroupRef.current) boxPreviewGroupRef.current.clearLayers();
     if (drawingLayerGroupRef.current) drawingLayerGroupRef.current.clearLayers();
-    setZoneForm({
-      zoneId: `ZONE-FSD-${Date.now().toString().slice(-4)}`,
-      name: 'New Delivery Zone',
-      code: `Z-${Date.now().toString().slice(-3)}`,
-      description: 'Custom polygon delivery boundary',
-      city: 'Faisalabad',
-      area: 'Central Commercial Area',
-      color: '#2563eb',
-      deliveryCharge: 80,
-      minOrderAmount: 450,
-      freeDeliveryThreshold: 2200,
-      estimatedDeliveryTime: '20-35 mins',
-      isActive: true,
-      status: 'active',
-      assignedStoreId: ''
-    });
-    setSelectedZone(null);
-    if (addToast) addToast('Drawing mode active. Click on map to add polygon boundary points (irregular shape).', 'info');
+    if (!selectedZone) {
+      setZoneForm({
+        zoneId: `ZONE-FSD-${Date.now().toString().slice(-4)}`,
+        name: 'New Delivery Zone',
+        code: `Z-${Date.now().toString().slice(-3)}`,
+        description: 'Custom polygon delivery boundary',
+        city: 'Faisalabad',
+        area: 'Central Commercial Area',
+        color: '#2563eb',
+        deliveryCharge: 80,
+        minOrderAmount: 450,
+        freeDeliveryThreshold: 2200,
+        estimatedDeliveryTime: '20-35 mins',
+        isActive: true,
+        status: 'active',
+        assignedStoreId: ''
+      });
+    }
+    if (addToast) addToast(`Drawing mode active. Click on map to add polygon boundary points for ${selectedZone ? selectedZone.name : 'delivery zone'}.`, 'info');
   };
 
   // Automatically Close Polygon Ring
@@ -864,21 +866,27 @@ export const ZoneManagementView = () => {
         }
       }
 
-      // Propagate polygon boundary to branches lying inside this zone that lack custom polygons
+      // Propagate polygon boundary to assigned branch and branches inside this zone
       try {
         const savedBranches = localStorage.getItem('freshmart_branches');
         const branchList = savedBranches ? JSON.parse(savedBranches) : (allBranches || []);
         if (Array.isArray(branchList) && branchList.length > 0) {
           let updatedAny = false;
+          const assignedId = String(zoneForm.assignedStoreId || '').toLowerCase().trim();
           const updated = branchList.map((b) => {
+            const bId = String(b._id || b.id || '').toLowerCase().trim();
+            const bStoreId = String(b.storeId || '').toLowerCase().trim();
             const bLat = Number(b.latitude ?? b.coordinates?.lat);
             const bLng = Number(b.longitude ?? b.coordinates?.lng);
             const isInside = isPointInPolygon({ lat: bLat, lng: bLng }, cleanVertices);
-            if (isInside && (!Array.isArray(b.deliveryPolygon) || b.deliveryPolygon.length < 3)) {
+            const isExplicitlyAssigned = assignedId && (bId === assignedId || bStoreId === assignedId);
+
+            if (isExplicitlyAssigned || isInside) {
               updatedAny = true;
               return {
                 ...b,
-                deliveryPolygon: cleanVertices
+                deliveryPolygon: cleanVertices,
+                assignedZoneId: payload.zoneId
               };
             }
             return b;
@@ -886,6 +894,7 @@ export const ZoneManagementView = () => {
           if (updatedAny) {
             localStorage.setItem('freshmart_branches', JSON.stringify(updated));
             window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: updated }));
+            window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
           }
         }
       } catch (e) {

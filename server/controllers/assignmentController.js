@@ -2,10 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ZoneStore } from '../models/ZoneStore.js';
 import { Store } from '../models/Store.js';
+import { Branch } from '../models/Branch.js';
 import { DeliveryZone } from '../models/DeliveryZone.js';
 import { isDbOnline } from '../config/db.js';
 import { loadDiskStores, saveDiskStores } from './storeController.js';
 import { loadDiskZones, saveDiskZones } from './zoneController.js';
+import { loadDiskBranches, saveDiskBranch } from './companyBranchController.js';
 import { calculateDistanceToZoneKm } from '../utils/gisValidator.js';
 import { resolveRetailerId, getRetailerDetails } from '../utils/retailerHelper.js';
 import { BRANCHES } from '../../src/data/companyHierarchyData.js';
@@ -17,10 +19,10 @@ export const loadDiskAssignments = () => {
     if (fs.existsSync(ASSIGNMENTS_FILE_PATH)) {
       const data = fs.readFileSync(ASSIGNMENTS_FILE_PATH, 'utf-8');
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (e) {}
-  return [];
+  return [...DEFAULT_ASSIGNMENTS];
 };
 
 export const saveDiskAssignments = (assignments) => {
@@ -254,6 +256,47 @@ export const assignStoresToZone = async (req, res) => {
       }
     }
 
+    // Extract polygon points from zone geometry if available to sync to assigned stores
+    let polygonLatLngs = null;
+    if (zone?.geometry && Array.isArray(zone.geometry.coordinates?.[0])) {
+      polygonLatLngs = zone.geometry.coordinates[0].map(([lng, lat]) => [Number(lat), Number(lng)]);
+    }
+
+    // Also update branch in branches_db.json and MongoDB
+    try {
+      const diskBranches = loadDiskBranches();
+      let branchesUpdated = false;
+      for (const sId of idsToAssign) {
+        const cleanSId = String(sId).toLowerCase();
+        const bIdx = diskBranches.findIndex((b) =>
+          String(b._id || b.id || '').toLowerCase() === cleanSId
+        );
+        if (bIdx >= 0) {
+          diskBranches[bIdx].assignedZoneId = zone?.zoneId || zoneId;
+          if (polygonLatLngs && polygonLatLngs.length >= 3) {
+            diskBranches[bIdx].deliveryPolygon = polygonLatLngs;
+          }
+          saveDiskBranch(diskBranches[bIdx]);
+          branchesUpdated = true;
+        }
+
+        if (isDbOnline()) {
+          try {
+            const bUpdates = { assignedZoneId: zone?.zoneId || zoneId };
+            if (polygonLatLngs && polygonLatLngs.length >= 3) {
+              bUpdates.deliveryPolygon = polygonLatLngs;
+            }
+            await Branch.findOneAndUpdate(
+              { $or: [{ _id: sId }, { id: sId }] },
+              { $set: bUpdates }
+            );
+          } catch (mErr) {}
+        }
+      }
+    } catch (bErr) {
+      console.warn('Branch assignment sync warning:', bErr.message);
+    }
+
     // Also update store.assignedZoneId in stores_db.json
     if (diskStores.length > 0) {
       let storeUpdated = false;
@@ -264,6 +307,9 @@ export const assignStoresToZone = async (req, res) => {
         );
         if (sIdx >= 0) {
           diskStores[sIdx].assignedZoneId = zone?.zoneId || zoneId;
+          if (polygonLatLngs && polygonLatLngs.length >= 3) {
+            diskStores[sIdx].deliveryPolygon = polygonLatLngs;
+          }
           storeUpdated = true;
         }
       }

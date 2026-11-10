@@ -67,7 +67,30 @@
       }
     ],
     "operatingHours": "09:00 AM - 11:30 PM",
-    "status": "active"
+    "status": "active",
+    "assignedZoneId": "ZONE-FSD-CANAL",
+    "deliveryPolygon": [
+      [
+        31.435,
+        73.09
+      ],
+      [
+        31.435,
+        73.125
+      ],
+      [
+        31.405,
+        73.125
+      ],
+      [
+        31.405,
+        73.09
+      ],
+      [
+        31.435,
+        73.09
+      ]
+    ]
   },
   {
     "_id": "branch_006",
@@ -104,7 +127,30 @@
       }
     ],
     "operatingHours": "09:30 AM - 11:00 PM",
-    "status": "active"
+    "status": "active",
+    "assignedZoneId": "ZONE-FSD-CLOCKTOWER",
+    "deliveryPolygon": [
+      [
+        31.42,
+        73.05
+      ],
+      [
+        31.42,
+        73.08
+      ],
+      [
+        31.39,
+        73.08
+      ],
+      [
+        31.39,
+        73.05
+      ],
+      [
+        31.42,
+        73.05
+      ]
+    ]
   },
   {
     "_id": "branch_cu_satiana",
@@ -170,7 +216,30 @@
       }
     ],
     "operatingHours": "10:00 AM - 11:00 PM",
-    "status": "active"
+    "status": "active",
+    "assignedZoneId": "ZONE-FSD-MADINA",
+    "deliveryPolygon": [
+      [
+        31.445,
+        73.095
+      ],
+      [
+        31.445,
+        73.13
+      ],
+      [
+        31.415,
+        73.13
+      ],
+      [
+        31.415,
+        73.095
+      ],
+      [
+        31.445,
+        73.095
+      ]
+    ]
   },
   {
     "_id": "branch_cv_gmabad",
@@ -240,7 +309,30 @@
       }
     ],
     "operatingHours": "07:30 AM - 12:00 AM",
-    "status": "active"
+    "status": "active",
+    "assignedZoneId": "ZONE-FSD-DGROUND",
+    "deliveryPolygon": [
+      [
+        31.425,
+        73.065
+      ],
+      [
+        31.425,
+        73.095
+      ],
+      [
+        31.395,
+        73.095
+      ],
+      [
+        31.395,
+        73.065
+      ],
+      [
+        31.425,
+        73.065
+      ]
+    ]
   },
   {
     "_id": "branch_um_madina",

@@ -25,7 +25,30 @@
     "isActive": true,
     "operatingStatus": "Open",
     "manager": "Unimart Store Manager",
-    "deliveryRadiusKm": 5
+    "deliveryRadiusKm": 5,
+    "assignedZoneId": "ZONE-FSD-DGROUND",
+    "deliveryPolygon": [
+      [
+        31.425,
+        73.065
+      ],
+      [
+        31.425,
+        73.095
+      ],
+      [
+        31.395,
+        73.095
+      ],
+      [
+        31.395,
+        73.065
+      ],
+      [
+        31.425,
+        73.065
+      ]
+    ]
   },
   {
     "_id": "STR-AF-001",
@@ -53,7 +76,30 @@
     "isActive": true,
     "operatingStatus": "Open",
     "manager": "Al-Fatah Store Manager",
-    "deliveryRadiusKm": 5
+    "deliveryRadiusKm": 5,
+    "assignedZoneId": "ZONE-FSD-CANAL",
+    "deliveryPolygon": [
+      [
+        31.435,
+        73.09
+      ],
+      [
+        31.435,
+        73.125
+      ],
+      [
+        31.405,
+        73.125
+      ],
+      [
+        31.405,
+        73.09
+      ],
+      [
+        31.435,
+        73.09
+      ]
+    ]
   },
   {
     "_id": "STR-CV-001",
@@ -81,7 +127,30 @@
     "isActive": true,
     "operatingStatus": "Open",
     "manager": "Chase Value Store Manager",
-    "deliveryRadiusKm": 5
+    "deliveryRadiusKm": 5,
+    "assignedZoneId": "ZONE-FSD-MADINA",
+    "deliveryPolygon": [
+      [
+        31.445,
+        73.095
+      ],
+      [
+        31.445,
+        73.13
+      ],
+      [
+        31.415,
+        73.13
+      ],
+      [
+        31.415,
+        73.095
+      ],
+      [
+        31.445,
+        73.095
+      ]
+    ]
   },
   {
     "_id": "STR-CU-001",
@@ -109,6 +178,29 @@
     "isActive": true,
     "operatingStatus": "Open",
     "manager": "Chase Up Store Manager",
-    "deliveryRadiusKm": 5
+    "deliveryRadiusKm": 5,
+    "assignedZoneId": "ZONE-FSD-CLOCKTOWER",
+    "deliveryPolygon": [
+      [
+        31.42,
+        73.05
+      ],
+      [
+        31.42,
+        73.08
+      ],
+      [
+        31.39,
+        73.08
+      ],
+      [
+        31.39,
+        73.05
+      ],
+      [
+        31.42,
+        73.05
+      ]
+    ]
   }
 ]

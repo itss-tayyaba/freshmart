@@ -484,6 +484,43 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       )
     );
 
+    // Propagate zone polygon boundary to assigned branch in localStorage so Store Admin has it
+    try {
+      const savedBranches = localStorage.getItem('freshmart_branches');
+      const branchList = savedBranches ? JSON.parse(savedBranches) : (allBranches || []);
+      const cleanStoreId = String(storeId).toLowerCase().trim();
+      let updatedBranches = false;
+      const updated = branchList.map((b) => {
+        const bId = String(b._id || b.id || '').toLowerCase().trim();
+        const bStoreId = String(b.storeId || '').toLowerCase().trim();
+        if (bId === cleanStoreId || bStoreId === cleanStoreId) {
+          updatedBranches = true;
+          return {
+            ...b,
+            assignedZoneId: zId,
+            ...(activeZonePolygonLatLngs.length >= 3 ? { deliveryPolygon: activeZonePolygonLatLngs } : {})
+          };
+        }
+        return b;
+      });
+      if (updatedBranches) {
+        localStorage.setItem('freshmart_branches', JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: updated }));
+        window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
+      }
+    } catch (err) {}
+
+    // Update freshmart_zones in localStorage
+    try {
+      const savedZones = localStorage.getItem('freshmart_zones');
+      const localZones = savedZones ? JSON.parse(savedZones) : [];
+      const updatedZ = localZones.map((z) =>
+        (z.zoneId === zId || z._id === zId || z.code === zId) ? { ...z, assignedStoreId: storeId } : z
+      );
+      localStorage.setItem('freshmart_zones', JSON.stringify(updatedZ));
+      window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: updatedZ }));
+    } catch (err) {}
+
     if (addToast) {
       addToast(`Assigned store to ${activeZone.name}!`, 'success');
     }
@@ -1142,11 +1179,12 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
               const bLng = Number(b.longitude ?? b.coordinates?.lng);
               const isInside = isPointInPolygon({ lat: bLat, lng: bLng }, cleanPoints);
 
-              if ((isAssigned || isInside) && (!Array.isArray(b.deliveryPolygon) || b.deliveryPolygon.length < 3)) {
+              if (isAssigned || isInside) {
                 updatedAny = true;
                 return {
                   ...b,
-                  deliveryPolygon: cleanPoints
+                  deliveryPolygon: cleanPoints,
+                  assignedZoneId: zId
                 };
               }
               return b;
@@ -1154,6 +1192,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
             if (updatedAny) {
               localStorage.setItem('freshmart_branches', JSON.stringify(updated));
               window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: updated }));
+              window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
             }
           }
         } catch (e) {

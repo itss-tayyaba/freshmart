@@ -17,9 +17,14 @@ import { Branch } from '../models/Branch.js';
 import { Inventory } from '../models/Inventory.js';
 import { Company } from '../models/Company.js';
 import { Order } from '../models/Order.js';
+import { DeliveryZone } from '../models/DeliveryZone.js';
+import { ZoneStore } from '../models/ZoneStore.js';
 import { isDbOnline } from '../config/db.js';
 import { loadDiskOrders } from './orderController.js';
 import { findAvailableRetailers } from '../utils/deliveryZoneHelper.js';
+import { loadDiskZones, saveDiskZones } from './zoneController.js';
+import { loadDiskAssignments, saveDiskAssignments } from './assignmentController.js';
+import { loadDiskStores, saveDiskStores } from './storeController.js';
 
 const BRANCHES_FILE_PATH = path.resolve(process.cwd(), 'server/data/branches_db.json');
 
@@ -617,19 +622,158 @@ export const updateBranchDeliveryZone = async (req, res) => {
     const existing = diskList.find(
       (b) => String(b._id || b.id || '').toLowerCase().trim() === String(id).toLowerCase().trim()
     );
-    const merged = { ...(existing || {}), _id: id, id, ...updates };
+    let merged = { ...(existing || {}), _id: id, id, ...updates };
+
+    // Bidirectional sync: Ensure this store's delivery zone is synchronized to DeliveryZone & ZoneStore collections
+    let matchingZone = null;
+    try {
+      const diskZones = loadDiskZones();
+      const cleanId = String(id).toLowerCase().trim();
+      const existingZoneIdx = diskZones.findIndex(
+        (z) =>
+          String(z.assignedStoreId || '').toLowerCase().trim() === cleanId ||
+          String(z.zoneId || '').toLowerCase().trim() === String(merged.assignedZoneId || '').toLowerCase().trim() ||
+          String(z.zoneId || '').toLowerCase().trim() === `zone-${cleanId}`
+      );
+
+      let ring = null;
+      if (Array.isArray(updates.deliveryPolygon) && updates.deliveryPolygon.length >= 3) {
+        ring = updates.deliveryPolygon
+          .map((pt) => {
+            const lat = Number(Array.isArray(pt) ? pt[0] : pt.lat ?? pt.latitude);
+            const lng = Number(Array.isArray(pt) ? pt[1] : pt.lng ?? pt.longitude);
+            return [Number(lng.toFixed(6)), Number(lat.toFixed(6))];
+          })
+          .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
+
+        if (ring.length >= 3) {
+          const first = ring[0];
+          const last = ring[ring.length - 1];
+          if (first[0] !== last[0] || first[1] !== last[1]) {
+            ring.push([first[0], first[1]]);
+          }
+        }
+      }
+
+      const zoneName = merged.name
+        ? (merged.name.toLowerCase().includes('zone') ? merged.name : `${merged.name} Delivery Zone`)
+        : 'Store Delivery Zone';
+      const targetZoneId = existingZoneIdx >= 0
+        ? diskZones[existingZoneIdx].zoneId
+        : (merged.assignedZoneId || `ZONE-${String(id).toUpperCase()}`);
+
+      const zoneData = {
+        zoneId: targetZoneId,
+        _id: targetZoneId,
+        name: zoneName,
+        code: `Z-${String(id).slice(-4).toUpperCase()}`,
+        city: merged.city || 'Faisalabad',
+        area: merged.address || merged.name || 'Commercial Hub',
+        description: `Dedicated delivery zone for ${merged.name || 'Store'}`,
+        color: merged.color || '#059669',
+        deliveryCharge: Array.isArray(merged.deliveryTiers) && merged.deliveryTiers[0]?.fee != null
+          ? Number(merged.deliveryTiers[0].fee)
+          : 60,
+        minOrderAmount: 400,
+        freeDeliveryThreshold: 2000,
+        estimatedDeliveryTime: '20-30 mins',
+        assignedStoreId: id,
+        status: merged.deliveryStatus || 'active',
+        isActive: merged.deliveryStatus !== 'inactive'
+      };
+
+      if (ring && ring.length >= 4) {
+        zoneData.geometry = { type: 'Polygon', coordinates: [ring] };
+        zoneData.coordinates = [ring];
+      }
+
+      if (existingZoneIdx >= 0) {
+        diskZones[existingZoneIdx] = { ...diskZones[existingZoneIdx], ...zoneData };
+        matchingZone = diskZones[existingZoneIdx];
+      } else {
+        diskZones.unshift(zoneData);
+        matchingZone = zoneData;
+      }
+      saveDiskZones(diskZones);
+
+      if (isDbOnline()) {
+        try {
+          await DeliveryZone.findOneAndUpdate(
+            { $or: [{ zoneId: targetZoneId }, { assignedStoreId: id }] },
+            zoneData,
+            { upsert: true, new: true }
+          );
+        } catch (dbErr) {
+          console.warn('DeliveryZone Mongo sync warning:', dbErr.message);
+        }
+      }
+
+      // Link store to zone in assignments collection
+      const diskAssignments = loadDiskAssignments();
+      const assignIdx = diskAssignments.findIndex(
+        (a) =>
+          String(a.zoneId || '').toLowerCase() === String(targetZoneId).toLowerCase() &&
+          String(a.storeId || '').toLowerCase() === cleanId
+      );
+      const assignRec = {
+        zoneId: targetZoneId,
+        storeId: id,
+        tenantId: merged.tenantId || 'tenant-unimart',
+        isActive: true,
+        priority: 1,
+        assignedAt: new Date().toISOString()
+      };
+      if (assignIdx >= 0) {
+        diskAssignments[assignIdx] = { ...diskAssignments[assignIdx], ...assignRec };
+      } else {
+        diskAssignments.push(assignRec);
+      }
+      saveDiskAssignments(diskAssignments);
+
+      if (isDbOnline()) {
+        try {
+          await ZoneStore.findOneAndUpdate(
+            { zoneId: targetZoneId, storeId: id },
+            assignRec,
+            { upsert: true, new: true }
+          );
+        } catch (zsErr) {
+          console.warn('ZoneStore Mongo sync warning:', zsErr.message);
+        }
+      }
+
+      merged.assignedZoneId = targetZoneId;
+
+      // Also sync to stores_db.json
+      const diskStores = loadDiskStores();
+      const sIdx = diskStores.findIndex((s) => String(s.storeId || s._id || '').toLowerCase() === cleanId);
+      if (sIdx >= 0) {
+        diskStores[sIdx] = {
+          ...diskStores[sIdx],
+          assignedZoneId: targetZoneId,
+          ...(updates.deliveryPolygon ? { deliveryPolygon: updates.deliveryPolygon } : {}),
+          ...(updates.latitude != null ? { latitude: updates.latitude } : {}),
+          ...(updates.longitude != null ? { longitude: updates.longitude } : {})
+        };
+        saveDiskStores(diskStores);
+      }
+    } catch (syncErr) {
+      console.warn('Branch-to-Zone bidirectional sync warning:', syncErr.message);
+    }
+
     saveDiskBranch(merged);
 
     // Update in-memory fallback list
     const memBranch = BRANCHES.find((b) => b._id === id || b.id === id);
     if (memBranch) {
-      Object.assign(memBranch, updates);
+      Object.assign(memBranch, merged);
     }
 
     return res.json({
       success: true,
       message: 'Branch delivery zone updated successfully',
-      branch: updatedBranch || merged
+      branch: updatedBranch || merged,
+      zone: matchingZone
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
