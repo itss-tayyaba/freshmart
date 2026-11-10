@@ -20,7 +20,8 @@ import {
   SlidersHorizontal,
   X,
   ExternalLink,
-  Check
+  Check,
+  Layers
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
@@ -116,93 +117,8 @@ export const StoreManagementView = () => {
     { id: 'tenant-unimart', name: 'Unimart', color: '#0284c7', logo: '🥬' }
   ];
 
-  // 4 Core Baseline Physical Stores in Faisalabad
-  const BASELINE_FOUR_STORES = [
-    {
-      _id: 'STR-AF-001',
-      storeId: 'STR-AF-001',
-      tenantId: 'tenant-alfatah',
-      tenantName: 'Al-Fatah',
-      name: 'Al-Fatah - Peoples Colony Mega Store',
-      branchName: 'Peoples Colony Mega Store',
-      address: 'Main Commercial Avenue, Peoples Colony 1, Faisalabad',
-      city: 'Faisalabad',
-      latitude: 31.4125,
-      longitude: 73.0995,
-      contactNumber: '+92 300 8441122',
-      openingHours: '08:00 AM',
-      closingHours: '11:00 PM',
-      storeImage: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
-      status: 'active',
-      isActive: true,
-      operatingStatus: 'Open',
-      manager: 'Al-Fatah Manager',
-      deliveryRadiusKm: 6
-    },
-    {
-      _id: 'STR-CV-001',
-      storeId: 'STR-CV-001',
-      tenantId: 'tenant-chasevalue',
-      tenantName: 'Chase Value',
-      name: 'Chase Value - Jaranwala Road Hub',
-      branchName: 'Jaranwala Road Hub',
-      address: 'Jaranwala Road, Near Kohinoor City, Faisalabad',
-      city: 'Faisalabad',
-      latitude: 31.418,
-      longitude: 73.118,
-      contactNumber: '+92 300 0000000',
-      openingHours: '08:00 AM',
-      closingHours: '11:00 PM',
-      storeImage: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80',
-      status: 'active',
-      isActive: true,
-      operatingStatus: 'Open',
-      manager: 'Chase Value Manager',
-      deliveryRadiusKm: 6
-    },
-    {
-      _id: 'STR-CU-001',
-      storeId: 'STR-CU-001',
-      tenantId: 'tenant-chaseup',
-      tenantName: 'Chase Up',
-      name: 'Chase Up - Clock Tower Center',
-      branchName: 'Clock Tower Center',
-      address: 'Clock Tower Bazar, Faisalabad',
-      city: 'Faisalabad',
-      latitude: 31.415,
-      longitude: 73.078,
-      contactNumber: '+92 300 0000000',
-      openingHours: '08:00 AM',
-      closingHours: '11:00 PM',
-      storeImage: 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=1200&q=80',
-      status: 'active',
-      isActive: true,
-      operatingStatus: 'Open',
-      manager: 'Chase Up Manager',
-      deliveryRadiusKm: 6
-    },
-    {
-      _id: 'STR-UM-001',
-      storeId: 'STR-UM-001',
-      tenantId: 'tenant-unimart',
-      tenantName: 'Unimart',
-      name: 'Unimart - D-Ground Express Dark Store',
-      branchName: 'D-Ground Express Dark Store',
-      address: 'House 88, D-Ground, Peoples Colony 1, Faisalabad',
-      city: 'Faisalabad',
-      latitude: 31.4015,
-      longitude: 73.083,
-      contactNumber: '+92 300 0000000',
-      openingHours: '08:00 AM',
-      closingHours: '11:00 PM',
-      storeImage: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=1200&q=80',
-      status: 'active',
-      isActive: true,
-      operatingStatus: 'Open',
-      manager: 'Unimart Manager',
-      deliveryRadiusKm: 5
-    }
-  ];
+  // Store assignments state
+  const [assignments, setAssignments] = useState([]);
 
   // Deduplicate stores by storeId and tenant+branchName to avoid ghost duplicates
   const deduplicateStores = (storesList = []) => {
@@ -231,13 +147,14 @@ export const StoreManagementView = () => {
     return result;
   };
 
-  // Fetch stores and master polygons from backend
+  // Fetch stores, zones, and assignments from backend
   const fetchStoresList = async () => {
     setIsLoading(true);
     try {
-      const [res, zonesRes] = await Promise.all([
+      const [res, zonesRes, assignRes] = await Promise.all([
         apiService.getStores(),
-        apiService.getZones()
+        apiService.getZones(),
+        apiService.getAllAssignments()
       ]);
 
       const allMerged = getAllUnifiedStores(res?.stores, allBranches);
@@ -245,6 +162,9 @@ export const StoreManagementView = () => {
 
       if (zonesRes && zonesRes.success && Array.isArray(zonesRes.zones)) {
         setZones(zonesRes.zones);
+      }
+      if (assignRes && assignRes.success && Array.isArray(assignRes.assignments)) {
+        setAssignments(assignRes.assignments);
       }
     } catch (e) {
       console.warn('Stores fetch error:', e.message);
@@ -409,7 +329,7 @@ export const StoreManagementView = () => {
   // Handlers
   const handleOpenAdd = () => {
     setFormError(null);
-    const tId = selectedRetailerFilter !== 'all' ? selectedRetailerFilter : 'tenant-chasevalue';
+    const tId = selectedRetailerFilter !== 'all' ? selectedRetailerFilter : 'tenant-unimart';
     const retailer = CORE_RETAILERS.find((r) => r.id === tId) || CORE_RETAILERS[0];
     const timestamp = Date.now().toString().slice(-4);
     const initialBranch = `Commercial Hub ${timestamp}`;
@@ -431,7 +351,8 @@ export const StoreManagementView = () => {
       storeImage: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
       status: 'active',
       operatingStatus: 'Open',
-      manager: `${retailer.name} Manager`
+      manager: `${retailer.name} Manager`,
+      assignedZoneId: ''
     });
     setIsAddModalOpen(true);
   };
@@ -439,9 +360,15 @@ export const StoreManagementView = () => {
   const handleOpenEdit = (store) => {
     setSelectedStore(store);
     setFormError(null);
+    const sId = store.storeId || store._id;
+    let existingZoneId = store.assignedZoneId || '';
+    if (!existingZoneId && Array.isArray(assignments)) {
+      const match = assignments.find((a) => a.storeId === sId && a.isActive !== false);
+      if (match) existingZoneId = match.zoneId;
+    }
     setFormData({
-      storeId: store.storeId || store._id,
-      tenantId: store.tenantId || 'tenant-alfatah',
+      storeId: sId,
+      tenantId: store.tenantId || 'tenant-unimart',
       name: store.name || '',
       branchName: store.branchName || store.name || '',
       address: store.address || '',
@@ -457,7 +384,8 @@ export const StoreManagementView = () => {
       storeImage: store.storeImage || store.banner || '',
       status: store.status || (store.isActive ? 'active' : 'inactive'),
       operatingStatus: store.operatingStatus || 'Open',
-      manager: store.manager || ''
+      manager: store.manager || '',
+      assignedZoneId: existingZoneId
     });
     setIsEditModalOpen(true);
   };
@@ -470,7 +398,7 @@ export const StoreManagementView = () => {
     if (e) e.preventDefault();
     setFormError(null);
 
-    const canonicalTenant = formData.tenantId || 'tenant-chasevalue';
+    const canonicalTenant = formData.tenantId || 'tenant-unimart';
     const retailerObj = CORE_RETAILERS.find((r) => r.id === canonicalTenant) || CORE_RETAILERS[0];
     const timestamp = Date.now().toString().slice(-4);
 
@@ -505,13 +433,17 @@ export const StoreManagementView = () => {
         isActive: String(formData.status || 'active').toLowerCase() === 'active',
         operatingStatus: formData.operatingStatus || 'Open',
         manager: formData.manager || `${retailerObj.name} Manager`,
-        deliveryRadiusKm: Number(formData.deliveryRadiusKm || 5)
+        deliveryRadiusKm: Number(formData.deliveryRadiusKm || 5),
+        assignedZoneId: formData.assignedZoneId || ''
       };
 
       if (isEditModalOpen && selectedStore) {
         const id = selectedStore.storeId || selectedStore._id;
         try {
-          await apiService.updateStore(id, formData);
+          await apiService.updateStore(id, { ...formData, assignedZoneId: formData.assignedZoneId });
+          if (formData.assignedZoneId) {
+            await apiService.assignStoresToZone(formData.assignedZoneId, [id]);
+          }
         } catch (apiErr) {
           console.warn('Backend updateStore offline/fallback:', apiErr.message);
         }
@@ -527,9 +459,14 @@ export const StoreManagementView = () => {
         // Create new store
         let serverCreated = null;
         try {
-          const res = await apiService.createStore(storeRecord);
+          const res = await apiService.createStore({ ...storeRecord, assignedZoneId: formData.assignedZoneId });
           if (res && res.success && res.store) {
             serverCreated = res.store;
+          }
+          const finalId = serverCreated?.storeId || storeRecord.storeId;
+          const chosenZone = formData.assignedZoneId || (detectedZone ? detectedZone.zoneId : null);
+          if (chosenZone) {
+            await apiService.assignStoresToZone(chosenZone, [finalId]);
           }
         } catch (apiErr) {
           console.warn('Backend createStore offline/fallback:', apiErr.message);
@@ -567,15 +504,6 @@ export const StoreManagementView = () => {
             },
             ...(prev || [])
           ]);
-        }
-
-        if (detectedZone) {
-          try {
-            const newStoreId = finalStore.storeId || finalStore._id;
-            await apiService.assignStoresToZone(detectedZone.zoneId, [newStoreId]);
-          } catch (assignErr) {
-            console.warn('Auto zone link:', assignErr.message);
-          }
         }
 
         if (addToast) {
@@ -761,10 +689,25 @@ export const StoreManagementView = () => {
             <tbody className="divide-y divide-slate-100">
               {filteredStores.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="py-12 text-center text-slate-400">
-                    <Store className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-                    <p className="font-semibold text-slate-600">No stores found</p>
-                    <p className="text-[11px] mt-0.5">Try adjusting your search query or filters.</p>
+                  <td colSpan="7" className="py-14 text-center text-slate-500">
+                    <div className="max-w-md mx-auto space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-100 shadow-xs">
+                        <Store className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-800 text-sm">No Stores Created Yet</p>
+                        <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                          Stores are not created automatically. Create your grocery stores (e.g. <b>Store A – D-Ground</b>, <b>Store B – People's Colony</b>, <b>Store C – Susan Road</b>), and then assign irregular polygon delivery boundaries to them.
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleOpenAdd}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-950/10 cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>+ Create Your First Store</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -1127,6 +1070,32 @@ export const StoreManagementView = () => {
                       />
                     </div>
                   </div>
+                </div>
+
+                {/* Delivery Area Polygon Assignment */}
+                <div className="mt-2.5 p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-emerald-950 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Assign Delivery Area (Polygon)</span>
+                    </label>
+                    <span className="text-[10px] text-emerald-700 font-medium">Irregular Shape</span>
+                  </div>
+                  <select
+                    value={formData.assignedZoneId || ''}
+                    onChange={(e) => setFormData({ ...formData, assignedZoneId: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden"
+                  >
+                    <option value="">-- No Polygon Zone Assigned (Assign Later or in Zone Management) --</option>
+                    {zones.map((z) => (
+                      <option key={z.zoneId} value={z.zoneId}>
+                        {z.name} ({z.code}) - {z.city} [{z.isActive !== false ? 'Active' : 'Inactive'}]
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-emerald-700/90 leading-tight">
+                    A polygon is not a circle. Each store has its own delivery area drawn on the map by the admin.
+                  </p>
                 </div>
               </div>
 

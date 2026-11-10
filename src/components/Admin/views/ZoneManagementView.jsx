@@ -31,6 +31,7 @@ import {
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
 import { getAllUnifiedStores, CORE_RETAILERS, getRetailerSummarySubtitle } from '../../../utils/storeHelper';
+import { isPointInPolygon } from '../../../utils/distanceCalculator';
 
 // Helper to untangle self-intersecting polygon vertices around their centroid
 const untanglePolygonPoints = (pts) => {
@@ -97,13 +98,14 @@ export const ZoneManagementView = () => {
     description: '',
     city: 'Faisalabad',
     area: '',
-    color: '#10b981',
+    color: '#2563eb',
     deliveryCharge: 70,
     minOrderAmount: 400,
     freeDeliveryThreshold: 2000,
     estimatedDeliveryTime: '20-35 mins',
     isActive: true,
-    status: 'active'
+    status: 'active',
+    assignedStoreId: ''
   });
 
   // Map DOM and Instance Refs
@@ -168,8 +170,8 @@ export const ZoneManagementView = () => {
 
   // Compute Statistics
   const statistics = useMemo(() => {
-    const totalStores = Math.max(stores.length, 5);
-    const totalRetailers = Math.max(stores.length, CORE_RETAILERS.length);
+    const totalStores = stores.length;
+    const totalRetailers = CORE_RETAILERS.length;
     const totalZones = zones.length;
     const activeZones = zones.filter((z) => z.isActive !== false && String(z.status).toLowerCase() !== 'inactive').length;
 
@@ -195,6 +197,7 @@ export const ZoneManagementView = () => {
   // Select Zone
   const selectZone = (zone) => {
     setSelectedZone(zone);
+    const currentAssigned = assignments.find((a) => a.zoneId === zone.zoneId && a.isActive !== false);
     setZoneForm({
       zoneId: zone.zoneId || '',
       name: zone.name || '',
@@ -202,13 +205,14 @@ export const ZoneManagementView = () => {
       description: zone.description || '',
       city: zone.city || 'Faisalabad',
       area: zone.area || zone.name || '',
-      color: zone.color || '#10b981',
+      color: zone.color || '#2563eb',
       deliveryCharge: zone.deliveryCharge ?? 70,
       minOrderAmount: zone.minOrderAmount ?? 400,
       freeDeliveryThreshold: zone.freeDeliveryThreshold ?? 2000,
       estimatedDeliveryTime: zone.estimatedDeliveryTime || '20-35 mins',
       isActive: zone.isActive !== false && String(zone.status).toLowerCase() !== 'inactive',
-      status: zone.status || 'active'
+      status: zone.status || 'active',
+      assignedStoreId: currentAssigned?.storeId || ''
     });
 
     if (zone.geometry?.coordinates?.[0]) {
@@ -572,16 +576,17 @@ export const ZoneManagementView = () => {
       description: 'Custom polygon delivery boundary',
       city: 'Faisalabad',
       area: 'Central Commercial Area',
-      color: '#10b981',
+      color: '#2563eb',
       deliveryCharge: 80,
       minOrderAmount: 450,
       freeDeliveryThreshold: 2200,
       estimatedDeliveryTime: '20-35 mins',
       isActive: true,
-      status: 'active'
+      status: 'active',
+      assignedStoreId: ''
     });
     setSelectedZone(null);
-    if (addToast) addToast('Drawing mode active. Click on map to add polygon boundary points.', 'info');
+    if (addToast) addToast('Drawing mode active. Click on map to add polygon boundary points (irregular shape).', 'info');
   };
 
   // Automatically Close Polygon Ring
@@ -665,8 +670,13 @@ export const ZoneManagementView = () => {
 
       if (selectedZone && selectedZone.zoneId === zoneForm.zoneId) {
         // Update existing zone
-        const res = await apiService.updateZone(selectedZone.zoneId, payload);
+        const res = await apiService.updateZone(selectedZone.zoneId, { ...payload, assignedStoreId: zoneForm.assignedStoreId });
         if (res && res.success) {
+          if (zoneForm.assignedStoreId) {
+            try {
+              await apiService.assignStoresToZone(payload.zoneId, [zoneForm.assignedStoreId]);
+            } catch (e) {}
+          }
           if (addToast) addToast(`Zone ${zoneForm.name} updated successfully!`, 'success');
           setMapMode('view');
           fetchData();
@@ -675,14 +685,47 @@ export const ZoneManagementView = () => {
         }
       } else {
         // Create new zone
-        const res = await apiService.createZone(payload);
+        const res = await apiService.createZone({ ...payload, assignedStoreId: zoneForm.assignedStoreId });
         if (res && res.success) {
+          if (zoneForm.assignedStoreId) {
+            try {
+              await apiService.assignStoresToZone(payload.zoneId, [zoneForm.assignedStoreId]);
+            } catch (e) {}
+          }
           if (addToast) addToast(`Zone ${zoneForm.name} created with verified polygon geometry!`, 'success');
           setMapMode('view');
           fetchData();
         } else {
           if (addToast) addToast(res?.message || 'Error creating zone.', 'error');
         }
+      }
+
+      // Propagate polygon boundary to branches lying inside this zone that lack custom polygons
+      try {
+        const savedBranches = localStorage.getItem('freshmart_branches');
+        const branchList = savedBranches ? JSON.parse(savedBranches) : (allBranches || []);
+        if (Array.isArray(branchList) && branchList.length > 0) {
+          let updatedAny = false;
+          const updated = branchList.map((b) => {
+            const bLat = Number(b.latitude ?? b.coordinates?.lat);
+            const bLng = Number(b.longitude ?? b.coordinates?.lng);
+            const isInside = isPointInPolygon({ lat: bLat, lng: bLng }, cleanVertices);
+            if (isInside && (!Array.isArray(b.deliveryPolygon) || b.deliveryPolygon.length < 3)) {
+              updatedAny = true;
+              return {
+                ...b,
+                deliveryPolygon: cleanVertices
+              };
+            }
+            return b;
+          });
+          if (updatedAny) {
+            localStorage.setItem('freshmart_branches', JSON.stringify(updated));
+            window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: updated }));
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to sync branches with master zone polygon:', e);
       }
     } catch (err) {
       if (addToast) addToast(err.message, 'error');
@@ -749,10 +792,10 @@ export const ZoneManagementView = () => {
         <div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <MapPin className="w-6 h-6 text-emerald-600" />
-            <span>Delivery Zone Management</span>
+            <span>Store Area Polygon Management</span>
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Draw custom delivery polygons on OpenStreetMap, edit vertices, inspect overlapping zones, and configure delivery fees.
+            Create & manage master geographic polygons that cover the area where partner supermarket stores physically lie.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1091,18 +1134,31 @@ export const ZoneManagementView = () => {
 
             {/* Color Accent Picker */}
             <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1.5">Zone Map Color</label>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>Polygon Fill & Boundary Color</span>
+                <span className="text-[10px] text-slate-400 font-normal">Blue, Green, Orange matching map sectors</span>
+              </label>
               <div className="flex items-center gap-2">
-                {['#10b981', '#6366f1', '#f59e0b', '#06b6d4', '#ec4899', '#8b5cf6', '#ef4444'].map((col) => (
+                {[
+                  { color: '#2563eb', label: 'Blue' },
+                  { color: '#16a34a', label: 'Green' },
+                  { color: '#ea580c', label: 'Orange' },
+                  { color: '#8b5cf6', label: 'Purple' },
+                  { color: '#06b6d4', label: 'Cyan' },
+                  { color: '#e11d48', label: 'Rose' }
+                ].map(({ color, label }) => (
                   <button
-                    key={col}
+                    key={color}
                     type="button"
-                    onClick={() => setZoneForm({ ...zoneForm, color: col })}
-                    className={`w-7 h-7 rounded-xl transition cursor-pointer border-2 ${
-                      zoneForm.color === col ? 'border-slate-900 scale-110 shadow-xs' : 'border-white'
+                    title={label}
+                    onClick={() => setZoneForm({ ...zoneForm, color })}
+                    className={`w-7 h-7 rounded-xl transition cursor-pointer border-2 relative flex items-center justify-center ${
+                      zoneForm.color === color ? 'border-slate-900 scale-110 shadow-xs ring-2 ring-emerald-500/30' : 'border-white'
                     }`}
-                    style={{ backgroundColor: col }}
-                  ></button>
+                    style={{ backgroundColor: color }}
+                  >
+                    {zoneForm.color === color && <Check className="w-3.5 h-3.5 text-white drop-shadow-xs" />}
+                  </button>
                 ))}
               </div>
             </div>
@@ -1174,26 +1230,50 @@ export const ZoneManagementView = () => {
               </button>
             </div>
 
-            {/* Assigned Stores Summary */}
-            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
-              <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
-                <span>Assigned Stores Serving This Zone:</span>
-                <span className="text-emerald-700 font-mono">{assignedStoresForSelectedZone.length}</span>
+            {/* Assign Store to this Polygon Zone */}
+            <div className="p-3 bg-emerald-50/70 rounded-2xl border border-emerald-200/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                  <Store className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Assign Store to this Delivery Zone</span>
+                </label>
+                <span className="text-[10px] text-emerald-700 font-bold">{stores.length} store(s)</span>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {assignedStoresForSelectedZone.length === 0 ? (
-                  <span className="text-[10px] text-slate-400 italic">No stores assigned yet. Go to Zone Assignments to map stores.</span>
-                ) : (
-                  assignedStoresForSelectedZone.map((s, idx) => (
+              {stores.length === 0 ? (
+                <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 leading-snug">
+                  No stores created yet. Create a store first in the <b>Stores</b> tab (e.g. <b>Store A – D-Ground</b>), then assign this polygon to it.
+                </div>
+              ) : (
+                <select
+                  value={zoneForm.assignedStoreId || ''}
+                  onChange={(e) => setZoneForm({ ...zoneForm, assignedStoreId: e.target.value })}
+                  className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden"
+                >
+                  <option value="">-- Select Store (e.g. Store A – D-Ground) --</option>
+                  {stores.map((s) => {
+                    const sId = s.storeId || s._id;
+                    const isAssigned = assignedStoresForSelectedZone.some((a) => (a.storeId || a._id) === sId);
+                    return (
+                      <option key={sId} value={sId}>
+                        {s.name || s.branchName} ({s.city}) {isAssigned ? '✓ Currently Assigned' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
+              {assignedStoresForSelectedZone.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] text-slate-500 font-medium">Currently serving:</span>
+                  {assignedStoresForSelectedZone.map((s, idx) => (
                     <span
                       key={idx}
-                      className="px-2 py-0.5 bg-white border border-slate-200 rounded-md text-[10px] font-semibold text-slate-700"
+                      className="px-2 py-0.5 bg-white border border-emerald-300 text-emerald-800 rounded-md text-[10px] font-bold"
                     >
                       {s.branchName || s.name}
                     </span>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Save / Update Button */}

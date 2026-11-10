@@ -26,6 +26,7 @@ import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
 import { calculateDistanceKm } from '../../../data/pakistanLocations';
 import { getAllUnifiedStores } from '../../../utils/storeHelper';
+import { isPointInPolygon } from '../../../utils/distanceCalculator';
 
 export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateToZones = null }) => {
   const { allBranches = [], addToast } = useStore();
@@ -229,6 +230,43 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       };
     }).sort((a, b) => a.distanceToZoneCentroidKm - b.distanceToZoneCentroidKm);
   }, [filteredUnassignedStores, zoneCentroid]);
+
+  // Coordinates of active zone polygon for in-polygon checks
+  const activeZonePolygonLatLngs = useMemo(() => {
+    const rawRing = activeZone?.geometry?.coordinates?.[0] || activeZone?.coordinates?.[0] || activeZone?.coordinates;
+    if (!Array.isArray(rawRing) || rawRing.length < 3) return [];
+    return rawRing
+      .map(([lng, lat]) => [Number(lat), Number(lng)])
+      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+  }, [activeZone]);
+
+  const handleAutoLinkInside = async () => {
+    if (!activeZone || activeZonePolygonLatLngs.length < 3) {
+      if (addToast) addToast('No Polygon', 'Active zone does not have a polygon boundary yet.', 'info');
+      return;
+    }
+    const insideStoreIds = stores
+      .filter((s) => {
+        const sLat = Number(s.latitude);
+        const sLng = Number(s.longitude);
+        return isPointInPolygon({ lat: sLat, lng: sLng }, activeZonePolygonLatLngs);
+      })
+      .map((s) => s.storeId || s._id);
+
+    if (insideStoreIds.length === 0) {
+      if (addToast) addToast('No Stores Inside', 'No stores were found physically inside this polygon.', 'info');
+      return;
+    }
+
+    applyAssignmentOptimistically(insideStoreIds);
+    if (addToast) addToast('Auto-Linked ✨', `Linked ${insideStoreIds.length} store(s) inside polygon to ${activeZone.name}!`, 'success');
+    try {
+      await apiService.assignStoresToZone(activeZone.zoneId, insideStoreIds);
+      loadData();
+    } catch (err) {
+      console.warn('Auto-link sync:', err.message);
+    }
+  };
 
   // Multi-Select Toggle
   const toggleStoreSelect = (storeId) => {
@@ -702,6 +740,38 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
         // Refresh zone data in background
         loadData();
+
+        // Propagate polygon boundary to assigned branches or branches inside this zone that lack custom polygons
+        try {
+          const savedBranches = localStorage.getItem('freshmart_branches');
+          const branchList = savedBranches ? JSON.parse(savedBranches) : (allBranches || []);
+          if (Array.isArray(branchList) && branchList.length > 0) {
+            let updatedAny = false;
+            const assignedIds = new Set(Array.from(assignedStoreIdsSet));
+            const updated = branchList.map((b) => {
+              const bId = String(b._id || b.id || '').toLowerCase();
+              const isAssigned = assignedIds.has(b._id) || assignedIds.has(b.id) || assignedIds.has(b.storeId);
+              const bLat = Number(b.latitude ?? b.coordinates?.lat);
+              const bLng = Number(b.longitude ?? b.coordinates?.lng);
+              const isInside = isPointInPolygon({ lat: bLat, lng: bLng }, cleanPoints);
+
+              if ((isAssigned || isInside) && (!Array.isArray(b.deliveryPolygon) || b.deliveryPolygon.length < 3)) {
+                updatedAny = true;
+                return {
+                  ...b,
+                  deliveryPolygon: cleanPoints
+                };
+              }
+              return b;
+            });
+            if (updatedAny) {
+              localStorage.setItem('freshmart_branches', JSON.stringify(updated));
+              window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: updated }));
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to sync branches with master zone polygon:', e);
+        }
       } else {
         if (addToast) addToast('Save Failed', res?.message || 'Failed to save zone polygon', 'error');
       }
@@ -728,19 +798,6 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         const retailer = CORE_RETAILERS.find((r) =>
           String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
         ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
-
-        const radiusKm = Number(store.deliveryRadiusKm || 5);
-        const circle = L.circle([sLat, sLng], {
-          radius: radiusKm * 1000,
-          color: retailer.color,
-          weight: 1.5,
-          opacity: 0.65,
-          fillColor: retailer.color,
-          fillOpacity: 0.08,
-          dashArray: '4, 4'
-        });
-        circle.bindTooltip(`${store.name} (${radiusKm} km Store Region)`, { sticky: true });
-        storeMarkersGroupRef.current.addLayer(circle);
 
         const pinIcon = L.divIcon({
           className: 'custom-unassigned-store-pin',
@@ -942,10 +999,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         <div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <Link2 className="w-6 h-6 text-emerald-600" />
-            <span>Zone-Store Assignment</span>
+            <span>Store Area Polygon & Store Assignments</span>
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Assign multiple physical stores to delivery polygons. Store location and delivery coverage are independent.
+            SuperAdmin polygon covers the physical area where partner stores lie. Each individual store maintains its own delivery zone.
           </p>
         </div>
         <button
@@ -1042,16 +1099,16 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         )}
       </div>
 
-      {/* Main 2-Column Interface: Left Map & Assigned Stores, Right Store Picker */}
+      {/* Main 2-Column Interface: Left Map & Zone Details, Right Supermarket Stores */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column (6 cols): Leaflet Map & Assigned Stores */}
-        <div className="lg:col-span-6 space-y-4">
+        {/* Left Column (7 cols): Leaflet Map & Zone Summary */}
+        <div className="lg:col-span-7 space-y-4">
           {/* Interactive Map */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden">
             <div className="p-3.5 border-b border-slate-100 flex items-center justify-between text-xs">
               <span className="font-bold text-slate-900 flex items-center gap-1.5">
                 <MapPin className="w-4 h-4 text-emerald-600" />
-                <span>Zone Coverage & Assigned Stores Map</span>
+                <span>Delivery Coverage & Supermarkets Map</span>
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -1060,49 +1117,47 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                     if (!isDrawingPolygon) {
                       setIsDrawingPolygon(true);
                       setDrawnPoints([]);
-                      if (addToast) addToast(`Click map points to draw new polygon for ${activeZone?.name || 'zone'}. Need at least 3 points.`, 'info');
+                      if (addToast) addToast(`Click map points around stores to draw polygon. Need at least 3 points.`, 'info');
                     } else {
                       handleCancelDrawing();
                     }
                   }}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer border ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border shadow-xs ${
                     isDrawingPolygon
-                      ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 shadow-sm animate-pulse'
-                      : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                      ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 animate-pulse'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700'
                   }`}
                 >
-                  <Edit3 className="w-3 h-3" />
+                  <Edit3 className="w-3.5 h-3.5" />
                   <span>{isDrawingPolygon ? 'Exit Drawing' : '✏️ Draw Polygon'}</span>
                 </button>
                 {onNavigateToZones && (
                   <button
                     type="button"
                     onClick={onNavigateToZones}
-                    className="px-2.5 py-1 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1.5 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                   >
-                    <Edit3 className="w-3 h-3 text-emerald-600" />
-                    <span>Edit Zone</span>
+                    <span>Edit Rates</span>
                   </button>
                 )}
-                <span className="text-[10px] text-slate-400 hidden sm:inline">Stores do not need to be inside polygon</span>
               </div>
             </div>
             <div className="relative">
               <div
                 ref={mapContainerRef}
-                className={`w-full h-80 z-10 transition-all ${isDrawingPolygon ? 'cursor-crosshair ring-2 ring-emerald-500 ring-inset' : ''}`}
-                style={{ minHeight: '320px' }}
+                className={`w-full z-10 transition-all ${isDrawingPolygon ? 'cursor-crosshair ring-2 ring-emerald-500 ring-inset' : ''}`}
+                style={{ height: '380px' }}
               />
 
               {/* Drawing Mode Overlay Banner */}
               {isDrawingPolygon && (
-                <div className="absolute top-2 left-2 right-2 z-[1000] bg-slate-900/95 backdrop-blur-md text-white rounded-2xl p-2.5 sm:p-3 border border-emerald-500/60 shadow-2xl flex flex-col gap-2 animate-in fade-in max-w-full">
+                <div className="absolute top-2 left-2 right-2 z-[1000] bg-slate-900/95 backdrop-blur-md text-white rounded-2xl p-3 border border-emerald-500/60 shadow-2xl flex flex-col gap-2 animate-in fade-in max-w-full">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
                       <div className="min-w-0">
                         <div className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
-                          <span className="truncate">Drawing: {activeZone?.name}</span>
+                          <span className="truncate">Drawing: {activeZone?.name || 'New Master Polygon'}</span>
                           <span className="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
                             {drawnPoints.length} Point{drawnPoints.length === 1 ? '' : 's'}
                           </span>
@@ -1129,7 +1184,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                         type="button"
                         onClick={handleUndoPoint}
                         disabled={drawnPoints.length === 0}
-                        className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-lg text-[11px] font-semibold transition cursor-pointer"
+                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-lg text-xs font-semibold transition cursor-pointer"
                       >
                         Undo
                       </button>
@@ -1137,7 +1192,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                         type="button"
                         onClick={handleClearDrawing}
                         disabled={drawnPoints.length === 0}
-                        className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-lg text-[11px] font-semibold transition cursor-pointer"
+                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-lg text-xs font-semibold transition cursor-pointer"
                       >
                         Clear
                       </button>
@@ -1146,7 +1201,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                           type="button"
                           onClick={handleUntanglePoints}
                           title="Untangle crossed lines into a smooth perimeter"
-                          className="px-2.5 py-1 bg-indigo-900/70 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/60 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                          className="px-2.5 py-1 bg-indigo-900/70 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/60 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                         >
                           <Sparkles className="w-3 h-3 text-indigo-300" />
                           <span>Untangle</span>
@@ -1155,7 +1210,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                       <button
                         type="button"
                         onClick={handleCancelDrawing}
-                        className="px-2 py-1 bg-rose-900/60 hover:bg-rose-800/80 text-rose-200 border border-rose-700/60 rounded-lg text-[11px] font-semibold transition cursor-pointer"
+                        className="px-2.5 py-1 bg-rose-900/60 hover:bg-rose-800/80 text-rose-200 border border-rose-700/60 rounded-lg text-xs font-semibold transition cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -1185,275 +1240,190 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
             </div>
           </div>
 
-          {/* Currently Assigned Stores List */}
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xs p-5 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">
-                  Stores Serving {activeZone?.name || 'Selected Zone'}
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  {assignedStores.length} store(s) authorized to fulfill orders in this zone.
-                </p>
+          {/* Active Zone Summary Card */}
+          {activeZone ? (
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-2xs p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span
+                  className="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-lg text-white shadow-xs shrink-0"
+                  style={{ backgroundColor: activeZone.color || '#10b981' }}
+                >
+                  📍
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-900 text-sm">{activeZone.name}</h3>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold border border-slate-200">
+                      {activeZone.code}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                    <span>Delivery Fee: <strong className="text-emerald-700 font-bold">Rs. {activeZone.deliveryCharge}</strong></span>
+                    <span>•</span>
+                    <span>Min Order: <strong>Rs. {activeZone.minOrderAmount || 400}</strong></span>
+                    <span>•</span>
+                    <span>Linked Stores: <strong className="text-slate-800 font-bold">{assignedStores.length}</strong></span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsDrawingPolygon(true);
+                    setDrawnPoints([]);
+                  }}
+                  className="px-3 py-1.5 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Redraw Polygon</span>
+                </button>
               </div>
             </div>
-
-            {assignedStores.length === 0 ? (
-              <div className="py-8 text-center text-slate-400">
-                <AlertTriangle className="w-8 h-8 mx-auto text-amber-500/70 mb-2" />
-                <p className="font-semibold text-slate-700 text-xs">No stores currently assigned</p>
-                <p className="text-[11px] mt-0.5">Select stores from the panel on the right to assign them.</p>
+          ) : (
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-3xl text-xs text-slate-600 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <Compass className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span>Select a zone above or click <strong>✏️ Draw Polygon</strong> on the map to define delivery boundaries.</span>
               </div>
-            ) : (
-              <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
-                {assignedStores.map((store) => {
-                  const sId = store.storeId || store._id;
-                  const retailer = CORE_RETAILERS.find((r) =>
-                    String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
-                  ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
-
-                  return (
-                    <div key={sId} className="py-2.5 flex items-center justify-between gap-3 text-xs">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span
-                          className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 border"
-                          style={{
-                            backgroundColor: `${retailer.color}15`,
-                            borderColor: `${retailer.color}30`,
-                            color: retailer.color
-                          }}
-                        >
-                          {retailer.logo}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="font-bold text-slate-900 truncate">{store.name}</p>
-                          <p className="text-[10px] text-slate-400 truncate">
-                            {retailer.name} • {store.branchName} • {store.city}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingStore(store);
-                            const curr = assignments.find((a) => a.zoneId === activeZone?.zoneId && a.storeId === sId);
-                            setEditPriority(curr?.priority || 1);
-                          }}
-                          className="px-2.5 py-1 text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1 border border-slate-200"
-                          title="Edit fulfillment priority & assignment settings"
-                        >
-                          <Sliders className="w-3 h-3 text-slate-500" />
-                          <span>Edit</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveStore(sId)}
-                          className="px-2 py-1 text-rose-600 hover:bg-rose-50 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
-                        >
-                          <Unlink className="w-3 h-3" />
-                          <span>Remove</span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Right Column (6 cols): Multi-Select Store Assignment Picker */}
-        <div className="lg:col-span-6 bg-white rounded-3xl border border-slate-200 shadow-2xs p-5 space-y-4">
+        {/* Right Column (5 cols): Clean Partner Supermarkets Assignment */}
+        <div className="lg:col-span-5 bg-white rounded-3xl border border-slate-200 shadow-2xs p-5 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
-              <h3 className="font-bold text-slate-900 text-sm">Assign Available Stores</h3>
+              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-emerald-600" />
+                <span>Partner Supermarkets ({stores.length})</span>
+              </h3>
               <p className="text-[11px] text-slate-500">
-                Filter by retailer and select stores to link to {activeZone?.name}.
+                {activeZone ? `Link stores authorized to deliver in ${activeZone.name}.` : 'Verified supermarket hubs in Faisalabad.'}
               </p>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+
+            {activeZone && activeZonePolygonLatLngs.length >= 3 && (
               <button
                 type="button"
-                onClick={() => setIsQuickAddModalOpen(true)}
-                title="Create a new physical store branch and pin it to map"
-                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 shadow-xs"
+                onClick={handleAutoLinkInside}
+                title="Automatically link all stores whose GPS points lie inside this polygon boundary"
+                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shrink-0 shadow-xs"
               >
-                <Plus className="w-3.5 h-3.5 text-emerald-600" />
-                <span>+ Create Store Branch</span>
+                <Sparkles className="w-3 h-3 text-emerald-600" />
+                <span>Auto-Link In-Zone</span>
               </button>
-              {selectedStoreIdsToAssign.size > 0 && (
-                <>
-                  <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-300 shrink-0">
-                    {selectedStoreIdsToAssign.size} Selected
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleAssignSelected}
-                    disabled={isSubmitting}
-                    className="px-3.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black transition shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 animate-pulse shrink-0"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>✓ Link to Zone ({selectedStoreIdsToAssign.size})</span>
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Filters Toolbar */}
-          <div className="flex flex-col sm:flex-row items-center gap-2">
-            <div className="relative flex-1 w-full">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search store or branch..."
-                className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden"
-              />
-            </div>
-            <select
-              value={retailerFilter}
-              onChange={(e) => setRetailerFilter(e.target.value)}
-              className="w-full sm:w-auto px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium"
-            >
-              <option value="all">All Retailers</option>
-              {CORE_RETAILERS.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Quick Select Buttons */}
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="text-slate-400">
-              Showing {storesWithDistance.length} unassigned store(s)
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={selectAllFiltered}
-                className="text-emerald-600 hover:text-emerald-700 font-bold transition cursor-pointer"
-              >
-                Select All
-              </button>
-              <span className="text-slate-300">|</span>
-              <button
-                type="button"
-                onClick={clearSelection}
-                className="text-slate-500 hover:text-slate-700 font-bold transition cursor-pointer"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-
-          {/* Stores List with Proximity Warnings */}
-          <div className="divide-y divide-slate-100 max-h-[420px] overflow-y-auto space-y-1">
-            {storesWithDistance.length === 0 ? (
-              <div className="py-12 text-center text-slate-400 text-xs">
-                <Store className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-                <p className="font-semibold text-slate-700">No unassigned stores match your filters</p>
-                <p className="text-[11px] mt-0.5">All matching stores may already be assigned to this zone.</p>
-              </div>
-            ) : (
-              storesWithDistance.map((store) => {
-                const sId = store.storeId || store._id;
-                const isSelected = selectedStoreIdsToAssign.has(sId);
-                const retailer = CORE_RETAILERS.find((r) =>
-                  String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
-                ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
-
-                return (
-                  <div
-                    key={sId}
-                    onClick={() => toggleStoreSelect(sId)}
-                    className={`p-3 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-3 text-xs ${
-                      isSelected
-                        ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs'
-                        : 'bg-white border-slate-100 hover:bg-slate-50/80'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`w-5 h-5 rounded-md border flex items-center justify-center transition shrink-0 ${
-                          isSelected ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white'
-                        }`}
-                      >
-                        {isSelected && <Check className="w-3.5 h-3.5" />}
-                      </div>
-
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className="font-bold text-slate-900 truncate">{store.name}</p>
-                          {store.isNearby && (
-                            <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-800 text-[9px] font-bold rounded-md flex items-center gap-0.5 shrink-0">
-                              <Sparkles className="w-2.5 h-2.5" /> Nearby
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-slate-400 truncate mt-0.5">
-                          {retailer.name} • {store.branchName} • {store.address}
-                        </p>
-
-                        {/* Distance to zone warning */}
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            ~{store.distanceToZoneCentroidKm} km from zone
-                          </span>
-                          {store.isFarWarning && (
-                            <span className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded font-semibold flex items-center gap-0.5">
-                              <AlertTriangle className="w-2.5 h-2.5 text-amber-600" /> High distance warning
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span
-                        className="px-2 py-0.5 rounded text-[10px] font-bold border shrink-0"
-                        style={{
-                          backgroundColor: `${retailer.color}10`,
-                          borderColor: `${retailer.color}30`,
-                          color: retailer.color
-                        }}
-                      >
-                        {retailer.name}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => handleAssignSingle(sId, e)}
-                        title={`Assign this branch to ${activeZone?.name || 'zone'}`}
-                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition shadow-xs flex items-center gap-1 cursor-pointer shrink-0"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>+ Link</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
             )}
           </div>
 
-          {/* Assign Action Button */}
-          <div className="pt-3 border-t border-slate-100">
-            <button
-              onClick={handleAssignSelected}
-              disabled={selectedStoreIdsToAssign.size === 0 || isSubmitting}
-              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-md shadow-emerald-950/10 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40"
-            >
-              <Link2 className="w-4 h-4" />
-              <span>
-                {isSubmitting
-                  ? 'Assigning...'
-                  : `Assign ${selectedStoreIdsToAssign.size} Selected Store(s) to ${activeZone?.name || 'Zone'}`}
-              </span>
-            </button>
+          {/* Clean 4 Supermarket Cards */}
+          <div className="space-y-2.5">
+            {stores.map((store) => {
+              const sId = store.storeId || store._id;
+              const retailer = CORE_RETAILERS.find((r) =>
+                String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
+              ) || { name: 'Supermarket', color: '#059669', logo: '🏬' };
+
+              const isAssigned = assignedStoreIdsSet.has(sId);
+              const currAssignment = assignments.find((a) => a.zoneId === activeZone?.zoneId && a.storeId === sId);
+
+              // Check if store physically lies inside active polygon
+              const sLat = Number(store.latitude);
+              const sLng = Number(store.longitude);
+              const isInsidePoly = activeZonePolygonLatLngs.length >= 3 && isPointInPolygon({ lat: sLat, lng: sLng }, activeZonePolygonLatLngs);
+
+              return (
+                <div
+                  key={sId}
+                  className={`p-3.5 rounded-2xl border transition flex items-center justify-between gap-3 text-xs ${
+                    isAssigned
+                      ? 'bg-emerald-50/60 border-emerald-300 shadow-2xs'
+                      : 'bg-white border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-base shrink-0 border shadow-2xs"
+                      style={{
+                        backgroundColor: `${retailer.color}15`,
+                        borderColor: `${retailer.color}35`,
+                        color: retailer.color
+                      }}
+                    >
+                      {retailer.logo}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <strong className="text-slate-900 font-bold truncate">{store.name}</strong>
+                        {activeZone && (
+                          isInsidePoly ? (
+                            <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-800 text-[9px] font-black rounded-md flex items-center gap-0.5 shrink-0 border border-emerald-300">
+                              <MapPin className="w-2.5 h-2.5" /> Inside Zone
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.2 bg-slate-100 text-slate-500 text-[9px] font-medium rounded-md shrink-0">
+                              Outside Polygon
+                            </span>
+                          )
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                        {retailer.name} • {store.branchName || store.name}
+                      </p>
+                      <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                        {store.address}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {activeZone ? (
+                      isAssigned ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 shadow-xs">
+                            <Check className="w-3 h-3" />
+                            <span>Linked</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingStore(store);
+                              setEditPriority(currAssignment?.priority || 1);
+                            }}
+                            className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                            title="Edit fulfillment priority"
+                          >
+                            <Sliders className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveStore(sId)}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                            title="Unlink from zone"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => handleAssignSingle(sId, e)}
+                          className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Link to Zone</span>
+                        </button>
+                      )
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-medium italic">
+                        Select zone to link
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

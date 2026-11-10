@@ -986,6 +986,35 @@ export const StoreProvider = ({ children }) => {
     fetchDbBranches();
   }, []);
 
+  // Listen for freshmart_branches_updated events to keep allBranches in sync across all views
+  useEffect(() => {
+    const handleBranchesUpdated = (e) => {
+      try {
+        const detail = e?.detail;
+        if (Array.isArray(detail) && detail.length > 0) {
+          setAllBranches(detail);
+        } else if (detail && (detail._id || detail.id)) {
+          const targetId = String(detail._id || detail.id).toLowerCase();
+          setAllBranches((prev) =>
+            prev.map((b) => (String(b._id || b.id).toLowerCase() === targetId ? { ...b, ...detail } : b))
+          );
+        } else {
+          const saved = localStorage.getItem('freshmart_branches');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setAllBranches(parsed);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to reload branches on freshmart_branches_updated:', err);
+      }
+    };
+    window.addEventListener('freshmart_branches_updated', handleBranchesUpdated);
+    return () => window.removeEventListener('freshmart_branches_updated', handleBranchesUpdated);
+  }, []);
+
   const addBranch = async (branchData) => {
     const newId = `branch_${Date.now()}`;
     const newBranch = {
@@ -1158,10 +1187,31 @@ export const StoreProvider = ({ children }) => {
     const userLng = Number(coords?.lng || coords?.longitude || deliveryLocation?.lng || deliveryLocation?.coords?.lng || 73.0995);
 
     const branchesToEvaluate = (allBranches && allBranches.length > 0) ? allBranches : BRANCHES;
+    let effectiveZones = options.zones || [];
+    if (!Array.isArray(effectiveZones) || effectiveZones.length === 0) {
+      try {
+        const savedZ = localStorage.getItem('freshmart_zones');
+        if (savedZ) effectiveZones = JSON.parse(savedZ) || [];
+      } catch (e) {}
+    }
+
+    let effectiveAssignments = options.assignments || [];
+    if (!Array.isArray(effectiveAssignments) || effectiveAssignments.length === 0) {
+      try {
+        const savedA = localStorage.getItem('freshmart_assignments');
+        if (savedA) effectiveAssignments = JSON.parse(savedA) || [];
+      } catch (e) {}
+    }
+
     const discoveryResult = evaluateAvailableRetailers(
       { lat: userLat, lng: userLng },
       branchesToEvaluate,
-      { maxSearchRadiusKm: options.maxSearchRadiusKm || 25, useRoadDistance: options.useRoadDistance ?? false }
+      {
+        maxSearchRadiusKm: options.maxSearchRadiusKm || 25,
+        useRoadDistance: options.useRoadDistance ?? false,
+        zones: effectiveZones,
+        assignments: effectiveAssignments
+      }
     );
 
     const storeList = INITIAL_TENANTS.map((tenant) => {
@@ -1233,12 +1283,14 @@ export const StoreProvider = ({ children }) => {
         theme: tenant.theme,
         color: tenant.color,
         nearestBranch: bestBranch,
+        storeAreaPolygon: bestBranch?.storeAreaPolygon || matchedGroup?.bestBranch?.storeAreaPolygon || null,
         distanceKm: Number.isFinite(effectiveDistance) ? Number(effectiveDistance.toFixed(1)) : null,
         distanceFormatted: Number.isFinite(effectiveDistance)
           ? `${effectiveDistance % 1 === 0 ? effectiveDistance.toFixed(0) : effectiveDistance.toFixed(1)} km`
           : 'Unavailable',
         estimatedTime,
         isDeliverable,
+        isExtendedDelivery: Boolean(bestBranch?.isExtendedDelivery),
         deliveryFee,
         deliveryFeeText: deliveryFee === 0 ? 'Free Delivery' : `Rs. ${deliveryFee} Delivery Fee`,
         rating: 4.8 + (tenant.id === 'tenant-alfatah' ? 0.1 : 0),

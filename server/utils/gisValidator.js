@@ -30,10 +30,13 @@ export function validateAndNormalizePolygon(rawCoordinates) {
   // Case 2: [[[lng, lat], ...]] (GeoJSON coordinates format)
   else if (Array.isArray(rawCoordinates) && Array.isArray(rawCoordinates[0]) && Array.isArray(rawCoordinates[0][0])) {
     ring = rawCoordinates[0].map((pt, idx) => {
-      const lng = Number(pt[0]);
-      const lat = Number(pt[1]);
+      let lng = Number(pt[0]);
+      let lat = Number(pt[1]);
       if (isNaN(lng) || isNaN(lat)) {
         throw new Error(`Invalid coordinate at index ${idx}: lng and lat must be numbers.`);
+      }
+      if (Math.abs(lat) > 45 && Math.abs(lng) <= 45) {
+        [lng, lat] = [lat, lng];
       }
       return [lng, lat];
     });
@@ -41,10 +44,13 @@ export function validateAndNormalizePolygon(rawCoordinates) {
   // Case 3: [[lng, lat], ...]
   else if (Array.isArray(rawCoordinates) && Array.isArray(rawCoordinates[0])) {
     ring = rawCoordinates.map((pt, idx) => {
-      const lng = Number(pt[0]);
-      const lat = Number(pt[1]);
+      let lng = Number(pt[0]);
+      let lat = Number(pt[1]);
       if (isNaN(lng) || isNaN(lat)) {
         throw new Error(`Invalid coordinate at index ${idx}: lng and lat must be numbers.`);
+      }
+      if (Math.abs(lat) > 45 && Math.abs(lng) <= 45) {
+        [lng, lat] = [lat, lng];
       }
       return [lng, lat];
     });

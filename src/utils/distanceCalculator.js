@@ -41,6 +41,36 @@ export function calculateRoadDistanceKm(lat1, lon1, lat2, lon2, roadFactor = 1.2
 }
 
 /**
+ * Normalize point coordinates into { lat, lng } regardless of format:
+ * - [lat, lng] array
+ * - [lng, lat] GeoJSON array
+ * - { lat, lng } object
+ * - { latitude, longitude } object
+ */
+export function normalizeLatLng(pt) {
+  if (!pt) return null;
+  if (Array.isArray(pt)) {
+    const v0 = Number(pt[0]);
+    const v1 = Number(pt[1]);
+    if (isNaN(v0) || isNaN(v1)) return null;
+    // In Pakistan / South Asia (Lat: ~23-37, Lng: ~60-78):
+    // If first element > 45, it is Longitude (GeoJSON format [lng, lat])
+    if (Math.abs(v0) > Math.abs(v1) && Math.abs(v0) > 45) {
+      return { lat: v1, lng: v0 };
+    }
+    return { lat: v0, lng: v1 };
+  }
+  if (typeof pt === 'object') {
+    const lat = Number(pt.lat ?? pt.latitude);
+    const lng = Number(pt.lng ?? pt.longitude);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      return { lat, lng };
+    }
+  }
+  return null;
+}
+
+/**
  * Ray-casting algorithm to test if a point is inside a polygon boundary
  */
 export function isPointInPolygon(point, polygon) {
@@ -48,21 +78,22 @@ export function isPointInPolygon(point, polygon) {
     return false;
   }
 
-  const x = Number(point.lng ?? point.longitude ?? (Array.isArray(point) ? point[1] : NaN));
-  const y = Number(point.lat ?? point.latitude ?? (Array.isArray(point) ? point[0] : NaN));
-  if (isNaN(x) || isNaN(y)) return false;
+  const pNorm = normalizeLatLng(point);
+  if (!pNorm) return false;
+  const x = pNorm.lng;
+  const y = pNorm.lat;
 
   let inside = false;
 
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const ptI = polygon[i];
-    const ptJ = polygon[j];
-    const xi = Number(Array.isArray(ptI) ? ptI[1] : (ptI?.lng ?? ptI?.longitude));
-    const yi = Number(Array.isArray(ptI) ? ptI[0] : (ptI?.lat ?? ptI?.latitude));
-    const xj = Number(Array.isArray(ptJ) ? ptJ[1] : (ptJ?.lng ?? ptJ?.longitude));
-    const yj = Number(Array.isArray(ptJ) ? ptJ[0] : (ptJ?.lat ?? ptJ?.latitude));
+    const ptI = normalizeLatLng(polygon[i]);
+    const ptJ = normalizeLatLng(polygon[j]);
+    if (!ptI || !ptJ) continue;
 
-    if (isNaN(xi) || isNaN(yi) || isNaN(xj) || isNaN(yj)) continue;
+    const xi = ptI.lng;
+    const yi = ptI.lat;
+    const xj = ptJ.lng;
+    const yj = ptJ.lat;
 
     const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
     if (intersect) inside = !inside;
@@ -149,14 +180,54 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
         ? isPointInPolygon({ lat: userLat, lng: userLng }, b.deliveryPolygon)
         : false;
 
-      // When super admin draws a custom boundary polygon, the polygon governs eligibility; otherwise radius is used
+      // Check if user is inside a master store area polygon (created in Super Admin) where this store lies
+      let insideMasterZone = false;
+      let storeAreaPolygon = null;
+      const zonesList = options.zones || [];
+      if (Array.isArray(zonesList) && zonesList.length > 0) {
+        for (const z of zonesList) {
+          if (z.isActive === false || String(z.status).toLowerCase() === 'inactive') continue;
+          const rawRing = z.geometry?.coordinates?.[0] || z.coordinates?.[0] || z.coordinates;
+          if (Array.isArray(rawRing) && rawRing.length >= 3) {
+            // Check if store physically lies in this polygon
+            const bInZone = isPointInPolygon({ lat: bLat, lng: bLng }, rawRing);
+            const branchId = String(b._id || b.id || '').toLowerCase();
+            const isAssigned = (options.assignments || []).some(
+              (a) => a.zoneId === z.zoneId && String(a.storeId || '').toLowerCase() === branchId
+            );
+            if (bInZone || isAssigned || (z.city && String(b.city || '').toLowerCase() === String(z.city).toLowerCase())) {
+              if (!storeAreaPolygon) {
+                storeAreaPolygon = {
+                  zoneId: z.zoneId,
+                  name: z.name,
+                  color: z.color || '#10b981',
+                  deliveryCharge: z.deliveryCharge
+                };
+              }
+            }
+
+            // Check if customer doorstep is also in this polygon
+            const userInZone = isPointInPolygon({ lat: userLat, lng: userLng }, rawRing);
+            if (userInZone && (bInZone || isAssigned || (z.city && String(b.city || '').toLowerCase() === String(z.city).toLowerCase()))) {
+              insideMasterZone = true;
+            }
+          }
+        }
+      }
+
+      // Concept 2: Each store has its own delivery zone
+      // A customer can receive delivery if they are inside this store's own delivery zone
+      // (either store's custom polygon, or store's configured radius, or assigned master zone)
       const insideDeliveryZone = hasPolygon
-        ? insidePolygon
-        : (effectiveDistKm <= configuredRadius);
-      const isEligible = insideDeliveryZone || (b.supportsExtendedDelivery && effectiveDistKm <= 20);
+        ? (insidePolygon || insideMasterZone)
+        : (insideMasterZone || effectiveDistKm <= configuredRadius);
+      const isExtendedSla = !insideDeliveryZone && Boolean(b.supportsExtendedDelivery) && effectiveDistKm <= (configuredRadius + 10);
+      const isEligible = insideDeliveryZone || isExtendedSla;
 
       const fee = calculateBranchDeliveryFee(b, effectiveDistKm);
-      const estimatedTime = estimateDeliveryTime(effectiveDistKm);
+      const estimatedTime = isExtendedSla
+        ? '45-60 mins (Regional Delivery)'
+        : estimateDeliveryTime(effectiveDistKm);
 
       return {
         ...b,
@@ -166,7 +237,9 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
         straightLineKm,
         deliveryRadiusKm: configuredRadius,
         insideDeliveryZone,
+        storeAreaPolygon,
         isEligibleForDelivery: isEligible,
+        isExtendedDelivery: isExtendedSla,
         deliveryFee: fee,
         estimatedTime
       };

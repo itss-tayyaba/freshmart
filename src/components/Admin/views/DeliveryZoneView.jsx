@@ -23,12 +23,16 @@ import {
   Copy,
   Building2,
   ExternalLink,
-  Tag
+  Tag,
+  Sparkles,
+  Zap
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { switchMapTileLayer } from '../../../utils/mapTiles';
 import { isSameTenant, resolveTenantId } from '../../../data/companyHierarchyData';
 import { PAKISTAN_CITIES } from '../../../data/pakistanLocations';
+import { apiService } from '../../../services/api';
+import { normalizeLatLng, isPointInPolygon } from '../../../utils/distanceCalculator';
 
 // Custom SVG pin for Store Branch on Leaflet Map
 const createStoreBranchPin = (name, color = '#059669') =>
@@ -221,6 +225,23 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
   const [mapViewMode, setMapViewMode] = useState('street');
   const [isAddZoneModalOpen, setIsAddZoneModalOpen] = useState(false);
 
+  // InDrive-Style Extended Regional Delivery Toggle (+10 km radius)
+  const [supportsExtendedDelivery, setSupportsExtendedDelivery] = useState(
+    Boolean(activeBranch.supportsExtendedDelivery ?? true)
+  );
+
+  // SuperAdmin Master Delivery Zones (Geofence Boundaries)
+  const [masterZones, setMasterZones] = useState([]);
+  useEffect(() => {
+    let isMounted = true;
+    apiService.getZones().then((res) => {
+      if (isMounted && res?.success && Array.isArray(res.zones)) {
+        setMasterZones(res.zones);
+      }
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, []);
+
   // New Zone Form State (for adding a new branch/zone)
   const [newZoneForm, setNewZoneForm] = useState({
     name: '',
@@ -239,7 +260,42 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
   const branchMarkerRef = useRef(null);
   const concentricCirclesRef = useRef([]);
   const polygonLayerRef = useRef(null);
+  const masterZoneLayerRef = useRef(null);
+  const extendedRegionCircleRef = useRef(null);
   const vertexMarkersRef = useRef([]);
+
+  // Resolve matching SuperAdmin Master Geofence for this store/city
+  const matchingMasterZone = useMemo(() => {
+    if (!masterZones || masterZones.length === 0) return null;
+    const storeLat = getSafeCoord(lat, 31.4087);
+    const storeLng = getSafeCoord(lng, 73.1118);
+
+    // 1. Check if store center coordinates lie inside any SuperAdmin geofence polygon
+    for (const z of masterZones) {
+      if (z.isActive === false || String(z.status).toLowerCase() === 'inactive') continue;
+      const rawRing = z.geometry?.coordinates?.[0] || z.coordinates?.[0] || z.coordinates || [];
+      const latLngs = (Array.isArray(rawRing) ? rawRing : [])
+        .map(normalizeLatLng)
+        .filter(Boolean)
+        .map((p) => [p.lat, p.lng]);
+      if (latLngs.length >= 3 && isPointInPolygon({ lat: storeLat, lng: storeLng }, latLngs)) {
+        return { ...z, latLngs };
+      }
+    }
+    // 2. Fallback: match by city
+    const byCity = masterZones.find(
+      (z) => String(z.city || '').toLowerCase() === String(branchCity || '').toLowerCase() && (z.isActive !== false)
+    );
+    if (byCity) {
+      const rawRing = byCity.geometry?.coordinates?.[0] || byCity.coordinates?.[0] || byCity.coordinates || [];
+      const latLngs = (Array.isArray(rawRing) ? rawRing : [])
+        .map(normalizeLatLng)
+        .filter(Boolean)
+        .map((p) => [p.lat, p.lng]);
+      if (latLngs.length >= 3) return { ...byCity, latLngs };
+    }
+    return null;
+  }, [masterZones, lat, lng, branchCity]);
 
   // Sync internal state when active branch changes
   useEffect(() => {
@@ -250,6 +306,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     setLng(getSafeCoord(activeBranch.longitude, 73.1118));
     setDeliveryRadiusKm(Number(activeBranch.deliveryRadiusKm || activeBranch.deliveryRadius || 5));
     setDeliveryStatus(activeBranch.deliveryStatus || 'active');
+    setSupportsExtendedDelivery(Boolean(activeBranch.supportsExtendedDelivery ?? true));
     setDeliveryTiers(
       Array.isArray(activeBranch.deliveryTiers) && activeBranch.deliveryTiers.length > 0
         ? activeBranch.deliveryTiers
@@ -281,6 +338,22 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     }
     setMapDrawMode('center');
   }, [activeBranch]);
+
+  // Adopt SuperAdmin Master Geofence boundary into store's custom delivery zone
+  const handleAdoptMasterZone = () => {
+    if (!matchingMasterZone || !matchingMasterZone.latLngs || matchingMasterZone.latLngs.length < 3) {
+      if (addToast) addToast('Notice', 'No active SuperAdmin master geofence found for this location.', 'info');
+      return;
+    }
+    setPolygonPoints(matchingMasterZone.latLngs);
+    setMapDrawMode('polygon');
+    if (addToast) {
+      addToast(
+        'Master Geofence Adopted 📐',
+        `Imported SuperAdmin boundary from "${matchingMasterZone.name}". You can now drag vertex handles to customize for this store.`
+      );
+    }
+  };
 
   // Helper to reorder points around their geometric centroid into a clean non-crossing perimeter
   const untanglePoints = (pts) => {
@@ -492,22 +565,111 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
       polygonLayerRef.current = line;
     }
 
-    // Add small interactive handles at each vertex
-    cleanPolyPoints.forEach((pt, idx) => {
-      const handle = L.circleMarker(pt, {
-        radius: 6,
-        color: '#ffffff',
-        fillColor: themeColor,
-        fillOpacity: 1,
-        weight: 2
+    // Render SuperAdmin Master Geofence reference boundary if one exists
+    if (masterZoneLayerRef.current) {
+      try { map.removeLayer(masterZoneLayerRef.current); } catch (e) {}
+      masterZoneLayerRef.current = null;
+    }
+    if (matchingMasterZone && Array.isArray(matchingMasterZone.latLngs) && matchingMasterZone.latLngs.length >= 3) {
+      const mzPoly = L.polygon(matchingMasterZone.latLngs, {
+        color: '#f59e0b',
+        weight: 2,
+        opacity: 0.85,
+        fillColor: '#f59e0b',
+        fillOpacity: 0.05,
+        dashArray: '8, 6'
       }).addTo(map);
 
-      handle.bindTooltip(`Point #${idx + 1}: ${pt[0].toFixed(4)}, ${pt[1].toFixed(4)}`, {
-        direction: 'top'
+      mzPoly.bindTooltip(
+        `<div style="font-family: inherit; font-size: 11px;">
+           <strong style="color: #b45309; font-size: 12px;">🛡️ SuperAdmin Master Geofence</strong>
+           <div style="font-size: 10px; color: #334155;">Zone: ${matchingMasterZone.name}</div>
+           <div style="font-size: 9px; color: #0284c7; font-weight: bold; margin-top: 2px;">
+             Click "Adopt Master Geofence" to copy boundary to this store
+           </div>
+         </div>`,
+        { sticky: true }
+      );
+      masterZoneLayerRef.current = mzPoly;
+    }
+
+    // Render InDrive Extended Regional Delivery Buffer (+10 km radius)
+    if (extendedRegionCircleRef.current) {
+      try { map.removeLayer(extendedRegionCircleRef.current); } catch (e) {}
+      extendedRegionCircleRef.current = null;
+    }
+    if (supportsExtendedDelivery) {
+      const sLat = getSafeCoord(lat, 31.4087);
+      const sLng = getSafeCoord(lng, 73.1118);
+      const extMeters = (Number(deliveryRadiusKm) + 10) * 1000;
+      const extCircle = L.circle([sLat, sLng], {
+        radius: extMeters,
+        color: '#0284c7',
+        weight: 1.5,
+        opacity: 0.5,
+        fillColor: '#0284c7',
+        fillOpacity: 0.03,
+        dashArray: '6, 8'
+      }).addTo(map);
+
+      extCircle.bindTooltip(
+        `<div style="font-size: 11px;">
+           <strong style="color: #0284c7;">⚡ InDrive Extended Regional Perimeter</strong>
+           <div style="font-size: 10px; color: #475569;">+10 km Extended Reach for Regional Dispatch</div>
+         </div>`,
+        { sticky: true }
+      );
+      extendedRegionCircleRef.current = extCircle;
+    }
+
+    // Add interactive draggable handles at each vertex so Store Admin can easily reshape boundary
+    cleanPolyPoints.forEach((pt, idx) => {
+      const handleIcon = L.divIcon({
+        className: 'delivery-zone-vertex-handle',
+        html: `
+          <div style="width: 22px; height: 22px; border-radius: 9999px; background: #ffffff; border: 3px solid ${themeColor}; box-shadow: 0 3px 8px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; color: #0f172a; cursor: grab;">
+            ${idx + 1}
+          </div>
+        `,
+        iconSize: [22, 22],
+        iconAnchor: [11, 11]
       });
-      vertexMarkersRef.current.push(handle);
+
+      const handleMarker = L.marker(pt, {
+        icon: handleIcon,
+        draggable: true,
+        zIndexOffset: 800
+      }).addTo(map);
+
+      handleMarker.on('drag', (e) => {
+        const newPos = e.target.getLatLng();
+        setPolygonPoints((prev) => {
+          const copy = [...prev];
+          copy[idx] = [Number(newPos.lat.toFixed(6)), Number(newPos.lng.toFixed(6))];
+          return copy;
+        });
+      });
+
+      handleMarker.bindTooltip(
+        `<div style="font-size: 10px; font-weight: bold;">
+          Corner #${idx + 1} (${pt[0].toFixed(4)}°, ${pt[1].toFixed(4)}°)<br/>
+          <span style="color: #059669;">✋ Drag to move • Click to delete</span>
+        </div>`,
+        { direction: 'top' }
+      );
+
+      handleMarker.on('click', () => {
+        if (cleanPolyPoints.length > 3) {
+          setPolygonPoints((prev) => prev.filter((_, pIdx) => pIdx !== idx));
+          if (addToast) addToast('Vertex Removed', `Corner point #${idx + 1} removed.`);
+        } else {
+          if (addToast) addToast('Minimum Vertices', 'A polygon must have at least 3 corner points.', 'info');
+        }
+      });
+
+      vertexMarkersRef.current.push(handleMarker);
     });
-  }, [polygonPoints, activeRetailer, mapDrawMode, branchName]);
+  }, [polygonPoints, activeRetailer, mapDrawMode, branchName, matchingMasterZone, supportsExtendedDelivery, deliveryRadiusKm, lat, lng]);
 
   const handleLayerChange = (layerKey) => {
     setMapViewMode(layerKey);
@@ -596,6 +758,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
       deliveryRadiusKm: Math.max(Number(deliveryRadiusKm), maxTierDist),
       deliveryRadius: Math.max(Number(deliveryRadiusKm), maxTierDist),
       deliveryPolygon: polygonPoints && polygonPoints.length >= 3 ? polygonPoints : null,
+      supportsExtendedDelivery: Boolean(supportsExtendedDelivery),
       deliveryStatus,
       deliveryTiers: [...deliveryTiers].sort((a, b) => a.distanceKm - b.distanceKm)
     };
@@ -606,6 +769,11 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
         await updateBranch(branchId, payload);
       } catch (e) {}
     }
+
+    try {
+      window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: payload }));
+      window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
+    } catch (e) {}
 
     // 2. Persist to backend delivery-zone API endpoint
     try {
@@ -683,10 +851,10 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2 mt-1">
             <MapPin className="w-6 h-6 text-emerald-600" />
-            <span>Retailer Delivery Zones & Coverage Map</span>
+            <span>Store Delivery Zone Management</span>
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Draw custom delivery polygons, pinpoint center GPS coordinates, and configure tiered delivery pricing for every supermarket.
+            Each store has its own independent delivery zone. Draw custom boundary polygons, edit vertices, and configure delivery tiers to reach customer doorsteps.
           </p>
         </div>
 
@@ -904,27 +1072,56 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
               </div>
             </div>
           ) : polygonPoints.length >= 3 ? (
-            <div className="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
-                <CheckCircle className="w-4 h-4 text-emerald-600" />
-                <span>Custom Boundary Polygon Active ({polygonPoints.length} vertices)</span>
+            <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 space-y-2 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Custom Boundary Active ({polygonPoints.length} vertices • InDrive Exact Matching)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleUntanglePoints}
+                    className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-emerald-300 text-emerald-800 dark:text-emerald-200 text-[11px] font-bold hover:bg-emerald-100 transition cursor-pointer"
+                    title="Align perimeter vertices smoothly without crossing"
+                  >
+                    Untangle
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMapDrawMode('polygon')}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
+                  >
+                    <Edit3 className="w-3 h-3" />
+                    <span>Add Corners</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearPolygon}
+                    className="p-1 rounded-lg text-rose-600 hover:bg-rose-100 transition cursor-pointer"
+                    title="Clear polygon"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMapDrawMode('polygon')}
-                  className="text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer"
-                >
-                  Edit Points
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearPolygon}
-                  className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
-                >
-                  Reset to Radius
-                </button>
+              <div className="text-[10px] text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                <span>💡 Click and drag any white numbered vertex handle on the map to reshape your delivery boundary.</span>
               </div>
+            </div>
+          ) : matchingMasterZone ? (
+            <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold">
+                <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>SuperAdmin Store Area Polygon: {matchingMasterZone.name} (Store physically lies in this polygon)</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleAdoptMasterZone}
+                className="px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+              >
+                <span>✨ Adopt Boundary for Store Delivery Zone</span>
+              </button>
             </div>
           ) : null}
 
@@ -1125,6 +1322,56 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
               <span>{isSaving ? 'Saving...' : 'Save & Activate Delivery Zone'}</span>
             </button>
           </div>
+
+          {/* ⚡ InDrive-Style Extended Regional Delivery Mode Toggle */}
+          <div className="p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Compass className="w-4 h-4 text-blue-600 shrink-0" />
+                <span className="font-black text-xs text-blue-950 dark:text-blue-100">
+                  InDrive Extended Regional Delivery Mode
+                </span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={supportsExtendedDelivery}
+                  onChange={(e) => setSupportsExtendedDelivery(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+            <p className="text-[11px] text-blue-800 dark:text-blue-300 leading-tight">
+              Accept customer orders beyond core polygon boundary within +10 km regional radius at extended fulfillment SLA (45-60 mins). Matches inDrive's regional dispatch buffer.
+            </p>
+          </div>
+
+          {/* SuperAdmin Master Geofence Reference Banner */}
+          {matchingMasterZone && (
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border border-amber-300 dark:border-amber-700 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-amber-950 dark:text-amber-200 font-black text-xs">
+                  <ShieldCheck className="w-4 h-4 text-amber-600" />
+                  <span>SuperAdmin Master Geofence: {matchingMasterZone.name}</span>
+                </div>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 font-bold">
+                  {matchingMasterZone.latLngs?.length || 0} vertices
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-900/80 dark:text-amber-300 leading-tight">
+                SuperAdmin has established an active delivery geofence for this region. You can adopt this perimeter as your store baseline, then drag vertex handles to customize.
+              </p>
+              <button
+                type="button"
+                onClick={handleAdoptMasterZone}
+                className="w-full py-1.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Adopt SuperAdmin Geofence into Store Polygon</span>
+              </button>
+            </div>
+          )}
 
           {/* Live Zone Summary Card */}
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-2 text-xs">

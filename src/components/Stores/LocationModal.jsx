@@ -16,7 +16,7 @@ import { PAKISTAN_CITIES, findNearestCity } from '../../data/pakistanLocations';
 import { detectUserLocation, reverseGeocodeAddress } from '../../utils/geolocationHelper';
 import { apiService } from '../../services/api';
 import { switchMapTileLayer } from '../../utils/mapTiles';
-import { isPointInPolygon } from '../../utils/distanceCalculator';
+import { isPointInPolygon, normalizeLatLng } from '../../utils/distanceCalculator';
 
 // Custom Modern SVG Pin for User Location to guarantee zero missing asset issues in Vite
 const createUserPin = () =>
@@ -78,7 +78,8 @@ const LocationModalContent = () => {
     setCurrentTenant,
     getNearbyStores,
     selectStoreAndBranch,
-    addToast
+    addToast,
+    allBranches = []
   } = useStore();
 
   const [isSaving, setIsSaving] = useState(false);
@@ -113,33 +114,68 @@ const LocationModalContent = () => {
   const tileLayerRef = useRef(null);
   const userMarkerRef = useRef(null);
   const storeMarkersRef = useRef([]);
+  const storePolygonsRef = useRef([]);
   const deliveryCirclesRef = useRef([]);
 
-  const [deliveryZones, setDeliveryZones] = useState([]);
+  // Resilient delivery zones state: immediately reads from localStorage, then fetches backend API
+  const [deliveryZones, setDeliveryZones] = useState(() => {
+    try {
+      const saved = localStorage.getItem('freshmart_zones');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
   const zonesLayerGroupRef = useRef(null);
 
-  // Fetch active delivery polygons so customers can see delivery boundaries on map
+  // Fetch active delivery polygons so customers can see delivery boundaries on map in real time
   useEffect(() => {
     let isMounted = true;
-    apiService.getZones().then((res) => {
-      if (isMounted && res?.success && Array.isArray(res.zones)) {
-        setDeliveryZones(res.zones);
+    const fetchLatestZones = async () => {
+      try {
+        const res = await apiService.getZones();
+        if (isMounted && res?.success && Array.isArray(res.zones) && res.zones.length > 0) {
+          setDeliveryZones(res.zones);
+        }
+      } catch (e) {}
+    };
+    fetchLatestZones();
+
+    const handleZonesUpdated = (e) => {
+      if (e?.detail && Array.isArray(e.detail)) {
+        setDeliveryZones(e.detail);
+      } else {
+        try {
+          const saved = localStorage.getItem('freshmart_zones');
+          if (saved) setDeliveryZones(JSON.parse(saved));
+        } catch (err) {}
+        fetchLatestZones();
       }
-    }).catch(() => {});
+    };
+
+    window.addEventListener('freshmart_zones_updated', handleZonesUpdated);
+    window.addEventListener('freshmart_branches_updated', fetchLatestZones);
+    window.addEventListener('freshmart_stores_updated', fetchLatestZones);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('freshmart_zones_updated', handleZonesUpdated);
+      window.removeEventListener('freshmart_branches_updated', fetchLatestZones);
+      window.removeEventListener('freshmart_stores_updated', fetchLatestZones);
     };
   }, []);
 
   const currentCityObj = PAKISTAN_CITIES.find((c) => c.id === selectedCityId) || PAKISTAN_CITIES[0];
 
-  // Dynamically calculate nearby grocery stores based on current customer coordinates
+  // Dynamically calculate nearby grocery stores based on current customer coordinates and delivery polygons
   const nearbyStores = useMemo(() => {
     if (typeof getNearbyStores === 'function') {
-      return getNearbyStores(currentCoords);
+      return getNearbyStores(currentCoords, { zones: deliveryZones });
     }
     return [];
-  }, [getNearbyStores, currentCoords]);
+  }, [getNearbyStores, currentCoords, deliveryZones, allBranches]);
 
   // Reset expanded region when user picks new pin
   useEffect(() => {
@@ -168,6 +204,14 @@ const LocationModalContent = () => {
 
   const closestStore = deliverableStores && deliverableStores.length > 0 ? deliverableStores[0] : null;
   const isOutsideDeliveryZone = deliverableStores.length === 0;
+
+  const activeStorePolygons = useMemo(() => {
+    return (nearbyStores || []).filter(
+      (s) => Array.isArray(s.nearestBranch?.deliveryPolygon) && s.nearestBranch.deliveryPolygon.length >= 3
+    );
+  }, [nearbyStores]);
+
+  const totalActivePolygonsCount = (deliveryZones?.length || 0) + (activeStorePolygons?.length || 0);
 
   // Dynamically resolve relative store: strictly from DELIVERABLE stores
   const effectiveStore = useMemo(() => {
@@ -302,19 +346,20 @@ const LocationModalContent = () => {
     }
   };
 
-  // Update store markers and delivery radius circles on the Leaflet Map
+  // Update store markers and delivery boundaries (custom polygons and fallback circles) on Leaflet Map
   useEffect(() => {
     if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
 
-    // Clear previous store markers and delivery circles
+    // Clear previous store markers, custom polygons, and delivery circles
     storeMarkersRef.current.forEach((m) => map.removeLayer(m));
     storeMarkersRef.current = [];
+    storePolygonsRef.current.forEach((p) => map.removeLayer(p));
+    storePolygonsRef.current = [];
     deliveryCirclesRef.current.forEach((c) => map.removeLayer(c));
     deliveryCirclesRef.current = [];
 
-    // Render store markers and delivery radius circles on the Leaflet Map
-    // Displays all supermarket branches in the city at their authentic physical coordinates
+    // Render store markers and delivery boundaries on the Leaflet Map
     const storesToRender = nearbyStores;
 
     storesToRender.forEach((st) => {
@@ -327,25 +372,75 @@ const LocationModalContent = () => {
       const radiusMeters = radiusKm * 1000;
       const isDeliverable = st.isDeliverable;
 
-      // Draw delivery zone circle with separate styling:
-      // Active in-range stores have distinct clean borders and fills;
-      // Outside stores have soft dashed borders so they don't blob over the map
-      const circle = L.circle([bLat, bLng], {
-        radius: radiusMeters,
-        color: storeColor,
-        weight: isDeliverable ? 2 : 1,
-        opacity: isDeliverable ? 0.75 : 0.35,
-        fillColor: storeColor,
-        fillOpacity: isDeliverable ? 0.14 : 0.05,
-        dashArray: isDeliverable ? null : '6, 6'
-      }).addTo(map);
+      // Check if store branch has an authentic custom polygon drawn in Admin / SuperAdmin
+      const rawPoly = st.nearestBranch?.deliveryPolygon;
+      let cleanPolyPoints = [];
+      if (Array.isArray(rawPoly) && rawPoly.length >= 3) {
+        const ring = (Array.isArray(rawPoly[0]) && Array.isArray(rawPoly[0][0])) ? rawPoly[0] : rawPoly;
+        cleanPolyPoints = ring
+          .map(normalizeLatLng)
+          .filter(Boolean)
+          .map((p) => [p.lat, p.lng]);
+      }
 
-      circle.bindTooltip(`${st.displayName || st.name} (${radiusKm} km Zone • ${isDeliverable ? 'Deliverable' : 'Outside Zone'})`, {
-        sticky: true,
-        className: 'delivery-zone-tooltip'
-      });
+      if (cleanPolyPoints.length >= 3) {
+        // Render Authentic Store Custom Polygon Boundary
+        const isCustomerInStoreZone = isPointInPolygon(
+          { lat: currentCoords.lat, lng: currentCoords.lng },
+          cleanPolyPoints
+        );
 
-      deliveryCirclesRef.current.push(circle);
+        const storePolygon = L.polygon(cleanPolyPoints, {
+          color: storeColor,
+          weight: isCustomerInStoreZone ? 3.5 : 2,
+          opacity: isCustomerInStoreZone ? 0.95 : 0.65,
+          fillColor: storeColor,
+          fillOpacity: isCustomerInStoreZone ? 0.32 : 0.12,
+          dashArray: isCustomerInStoreZone ? null : '5, 5'
+        }).addTo(map);
+
+        storePolygon.bindTooltip(
+          `<div style="font-family: inherit; font-size: 11px;">
+             <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 2px;">
+               <span style="font-size: 13px;">${st.logo || '🏬'}</span>
+               <strong style="color: ${storeColor}; font-size: 12px;">${st.displayName || st.name} Delivery Zone</strong>
+             </div>
+             <div style="font-size: 10px; color: #334155; margin-top: 2px;">
+               🛵 Customer Doorstep Delivery • ⚡ ${st.estimatedTime || '20-30 mins'}
+             </div>
+             <div style="font-size: 9px; color: ${isCustomerInStoreZone ? '#059669' : '#b91c1c'}; font-weight: bold; margin-top: 3px;">
+               ${isCustomerInStoreZone ? '✓ Your pin is inside this store delivery zone' : 'Click to move your delivery pin inside'}
+             </div>
+           </div>`,
+          { sticky: true }
+        );
+
+        storePolygon.on('click', (e) => {
+          handleUpdateCoords(e.latlng.lat, e.latlng.lng);
+          setSelectedStoreId(st.id);
+          addToast('Store Selected 🏬', `Selected ${st.displayName || st.name}`);
+        });
+
+        storePolygonsRef.current.push(storePolygon);
+      } else {
+        // Fallback: Circular boundary when store has no custom polygon
+        const circle = L.circle([bLat, bLng], {
+          radius: radiusMeters,
+          color: storeColor,
+          weight: isDeliverable ? 2 : 1,
+          opacity: isDeliverable ? 0.75 : 0.35,
+          fillColor: storeColor,
+          fillOpacity: isDeliverable ? 0.14 : 0.05,
+          dashArray: isDeliverable ? null : '6, 6'
+        }).addTo(map);
+
+        circle.bindTooltip(`${st.displayName || st.name} (${radiusKm} km Zone • ${isDeliverable ? 'Deliverable' : 'Outside Zone'})`, {
+          sticky: true,
+          className: 'delivery-zone-tooltip'
+        });
+
+        deliveryCirclesRef.current.push(circle);
+      }
 
       const marker = L.marker([bLat, bLng], {
         icon: createStorePin(st),
@@ -357,7 +452,7 @@ const LocationModalContent = () => {
         if (!isDeliverable) {
           addToast(
             `${st.displayName || st.name} 📍`,
-            `Branch located at ${st.nearestBranch?.name || 'Hub'} (${st.distanceFormatted} away). Your current pin is outside its ${radiusKm} km delivery zone.`,
+            `Branch located at ${st.nearestBranch?.name || 'Hub'} (${st.distanceFormatted} away). Your current pin is outside its delivery zone.`,
             'info'
           );
           return;
@@ -395,30 +490,47 @@ const LocationModalContent = () => {
       zonesLayerGroupRef.current.clearLayers();
 
       deliveryZones.forEach((z) => {
-        if (!z.geometry?.coordinates?.[0]) return;
-        const latLngs = (z.geometry.coordinates[0] || [])
-          .map(([lng, lat]) => [Number(lat), Number(lng)])
-          .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && !isNaN(lat) && !isNaN(lng));
+        const rawRing = z.geometry?.coordinates?.[0] || z.coordinates?.[0] || z.coordinates || [];
+        if (!Array.isArray(rawRing)) return;
+        const latLngs = rawRing
+          .map(normalizeLatLng)
+          .filter(Boolean)
+          .map((p) => [p.lat, p.lng]);
         if (latLngs.length < 3) return;
 
         const color = z.color || '#10b981';
         const isCustomerInside = isPointInPolygon({ lat: currentCoords.lat, lng: currentCoords.lng }, latLngs);
 
+        // Find which stores lie within or serve this master polygon
+        const storesInZone = storesToRender.filter((st) => {
+          const bLat = Number(st.nearestBranch?.latitude ?? st.nearestBranch?.coordinates?.lat);
+          const bLng = Number(st.nearestBranch?.longitude ?? st.nearestBranch?.coordinates?.lng);
+          return isPointInPolygon({ lat: bLat, lng: bLng }, latLngs);
+        });
+        const storesServingText = storesInZone.length > 0
+          ? storesInZone.map((s) => s.displayName || s.name).join(', ')
+          : 'Partner Supermarket Hubs';
+
         const polygon = L.polygon(latLngs, {
           color: color,
-          weight: isCustomerInside ? 3.5 : 2,
-          opacity: isCustomerInside ? 0.95 : 0.6,
+          weight: 2.5,
+          opacity: 0.85,
           fillColor: color,
-          fillOpacity: isCustomerInside ? 0.35 : 0.18,
-          dashArray: isCustomerInside ? null : '4, 4'
+          fillOpacity: 0.1,
+          dashArray: '8, 6'
         });
 
         polygon.bindTooltip(
-          `<div style="font-family: inherit; font-size: 11px;">
-             <strong style="color: ${color}; font-size: 12px;">📍 ${z.name}</strong>
-             <div style="font-size: 10px; color: #334155;">Delivery: Rs. ${z.deliveryCharge} • ${z.estimatedDeliveryTime || '30 mins'}</div>
-             <div style="font-size: 9px; color: ${isCustomerInside ? '#059669' : '#64748b'}; font-weight: bold; margin-top: 2px;">
-               ${isCustomerInside ? '✓ Your pin is in this delivery region' : 'Click to drop pin in this region'}
+          `<div style="font-family: inherit; font-size: 11px; max-width: 240px;">
+             <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 2px;">
+               <span style="font-size: 14px;">🏬</span>
+               <strong style="color: ${color}; font-size: 12px;">Store Area Polygon: ${z.name}</strong>
+             </div>
+             <div style="font-size: 10px; color: #475569; margin-top: 2px;">
+               📍 <strong>Where partner stores lie:</strong> ${storesServingText}
+             </div>
+             <div style="font-size: 9px; color: #0284c7; font-weight: bold; margin-top: 3px;">
+               ${isCustomerInside ? '✓ Your pin is within this store cluster area' : 'Supermarket Commercial Area • Base Delivery: Rs. ' + (z.deliveryCharge || 70)}
              </div>
            </div>`,
           { sticky: true }
@@ -705,10 +817,10 @@ const LocationModalContent = () => {
             <div ref={mapContainerRef} className="w-full h-48 sm:h-56 z-0" />
 
             {/* Delivery Zones Legend Badge */}
-            {deliveryZones.length > 0 && (
-              <div className="absolute top-2 left-2 z-[1000] bg-slate-900/85 backdrop-blur-xs text-white px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1.5 shadow-md">
+            {totalActivePolygonsCount > 0 && (
+              <div className="absolute top-2 left-2 z-[1000] bg-slate-900/90 backdrop-blur-xs text-white px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1.5 shadow-md border border-slate-700/80">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>{deliveryZones.length} Delivery Zones Shown</span>
+                <span>{totalActivePolygonsCount} Delivery Polygon{totalActivePolygonsCount === 1 ? '' : 's'} Active</span>
               </div>
             )}
 
@@ -761,66 +873,150 @@ const LocationModalContent = () => {
             </div>
           </div>
 
-          {/* Active Delivery Regions Selection Chips */}
-          {deliveryZones.length > 0 && (
-            <div className="mt-2.5 space-y-1.5">
+          {/* 📐 TWO CORE GEOFENCE CONCEPTS: 1. STORE AREA POLYGON vs 2. STORE DELIVERY ZONES */}
+          <div className="mt-2.5 space-y-2.5 bg-slate-50/90 dark:bg-slate-900/60 p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+            {/* Concept 1: Store Area Polygon (Where stores lie) */}
+            {deliveryZones.length > 0 && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <span className="text-amber-600">🏬</span>
+                    <span>1. Store Area Polygon (Where stores lie):</span>
+                  </span>
+                  <span className="text-[10px] text-amber-700 font-bold bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
+                    Store Hub Area
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                  {deliveryZones.map((z) => {
+                    const rawRing = z.geometry?.coordinates?.[0] || z.coordinates?.[0] || z.coordinates || [];
+                    const latLngs = (Array.isArray(rawRing) ? rawRing : [])
+                      .map(normalizeLatLng)
+                      .filter(Boolean)
+                      .map((p) => [p.lat, p.lng]);
+                    const isPinInZone = latLngs.length > 0 && isPointInPolygon({ lat: currentCoords.lat, lng: currentCoords.lng }, latLngs);
+                    const color = z.color || '#10b981';
+
+                    return (
+                      <button
+                        key={z.zoneId}
+                        type="button"
+                        onClick={() => {
+                          if (latLngs.length > 0) {
+                            let sumLat = 0, sumLng = 0;
+                            latLngs.forEach(([lt, lg]) => { sumLat += lt; sumLng += lg; });
+                            const cLat = sumLat / latLngs.length;
+                            const cLng = sumLng / latLngs.length;
+                            handleUpdateCoords(cLat, cLng);
+                            if (mapInstanceRef.current) {
+                              mapInstanceRef.current.flyTo([cLat, cLng], 14, { duration: 0.8 });
+                            }
+                            addToast('Store Area Polygon 🏬', `Centered at ${z.name} (Where partner stores lie)`);
+                          }
+                        }}
+                        className={`px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+                          isPinInZone
+                            ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                            : 'bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                        }`}
+                        title={`Store Area Polygon: ${z.name} (Where partner stores lie)`}
+                      >
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: isPinInZone ? '#ffffff' : color }}
+                        />
+                        <span>{z.name}</span>
+                        <span
+                          className={`text-[9px] font-mono px-1 py-0.2 rounded ${
+                            isPinInZone ? 'bg-amber-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          Hub
+                        </span>
+                        {isPinInZone && <Check className="w-3 h-3 text-white" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Concept 2: Store Delivery Zones (Where each store delivers) */}
+            <div className="space-y-1 pt-0.5">
               <div className="flex items-center justify-between text-[11px]">
-                <span className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                  <Compass className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Click Delivery Region to Snap Location:</span>
+                <span className="font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <span className="text-emerald-600">🛵</span>
+                  <span>2. Store Delivery Zones (Where each store delivers):</span>
                 </span>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-                  {deliveryZones.length} Region{deliveryZones.length === 1 ? '' : 's'} Drawn
+                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                  Customer Reach
                 </span>
               </div>
-              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
-                {deliveryZones.map((z) => {
-                  const latLngs = z.geometry?.coordinates?.[0]?.map(([lng, lat]) => [lat, lng]) || [];
-                  const isPinInZone = latLngs.length > 0 && isPointInPolygon({ lat: currentCoords.lat, lng: currentCoords.lng }, latLngs);
-                  const color = z.color || '#10b981';
+              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                {(nearbyStores || []).map((st) => {
+                  const rawPoly = st.nearestBranch?.deliveryPolygon;
+                  const ring = (Array.isArray(rawPoly?.[0]) && Array.isArray(rawPoly[0][0])) ? rawPoly[0] : rawPoly;
+                  const polyLatLngs = (Array.isArray(ring) && ring.length >= 3)
+                    ? ring.map(normalizeLatLng).filter(Boolean).map((p) => [p.lat, p.lng])
+                    : [];
+                  
+                  const isPinInZone = st.isDeliverable;
+                  const color = st.color || '#0284c7';
 
                   return (
                     <button
-                      key={z.zoneId}
+                      key={st.id}
                       type="button"
                       onClick={() => {
-                        if (latLngs.length > 0) {
+                        // Snap user directly inside this store's delivery zone
+                        let targetLat, targetLng;
+                        if (polyLatLngs.length >= 3) {
                           let sumLat = 0, sumLng = 0;
-                          latLngs.forEach(([lt, lg]) => { sumLat += lt; sumLng += lg; });
-                          const cLat = sumLat / latLngs.length;
-                          const cLng = sumLng / latLngs.length;
-                          handleUpdateCoords(cLat, cLng);
-                          if (mapInstanceRef.current) {
-                            mapInstanceRef.current.flyTo([cLat, cLng], 14, { duration: 0.8 });
+                          polyLatLngs.forEach(([lt, lg]) => { sumLat += lt; sumLng += lg; });
+                          targetLat = Number((sumLat / polyLatLngs.length).toFixed(5));
+                          targetLng = Number((sumLng / polyLatLngs.length).toFixed(5));
+                        } else {
+                          const bLat = Number(st.nearestBranch?.latitude ?? st.nearestBranch?.coordinates?.lat);
+                          const bLng = Number(st.nearestBranch?.longitude ?? st.nearestBranch?.coordinates?.lng);
+                          if (Number.isFinite(bLat) && Number.isFinite(bLng)) {
+                            targetLat = Number((bLat + 0.005).toFixed(5));
+                            targetLng = Number((bLng + 0.005).toFixed(5));
                           }
+                        }
+
+                        if (Number.isFinite(targetLat) && Number.isFinite(targetLng)) {
+                          handleUpdateCoords(targetLat, targetLng);
+                          setSelectedStoreId(st.id);
+                          if (mapInstanceRef.current) {
+                            mapInstanceRef.current.flyTo([targetLat, targetLng], 14, { duration: 0.8 });
+                          }
+                          addToast('Store Delivery Zone 🛵', `Moved location inside ${st.displayName || st.name} delivery zone. Ready to order!`);
                         }
                       }}
                       className={`px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
                         isPinInZone
-                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
+                          ? 'text-white shadow-xs'
                           : 'bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
                       }`}
-                      title={`Deliver to ${z.name} (Delivery: Rs. ${z.deliveryCharge})`}
+                      style={isPinInZone ? { backgroundColor: color, borderColor: color } : {}}
+                      title={`Deliver from ${st.displayName || st.name} (Coverage reach to customer doorsteps)`}
                     >
-                      <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: isPinInZone ? '#ffffff' : color }}
-                      />
-                      <span>{z.name}</span>
-                      <span
-                        className={`text-[9px] font-mono px-1 py-0.2 rounded ${
-                          isPinInZone ? 'bg-emerald-700 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                        }`}
-                      >
-                        Rs. {z.deliveryCharge}
-                      </span>
-                      {isPinInZone && <Check className="w-3 h-3 text-white" />}
+                      <span>{st.logo || '🏬'}</span>
+                      <span>{st.displayName || st.name} Delivery Zone</span>
+                      {isPinInZone ? (
+                        <span className="flex items-center gap-0.5 text-[9px] bg-black/25 px-1 py-0.2 rounded font-mono">
+                          <Check className="w-2.5 h-2.5 text-white" />
+                          <span>Inside</span>
+                        </span>
+                      ) : (
+                        <span className="text-[9px] text-slate-400 font-mono">Snap Pin</span>
+                      )}
                     </button>
                   );
                 })}
               </div>
             </div>
-          )}
+          </div>
 
           {/* Delivery Zone Notice for Far Locations */}
           {isOutsideDeliveryZone && (
@@ -918,10 +1114,28 @@ const LocationModalContent = () => {
                         <span className="text-amber-600 font-bold flex items-center gap-0.5">
                           ⚡ {store.estimatedTime}
                         </span>
-                        {isNearest && (
-                          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-700 border border-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-                            NEAREST
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-1.5 py-0.2 rounded-md">
+                            ✓ Inside Zone
                           </span>
+                          {(store.isExtendedDelivery || store.isExpandedRegion) && (
+                            <span className="text-[9px] font-black uppercase tracking-wider text-blue-700 border border-blue-400 bg-blue-50 px-1.5 py-0.5 rounded-md">
+                              Regional SLA
+                            </span>
+                          )}
+                          {isNearest && (
+                            <span className="text-[9px] font-black uppercase tracking-wider text-emerald-700 border border-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                              NEAREST
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-1 text-[10px] text-slate-500 font-medium truncate flex items-center gap-1">
+                        <span>🏬</span>
+                        <span className="truncate">Store: {store.nearestBranch?.name || 'Commercial Hub'}</span>
+                        {store.storeAreaPolygon && (
+                          <span className="text-amber-700 font-bold shrink-0">({store.storeAreaPolygon.name})</span>
                         )}
                       </div>
                     </div>

@@ -1,8 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DeliveryZone } from '../models/DeliveryZone.js';
+import { ZoneStore } from '../models/ZoneStore.js';
 import { isDbOnline } from '../config/db.js';
 import { validateAndNormalizePolygon } from '../utils/gisValidator.js';
+import { loadDiskAssignments, saveDiskAssignments } from './assignmentController.js';
 
 const ZONES_FILE_PATH = path.resolve(process.cwd(), 'server/data/zones_db.json');
 
@@ -150,8 +152,8 @@ export const getAllZonesMerged = async () => {
   const diskZones = loadDiskZones();
   const map = new Map();
 
-  // Clean slate for runtime: Default platform zones are only used during automated tests if disk/db are completely empty
-  if (process.env.NODE_ENV === 'test' && diskZones.length === 0 && dbZones.length === 0) {
+  // Default platform zones provide baseline coverage if disk and db are completely empty
+  if (diskZones.length === 0 && dbZones.length === 0) {
     DEFAULT_PLATFORM_ZONES.forEach((z) => map.set(z.zoneId, z));
   }
 
@@ -293,6 +295,34 @@ export const createZone = async (req, res) => {
     filteredDisk.unshift(newZoneData);
     saveDiskZones(filteredDisk);
 
+    // Optional: automatically link assigned store to this delivery zone
+    const targetStoreId = req.body.assignedStoreId || req.body.storeId;
+    if (targetStoreId) {
+      try {
+        const diskAssignments = loadDiskAssignments();
+        const existingIdx = diskAssignments.findIndex((a) => a.zoneId === generatedId && a.storeId === targetStoreId);
+        const assignRecord = {
+          zoneId: generatedId,
+          storeId: targetStoreId,
+          tenantId: req.body.tenantId || 'tenant-unimart',
+          isActive: true,
+          priority: 1,
+          assignedAt: new Date().toISOString()
+        };
+        if (existingIdx >= 0) {
+          diskAssignments[existingIdx] = assignRecord;
+        } else {
+          diskAssignments.push(assignRecord);
+        }
+        saveDiskAssignments(diskAssignments);
+        if (isDbOnline()) {
+          try {
+            await ZoneStore.findOneAndUpdate({ zoneId: generatedId, storeId: targetStoreId }, assignRecord, { upsert: true });
+          } catch (e) {}
+        }
+      } catch (e) {}
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Delivery zone created and verified successfully.',
@@ -346,6 +376,39 @@ export const updateZone = async (req, res) => {
       saveDiskZones(disk);
     }
 
+    // Optional: update store assignment for this zone
+    const targetStoreId = req.body.assignedStoreId || req.body.storeId;
+    if (targetStoreId !== undefined) {
+      try {
+        const diskAssignments = loadDiskAssignments();
+        if (!targetStoreId) {
+          saveDiskAssignments(diskAssignments.filter((a) => a.zoneId !== id));
+          if (isDbOnline()) {
+            await ZoneStore.deleteMany({ zoneId: id });
+          }
+        } else {
+          const existingIdx = diskAssignments.findIndex((a) => a.zoneId === id && a.storeId === targetStoreId);
+          const assignRecord = {
+            zoneId: id,
+            storeId: targetStoreId,
+            tenantId: updates.tenantId || 'tenant-unimart',
+            isActive: true,
+            priority: 1,
+            assignedAt: new Date().toISOString()
+          };
+          if (existingIdx >= 0) {
+            diskAssignments[existingIdx] = assignRecord;
+          } else {
+            diskAssignments.push(assignRecord);
+          }
+          saveDiskAssignments(diskAssignments);
+          if (isDbOnline()) {
+            await ZoneStore.findOneAndUpdate({ zoneId: id, storeId: targetStoreId }, assignRecord, { upsert: true });
+          }
+        }
+      } catch (e) {}
+    }
+
     return res.json({
       success: true,
       message: 'Delivery zone updated successfully.',
@@ -366,12 +429,20 @@ export const deleteZone = async (req, res) => {
     if (isDbOnline()) {
       try {
         await DeliveryZone.findOneAndDelete({ $or: [{ zoneId: id }, { _id: id }] });
+        await ZoneStore.deleteMany({ zoneId: id });
       } catch (dbErr) {}
     }
 
     const disk = loadDiskZones();
     const filtered = disk.filter((z) => z.zoneId !== id && z._id !== id);
     saveDiskZones(filtered);
+
+    // Remove assignments for this zone
+    try {
+      const diskAssignments = loadDiskAssignments();
+      const filteredAssignments = diskAssignments.filter((a) => a.zoneId !== id);
+      saveDiskAssignments(filteredAssignments);
+    } catch (e) {}
 
     return res.json({
       success: true,

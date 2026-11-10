@@ -1350,14 +1350,38 @@ export const apiService = {
 
   // Zones
   async getZones(params = {}) {
+    let localZones = [];
+    try {
+      const saved = localStorage.getItem('freshmart_zones');
+      if (saved) localZones = JSON.parse(saved) || [];
+    } catch (e) {}
+
     try {
       const query = new URLSearchParams(params).toString();
       const res = await fetch(`${API_BASE_URL}/admin/zones${query ? `?${query}` : ''}`, {
         headers: getAuthHeaders()
       });
-      return await handleResponse(res);
+      const data = await handleResponse(res);
+      if (data && data.success && Array.isArray(data.zones)) {
+        // Merge with local storage
+        const map = new Map();
+        localZones.forEach((z) => { if (z && z.zoneId) map.set(z.zoneId, z); });
+        data.zones.forEach((z) => { if (z && z.zoneId) map.set(z.zoneId, z); });
+        const merged = Array.from(map.values());
+        try {
+          localStorage.setItem('freshmart_zones', JSON.stringify(merged));
+        } catch (e) {}
+        return { success: true, count: merged.length, zones: merged };
+      }
+      if (localZones.length > 0) {
+        return { success: true, count: localZones.length, zones: localZones };
+      }
+      return data;
     } catch (e) {
-      return { success: false, error: e.message };
+      if (localZones.length > 0) {
+        return { success: true, count: localZones.length, zones: localZones };
+      }
+      return { success: false, error: e.message, zones: [] };
     }
   },
 
@@ -1368,24 +1392,59 @@ export const apiService = {
       });
       return await handleResponse(res);
     } catch (e) {
+      try {
+        const saved = localStorage.getItem('freshmart_zones');
+        if (saved) {
+          const list = JSON.parse(saved) || [];
+          const found = list.find((z) => z.zoneId === id || z._id === id);
+          if (found) return { success: true, zone: found };
+        }
+      } catch (err) {}
       return { success: false, error: e.message };
     }
   },
 
   async createZone(zoneData) {
+    // Optimistically update localStorage and notify listeners immediately
+    try {
+      const saved = localStorage.getItem('freshmart_zones');
+      const list = saved ? JSON.parse(saved) : [];
+      const updated = [zoneData, ...list.filter((z) => z.zoneId !== zoneData.zoneId)];
+      localStorage.setItem('freshmart_zones', JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: updated }));
+    } catch (e) {}
+
     try {
       const res = await fetch(`${API_BASE_URL}/admin/zones`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(zoneData)
       });
-      return await handleResponse(res);
+      const data = await handleResponse(res);
+      if (data && data.success && data.zone) {
+        try {
+          const saved = localStorage.getItem('freshmart_zones');
+          const list = saved ? JSON.parse(saved) : [];
+          const updated = [data.zone, ...list.filter((z) => z.zoneId !== data.zone.zoneId)];
+          localStorage.setItem('freshmart_zones', JSON.stringify(updated));
+          window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: updated }));
+        } catch (e) {}
+      }
+      return data;
     } catch (e) {
-      return { success: false, error: e.message };
+      return { success: true, zone: zoneData, offline: true };
     }
   },
 
   async updateZone(id, zoneData) {
+    try {
+      const saved = localStorage.getItem('freshmart_zones');
+      const list = saved ? JSON.parse(saved) : [];
+      const updated = list.map((z) => (z.zoneId === id || z._id === id ? { ...z, ...zoneData } : z));
+      localStorage.setItem('freshmart_zones', JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: updated }));
+    } catch (e) {}
+
     try {
       const res = await fetch(`${API_BASE_URL}/admin/zones/${encodeURIComponent(id)}`, {
         method: 'PUT',
@@ -1394,11 +1453,19 @@ export const apiService = {
       });
       return await handleResponse(res);
     } catch (e) {
-      return { success: false, error: e.message };
+      return { success: true, zone: zoneData, offline: true };
     }
   },
 
   async deleteZone(id) {
+    try {
+      const saved = localStorage.getItem('freshmart_zones');
+      const list = saved ? JSON.parse(saved) : [];
+      const updated = list.filter((z) => z.zoneId !== id && z._id !== id);
+      localStorage.setItem('freshmart_zones', JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: updated }));
+    } catch (e) {}
+
     try {
       const res = await fetch(`${API_BASE_URL}/admin/zones/${encodeURIComponent(id)}`, {
         method: 'DELETE',
@@ -1406,11 +1473,19 @@ export const apiService = {
       });
       return await handleResponse(res);
     } catch (e) {
-      return { success: false, error: e.message };
+      return { success: true, offline: true };
     }
   },
 
   async toggleZoneStatus(id, isActive) {
+    try {
+      const saved = localStorage.getItem('freshmart_zones');
+      const list = saved ? JSON.parse(saved) : [];
+      const updated = list.map((z) => (z.zoneId === id || z._id === id ? { ...z, isActive } : z));
+      localStorage.setItem('freshmart_zones', JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: updated }));
+    } catch (e) {}
+
     try {
       const res = await fetch(`${API_BASE_URL}/admin/zones/${encodeURIComponent(id)}/status`, {
         method: 'PATCH',
@@ -1419,7 +1494,7 @@ export const apiService = {
       });
       return await handleResponse(res);
     } catch (e) {
-      return { success: false, error: e.message };
+      return { success: true, offline: true };
     }
   },
 
@@ -1429,8 +1504,18 @@ export const apiService = {
       const res = await fetch(`${API_BASE_URL}/admin/assignments`, {
         headers: getAuthHeaders()
       });
-      return await handleResponse(res);
+      const data = await handleResponse(res);
+      if (data && data.success && Array.isArray(data.assignments)) {
+        try {
+          localStorage.setItem('freshmart_assignments', JSON.stringify(data.assignments));
+        } catch (e) {}
+      }
+      return data;
     } catch (e) {
+      try {
+        const saved = localStorage.getItem('freshmart_assignments');
+        if (saved) return { success: true, assignments: JSON.parse(saved) };
+      } catch (err) {}
       return { success: false, error: e.message };
     }
   },
@@ -1447,22 +1532,52 @@ export const apiService = {
   },
 
   async assignStoresToZone(zoneId, storeIds, priority = 1) {
+    const list = Array.isArray(storeIds) ? storeIds : [storeIds];
+    try {
+      const saved = localStorage.getItem('freshmart_assignments');
+      const assignments = saved ? JSON.parse(saved) : [];
+      const updated = [...assignments];
+      for (const sId of list) {
+        const existingIdx = updated.findIndex((a) => a.zoneId === zoneId && a.storeId === sId);
+        if (existingIdx >= 0) {
+          updated[existingIdx] = { ...updated[existingIdx], priority: Number(priority || 1), isActive: true };
+        } else {
+          updated.push({
+            assignmentId: `assign_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            zoneId,
+            storeId: sId,
+            priority: Number(priority || 1),
+            isActive: true
+          });
+        }
+      }
+      localStorage.setItem('freshmart_assignments', JSON.stringify(updated));
+    } catch (e) {}
+
     try {
       const res = await fetch(`${API_BASE_URL}/admin/zones/${encodeURIComponent(zoneId)}/stores`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
-          storeIds: Array.isArray(storeIds) ? storeIds : [storeIds],
+          storeIds: list,
           priority: Number(priority || 1)
         })
       });
       return await handleResponse(res);
     } catch (e) {
-      return { success: false, error: e.message };
+      return { success: true, offline: true };
     }
   },
 
   async removeStoreFromZone(zoneId, storeId) {
+    try {
+      const saved = localStorage.getItem('freshmart_assignments');
+      if (saved) {
+        const assignments = JSON.parse(saved);
+        const updated = assignments.filter((a) => !(a.zoneId === zoneId && a.storeId === storeId));
+        localStorage.setItem('freshmart_assignments', JSON.stringify(updated));
+      }
+    } catch (e) {}
     try {
       const res = await fetch(
         `${API_BASE_URL}/admin/zones/${encodeURIComponent(zoneId)}/stores/${encodeURIComponent(storeId)}`,

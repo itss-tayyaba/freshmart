@@ -62,7 +62,7 @@ import { StoreManagementView } from '../Admin/views/StoreManagementView';
 import { ZoneManagementView } from '../Admin/views/ZoneManagementView';
 import { ZoneStoreAssignmentView } from '../Admin/views/ZoneStoreAssignmentView';
 import { DeliveryView } from '../Admin/views/DeliveryView';
-import { getAllUnifiedStores, BASELINE_FIVE_STORES } from '../../utils/storeHelper';
+import { getAllUnifiedStores, BASELINE_FIVE_STORES, CORE_RETAILERS } from '../../utils/storeHelper';
 
 export const SuperAdminDashboard = () => {
   const {
@@ -385,8 +385,8 @@ export const SuperAdminDashboard = () => {
   // SUPER ADMIN GIS & MULTI-STORE STATISTICS (MODULE 1 REQUIREMENTS)
   // =========================================================================
   const gisStats = useMemo(() => {
-    const totalStores = Math.max(liveStores.length, 5);
-    const totalRetailers = Math.max(displayStores.length, totalStores);
+    const totalStores = liveStores.length;
+    const totalRetailers = Math.max(CORE_RETAILERS?.length || 4, (tenants || []).length);
     const totalZones = (liveZones && Array.isArray(liveZones)) ? liveZones.length : 0;
     const activeZones = (liveZones && Array.isArray(liveZones))
       ? liveZones.filter((z) => z.isActive !== false && String(z.status).toLowerCase() !== 'inactive').length

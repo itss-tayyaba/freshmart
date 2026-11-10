@@ -24,12 +24,12 @@
       "coverageRadiusKm": 25,
       "currentLat": 31.48,
       "currentLng": 74.29,
-      "assignedAt": "2026-11-07T08:00:53.447Z",
+      "assignedAt": "2026-11-10T05:55:52.239Z",
       "status": "On-Duty",
       "eta": "7 mins",
       "etaMinutes": 22
     },
-    "deliveryOtp": "4004",
+    "deliveryOtp": "4400",
     "isDispatched": true,
     "dispatchStatus": "Out for Delivery",
     "statusClass": "bg-amber-100 text-amber-800",
@@ -43,13 +43,13 @@
     "timeline": [
       {
         "title": "Order Confirmed",
-        "time": "01:00 PM",
+        "time": "10:55 AM",
         "completed": true,
         "desc": "Payment method: Cash on Delivery"
       },
       {
         "title": "Dark Store Packed & Verified",
-        "time": "01:04 PM",
+        "time": "10:59 AM",
         "completed": true,
         "desc": "Quality checked and sealed in chilled thermal insulation"
       },
@@ -132,13 +132,13 @@
     "payment": "Credit / Debit Card",
     "paymentMethod": "Credit / Debit Card",
     "time": "Just now",
-    "createdAt": "2026-11-07T08:00:52.423Z",
+    "createdAt": "2026-11-10T05:55:50.995Z",
     "assignedRider": null,
-    "deliveryOtp": "4975",
+    "deliveryOtp": "2530",
     "timeline": [
       {
         "title": "Order Confirmed",
-        "time": "01:00 PM",
+        "time": "10:55 AM",
         "completed": true,
         "desc": "Payment method: Credit / Debit Card"
       },
@@ -227,13 +227,13 @@
     "payment": "Cash on Delivery",
     "paymentMethod": "Cash on Delivery",
     "time": "Just now",
-    "createdAt": "2026-11-07T08:00:52.320Z",
+    "createdAt": "2026-11-10T05:55:50.903Z",
     "assignedRider": null,
-    "deliveryOtp": "8976",
+    "deliveryOtp": "6382",
     "timeline": [
       {
         "title": "Order Confirmed",
-        "time": "01:00 PM",
+        "time": "10:55 AM",
         "completed": true,
         "desc": "Payment method: Cash on Delivery"
       },
@@ -338,13 +338,13 @@
     "payment": "Cash on Delivery",
     "paymentMethod": "Cash on Delivery",
     "time": "Just now",
-    "createdAt": "2026-11-07T08:00:48.482Z",
+    "createdAt": "2026-11-10T05:55:47.464Z",
     "assignedRider": null,
-    "deliveryOtp": "1310",
+    "deliveryOtp": "8485",
     "timeline": [
       {
         "title": "Order Confirmed",
-        "time": "01:00 PM",
+        "time": "10:55 AM",
         "completed": true,
         "desc": "Payment method: Cash on Delivery"
       },

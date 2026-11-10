@@ -2,9 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Store } from '../models/Store.js';
 import { Branch } from '../models/Branch.js';
+import { ZoneStore } from '../models/ZoneStore.js';
 import { isDbOnline } from '../config/db.js';
 import { BRANCHES } from '../../src/data/companyHierarchyData.js';
 import { resolveRetailerId, getRetailerDetails } from '../utils/retailerHelper.js';
+import { loadDiskAssignments, saveDiskAssignments } from './assignmentController.js';
 
 const STORES_FILE_PATH = path.resolve(process.cwd(), 'server/data/stores_db.json');
 const BRANCHES_FILE_PATH = path.resolve(process.cwd(), 'server/data/branches_db.json');
@@ -170,7 +172,7 @@ export const loadDiskStores = () => {
     if (fs.existsSync(STORES_FILE_PATH)) {
       const data = fs.readFileSync(STORES_FILE_PATH, 'utf-8');
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         if (process.env.NODE_ENV !== 'test') {
           return deduplicateStores(parsed);
         }
@@ -178,8 +180,7 @@ export const loadDiskStores = () => {
       }
     }
   } catch (e) {}
-  saveDiskStores(FOUR_CORE_STORES);
-  return FOUR_CORE_STORES;
+  return [];
 };
 
 export const saveDiskStores = (stores) => {
@@ -188,9 +189,9 @@ export const saveDiskStores = (stores) => {
   } catch (e) {}
 };
 
-// Map base platform BRANCHES to Store format
+// Base platform stores - returns empty so stores are not created automatically
 const getBaseStores = () => {
-  return FOUR_CORE_STORES;
+  return [];
 };
 
 // @desc    Get all stores with filters (tenantId, city, search, active)
@@ -209,12 +210,10 @@ export const getStores = async (req, res) => {
     }
 
     const diskStores = loadDiskStores();
-    const baseStores = FOUR_CORE_STORES;
 
-    // Deduplicate stores by storeId / _id
+    // Deduplicate stores by storeId / _id - only include stores actually created by user/admin
     const storeMap = new Map();
 
-    baseStores.forEach((s) => storeMap.set(s.storeId, s));
     diskStores.forEach((s) => storeMap.set(s.storeId || s._id, s));
     dbStores.forEach((s) => {
       const sId = s.storeId || String(s._id);
@@ -400,6 +399,35 @@ export const createStore = async (req, res) => {
     updatedDisk.unshift(newStoreData);
     saveDiskStores(updatedDisk);
 
+    // Optional: link store to zone if assignedZoneId or zoneId provided
+    const targetZoneId = req.body.assignedZoneId || req.body.zoneId;
+    if (targetZoneId) {
+      try {
+        const diskAssignments = loadDiskAssignments();
+        const existingIdx = diskAssignments.findIndex((a) => a.zoneId === targetZoneId && a.storeId === generatedId);
+        const assignRecord = {
+          zoneId: targetZoneId,
+          storeId: generatedId,
+          tenantId: canonicalTenant,
+          isActive: true,
+          priority: 1,
+          assignedAt: new Date().toISOString()
+        };
+        if (existingIdx >= 0) {
+          diskAssignments[existingIdx] = assignRecord;
+        } else {
+          diskAssignments.push(assignRecord);
+        }
+        saveDiskAssignments(diskAssignments);
+        if (isDbOnline()) {
+          try {
+            await ZoneStore.findOneAndUpdate({ zoneId: targetZoneId, storeId: generatedId }, assignRecord, { upsert: true });
+          } catch (e) {}
+        }
+        newStoreData.assignedZoneId = targetZoneId;
+      } catch (e) {}
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Store created successfully with authentic coordinates.',
@@ -453,6 +481,39 @@ export const updateStore = async (req, res) => {
       saveDiskStores(disk);
     }
 
+    const targetZoneId = req.body.assignedZoneId || req.body.zoneId;
+    if (targetZoneId !== undefined) {
+      try {
+        const diskAssignments = loadDiskAssignments();
+        const sId = id;
+        if (!targetZoneId) {
+          saveDiskAssignments(diskAssignments.filter((a) => a.storeId !== sId));
+          if (isDbOnline()) {
+            await ZoneStore.deleteMany({ storeId: sId });
+          }
+        } else {
+          const existingIdx = diskAssignments.findIndex((a) => a.zoneId === targetZoneId && a.storeId === sId);
+          const assignRecord = {
+            zoneId: targetZoneId,
+            storeId: sId,
+            tenantId: updates.tenantId || 'tenant-unimart',
+            isActive: true,
+            priority: 1,
+            assignedAt: new Date().toISOString()
+          };
+          if (existingIdx >= 0) {
+            diskAssignments[existingIdx] = assignRecord;
+          } else {
+            diskAssignments.push(assignRecord);
+          }
+          saveDiskAssignments(diskAssignments);
+          if (isDbOnline()) {
+            await ZoneStore.findOneAndUpdate({ zoneId: targetZoneId, storeId: sId }, assignRecord, { upsert: true });
+          }
+        }
+      } catch (e) {}
+    }
+
     return res.json({
       success: true,
       message: 'Store updated successfully.',
@@ -474,12 +535,20 @@ export const deleteStore = async (req, res) => {
       try {
         await Store.findOneAndDelete({ $or: [{ storeId: id }, { _id: id }] });
         await Branch.findOneAndDelete({ $or: [{ id }, { _id: id }] });
+        await ZoneStore.deleteMany({ storeId: id });
       } catch (err) {}
     }
 
     const disk = loadDiskStores();
     const filtered = disk.filter((s) => s.storeId !== id && s._id !== id);
     saveDiskStores(filtered);
+
+    // Also remove from assignments
+    try {
+      const diskAssignments = loadDiskAssignments();
+      const filteredAssignments = diskAssignments.filter((a) => a.storeId !== id);
+      saveDiskAssignments(filteredAssignments);
+    } catch (e) {}
 
     return res.json({
       success: true,
