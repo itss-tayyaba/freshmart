@@ -85,6 +85,7 @@ export const ZoneManagementView = () => {
   const [stores, setStores] = useState(() => getAllUnifiedStores([], allBranches));
   const [selectedZoneId, setSelectedZoneId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [polygonViewFilter, setPolygonViewFilter] = useState('all'); // 'all' | 'selected'
 
   // Drawing & Editing State
   // Mode: 'view' | 'draw' | 'edit'
@@ -327,7 +328,7 @@ export const ZoneManagementView = () => {
     };
   }, []);
 
-  // Render Saved Colored Store Area Polygons on Map (matching Image 2)
+  // Render Saved Colored Store Area Polygons on Map (Clean, non-cluttering)
   useEffect(() => {
     if (!mapInstanceRef.current || !polygonsLayerGroupRef.current) return;
     polygonsLayerGroupRef.current.clearLayers();
@@ -338,14 +339,18 @@ export const ZoneManagementView = () => {
 
       const zKey = z.zoneId || z._id;
       const isSelected = selectedZoneId === zKey;
+
+      // Filter: if user chose to view only the active polygon, hide other polygons for maximum clarity
+      if (polygonViewFilter === 'selected' && selectedZoneId && !isSelected) return;
+
       const color = z.color || '#2563eb';
       const insideStores = getStoresInPolygon(latLngs, stores);
 
       const polygon = L.polygon(latLngs, {
         color: color,
-        weight: isSelected ? 3.5 : 2.5,
+        weight: isSelected ? 3.5 : 2.2,
         fillColor: color,
-        fillOpacity: isSelected ? 0.35 : 0.22,
+        fillOpacity: isSelected ? 0.32 : 0.16,
         dashArray: isSelected ? null : null
       });
 
@@ -361,6 +366,16 @@ export const ZoneManagementView = () => {
               })
               .join('')
           : '<li style="color: #94a3b8; font-style: italic;">No stores currently inside</li>';
+
+      // Clean tooltip that follows mouse on hover (NO permanent dark bars on map)
+      polygon.bindTooltip(
+        `<div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
+          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${color};"></span>
+          <span>${z.name}</span>
+          <span style="background: ${color}25; color: ${color}; padding: 1px 6px; border-radius: 9999px; font-size: 10px; font-weight: 900;">${insideStores.length} Stores</span>
+        </div>`,
+        { sticky: true, opacity: 0.95 }
+      );
 
       polygon.bindPopup(`
         <div style="font-family: inherit; font-size: 12px; min-width: 190px;">
@@ -388,28 +403,10 @@ export const ZoneManagementView = () => {
       });
 
       polygonsLayerGroupRef.current.addLayer(polygon);
-
-      // Centroid floating badge on map for quick identification (matching reference image)
-      const cLat = latLngs.reduce((sum, p) => sum + p[0], 0) / latLngs.length;
-      const cLng = latLngs.reduce((sum, p) => sum + p[1], 0) / latLngs.length;
-      const centerIcon = L.divIcon({
-        className: 'custom-polygon-label',
-        html: `
-          <div style="transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 5px; background: rgba(15, 23, 42, 0.90); backdrop-filter: blur(4px); color: #ffffff; border: 2px solid ${color}; padding: 3px 9px; border-radius: 9999px; font-size: 10px; font-weight: 800; box-shadow: 0 4px 12px rgba(0,0,0,0.4); white-space: nowrap; pointer-events: none;">
-            <span style="width: 7px; height: 7px; border-radius: 9999px; background: ${color};"></span>
-            <span>${z.name}</span>
-            <span style="background: ${color}30; color: ${color}; padding: 1px 5px; border-radius: 6px; font-size: 9px; font-weight: 900;">${insideStores.length} Stores</span>
-          </div>
-        `,
-        iconSize: [0, 0],
-        iconAnchor: [0, 0]
-      });
-      const centerMarker = L.marker([cLat, cLng], { icon: centerIcon, interactive: false });
-      polygonsLayerGroupRef.current.addLayer(centerMarker);
     });
-  }, [zones, selectedZoneId, stores]);
+  }, [zones, selectedZoneId, stores, polygonViewFilter]);
 
-  // Render Store Pins on Map
+  // Render Store Pins on Map (Compact, non-overlapping design)
   useEffect(() => {
     if (!mapInstanceRef.current || !storeMarkersGroupRef.current) return;
     storeMarkersGroupRef.current.clearLayers();
@@ -427,16 +424,16 @@ export const ZoneManagementView = () => {
         className: 'custom-store-pin',
         html: `
           <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer;">
-            <div style="width: 32px; height: 32px; border-radius: 10px; background: ${retailer.color}; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-size: 15px;">
+            <div style="width: 30px; height: 30px; border-radius: 50%; background: ${retailer.color}; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">
               ${retailer.logo}
             </div>
-            <div style="margin-top: 2px; padding: 2px 7px; border-radius: 9999px; background: #0f172a; color: white; font-size: 10px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.25);">
+            <div style="margin-top: 2px; padding: 1px 6px; border-radius: 9999px; background: rgba(15, 23, 42, 0.92); color: white; font-size: 9px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.25); max-width: 95px; overflow: hidden; text-overflow: ellipsis;">
               ${store.branchName || store.name}
             </div>
           </div>
         `,
-        iconSize: [32, 50],
-        iconAnchor: [16, 42]
+        iconSize: [30, 46],
+        iconAnchor: [15, 38]
       });
 
       const marker = L.marker([lat, lng], { icon: pinIcon });
@@ -802,80 +799,88 @@ export const ZoneManagementView = () => {
     }
   };
 
-  // Preset 3 Regional Polygons (Blue, Green, Orange) matching the reference layout
-  const handleAutoClusterThreePolygons = async () => {
+  // Clean slate & Reset to 3 Non-Overlapping Master Regional Polygons (Blue, Green, Orange)
+  const handleResetToThreeCleanSectors = async () => {
     setIsSaving(true);
     try {
-      const presets = [
+      // 1. Wipe out previous cluttered/overlapping test zones
+      localStorage.setItem('freshmart_zones', JSON.stringify([]));
+      localStorage.setItem('freshmart_assignments', JSON.stringify([]));
+
+      for (const z of zones) {
+        try {
+          await apiService.deleteZone(z.zoneId || z._id);
+        } catch (e) {}
+      }
+
+      // 2. Define 3 clean non-overlapping regional sectors matching reference image
+      const cleanPresets = [
         {
-          zoneId: `ZONE-FSD-CENTRAL-BLUE`,
+          zoneId: 'ZONE-FSD-CENTRAL-BLUE',
           name: 'Central Region (D-Ground & Peoples Colony)',
           code: 'FSD-BLUE',
           city: 'Faisalabad',
           area: 'Peoples Colony & D-Ground',
-          color: '#2563eb', // Blue
+          color: '#2563eb', // Vivid Blue
           description: 'Central Commercial Area grouping flagship supermarket branches.',
           isActive: true,
           status: 'active',
           geometry: {
             type: 'Polygon',
             coordinates: [[
-              [73.088, 31.428],
-              [73.122, 31.432],
-              [73.136, 31.404],
-              [73.104, 31.392],
-              [73.082, 31.412],
-              [73.088, 31.428]
+              [73.075, 31.425],
+              [73.110, 31.425],
+              [73.110, 31.402],
+              [73.075, 31.402],
+              [73.075, 31.425]
             ]]
           }
         },
         {
-          zoneId: `ZONE-FSD-NORTH-GREEN`,
-          name: 'North-East Region (Canal Road & Susan Road)',
+          zoneId: 'ZONE-FSD-NORTH-GREEN',
+          name: 'North-East Region (Susan Road & Canal Road)',
           code: 'FSD-GREEN',
           city: 'Faisalabad',
           area: 'Susan Road & Madina Town',
-          color: '#16a34a', // Green
+          color: '#16a34a', // Vivid Green
           description: 'North-East Commercial Region covering Canal Road and Susan Road marts.',
           isActive: true,
           status: 'active',
           geometry: {
             type: 'Polygon',
             coordinates: [[
-              [73.118, 31.448],
-              [73.155, 31.452],
-              [73.162, 31.418],
-              [73.132, 31.412],
-              [73.116, 31.432],
-              [73.118, 31.448]
+              [73.110, 31.445],
+              [73.145, 31.445],
+              [73.145, 31.415],
+              [73.110, 31.415],
+              [73.110, 31.445]
             ]]
           }
         },
         {
-          zoneId: `ZONE-FSD-WEST-ORANGE`,
-          name: 'West-South Region (Clock Tower & Samanabad)',
+          zoneId: 'ZONE-FSD-WEST-ORANGE',
+          name: 'West-South Region (Samanabad & Clock Tower)',
           code: 'FSD-ORANGE',
           city: 'Faisalabad',
           area: 'Samanabad & Clock Tower',
-          color: '#ea580c', // Orange
+          color: '#ea580c', // Vivid Orange
           description: 'West-South Commercial Region covering Clock Tower and Samanabad marts.',
           isActive: true,
           status: 'active',
           geometry: {
             type: 'Polygon',
             coordinates: [[
-              [73.058, 31.424],
-              [73.094, 31.418],
-              [73.102, 31.382],
-              [73.068, 31.378],
-              [73.052, 31.398],
-              [73.058, 31.424]
+              [73.045, 31.402],
+              [73.075, 31.402],
+              [73.075, 31.375],
+              [73.045, 31.375],
+              [73.045, 31.402]
             ]]
           }
         }
       ];
 
-      for (const p of presets) {
+      for (const p of cleanPresets) {
         await apiService.createZone(p);
         const polyLatLngs = getZonePolygonLatLngs(p);
         const inStores = getStoresInPolygon(polyLatLngs, stores);
@@ -887,20 +892,48 @@ export const ZoneManagementView = () => {
         }
       }
 
+      localStorage.setItem('freshmart_zones', JSON.stringify(cleanPresets));
+      window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: cleanPresets }));
+
+      setZones(cleanPresets);
+      setSelectedZoneId(cleanPresets[0].zoneId);
+      setDrawnVertices([]);
+
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.setView([31.4145, 73.095], 13);
+      }
+
       if (addToast) {
         addToast(
-          '3 Regional Polygons Initialized! ⬡',
-          'Blue, Green, and Orange regions created. Stores inside each are automatically linked.',
+          'Clean Slate Applied! ✨',
+          'Cleared overlapping test zones. Established 3 master non-overlapping regional sectors (Blue, Green, Orange).',
           'success'
         );
       }
-
-      fetchData();
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.setView([31.4145, 73.1095], 13);
-      }
     } catch (err) {
-      if (addToast) addToast('Initialization Failed', err.message, 'error');
+      if (addToast) addToast('Clean Reset Failed', err.message, 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 1-Click Clear all polygons for a blank slate
+  const handleClearAllPolygons = async () => {
+    setIsSaving(true);
+    try {
+      localStorage.setItem('freshmart_zones', JSON.stringify([]));
+      window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: [] }));
+      for (const z of zones) {
+        try {
+          await apiService.deleteZone(z.zoneId || z._id);
+        } catch (e) {}
+      }
+      setZones([]);
+      setSelectedZoneId(null);
+      setDrawnVertices([]);
+      if (addToast) addToast('All polygons cleared. Map is completely clean.', 'info');
+    } catch (err) {
+      if (addToast) addToast('Error clearing polygons', err.message, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -952,17 +985,30 @@ export const ZoneManagementView = () => {
           </button>
 
           {mapMode !== 'draw' ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
-                onClick={handleAutoClusterThreePolygons}
+                onClick={handleResetToThreeCleanSectors}
                 disabled={isSaving}
                 className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-950/10 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                title="Automatically generate 3 non-overlapping regional polygons (Blue, Green, Orange) matching the reference layout"
+                title="Wipe duplicate/overlapping polygons and reset to 3 master non-overlapping regional sectors (Blue, Green, Orange)"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>✨ 3 Regional Polygons</span>
+                <span>🧹 Reset 3 Master Sectors</span>
               </button>
+
+              {zones.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearAllPolygons}
+                  disabled={isSaving}
+                  className="px-3 py-2 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                  title="Clear all polygons to start fresh"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear All</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -1119,6 +1165,36 @@ export const ZoneManagementView = () => {
               <span>✏️ Draw Polygon</span>
             </button>
           </div>
+
+          {/* Polygon View Filter: All vs Selected */}
+          {zones.length > 0 && (
+            <div className="flex items-center gap-1 bg-slate-200/70 p-1 rounded-xl text-[11px] font-medium">
+              <button
+                type="button"
+                onClick={() => setPolygonViewFilter('all')}
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                  polygonViewFilter === 'all'
+                    ? 'bg-white text-slate-900 font-bold shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Display all store area polygons on map"
+              >
+                All Regions ({zones.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPolygonViewFilter('selected')}
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                  polygonViewFilter === 'selected'
+                    ? 'bg-emerald-600 text-white font-bold shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Only show the currently selected polygon to eliminate all clutter"
+              >
+                Active Only
+              </button>
+            </div>
+          )}
 
           {/* Tile Layer & Store Markers Toggle */}
           <div className="flex items-center gap-2">
@@ -1322,7 +1398,7 @@ export const ZoneManagementView = () => {
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <button
                 type="button"
-                onClick={handleAutoClusterThreePolygons}
+                onClick={handleResetToThreeCleanSectors}
                 disabled={isSaving}
                 className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
               >

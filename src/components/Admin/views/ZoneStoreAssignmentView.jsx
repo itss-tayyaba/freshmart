@@ -1346,8 +1346,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
             <div style="width: 28px; height: 28px; border-radius: 8px; background: #ffffff; border: 2px dashed ${retailer.color}; box-shadow: 0 2px 6px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; color: ${retailer.color}; font-size: 12px;">
               ${retailer.logo}
             </div>
-            <div style="margin-top: 1px; padding: 1px 5px; border-radius: 9999px; background: #ffffff; color: #475569; border: 1px solid #cbd5e1; font-size: 8px; font-weight: 700; white-space: nowrap;">
-              + ${store.branchName || store.name} (~${store.distanceToZoneCentroidKm} km)
+            <div style="margin-top: 1px; padding: 1px 5px; border-radius: 9999px; background: #ffffff; color: #475569; border: 1px solid #cbd5e1; font-size: 8px; font-weight: 700; white-space: nowrap; max-width: 90px; overflow: hidden; text-overflow: ellipsis;">
+              + ${store.branchName || store.name}
             </div>
           </div>
         `,
