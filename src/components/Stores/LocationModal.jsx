@@ -205,14 +205,6 @@ const LocationModalContent = () => {
   const closestStore = deliverableStores && deliverableStores.length > 0 ? deliverableStores[0] : null;
   const isOutsideDeliveryZone = deliverableStores.length === 0;
 
-  const activeStorePolygons = useMemo(() => {
-    return (nearbyStores || []).filter(
-      (s) => Array.isArray(s.nearestBranch?.deliveryPolygon) && s.nearestBranch.deliveryPolygon.length >= 3
-    );
-  }, [nearbyStores]);
-
-  const totalActivePolygonsCount = (deliveryZones?.length || 0) + (activeStorePolygons?.length || 0);
-
   // Dynamically resolve relative store: strictly from DELIVERABLE stores
   const effectiveStore = useMemo(() => {
     if (selectedStoreId) {
@@ -359,67 +351,11 @@ const LocationModalContent = () => {
     deliveryCirclesRef.current.forEach((c) => map.removeLayer(c));
     deliveryCirclesRef.current = [];
 
-    // On customer map, stores are NOT shown on the map itself.
-    // The map is kept clean, displaying only the customer's delivery pin and active delivery zone polygons.
-    // Stores in this location are clearly listed below the map.
-
-    // Render Master Delivery Polygons on the Leaflet Map
+    // On customer map, polygons and store pins are NOT shown on the map itself.
+    // The map is kept 100% clean and clear: displaying only the customer's delivery pin ("YOUR LOCATION").
+    // Eligible stores delivering to this pinned location are displayed cleanly below the map.
     if (zonesLayerGroupRef.current) {
       zonesLayerGroupRef.current.clearLayers();
-
-      deliveryZones.forEach((z) => {
-        const rawRing = z.geometry?.coordinates?.[0] || z.coordinates?.[0] || z.coordinates || [];
-        if (!Array.isArray(rawRing)) return;
-        const latLngs = rawRing
-          .map(normalizeLatLng)
-          .filter(Boolean)
-          .map((p) => [p.lat, p.lng]);
-        if (latLngs.length < 3) return;
-
-        const color = z.color || '#10b981';
-        const isCustomerInside = isPointInPolygon({ lat: currentCoords.lat, lng: currentCoords.lng }, latLngs);
-
-        // Find which stores lie within or serve this master polygon
-        const storesInZone = (nearbyStores || []).filter((st) => {
-          const bLat = Number(st.nearestBranch?.latitude ?? st.nearestBranch?.coordinates?.lat);
-          const bLng = Number(st.nearestBranch?.longitude ?? st.nearestBranch?.coordinates?.lng);
-          return isPointInPolygon({ lat: bLat, lng: bLng }, latLngs);
-        });
-        const storesServingText = storesInZone.length > 0
-          ? storesInZone.map((s) => s.displayName || s.name).join(', ')
-          : 'Partner Supermarket Hubs';
-
-        const polygon = L.polygon(latLngs, {
-          color: color,
-          weight: 2.5,
-          opacity: 0.85,
-          fillColor: color,
-          fillOpacity: 0.1,
-          dashArray: '8, 6'
-        });
-
-        polygon.bindTooltip(
-          `<div style="font-family: inherit; font-size: 11px; max-width: 240px;">
-             <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 2px;">
-               <span style="font-size: 14px;">🏬</span>
-               <strong style="color: ${color}; font-size: 12px;">Delivery Zone: ${z.name}</strong>
-             </div>
-             <div style="font-size: 10px; color: #475569; margin-top: 2px;">
-               📍 <strong>Serving Stores:</strong> ${storesServingText}
-             </div>
-             <div style="font-size: 9px; color: #0284c7; font-weight: bold; margin-top: 3px;">
-               ${isCustomerInside ? '✓ Your pin is inside this delivery zone' : 'Delivery Rate: Rs. ' + (z.deliveryCharge || 70)}
-             </div>
-           </div>`,
-          { sticky: true }
-        );
-
-        polygon.on('click', (e) => {
-          handleUpdateCoords(e.latlng.lat, e.latlng.lng);
-        });
-
-        zonesLayerGroupRef.current.addLayer(polygon);
-      });
     }
   }, [nearbyStores, deliveryZones, currentCoords]);
 
@@ -694,13 +630,11 @@ const LocationModalContent = () => {
           <div className="rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-xs bg-slate-100 dark:bg-slate-900 relative isolate z-0">
             <div ref={mapContainerRef} className="w-full h-48 sm:h-56 z-0" />
 
-            {/* Delivery Zones Legend Badge */}
-            {totalActivePolygonsCount > 0 && (
-              <div className="absolute top-2 left-2 z-[1000] bg-slate-900/90 backdrop-blur-xs text-white px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1.5 shadow-md border border-slate-700/80">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>{totalActivePolygonsCount} Delivery Polygon{totalActivePolygonsCount === 1 ? '' : 's'} Active</span>
-              </div>
-            )}
+            {/* Clean Location Guidance Badge */}
+            <div className="absolute top-2 left-2 z-[1000] bg-slate-900/90 backdrop-blur-xs text-white px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1.5 shadow-md border border-slate-700/80">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Pin Your Location</span>
+            </div>
 
             {/* 🛰️ Top-Right Map Layer Controls: Street View vs Satellite View vs Hybrid */}
             <div className="absolute top-2 right-2 z-[1000] flex items-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl p-0.5 shadow-md border border-slate-200/90 dark:border-slate-700 text-[10px] font-bold gap-0.5">
