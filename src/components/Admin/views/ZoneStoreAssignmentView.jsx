@@ -1543,10 +1543,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         <div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <Compass className="w-6 h-6 text-emerald-600" />
-            <span>Store Delivery Zones & Customer Reach</span>
+            <span>Store Delivery Regions & Customer Reach</span>
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Concept 2: Each individual store maintains its own delivery zone and radius. Customer orders are dispatched strictly within the store's authorized delivery region.
+            Concept 2: The remaining polygons are for store delivery regions. Each supermarket has its own delivery region polygon where riders fulfill orders.
           </p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">

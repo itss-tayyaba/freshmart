@@ -1055,7 +1055,7 @@ export const SuperAdminDashboard = () => {
                 <Layers className="w-4 h-4 text-emerald-400" />
                 <div className="text-left flex-1 min-w-0">
                   <div className="text-xs font-bold truncate">1. Store Area Polygons</div>
-                  <div className="text-[10px] opacity-70 truncate">Where stores lie</div>
+                  <div className="text-[10px] opacity-70 truncate">3 Main (Covers all stores)</div>
                 </div>
                 <span className="ml-auto text-[9px] bg-teal-900/60 text-teal-300 border border-teal-700/50 px-1.5 py-0.5 rounded font-bold">
                   {gisStats.totalZones}
@@ -1067,8 +1067,8 @@ export const SuperAdminDashboard = () => {
               >
                 <Compass className="w-4 h-4 text-indigo-400" />
                 <div className="text-left flex-1 min-w-0">
-                  <div className="text-xs font-bold truncate">2. Store Delivery Zones</div>
-                  <div className="text-[10px] opacity-70 truncate">Where each store delivers</div>
+                  <div className="text-xs font-bold truncate">2. Store Delivery Regions</div>
+                  <div className="text-[10px] opacity-70 truncate">Delivery region per store</div>
                 </div>
               </button>
             </div>

@@ -77,6 +77,83 @@ const POLYGON_COLORS = [
   { color: '#e11d48', label: 'Rose', border: 'border-rose-600', bg: 'bg-rose-500' }
 ];
 
+// 3 Master Regional Polygons designed to cleanly encompass ALL physical stores in the platform
+export const MASTER_STORE_AREA_POLYGONS = [
+  {
+    zoneId: 'ZONE-FSD-CENTRAL-BLUE',
+    name: 'Central Region (D-Ground & Peoples Colony)',
+    code: 'FSD-BLUE',
+    city: 'Faisalabad',
+    area: 'Peoples Colony & D-Ground',
+    color: '#2563eb', // Vivid Blue
+    description: 'Central Commercial Area grouping flagship supermarket branches.',
+    isActive: true,
+    status: 'active',
+    deliveryCharge: 70,
+    minOrderAmount: 300,
+    freeDeliveryThreshold: 1500,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.072, 31.432],
+        [73.1195, 31.432],
+        [73.1195, 31.385],
+        [73.072, 31.385],
+        [73.072, 31.432]
+      ]]
+    }
+  },
+  {
+    zoneId: 'ZONE-FSD-NORTH-GREEN',
+    name: 'North-East Region (Susan Road & Canal Road)',
+    code: 'FSD-GREEN',
+    city: 'Faisalabad',
+    area: 'Susan Road & Madina Town',
+    color: '#16a34a', // Vivid Green
+    description: 'North-East Commercial Region covering Canal Road and Susan Road marts.',
+    isActive: true,
+    status: 'active',
+    deliveryCharge: 80,
+    minOrderAmount: 400,
+    freeDeliveryThreshold: 2000,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.110, 31.460],
+        [73.195, 31.460],
+        [73.195, 31.415],
+        [73.1195, 31.400],
+        [73.1195, 31.432],
+        [73.110, 31.460]
+      ]]
+    }
+  },
+  {
+    zoneId: 'ZONE-FSD-WEST-ORANGE',
+    name: 'West-South Region (Samanabad & Clock Tower)',
+    code: 'FSD-ORANGE',
+    city: 'Faisalabad',
+    area: 'Samanabad & Clock Tower',
+    color: '#ea580c', // Vivid Orange
+    description: 'West-South Commercial Region covering Clock Tower and Samanabad marts.',
+    isActive: true,
+    status: 'active',
+    deliveryCharge: 75,
+    minOrderAmount: 350,
+    freeDeliveryThreshold: 1800,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.030, 31.450],
+        [73.072, 31.450],
+        [73.072, 31.370],
+        [73.030, 31.370],
+        [73.030, 31.450]
+      ]]
+    }
+  }
+];
+
 export const ZoneManagementView = () => {
   const { allBranches = [], addToast } = useStore();
 
@@ -170,16 +247,10 @@ export const ZoneManagementView = () => {
 
       if (zonesRes && zonesRes.success && Array.isArray(zonesRes.zones)) {
         let loadedZones = zonesRes.zones;
-        // Clean out test spam "Store Area Polygon \d+" if more than 3 regions exist
+        // Clean out test spam "Store Area Polygon \d+" or fallback if zones are empty
         const testZones = loadedZones.filter((z) => /^Store Area Polygon \d+/i.test(z.name || ''));
-        if (testZones.length >= 4) {
-          const nonTest = loadedZones.filter((z) => !/^Store Area Polygon \d+/i.test(z.name || ''));
-          if (nonTest.length >= 1) {
-            loadedZones = nonTest;
-          } else {
-            // Keep at most 3 clean zones
-            loadedZones = loadedZones.slice(0, 3);
-          }
+        if (loadedZones.length === 0 || testZones.length >= 3) {
+          loadedZones = MASTER_STORE_AREA_POLYGONS;
           try {
             localStorage.setItem('freshmart_zones', JSON.stringify(loadedZones));
             window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: loadedZones }));
@@ -829,72 +900,8 @@ export const ZoneManagementView = () => {
         } catch (e) {}
       }
 
-      // 2. Define 3 clean non-overlapping regional sectors matching reference image
-      const cleanPresets = [
-        {
-          zoneId: 'ZONE-FSD-CENTRAL-BLUE',
-          name: 'Central Region (D-Ground & Peoples Colony)',
-          code: 'FSD-BLUE',
-          city: 'Faisalabad',
-          area: 'Peoples Colony & D-Ground',
-          color: '#2563eb', // Vivid Blue
-          description: 'Central Commercial Area grouping flagship supermarket branches.',
-          isActive: true,
-          status: 'active',
-          geometry: {
-            type: 'Polygon',
-            coordinates: [[
-              [73.075, 31.425],
-              [73.110, 31.425],
-              [73.110, 31.402],
-              [73.075, 31.402],
-              [73.075, 31.425]
-            ]]
-          }
-        },
-        {
-          zoneId: 'ZONE-FSD-NORTH-GREEN',
-          name: 'North-East Region (Susan Road & Canal Road)',
-          code: 'FSD-GREEN',
-          city: 'Faisalabad',
-          area: 'Susan Road & Madina Town',
-          color: '#16a34a', // Vivid Green
-          description: 'North-East Commercial Region covering Canal Road and Susan Road marts.',
-          isActive: true,
-          status: 'active',
-          geometry: {
-            type: 'Polygon',
-            coordinates: [[
-              [73.110, 31.445],
-              [73.145, 31.445],
-              [73.145, 31.415],
-              [73.110, 31.415],
-              [73.110, 31.445]
-            ]]
-          }
-        },
-        {
-          zoneId: 'ZONE-FSD-WEST-ORANGE',
-          name: 'West-South Region (Samanabad & Clock Tower)',
-          code: 'FSD-ORANGE',
-          city: 'Faisalabad',
-          area: 'Samanabad & Clock Tower',
-          color: '#ea580c', // Vivid Orange
-          description: 'West-South Commercial Region covering Clock Tower and Samanabad marts.',
-          isActive: true,
-          status: 'active',
-          geometry: {
-            type: 'Polygon',
-            coordinates: [[
-              [73.045, 31.402],
-              [73.075, 31.402],
-              [73.075, 31.375],
-              [73.045, 31.375],
-              [73.045, 31.402]
-            ]]
-          }
-        }
-      ];
+      // 2. Define 3 clean non-overlapping regional sectors matching reference image that cover 100% of stores
+      const cleanPresets = MASTER_STORE_AREA_POLYGONS;
 
       for (const p of cleanPresets) {
         await apiService.createZone(p);
@@ -987,7 +994,7 @@ export const ZoneManagementView = () => {
             <span>Store Area Polygons (Where Stores Lie)</span>
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Draw large geographic polygons on the map to group and distribute physical supermarket stores. Stores physically inside each polygon are automatically linked.
+            Concept 1: Exactly 3 main master polygons (Central Blue, North-East Green, West-South Orange) that cover and enclose all physical stores. Remaining polygons are delivery regions configured under Store Delivery Zones.
           </p>
         </div>
 

@@ -219,11 +219,12 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
         }
       }
 
-      // Concept 2: Each store has its own delivery zone
-      // A customer can receive delivery if they are inside this store's own delivery zone
-      // (either store's custom polygon, or store's configured radius, or assigned master zone)
+      // Concept 2: Each store has its own delivery region polygon
+      // The 3 main master polygons cover all stores (where stores lie).
+      // Remaining polygons are individual delivery regions. If a store has a custom delivery region polygon,
+      // it delivers strictly within its drawn delivery region boundary.
       const insideDeliveryZone = hasPolygon
-        ? (insidePolygon || insideMasterZone)
+        ? insidePolygon
         : (insideMasterZone || effectiveDistKm <= configuredRadius);
       const isExtendedSla = !insideDeliveryZone && Boolean(b.supportsExtendedDelivery) && effectiveDistKm <= (configuredRadius + 10);
       const isEligible = insideDeliveryZone || isExtendedSla;
