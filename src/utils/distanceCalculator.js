@@ -226,13 +226,10 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
       const insideDeliveryZone = hasPolygon
         ? insidePolygon
         : (insideMasterZone || effectiveDistKm <= configuredRadius);
-      const isExtendedSla = !insideDeliveryZone && Boolean(b.supportsExtendedDelivery) && effectiveDistKm <= (configuredRadius + 10);
-      const isEligible = insideDeliveryZone || isExtendedSla;
+      const isEligible = insideDeliveryZone;
 
       const fee = calculateBranchDeliveryFee(b, effectiveDistKm);
-      const estimatedTime = isExtendedSla
-        ? '45-60 mins (Regional Delivery)'
-        : estimateDeliveryTime(effectiveDistKm);
+      const estimatedTime = estimateDeliveryTime(effectiveDistKm);
 
       return {
         ...b,
@@ -244,7 +241,7 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
         insideDeliveryZone,
         storeAreaPolygon,
         isEligibleForDelivery: isEligible,
-        isExtendedDelivery: isExtendedSla,
+        isExtendedDelivery: false,
         deliveryFee: fee,
         estimatedTime
       };

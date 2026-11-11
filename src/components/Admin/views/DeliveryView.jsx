@@ -37,44 +37,94 @@ import {
   MessageCircle
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
-import { PAKISTAN_CITIES } from '../../../data/pakistanLocations';
+import { PAKISTAN_CITIES, calculateDistanceKm } from '../../../data/pakistanLocations';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 import { getWhatsAppDeliveryLink } from '../../../utils/whatsappHelper';
 import { normalizeOrderTenantId } from '../../../utils/orderScope';
 import { DeliveryZoneView } from './DeliveryZoneView';
 
+export const FAISALABAD_DELIVERY_SECTORS = [
+  {
+    id: 'ZONE-FSD-CENTRAL-BLUE',
+    name: 'Central Region (D-Ground & Peoples Colony)',
+    shortName: 'Central Sector',
+    color: '#2563eb',
+    center: [31.4125, 73.0950],
+    neighborhoods: [
+      'Peoples Colony 1',
+      'Peoples Colony 2',
+      'D-Ground Commercial',
+      'Batala Colony',
+      'Jaranwala Road',
+      'ChenOne Road',
+      'Civil Lines'
+    ]
+  },
+  {
+    id: 'ZONE-FSD-NORTH-GREEN',
+    name: 'North-East Region (Susan Road & Canal Road)',
+    shortName: 'North-East Sector',
+    color: '#16a34a',
+    center: [31.4350, 73.1350],
+    neighborhoods: [
+      'Susan Road',
+      'Madina Town',
+      'East Canal Road',
+      'Kohinoor City',
+      'Fateh Abad',
+      'Gatwala Commercial'
+    ]
+  },
+  {
+    id: 'ZONE-FSD-WEST-ORANGE',
+    name: 'West-South Region (Samanabad & Clock Tower)',
+    shortName: 'West-South Sector',
+    color: '#ea580c',
+    center: [31.3980, 73.0550],
+    neighborhoods: [
+      'Samanabad',
+      'Clock Tower / 8 Bazaars',
+      'Gulberg Colony',
+      'Main Jhang Road',
+      'D-Type Colony',
+      'Allama Iqbal Colony'
+    ]
+  }
+];
+
+export const getSectorForBranch = (branch) => {
+  if (!branch) return FAISALABAD_DELIVERY_SECTORS[0];
+  const name = String(branch.name || '').toLowerCase();
+  if (name.includes('susan') || name.includes('canal') || name.includes('madina') || name.includes('kohinoor')) {
+    return FAISALABAD_DELIVERY_SECTORS[1];
+  }
+  if (name.includes('samanabad') || name.includes('clock tower') || name.includes('gulberg') || name.includes('jhang')) {
+    return FAISALABAD_DELIVERY_SECTORS[2];
+  }
+  if (name.includes('peoples colony') || name.includes('d-ground') || name.includes('batala')) {
+    return FAISALABAD_DELIVERY_SECTORS[0];
+  }
+  const bLat = Number(branch.latitude ?? branch.coordinates?.lat ?? 31.4125);
+  const bLng = Number(branch.longitude ?? branch.coordinates?.lng ?? 73.0950);
+  let bestSector = FAISALABAD_DELIVERY_SECTORS[0];
+  let minD = Infinity;
+  for (const sector of FAISALABAD_DELIVERY_SECTORS) {
+    const d = calculateDistanceKm(bLat, bLng, sector.center[0], sector.center[1]);
+    if (d < minD) {
+      minD = d;
+      bestSector = sector;
+    }
+  }
+  return bestSector;
+};
+
 export const PAKISTAN_REGIONS = [
-  // Lahore
-  { name: 'Lahore - Gulberg / Main Hub', city: 'Lahore', latitude: 31.5204, longitude: 74.3587 },
-  { name: 'Lahore - DHA Phase 5 & 6', city: 'Lahore', latitude: 31.4826, longitude: 74.4074 },
-  { name: 'Lahore - Johar Town & Model Town', city: 'Lahore', latitude: 31.4697, longitude: 74.2728 },
-  { name: 'Lahore - Bahria Town & Canal Road', city: 'Lahore', latitude: 31.3673, longitude: 74.1787 },
-  { name: 'Lahore - Cantt & Mall Road', city: 'Lahore', latitude: 31.5546, longitude: 74.3572 },
-  { name: 'Lahore - Faisal Town & Garden Town', city: 'Lahore', latitude: 31.4872, longitude: 74.3129 },
-  // Karachi
-  { name: 'Karachi - Clifton Block 2-5', city: 'Karachi', latitude: 24.8270, longitude: 67.0251 },
-  { name: 'Karachi - DHA Phase 6 & 8', city: 'Karachi', latitude: 24.8010, longitude: 67.0680 },
-  { name: 'Karachi - Gulshan-e-Iqbal', city: 'Karachi', latitude: 24.9180, longitude: 67.0971 },
-  { name: 'Karachi - North Nazimabad', city: 'Karachi', latitude: 24.9312, longitude: 67.0372 },
-  { name: 'Karachi - PECHS & Tariq Road', city: 'Karachi', latitude: 24.8716, longitude: 67.0599 },
-  // Islamabad & Rawalpindi
-  { name: 'Islamabad - F-6 / F-7 / Blue Area', city: 'Islamabad', latitude: 33.7215, longitude: 73.0565 },
-  { name: 'Islamabad - G-10 / G-11 / F-10', city: 'Islamabad', latitude: 33.6844, longitude: 73.0479 },
-  { name: 'Islamabad - DHA & Bahria Enclave', city: 'Islamabad', latitude: 33.5353, longitude: 73.1895 },
-  { name: 'Rawalpindi - Saddar / Cantt', city: 'Rawalpindi', latitude: 33.5973, longitude: 73.0479 },
-  { name: 'Rawalpindi - Bahria Town Phase 1-8', city: 'Rawalpindi', latitude: 33.5138, longitude: 73.0977 },
   // Faisalabad
   { name: 'Faisalabad - D Ground Commercial', city: 'Faisalabad', latitude: 31.4110, longitude: 73.0980 },
   { name: 'Faisalabad - Peoples Colony No 1 & 2', city: 'Faisalabad', latitude: 31.4050, longitude: 73.1090 },
   { name: 'Faisalabad - Madina Town & Kohinoor', city: 'Faisalabad', latitude: 31.4326, longitude: 73.1118 },
-  // Multan
-  { name: 'Multan - Bosan Road & Gulgasht', city: 'Multan', latitude: 30.2244, longitude: 71.4889 },
-  { name: 'Multan - Cantt & Abdali Road', city: 'Multan', latitude: 30.1984, longitude: 71.4687 },
-  // Peshawar
-  { name: 'Peshawar - University Town & Hayatabad', city: 'Peshawar', latitude: 34.0151, longitude: 71.5249 },
-  // Other
-  { name: 'Gujranwala - Model Town & DC Colony', city: 'Gujranwala', latitude: 32.1877, longitude: 74.1945 },
-  { name: 'Sialkot - Cantt & Paris Road', city: 'Sialkot', latitude: 32.4945, longitude: 74.5229 }
+  { name: 'Faisalabad - Susan Road Commercial', city: 'Faisalabad', latitude: 31.4350, longitude: 73.1350 },
+  { name: 'Faisalabad - Samanabad & Clock Tower', city: 'Faisalabad', latitude: 31.3980, longitude: 73.0550 }
 ];
 
 // Helper component: Live Elapsed Timer (Ticks every second matching Pickup Staff portal)
@@ -134,42 +184,61 @@ export const DeliveryView = () => {
 
   const isAdmin = adminRole === 'admin' || adminRole === 'superadmin';
 
-  // Get only the real branch and areas that are actually added or configured for this store
-  // Do NOT auto-inject fake/unreal mock branches
+  // Get only the real branch and areas that are actually added or configured for this store in Faisalabad (FSD only)
+  // Do NOT auto-inject fake/unreal mock branches or branches from other cities
   const availableBranches = useMemo(() => {
     const activeTenantId = (user?.role !== 'superadmin' && user?.tenantId)
       ? user.tenantId
       : (currentTenant?.id || user?.tenantId || 'tenant-chaseup');
     const canonicalTenantId = resolveTenantId ? resolveTenantId(activeTenantId) : activeTenantId;
 
-    // 1. Check branches explicitly added by user in allBranches for this store
+    const isFsdCity = (cityStr = '') => {
+      const lower = String(cityStr || '').toLowerCase().trim();
+      if (!lower) return true;
+      if (lower.includes('fsd') || lower.includes('faisalabad')) return true;
+      if (['lahore', 'karachi', 'islamabad', 'rawalpindi', 'multan', 'peshawar', 'sialkot', 'gujranwala'].includes(lower)) return false;
+      return true;
+    };
+
+    const isFsdName = (nameStr = '') => {
+      const lower = String(nameStr || '').toLowerCase();
+      if (lower.includes('lahore') || lower.includes('karachi') || lower.includes('islamabad') || lower.includes('multan') || lower.includes('rawalpindi')) return false;
+      return true;
+    };
+
+    // 1. Check branches explicitly added by user in allBranches for this store - FILTERED TO FAISALABAD ONLY!
     const storeAddedBranches = (allBranches || []).filter(
       (b) =>
         b &&
         (b.status === 'active' || b.status === 'Active' || !b.status) &&
-        (b.tenantId === canonicalTenantId || b.tenantId === activeTenantId || isSameTenant(b.tenantId, activeTenantId))
+        (b.tenantId === canonicalTenantId || b.tenantId === activeTenantId || isSameTenant(b.tenantId, activeTenantId)) &&
+        isFsdCity(b.city) &&
+        isFsdName(b.name)
     );
 
     if (storeAddedBranches.length > 0) {
       return storeAddedBranches;
     }
 
-    // 2. Real hubs explicitly configured on the store/tenant (from SuperAdmin Manage store settings)
+    // 2. Real hubs explicitly configured on the store/tenant (from SuperAdmin Manage store settings) - FILTERED TO FSD ONLY
     if (currentTenant?.hubs && Array.isArray(currentTenant.hubs) && currentTenant.hubs.length > 0) {
-      return currentTenant.hubs.map((hubName, idx) => ({
-        _id: `hub_${currentTenant.id || 'curr'}_${idx}`,
-        id: `hub_${currentTenant.id || 'curr'}_${idx}`,
-        name: hubName,
-        tenantId: currentTenant?.id || 'tenant-chaseup',
-        city: currentTenant?.city || 'Faisalabad',
-        latitude: 31.4125,
-        longitude: 73.0915,
-        deliveryRadius: 15,
-        status: 'active'
-      }));
+      const fsdHubs = currentTenant.hubs.filter(isFsdName);
+      if (fsdHubs.length > 0) {
+        return fsdHubs.map((hubName, idx) => ({
+          _id: `hub_${currentTenant.id || 'curr'}_${idx}`,
+          id: `hub_${currentTenant.id || 'curr'}_${idx}`,
+          name: hubName,
+          tenantId: currentTenant?.id || 'tenant-chaseup',
+          city: 'Faisalabad',
+          latitude: 31.4125,
+          longitude: 73.0915,
+          deliveryRadius: 15,
+          status: 'active'
+        }));
+      }
     }
 
-    // 3. Fallback: single real primary branch for current store — DO NOT inject unadded fake branches!
+    // 3. Fallback: single real primary branch for current store in Faisalabad
     const realBranchName = `${currentTenant?.name || 'Store'} (Faisalabad Flagship Hub)`;
     return [
       {
@@ -177,7 +246,7 @@ export const DeliveryView = () => {
         id: `real_branch_${currentTenant?.id || 'main'}`,
         name: realBranchName,
         tenantId: currentTenant?.id || 'tenant-chaseup',
-        city: currentTenant?.city || 'Faisalabad',
+        city: 'Faisalabad',
         latitude: 31.4125,
         longitude: 73.0915,
         deliveryRadius: 15,
@@ -239,6 +308,16 @@ export const DeliveryView = () => {
     password: 'rider123',
     isGlobal: true
   });
+
+  const selectedBranchForForm = useMemo(() => {
+    return availableBranches.find(
+      (b) => (b.id || b._id || b.name) === newRiderForm.branchId || b.name === newRiderForm.branchName
+    ) || availableBranches[0];
+  }, [availableBranches, newRiderForm.branchId, newRiderForm.branchName]);
+
+  const branchSectorForForm = useMemo(() => {
+    return getSectorForBranch(selectedBranchForForm);
+  }, [selectedBranchForForm]);
 
   const [showRiderPassword, setShowRiderPassword] = useState(false);
   const [editingRider, setEditingRider] = useState(null);
@@ -454,16 +533,18 @@ export const DeliveryView = () => {
       setIsCustomRegion(false);
       const found = availableBranches.find((b) => (b.id || b._id || b.name) === val || b.name === val);
       if (found) {
+        const sector = getSectorForBranch(found);
         setNewRiderForm((prev) => ({
           ...prev,
           branchId: found.id || found._id || '',
           branchName: found.name,
-          region: `${found.name} (${found.city || 'Faisalabad'})`,
-          zone: found.name,
-          city: found.city || 'Faisalabad',
-          latitude: String(found.latitude || 31.4125),
-          longitude: String(found.longitude || 73.0915),
-          coverageRadiusKm: String(found.deliveryRadius || found.coverageRadiusKm || 15)
+          region: `${sector.shortName} (${found.name})`,
+          zone: sector.shortName,
+          serviceArea: sector.neighborhoods[0] || 'Peoples Colony',
+          city: 'Faisalabad',
+          latitude: String(found.latitude || sector.center[0] || 31.4125),
+          longitude: String(found.longitude || sector.center[1] || 73.0915),
+          coverageRadiusKm: String(found.deliveryRadius || found.deliveryRadiusKm || 5)
         }));
       }
     }
@@ -482,16 +563,18 @@ export const DeliveryView = () => {
   const handleOpenAddRiderModal = () => {
     if (availableBranches.length > 0 && !isCustomRegion) {
       const activeBr = availableBranches.find((b) => isSameTenant(b.tenantId, currentTenant?.id)) || availableBranches[0];
+      const sector = getSectorForBranch(activeBr);
       setNewRiderForm((prev) => ({
         ...prev,
         branchId: activeBr.id || activeBr._id || '',
         branchName: activeBr.name,
-        region: `${activeBr.name} (${activeBr.city || 'Faisalabad'})`,
-        zone: activeBr.name,
-        city: activeBr.city || 'Faisalabad',
-        latitude: String(activeBr.latitude || 31.4125),
-        longitude: String(activeBr.longitude || 73.0915),
-        coverageRadiusKm: String(activeBr.deliveryRadius || activeBr.coverageRadiusKm || 15)
+        region: `${sector.shortName} (${activeBr.name})`,
+        zone: sector.shortName,
+        serviceArea: sector.neighborhoods[0] || 'Peoples Colony',
+        city: 'Faisalabad',
+        latitude: String(activeBr.latitude || sector.center[0] || 31.4125),
+        longitude: String(activeBr.longitude || sector.center[1] || 73.0915),
+        coverageRadiusKm: String(activeBr.deliveryRadius || activeBr.deliveryRadiusKm || 5)
       }));
     }
     setIsAddRiderModalOpen(true);
@@ -508,6 +591,25 @@ export const DeliveryView = () => {
       (b) => (b.id || b._id || b.name) === newRiderForm.branchId || b.name === newRiderForm.branchName
     ) || availableBranches[0];
 
+    // Enforce that rider's location must be in Faisalabad and within the branch's delivery region:
+    const branchSector = getSectorForBranch(selectedBranch);
+    const areaLower = (newRiderForm.serviceArea || '').toLowerCase().trim();
+
+    // Check if the area belongs to another distant sector
+    const otherSectors = FAISALABAD_DELIVERY_SECTORS.filter((s) => s.id !== branchSector.id);
+    const isOutOfRegion = otherSectors.some((other) =>
+      other.neighborhoods.some((n) => areaLower.includes(n.toLowerCase()))
+    );
+
+    if (isOutOfRegion) {
+      addToast(
+        'Out of Delivery Region ❌',
+        `Cannot add rider: "${newRiderForm.serviceArea}" is outside ${selectedBranch.name}'s delivery region (${branchSector.shortName}). Please assign a location around this store.`,
+        'error'
+      );
+      return;
+    }
+
     let lat = Number(newRiderForm.latitude);
     let lng = Number(newRiderForm.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
@@ -521,7 +623,7 @@ export const DeliveryView = () => {
 
     const finalRegion = isCustomRegion
       ? (customRegionName.trim() || 'Custom Area')
-      : `${finalBranchName} (${selectedBranch?.city || 'Faisalabad'})`;
+      : `${branchSector.shortName} (${finalBranchName})`;
 
     const generatedUsername =
       newRiderForm.username.trim() ||
@@ -531,8 +633,8 @@ export const DeliveryView = () => {
     const generatedPlate =
       newRiderForm.vehicleNumber.trim() || `FSD-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const riderCity = newRiderForm.city?.trim() || selectedBranch?.city || currentTenant?.city || 'Faisalabad';
-    const riderArea = newRiderForm.serviceArea?.trim() || finalBranchName || 'General Area';
+    const riderCity = 'Faisalabad';
+    const riderArea = newRiderForm.serviceArea?.trim() || branchSector.neighborhoods[0] || 'Peoples Colony';
 
     addRider({
       name: newRiderForm.name.trim(),
@@ -544,12 +646,14 @@ export const DeliveryView = () => {
       city: riderCity,
       serviceArea: riderArea,
       address: newRiderForm.address?.trim() || '',
-      region: `${riderArea} (${riderCity})`,
-      zone: riderArea,
+      region: finalRegion,
+      zone: branchSector.shortName,
+      regionSector: branchSector.id,
+      zoneId: branchSector.id,
       latitude: lat,
       longitude: lng,
       coordinates: { lat, lng },
-      coverageRadiusKm: Number(newRiderForm.coverageRadiusKm || selectedBranch?.deliveryRadius || 15),
+      coverageRadiusKm: Number(newRiderForm.coverageRadiusKm || selectedBranch?.deliveryRadius || 5),
       status: 'Active',
       tenantId: (user?.role !== 'superadmin' && user?.tenantId) ? user.tenantId : (currentTenant?.id || user?.tenantId || 'tenant-alfatah'),
       tenantName: (user?.role !== 'superadmin' && user?.tenantName) ? user.tenantName : (currentTenant?.name || user?.tenantName || 'Al-Fatah'),
@@ -566,6 +670,7 @@ export const DeliveryView = () => {
     setCustomRegionName('');
 
     const nextBr = availableBranches[0] || {};
+    const nextSector = getSectorForBranch(nextBr);
     setNewRiderForm({
       name: '',
       phone: '',
@@ -573,14 +678,14 @@ export const DeliveryView = () => {
       vehicleNumber: '',
       branchId: nextBr.id || nextBr._id || '',
       branchName: nextBr.name || 'Main Hub',
-      serviceArea: 'Peoples Colony',
-      region: 'Peoples Colony',
-      zone: 'Peoples Colony',
-      city: nextBr.city || 'Faisalabad',
+      serviceArea: nextSector.neighborhoods[0] || 'Peoples Colony',
+      region: `${nextSector.shortName} (${nextBr.name || 'Main Hub'})`,
+      zone: nextSector.shortName,
+      city: 'Faisalabad',
       address: '',
-      latitude: String(nextBr.latitude || 31.4125),
-      longitude: String(nextBr.longitude || 73.0915),
-      coverageRadiusKm: String(nextBr.deliveryRadius || 15),
+      latitude: String(nextBr.latitude || nextSector.center[0] || 31.4125),
+      longitude: String(nextBr.longitude || nextSector.center[1] || 73.0915),
+      coverageRadiusKm: String(nextBr.deliveryRadius || nextBr.deliveryRadiusKm || 5),
       status: 'Active',
       cnic: '',
       username: '',
@@ -1729,7 +1834,7 @@ export const DeliveryView = () => {
                   </div>
                 </div>
 
-                {/* Row 2: Phone & Operating City */}
+                {/* Row 2: Phone & Operating City (Locked to Faisalabad FSD) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="font-bold text-slate-700 block mb-1 text-xs">
@@ -1752,80 +1857,19 @@ export const DeliveryView = () => {
                     <label className="font-bold text-slate-700 block mb-1 text-xs">
                       Operating City <span className="text-rose-500">*</span>
                     </label>
-                    <select
-                      value={newRiderForm.city}
-                      onChange={(e) => {
-                        const newCity = e.target.value;
-                        setNewRiderForm((prev) => ({
-                          ...prev,
-                          city: newCity,
-                          serviceArea: newCity === 'Lahore' ? 'Gulberg' : newCity === 'Karachi' ? 'Clifton' : 'Peoples Colony'
-                        }));
-                      }}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
-                    >
-                      <option value="Faisalabad">🏙️ Faisalabad</option>
-                      <option value="Lahore">🏙️ Lahore</option>
-                      <option value="Karachi">🏙️ Karachi</option>
-                      <option value="Islamabad">🏙️ Islamabad</option>
-                      <option value="Rawalpindi">🏙️ Rawalpindi</option>
-                      <option value="Multan">🏙️ Multan</option>
-                      <option value="Peshawar">🏙️ Peshawar</option>
-                      <option value="Sialkot">🏙️ Sialkot</option>
-                      <option value="Gujranwala">🏙️ Gujranwala</option>
-                    </select>
+                    <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-900 flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-1.5">
+                        <span>🏙️</span>
+                        <span>Faisalabad</span>
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                        FSD Fleet Only
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Row 3: Coverage Area / Neighborhood */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="font-bold text-slate-700 text-xs">
-                      Coverage Area / Neighborhood <span className="text-rose-500">*</span>
-                    </label>
-                    <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                      🎯 Auto-Prioritizes Orders Here
-                    </span>
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Peoples Colony, D-Ground, Madina Town"
-                    value={newRiderForm.serviceArea}
-                    onChange={(e) => setNewRiderForm({ ...newRiderForm, serviceArea: e.target.value, region: e.target.value, zone: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                  {/* Quick Select Area Chips */}
-                  <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
-                    <span className="text-[10px] font-bold text-slate-400">Quick Select:</span>
-                    {(newRiderForm.city === 'Lahore'
-                      ? ['Gulberg', 'DHA Phase 5 & 6', 'Johar Town', 'Model Town', 'Bahria Town', 'Mall Road']
-                      : newRiderForm.city === 'Karachi'
-                      ? ['Clifton', 'DHA Phase 6', 'Gulshan-e-Iqbal', 'North Nazimabad', 'Tariq Road']
-                      : ['Peoples Colony', 'D-Ground', 'Madina Town', 'Jaranwala Road', 'Kohinoor', 'Samanabad', 'Gulberg']
-                    ).map((area) => (
-                      <button
-                        key={area}
-                        type="button"
-                        onClick={() => setNewRiderForm((prev) => ({
-                          ...prev,
-                          serviceArea: area,
-                          region: area,
-                          zone: area
-                        }))}
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
-                          newRiderForm.serviceArea === area
-                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
-                        }`}
-                      >
-                        +{area}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Row 4: Assigned Branch Hub & Base Address */}
+                {/* Row 3: Assigned Branch Hub & Base Address */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="font-bold text-slate-700 block mb-1 text-xs">
@@ -1836,12 +1880,12 @@ export const DeliveryView = () => {
                       onChange={handleBranchSelectChange}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
                     >
-                      <optgroup label="Added & Available Store Branches">
+                      <optgroup label="Available Faisalabad Store Branches (FSD Only)">
                         {availableBranches.map((b) => {
                           const branchKey = b.id || b._id || b.name;
                           return (
                             <option key={branchKey} value={branchKey}>
-                              🏪 {b.name} ({b.city})
+                              🏪 {b.name} (Faisalabad)
                             </option>
                           );
                         })}
@@ -1863,6 +1907,67 @@ export const DeliveryView = () => {
                       onChange={(e) => setNewRiderForm({ ...newRiderForm, address: e.target.value })}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
+                  </div>
+                </div>
+
+                {/* Delivery Region Indicator Banner */}
+                {selectedBranchForForm && (
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-[11px]">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: branchSectorForForm.color }} />
+                      <span className="font-bold text-slate-700">Delivery Region:</span>
+                      <span className="font-black text-slate-900">{branchSectorForForm.shortName}</span>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border" style={{
+                      backgroundColor: `${branchSectorForForm.color}15`,
+                      borderColor: `${branchSectorForForm.color}35`,
+                      color: branchSectorForForm.color
+                    }}>
+                      Coverage: {selectedBranchForForm.deliveryRadiusKm || selectedBranchForForm.deliveryRadius || 5} km around store
+                    </span>
+                  </div>
+                )}
+
+                {/* Row 4: Coverage Area / Neighborhood (Constrained around branch's location) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold text-slate-700 text-xs">
+                      Coverage Area / Neighborhood <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      📍 Under Branch Delivery Region
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Peoples Colony, D-Ground"
+                    value={newRiderForm.serviceArea}
+                    onChange={(e) => setNewRiderForm({ ...newRiderForm, serviceArea: e.target.value, region: e.target.value, zone: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                  {/* Dynamic Quick Select Area Chips around Store Location */}
+                  <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
+                    <span className="text-[10px] font-bold text-slate-400">Around Store Location:</span>
+                    {branchSectorForForm.neighborhoods.map((area) => (
+                      <button
+                        key={area}
+                        type="button"
+                        onClick={() => setNewRiderForm((prev) => ({
+                          ...prev,
+                          serviceArea: area,
+                          region: `${area} (${branchSectorForForm.shortName})`,
+                          zone: area
+                        }))}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                          newRiderForm.serviceArea === area
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        +{area}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -2019,21 +2124,15 @@ export const DeliveryView = () => {
                     <label className="font-bold text-slate-700 block mb-1 text-xs">
                       Operating City <span className="text-rose-500">*</span>
                     </label>
-                    <select
-                      value={editRiderForm.city}
-                      onChange={(e) => setEditRiderForm({ ...editRiderForm, city: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
-                    >
-                      <option value="Faisalabad">🏙️ Faisalabad</option>
-                      <option value="Lahore">🏙️ Lahore</option>
-                      <option value="Karachi">🏙️ Karachi</option>
-                      <option value="Islamabad">🏙️ Islamabad</option>
-                      <option value="Rawalpindi">🏙️ Rawalpindi</option>
-                      <option value="Multan">🏙️ Multan</option>
-                      <option value="Peshawar">🏙️ Peshawar</option>
-                      <option value="Sialkot">🏙️ Sialkot</option>
-                      <option value="Gujranwala">🏙️ Gujranwala</option>
-                    </select>
+                    <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-900 flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-1.5">
+                        <span>🏙️</span>
+                        <span>Faisalabad</span>
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                        FSD Fleet Only
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -2058,12 +2157,7 @@ export const DeliveryView = () => {
                   {/* Quick Select Chips */}
                   <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
                     <span className="text-[10px] font-bold text-slate-400">Quick Select:</span>
-                    {(editRiderForm.city === 'Lahore'
-                      ? ['Gulberg', 'DHA Phase 5 & 6', 'Johar Town', 'Model Town', 'Bahria Town', 'Mall Road']
-                      : editRiderForm.city === 'Karachi'
-                      ? ['Clifton', 'DHA Phase 6', 'Gulshan-e-Iqbal', 'North Nazimabad', 'Tariq Road']
-                      : ['Peoples Colony', 'D-Ground', 'Madina Town', 'Jaranwala Road', 'Kohinoor', 'Samanabad', 'Gulberg']
-                    ).map((area) => (
+                    {['Peoples Colony', 'D-Ground', 'Madina Town', 'Susan Road', 'Canal Road', 'Kohinoor', 'Samanabad', 'Clock Tower'].map((area) => (
                       <button
                         key={area}
                         type="button"

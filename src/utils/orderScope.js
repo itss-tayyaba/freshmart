@@ -399,7 +399,19 @@ export const canAssignRiderToOrder = (arg1, arg2) => {
     };
   }
 
-  // NOTE: Riders serve the entire supermarket chain, NOT partitioned by branch.
+  // 4. Delivery Region Enforcement:
+  // Rider cannot be assigned to an order that is outside of the rider's delivery region / coverage zone
+  if (order.regionSector || rider.regionSector || order.zoneId || rider.zoneId || order.deliveryRegion) {
+    const rReg = String(rider.regionSector || rider.zoneId || rider.region || '').toLowerCase();
+    const oReg = String(order.regionSector || order.zoneId || order.deliveryRegion || order.zone || '').toLowerCase();
+    if (rReg && oReg && rReg.includes('zone-fsd') && oReg.includes('zone-fsd') && rReg !== oReg) {
+      return {
+        allowed: false,
+        reason: `Rider is stationed in a different delivery region (${rider.region || rider.zone || 'other sector'}) and cannot be assigned to orders in ${order.zone || order.deliveryRegion || 'this sector'}.`
+      };
+    }
+  }
+
   return { allowed: true };
 };
 

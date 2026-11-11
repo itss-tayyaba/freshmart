@@ -225,11 +225,6 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
   const [mapViewMode, setMapViewMode] = useState('street');
   const [isAddZoneModalOpen, setIsAddZoneModalOpen] = useState(false);
 
-  // InDrive-Style Extended Regional Delivery Toggle (+10 km radius)
-  const [supportsExtendedDelivery, setSupportsExtendedDelivery] = useState(
-    Boolean(activeBranch.supportsExtendedDelivery ?? true)
-  );
-
   // SuperAdmin Master Delivery Zones (Geofence Boundaries)
   const [masterZones, setMasterZones] = useState([]);
   const refreshMasterZones = () => {
@@ -340,7 +335,6 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     setLng(getSafeCoord(activeBranch.longitude, 73.1118));
     setDeliveryRadiusKm(Number(activeBranch.deliveryRadiusKm || activeBranch.deliveryRadius || 5));
     setDeliveryStatus(activeBranch.deliveryStatus || 'active');
-    setSupportsExtendedDelivery(Boolean(activeBranch.supportsExtendedDelivery ?? true));
     setDeliveryTiers(
       Array.isArray(activeBranch.deliveryTiers) && activeBranch.deliveryTiers.length > 0
         ? activeBranch.deliveryTiers
@@ -629,33 +623,10 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
       masterZoneLayerRef.current = mzPoly;
     }
 
-    // Render InDrive Extended Regional Delivery Buffer (+10 km radius)
+    // Clean up any old extended circle layer
     if (extendedRegionCircleRef.current) {
       try { map.removeLayer(extendedRegionCircleRef.current); } catch (e) {}
       extendedRegionCircleRef.current = null;
-    }
-    if (supportsExtendedDelivery) {
-      const sLat = getSafeCoord(lat, 31.4087);
-      const sLng = getSafeCoord(lng, 73.1118);
-      const extMeters = (Number(deliveryRadiusKm) + 10) * 1000;
-      const extCircle = L.circle([sLat, sLng], {
-        radius: extMeters,
-        color: '#0284c7',
-        weight: 1.5,
-        opacity: 0.5,
-        fillColor: '#0284c7',
-        fillOpacity: 0.03,
-        dashArray: '6, 8'
-      }).addTo(map);
-
-      extCircle.bindTooltip(
-        `<div style="font-size: 11px;">
-           <strong style="color: #0284c7;">⚡ InDrive Extended Regional Perimeter</strong>
-           <div style="font-size: 10px; color: #475569;">+10 km Extended Reach for Regional Dispatch</div>
-         </div>`,
-        { sticky: true }
-      );
-      extendedRegionCircleRef.current = extCircle;
     }
 
     // Add interactive draggable handles at each vertex so Store Admin can easily reshape boundary
@@ -705,7 +676,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
 
       vertexMarkersRef.current.push(handleMarker);
     });
-  }, [polygonPoints, activeRetailer, mapDrawMode, branchName, matchingMasterZone, supportsExtendedDelivery, deliveryRadiusKm, lat, lng]);
+  }, [polygonPoints, activeRetailer, mapDrawMode, branchName, matchingMasterZone, deliveryRadiusKm, lat, lng]);
 
   const handleLayerChange = (layerKey) => {
     setMapViewMode(layerKey);
@@ -798,7 +769,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
       deliveryRadiusKm: Math.max(Number(deliveryRadiusKm), maxTierDist),
       deliveryRadius: Math.max(Number(deliveryRadiusKm), maxTierDist),
       deliveryPolygon: polygonPoints && polygonPoints.length >= 3 ? polygonPoints : null,
-      supportsExtendedDelivery: Boolean(supportsExtendedDelivery),
+      supportsExtendedDelivery: false,
       deliveryStatus,
       deliveryTiers: [...deliveryTiers].sort((a, b) => a.distanceKm - b.distanceKm)
     };
@@ -1160,7 +1131,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
                   <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Custom Boundary Active ({polygonPoints.length} vertices • InDrive Exact Matching)</span>
+                  <span>Custom Boundary Active ({polygonPoints.length} vertices • Exact Delivery Polygon)</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <button
@@ -1407,56 +1378,6 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
             </button>
           </div>
 
-          {/* ⚡ InDrive-Style Extended Regional Delivery Mode Toggle */}
-          <div className="p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Compass className="w-4 h-4 text-blue-600 shrink-0" />
-                <span className="font-black text-xs text-blue-950 dark:text-blue-100">
-                  InDrive Extended Regional Delivery Mode
-                </span>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={supportsExtendedDelivery}
-                  onChange={(e) => setSupportsExtendedDelivery(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
-            </div>
-            <p className="text-[11px] text-blue-800 dark:text-blue-300 leading-tight">
-              Accept customer orders beyond core polygon boundary within +10 km regional radius at extended fulfillment SLA (45-60 mins). Matches inDrive's regional dispatch buffer.
-            </p>
-          </div>
-
-          {/* SuperAdmin Master Geofence Reference Banner */}
-          {matchingMasterZone && (
-            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border border-amber-300 dark:border-amber-700 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-amber-950 dark:text-amber-200 font-black text-xs">
-                  <ShieldCheck className="w-4 h-4 text-amber-600" />
-                  <span>SuperAdmin Master Geofence: {matchingMasterZone.name}</span>
-                </div>
-                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 font-bold">
-                  {matchingMasterZone.latLngs?.length || 0} vertices
-                </span>
-              </div>
-              <p className="text-[11px] text-amber-900/80 dark:text-amber-300 leading-tight">
-                SuperAdmin has established an active delivery geofence for this region. You can adopt this perimeter as your store baseline, then drag vertex handles to customize.
-              </p>
-              <button
-                type="button"
-                onClick={handleAdoptMasterZone}
-                className="w-full py-1.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Adopt SuperAdmin Geofence into Store Polygon</span>
-              </button>
-            </div>
-          )}
-
           {/* Live Zone Summary Card */}
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
             <span className="font-extrabold text-slate-800 dark:text-slate-200 block uppercase tracking-wider text-[10px]">
@@ -1466,6 +1387,10 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
               <div className="flex items-center justify-between">
                 <span>Retailer:</span>
                 <strong className="text-slate-900 dark:text-white">{activeRetailer.name}</strong>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Operating City:</span>
+                <strong className="text-emerald-700 dark:text-emerald-400 font-bold">Faisalabad (FSD Fleet Only)</strong>
               </div>
               <div className="flex items-center justify-between">
                 <span>GPS Location:</span>
