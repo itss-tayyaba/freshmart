@@ -29,6 +29,74 @@ import { calculateDistanceKm } from '../../../data/pakistanLocations';
 import { getAllUnifiedStores } from '../../../utils/storeHelper';
 import { isPointInPolygon } from '../../../utils/distanceCalculator';
 
+// 3 Master Regional Polygons covering all physical stores in the platform
+export const THREE_MASTER_REGIONS = [
+  {
+    id: 'ZONE-FSD-CENTRAL-BLUE',
+    name: 'Central Region (D-Ground & Peoples Colony)',
+    shortName: 'Central Sector',
+    color: '#2563eb',
+    badge: 'bg-blue-100 text-blue-800 border-blue-300',
+    center: [31.4125, 73.0950],
+    polygon: [
+      [31.432, 73.072],
+      [31.432, 73.1195],
+      [31.385, 73.1195],
+      [31.385, 73.072],
+      [31.432, 73.072]
+    ]
+  },
+  {
+    id: 'ZONE-FSD-NORTH-GREEN',
+    name: 'North-East Region (Susan Road & Canal Road)',
+    shortName: 'North-East Sector',
+    color: '#16a34a',
+    badge: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    center: [31.4350, 73.1350],
+    polygon: [
+      [31.460, 73.110],
+      [31.460, 73.195],
+      [31.415, 73.195],
+      [31.400, 73.1195],
+      [31.432, 73.1195],
+      [31.460, 73.110]
+    ]
+  },
+  {
+    id: 'ZONE-FSD-WEST-ORANGE',
+    name: 'West-South Region (Samanabad & Clock Tower)',
+    shortName: 'West-South Sector',
+    color: '#ea580c',
+    badge: 'bg-amber-100 text-amber-800 border-amber-300',
+    center: [31.3980, 73.0550],
+    polygon: [
+      [31.450, 73.030],
+      [31.450, 73.072],
+      [31.370, 73.072],
+      [31.370, 73.030],
+      [31.450, 73.030]
+    ]
+  }
+];
+
+export const detectRegionSector = (lat, lng) => {
+  for (const reg of THREE_MASTER_REGIONS) {
+    if (isPointInPolygon([lat, lng], reg.polygon)) {
+      return reg;
+    }
+  }
+  let closest = THREE_MASTER_REGIONS[0];
+  let minD = Infinity;
+  for (const reg of THREE_MASTER_REGIONS) {
+    const d = calculateDistanceKm(lat, lng, reg.center[0], reg.center[1]);
+    if (d < minD) {
+      minD = d;
+      closest = reg;
+    }
+  }
+  return closest;
+};
+
 export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateToZones = null }) => {
   const { allBranches = [], addToast } = useStore();
 
@@ -66,10 +134,14 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     branchName: '',
     address: '',
     city: 'Faisalabad',
+    regionSector: 'ZONE-FSD-CENTRAL-BLUE',
     latitude: 31.4125,
-    longitude: 73.0995,
+    longitude: 73.0950,
     deliveryRadiusKm: 5
   });
+  const modalMapContainerRef = useRef(null);
+  const modalMapInstanceRef = useRef(null);
+  const modalMarkerRef = useRef(null);
 
   // Store Filters
   const [retailerFilter, setRetailerFilter] = useState('all');
@@ -727,12 +799,150 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     }
   };
 
+  const handleSelectRegionSector = (region) => {
+    setQuickBranchForm((prev) => ({
+      ...prev,
+      regionSector: region.id,
+      latitude: region.center[0],
+      longitude: region.center[1]
+    }));
+
+    if (modalMarkerRef.current) {
+      modalMarkerRef.current.setLatLng(region.center);
+    }
+    if (modalMapInstanceRef.current) {
+      modalMapInstanceRef.current.flyTo(region.center, 13, { duration: 0.5 });
+    }
+  };
+
+  const handleRetailerChange = (tenantId) => {
+    setQuickBranchForm((prev) => ({ ...prev, tenantId }));
+    const retailer = CORE_RETAILERS.find((r) => r.id === tenantId) || CORE_RETAILERS[0];
+    if (modalMarkerRef.current) {
+      const markerIcon = L.divIcon({
+        className: 'modal-store-pin',
+        html: `
+          <div style="background: white; border: 2.5px solid ${retailer.color || '#059669'}; border-radius: 9999px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.35); font-size: 16px; transform: translate(-18px, -18px); cursor: grab;">
+            ${retailer.logo}
+          </div>
+        `,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18]
+      });
+      modalMarkerRef.current.setIcon(markerIcon);
+    }
+  };
+
+  // Modal Map for Quick Branch Creation (Interactive location picker with master region outlines)
+  useEffect(() => {
+    if (!isQuickAddModalOpen) {
+      if (modalMapInstanceRef.current) {
+        modalMapInstanceRef.current.remove();
+        modalMapInstanceRef.current = null;
+      }
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (!modalMapContainerRef.current) return;
+
+      if (modalMapInstanceRef.current) {
+        modalMapInstanceRef.current.remove();
+        modalMapInstanceRef.current = null;
+      }
+
+      const initialLat = Number(quickBranchForm.latitude) || 31.4125;
+      const initialLng = Number(quickBranchForm.longitude) || 73.0950;
+
+      const map = L.map(modalMapContainerRef.current, {
+        center: [initialLat, initialLng],
+        zoom: 13,
+        zoomControl: true,
+        attributionControl: false
+      });
+      modalMapInstanceRef.current = map;
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+      }).addTo(map);
+
+      // Draw the 3 master regions lightly on the modal map
+      THREE_MASTER_REGIONS.forEach((reg) => {
+        L.polygon(reg.polygon, {
+          color: reg.color,
+          weight: 2,
+          opacity: 0.85,
+          fillColor: reg.color,
+          fillOpacity: 0.12,
+          dashArray: '4, 4'
+        })
+          .bindTooltip(reg.shortName || reg.name, { sticky: true, className: 'text-[10px] font-bold' })
+          .addTo(map);
+      });
+
+      // Draggable marker with retailer logo
+      const retailer = CORE_RETAILERS.find((r) => r.id === quickBranchForm.tenantId) || CORE_RETAILERS[0];
+      const markerIcon = L.divIcon({
+        className: 'modal-store-pin',
+        html: `
+          <div style="background: white; border: 2.5px solid ${retailer.color || '#059669'}; border-radius: 9999px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.35); font-size: 16px; transform: translate(-18px, -18px); cursor: grab;">
+            ${retailer.logo}
+          </div>
+        `,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18]
+      });
+
+      const marker = L.marker([initialLat, initialLng], {
+        icon: markerIcon,
+        draggable: true
+      }).addTo(map);
+      modalMarkerRef.current = marker;
+
+      const syncLocation = (lat, lng) => {
+        const roundedLat = parseFloat(lat.toFixed(5));
+        const roundedLng = parseFloat(lng.toFixed(5));
+        const detected = detectRegionSector(roundedLat, roundedLng);
+        setQuickBranchForm((prev) => ({
+          ...prev,
+          latitude: roundedLat,
+          longitude: roundedLng,
+          regionSector: detected.id
+        }));
+      };
+
+      marker.on('dragend', (e) => {
+        const pos = e.target.getLatLng();
+        syncLocation(pos.lat, pos.lng);
+      });
+
+      map.on('click', (e) => {
+        marker.setLatLng(e.latlng);
+        syncLocation(e.latlng.lat, e.latlng.lng);
+      });
+
+      map.invalidateSize();
+    }, 150);
+
+    return () => {
+      clearTimeout(timer);
+      if (modalMapInstanceRef.current) {
+        modalMapInstanceRef.current.remove();
+        modalMapInstanceRef.current = null;
+      }
+    };
+  }, [isQuickAddModalOpen]);
+
   const handleCreateQuickBranch = async (e) => {
     if (e) e.preventDefault();
     const retailer = CORE_RETAILERS.find((r) => r.id === quickBranchForm.tenantId) || CORE_RETAILERS[0];
     const bName = (quickBranchForm.branchName || '').trim() || `Commercial Branch ${Date.now().toString().slice(-4)}`;
     const sName = `${retailer.name} - ${bName}`;
     const sId = `STR-${quickBranchForm.tenantId.replace('tenant-', '').substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+
+    const lat = Number(quickBranchForm.latitude) || 31.4125;
+    const lng = Number(quickBranchForm.longitude) || 73.0950;
+    const activeRegion = detectRegionSector(lat, lng);
 
     const newStore = {
       _id: sId,
@@ -743,12 +953,15 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       branchName: bName,
       address: (quickBranchForm.address || '').trim() || `Main Commercial Road, ${quickBranchForm.city || 'Faisalabad'}, Pakistan`,
       city: quickBranchForm.city || 'Faisalabad',
-      latitude: Number(quickBranchForm.latitude) || 31.4125,
-      longitude: Number(quickBranchForm.longitude) || 73.0995,
+      latitude: lat,
+      longitude: lng,
       deliveryRadiusKm: Number(quickBranchForm.deliveryRadiusKm) || 5,
       status: 'active',
       isActive: true,
-      operatingStatus: 'Open'
+      operatingStatus: 'Open',
+      assignedZoneId: activeRegion.id,
+      regionSector: activeRegion.id,
+      regionName: activeRegion.name
     };
 
     try {
@@ -769,8 +982,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       branchName: '',
       address: '',
       city: 'Faisalabad',
+      regionSector: 'ZONE-FSD-CENTRAL-BLUE',
       latitude: 31.4125,
-      longitude: 73.0995,
+      longitude: 73.0950,
       deliveryRadiusKm: 5
     });
 
@@ -780,7 +994,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     if (addToast) {
       addToast(
         'Store Branch Added 🎉',
-        `"${sName}" added! Now click on the map around it to outline its delivery zone.`,
+        `"${sName}" placed in ${activeRegion.name}! Now click on the map around it to outline its delivery zone.`,
         'success'
       );
     }
@@ -2341,132 +2555,214 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       )}
 
       {/* Quick Add Store Branch Modal */}
-      {isQuickAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <form
-            onSubmit={handleCreateQuickBranch}
-            className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150"
-          >
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                  <Store className="w-4 h-4" />
+      {isQuickAddModalOpen && (() => {
+        const activeSector = THREE_MASTER_REGIONS.find((r) => r.id === quickBranchForm.regionSector) || THREE_MASTER_REGIONS[0];
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <form
+              onSubmit={handleCreateQuickBranch}
+              className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            >
+              <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shadow-xs">
+                    <Store className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-sm">Add New Store Branch</h3>
+                    <p className="text-[11px] text-slate-500">
+                      Select regional sector and pin branch directly on map.
+                    </p>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsQuickAddModalOpen(false)}
+                  className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-4 sm:p-5 space-y-3.5 text-xs overflow-y-auto">
+                {/* Retailer & Branch Name */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Supermarket Retailer *</label>
+                    <select
+                      value={quickBranchForm.tenantId}
+                      onChange={(e) => handleRetailerChange(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-hidden focus:border-emerald-500"
+                    >
+                      {CORE_RETAILERS.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.logo} {r.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Branch / Location Name *</label>
+                    <input
+                      type="text"
+                      value={quickBranchForm.branchName}
+                      onChange={(e) => setQuickBranchForm({ ...quickBranchForm, branchName: e.target.value })}
+                      placeholder="e.g. Susan Road Express Hub"
+                      required
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Add New Store Branch</h3>
-                  <p className="text-[11px] text-slate-500">
-                    Add branch location to map, then outline delivery polygon around it.
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Street Address</label>
+                  <input
+                    type="text"
+                    value={quickBranchForm.address}
+                    onChange={(e) => setQuickBranchForm({ ...quickBranchForm, address: e.target.value })}
+                    placeholder="e.g. Main Commercial Avenue, Faisalabad"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500"
+                  />
+                </div>
+
+                {/* 1. SELECT REGION WHERE STORE EXISTS */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                      <span className="w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">1</span>
+                      <span>Select Region Where Store Exists *</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      Snaps map view to selected master sector
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {THREE_MASTER_REGIONS.map((reg) => {
+                      const isSelected = quickBranchForm.regionSector === reg.id;
+                      return (
+                        <button
+                          key={reg.id}
+                          type="button"
+                          onClick={() => handleSelectRegionSector(reg)}
+                          className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                            isSelected
+                              ? 'border-2 shadow-xs bg-slate-50'
+                              : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
+                          }`}
+                          style={{
+                            borderColor: isSelected ? reg.color : undefined,
+                            boxShadow: isSelected ? `0 0 0 1px ${reg.color}33` : undefined
+                          }}
+                        >
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                              style={{ background: reg.color }}
+                            />
+                            <span className="text-[11px] font-bold truncate text-slate-900">
+                              {reg.shortName}
+                            </span>
+                          </div>
+                          <span className="text-[9px] text-slate-500 line-clamp-1 leading-tight">
+                            {reg.name.split('(')[1]?.replace(')', '') || reg.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. INTERACTIVE MAP PICKER */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                      <span className="w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">2</span>
+                      <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Pin Exact Store Location on Map *</span>
+                    </label>
+                    <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      👆 Click map or drag store pin
+                    </span>
+                  </div>
+
+                  {/* Interactive Leaflet Map Box */}
+                  <div className="relative rounded-2xl overflow-hidden border border-slate-300 shadow-inner bg-slate-100">
+                    <div ref={modalMapContainerRef} style={{ height: '210px', width: '100%' }} />
+
+                    {/* Coordinates & Region Status Pill */}
+                    <div className="absolute bottom-2 left-2 right-2 z-1000 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200 shadow-md flex items-center justify-between text-[10px]">
+                      <div className="flex items-center gap-1 text-slate-700">
+                        <span className="font-bold text-slate-500">GPS:</span>
+                        <span className="font-mono font-semibold text-slate-900">
+                          {Number(quickBranchForm.latitude).toFixed(4)}, {Number(quickBranchForm.longitude).toFixed(4)}
+                        </span>
+                      </div>
+                      <span
+                        className="font-bold px-2 py-0.5 rounded-md text-[9px] border"
+                        style={{
+                          backgroundColor: `${activeSector.color}15`,
+                          borderColor: `${activeSector.color}40`,
+                          color: activeSector.color
+                        }}
+                      >
+                        Sector: {activeSector.shortName}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Store placed inside its master region. After saving, you will immediately outline its delivery zone polygon.
                   </p>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsQuickAddModalOpen(false)}
-                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            <div className="p-5 space-y-3.5 text-xs">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Supermarket Retailer *</label>
-                <select
-                  value={quickBranchForm.tenantId}
-                  onChange={(e) => setQuickBranchForm({ ...quickBranchForm, tenantId: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium"
+                {/* 3. COVERAGE RADIUS SLIDER */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-slate-700">
+                      Delivery Coverage Radius
+                    </label>
+                    <span className="font-bold text-emerald-700 font-mono text-[11px] bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
+                      {quickBranchForm.deliveryRadiusKm} km
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="20"
+                    step="0.5"
+                    value={quickBranchForm.deliveryRadiusKm}
+                    onChange={(e) => setQuickBranchForm({ ...quickBranchForm, deliveryRadiusKm: Number(e.target.value) })}
+                    className="w-full accent-emerald-600 cursor-pointer"
+                  />
+                  <div className="flex items-center justify-between text-[9px] text-slate-400 mt-0.5 font-medium">
+                    <span>1 km (Local)</span>
+                    <span>5 km (Standard Hub)</span>
+                    <span>10 km (Wide Reach)</span>
+                    <span>20 km (Regional)</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsQuickAddModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-xl font-bold transition text-xs cursor-pointer"
                 >
-                  {CORE_RETAILERS.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.logo} {r.name}
-                    </option>
-                  ))}
-                </select>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition text-xs cursor-pointer shadow-sm flex items-center gap-1.5"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Add Branch to Map</span>
+                </button>
               </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Branch / Location Name *</label>
-                <input
-                  type="text"
-                  value={quickBranchForm.branchName}
-                  onChange={(e) => setQuickBranchForm({ ...quickBranchForm, branchName: e.target.value })}
-                  placeholder="e.g. Canal Road Express Hub"
-                  required
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Street Address</label>
-                <input
-                  type="text"
-                  value={quickBranchForm.address}
-                  onChange={(e) => setQuickBranchForm({ ...quickBranchForm, address: e.target.value })}
-                  placeholder="e.g. East Canal Road, Faisalabad"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Latitude</label>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    value={quickBranchForm.latitude}
-                    onChange={(e) => setQuickBranchForm({ ...quickBranchForm, latitude: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Longitude</label>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    value={quickBranchForm.longitude}
-                    onChange={(e) => setQuickBranchForm({ ...quickBranchForm, longitude: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Retailer Delivery Coverage Radius (km)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="30"
-                  value={quickBranchForm.deliveryRadiusKm}
-                  onChange={(e) => setQuickBranchForm({ ...quickBranchForm, deliveryRadiusKm: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium"
-                />
-                <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  Defines the branch delivery circle shown on the customer landing page.
-                </span>
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50">
-              <button
-                type="button"
-                onClick={() => setIsQuickAddModalOpen(false)}
-                className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-xl font-bold transition text-xs cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition text-xs cursor-pointer shadow-sm flex items-center gap-1.5"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>Add Branch to Map</span>
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+            </form>
+          </div>
+        );
+      })()}
     </div>
   );
 };
