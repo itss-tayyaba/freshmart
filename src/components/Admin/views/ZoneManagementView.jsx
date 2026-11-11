@@ -169,9 +169,25 @@ export const ZoneManagementView = () => {
       ]);
 
       if (zonesRes && zonesRes.success && Array.isArray(zonesRes.zones)) {
-        setZones(zonesRes.zones);
-        if (zonesRes.zones.length > 0 && !selectedZoneId) {
-          setSelectedZoneId(zonesRes.zones[0].zoneId || zonesRes.zones[0]._id);
+        let loadedZones = zonesRes.zones;
+        // Clean out test spam "Store Area Polygon \d+" if more than 3 regions exist
+        const testZones = loadedZones.filter((z) => /^Store Area Polygon \d+/i.test(z.name || ''));
+        if (testZones.length >= 4) {
+          const nonTest = loadedZones.filter((z) => !/^Store Area Polygon \d+/i.test(z.name || ''));
+          if (nonTest.length >= 1) {
+            loadedZones = nonTest;
+          } else {
+            // Keep at most 3 clean zones
+            loadedZones = loadedZones.slice(0, 3);
+          }
+          try {
+            localStorage.setItem('freshmart_zones', JSON.stringify(loadedZones));
+            window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: loadedZones }));
+          } catch (e) {}
+        }
+        setZones(loadedZones);
+        if (loadedZones.length > 0 && !selectedZoneId) {
+          setSelectedZoneId(loadedZones[0].zoneId || loadedZones[0]._id);
         }
       }
 
@@ -1364,7 +1380,7 @@ export const ZoneManagementView = () => {
       {/* CONFIGURED STORE AREA POLYGONS: Cards showing store count & store list */}
       {/* ===================================================================== */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
               <span>Configured Store Area Polygons</span>
@@ -1377,13 +1393,39 @@ export const ZoneManagementView = () => {
             </p>
           </div>
 
-          <button
-            onClick={handleStartDraw}
-            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>+ Draw Another Polygon</span>
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={handleResetToThreeCleanSectors}
+              disabled={isSaving}
+              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+              title="Reset to 3 clean non-overlapping regional sectors (Blue, Green, Orange)"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <span>🧹 Reset 3 Master Sectors</span>
+            </button>
+
+            {zones.length > 3 && (
+              <button
+                type="button"
+                onClick={handleClearAllPolygons}
+                disabled={isSaving}
+                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                title="Remove extra duplicate polygons"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span>🗑️ Clear Polygons</span>
+              </button>
+            )}
+
+            <button
+              onClick={handleStartDraw}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Draw Another Polygon</span>
+            </button>
+          </div>
         </div>
 
         {zones.length === 0 ? (

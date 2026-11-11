@@ -57,6 +57,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   const [drawnPoints, setDrawnPoints] = useState([]);
   const [isSavingPolygon, setIsSavingPolygon] = useState(false);
   const drawingLayerRef = useRef(null);
+  const [drawingStoreTarget, setDrawingStoreTarget] = useState(null); // Specific store being drawn for
 
   // Quick Store Branch Modal
   const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false);
@@ -681,6 +682,51 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     };
   }, [stores, assignments, activeZone, onNavigateToZones]);
 
+  // Start drawing custom delivery zone polygon for a specific store
+  const handleStartDrawingDeliveryZoneForStore = (store) => {
+    if (!store) return;
+    setDrawingStoreTarget(store);
+    setIsDrawingPolygon(true);
+    setDrawingTool('polygon');
+
+    const sLat = Number(store.latitude ?? store.coordinates?.lat);
+    const sLng = Number(store.longitude ?? store.coordinates?.lng);
+
+    const rawPoly = store.deliveryPolygon;
+    if (Array.isArray(rawPoly) && rawPoly.length >= 3) {
+      setDrawnPoints(rawPoly);
+    } else if (Number.isFinite(sLat) && Number.isFinite(sLng)) {
+      const radiusKm = Number(store.deliveryRadiusKm || store.deliveryRadius || 2.5);
+      const latDelta = radiusKm / 111.0;
+      const lngDelta = radiusKm / (111.0 * Math.cos((sLat * Math.PI) / 180));
+      const numPoints = 6;
+      const initialPoly = [];
+      for (let i = 0; i < numPoints; i++) {
+        const angle = (i * 2 * Math.PI) / numPoints;
+        const rFactor = i % 2 === 0 ? 1.05 : 0.95;
+        initialPoly.push([
+          Number((sLat + latDelta * Math.sin(angle) * rFactor).toFixed(6)),
+          Number((sLng + lngDelta * Math.cos(angle) * rFactor).toFixed(6))
+        ]);
+      }
+      setDrawnPoints(initialPoly);
+    } else {
+      setDrawnPoints([]);
+    }
+
+    if (mapInstanceRef.current && Number.isFinite(sLat) && Number.isFinite(sLng)) {
+      mapInstanceRef.current.flyTo([sLat, sLng], 14, { duration: 1.2 });
+    }
+
+    if (addToast) {
+      addToast(
+        `Draw Delivery Zone: ${store.branchName || store.name}`,
+        'Drag the vertex handles on the map to outline the delivery boundary for this store, then click "Save Store Delivery Zone".',
+        'info'
+      );
+    }
+  };
+
   const handleCreateQuickBranch = async (e) => {
     if (e) e.preventDefault();
     const retailer = CORE_RETAILERS.find((r) => r.id === quickBranchForm.tenantId) || CORE_RETAILERS[0];
@@ -728,10 +774,13 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       deliveryRadiusKm: 5
     });
 
+    // IMMEDIATELY activate drawing mode on the map for this new store!
+    handleStartDrawingDeliveryZoneForStore(newStore);
+
     if (addToast) {
       addToast(
         'Store Branch Added 🎉',
-        `"${sName}" added! Location & coverage region are now visible on the map. You can now draw a polygon around it.`,
+        `"${sName}" added! Now click on the map around it to outline its delivery zone.`,
         'success'
       );
     }
@@ -960,6 +1009,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
   const handleCancelDrawing = () => {
     setIsDrawingPolygon(false);
+    setDrawingStoreTarget(null);
     setDrawnPoints([]);
     if (drawingLayerRef.current) drawingLayerRef.current.clearLayers();
   };
@@ -974,6 +1024,80 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     try {
       // Auto-untangle if vertices cross each other so geometry is guaranteed valid
       const cleanPoints = hasCrossingSegments(drawnPoints) ? untanglePoints(drawnPoints) : drawnPoints;
+
+      // 1. If drawing specifically for a store's delivery zone:
+      if (drawingStoreTarget) {
+        const storeId = drawingStoreTarget.storeId || drawingStoreTarget._id || drawingStoreTarget.id;
+        const sName = drawingStoreTarget.branchName || drawingStoreTarget.name || 'Store';
+
+        // Update state stores
+        setStores((prev) =>
+          prev.map((s) => {
+            const sid = s.storeId || s._id || s.id;
+            return (sid === storeId || String(sid).toLowerCase() === String(storeId).toLowerCase())
+              ? { ...s, deliveryPolygon: cleanPoints }
+              : s;
+          })
+        );
+
+        // Persist to freshmart_branches in localStorage
+        try {
+          const savedBranches = localStorage.getItem('freshmart_branches');
+          const branchList = savedBranches ? JSON.parse(savedBranches) : [];
+          const cleanStoreId = String(storeId).toLowerCase().trim();
+          let matched = false;
+          const updatedBranches = branchList.map((b) => {
+            const bid = String(b._id || b.id || b.storeId || '').toLowerCase().trim();
+            if (bid === cleanStoreId) {
+              matched = true;
+              return { ...b, deliveryPolygon: cleanPoints };
+            }
+            return b;
+          });
+          if (!matched && drawingStoreTarget) {
+            updatedBranches.push({ ...drawingStoreTarget, deliveryPolygon: cleanPoints });
+          }
+          localStorage.setItem('freshmart_branches', JSON.stringify(updatedBranches));
+          window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: updatedBranches }));
+        } catch (e) {
+          console.warn('Branch update error:', e);
+        }
+
+        // Persist to freshmart_custom_stores in localStorage
+        try {
+          const savedCustom = localStorage.getItem('freshmart_custom_stores');
+          if (savedCustom) {
+            const customList = JSON.parse(savedCustom) || [];
+            const cleanStoreId = String(storeId).toLowerCase().trim();
+            const updatedCustom = customList.map((c) => {
+              const cid = String(c.storeId || c._id || c.id || '').toLowerCase().trim();
+              if (cid === cleanStoreId) {
+                return { ...c, deliveryPolygon: cleanPoints };
+              }
+              return c;
+            });
+            localStorage.setItem('freshmart_custom_stores', JSON.stringify(updatedCustom));
+          }
+        } catch (e) {
+          console.warn('Custom stores update error:', e);
+        }
+
+        window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
+
+        if (addToast) {
+          addToast(
+            'Store Delivery Zone Saved! ⬡',
+            `Custom delivery polygon successfully saved for "${sName}" (${cleanPoints.length} vertices).`,
+            'success'
+          );
+        }
+
+        setIsDrawingPolygon(false);
+        setDrawingStoreTarget(null);
+        setDrawnPoints([]);
+        if (drawingLayerRef.current) drawingLayerRef.current.clearLayers();
+        return;
+      }
 
       const ring = cleanPoints.map(([lat, lng]) => [
         Number(Number(lng).toFixed(6)),
@@ -1381,7 +1505,36 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       `);
       storeMarkersGroupRef.current.addLayer(marker);
     });
-  }, [activeZone, assignedStores, isDrawingPolygon, stores, storesWithDistance, assignments, zones]);
+
+    // 4. Draw Store-Level Custom Delivery Polygons (if configured)
+    stores.forEach((store) => {
+      const rawPoly = store.deliveryPolygon;
+      if (!Array.isArray(rawPoly) || rawPoly.length < 3) return;
+      if (drawingStoreTarget && (drawingStoreTarget.storeId || drawingStoreTarget._id) === (store.storeId || store._id)) return;
+
+      const retailer = CORE_RETAILERS.find((r) =>
+        String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
+      ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
+
+      const storePoly = L.polygon(rawPoly, {
+        color: retailer.color,
+        weight: 2.2,
+        dashArray: '5, 5',
+        fillColor: retailer.color,
+        fillOpacity: 0.15,
+        interactive: !isDrawingPolygon
+      });
+
+      storePoly.bindTooltip(`
+        <div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 4px;">
+          <span>${retailer.logo}</span>
+          <span>${store.branchName || store.name} Delivery Zone</span>
+        </div>
+      `, { sticky: true });
+
+      polygonLayerRef.current.addLayer(storePoly);
+    });
+  }, [activeZone, assignedStores, isDrawingPolygon, stores, storesWithDistance, assignments, zones, drawingStoreTarget]);
 
   return (
     <div className="space-y-6">
@@ -1396,13 +1549,23 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
             Concept 2: Each individual store maintains its own delivery zone and radius. Customer orders are dispatched strictly within the store's authorized delivery region.
           </p>
         </div>
-        <button
-          onClick={loadData}
-          className="px-3 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs self-start sm:self-auto"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>Refresh Assignments</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsQuickAddModalOpen(true)}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ Add Store & Draw Delivery Zone</span>
+          </button>
+          <button
+            onClick={loadData}
+            className="px-3 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* Zone Selector Strip */}
@@ -1579,17 +1742,21 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
                       <div className="min-w-0">
                         <div className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
-                          <span className="truncate">Drawing: {activeZone?.name || 'New Delivery Boundary'}</span>
+                          <span className="truncate">
+                            {drawingStoreTarget
+                              ? `Drawing Delivery Zone for: ${drawingStoreTarget.branchName || drawingStoreTarget.name}`
+                              : `Drawing: ${activeZone?.name || 'New Delivery Boundary'}`}
+                          </span>
                           <span className="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
                             {drawnPoints.length} Vertex{drawnPoints.length === 1 ? '' : 'es'}
                           </span>
                         </div>
                         <div className="text-[10px] text-slate-300">
-                          {drawnPoints.length < 3 ? (
-                            `Click map around stores to place ${3 - drawnPoints.length} more point(s) to form delivery polygon.`
-                          ) : (
-                            'Click map to add more vertices, or click "Save Polygon" to apply.'
-                          )}
+                          {drawingStoreTarget
+                            ? 'Drag vertices or click on the map to shape this store\'s delivery region. Then click "Save Store Delivery Zone".'
+                            : (drawnPoints.length < 3
+                                ? `Click map around stores to place ${3 - drawnPoints.length} more point(s) to form delivery polygon.`
+                                : 'Click map to add more vertices, or click "Save Polygon" to apply.')}
                         </div>
                       </div>
                     </div>
@@ -1661,7 +1828,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                       ) : (
                         <>
                           <Check className="w-3.5 h-3.5" />
-                          <span>Save Polygon</span>
+                          <span>{drawingStoreTarget ? 'Save Store Delivery Zone' : 'Save Polygon'}</span>
                         </>
                       )}
                     </button>
@@ -1832,14 +1999,29 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                       </div>
 
                       <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200/60 flex-wrap">
-                        <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-600 flex-wrap">
                           <span className="font-bold text-slate-700">Delivery Radius:</span>
                           <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-extrabold border border-emerald-200">
                             {Number(store.deliveryRadiusKm || store.deliveryRadius || 5)} km
                           </span>
+                          {Array.isArray(store.deliveryPolygon) && store.deliveryPolygon.length >= 3 && (
+                            <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[10px]">
+                              ⬡ Custom Zone ({store.deliveryPolygon.length} pts)
+                            </span>
+                          )}
                         </div>
 
-                        <div className="flex items-center gap-1.5 ml-auto">
+                        <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => handleStartDrawingDeliveryZoneForStore(store)}
+                            className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                            title="Draw or reshape delivery zone polygon around this store"
+                          >
+                            <Edit3 className="w-3 h-3 text-emerald-600" />
+                            <span>Polygon Around Store</span>
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => {
@@ -1885,17 +2067,27 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
               </p>
             </div>
 
-            {activeZone && activeZonePolygonLatLngs.length >= 3 && (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={handleAutoLinkInside}
-                title="Automatically link all stores whose GPS points lie inside this polygon boundary"
-                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shrink-0 shadow-xs"
+                onClick={() => setIsQuickAddModalOpen(true)}
+                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
               >
-                <Sparkles className="w-3 h-3 text-emerald-600" />
-                <span>Auto-Link In-Zone</span>
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add Store</span>
               </button>
-            )}
+              {activeZone && activeZonePolygonLatLngs.length >= 3 && (
+                <button
+                  type="button"
+                  onClick={handleAutoLinkInside}
+                  title="Automatically link all stores whose GPS points lie inside this polygon boundary"
+                  className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shrink-0 shadow-xs"
+                >
+                  <Sparkles className="w-3 h-3 text-emerald-600" />
+                  <span>Auto-Link In-Zone</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Clean 4 Supermarket Cards */}
@@ -1964,10 +2156,24 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                       <p className="text-[10px] text-slate-400 truncate mt-0.5">
                         {store.address}
                       </p>
+                      {Array.isArray(store.deliveryPolygon) && store.deliveryPolygon.length >= 3 && (
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[9px] font-bold inline-block mt-0.5">
+                          ⬡ Custom Delivery Zone ({store.deliveryPolygon.length} pts)
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleStartDrawingDeliveryZoneForStore(store)}
+                      className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer shrink-0"
+                      title="Draw delivery zone polygon for this store"
+                    >
+                      <Edit3 className="w-3 h-3 text-emerald-600" />
+                      <span>Polygon</span>
+                    </button>
                     {activeZone ? (
                       isAssigned ? (
                         <div className="flex items-center gap-1.5">
