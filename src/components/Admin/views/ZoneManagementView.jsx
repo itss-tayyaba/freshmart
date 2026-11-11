@@ -27,7 +27,6 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
-  Square,
   Sparkles
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
@@ -104,21 +103,15 @@ export const ZoneManagementView = () => {
   const [isGeocoding, setIsGeocoding] = useState(false);
 
   // Drawing & Editing State
-  // Mode: 'view' | 'box' | 'draw' | 'edit'
+  // Mode: 'view' | 'draw' | 'edit'
   const [mapMode, setMapMode] = useState('view');
   const mapModeRef = useRef(mapMode);
   useEffect(() => {
     mapModeRef.current = mapMode;
   }, [mapMode]);
-  const [boxCorner1, setBoxCorner1] = useState(null);
-  const boxCorner1Ref = useRef(null);
-  useEffect(() => {
-    boxCorner1Ref.current = boxCorner1;
-  }, [boxCorner1]);
   const [drawnVertices, setDrawnVertices] = useState([]); // Array of [lat, lng]
   const [isSaving, setIsSaving] = useState(false);
   const [zoneToDelete, setZoneToDelete] = useState(null);
-  const boxPreviewGroupRef = useRef(null);
 
   // Right Panel Form State
   const [zoneForm, setZoneForm] = useState({
@@ -303,56 +296,15 @@ export const ZoneManagementView = () => {
     polygonsLayerGroupRef.current = L.layerGroup().addTo(map);
     storeMarkersGroupRef.current = L.layerGroup().addTo(map);
     drawingLayerGroupRef.current = L.layerGroup().addTo(map);
-    boxPreviewGroupRef.current = L.layerGroup().addTo(map);
 
     mapInstanceRef.current = map;
 
-    // Handle map click during Drawing & Box mode
+    // Handle map click during Drawing mode
     map.on('click', (e) => {
       const roundedLat = Number(e.latlng.lat.toFixed(6));
       const roundedLng = Number(e.latlng.lng.toFixed(6));
 
-      if (mapModeRef.current === 'box') {
-        if (!boxCorner1Ref.current) {
-          boxCorner1Ref.current = [roundedLat, roundedLng];
-          setBoxCorner1([roundedLat, roundedLng]);
-          if (boxPreviewGroupRef.current) boxPreviewGroupRef.current.clearLayers();
-          if (drawingLayerGroupRef.current) {
-            drawingLayerGroupRef.current.clearLayers();
-            const startIcon = L.divIcon({
-              className: 'box-corner-start',
-              html: `
-                <div style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; background: #059669; color: #ffffff; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.35); font-size: 11px; font-weight: 900;">
-                  1
-                </div>
-              `,
-              iconSize: [26, 26],
-              iconAnchor: [13, 13]
-            });
-            drawingLayerGroupRef.current.addLayer(L.marker([roundedLat, roundedLng], { icon: startIcon }));
-          }
-        } else {
-          const p1 = boxCorner1Ref.current;
-          const p2 = [roundedLat, roundedLng];
-          const minLat = Math.min(p1[0], p2[0]);
-          const maxLat = Math.max(p1[0], p2[0]);
-          const minLng = Math.min(p1[1], p2[1]);
-          const maxLng = Math.max(p1[1], p2[1]);
-
-          const box = [
-            [Number(maxLat.toFixed(6)), Number(minLng.toFixed(6))], // NW
-            [Number(maxLat.toFixed(6)), Number(maxLng.toFixed(6))], // NE
-            [Number(minLat.toFixed(6)), Number(maxLng.toFixed(6))], // SE
-            [Number(minLat.toFixed(6)), Number(minLng.toFixed(6))]  // SW
-          ];
-
-          boxCorner1Ref.current = null;
-          setBoxCorner1(null);
-          if (boxPreviewGroupRef.current) boxPreviewGroupRef.current.clearLayers();
-          setDrawnVertices(box);
-          setMapMode('edit');
-        }
-      } else if (mapModeRef.current === 'draw') {
+      if (mapModeRef.current === 'draw') {
         setDrawnVertices((prev) => {
           const next = [...prev, [roundedLat, roundedLng]];
           if (next.length >= 3 && hasCrossingSegments(next)) {
@@ -363,39 +315,11 @@ export const ZoneManagementView = () => {
       }
     });
 
-    // Real-time rectangle hover preview in Box Mode
-    map.on('mousemove', (e) => {
-      if (mapModeRef.current !== 'box' || !boxCorner1Ref.current) {
-        if (boxPreviewGroupRef.current) boxPreviewGroupRef.current.clearLayers();
-        return;
-      }
-      if (!boxPreviewGroupRef.current) return;
-      boxPreviewGroupRef.current.clearLayers();
-
-      const p1 = boxCorner1Ref.current;
-      const p2 = [e.latlng.lat, e.latlng.lng];
-      const bounds = L.latLngBounds(p1, p2);
-      const color = '#10b981';
-
-      const rect = L.rectangle(bounds, {
-        color: color,
-        weight: 2.5,
-        fillColor: color,
-        fillOpacity: 0.25,
-        dashArray: '6, 6',
-        interactive: false
-      });
-      boxPreviewGroupRef.current.addLayer(rect);
-    });
-
     setTimeout(() => {
       map.invalidateSize();
     }, 200);
 
     return () => {
-      if (boxPreviewGroupRef.current) {
-        boxPreviewGroupRef.current.clearLayers();
-      }
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -544,7 +468,7 @@ export const ZoneManagementView = () => {
       const line = L.polyline(loop, {
         color: zoneForm.color || '#10b981',
         weight: 3,
-        dashArray: mapMode === 'draw' || mapMode === 'box' ? '5, 5' : null
+        dashArray: mapMode === 'draw' ? '5, 5' : null
       });
       drawingLayerGroupRef.current.addLayer(line);
 
@@ -631,15 +555,18 @@ export const ZoneManagementView = () => {
     const sLng = Number(store.longitude);
     if (isNaN(sLat) || isNaN(sLng)) return;
 
-    const deltaLat = 0.018;
-    const deltaLng = 0.022;
-    const preset = [
-      [Number((sLat - deltaLat).toFixed(6)), Number((sLng - deltaLng).toFixed(6))],
-      [Number((sLat - deltaLat).toFixed(6)), Number((sLng + deltaLng).toFixed(6))],
-      [Number((sLat + deltaLat).toFixed(6)), Number((sLng + deltaLng).toFixed(6))],
-      [Number((sLat + deltaLat).toFixed(6)), Number((sLng - deltaLng).toFixed(6))],
-      [Number((sLat - deltaLat).toFixed(6)), Number((sLng - deltaLng).toFixed(6))]
-    ];
+    const radiusLat = 0.018;
+    const radiusLng = 0.022;
+    const numPoints = 6;
+    const preset = [];
+    for (let i = 0; i < numPoints; i++) {
+      const angle = (i * 2 * Math.PI) / numPoints;
+      const rFactor = i % 2 === 0 ? 1.05 : 0.95;
+      preset.push([
+        Number((sLat + radiusLat * Math.sin(angle) * rFactor).toFixed(6)),
+        Number((sLng + radiusLng * Math.cos(angle) * rFactor).toFixed(6))
+      ]);
+    }
 
     setDrawnVertices(preset);
     const generatedId = `ZONE-FSD-${Date.now().toString().slice(-4)}`;
@@ -673,62 +600,10 @@ export const ZoneManagementView = () => {
     };
   }, [stores]);
 
-  // Start Box Drawing Mode
-  const handleStartBox = () => {
-    setMapMode('box');
-    boxCorner1Ref.current = null;
-    setBoxCorner1(null);
-    setDrawnVertices([]);
-    if (boxPreviewGroupRef.current) boxPreviewGroupRef.current.clearLayers();
-    if (drawingLayerGroupRef.current) drawingLayerGroupRef.current.clearLayers();
-    if (!selectedZone) {
-      setZoneForm({
-        zoneId: `ZONE-FSD-${Date.now().toString().slice(-4)}`,
-        name: 'New Delivery Zone',
-        code: `Z-${Date.now().toString().slice(-3)}`,
-        description: 'Custom rectangular box delivery boundary',
-        city: 'Faisalabad',
-        area: 'Central Commercial Area',
-        color: '#059669',
-        deliveryCharge: 80,
-        minOrderAmount: 450,
-        freeDeliveryThreshold: 2200,
-        estimatedDeliveryTime: '20-35 mins',
-        isActive: true,
-        status: 'active',
-        assignedStoreId: ''
-      });
-    }
-    if (addToast) addToast(`📦 Box Mode: Click Corner 1 on map, then click opposite corner to create box for ${selectedZone ? selectedZone.name : 'delivery zone'}.`, 'info');
-  };
-
-  const handleSnapToBox = () => {
-    if (drawnVertices.length < 2) return;
-    const lats = drawnVertices.map((p) => p[0]);
-    const lngs = drawnVertices.map((p) => p[1]);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-
-    const box = [
-      [Number(maxLat.toFixed(6)), Number(minLng.toFixed(6))], // NW
-      [Number(maxLat.toFixed(6)), Number(maxLng.toFixed(6))], // NE
-      [Number(minLat.toFixed(6)), Number(maxLng.toFixed(6))], // SE
-      [Number(minLat.toFixed(6)), Number(minLng.toFixed(6))]  // SW
-    ];
-    setDrawnVertices(box);
-    setMapMode('edit');
-    if (addToast) addToast('Converted to Box 📦', 'Boundary vertices aligned into a clean rectangular box.', 'info');
-  };
-
   // Start Drawing Mode
   const handleStartDraw = () => {
     setMapMode('draw');
-    boxCorner1Ref.current = null;
-    setBoxCorner1(null);
     setDrawnVertices([]);
-    if (boxPreviewGroupRef.current) boxPreviewGroupRef.current.clearLayers();
     if (drawingLayerGroupRef.current) drawingLayerGroupRef.current.clearLayers();
     if (!selectedZone) {
       setZoneForm({
@@ -769,16 +644,15 @@ export const ZoneManagementView = () => {
 
   // Undo Last Vertex
   const handleUndoVertex = () => {
-    setDrawnVertices((prev) => prev.slice(0, -1));
+    if (drawnVertices.length > 0) {
+      setDrawnVertices((prev) => prev.slice(0, -1));
+    }
   };
 
   // Clear Drawn Points
   const handleClearDrawing = () => {
-    boxCorner1Ref.current = null;
-    setBoxCorner1(null);
     setDrawnVertices([]);
     if (drawingLayerGroupRef.current) drawingLayerGroupRef.current.clearLayers();
-    if (boxPreviewGroupRef.current) boxPreviewGroupRef.current.clearLayers();
     if (addToast) addToast('Drawing cleared.', 'info');
   };
 
@@ -1064,15 +938,6 @@ export const ZoneManagementView = () => {
                 <span>View</span>
               </button>
               <button
-                onClick={handleStartBox}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
-                  mapMode === 'box' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Square className="w-3.5 h-3.5" />
-                <span>Draw Box</span>
-              </button>
-              <button
                 onClick={handleStartDraw}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
                   mapMode === 'draw' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
@@ -1136,58 +1001,16 @@ export const ZoneManagementView = () => {
               style={{ minHeight: '520px' }}
             ></div>
 
-            {/* Box Mode Banner */}
-            {mapMode === 'box' && (
-              <div className="absolute top-4 left-4 right-4 z-20 bg-slate-900/95 backdrop-blur-xs text-white p-3 rounded-2xl shadow-xl flex items-center justify-between gap-3 text-xs border border-emerald-500/40">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
-                  <span>
-                    {boxCorner1 ? (
-                      <span className="text-amber-300 font-bold">
-                        📍 Corner 1 set! Move cursor and click opposite corner to create box.
-                      </span>
-                    ) : (
-                      '📦 Click anywhere on map to set Corner 1 of your delivery box.'
-                    )}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <button
-                    onClick={handleClearDrawing}
-                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[11px] font-bold transition cursor-pointer"
-                  >
-                    Clear
-                  </button>
-                  <button
-                    onClick={() => setMapMode('view')}
-                    className="px-2.5 py-1 bg-rose-900/60 hover:bg-rose-800 text-rose-200 rounded-lg text-[11px] font-bold transition cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* In-Map Drawing Notification / Vertex Actions Banner */}
             {mapMode === 'draw' && (
               <div className="absolute top-4 left-4 right-4 z-20 bg-slate-900/90 backdrop-blur-xs text-white p-3 rounded-2xl shadow-xl flex items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
                   <span>
-                    Click on the map to add polygon boundary points. (Vertices: <strong className="text-emerald-400">{drawnVertices.length}</strong>)
+                    Click on the map to add polygon boundary points around the stores. (Vertices: <strong className="text-emerald-400">{drawnVertices.length}</strong>)
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  {drawnVertices.length >= 2 && (
-                    <button
-                      onClick={handleSnapToBox}
-                      title="Convert vertices to a clean rectangular box"
-                      className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
-                    >
-                      <Square className="w-3 h-3" />
-                      <span>Snap to Box</span>
-                    </button>
-                  )}
                   <button
                     onClick={() => {
                       if (drawnVertices.length >= 3) {
@@ -1229,19 +1052,9 @@ export const ZoneManagementView = () => {
               <div className="absolute top-4 left-4 right-4 z-20 bg-amber-950/90 backdrop-blur-xs text-white p-3 rounded-2xl shadow-xl flex items-center justify-between gap-3 text-xs border border-amber-500/30">
                 <div className="flex items-center gap-2 text-amber-200">
                   <Sliders className="w-4 h-4 text-amber-400" />
-                  <span>Drag vertex handles on the map to reshape the delivery polygon boundary.</span>
+                  <span>Drag vertex handles on the map to reshape the delivery polygon boundary around the store.</span>
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  {drawnVertices.length >= 2 && (
-                    <button
-                      onClick={handleSnapToBox}
-                      title="Snap to clean box"
-                      className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
-                    >
-                      <Square className="w-3 h-3" />
-                      <span>Snap to Box</span>
-                    </button>
-                  )}
                   <button
                     onClick={() => setMapMode('view')}
                     className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-[11px] font-bold transition"

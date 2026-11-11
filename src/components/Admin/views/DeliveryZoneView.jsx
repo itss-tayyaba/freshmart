@@ -750,18 +750,22 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     setDeliveryTiers(updated);
   };
 
-  // Auto-generate a neat 4-point polygon box around the center pin
+  // Auto-generate an organic 6-vertex delivery polygon around the center pin
   const handleGenerateNeighborhoodPolygon = () => {
-    const deltaLat = 0.025; // ~2.8 km north/south
-    const deltaLng = 0.030; // ~2.9 km east/west
-    const autoPoints = [
-      [Number((lat + deltaLat).toFixed(5)), Number((lng - deltaLng).toFixed(5))], // NW
-      [Number((lat + deltaLat).toFixed(5)), Number((lng + deltaLng).toFixed(5))], // NE
-      [Number((lat - deltaLat).toFixed(5)), Number((lng + deltaLng).toFixed(5))], // SE
-      [Number((lat - deltaLat).toFixed(5)), Number((lng - deltaLng).toFixed(5))]  // SW
-    ];
+    const radiusLat = 0.022; // ~2.4 km north/south
+    const radiusLng = 0.026; // ~2.5 km east/west
+    const numPoints = 6;
+    const autoPoints = [];
+    for (let i = 0; i < numPoints; i++) {
+      const angle = (i * 2 * Math.PI) / numPoints;
+      const rFactor = i % 2 === 0 ? 1.05 : 0.95;
+      autoPoints.push([
+        Number((lat + radiusLat * Math.sin(angle) * rFactor).toFixed(5)),
+        Number((lng + radiusLng * Math.cos(angle) * rFactor).toFixed(5))
+      ]);
+    }
     setPolygonPoints(autoPoints);
-    addToast('Zone Polygon Generated 📐', 'A 4-point neighborhood boundary was generated around the store GPS center.');
+    addToast('Zone Polygon Generated 📐', 'A 6-vertex delivery polygon boundary was generated around the store GPS center.');
   };
 
   const handleUndoPolygonPoint = () => {
@@ -1129,8 +1133,9 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
                   type="button"
                   onClick={handleGenerateNeighborhoodPolygon}
                   className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition cursor-pointer"
+                  title="Generate a 6-vertex delivery polygon around store"
                 >
-                  Auto-Box
+                  Generate Polygon ⬡
                 </button>
                 <button
                   type="button"
