@@ -1389,11 +1389,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Link2 className="w-6 h-6 text-emerald-600" />
-            <span>Store Area Polygon & Store Assignments</span>
+            <Compass className="w-6 h-6 text-emerald-600" />
+            <span>Store Delivery Zones & Customer Reach</span>
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            SuperAdmin polygon covers the physical area where partner stores lie. Each individual store maintains its own delivery zone.
+            Concept 2: Each individual store maintains its own delivery zone and radius. Customer orders are dispatched strictly within the store's authorized delivery region.
           </p>
         </div>
         <button

@@ -50,6 +50,7 @@ import {
   ArrowDownRight,
   Link2,
   Navigation,
+  Compass,
   Truck,
   Bike
 } from 'lucide-react';
@@ -1044,15 +1045,18 @@ export const SuperAdminDashboard = () => {
           {/* 3. GIS & DELIVERY ZONE MANAGEMENT */}
           <div>
             <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-              GIS Delivery Zones
+              GIS Delivery Polygons & Zones
             </div>
             <div className="space-y-1">
               <button
                 onClick={() => setActiveNav('zone-management')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('zone-management') || (activeNav === 'zones' ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/20' : '')}`}
               >
-                <MapPin className="w-4 h-4 text-emerald-400" />
-                <span>Zone Management</span>
+                <Layers className="w-4 h-4 text-emerald-400" />
+                <div className="text-left flex-1 min-w-0">
+                  <div className="text-xs font-bold truncate">1. Store Area Polygons</div>
+                  <div className="text-[10px] opacity-70 truncate">Where stores lie</div>
+                </div>
                 <span className="ml-auto text-[9px] bg-teal-900/60 text-teal-300 border border-teal-700/50 px-1.5 py-0.5 rounded font-bold">
                   {gisStats.totalZones}
                 </span>
@@ -1061,8 +1065,11 @@ export const SuperAdminDashboard = () => {
                 onClick={() => setActiveNav('zone-assignments')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('zone-assignments')}`}
               >
-                <Link2 className="w-4 h-4 text-indigo-400" />
-                <span>Zone Assignments</span>
+                <Compass className="w-4 h-4 text-indigo-400" />
+                <div className="text-left flex-1 min-w-0">
+                  <div className="text-xs font-bold truncate">2. Store Delivery Zones</div>
+                  <div className="text-[10px] opacity-70 truncate">Where each store delivers</div>
+                </div>
               </button>
             </div>
           </div>

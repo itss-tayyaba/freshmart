@@ -1,38 +1,31 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import L from 'leaflet';
 import {
+  Layers,
   MapPin,
-  Save,
   Plus,
   Trash2,
-  CheckCircle,
-  AlertCircle,
-  Layers,
-  Store,
-  Navigation,
-  Info,
   Edit3,
   Check,
   X,
   Undo2,
-  MousePointer,
   RefreshCw,
   Search,
-  Building2,
+  Store,
+  Compass,
+  CheckCircle2,
+  AlertTriangle,
+  ArrowRight,
+  Sparkles,
   Sliders,
-  DollarSign,
-  Clock,
-  ShieldCheck,
-  ExternalLink,
-  ChevronRight,
-  Eye,
-  EyeOff,
-  Sparkles
+  Building2,
+  SlidersHorizontal,
+  Info
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
-import { getAllUnifiedStores, CORE_RETAILERS, getRetailerSummarySubtitle } from '../../../utils/storeHelper';
-import { isPointInPolygon } from '../../../utils/distanceCalculator';
+import { getAllUnifiedStores, CORE_RETAILERS } from '../../../utils/storeHelper';
+import { isPointInPolygon, normalizeLatLng } from '../../../utils/distanceCalculator';
 
 // Helper to detect if line segments cross each other
 const hasCrossingSegments = (pts) => {
@@ -74,33 +67,24 @@ const untanglePolygonPoints = (pts) => {
   });
 };
 
-export const ZoneManagementView = () => {
-  const {
-    allBranches = [],
-    tenants = [],
-    adminOrders = [],
-    customerOrders = [],
-    addToast
-  } = useStore();
+// Color presets for polygons (matching image 2 blue, green, orange pentagons)
+const POLYGON_COLORS = [
+  { color: '#2563eb', label: 'Blue', border: 'border-blue-600', bg: 'bg-blue-500' },
+  { color: '#16a34a', label: 'Green', border: 'border-emerald-600', bg: 'bg-emerald-500' },
+  { color: '#ea580c', label: 'Orange', border: 'border-amber-600', bg: 'bg-amber-500' },
+  { color: '#8b5cf6', label: 'Purple', border: 'border-purple-600', bg: 'bg-purple-500' },
+  { color: '#06b6d4', label: 'Cyan', border: 'border-cyan-600', bg: 'bg-cyan-500' },
+  { color: '#e11d48', label: 'Rose', border: 'border-rose-600', bg: 'bg-rose-500' }
+];
 
-  // Zones State
+export const ZoneManagementView = () => {
+  const { allBranches = [], addToast } = useStore();
+
+  // State
   const [zones, setZones] = useState([]);
   const [stores, setStores] = useState(() => getAllUnifiedStores([], allBranches));
-  const [assignments, setAssignments] = useState([]);
-  const [selectedZone, setSelectedZone] = useState(null);
+  const [selectedZoneId, setSelectedZoneId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Search & Filter
-  const [searchQuery, setSearchQuery] = useState('');
-  const [cityFilter, setCityFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [retailerFilter, setRetailerFilter] = useState('all');
-  const [showStoreMarkers, setShowStoreMarkers] = useState(true);
-
-  // Map Tile & Geocoding State
-  const [tileLayerType, setTileLayerType] = useState('osm'); // 'osm' | 'satellite' | 'carto'
-  const [geocodingQuery, setGeocodingQuery] = useState('');
-  const [isGeocoding, setIsGeocoding] = useState(false);
 
   // Drawing & Editing State
   // Mode: 'view' | 'draw' | 'edit'
@@ -109,29 +93,29 @@ export const ZoneManagementView = () => {
   useEffect(() => {
     mapModeRef.current = mapMode;
   }, [mapMode]);
+
   const [drawnVertices, setDrawnVertices] = useState([]); // Array of [lat, lng]
+  const [activePolygonColor, setActivePolygonColor] = useState('#2563eb');
   const [isSaving, setIsSaving] = useState(false);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [zoneToDelete, setZoneToDelete] = useState(null);
 
-  // Right Panel Form State
-  const [zoneForm, setZoneForm] = useState({
+  // Save Modal Form State
+  const [modalForm, setModalForm] = useState({
     zoneId: '',
     name: '',
-    code: '',
-    description: '',
     city: 'Faisalabad',
     area: '',
-    color: '#2563eb',
-    deliveryCharge: 70,
-    minOrderAmount: 400,
-    freeDeliveryThreshold: 2000,
-    estimatedDeliveryTime: '20-35 mins',
-    isActive: true,
-    status: 'active',
-    assignedStoreId: ''
+    color: '#2563eb'
   });
 
-  // Map DOM and Instance Refs
+  // Map Tile & Geocoding State
+  const [tileLayerType, setTileLayerType] = useState('osm'); // 'osm' | 'satellite' | 'carto'
+  const [geocodingQuery, setGeocodingQuery] = useState('');
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [showStoreMarkers, setShowStoreMarkers] = useState(true);
+
+  // Map DOM & Layer Group Refs
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const tileLayerRef = useRef(null);
@@ -139,37 +123,59 @@ export const ZoneManagementView = () => {
   const storeMarkersGroupRef = useRef(null);
   const drawingLayerGroupRef = useRef(null);
 
-  // 4 Core Retailers
-  const CORE_RETAILERS = [
-    { id: 'tenant-alfatah', name: 'Al-Fatah', color: '#991b1b', logo: '🏬' },
-    { id: 'tenant-chasevalue', name: 'Chase Value', color: '#854d0e', logo: '🛒' },
-    { id: 'tenant-chaseup', name: 'Chase Up', color: '#6b21a8', logo: '🏪' },
-    { id: 'tenant-unimart', name: 'Unimart', color: '#0284c7', logo: '🥬' }
-  ];
+  // Retailer helper
+  const getRetailerInfo = (tenantId) => {
+    const t = String(tenantId || '').toLowerCase();
+    return (
+      CORE_RETAILERS.find(
+        (r) =>
+          t.includes(r.id.replace('tenant-', '')) ||
+          (r.id === 'tenant-unimart' && (t.includes('freshmart') || t.includes('unimart')))
+      ) || { name: 'Retailer', color: '#059669', logo: '🏬' }
+    );
+  };
 
-  // Fetch all Zones, Stores, Assignments
+  // Helper to extract polygon LatLng array from any zone object
+  const getZonePolygonLatLngs = (zone) => {
+    if (!zone) return [];
+    const rawRing = zone.geometry?.coordinates?.[0] || zone.coordinates?.[0] || zone.coordinates;
+    if (!Array.isArray(rawRing) || rawRing.length < 3) return [];
+    return rawRing
+      .map((pt) => {
+        const norm = normalizeLatLng(pt);
+        return norm ? [norm.lat, norm.lng] : null;
+      })
+      .filter(Boolean);
+  };
+
+  // Helper to find all stores physically lying inside a polygon
+  const getStoresInPolygon = (polyLatLngs, storeList = stores) => {
+    if (!Array.isArray(polyLatLngs) || polyLatLngs.length < 3 || !Array.isArray(storeList)) return [];
+    return storeList.filter((s) => {
+      const sLat = Number(s.latitude ?? s.coordinates?.lat);
+      const sLng = Number(s.longitude ?? s.coordinates?.lng);
+      return Number.isFinite(sLat) && Number.isFinite(sLng) && isPointInPolygon({ lat: sLat, lng: sLng }, polyLatLngs);
+    });
+  };
+
+  // Fetch all Zones & Stores
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [zonesRes, storesRes, assignRes] = await Promise.all([
+      const [zonesRes, storesRes] = await Promise.all([
         apiService.getZones(),
-        apiService.getStores(),
-        apiService.getAllAssignments()
+        apiService.getStores()
       ]);
 
       if (zonesRes && zonesRes.success && Array.isArray(zonesRes.zones)) {
         setZones(zonesRes.zones);
-        if (zonesRes.zones.length > 0 && !selectedZone) {
-          selectZone(zonesRes.zones[0]);
+        if (zonesRes.zones.length > 0 && !selectedZoneId) {
+          setSelectedZoneId(zonesRes.zones[0].zoneId || zonesRes.zones[0]._id);
         }
       }
 
       const cleanStores = getAllUnifiedStores(storesRes?.stores, allBranches);
       setStores(cleanStores);
-
-      if (assignRes && assignRes.success && Array.isArray(assignRes.assignments)) {
-        setAssignments(assignRes.assignments);
-      }
     } catch (err) {
       console.warn('Zone management fetch error:', err.message);
       setStores(getAllUnifiedStores([], allBranches));
@@ -182,73 +188,68 @@ export const ZoneManagementView = () => {
     fetchData();
   }, [allBranches]);
 
-  // Real-time synchronization when a new store is created or deleted anywhere on the platform
+  // Real-time synchronization
   useEffect(() => {
     const handleStoresUpdated = () => {
       setStores(getAllUnifiedStores([], allBranches));
     };
+    const handleZonesUpdated = (e) => {
+      if (e?.detail && Array.isArray(e.detail)) {
+        setZones(e.detail);
+      } else {
+        fetchData();
+      }
+    };
     window.addEventListener('freshmart_stores_updated', handleStoresUpdated);
-    return () => window.removeEventListener('freshmart_stores_updated', handleStoresUpdated);
+    window.addEventListener('freshmart_zones_updated', handleZonesUpdated);
+    return () => {
+      window.removeEventListener('freshmart_stores_updated', handleStoresUpdated);
+      window.removeEventListener('freshmart_zones_updated', handleZonesUpdated);
+    };
   }, [allBranches]);
 
-  // Compute Statistics
-  const statistics = useMemo(() => {
-    const totalStores = stores.length;
-    const totalRetailers = CORE_RETAILERS.length;
-    const totalZones = zones.length;
-    const activeZones = zones.filter((z) => z.isActive !== false && String(z.status).toLowerCase() !== 'inactive').length;
+  // Real-time stores detected inside currently drawn vertices
+  const cleanDrawnVertices = useMemo(() => {
+    if (drawnVertices.length < 3) return drawnVertices;
+    return hasCrossingSegments(drawnVertices) ? untanglePolygonPoints(drawnVertices) : drawnVertices;
+  }, [drawnVertices]);
 
-    // Assigned store IDs set
-    const assignedStoreIds = new Set(assignments.filter((a) => a.isActive !== false).map((a) => a.storeId));
-    const unassignedStores = Math.max(0, totalStores - assignedStoreIds.size);
+  const storesInsideDrawing = useMemo(() => {
+    if (cleanDrawnVertices.length < 3) return [];
+    return getStoresInPolygon(cleanDrawnVertices, stores);
+  }, [cleanDrawnVertices, stores]);
 
-    // Orders Today
-    const todayStr = new Date().toISOString().split('T')[0];
-    const allOrders = [...(adminOrders || []), ...(customerOrders || [])];
-    const ordersToday = allOrders.filter((o) => (o.createdAt || '').startsWith(todayStr)).length;
+  // Check which stores are ungrouped (not lying inside ANY configured polygon)
+  const ungroupedStores = useMemo(() => {
+    if (zones.length === 0) return stores;
+    return stores.filter((store) => {
+      const sLat = Number(store.latitude ?? store.coordinates?.lat);
+      const sLng = Number(store.longitude ?? store.coordinates?.lng);
+      if (!Number.isFinite(sLat) || !Number.isFinite(sLng)) return false;
 
-    return {
-      totalRetailers,
-      totalStores,
-      totalZones,
-      activeZones,
-      unassignedStores,
-      ordersToday
-    };
-  }, [zones, stores, assignments, adminOrders, customerOrders]);
-
-  // Select Zone
-  const selectZone = (zone) => {
-    setSelectedZone(zone);
-    const currentAssigned = assignments.find((a) => a.zoneId === zone.zoneId && a.isActive !== false);
-    setZoneForm({
-      zoneId: zone.zoneId || '',
-      name: zone.name || '',
-      code: zone.code || '',
-      description: zone.description || '',
-      city: zone.city || 'Faisalabad',
-      area: zone.area || zone.name || '',
-      color: zone.color || '#2563eb',
-      deliveryCharge: zone.deliveryCharge ?? 70,
-      minOrderAmount: zone.minOrderAmount ?? 400,
-      freeDeliveryThreshold: zone.freeDeliveryThreshold ?? 2000,
-      estimatedDeliveryTime: zone.estimatedDeliveryTime || '20-35 mins',
-      isActive: zone.isActive !== false && String(zone.status).toLowerCase() !== 'inactive',
-      status: zone.status || 'active',
-      assignedStoreId: currentAssigned?.storeId || ''
-    });
-
-    if (zone.geometry?.coordinates?.[0]) {
-      const pts = zone.geometry.coordinates[0].map(([lng, lat]) => [lat, lng]);
-      setDrawnVertices(pts);
-
-      // Pan map to zone centroid if map exists
-      if (mapInstanceRef.current && pts.length > 0) {
-        const bounds = L.latLngBounds(pts);
-        mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+      // Check against all zones
+      for (const z of zones) {
+        const polyPts = getZonePolygonLatLngs(z);
+        if (polyPts.length >= 3 && isPointInPolygon({ lat: sLat, lng: sLng }, polyPts)) {
+          return false;
+        }
       }
-    }
-  };
+      return true;
+    });
+  }, [zones, stores]);
+
+  // Statistics
+  const statistics = useMemo(() => {
+    const totalPolygons = zones.length;
+    const totalStores = stores.length;
+    const groupedStoresCount = totalStores - ungroupedStores.length;
+    return {
+      totalPolygons,
+      totalStores,
+      groupedStoresCount,
+      ungroupedCount: ungroupedStores.length
+    };
+  }, [zones, stores, ungroupedStores]);
 
   // Switch Tile Layer
   const setTileLayer = (type) => {
@@ -283,7 +284,7 @@ export const ZoneManagementView = () => {
     }
 
     const map = L.map(mapContainerRef.current, {
-      center: [31.4125, 73.0995], // Faisalabad center
+      center: [31.4145, 73.1095], // Faisalabad center
       zoom: 13,
       zoomControl: true
     });
@@ -301,18 +302,17 @@ export const ZoneManagementView = () => {
 
     // Handle map click during Drawing mode
     map.on('click', (e) => {
+      if (mapModeRef.current !== 'draw') return;
       const roundedLat = Number(e.latlng.lat.toFixed(6));
       const roundedLng = Number(e.latlng.lng.toFixed(6));
 
-      if (mapModeRef.current === 'draw') {
-        setDrawnVertices((prev) => {
-          const next = [...prev, [roundedLat, roundedLng]];
-          if (next.length >= 3 && hasCrossingSegments(next)) {
-            return untanglePolygonPoints(next);
-          }
-          return next;
-        });
-      }
+      setDrawnVertices((prev) => {
+        const next = [...prev, [roundedLat, roundedLng]];
+        if (next.length >= 3 && hasCrossingSegments(next)) {
+          return untanglePolygonPoints(next);
+        }
+        return next;
+      });
     });
 
     setTimeout(() => {
@@ -327,67 +327,71 @@ export const ZoneManagementView = () => {
     };
   }, []);
 
-  // Render Saved Colored Zones on Map
+  // Render Saved Colored Store Area Polygons on Map (matching Image 2)
   useEffect(() => {
     if (!mapInstanceRef.current || !polygonsLayerGroupRef.current) return;
     polygonsLayerGroupRef.current.clearLayers();
 
-    // Render each zone polygon
     zones.forEach((z) => {
-      if (!z.geometry?.coordinates?.[0]) return;
-      const isSelected = selectedZone?.zoneId === z.zoneId;
-      const color = z.color || '#10b981';
-      const isActive = z.isActive !== false && String(z.status).toLowerCase() !== 'inactive';
-
-      const latLngs = (z.geometry.coordinates[0] || [])
-        .map(([lng, lat]) => [Number(lat), Number(lng)])
-        .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && !isNaN(lat) && !isNaN(lng));
+      const latLngs = getZonePolygonLatLngs(z);
       if (latLngs.length < 3) return;
+
+      const zKey = z.zoneId || z._id;
+      const isSelected = selectedZoneId === zKey;
+      const color = z.color || '#2563eb';
+      const insideStores = getStoresInPolygon(latLngs, stores);
 
       const polygon = L.polygon(latLngs, {
         color: color,
-        weight: isSelected ? 3.5 : 2,
+        weight: isSelected ? 3.5 : 2.5,
         fillColor: color,
-        fillOpacity: isSelected ? 0.45 : isActive ? 0.25 : 0.08,
-        dashArray: isActive ? null : '6, 6'
+        fillOpacity: isSelected ? 0.35 : 0.22,
+        dashArray: isSelected ? null : null
       });
 
+      const storesListHtml =
+        insideStores.length > 0
+          ? insideStores
+              .map((s) => {
+                const ret = getRetailerInfo(s.tenantId);
+                return `<li style="margin-top: 3px; display: flex; align-items: center; gap: 4px;">
+                  <span>${ret.logo}</span>
+                  <strong>${s.branchName || s.name}</strong>
+                </li>`;
+              })
+              .join('')
+          : '<li style="color: #94a3b8; font-style: italic;">No stores currently inside</li>';
+
       polygon.bindPopup(`
-        <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+        <div style="font-family: inherit; font-size: 12px; min-width: 190px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
             <strong style="color: #0f172a; font-size: 13px;">${z.name}</strong>
-            <span style="font-size: 10px; background: ${color}20; color: ${color}; padding: 2px 6px; border-radius: 6px; font-weight: 800;">
-              ${z.code}
+            <span style="font-size: 10px; background: ${color}25; color: ${color}; padding: 2px 7px; border-radius: 9999px; font-weight: 800;">
+              ${insideStores.length} Stores Inside
             </span>
           </div>
-          <p style="color: #64748b; font-size: 11px; margin: 0 0 6px 0;">${z.description || z.city}</p>
-          <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 6px; font-size: 11px;">
-            <span style="color: #475569;">Delivery Fee:</span>
-            <strong style="color: #059669;">Rs. ${z.deliveryCharge}</strong>
+          <div style="font-size: 11px; color: #475569; margin-bottom: 6px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">
+            ${z.city || 'Faisalabad'}${z.area ? ` • ${z.area}` : ''}
           </div>
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 3px; font-size: 11px;">
-            <span style="color: #475569;">Free Over:</span>
-            <strong>Rs. ${z.freeDeliveryThreshold}</strong>
+          <div style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">
+            Stores In This Polygon:
           </div>
+          <ul style="margin: 0; padding-left: 14px; font-size: 11px; color: #1e293b; max-height: 120px; overflow-y: auto;">
+            ${storesListHtml}
+          </ul>
         </div>
       `);
 
-      polygon.on('click', (e) => {
-        if (mapModeRef.current === 'draw') {
-          const { lat, lng } = e.latlng;
-          const roundedLat = Number(lat.toFixed(6));
-          const roundedLng = Number(lng.toFixed(6));
-          setDrawnVertices((prev) => [...prev, [roundedLat, roundedLng]]);
-          return;
-        }
-        selectZone(z);
+      polygon.on('click', () => {
+        if (mapModeRef.current === 'draw') return;
+        setSelectedZoneId(zKey);
       });
 
       polygonsLayerGroupRef.current.addLayer(polygon);
     });
-  }, [zones, selectedZone]);
+  }, [zones, selectedZoneId, stores]);
 
-  // Render Stores on Map
+  // Render Store Pins on Map
   useEffect(() => {
     if (!mapInstanceRef.current || !storeMarkersGroupRef.current) return;
     storeMarkersGroupRef.current.clearLayers();
@@ -395,57 +399,46 @@ export const ZoneManagementView = () => {
     if (!showStoreMarkers) return;
 
     stores.forEach((store) => {
-      const lat = Number(store.latitude);
-      const lng = Number(store.longitude);
-      if (isNaN(lat) || isNaN(lng)) return;
+      const lat = Number(store.latitude ?? store.coordinates?.lat);
+      const lng = Number(store.longitude ?? store.coordinates?.lng);
+      if (isNaN(lat) || isNaN(lng) || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-      const retailer = CORE_RETAILERS.find((r) =>
-        String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
-      ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
+      const retailer = getRetailerInfo(store.tenantId);
 
       const pinIcon = L.divIcon({
         className: 'custom-store-pin',
         html: `
           <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer;">
-            <div style="width: 32px; height: 32px; border-radius: 10px; background: ${retailer.color}; border: 2px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">
+            <div style="width: 32px; height: 32px; border-radius: 10px; background: ${retailer.color}; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-size: 15px;">
               ${retailer.logo}
             </div>
-            <div style="margin-top: 2px; padding: 1px 6px; border-radius: 9999px; background: #0f172a; color: white; font-size: 9px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.25);">
+            <div style="margin-top: 2px; padding: 2px 7px; border-radius: 9999px; background: #0f172a; color: white; font-size: 10px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.25);">
               ${store.branchName || store.name}
             </div>
           </div>
         `,
-        iconSize: [32, 48],
-        iconAnchor: [16, 40]
+        iconSize: [32, 50],
+        iconAnchor: [16, 42]
       });
 
       const marker = L.marker([lat, lng], { icon: pinIcon });
-      const storeIdForClick = store.storeId || store._id;
       marker.bindPopup(`
-        <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
-          <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
-          <p style="color: #64748b; font-size: 10px; margin: 2px 0 6px 0;">${store.address}</p>
-          <div style="font-size: 10px; color: #334155;">
-            <strong>Hours:</strong> ${store.openingHours || '8 AM'} - ${store.closingHours || '11 PM'}
+        <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <span style="font-size: 16px;">${retailer.logo}</span>
+            <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
           </div>
-          <div style="font-size: 10px; color: #334155; margin-top: 2px;">
-            <strong>Status:</strong> <span style="color: ${store.isActive ? '#059669' : '#e11d48'}; font-weight: bold;">${store.isActive ? 'Active' : 'Inactive'}</span>
+          <p style="color: #64748b; font-size: 11px; margin: 2px 0 6px 0;">${store.address}</p>
+          <div style="font-size: 10px; color: #475569; font-family: monospace;">
+            GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)}
           </div>
-          <button
-            onclick="window.__createZoneAroundStore && window.__createZoneAroundStore('${storeIdForClick}')"
-            style="margin-top: 8px; width: 100%; padding: 5px 8px; background: #059669; color: white; border: none; border-radius: 8px; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;"
-          >
-            <span>+ Create Zone Around Store</span>
-          </button>
         </div>
       `);
 
       marker.on('click', (e) => {
         if (mapModeRef.current === 'draw') {
           const { lat: mLat, lng: mLng } = e.latlng;
-          const roundedLat = Number(mLat.toFixed(6));
-          const roundedLng = Number(mLng.toFixed(6));
-          setDrawnVertices((prev) => [...prev, [roundedLat, roundedLng]]);
+          setDrawnVertices((prev) => [...prev, [Number(mLat.toFixed(6)), Number(mLng.toFixed(6))]]);
         }
       });
 
@@ -460,25 +453,25 @@ export const ZoneManagementView = () => {
 
     if (drawnVertices.length === 0) return;
 
-    const cleanVertices = hasCrossingSegments(drawnVertices) ? untanglePolygonPoints(drawnVertices) : drawnVertices;
+    const cleanVertices = cleanDrawnVertices;
 
     // Draw lines connecting points
     if (cleanVertices.length >= 2) {
       const loop = cleanVertices.length >= 3 ? [...cleanVertices, cleanVertices[0]] : cleanVertices;
       const line = L.polyline(loop, {
-        color: zoneForm.color || '#10b981',
-        weight: 3,
-        dashArray: mapMode === 'draw' ? '5, 5' : null
+        color: activePolygonColor,
+        weight: 3.5,
+        dashArray: mapMode === 'draw' ? '6, 6' : null
       });
       drawingLayerGroupRef.current.addLayer(line);
 
-      // If closed (or 3+ points in edit/view), show filled polygon preview
+      // Filled polygon preview if 3+ vertices
       if (cleanVertices.length >= 3) {
         const previewPoly = L.polygon(cleanVertices, {
-          color: zoneForm.color || '#10b981',
+          color: activePolygonColor,
           weight: 2,
-          fillColor: zoneForm.color || '#10b981',
-          fillOpacity: 0.35
+          fillColor: activePolygonColor,
+          fillOpacity: 0.3
         });
         drawingLayerGroupRef.current.addLayer(previewPoly);
       }
@@ -486,15 +479,16 @@ export const ZoneManagementView = () => {
 
     // Draw vertex handles
     cleanVertices.forEach(([vLat, vLng], idx) => {
+      const isFirst = idx === 0;
       const handleIcon = L.divIcon({
         className: 'vertex-handle',
         html: `
-          <div style="width: 16px; height: 16px; border-radius: 9999px; background: #ffffff; border: 3px solid ${zoneForm.color || '#10b981'}; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 900; color: #0f172a; cursor: grab;">
+          <div style="width: 22px; height: 22px; border-radius: 9999px; background: ${isFirst ? '#059669' : activePolygonColor}; border: 2.5px solid #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; color: #ffffff; cursor: ${mapMode === 'edit' ? 'grab' : 'pointer'};">
             ${idx + 1}
           </div>
         `,
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
+        iconSize: [22, 22],
+        iconAnchor: [11, 11]
       });
 
       const marker = L.marker([vLat, vLng], {
@@ -502,7 +496,6 @@ export const ZoneManagementView = () => {
         draggable: mapMode === 'edit'
       });
 
-      // Draggable vertices in Edit Mode
       if (mapMode === 'edit') {
         marker.on('drag', (e) => {
           const newPos = e.target.getLatLng();
@@ -516,7 +509,7 @@ export const ZoneManagementView = () => {
 
       drawingLayerGroupRef.current.addLayer(marker);
     });
-  }, [drawnVertices, mapMode, zoneForm.color]);
+  }, [drawnVertices, cleanDrawnVertices, mapMode, activePolygonColor]);
 
   // Geocoding Search: Center map on Pakistani landmark or address
   const handleGeocodingSearch = async (e) => {
@@ -525,7 +518,6 @@ export const ZoneManagementView = () => {
 
     setIsGeocoding(true);
     try {
-      // Nominatim OpenStreetMap Geocoding API
       const q = encodeURIComponent(`${geocodingQuery}, Pakistan`);
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1`, {
         headers: { 'Accept-Language': 'en' }
@@ -540,7 +532,7 @@ export const ZoneManagementView = () => {
           if (addToast) addToast(`Located: ${data[0].display_name.split(',')[0]}`, 'success');
         }
       } else {
-        if (addToast) addToast(`Could not find "${geocodingQuery}". Try another city/location.`, 'error');
+        if (addToast) addToast(`Could not find "${geocodingQuery}". Try another location.`, 'error');
       }
     } catch (err) {
       if (addToast) addToast('Geocoding service unavailable.', 'error');
@@ -549,100 +541,22 @@ export const ZoneManagementView = () => {
     }
   };
 
-  // Preset polygon around a store (e.g. Chase Up Clock Tower)
-  const handlePresetZoneAroundStore = (store) => {
-    const sLat = Number(store.latitude);
-    const sLng = Number(store.longitude);
-    if (isNaN(sLat) || isNaN(sLng)) return;
-
-    const radiusLat = 0.018;
-    const radiusLng = 0.022;
-    const numPoints = 6;
-    const preset = [];
-    for (let i = 0; i < numPoints; i++) {
-      const angle = (i * 2 * Math.PI) / numPoints;
-      const rFactor = i % 2 === 0 ? 1.05 : 0.95;
-      preset.push([
-        Number((sLat + radiusLat * Math.sin(angle) * rFactor).toFixed(6)),
-        Number((sLng + radiusLng * Math.cos(angle) * rFactor).toFixed(6))
-      ]);
-    }
-
-    setDrawnVertices(preset);
-    const generatedId = `ZONE-FSD-${Date.now().toString().slice(-4)}`;
-    setZoneForm({
-      zoneId: generatedId,
-      name: `${store.branchName || store.name} Delivery Zone`,
-      code: `Z-${Date.now().toString().slice(-3)}`,
-      description: `Delivery polygon covering ${store.name} and neighboring areas.`,
-      city: store.city || 'Faisalabad',
-      area: store.branchName || store.name,
-      color: '#8b5cf6',
-      deliveryCharge: 70,
-      minOrderAmount: 400,
-      freeDeliveryThreshold: 2000,
-      estimatedDeliveryTime: '20-30 mins',
-      isActive: true,
-      status: 'active'
-    });
-    setSelectedZone(null);
-    setMapMode('edit');
-    if (addToast) addToast(`Polygon created around ${store.name}! Adjust points if desired, then click Save.`, 'success');
-  };
-
-  useEffect(() => {
-    window.__createZoneAroundStore = (sId) => {
-      const found = stores.find((s) => (s.storeId || s._id) === sId);
-      if (found) handlePresetZoneAroundStore(found);
-    };
-    return () => {
-      delete window.__createZoneAroundStore;
-    };
-  }, [stores]);
-
   // Start Drawing Mode
   const handleStartDraw = () => {
     setMapMode('draw');
     setDrawnVertices([]);
+    setActivePolygonColor('#2563eb');
     if (drawingLayerGroupRef.current) drawingLayerGroupRef.current.clearLayers();
-    if (!selectedZone) {
-      setZoneForm({
-        zoneId: `ZONE-FSD-${Date.now().toString().slice(-4)}`,
-        name: 'New Delivery Zone',
-        code: `Z-${Date.now().toString().slice(-3)}`,
-        description: 'Custom polygon delivery boundary',
-        city: 'Faisalabad',
-        area: 'Central Commercial Area',
-        color: '#2563eb',
-        deliveryCharge: 80,
-        minOrderAmount: 450,
-        freeDeliveryThreshold: 2200,
-        estimatedDeliveryTime: '20-35 mins',
-        isActive: true,
-        status: 'active',
-        assignedStoreId: ''
-      });
+    if (addToast) {
+      addToast(
+        'Draw Mode Active ✏️',
+        'Click on the map around the stores to place polygon boundary points (at least 3 points).',
+        'info'
+      );
     }
-    if (addToast) addToast(`Drawing mode active. Click on map to add polygon boundary points for ${selectedZone ? selectedZone.name : 'delivery zone'}.`, 'info');
   };
 
-  // Automatically Close Polygon Ring
-  const handleAutoCloseRing = () => {
-    if (drawnVertices.length < 3) {
-      if (addToast) addToast('At least 3 vertices are required to close a polygon ring.', 'error');
-      return;
-    }
-    // Auto closing ring
-    const first = drawnVertices[0];
-    const last = drawnVertices[drawnVertices.length - 1];
-    if (first[0] !== last[0] || first[1] !== last[1]) {
-      setDrawnVertices((prev) => [...prev, [first[0], first[1]]]);
-      if (addToast) addToast('Polygon ring closed successfully.', 'success');
-    }
-    setMapMode('edit');
-  };
-
-  // Undo Last Vertex
+  // Undo Last Point
   const handleUndoVertex = () => {
     if (drawnVertices.length > 0) {
       setDrawnVertices((prev) => prev.slice(0, -1));
@@ -656,39 +570,72 @@ export const ZoneManagementView = () => {
     if (addToast) addToast('Drawing cleared.', 'info');
   };
 
-  // Save / Update Zone
-  const handleSaveZone = async (e) => {
-    e.preventDefault();
+  // Cancel Drawing
+  const handleCancelDrawing = () => {
+    setMapMode('view');
+    setDrawnVertices([]);
+    if (drawingLayerGroupRef.current) drawingLayerGroupRef.current.clearLayers();
+  };
 
-    if (!zoneForm.name || !zoneForm.code) {
-      if (addToast) addToast('Zone name and code are required.', 'error');
+  // Open Save Modal
+  const handleOpenSaveModal = () => {
+    if (cleanDrawnVertices.length < 3) {
+      if (addToast) addToast('Missing Vertices', 'Place at least 3 points on the map to form a valid polygon.', 'warning');
       return;
     }
 
-    if (drawnVertices.length < 3) {
-      if (addToast) addToast('A valid polygon requires at least 3 distinct vertices.', 'error');
+    const defaultName = `Store Area Polygon ${zones.length + 1}`;
+    setModalForm({
+      zoneId: `ZONE-FSD-${Date.now().toString().slice(-4)}`,
+      name: defaultName,
+      city: 'Faisalabad',
+      area: '',
+      color: activePolygonColor || '#2563eb'
+    });
+    setIsSaveModalOpen(true);
+  };
+
+  // Save Store Area Polygon & Automatically Link Stores Lying Inside
+  const handleConfirmSavePolygon = async (e) => {
+    if (e) e.preventDefault();
+
+    if (!modalForm.name.trim()) {
+      if (addToast) addToast('Name Required', 'Please provide a name for this store area polygon.', 'error');
+      return;
+    }
+
+    if (cleanDrawnVertices.length < 3) {
+      if (addToast) addToast('Invalid Polygon', 'At least 3 vertices are required.', 'error');
       return;
     }
 
     setIsSaving(true);
     try {
-      // Auto-untangle vertices if they cross over to ensure clean valid polygon geometry
-      const cleanVertices = untanglePolygonPoints(drawnVertices);
+      const cleanVertices = untanglePolygonPoints(cleanDrawnVertices);
 
-      // GeoJSON format: coordinates is [[[lng, lat], ...]]
-      let ring = cleanVertices.map(([lat, lng]) => [
+      // GeoJSON ring: [[lng, lat], ...]
+      const ring = cleanVertices.map(([lat, lng]) => [
         Number(Number(lng).toFixed(6)),
         Number(Number(lat).toFixed(6))
       ]);
-      // Ensure closed ring
+      // Ensure closed linear ring
       const first = ring[0];
       const last = ring[ring.length - 1];
       if (first[0] !== last[0] || first[1] !== last[1]) {
         ring.push([first[0], first[1]]);
       }
 
+      const generatedCode = `Z-${Date.now().toString().slice(-3)}`;
       const payload = {
-        ...zoneForm,
+        zoneId: modalForm.zoneId || `ZONE-FSD-${Date.now().toString().slice(-4)}`,
+        name: modalForm.name.trim(),
+        code: generatedCode,
+        city: modalForm.city.trim() || 'Faisalabad',
+        area: modalForm.area.trim() || modalForm.name.trim(),
+        color: modalForm.color,
+        description: `Store area polygon grouping ${storesInsideDrawing.length} store(s).`,
+        isActive: true,
+        status: 'active',
         coordinates: [ring],
         geometry: {
           type: 'Polygon',
@@ -696,86 +643,142 @@ export const ZoneManagementView = () => {
         }
       };
 
-      // Optimistic update
-      setZones((prev) => {
-        const idx = prev.findIndex((z) => z.zoneId === payload.zoneId);
-        if (idx >= 0) {
-          const copy = [...prev];
-          copy[idx] = payload;
-          return copy;
-        }
-        return [payload, ...prev];
-      });
-      setSelectedZone(payload);
+      // 1. Save polygon via API / LocalStorage
+      const res = await apiService.createZone(payload);
 
-      if (selectedZone && selectedZone.zoneId === zoneForm.zoneId) {
-        // Update existing zone
-        const res = await apiService.updateZone(selectedZone.zoneId, { ...payload, assignedStoreId: zoneForm.assignedStoreId });
-        if (res && res.success) {
-          if (zoneForm.assignedStoreId) {
-            try {
-              await apiService.assignStoresToZone(payload.zoneId, [zoneForm.assignedStoreId]);
-            } catch (e) {}
-          }
-          if (addToast) addToast(`Zone ${zoneForm.name} updated successfully!`, 'success');
-          setMapMode('view');
-          fetchData();
-        } else {
-          if (addToast) addToast(res?.message || 'Error updating zone.', 'error');
+      // 2. Automatically link all stores that physically lie inside this polygon
+      const insideStoreIds = storesInsideDrawing.map((s) => s.storeId || s._id).filter(Boolean);
+      if (insideStoreIds.length > 0) {
+        try {
+          await apiService.assignStoresToZone(payload.zoneId, insideStoreIds);
+        } catch (e) {
+          console.warn('Store assignment link warning:', e.message);
         }
-      } else {
-        // Create new zone
-        const res = await apiService.createZone({ ...payload, assignedStoreId: zoneForm.assignedStoreId });
-        if (res && res.success) {
-          if (zoneForm.assignedStoreId) {
-            try {
-              await apiService.assignStoresToZone(payload.zoneId, [zoneForm.assignedStoreId]);
-            } catch (e) {}
-          }
-          if (addToast) addToast(`Zone ${zoneForm.name} created with verified polygon geometry!`, 'success');
-          setMapMode('view');
-          fetchData();
-        } else {
-          if (addToast) addToast(res?.message || 'Error creating zone.', 'error');
-        }
-      }
 
-      // Propagate polygon boundary to assigned branch and branches inside this zone
-      try {
-        const savedBranches = localStorage.getItem('freshmart_branches');
-        const branchList = savedBranches ? JSON.parse(savedBranches) : (allBranches || []);
-        if (Array.isArray(branchList) && branchList.length > 0) {
-          let updatedAny = false;
-          const assignedId = String(zoneForm.assignedStoreId || '').toLowerCase().trim();
+        // Update freshmart_branches in localStorage
+        try {
+          const savedBranches = localStorage.getItem('freshmart_branches');
+          const branchList = savedBranches ? JSON.parse(savedBranches) : (allBranches || []);
           const updated = branchList.map((b) => {
             const bId = String(b._id || b.id || '').toLowerCase().trim();
             const bStoreId = String(b.storeId || '').toLowerCase().trim();
-            const bLat = Number(b.latitude ?? b.coordinates?.lat);
-            const bLng = Number(b.longitude ?? b.coordinates?.lng);
-            const isInside = isPointInPolygon({ lat: bLat, lng: bLng }, cleanVertices);
-            const isExplicitlyAssigned = assignedId && (bId === assignedId || bStoreId === assignedId);
-
-            if (isExplicitlyAssigned || isInside) {
-              updatedAny = true;
+            const isInside = insideStoreIds.some((id) => {
+              const cleanId = String(id).toLowerCase().trim();
+              return cleanId === bId || cleanId === bStoreId;
+            });
+            if (isInside) {
               return {
                 ...b,
-                deliveryPolygon: cleanVertices,
-                assignedZoneId: payload.zoneId
+                assignedZoneId: payload.zoneId,
+                deliveryPolygon: cleanVertices
               };
             }
             return b;
           });
-          if (updatedAny) {
-            localStorage.setItem('freshmart_branches', JSON.stringify(updated));
-            window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: updated }));
-            window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to sync branches with master zone polygon:', e);
+          localStorage.setItem('freshmart_branches', JSON.stringify(updated));
+          window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: updated }));
+          window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
+        } catch (err) {}
       }
+
+      if (addToast) {
+        addToast(
+          'Store Area Polygon Saved! ⬡',
+          `"${payload.name}" successfully created with ${storesInsideDrawing.length} stores inside!`,
+          'success'
+        );
+      }
+
+      setIsSaveModalOpen(false);
+      setMapMode('view');
+      setDrawnVertices([]);
+      setSelectedZoneId(payload.zoneId);
+      fetchData();
     } catch (err) {
-      if (addToast) addToast(err.message, 'error');
+      if (addToast) addToast('Save Failed', err.message, 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Edit / Redraw existing zone on map
+  const handleEditZoneOnMap = (zone) => {
+    const latLngs = getZonePolygonLatLngs(zone);
+    if (latLngs.length < 3) return;
+
+    setSelectedZoneId(zone.zoneId || zone._id);
+    setActivePolygonColor(zone.color || '#2563eb');
+    setDrawnVertices(latLngs);
+    setMapMode('edit');
+
+    // Pan map to polygon bounds
+    if (mapInstanceRef.current) {
+      const bounds = L.latLngBounds(latLngs);
+      mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    }
+
+    if (addToast) {
+      addToast(
+        `Editing "${zone.name}" ✏️`,
+        'Drag the vertex handles on the map to adjust boundaries, then click "Save Changes".',
+        'info'
+      );
+    }
+  };
+
+  // Save changes to edited zone
+  const handleSaveEditedZone = async () => {
+    if (!selectedZoneId || cleanDrawnVertices.length < 3) return;
+
+    const currentZone = zones.find((z) => (z.zoneId || z._id) === selectedZoneId);
+    if (!currentZone) return;
+
+    setIsSaving(true);
+    try {
+      const cleanVertices = untanglePolygonPoints(cleanDrawnVertices);
+      const ring = cleanVertices.map(([lat, lng]) => [
+        Number(Number(lng).toFixed(6)),
+        Number(Number(lat).toFixed(6))
+      ]);
+      const first = ring[0];
+      const last = ring[ring.length - 1];
+      if (first[0] !== last[0] || first[1] !== last[1]) {
+        ring.push([first[0], first[1]]);
+      }
+
+      const updatedPayload = {
+        ...currentZone,
+        coordinates: [ring],
+        geometry: {
+          type: 'Polygon',
+          coordinates: [ring]
+        }
+      };
+
+      await apiService.updateZone(selectedZoneId, updatedPayload);
+
+      // Re-link stores inside newly adjusted boundary
+      const newlyInsideStores = getStoresInPolygon(cleanVertices, stores);
+      const newlyInsideIds = newlyInsideStores.map((s) => s.storeId || s._id).filter(Boolean);
+      if (newlyInsideIds.length > 0) {
+        try {
+          await apiService.assignStoresToZone(selectedZoneId, newlyInsideIds);
+        } catch (e) {}
+      }
+
+      if (addToast) {
+        addToast(
+          'Polygon Updated! ✨',
+          `"${currentZone.name}" boundary updated with ${newlyInsideStores.length} stores inside.`,
+          'success'
+        );
+      }
+
+      setMapMode('view');
+      setDrawnVertices([]);
+      fetchData();
+    } catch (err) {
+      if (addToast) addToast('Update Failed', err.message, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -785,67 +788,39 @@ export const ZoneManagementView = () => {
   const handleDeleteZone = async () => {
     if (!zoneToDelete) return;
     try {
-      const res = await apiService.deleteZone(zoneToDelete.zoneId);
+      const zId = zoneToDelete.zoneId || zoneToDelete._id;
+      const res = await apiService.deleteZone(zId);
       if (res && res.success) {
-        if (addToast) addToast(`Zone ${zoneToDelete.name} deleted successfully.`, 'success');
+        if (addToast) addToast(`Polygon "${zoneToDelete.name}" deleted.`, 'success');
         setZoneToDelete(null);
-        setSelectedZone(null);
+        if (selectedZoneId === zId) setSelectedZoneId(null);
         setDrawnVertices([]);
         fetchData();
       } else {
-        if (addToast) addToast(res?.message || 'Failed to delete zone.', 'error');
+        if (addToast) addToast(res?.message || 'Failed to delete polygon.', 'error');
       }
     } catch (e) {
       if (addToast) addToast(e.message, 'error');
     }
   };
-
-  // Toggle Active/Inactive
-  const handleToggleZoneActive = async (zone) => {
-    const newActive = zone.isActive === false ? true : false;
-    try {
-      const res = await apiService.toggleZoneStatus(zone.zoneId, newActive);
-      if (res && res.success) {
-        if (addToast) addToast(`Zone ${zone.name} is now ${newActive ? 'Active' : 'Inactive'}.`, 'success');
-        setZones((prev) =>
-          prev.map((z) => (z.zoneId === zone.zoneId ? { ...z, isActive: newActive, status: newActive ? 'active' : 'inactive' } : z))
-        );
-        if (selectedZone?.zoneId === zone.zoneId) {
-          setSelectedZone((prev) => ({ ...prev, isActive: newActive, status: newActive ? 'active' : 'inactive' }));
-          setZoneForm((prev) => ({ ...prev, isActive: newActive, status: newActive ? 'active' : 'inactive' }));
-        }
-      }
-    } catch (e) {
-      if (addToast) addToast(e.message, 'error');
-    }
-  };
-
-  // Assigned Stores for selected zone
-  const assignedStoresForSelectedZone = useMemo(() => {
-    if (!selectedZone) return [];
-    const zoneAssigns = assignments.filter((a) => a.zoneId === selectedZone.zoneId && a.isActive !== false);
-    return zoneAssigns.map((a) => {
-      const store = stores.find((s) => (s.storeId || s._id) === a.storeId);
-      return store || { storeId: a.storeId, name: a.storeId, tenantId: a.tenantId };
-    });
-  }, [selectedZone, assignments, stores]);
 
   return (
     <div className="space-y-6">
       {/* ===================================================================== */}
-      {/* TOP: HEADER & ACTION BUTTONS                                          */}
+      {/* TOP HEADER: Clear Title & Concept Explanation                          */}
       {/* ===================================================================== */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <MapPin className="w-6 h-6 text-emerald-600" />
-            <span>Store Area Polygon Management</span>
+            <Layers className="w-6 h-6 text-emerald-600" />
+            <span>Store Area Polygons (Where Stores Lie)</span>
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Create & manage master geographic polygons that cover the area where partner supermarket stores physically lie.
+            Draw large geographic polygons on the map to group and distribute physical supermarket stores. Stores physically inside each polygon are automatically linked.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-2.5">
           <button
             onClick={fetchData}
             className="px-3 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
@@ -853,516 +828,688 @@ export const ZoneManagementView = () => {
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
-          <button
-            onClick={handleStartDraw}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-950/10 flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>+ Create Delivery Zone</span>
-          </button>
+
+          {mapMode !== 'draw' ? (
+            <button
+              onClick={handleStartDraw}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-950/10 flex items-center gap-2 cursor-pointer"
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>✏️ Draw Polygon for Stores</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleOpenSaveModal}
+              disabled={cleanDrawnVertices.length < 3}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-950/10 flex items-center gap-2 cursor-pointer disabled:opacity-40"
+            >
+              <Check className="w-4 h-4" />
+              <span>Save Polygon ({storesInsideDrawing.length} Stores Inside)</span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* ===================================================================== */}
-      {/* STATISTICS (6 STATS AS SPECIFIED IN MODULE 1)                        */}
+      {/* STATS STRIP: Polygons, Enclosed Stores, Ungrouped Stores              */}
       {/* ===================================================================== */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Total Retailers</span>
-          <span className="text-xl font-black text-slate-900 mt-1 block">{statistics.totalRetailers}</span>
-          <span className="text-[9px] text-slate-400 mt-0.5 block">{getRetailerSummarySubtitle(stores)}</span>
+          <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Configured Polygons</span>
+          <span className="text-2xl font-black text-emerald-600 mt-1 block">{statistics.totalPolygons}</span>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">Store cluster regions</span>
         </div>
+
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+          <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Enclosed Stores</span>
+          <span className="text-2xl font-black text-teal-600 mt-1 block">{statistics.groupedStoresCount}</span>
+          <span className="text-[10px] text-teal-600/80 mt-0.5 block">Lying inside polygons</span>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+          <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Ungrouped Stores</span>
+          <span className={`text-2xl font-black mt-1 block ${statistics.ungroupedCount > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+            {statistics.ungroupedCount}
+          </span>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">
+            {statistics.ungroupedCount > 0 ? 'Needs polygon enclosure' : 'All stores enclosed'}
+          </span>
+        </div>
+
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
           <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Total Stores</span>
-          <span className="text-xl font-black text-slate-900 mt-1 block">{statistics.totalStores}</span>
-          <span className="text-[9px] text-slate-400 mt-0.5 block">Physical branches & hubs</span>
-        </div>
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Total Zones</span>
-          <span className="text-xl font-black text-emerald-600 mt-1 block">{statistics.totalZones}</span>
-          <span className="text-[9px] text-emerald-600/80 mt-0.5 block">Geofenced polygons</span>
-        </div>
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Active Zones</span>
-          <span className="text-xl font-black text-teal-600 mt-1 block">{statistics.activeZones}</span>
-          <span className="text-[9px] text-teal-600/80 mt-0.5 block">Accepting orders</span>
-        </div>
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Unassigned Stores</span>
-          <span className="text-xl font-black text-amber-600 mt-1 block">{statistics.unassignedStores}</span>
-          <span className="text-[9px] text-amber-600/80 mt-0.5 block">Need zone mapping</span>
-        </div>
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Orders Today</span>
-          <span className="text-xl font-black text-sky-600 mt-1 block">{statistics.ordersToday}</span>
-          <span className="text-[9px] text-sky-600/80 mt-0.5 block">Dispatched & live</span>
+          <span className="text-2xl font-black text-slate-900 mt-1 block">{statistics.totalStores}</span>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">Across 4 retail brands</span>
         </div>
       </div>
 
       {/* ===================================================================== */}
-      {/* MAIN WORKSPACE: MAP (LEFT) & ZONE DETAILS PANEL (RIGHT)               */}
+      {/* UNGROUPED STORES NOTIFICATION BANNER                                  */}
       {/* ===================================================================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Side: Map & Drawing Tools (8 cols) */}
-        <div className="lg:col-span-7 xl:col-span-8 space-y-3">
-          {/* Map Controls Toolbar */}
-          <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
-            {/* Geocoding Location Search */}
-            <form onSubmit={handleGeocodingSearch} className="relative flex-1 min-w-[200px]">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={geocodingQuery}
-                onChange={(e) => setGeocodingQuery(e.target.value)}
-                placeholder="Search city, neighborhood, or road in Pakistan..."
-                className="w-full pl-8 pr-16 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-500 focus:bg-white transition"
-              />
-              <button
-                type="submit"
-                disabled={isGeocoding}
-                className="absolute right-1 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-bold cursor-pointer hover:bg-emerald-700 transition"
-              >
-                {isGeocoding ? '...' : 'Go'}
-              </button>
-            </form>
+      {ungroupedStores.length > 0 && (
+        <div className="p-4 bg-amber-50/90 border border-amber-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-sm shrink-0">
+              ⚠️
+            </span>
+            <div>
+              <h4 className="font-bold text-slate-900 text-sm">
+                {ungroupedStores.length} Store(s) not yet enclosed in a polygon:
+              </h4>
+              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                {ungroupedStores.map((s) => {
+                  const r = getRetailerInfo(s.tenantId);
+                  return (
+                    <span
+                      key={s.storeId || s._id}
+                      className="px-2 py-0.5 rounded-md text-[10px] font-bold text-white shadow-2xs flex items-center gap-1"
+                      style={{ backgroundColor: r.color }}
+                    >
+                      <span>{r.logo}</span>
+                      <span>{s.branchName || s.name}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              if (ungroupedStores[0]) {
+                const sLat = Number(ungroupedStores[0].latitude);
+                const sLng = Number(ungroupedStores[0].longitude);
+                if (mapInstanceRef.current && !isNaN(sLat) && !isNaN(sLng)) {
+                  mapInstanceRef.current.flyTo([sLat, sLng], 14, { duration: 1.2 });
+                }
+              }
+              handleStartDraw();
+            }}
+            className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs transition shrink-0 flex items-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+            <span>Draw Polygon Around Them</span>
+          </button>
+        </div>
+      )}
 
-            {/* Drawing Modes */}
-            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+      {/* ===================================================================== */}
+      {/* MAP WORKSPACE: Map with Full Polygon Drawing & Visual Representation   */}
+      {/* ===================================================================== */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden space-y-0">
+        {/* Map Toolbar */}
+        <div className="p-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2.5 text-xs bg-slate-50/50">
+          {/* Location search */}
+          <form onSubmit={handleGeocodingSearch} className="relative flex-1 min-w-[200px] max-w-md">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={geocodingQuery}
+              onChange={(e) => setGeocodingQuery(e.target.value)}
+              placeholder="Search area (e.g. D-Ground, Peoples Colony, Canal Road)..."
+              className="w-full pl-8 pr-16 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-500 transition"
+            />
+            <button
+              type="submit"
+              disabled={isGeocoding}
+              className="absolute right-1 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-bold cursor-pointer hover:bg-emerald-700 transition"
+            >
+              {isGeocoding ? '...' : 'Go'}
+            </button>
+          </form>
+
+          {/* Map Mode Buttons */}
+          <div className="flex items-center gap-1.5 bg-slate-200/70 p-1 rounded-xl">
+            <button
+              onClick={() => {
+                setMapMode('view');
+                setDrawnVertices([]);
+                if (drawingLayerGroupRef.current) drawingLayerGroupRef.current.clearLayers();
+              }}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                mapMode === 'view' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>View Map</span>
+            </button>
+
+            <button
+              onClick={handleStartDraw}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                mapMode === 'draw' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>✏️ Draw Polygon</span>
+            </button>
+          </div>
+
+          {/* Tile Layer & Store Markers Toggle */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-slate-200/70 p-1 rounded-xl text-[11px] font-medium">
               <button
-                onClick={() => setMapMode('view')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
-                  mapMode === 'view' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
+                onClick={() => setTileLayer('osm')}
+                className={`px-2 py-0.5 rounded-md transition ${tileLayerType === 'osm' ? 'bg-white font-bold shadow-2xs' : 'text-slate-600'}`}
               >
-                <MousePointer className="w-3.5 h-3.5" />
-                <span>View</span>
+                Street
               </button>
               <button
-                onClick={handleStartDraw}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
-                  mapMode === 'draw' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
+                onClick={() => setTileLayer('satellite')}
+                className={`px-2 py-0.5 rounded-md transition ${tileLayerType === 'satellite' ? 'bg-white font-bold shadow-2xs' : 'text-slate-600'}`}
               >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>Draw Polygon</span>
+                Satellite
               </button>
               <button
-                onClick={() => setMapMode('edit')}
-                disabled={drawnVertices.length === 0}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
-                  mapMode === 'edit' ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 disabled:opacity-40'
-                }`}
+                onClick={() => setTileLayer('carto')}
+                className={`px-2 py-0.5 rounded-md transition ${tileLayerType === 'carto' ? 'bg-white font-bold shadow-2xs' : 'text-slate-600'}`}
               >
-                <Sliders className="w-3.5 h-3.5" />
-                <span>Edit Vertices</span>
+                Light
               </button>
             </div>
 
-            {/* Map Layer Switcher & Store Markers Toggle */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-[11px] font-medium">
-                <button
-                  onClick={() => setTileLayer('osm')}
-                  className={`px-2 py-0.5 rounded-md transition ${tileLayerType === 'osm' ? 'bg-white font-bold shadow-2xs' : 'text-slate-500'}`}
-                >
-                  Street
-                </button>
-                <button
-                  onClick={() => setTileLayer('satellite')}
-                  className={`px-2 py-0.5 rounded-md transition ${tileLayerType === 'satellite' ? 'bg-white font-bold shadow-2xs' : 'text-slate-500'}`}
-                >
-                  Satellite
-                </button>
-                <button
-                  onClick={() => setTileLayer('carto')}
-                  className={`px-2 py-0.5 rounded-md transition ${tileLayerType === 'carto' ? 'bg-white font-bold shadow-2xs' : 'text-slate-500'}`}
-                >
-                  Light
-                </button>
-              </div>
-
-              <button
-                onClick={() => setShowStoreMarkers(!showStoreMarkers)}
-                className={`p-1.5 rounded-xl border transition cursor-pointer ${
-                  showStoreMarkers ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-400'
-                }`}
-                title="Toggle Store Markers"
-              >
-                <Store className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Interactive Leaflet Map Container */}
-          <div className="relative bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-            <div
-              ref={mapContainerRef}
-              className="w-full h-[520px] z-10"
-              style={{ minHeight: '520px' }}
-            ></div>
-
-            {/* In-Map Drawing Notification / Vertex Actions Banner */}
-            {mapMode === 'draw' && (
-              <div className="absolute top-4 left-4 right-4 z-20 bg-slate-900/90 backdrop-blur-xs text-white p-3 rounded-2xl shadow-xl flex items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
-                  <span>
-                    Click on the map to add polygon boundary points around the stores. (Vertices: <strong className="text-emerald-400">{drawnVertices.length}</strong>)
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <button
-                    onClick={() => {
-                      if (drawnVertices.length >= 3) {
-                        setDrawnVertices(untanglePolygonPoints(drawnVertices));
-                        if (addToast) addToast('Vertices untangled into clean convex boundary ✨', 'success');
-                      }
-                    }}
-                    disabled={drawnVertices.length < 3}
-                    className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[11px] font-bold transition disabled:opacity-40"
-                  >
-                    ✨ Untangle
-                  </button>
-                  <button
-                    onClick={handleUndoVertex}
-                    disabled={drawnVertices.length === 0}
-                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[11px] font-bold transition disabled:opacity-40"
-                  >
-                    Undo
-                  </button>
-                  <button
-                    onClick={handleAutoCloseRing}
-                    disabled={drawnVertices.length < 3}
-                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-bold transition shadow-xs disabled:opacity-40"
-                  >
-                    Close Ring & Finish
-                  </button>
-                  <button
-                    onClick={handleClearDrawing}
-                    className="px-2.5 py-1 bg-rose-900/50 hover:bg-rose-900 text-rose-200 rounded-lg text-[11px] font-bold transition"
-                  >
-                    Clear
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Edit Mode Notification Banner */}
-            {mapMode === 'edit' && (
-              <div className="absolute top-4 left-4 right-4 z-20 bg-amber-950/90 backdrop-blur-xs text-white p-3 rounded-2xl shadow-xl flex items-center justify-between gap-3 text-xs border border-amber-500/30">
-                <div className="flex items-center gap-2 text-amber-200">
-                  <Sliders className="w-4 h-4 text-amber-400" />
-                  <span>Drag vertex handles on the map to reshape the delivery polygon boundary around the store.</span>
-                </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <button
-                    onClick={() => setMapMode('view')}
-                    className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-[11px] font-bold transition"
-                  >
-                    Done Editing
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Zones Quick Bar */}
-          <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex items-center gap-2 overflow-x-auto text-xs">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Zones:</span>
-            {zones.length === 0 ? (
-              <span className="text-slate-500 italic text-xs">
-                No delivery zones drawn yet. Click "+ Create Delivery Zone" above to draw your first polygon on the map.
-              </span>
-            ) : (
-              zones.map((z) => {
-                const isSelected = selectedZone?.zoneId === z.zoneId;
-                const color = z.color || '#10b981';
-                return (
-                  <button
-                    key={z.zoneId}
-                    onClick={() => selectZone(z)}
-                    className={`px-3 py-1.5 rounded-xl font-bold transition shrink-0 flex items-center gap-1.5 border cursor-pointer ${
-                      isSelected
-                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }}></span>
-                    <span>{z.name}</span>
-                    <span className="text-[10px] text-slate-400 font-mono">({z.code})</span>
-                  </button>
-                );
-              })
-            )}
+            <button
+              onClick={() => setShowStoreMarkers(!showStoreMarkers)}
+              className={`px-2.5 py-1 rounded-xl border text-[11px] font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                showStoreMarkers
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                  : 'bg-white border-slate-200 text-slate-400'
+              }`}
+              title="Toggle Store Pins"
+            >
+              <Store className="w-3.5 h-3.5" />
+              <span>Store Pins</span>
+            </button>
           </div>
         </div>
 
-        {/* Right Side: Zone Details Form Panel (4 cols) */}
-        <div className="lg:col-span-5 xl:col-span-4 bg-white rounded-3xl border border-slate-200 shadow-2xs p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div>
-              <h3 className="font-bold text-slate-900 text-sm">Zone Configuration</h3>
-              <p className="text-[11px] text-slate-400">
-                {selectedZone ? `Editing: ${selectedZone.name}` : 'Creating new delivery zone'}
-              </p>
+        {/* Leaflet Map Canvas */}
+        <div className="relative">
+          <div
+            ref={mapContainerRef}
+            className="w-full h-[520px] z-10"
+            style={{ minHeight: '520px' }}
+          ></div>
+
+          {/* IN-MAP DRAWING OVERLAY BANNER */}
+          {mapMode === 'draw' && (
+            <div className="absolute top-4 left-4 right-4 z-20 bg-slate-900/95 backdrop-blur-md text-white p-3.5 rounded-2xl shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs border border-slate-700/60">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
+                  <strong className="text-sm font-bold text-white">Drawing Polygon for Stores:</strong>
+                  <span className="text-slate-400">Click points on the map around stores.</span>
+                </div>
+                <div className="flex items-center gap-3 text-[11px] text-slate-300">
+                  <span>
+                    Vertices: <strong className="text-emerald-400 font-mono text-xs">{cleanDrawnVertices.length}</strong>
+                  </span>
+                  <span>•</span>
+                  <span>
+                    Stores Inside:{' '}
+                    <strong className="text-emerald-400 font-bold">{storesInsideDrawing.length} Stores</strong>
+                  </span>
+                  {storesInsideDrawing.length > 0 && (
+                    <span className="text-slate-400 truncate max-w-sm">
+                      ({storesInsideDrawing.map((s) => s.branchName || s.name).join(', ')})
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap self-end sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (drawnVertices.length >= 3) {
+                      setDrawnVertices(untanglePolygonPoints(drawnVertices));
+                      if (addToast) addToast('Polygon vertices untangled smoothly ✨', 'info');
+                    }
+                  }}
+                  disabled={drawnVertices.length < 3}
+                  className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[11px] font-bold transition disabled:opacity-40 cursor-pointer"
+                >
+                  ✨ Untangle
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleUndoVertex}
+                  disabled={drawnVertices.length === 0}
+                  className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-[11px] font-bold transition disabled:opacity-40 cursor-pointer flex items-center gap-1"
+                >
+                  <Undo2 className="w-3 h-3" />
+                  <span>Undo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleClearDrawing}
+                  className="px-2.5 py-1.5 bg-rose-900/60 hover:bg-rose-900 text-rose-200 rounded-xl text-[11px] font-bold transition cursor-pointer"
+                >
+                  Clear
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCancelDrawing}
+                  className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-[11px] font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenSaveModal}
+                  disabled={cleanDrawnVertices.length < 3}
+                  className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Save Polygon</span>
+                </button>
+              </div>
             </div>
-            {selectedZone && (
-              <button
-                onClick={() => setZoneToDelete(selectedZone)}
-                className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-xl transition cursor-pointer"
-                title="Delete Zone"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
+          )}
+
+          {/* IN-MAP EDIT OVERLAY BANNER */}
+          {mapMode === 'edit' && (
+            <div className="absolute top-4 left-4 right-4 z-20 bg-amber-950/95 backdrop-blur-md text-white p-3.5 rounded-2xl shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs border border-amber-600/40">
+              <div className="flex items-center gap-2 text-amber-200">
+                <Sliders className="w-4 h-4 text-amber-400 shrink-0" />
+                <div>
+                  <strong className="block text-sm text-white">Editing Polygon Vertices:</strong>
+                  <span className="text-[11px] text-amber-300">
+                    Drag the number handles on the map to adjust boundaries around stores. Stores currently inside:{' '}
+                    <strong className="text-white font-bold">{storesInsideDrawing.length}</strong>
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <button
+                  type="button"
+                  onClick={handleCancelDrawing}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveEditedZone}
+                  disabled={isSaving}
+                  className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-black transition shadow-md cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ===================================================================== */}
+      {/* CONFIGURED STORE AREA POLYGONS: Cards showing store count & store list */}
+      {/* ===================================================================== */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <span>Configured Store Area Polygons</span>
+              <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full">
+                {zones.length} Regions
+              </span>
+            </h3>
+            <p className="text-xs text-slate-500 font-medium">
+              Geographic polygons grouping physical stores. Each store lying inside is listed below.
+            </p>
           </div>
 
-          <form onSubmit={handleSaveZone} className="space-y-3.5 text-xs">
-            {/* Zone Name & Code */}
-            <div className="grid grid-cols-3 gap-2.5">
-              <div className="col-span-2">
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Zone Name *</label>
-                <input
-                  type="text"
-                  value={zoneForm.name}
-                  onChange={(e) => setZoneForm({ ...zoneForm, name: e.target.value })}
-                  required
-                  placeholder="e.g. D-Ground Express Zone"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Zone Code *</label>
-                <input
-                  type="text"
-                  value={zoneForm.code}
-                  onChange={(e) => setZoneForm({ ...zoneForm, code: e.target.value.toUpperCase() })}
-                  required
-                  placeholder="DGR-01"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500 font-mono uppercase"
-                />
-              </div>
-            </div>
+          <button
+            onClick={handleStartDraw}
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>+ Draw Another Polygon</span>
+          </button>
+        </div>
 
-            {/* City & Area */}
-            <div className="grid grid-cols-2 gap-2.5">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">City *</label>
-                <input
-                  type="text"
-                  value={zoneForm.city}
-                  onChange={(e) => setZoneForm({ ...zoneForm, city: e.target.value })}
-                  required
-                  placeholder="Faisalabad"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Area / Sector</label>
-                <input
-                  type="text"
-                  value={zoneForm.area}
-                  onChange={(e) => setZoneForm({ ...zoneForm, area: e.target.value })}
-                  placeholder="Peoples Colony"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden"
-                />
-              </div>
+        {zones.length === 0 ? (
+          <div className="p-8 bg-white rounded-3xl border border-slate-200 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-xl font-black">
+              📍
             </div>
+            <h4 className="font-bold text-slate-900 text-base">No Store Area Polygons Created Yet</h4>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              Draw large polygons on the map above to group physical supermarket stores geographically (e.g. 3 large polygons like Blue, Green, and Orange regions).
+            </p>
+            <button
+              onClick={handleStartDraw}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Start Drawing First Polygon</span>
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {zones.map((zone) => {
+              const zKey = zone.zoneId || zone._id;
+              const isSelected = selectedZoneId === zKey;
+              const latLngs = getZonePolygonLatLngs(zone);
+              const insideStores = getStoresInPolygon(latLngs, stores);
+              const color = zone.color || '#2563eb';
 
-            {/* Description */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">Description</label>
-              <textarea
-                rows="2"
-                value={zoneForm.description}
-                onChange={(e) => setZoneForm({ ...zoneForm, description: e.target.value })}
-                placeholder="High-density urban coverage area..."
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden resize-none"
-              ></textarea>
-            </div>
+              return (
+                <div
+                  key={zKey}
+                  onClick={() => {
+                    setSelectedZoneId(zKey);
+                    if (mapInstanceRef.current && latLngs.length > 0) {
+                      mapInstanceRef.current.fitBounds(L.latLngBounds(latLngs), {
+                        padding: [50, 50],
+                        maxZoom: 15
+                      });
+                    }
+                  }}
+                  className={`bg-white rounded-3xl border p-5 transition flex flex-col justify-between cursor-pointer space-y-4 ${
+                    isSelected
+                      ? 'border-emerald-600 ring-2 ring-emerald-500/20 shadow-md'
+                      : 'border-slate-200 hover:border-slate-300 shadow-2xs'
+                  }`}
+                >
+                  {/* Card Header */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span
+                        className="w-3.5 h-3.5 rounded-full shrink-0 shadow-xs ring-2 ring-white"
+                        style={{ backgroundColor: color }}
+                      ></span>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-slate-900 text-sm truncate">{zone.name}</h4>
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          {zone.city || 'Faisalabad'}{zone.area ? ` • ${zone.area}` : ''}
+                        </span>
+                      </div>
+                    </div>
 
-            {/* Color Accent Picker */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1.5 flex items-center justify-between">
-                <span>Polygon Fill & Boundary Color</span>
-                <span className="text-[10px] text-slate-400 font-normal">Blue, Green, Orange matching map sectors</span>
-              </label>
-              <div className="flex items-center gap-2">
-                {[
-                  { color: '#2563eb', label: 'Blue' },
-                  { color: '#16a34a', label: 'Green' },
-                  { color: '#ea580c', label: 'Orange' },
-                  { color: '#8b5cf6', label: 'Purple' },
-                  { color: '#06b6d4', label: 'Cyan' },
-                  { color: '#e11d48', label: 'Rose' }
-                ].map(({ color, label }) => (
-                  <button
-                    key={color}
-                    type="button"
-                    title={label}
-                    onClick={() => setZoneForm({ ...zoneForm, color })}
-                    className={`w-7 h-7 rounded-xl transition cursor-pointer border-2 relative flex items-center justify-center ${
-                      zoneForm.color === color ? 'border-slate-900 scale-110 shadow-xs ring-2 ring-emerald-500/30' : 'border-white'
-                    }`}
-                    style={{ backgroundColor: color }}
-                  >
-                    {zoneForm.color === color && <Check className="w-3.5 h-3.5 text-white drop-shadow-xs" />}
-                  </button>
-                ))}
-              </div>
-            </div>
+                    {/* Prominent Store Count Badge */}
+                    <span
+                      className={`px-2.5 py-1 rounded-full text-xs font-extrabold shrink-0 flex items-center gap-1 ${
+                        insideStores.length > 0
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : 'bg-amber-100 text-amber-800 border border-amber-200'
+                      }`}
+                    >
+                      <Store className="w-3 h-3" />
+                      <span>{insideStores.length} Stores Inside</span>
+                    </span>
+                  </div>
 
-            {/* Pricing & Thresholds */}
-            <div className="grid grid-cols-2 gap-2.5 pt-1">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Delivery Charge (Rs.)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={zoneForm.deliveryCharge}
-                  onChange={(e) => setZoneForm({ ...zoneForm, deliveryCharge: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden font-bold text-emerald-700"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Min Order Amount (Rs.)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={zoneForm.minOrderAmount}
-                  onChange={(e) => setZoneForm({ ...zoneForm, minOrderAmount: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden font-bold"
-                />
-              </div>
-            </div>
+                  {/* List of Stores Lying Inside Polygon */}
+                  <div className="space-y-2 bg-slate-50/70 p-3 rounded-2xl border border-slate-100 flex-1">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <span>Stores Inside This Polygon</span>
+                      <span className="text-slate-500 font-mono">{insideStores.length}</span>
+                    </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Free Delivery Threshold</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={zoneForm.freeDeliveryThreshold}
-                  onChange={(e) => setZoneForm({ ...zoneForm, freeDeliveryThreshold: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Estimated Delivery Time</label>
-                <input
-                  type="text"
-                  value={zoneForm.estimatedDeliveryTime}
-                  onChange={(e) => setZoneForm({ ...zoneForm, estimatedDeliveryTime: e.target.value })}
-                  placeholder="20-35 mins"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden"
-                />
-              </div>
-            </div>
+                    {insideStores.length === 0 ? (
+                      <p className="text-[11px] text-amber-700 italic py-1">
+                        ⚠️ No stores currently lie inside this polygon boundary. Click "Edit on Map" to expand vertices around nearby stores.
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                        {insideStores.map((store) => {
+                          const retailer = getRetailerInfo(store.tenantId);
+                          const sLat = Number(store.latitude);
+                          const sLng = Number(store.longitude);
 
-            {/* Status Toggle */}
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-200">
-              <div>
-                <span className="font-bold text-slate-800 text-xs block">Zone Operating Status</span>
-                <span className="text-[10px] text-slate-400">Controls order eligibility at checkout</span>
+                          return (
+                            <div
+                              key={store.storeId || store._id}
+                              className="bg-white p-2.5 rounded-xl border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-base shrink-0">{retailer.logo}</span>
+                                <div className="min-w-0">
+                                  <div className="font-bold text-xs text-slate-900 truncate">
+                                    {store.branchName || store.name}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 truncate">
+                                    {store.address}
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="text-[9px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-bold shrink-0">
+                                Inside
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Card Actions */}
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditZoneOnMap(zone);
+                      }}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>Edit on Map</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setZoneToDelete(zone);
+                      }}
+                      className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                      title="Delete Polygon"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ===================================================================== */}
+      {/* SAVE STORE AREA POLYGON MODAL                                          */}
+      {/* ===================================================================== */}
+      {isSaveModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 max-w-lg w-full space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Save Store Area Polygon</h3>
+                  <p className="text-xs text-slate-500">
+                    Group physical stores inside this geographic polygon.
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
-                onClick={() => setZoneForm({ ...zoneForm, isActive: !zoneForm.isActive, status: !zoneForm.isActive ? 'active' : 'inactive' })}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
-                  zoneForm.isActive
-                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                    : 'bg-rose-100 text-rose-800 border border-rose-300'
-                }`}
+                onClick={() => setIsSaveModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl"
               >
-                {zoneForm.isActive ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                <span>{zoneForm.isActive ? 'Active' : 'Inactive'}</span>
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Assign Store to this Polygon Zone */}
-            <div className="p-3 bg-emerald-50/70 rounded-2xl border border-emerald-200/80 space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
-                  <Store className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Assign Store to this Delivery Zone</span>
+            <form onSubmit={handleConfirmSavePolygon} className="space-y-4 text-xs">
+              {/* Polygon Name */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Polygon Name *
                 </label>
-                <span className="text-[10px] text-emerald-700 font-bold">{stores.length} store(s)</span>
+                <input
+                  type="text"
+                  value={modalForm.name}
+                  onChange={(e) => setModalForm({ ...modalForm, name: e.target.value })}
+                  required
+                  placeholder="e.g. D-Ground & Peoples Colony Store Area"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500 text-xs font-semibold"
+                />
               </div>
-              {stores.length === 0 ? (
-                <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 leading-snug">
-                  No stores created yet. Create a store first in the <b>Stores</b> tab (e.g. <b>Store A – D-Ground</b>), then assign this polygon to it.
+
+              {/* City & Area */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">City *</label>
+                  <input
+                    type="text"
+                    value={modalForm.city}
+                    onChange={(e) => setModalForm({ ...modalForm, city: e.target.value })}
+                    required
+                    placeholder="Faisalabad"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden text-xs"
+                  />
                 </div>
-              ) : (
-                <select
-                  value={zoneForm.assignedStoreId || ''}
-                  onChange={(e) => setZoneForm({ ...zoneForm, assignedStoreId: e.target.value })}
-                  className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden"
-                >
-                  <option value="">-- Select Store (e.g. Store A – D-Ground) --</option>
-                  {stores.map((s) => {
-                    const sId = s.storeId || s._id;
-                    const isAssigned = assignedStoresForSelectedZone.some((a) => (a.storeId || a._id) === sId);
-                    return (
-                      <option key={sId} value={sId}>
-                        {s.name || s.branchName} ({s.city}) {isAssigned ? '✓ Currently Assigned' : ''}
-                      </option>
-                    );
-                  })}
-                </select>
-              )}
-              {assignedStoresForSelectedZone.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <span className="text-[10px] text-slate-500 font-medium">Currently serving:</span>
-                  {assignedStoresForSelectedZone.map((s, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-0.5 bg-white border border-emerald-300 text-emerald-800 rounded-md text-[10px] font-bold"
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Sector / Area</label>
+                  <input
+                    type="text"
+                    value={modalForm.area}
+                    onChange={(e) => setModalForm({ ...modalForm, area: e.target.value })}
+                    placeholder="e.g. D-Ground Commercial"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Color Selector (matching Blue, Green, Orange like in Image 2) */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+                  Polygon Color (Blue, Green, Orange matching regional sectors)
+                </label>
+                <div className="flex items-center gap-2">
+                  {POLYGON_COLORS.map(({ color, label }) => (
+                    <button
+                      key={color}
+                      type="button"
+                      title={label}
+                      onClick={() => {
+                        setModalForm({ ...modalForm, color });
+                        setActivePolygonColor(color);
+                      }}
+                      className={`w-8 h-8 rounded-xl transition cursor-pointer border-2 relative flex items-center justify-center ${
+                        modalForm.color === color
+                          ? 'border-slate-900 scale-110 shadow-xs ring-2 ring-emerald-500/30'
+                          : 'border-white hover:scale-105'
+                      }`}
+                      style={{ backgroundColor: color }}
                     >
-                      {s.branchName || s.name}
-                    </span>
+                      {modalForm.color === color && <Check className="w-4 h-4 text-white drop-shadow-xs" />}
+                    </button>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Save / Update Button */}
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-md shadow-emerald-950/10 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                <Save className="w-4 h-4" />
-                <span>{isSaving ? 'Validating & Saving...' : selectedZone ? 'Update Delivery Zone' : 'Save New Zone'}</span>
-              </button>
-            </div>
-          </form>
+              {/* Live Stores Enclosed Summary */}
+              <div className="p-3.5 bg-emerald-50/80 rounded-2xl border border-emerald-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                    <Store className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Stores Located Inside This Polygon:</span>
+                  </span>
+                  <span className="text-xs font-black text-emerald-700 bg-white px-2 py-0.5 rounded-full border border-emerald-200">
+                    {storesInsideDrawing.length} Stores
+                  </span>
+                </div>
+
+                {storesInsideDrawing.length === 0 ? (
+                  <p className="text-[11px] text-amber-700 leading-relaxed">
+                    ⚠️ 0 stores are currently inside this polygon boundary. You can still save it, or cancel and expand the boundary to encompass nearby stores.
+                  </p>
+                ) : (
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 pt-1">
+                    {storesInsideDrawing.map((s) => {
+                      const ret = getRetailerInfo(s.tenantId);
+                      return (
+                        <div
+                          key={s.storeId || s._id}
+                          className="bg-white p-2 rounded-xl border border-emerald-100 flex items-center justify-between text-xs"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span>{ret.logo}</span>
+                            <span className="font-bold text-slate-800 truncate">{s.branchName || s.name}</span>
+                          </div>
+                          <span className="text-[10px] text-emerald-700 font-bold shrink-0">✓ Linked</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <p className="text-[10px] text-slate-500 pt-1">
+                  ✓ Stores physically inside this boundary will be automatically associated with this polygon.
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsSaveModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-950/10 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{isSaving ? 'Saving...' : 'Confirm & Save Polygon'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Delete Confirmation Modal */}
+      {/* ===================================================================== */}
+      {/* DELETE CONFIRMATION MODAL                                             */}
+      {/* ===================================================================== */}
       {zoneToDelete && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 max-w-md w-full">
             <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-4">
               <Trash2 className="w-6 h-6" />
             </div>
-            <h3 className="font-bold text-slate-900 text-base">Delete Delivery Zone?</h3>
+            <h3 className="font-bold text-slate-900 text-base">Delete Store Area Polygon?</h3>
             <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-              Are you sure you want to permanently delete <span className="font-bold text-slate-800">{zoneToDelete.name}</span>? Customers inside this polygon will no longer be served unless covered by an overlapping zone.
+              Are you sure you want to delete <span className="font-bold text-slate-800">{zoneToDelete.name}</span>?
+              Physical stores lying inside this boundary will become ungrouped until enclosed by another polygon.
             </p>
             <div className="flex items-center justify-end gap-2.5 mt-6">
               <button
+                type="button"
                 onClick={() => setZoneToDelete(null)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleDeleteZone}
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
               >
-                Delete Zone
+                Delete Polygon
               </button>
             </div>
           </div>
