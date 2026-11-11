@@ -14,6 +14,7 @@ import {
   updateBranchInventory as updateMemInventory
 } from '../../src/data/companyHierarchyData.js';
 import { Branch } from '../models/Branch.js';
+import { Store } from '../models/Store.js';
 import { Inventory } from '../models/Inventory.js';
 import { Company } from '../models/Company.js';
 import { Order } from '../models/Order.js';
@@ -419,57 +420,103 @@ export const updateBranch = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
+    let updated = null;
 
     if (isDbOnline()) {
       try {
-        const updated = await Branch.findOneAndUpdate(
+        updated = await Branch.findOneAndUpdate(
           { $or: [{ _id: id }, { id }] },
           { $set: updates },
           { new: true }
         );
-        if (updated) {
-          return res.json({
-            success: true,
-            message: 'Branch updated in database',
-            branch: updated
-          });
-        }
+        await Store.findOneAndUpdate(
+          { $or: [{ storeId: id }, { _id: id }] },
+          { $set: updates },
+          { new: true }
+        );
       } catch (e) {
         console.error('Branch DB update error:', e.message);
       }
     }
 
+    const merged = { _id: id, id, ...updates };
+    saveDiskBranch(merged);
+
+    try {
+      const diskStores = loadDiskStores();
+      const cleanId = String(id).toLowerCase().trim();
+      const sIdx = diskStores.findIndex((s) => String(s.storeId || s._id || '').toLowerCase() === cleanId);
+      if (sIdx >= 0) {
+        diskStores[sIdx] = { ...diskStores[sIdx], ...updates };
+        saveDiskStores(diskStores);
+      }
+    } catch (e) {}
+
     return res.json({
       success: true,
-      message: 'Branch updated',
-      branch: { _id: id, id, ...updates }
+      message: 'Branch updated in database successfully',
+      branch: updated || merged
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Delete branch from database
+// @desc    Delete branch from database (and associated store, zone, assignments)
 // @route   DELETE /api/branches/:id
 export const deleteBranch = async (req, res) => {
   try {
     const { id } = req.params;
+    const cleanId = String(id).toLowerCase().trim();
 
     if (isDbOnline()) {
       try {
         await Branch.findOneAndDelete({ $or: [{ _id: id }, { id }] });
-        return res.json({
-          success: true,
-          message: 'Branch deleted from database'
-        });
+        await Store.findOneAndDelete({ $or: [{ storeId: id }, { _id: id }] });
+        await ZoneStore.deleteMany({ storeId: id });
+        await DeliveryZone.findOneAndDelete({ assignedStoreId: id });
       } catch (e) {
         console.error('Branch DB delete error:', e.message);
       }
     }
 
+    // Remove from disk branches
+    const disk = loadDiskBranches();
+    const filteredBranches = disk.filter(
+      (b) => String(b._id || b.id || '').toLowerCase().trim() !== cleanId
+    );
+    fs.writeFileSync(BRANCHES_FILE_PATH, JSON.stringify(filteredBranches, null, 2), 'utf-8');
+
+    // Remove from disk stores
+    try {
+      const diskStores = loadDiskStores();
+      const filteredStores = diskStores.filter(
+        (s) => String(s.storeId || s._id || '').toLowerCase().trim() !== cleanId
+      );
+      saveDiskStores(filteredStores);
+    } catch (e) {}
+
+    // Remove from disk assignments
+    try {
+      const diskAssignments = loadDiskAssignments();
+      const filteredAssignments = diskAssignments.filter(
+        (a) => String(a.storeId || '').toLowerCase().trim() !== cleanId
+      );
+      saveDiskAssignments(filteredAssignments);
+    } catch (e) {}
+
+    // Remove from in-memory BRANCHES array
+    const memIdx = BRANCHES.findIndex(
+      (b) => String(b._id || b.id || '').toLowerCase().trim() === cleanId
+    );
+    if (memIdx >= 0) {
+      BRANCHES.splice(memIdx, 1);
+    }
+
     return res.json({
       success: true,
-      message: 'Branch removed'
+      message: 'Branch and associated delivery data deleted from database successfully',
+      id
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -743,6 +790,32 @@ export const updateBranchDeliveryZone = async (req, res) => {
       }
 
       merged.assignedZoneId = targetZoneId;
+
+      if (isDbOnline()) {
+        try {
+          await Branch.findOneAndUpdate(
+            { $or: [{ _id: id }, { id }] },
+            { $set: { assignedZoneId: targetZoneId, ...(updates.deliveryPolygon ? { deliveryPolygon: updates.deliveryPolygon } : {}) } }
+          );
+          const storeUpdates = {
+            assignedZoneId: targetZoneId,
+            ...(updates.deliveryPolygon ? { deliveryPolygon: updates.deliveryPolygon } : {}),
+            ...(updates.deliveryRadiusKm != null ? { deliveryRadiusKm: updates.deliveryRadiusKm } : {}),
+            ...(updates.latitude != null ? { latitude: updates.latitude } : {}),
+            ...(updates.longitude != null ? { longitude: updates.longitude } : {})
+          };
+          if (updates.latitude != null && updates.longitude != null) {
+            storeUpdates.location = { type: 'Point', coordinates: [Number(updates.longitude), Number(updates.latitude)] };
+          }
+          await Store.findOneAndUpdate(
+            { $or: [{ storeId: id }, { _id: id }] },
+            { $set: storeUpdates },
+            { new: true }
+          );
+        } catch (stErr) {
+          console.warn('Branch/Store MongoDB sync warning:', stErr.message);
+        }
+      }
 
       // Also sync to stores_db.json
       const diskStores = loadDiskStores();

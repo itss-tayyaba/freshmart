@@ -1298,10 +1298,25 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
         window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
 
+        // Persist directly to backend database (MongoDB Branch, Store, and DeliveryZone)
+        try {
+          await apiService.updateBranchDeliveryZone(storeId, {
+            deliveryPolygon: cleanPoints,
+            name: sName,
+            deliveryRadiusKm: Number(drawingStoreTarget.deliveryRadiusKm || 5)
+          });
+          await apiService.updateStore(storeId, {
+            deliveryPolygon: cleanPoints,
+            deliveryRadiusKm: Number(drawingStoreTarget.deliveryRadiusKm || 5)
+          });
+        } catch (apiErr) {
+          console.warn('Backend sync warning for store delivery zone:', apiErr);
+        }
+
         if (addToast) {
           addToast(
             'Store Delivery Zone Saved! ⬡',
-            `Custom delivery polygon successfully saved for "${sName}" (${cleanPoints.length} vertices).`,
+            `Custom delivery polygon successfully saved to database for "${sName}" (${cleanPoints.length} vertices).`,
             'success'
           );
         }

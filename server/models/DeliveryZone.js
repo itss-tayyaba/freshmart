@@ -52,6 +52,15 @@ const deliveryZoneSchema = new mongoose.Schema(
         required: true
       }
     },
+    coordinates: {
+      type: mongoose.Schema.Types.Mixed
+    },
+    assignedStoreId: {
+      type: String,
+      default: null,
+      trim: true,
+      index: true
+    },
     color: {
       type: String,
       default: '#10b981'

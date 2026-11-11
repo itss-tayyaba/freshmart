@@ -66,6 +66,12 @@ export const saveDiskOrder = (order) => {
   } catch (e) {}
 };
 
+export const saveAllDiskOrders = (orders) => {
+  try {
+    fs.writeFileSync(ORDERS_FILE_PATH, JSON.stringify(orders, null, 2), 'utf-8');
+  } catch (e) {}
+};
+
 // Initialize in-memory cache with persisted disk orders on server boot
 try {
   const diskOrders = loadDiskOrders();
@@ -1767,6 +1773,61 @@ export const updateMyRiderLocation = async (req, res) => {
     });
   } catch (error) {
     console.error('updateMyRiderLocation error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Delete order by ID (from MongoDB, disk, and cache)
+// @route   DELETE /api/orders/:id or DELETE /api/admin/orders/:id
+export const deleteOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cleanId = String(id || '').replace(/^#/, '').toLowerCase().trim();
+
+    if (!cleanId) {
+      return res.status(400).json({ success: false, message: 'Valid Order ID is required for deletion.' });
+    }
+
+    if (isDbOnline()) {
+      try {
+        await Order.findOneAndDelete({
+          $or: [
+            { orderId: id },
+            { orderId: `#${cleanId.toUpperCase()}` },
+            { id: id },
+            { id: `#${cleanId.toUpperCase()}` },
+            ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])
+          ]
+        });
+      } catch (err) {
+        console.warn('MongoDB Order delete warning:', err.message);
+      }
+    }
+
+    // Remove from in-memory cache
+    const memIdx = ADMIN_ORDERS_FULL.findIndex((m) => {
+      const mId = String(m.id || m.orderId || m._id || '').replace(/^#/, '').toLowerCase().trim();
+      return mId === cleanId;
+    });
+    if (memIdx >= 0) {
+      ADMIN_ORDERS_FULL.splice(memIdx, 1);
+    }
+
+    // Remove from disk orders
+    const diskOrders = loadDiskOrders();
+    const filteredDisk = diskOrders.filter((d) => {
+      const dId = String(d.id || d.orderId || d._id || '').replace(/^#/, '').toLowerCase().trim();
+      return dId !== cleanId;
+    });
+    saveAllDiskOrders(filteredDisk);
+
+    return res.json({
+      success: true,
+      message: `Order #${cleanId.toUpperCase()} deleted successfully from database.`,
+      orderId: id
+    });
+  } catch (error) {
+    console.error('deleteOrder error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };

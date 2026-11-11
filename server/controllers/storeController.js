@@ -515,12 +515,29 @@ export const deleteStore = async (req, res) => {
         await Store.findOneAndDelete({ $or: [{ storeId: id }, { _id: id }] });
         await Branch.findOneAndDelete({ $or: [{ id }, { _id: id }] });
         await ZoneStore.deleteMany({ storeId: id });
+        const { DeliveryZone } = await import('../models/DeliveryZone.js');
+        await DeliveryZone.findOneAndDelete({ assignedStoreId: id });
       } catch (err) {}
     }
 
     const disk = loadDiskStores();
     const filtered = disk.filter((s) => s.storeId !== id && s._id !== id);
     saveDiskStores(filtered);
+
+    // Also remove from branches
+    try {
+      const branchesPath = path.resolve(process.cwd(), 'server/data/branches_db.json');
+      if (fs.existsSync(branchesPath)) {
+        const raw = fs.readFileSync(branchesPath, 'utf-8');
+        const bList = JSON.parse(raw);
+        if (Array.isArray(bList)) {
+          const filteredBranches = bList.filter(
+            (b) => String(b._id || b.id || '').toLowerCase() !== String(id).toLowerCase()
+          );
+          fs.writeFileSync(branchesPath, JSON.stringify(filteredBranches, null, 2), 'utf-8');
+        }
+      }
+    } catch (e) {}
 
     // Also remove from assignments
     try {

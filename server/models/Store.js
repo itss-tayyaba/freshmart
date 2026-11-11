@@ -107,6 +107,15 @@ const storeSchema = new mongoose.Schema(
     deliveryRadiusKm: {
       type: Number,
       default: 5
+    },
+    deliveryPolygon: {
+      type: mongoose.Schema.Types.Mixed,
+      default: []
+    },
+    assignedZoneId: {
+      type: String,
+      default: null,
+      index: true
     }
   },
   {

@@ -515,6 +515,9 @@ export const deleteZone = async (req, res) => {
       try {
         await DeliveryZone.findOneAndDelete({ $or: [{ zoneId: id }, { _id: id }] });
         await ZoneStore.deleteMany({ zoneId: id });
+        await Branch.updateMany({ assignedZoneId: id }, { $set: { assignedZoneId: null } });
+        const { Store } = await import('../models/Store.js');
+        await Store.updateMany({ assignedZoneId: id }, { $set: { assignedZoneId: null } });
       } catch (dbErr) {}
     }
 
@@ -527,6 +530,23 @@ export const deleteZone = async (req, res) => {
       const diskAssignments = loadDiskAssignments();
       const filteredAssignments = diskAssignments.filter((a) => a.zoneId !== id);
       saveDiskAssignments(filteredAssignments);
+
+      const diskBranches = loadDiskBranches();
+      diskBranches.forEach((b) => {
+        if (b.assignedZoneId === id) {
+          b.assignedZoneId = null;
+          saveDiskBranch(b);
+        }
+      });
+      const diskStores = loadDiskStores();
+      let storesChanged = false;
+      diskStores.forEach((s) => {
+        if (s.assignedZoneId === id) {
+          s.assignedZoneId = null;
+          storesChanged = true;
+        }
+      });
+      if (storesChanged) saveDiskStores(diskStores);
     } catch (e) {}
 
     return res.json({

@@ -371,6 +371,18 @@ export const apiService = {
     }
   },
 
+  async deleteOrder(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
   async trackOrder(orderId) {
     try {
       const res = await fetch(`${API_BASE_URL}/orders/track/${encodeURIComponent(orderId)}`);
@@ -1190,6 +1202,19 @@ export const apiService = {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(branchData)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateBranchDeliveryZone(id, deliveryZoneData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/branches/${encodeURIComponent(id)}/delivery-zone`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(deliveryZoneData)
       });
       return await handleResponse(res);
     } catch (e) {

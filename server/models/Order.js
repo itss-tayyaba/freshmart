@@ -118,6 +118,8 @@ const orderSchema = new mongoose.Schema(
       lat: { type: Number },
       lng: { type: Number }
     },
+    customerLatitude: { type: Number },
+    customerLongitude: { type: Number },
     hubCoords: {
       lat: { type: Number },
       lng: { type: Number }
@@ -206,7 +208,8 @@ const orderSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    bufferCommands: false
+    bufferCommands: false,
+    strict: false
   }
 );
 

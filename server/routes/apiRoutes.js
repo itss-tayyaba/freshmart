@@ -34,6 +34,7 @@ import {
   updateMyRiderLocation,
   trackOrder,
   updateOrderStatus,
+  deleteOrder,
   assignRiderToOrder,
   updateRiderLocation,
   verifyDeliveryOtp
@@ -164,6 +165,7 @@ router.put('/orders/:id/rider-location', protect, updateRiderLocation);
 router.put('/orders/:id/pickup-status', protect, requireRoles('pickup_staff', 'staff', 'admin', 'superadmin', 'store admin'), updateOrderPickupStatus);
 router.post('/orders/:id/verify-delivery-otp', verifyDeliveryOtp);
 router.get('/orders', protect, getOrders);
+router.delete('/orders/:id', protect, adminOnly, deleteOrder);
 router.put('/orders/:id/status', protect, requireRoles('admin', 'superadmin', 'store admin', 'pickup_staff', 'staff', 'rider'), validate(updateOrderStatusSchema), updateOrderStatus);
 router.put('/orders/:id/fulfillment', protect, staffOrAdmin, updateOrderStatus);
 
@@ -370,6 +372,20 @@ router.put('/admin/zones/:id', protect, adminOnly, updateZone);
 router.delete('/admin/zones/:id', protect, adminOnly, deleteZone);
 router.patch('/admin/zones/:id/status', protect, adminOnly, toggleZoneStatus);
 
+// Delivery Zones Public & Mobile Aliases
+router.get('/zones', getZones);
+router.post('/zones', protect, adminOnly, createZone);
+router.get('/zones/:id', getZoneById);
+router.put('/zones/:id', protect, adminOnly, updateZone);
+router.delete('/zones/:id', protect, adminOnly, deleteZone);
+router.patch('/zones/:id/status', protect, adminOnly, toggleZoneStatus);
+
+// Stores Aliases
+router.get('/stores', getStores);
+router.get('/stores/:id', getStoreById);
+router.put('/stores/:id', protect, adminOnly, updateStore);
+router.delete('/stores/:id', protect, adminOnly, deleteStore);
+
 // --- Zone-Store Assignments ---
 router.get('/admin/assignments', getAllAssignments);
 router.get('/admin/zones/:id/stores', getZoneStores);
@@ -383,6 +399,7 @@ router.post('/delivery/calculate-fee', authLimiter, calculateFee);
 
 // --- Orders Aliases for Admin & Retailer ---
 router.get('/admin/orders', protect, adminOnly, getOrders);
+router.delete('/admin/orders/:id', protect, adminOnly, deleteOrder);
 router.get('/retailer/orders', protect, getOrders);
 
 export default router;

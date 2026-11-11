@@ -12,8 +12,15 @@ import { Product } from './models/Product.js';
 import { Category } from './models/Category.js';
 import { Company } from './models/Company.js';
 import { Branch } from './models/Branch.js';
+import { Store } from './models/Store.js';
+import { DeliveryZone } from './models/DeliveryZone.js';
+import { ZoneStore } from './models/ZoneStore.js';
 import { Supplier } from './models/ExtraModels.js';
 import { seedCoreEntities } from './config/seedCoreEntities.js';
+import { loadDiskZones } from './controllers/zoneController.js';
+import { loadDiskStores } from './controllers/storeController.js';
+import { loadDiskBranches } from './controllers/companyBranchController.js';
+import { loadDiskAssignments } from './controllers/assignmentController.js';
 import { FRESHMART_PRODUCTS } from '../src/data/freshMartData.js';
 import { ALL_BRANCH_PRODUCTS } from '../src/data/branchCatalogData.js';
 import { STORE_DEPARTMENTS, getDepartmentById } from '../src/data/departmentData.js';
@@ -106,7 +113,8 @@ async function seedInitialDatabase() {
       console.log(`✅ ${COMPANIES.length} Companies synced.`);
     }
 
-    // 2. Synchronize Branches if missing
+    // 2. Synchronize Branches and Delivery Polygons into MongoDB
+    const diskBranches = loadDiskBranches();
     const branchCount = await Branch.countDocuments();
     if (branchCount === 0) {
       console.log('🔄 Syncing Branches into MongoDB...');
@@ -127,12 +135,125 @@ async function seedInitialDatabase() {
             phone: b.phone || '+92 300 0000000',
             operatingHours: b.operatingHours || '08:00 AM - 11:00 PM',
             deliveryRadius: 15,
+            deliveryRadiusKm: 15,
             status: 'active'
           },
           { upsert: true, new: true, setDefaultsOnInsert: true }
         );
       }
       console.log(`✅ ${BRANCHES.length} Branches synced.`);
+    }
+
+    // Always ensure each branch has its latest deliveryPolygon, deliveryRadiusKm, and assignedZoneId in MongoDB
+    for (const b of diskBranches) {
+      const bId = b._id || b.id;
+      if (!bId) continue;
+      await Branch.findOneAndUpdate(
+        { $or: [{ _id: bId }, { id: bId }] },
+        {
+          $set: {
+            deliveryPolygon: b.deliveryPolygon || [],
+            deliveryRadiusKm: Number(b.deliveryRadiusKm || b.deliveryRadius || 5),
+            deliveryRadius: Number(b.deliveryRadiusKm || b.deliveryRadius || 5),
+            assignedZoneId: b.assignedZoneId || null,
+            deliveryTiers: b.deliveryTiers || [],
+            deliveryStatus: b.deliveryStatus || 'active'
+          }
+        }
+      );
+    }
+
+    // 2b. Synchronize Multi-Store Delivery Zones (DeliveryZone collection)
+    const zoneCount = await DeliveryZone.countDocuments();
+    if (zoneCount < 4) {
+      console.log('🔄 Syncing Delivery Zones into MongoDB...');
+      const zonesToSeed = loadDiskZones();
+      for (const z of zonesToSeed) {
+        await DeliveryZone.findOneAndUpdate(
+          { zoneId: z.zoneId },
+          {
+            _id: z._id || z.zoneId,
+            zoneId: z.zoneId,
+            name: z.name,
+            code: z.code,
+            description: z.description || '',
+            city: z.city || 'Faisalabad',
+            area: z.area || '',
+            geometry: z.geometry,
+            coordinates: z.coordinates || z.geometry?.coordinates,
+            color: z.color || '#10b981',
+            deliveryCharge: Number(z.deliveryCharge ?? 100),
+            minOrderAmount: Number(z.minOrderAmount ?? 500),
+            freeDeliveryThreshold: Number(z.freeDeliveryThreshold ?? 2500),
+            estimatedDeliveryTime: z.estimatedDeliveryTime || '25-40 mins',
+            assignedStoreId: z.assignedStoreId || null,
+            isActive: z.isActive !== false,
+            status: z.status || 'active'
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      }
+      console.log(`✅ Delivery Zones synced into MongoDB.`);
+    }
+
+    // 2c. Synchronize Stores into MongoDB (Store collection)
+    const storeCount = await Store.countDocuments();
+    if (storeCount < 4) {
+      console.log('🔄 Syncing Stores into MongoDB...');
+      const storesToSeed = loadDiskStores();
+      for (const s of storesToSeed) {
+        await Store.findOneAndUpdate(
+          { storeId: s.storeId },
+          {
+            _id: s._id || s.storeId,
+            storeId: s.storeId,
+            tenantId: s.tenantId,
+            tenantName: s.tenantName || 'Supermarket',
+            name: s.name,
+            branchName: s.branchName,
+            address: s.address,
+            city: s.city || 'Faisalabad',
+            latitude: s.latitude,
+            longitude: s.longitude,
+            location: s.location || {
+              type: 'Point',
+              coordinates: [s.longitude, s.latitude]
+            },
+            contactNumber: s.contactNumber || '+92 300 0000000',
+            openingHours: s.openingHours || '08:00 AM',
+            closingHours: s.closingHours || '11:00 PM',
+            storeImage: s.storeImage || '',
+            status: s.status || 'active',
+            isActive: s.isActive !== false,
+            operatingStatus: s.operatingStatus || 'Open',
+            manager: s.manager || '',
+            deliveryRadiusKm: Number(s.deliveryRadiusKm || 5),
+            deliveryPolygon: s.deliveryPolygon || [],
+            assignedZoneId: s.assignedZoneId || null
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      }
+      console.log(`✅ Stores synced into MongoDB.`);
+    }
+
+    // 2d. Synchronize Zone-to-Store Assignments into MongoDB
+    const diskAssignments = loadDiskAssignments();
+    for (const a of diskAssignments) {
+      if (a.zoneId && a.storeId) {
+        await ZoneStore.findOneAndUpdate(
+          { zoneId: a.zoneId, storeId: a.storeId },
+          {
+            zoneId: a.zoneId,
+            storeId: a.storeId,
+            tenantId: a.tenantId || 'tenant-unimart',
+            isActive: a.isActive !== false,
+            priority: Number(a.priority || 1),
+            assignedAt: a.assignedAt || new Date()
+          },
+          { upsert: true }
+        );
+      }
     }
 
     // 3. Synchronize Store Departments with Unique Department IDs

@@ -110,8 +110,13 @@ const branchSchema = new mongoose.Schema(
       ]
     },
     deliveryPolygon: {
-      type: [pointSchema],
+      type: mongoose.Schema.Types.Mixed,
       default: []
+    },
+    assignedZoneId: {
+      type: String,
+      default: null,
+      index: true
     },
     supportsExtendedDelivery: {
       type: Boolean,
