@@ -388,6 +388,24 @@ export const ZoneManagementView = () => {
       });
 
       polygonsLayerGroupRef.current.addLayer(polygon);
+
+      // Centroid floating badge on map for quick identification (matching reference image)
+      const cLat = latLngs.reduce((sum, p) => sum + p[0], 0) / latLngs.length;
+      const cLng = latLngs.reduce((sum, p) => sum + p[1], 0) / latLngs.length;
+      const centerIcon = L.divIcon({
+        className: 'custom-polygon-label',
+        html: `
+          <div style="transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 5px; background: rgba(15, 23, 42, 0.90); backdrop-filter: blur(4px); color: #ffffff; border: 2px solid ${color}; padding: 3px 9px; border-radius: 9999px; font-size: 10px; font-weight: 800; box-shadow: 0 4px 12px rgba(0,0,0,0.4); white-space: nowrap; pointer-events: none;">
+            <span style="width: 7px; height: 7px; border-radius: 9999px; background: ${color};"></span>
+            <span>${z.name}</span>
+            <span style="background: ${color}30; color: ${color}; padding: 1px 5px; border-radius: 6px; font-size: 9px; font-weight: 900;">${insideStores.length} Stores</span>
+          </div>
+        `,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0]
+      });
+      const centerMarker = L.marker([cLat, cLng], { icon: centerIcon, interactive: false });
+      polygonsLayerGroupRef.current.addLayer(centerMarker);
     });
   }, [zones, selectedZoneId, stores]);
 
@@ -784,6 +802,110 @@ export const ZoneManagementView = () => {
     }
   };
 
+  // Preset 3 Regional Polygons (Blue, Green, Orange) matching the reference layout
+  const handleAutoClusterThreePolygons = async () => {
+    setIsSaving(true);
+    try {
+      const presets = [
+        {
+          zoneId: `ZONE-FSD-CENTRAL-BLUE`,
+          name: 'Central Region (D-Ground & Peoples Colony)',
+          code: 'FSD-BLUE',
+          city: 'Faisalabad',
+          area: 'Peoples Colony & D-Ground',
+          color: '#2563eb', // Blue
+          description: 'Central Commercial Area grouping flagship supermarket branches.',
+          isActive: true,
+          status: 'active',
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[
+              [73.088, 31.428],
+              [73.122, 31.432],
+              [73.136, 31.404],
+              [73.104, 31.392],
+              [73.082, 31.412],
+              [73.088, 31.428]
+            ]]
+          }
+        },
+        {
+          zoneId: `ZONE-FSD-NORTH-GREEN`,
+          name: 'North-East Region (Canal Road & Susan Road)',
+          code: 'FSD-GREEN',
+          city: 'Faisalabad',
+          area: 'Susan Road & Madina Town',
+          color: '#16a34a', // Green
+          description: 'North-East Commercial Region covering Canal Road and Susan Road marts.',
+          isActive: true,
+          status: 'active',
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[
+              [73.118, 31.448],
+              [73.155, 31.452],
+              [73.162, 31.418],
+              [73.132, 31.412],
+              [73.116, 31.432],
+              [73.118, 31.448]
+            ]]
+          }
+        },
+        {
+          zoneId: `ZONE-FSD-WEST-ORANGE`,
+          name: 'West-South Region (Clock Tower & Samanabad)',
+          code: 'FSD-ORANGE',
+          city: 'Faisalabad',
+          area: 'Samanabad & Clock Tower',
+          color: '#ea580c', // Orange
+          description: 'West-South Commercial Region covering Clock Tower and Samanabad marts.',
+          isActive: true,
+          status: 'active',
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[
+              [73.058, 31.424],
+              [73.094, 31.418],
+              [73.102, 31.382],
+              [73.068, 31.378],
+              [73.052, 31.398],
+              [73.058, 31.424]
+            ]]
+          }
+        }
+      ];
+
+      for (const p of presets) {
+        await apiService.createZone(p);
+        const polyLatLngs = getZonePolygonLatLngs(p);
+        const inStores = getStoresInPolygon(polyLatLngs, stores);
+        const inIds = inStores.map((s) => s.storeId || s._id).filter(Boolean);
+        if (inIds.length > 0) {
+          try {
+            await apiService.assignStoresToZone(p.zoneId, inIds);
+          } catch (e) {}
+        }
+      }
+
+      if (addToast) {
+        addToast(
+          '3 Regional Polygons Initialized! ⬡',
+          'Blue, Green, and Orange regions created. Stores inside each are automatically linked.',
+          'success'
+        );
+      }
+
+      fetchData();
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.setView([31.4145, 73.1095], 13);
+      }
+    } catch (err) {
+      if (addToast) addToast('Initialization Failed', err.message, 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Delete Zone
   const handleDeleteZone = async () => {
     if (!zoneToDelete) return;
@@ -830,13 +952,27 @@ export const ZoneManagementView = () => {
           </button>
 
           {mapMode !== 'draw' ? (
-            <button
-              onClick={handleStartDraw}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-950/10 flex items-center gap-2 cursor-pointer"
-            >
-              <Edit3 className="w-4 h-4" />
-              <span>✏️ Draw Polygon for Stores</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleAutoClusterThreePolygons}
+                disabled={isSaving}
+                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-950/10 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Automatically generate 3 non-overlapping regional polygons (Blue, Green, Orange) matching the reference layout"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>✨ 3 Regional Polygons</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleStartDraw}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-950/10 flex items-center gap-2 cursor-pointer"
+              >
+                <Edit3 className="w-4 h-4" />
+                <span>✏️ Draw Polygon for Stores</span>
+              </button>
+            </div>
           ) : (
             <button
               onClick={handleOpenSaveModal}
@@ -1183,13 +1319,25 @@ export const ZoneManagementView = () => {
             <p className="text-xs text-slate-500 max-w-md mx-auto">
               Draw large polygons on the map above to group physical supermarket stores geographically (e.g. 3 large polygons like Blue, Green, and Orange regions).
             </p>
-            <button
-              onClick={handleStartDraw}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span>Start Drawing First Polygon</span>
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleAutoClusterThreePolygons}
+                disabled={isSaving}
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>✨ Auto-Initialize 3 Regional Polygons (Blue, Green, Orange)</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleStartDraw}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <Edit3 className="w-4 h-4" />
+                <span>✏️ Draw Custom Polygon</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
