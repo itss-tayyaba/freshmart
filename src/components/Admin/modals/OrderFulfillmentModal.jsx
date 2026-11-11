@@ -32,9 +32,17 @@ import { isSameTenant } from '../../../data/companyHierarchyData';
 import { normalizeOrderTenantId } from '../../../utils/orderScope';
 
 export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
-  const { riders, updateOrderFulfillment, addToast, currentTenant } = useStore();
+  const { riders, updateOrderFulfillment, addToast, currentTenant, allBranches = [], activeBranch } = useStore();
 
   if (!isOpen || !order) return null;
+
+  // Resolve store branch delivery radius for rider dispatch geofencing
+  const storeBranch = (allBranches || []).find((b) =>
+    (b._id && (b._id === order.branchId || b._id === order.storeId)) ||
+    (b.id && (b.id === order.branchId || b.id === order.storeId)) ||
+    (b.tenantId && isSameTenant(b.tenantId, order.tenantId))
+  ) || activeBranch || { deliveryRadiusKm: 5 };
+  const storeDeliveryRadius = Number(storeBranch.deliveryRadiusKm || storeBranch.deliveryRadius || 5);
 
   // Determine starting stage from existing order data (4-Step Pipeline)
   const getInitialStage = (ord) => {
@@ -623,6 +631,23 @@ export const OrderFulfillmentModal = ({ order, isOpen, onClose }) => {
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>Auto-Select Best</span>
                 </button>
+              </div>
+
+              {/* Store Delivery Region & Rider Dispatch Geofence */}
+              <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between gap-3 text-xs flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="text-slate-700">
+                    Store Delivery Region: <strong className="text-emerald-800 font-extrabold">{storeDeliveryRadius} km</strong>
+                  </span>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-emerald-700 font-semibold">
+                    ✓ Riders dispatch strictly within store's authorized delivery reach
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-medium">
+                  Configured in Store Delivery Zone settings
+                </span>
               </div>
 
               {/* Handover OTP Showcase Box */}

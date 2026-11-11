@@ -451,13 +451,36 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     );
   };
 
-  // Assign single store directly with 1 click
+  // Assign single store directly with 1 click (enforcing delivery reach)
   const handleAssignSingle = async (storeId, e) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
     if (!activeZone || !storeId) return;
+
+    // Check if store's delivery region reaches this zone
+    const targetStore = stores.find((s) => (s.storeId || s._id || s.id) === storeId);
+    if (targetStore) {
+      const sLat = Number(targetStore.latitude ?? targetStore.coordinates?.lat);
+      const sLng = Number(targetStore.longitude ?? targetStore.coordinates?.lng);
+      const storeRadius = Number(targetStore.deliveryRadiusKm || targetStore.deliveryRadius || 5);
+      const distToZone = calculateDistanceKm(zoneCentroid.lat, zoneCentroid.lng, sLat, sLng);
+      const isInside = activeZonePolygonLatLngs.length >= 3 &&
+        Number.isFinite(sLat) && Number.isFinite(sLng) &&
+        isPointInPolygon({ lat: sLat, lng: sLng }, activeZonePolygonLatLngs);
+
+      if (!isInside && distToZone > storeRadius) {
+        if (addToast) {
+          addToast(
+            'Cannot Assign Store ⛔',
+            `"${targetStore.name}" delivery radius is only ${storeRadius} km, but this delivery zone is ${distToZone.toFixed(1)} km away. The store admin must increase their delivery radius first in Delivery Zone settings!`,
+            'error'
+          );
+        }
+        return;
+      }
+    }
 
     const zId = activeZone.zoneId || activeZone._id || activeZone.id || activeZone.code;
     applyAssignmentOptimistically([storeId]);
@@ -1808,39 +1831,38 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60">
-                        <button
-                          type="button"
-                          onClick={() => handleCreatePolygonAroundStore(store, 2.5)}
-                          className="flex-1 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
-                          title="Draw polygon boundary around store"
-                        >
-                          <Edit3 className="w-3 h-3 text-emerald-600" />
-                          <span>Polygon Around Store</span>
-                        </button>
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200/60 flex-wrap">
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                          <span className="font-bold text-slate-700">Delivery Radius:</span>
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-extrabold border border-emerald-200">
+                            {Number(store.deliveryRadiusKm || store.deliveryRadius || 5)} km
+                          </span>
+                        </div>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingStore(store);
-                            setEditPriority(priorityNum);
-                          }}
-                          className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
-                          title="Edit priority"
-                        >
-                          <Sliders className="w-3 h-3 text-slate-500" />
-                          <span>Priority</span>
-                        </button>
+                        <div className="flex items-center gap-1.5 ml-auto">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingStore(store);
+                              setEditPriority(priorityNum);
+                            }}
+                            className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                            title="Edit fulfillment priority"
+                          >
+                            <Sliders className="w-3 h-3 text-slate-500" />
+                            <span>Priority</span>
+                          </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveStore(sId)}
-                          className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-0.5 cursor-pointer"
-                          title="Unlink store from this zone"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                          <span>Unlink</span>
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveStore(sId)}
+                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-0.5 cursor-pointer"
+                            title="Unlink store from this zone"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Unlink</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1887,10 +1909,13 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
               const isAssigned = isStoreAssigned(store);
               const currAssignment = assignments.find((a) => a.zoneId === activeZone?.zoneId && a.storeId === sId);
 
-              // Check if store physically lies inside active polygon
+              // Check if store physically lies inside active polygon or within delivery radius
               const sLat = Number(store.latitude);
               const sLng = Number(store.longitude);
               const isInsidePoly = activeZonePolygonLatLngs.length >= 3 && isPointInPolygon({ lat: sLat, lng: sLng }, activeZonePolygonLatLngs);
+              const storeRadius = Number(store.deliveryRadiusKm || store.deliveryRadius || 5);
+              const distToZone = store.distanceToZoneCentroidKm ?? (Number.isFinite(sLat) && Number.isFinite(sLng) ? calculateDistanceKm(zoneCentroid.lat, zoneCentroid.lng, sLat, sLng) : 999);
+              const isWithinDeliveryReach = isInsidePoly || (distToZone <= storeRadius);
 
               return (
                 <div
@@ -1898,7 +1923,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                   className={`p-3.5 rounded-2xl border transition flex items-center justify-between gap-3 text-xs ${
                     isAssigned
                       ? 'bg-emerald-50/60 border-emerald-300 shadow-2xs'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
+                      : isWithinDeliveryReach
+                      ? 'bg-white border-slate-200 hover:border-slate-300'
+                      : 'bg-slate-50/70 border-slate-200/80 opacity-75'
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -1917,18 +1944,22 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                         <strong className="text-slate-900 font-bold truncate">{store.name}</strong>
                         {activeZone && (
                           isInsidePoly ? (
-                            <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-800 text-[9px] font-black rounded-md flex items-center gap-0.5 shrink-0 border border-emerald-300">
+                            <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] font-black rounded-md flex items-center gap-0.5 shrink-0 border border-emerald-300">
                               <MapPin className="w-2.5 h-2.5" /> Inside Zone
                             </span>
+                          ) : isWithinDeliveryReach ? (
+                            <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 text-[9px] font-bold rounded-md shrink-0 border border-emerald-200">
+                              🟢 In Range (~{distToZone.toFixed(1)} km ≤ {storeRadius} km)
+                            </span>
                           ) : (
-                            <span className="px-1.5 py-0.2 bg-slate-100 text-slate-500 text-[9px] font-medium rounded-md shrink-0">
-                              Outside Polygon
+                            <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 text-[9px] font-bold rounded-md shrink-0 border border-rose-200" title={`Zone is ${distToZone.toFixed(1)} km away, exceeding store radius of ${storeRadius} km`}>
+                              ⚠️ Out of Range (~{distToZone.toFixed(1)} km &gt; {storeRadius} km)
                             </span>
                           )
                         )}
                       </div>
                       <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                        {retailer.name} • {store.branchName || store.name}
+                        {retailer.name} • {store.branchName || store.name} • Radius: <strong>{storeRadius} km</strong>
                       </p>
                       <p className="text-[10px] text-slate-400 truncate mt-0.5">
                         {store.address}
@@ -1966,23 +1997,35 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                         </div>
                       ) : (
                         <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleCreatePolygonAroundStore(store, 2.5)}
-                            title="Draw delivery polygon around this store on the map"
-                            className="px-2 py-1 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                          >
-                            <Edit3 className="w-3 h-3 text-emerald-600" />
-                            <span>Polygon</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => handleAssignSingle(sId, e)}
-                            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Link to Zone</span>
-                          </button>
+                          {isWithinDeliveryReach ? (
+                            <button
+                              type="button"
+                              onClick={(e) => handleAssignSingle(sId, e)}
+                              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
+                              title={`Link store to ${activeZone.name}`}
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Link to Zone</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (addToast) {
+                                  addToast(
+                                    'Cannot Assign Store ⛔',
+                                    `"${store.name}" delivery radius is only ${storeRadius} km, but "${activeZone.name}" is ${distToZone.toFixed(1)} km away. Store admin must increase their delivery radius first in Delivery Zone view.`,
+                                    'error'
+                                  );
+                                }
+                              }}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                              title={`Zone is ${distToZone.toFixed(1)} km away (Store radius: ${storeRadius} km)`}
+                            >
+                              <AlertTriangle className="w-3 h-3 text-rose-400" />
+                              <span>Out of Range</span>
+                            </button>
+                          )}
                         </div>
                       )
                     ) : (
