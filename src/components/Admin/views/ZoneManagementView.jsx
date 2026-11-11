@@ -226,6 +226,27 @@ export const ZoneManagementView = () => {
       .filter(Boolean);
   };
 
+  // Helper to identify Concept 1 Store Area Polygons (where stores physically lie)
+  const isStoreAreaPolygon = (z) => {
+    if (!z) return false;
+    if (z.isStoreAreaPolygon === true || z.type === 'store_area_polygon') return true;
+    const zid = String(z.zoneId || z._id || z.id || '').toUpperCase();
+    const name = String(z.name || '').toLowerCase();
+    return (
+      zid.includes('MASTER') ||
+      zid.includes('FSD-BLUE') ||
+      zid.includes('FSD-GREEN') ||
+      zid.includes('FSD-ORANGE') ||
+      zid.includes('FSD-CENTRAL-BLUE') ||
+      zid.includes('FSD-NORTH-GREEN') ||
+      zid.includes('FSD-WEST-ORANGE') ||
+      zid.includes('SAP-') ||
+      name.includes('store area polygon') ||
+      name.includes('master regional') ||
+      name.includes('sector')
+    );
+  };
+
   // Helper to find all stores physically lying inside a polygon
   const getStoresInPolygon = (polyLatLngs, storeList = stores) => {
     if (!Array.isArray(polyLatLngs) || polyLatLngs.length < 3 || !Array.isArray(storeList)) return [];
@@ -246,20 +267,19 @@ export const ZoneManagementView = () => {
       ]);
 
       if (zonesRes && zonesRes.success && Array.isArray(zonesRes.zones)) {
-        let loadedZones = zonesRes.zones;
-        // Clean out test spam "Store Area Polygon \d+" or fallback if zones are empty
-        const testZones = loadedZones.filter((z) => /^Store Area Polygon \d+/i.test(z.name || ''));
-        if (loadedZones.length === 0 || testZones.length >= 3) {
-          loadedZones = MASTER_STORE_AREA_POLYGONS;
-          try {
-            localStorage.setItem('freshmart_zones', JSON.stringify(loadedZones));
-            window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: loadedZones }));
-          } catch (e) {}
+        const loadedZones = zonesRes.zones;
+        // On Page 1 (Store Area Polygons), show ONLY the store area polygons!
+        let storeAreaZones = loadedZones.filter(isStoreAreaPolygon);
+        if (storeAreaZones.length === 0) {
+          storeAreaZones = MASTER_STORE_AREA_POLYGONS;
         }
-        setZones(loadedZones);
-        if (loadedZones.length > 0 && !selectedZoneId) {
-          setSelectedZoneId(loadedZones[0].zoneId || loadedZones[0]._id);
+        setZones(storeAreaZones);
+        if (storeAreaZones.length > 0 && !selectedZoneId) {
+          setSelectedZoneId(storeAreaZones[0].zoneId || storeAreaZones[0]._id);
         }
+      } else {
+        setZones(MASTER_STORE_AREA_POLYGONS);
+        setSelectedZoneId(MASTER_STORE_AREA_POLYGONS[0].zoneId);
       }
 
       const cleanStores = getAllUnifiedStores(storesRes?.stores, allBranches);
@@ -736,6 +756,8 @@ export const ZoneManagementView = () => {
         area: modalForm.area.trim() || modalForm.name.trim(),
         color: modalForm.color,
         description: `Store area polygon grouping ${storesInsideDrawing.length} store(s).`,
+        isStoreAreaPolygon: true,
+        type: 'store_area_polygon',
         isActive: true,
         status: 'active',
         coordinates: [ring],

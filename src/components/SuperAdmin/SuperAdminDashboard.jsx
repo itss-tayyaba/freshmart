@@ -61,7 +61,7 @@ import { apiService } from '../../services/api';
 import { DeliveryZoneView } from '../Admin/views/DeliveryZoneView';
 import { StoreManagementView } from '../Admin/views/StoreManagementView';
 import { ZoneManagementView } from '../Admin/views/ZoneManagementView';
-import { ZoneStoreAssignmentView } from '../Admin/views/ZoneStoreAssignmentView';
+import { ZoneStoreAssignmentView, isStoreAreaPolygon } from '../Admin/views/ZoneStoreAssignmentView';
 import { DeliveryView } from '../Admin/views/DeliveryView';
 import { getAllUnifiedStores, BASELINE_FIVE_STORES, CORE_RETAILERS } from '../../utils/storeHelper';
 
@@ -388,10 +388,14 @@ export const SuperAdminDashboard = () => {
   const gisStats = useMemo(() => {
     const totalStores = liveStores.length;
     const totalRetailers = Math.max(CORE_RETAILERS?.length || 4, (tenants || []).length);
-    const totalZones = (liveZones && Array.isArray(liveZones)) ? liveZones.length : 0;
+    const storeAreaPolygonCount = 3; // The 3 Master Regional Polygons covering all physical stores
+    const deliveryZoneCount = (liveZones && Array.isArray(liveZones))
+      ? liveZones.filter((z) => !isStoreAreaPolygon(z)).length
+      : 4;
+    const totalZones = deliveryZoneCount;
     const activeZones = (liveZones && Array.isArray(liveZones))
-      ? liveZones.filter((z) => z.isActive !== false && String(z.status).toLowerCase() !== 'inactive').length
-      : 0;
+      ? liveZones.filter((z) => !isStoreAreaPolygon(z) && z.isActive !== false && String(z.status).toLowerCase() !== 'inactive').length
+      : deliveryZoneCount;
     const assignedStoreIds = new Set(liveAssignments.filter((a) => a.isActive !== false).map((a) => a.storeId));
     const unassignedStores = Math.max(0, totalStores - assignedStoreIds.size);
     const todayStr = new Date().toISOString().split('T')[0];
@@ -400,6 +404,8 @@ export const SuperAdminDashboard = () => {
     return {
       totalRetailers,
       totalStores,
+      storeAreaPolygonCount,
+      deliveryZoneCount,
       totalZones,
       activeZones,
       unassignedStores,
@@ -1058,7 +1064,7 @@ export const SuperAdminDashboard = () => {
                   <div className="text-[10px] opacity-70 truncate">3 Main (Covers all stores)</div>
                 </div>
                 <span className="ml-auto text-[9px] bg-teal-900/60 text-teal-300 border border-teal-700/50 px-1.5 py-0.5 rounded font-bold">
-                  {gisStats.totalZones}
+                  {gisStats.storeAreaPolygonCount}
                 </span>
               </button>
               <button
@@ -1070,6 +1076,9 @@ export const SuperAdminDashboard = () => {
                   <div className="text-xs font-bold truncate">2. Store Delivery Regions</div>
                   <div className="text-[10px] opacity-70 truncate">Delivery region per store</div>
                 </div>
+                <span className="ml-auto text-[9px] bg-indigo-950/60 text-indigo-300 border border-indigo-700/50 px-1.5 py-0.5 rounded font-bold">
+                  {gisStats.deliveryZoneCount}
+                </span>
               </button>
             </div>
           </div>
