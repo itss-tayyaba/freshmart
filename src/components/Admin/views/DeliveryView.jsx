@@ -207,11 +207,12 @@ export const DeliveryView = () => {
     };
 
     // 1. Check branches explicitly added by user in allBranches for this store - FILTERED TO FAISALABAD ONLY!
+    const isSuperAdmin = user?.role === 'superadmin' || user?.isSuperAdmin || adminRole === 'superadmin';
     const storeAddedBranches = (allBranches || []).filter(
       (b) =>
         b &&
         (b.status === 'active' || b.status === 'Active' || !b.status) &&
-        (b.tenantId === canonicalTenantId || b.tenantId === activeTenantId || isSameTenant(b.tenantId, activeTenantId)) &&
+        (isSuperAdmin || b.tenantId === canonicalTenantId || b.tenantId === activeTenantId || isSameTenant(b.tenantId, activeTenantId)) &&
         isFsdCity(b.city) &&
         isFsdName(b.name)
     );
@@ -655,8 +656,12 @@ export const DeliveryView = () => {
       coordinates: { lat, lng },
       coverageRadiusKm: Number(newRiderForm.coverageRadiusKm || selectedBranch?.deliveryRadius || 5),
       status: 'Active',
-      tenantId: (user?.role !== 'superadmin' && user?.tenantId) ? user.tenantId : (currentTenant?.id || user?.tenantId || 'tenant-alfatah'),
-      tenantName: (user?.role !== 'superadmin' && user?.tenantName) ? user.tenantName : (currentTenant?.name || user?.tenantName || 'Al-Fatah'),
+      tenantId: (user?.role !== 'superadmin' && user?.tenantId)
+        ? user.tenantId
+        : (selectedBranch?.tenantId || currentTenant?.id || 'tenant-alfatah'),
+      tenantName: (user?.role !== 'superadmin' && user?.tenantName)
+        ? user.tenantName
+        : (selectedBranch?.tenantName || currentTenant?.name || 'Al-Fatah'),
       cnic: newRiderForm.cnic ? newRiderForm.cnic.trim() : '',
       username: generatedUsername,
       password: generatedPassword,
@@ -1883,9 +1888,10 @@ export const DeliveryView = () => {
                       <optgroup label="Available Faisalabad Store Branches (FSD Only)">
                         {availableBranches.map((b) => {
                           const branchKey = b.id || b._id || b.name;
+                          const tName = b.tenantName || (b.tenantId?.includes('alfatah') ? 'Al-Fatah' : b.tenantId?.includes('chasevalue') ? 'Chase Value' : b.tenantId?.includes('chaseup') ? 'Chase Up' : 'Unimaart');
                           return (
                             <option key={branchKey} value={branchKey}>
-                              🏪 {b.name} (Faisalabad)
+                              🏪 {tName} — {b.name} (Faisalabad)
                             </option>
                           );
                         })}

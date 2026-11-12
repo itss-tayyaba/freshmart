@@ -102,7 +102,10 @@ export const SuperAdminDashboard = () => {
     toggleStoreAdminStatus,
     platformSettings,
     updatePlatformSettings,
-    sanitizeOrder
+    sanitizeOrder,
+    riders = [],
+    toggleRiderStatus,
+    deleteRider
   } = useStore();
 
   // Active Navigation in Sidebar
@@ -191,6 +194,12 @@ export const SuperAdminDashboard = () => {
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
   const [customerSearch, setCustomerSearch] = useState('');
   const [showPasswordMap, setShowPasswordMap] = useState({});
+
+  // Riders Directory Search & Filter Controls
+  const [riderSearch, setRiderSearch] = useState('');
+  const [riderTenantFilter, setRiderTenantFilter] = useState('all');
+  const [riderBranchFilter, setRiderBranchFilter] = useState('all');
+  const [riderDutyFilter, setRiderDutyFilter] = useState('all');
 
   // Main Dashboard Graph & Analytics Controls
   const [chartPeriod, setChartPeriod] = useState('7days'); // 'today' | '7days' | '30days' | 'year'
@@ -449,6 +458,104 @@ export const SuperAdminDashboard = () => {
 
     return { unallocated, allocated };
   }, [liveStores, storeAdmins]);
+
+  // Helper to calculate active in-progress deliveries for any rider
+  const getRiderActiveOrderCount = (rider) => {
+    if (!rider) return 0;
+    const rId = String(rider.id || rider.riderId || '').toLowerCase();
+    const rName = String(rider.name || rider.username || '').toLowerCase();
+    return allCrossStoreOrders.filter((ord) => {
+      const isAssigned =
+        String(ord.assignedRider || '').toLowerCase() === rId ||
+        String(ord.assignedRider || '').toLowerCase() === rName ||
+        String(ord.assignedRider?.id || '').toLowerCase() === rId ||
+        String(ord.assignedRider?.name || '').toLowerCase() === rName;
+      const isActiveStatus = ['out for delivery', 'dispatched', 'processing', 'assigned', 'on the way'].includes(
+        String(ord.orderStatus || ord.status || '').toLowerCase()
+      );
+      return isAssigned && isActiveStatus;
+    }).length;
+  };
+
+  // Branch Rider Coverage & Allocation Status
+  const branchRiderCoverage = useMemo(() => {
+    const allocated = [];
+    const unallocated = [];
+
+    (liveStores || []).forEach((store) => {
+      const sId = String(store.storeId || store._id || '').trim().toLowerCase();
+      const sName = String(store.branchName || store.name || '').trim().toLowerCase();
+      const hasRider = (riders || []).some((r) => {
+        const rBId = String(r.branchId || '').trim().toLowerCase();
+        const rBName = String(r.branchName || '').trim().toLowerCase();
+        return (
+          (rBId && (rBId === sId || sId.includes(rBId) || rBId.includes(sId))) ||
+          (rBName && (rBName === sName || sName.includes(rBName) || rBName.includes(sName)))
+        );
+      });
+
+      if (hasRider) {
+        allocated.push(store);
+      } else {
+        unallocated.push(store);
+      }
+    });
+
+    return { unallocated, allocated };
+  }, [liveStores, riders]);
+
+  // Filtered Riders List for Dedicated Riders Directory
+  const filteredRiders = useMemo(() => {
+    return (riders || []).filter((r) => {
+      // Supermarket / Tenant Filter
+      if (riderTenantFilter !== 'all') {
+        const matchesTenant =
+          isSameTenant(r.tenantId, riderTenantFilter) ||
+          String(r.tenantName || '').toLowerCase().includes(riderTenantFilter.toLowerCase());
+        if (!matchesTenant) return false;
+      }
+
+      // Branch Filter
+      if (riderBranchFilter !== 'all') {
+        const rBId = String(r.branchId || '').toLowerCase();
+        const rBName = String(r.branchName || '').toLowerCase();
+        const target = riderBranchFilter.toLowerCase();
+        if (rBId !== target && rBName !== target && !rBName.includes(target)) {
+          return false;
+        }
+      }
+
+      // Duty Status Filter
+      if (riderDutyFilter !== 'all') {
+        const isOnDuty = r.status === 'Active' || r.status === 'On-Duty' || r.status === 'Available';
+        if (riderDutyFilter === 'on-duty' && !isOnDuty) return false;
+        if (riderDutyFilter === 'off-duty' && isOnDuty) return false;
+      }
+
+      // Search Query
+      if (riderSearch.trim()) {
+        const query = riderSearch.toLowerCase().trim();
+        const name = String(r.name || '').toLowerCase();
+        const id = String(r.id || r.riderId || '').toLowerCase();
+        const phone = String(r.phone || '').toLowerCase();
+        const vehicle = String(r.vehicleNumber || r.vehicleType || '').toLowerCase();
+        const branch = String(r.branchName || '').toLowerCase();
+        const tenant = String(r.tenantName || '').toLowerCase();
+        if (
+          !name.includes(query) &&
+          !id.includes(query) &&
+          !phone.includes(query) &&
+          !vehicle.includes(query) &&
+          !branch.includes(query) &&
+          !tenant.includes(query)
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [riders, riderTenantFilter, riderBranchFilter, riderDutyFilter, riderSearch]);
 
   // =========================================================================
   // SUPER ADMIN MAIN DASHBOARD: ANALYTICS & GRAPH ENGINE
@@ -1094,6 +1201,13 @@ export const SuperAdminDashboard = () => {
                   Passwords
                 </span>
               </button>
+              <button
+                onClick={() => setActiveNav('plans')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('plans')}`}
+              >
+                <Layers className="w-4 h-4 text-purple-400" />
+                <span>Subscription Plans</span>
+              </button>
             </div>
           </div>
 
@@ -1132,7 +1246,7 @@ export const SuperAdminDashboard = () => {
             </div>
           </div>
 
-          {/* 4. ORDERS & FULFILLMENT */}
+          {/* 4. ORDERS & FLEET */}
           <div>
             <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
               Orders & Fleet
@@ -1153,7 +1267,13 @@ export const SuperAdminDashboard = () => {
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('riders')}`}
               >
                 <Bike className="w-4 h-4 text-amber-400" />
-                <span>Riders</span>
+                <div className="text-left flex-1 min-w-0">
+                  <div className="text-xs font-bold truncate">Riders</div>
+                  <div className="text-[10px] opacity-70 truncate">Rider of each branch</div>
+                </div>
+                <span className="ml-auto text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">
+                  {(riders || []).length}
+                </span>
               </button>
               <button
                 onClick={() => setActiveNav('customers')}
@@ -1170,7 +1290,10 @@ export const SuperAdminDashboard = () => {
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('delivery-management') || (activeNav === 'delivery' ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/20' : '')}`}
               >
                 <Truck className="w-4 h-4 text-cyan-400" />
-                <span>Delivery Management</span>
+                <div className="text-left flex-1 min-w-0">
+                  <div className="text-xs font-bold truncate">Delivery Management</div>
+                  <div className="text-[10px] opacity-70 truncate">Add riders & dispatch</div>
+                </div>
               </button>
             </div>
           </div>
@@ -1187,36 +1310,6 @@ export const SuperAdminDashboard = () => {
               >
                 <FileText className="w-4 h-4 text-rose-400" />
                 <span>Reports</span>
-              </button>
-              <button
-                onClick={() => setActiveNav('settings')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('settings')}`}
-              >
-                <Settings className="w-4 h-4 text-slate-400" />
-                <span>Settings</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Preserved Store Admin Credentials & Subscriptions */}
-          <div className="pt-2 border-t border-slate-800/60">
-            <div className="px-3 text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Store Credentials
-            </div>
-            <div className="space-y-1">
-              <button
-                onClick={() => setActiveNav('admins')}
-                className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl transition ${navBtnClass('admins')}`}
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-[11px]">Mart Admins</span>
-              </button>
-              <button
-                onClick={() => setActiveNav('plans')}
-                className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl transition ${navBtnClass('plans')}`}
-              >
-                <Layers className="w-3.5 h-3.5 text-purple-400" />
-                <span className="text-[11px]">Plans</span>
               </button>
             </div>
           </div>
@@ -3069,7 +3162,454 @@ export const SuperAdminDashboard = () => {
             />
           )}
 
-          {(activeNav === 'delivery-management' || activeNav === 'delivery' || activeNav === 'riders') && (
+          {activeNav === 'riders' && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-200 flex items-center justify-center shrink-0 shadow-2xs">
+                    <Bike className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                      <span>Riders Directory & Branch Fleet</span>
+                      <span className="text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-full">
+                        {(riders || []).length} Total Riders
+                      </span>
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Super Admin Fleet Overview: See who is the rider of which supermarket chain and store branch across Faisalabad.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap shrink-0">
+                  <button
+                    onClick={() => {
+                      addToast('Navigate to Delivery Management', 'Open Delivery Management to register a new rider with branch credentials.', 'info');
+                      setActiveNav('delivery-management');
+                    }}
+                    className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all cursor-pointer hover:shadow-md hover:scale-[1.02]"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>+ Add Rider in Delivery Management</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveNav('delivery-management')}
+                    className="px-3.5 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+                  >
+                    <Truck className="w-4 h-4 text-cyan-600" />
+                    <span>Live Dispatch Console</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Stat Counters Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Fleet</span>
+                    <Bike className="w-4 h-4 text-amber-500" />
+                  </div>
+                  <div className="text-2xl font-black text-slate-900">{(riders || []).length}</div>
+                  <div className="text-[10px] text-slate-500 font-medium mt-0.5">Registered delivery riders</div>
+                </div>
+
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">On-Duty Fleet</span>
+                    <Activity className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div className="text-2xl font-black text-emerald-600">
+                    {(riders || []).filter((r) => r.status === 'Active' || r.status === 'On-Duty' || r.status === 'Available').length}
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-medium mt-0.5">Available or actively delivering</div>
+                </div>
+
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Supermarkets</span>
+                    <Store className="w-4 h-4 text-indigo-500" />
+                  </div>
+                  <div className="text-2xl font-black text-indigo-600">
+                    {new Set((riders || []).map((r) => r.tenantId || r.tenantName)).size || 4}
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-medium mt-0.5">Chains with riders</div>
+                </div>
+
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Branches Covered</span>
+                    <Building2 className="w-4 h-4 text-teal-500" />
+                  </div>
+                  <div className="text-2xl font-black text-teal-600">
+                    {branchRiderCoverage.allocated.length}
+                    <span className="text-xs text-slate-400 font-normal ml-1">/ {liveStores.length}</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+                    {branchRiderCoverage.unallocated.length > 0
+                      ? `${branchRiderCoverage.unallocated.length} branch(es) awaiting`
+                      : 'All branches covered'}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs col-span-2 sm:col-span-1">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">In Transit</span>
+                    <Truck className="w-4 h-4 text-cyan-500" />
+                  </div>
+                  <div className="text-2xl font-black text-cyan-600">
+                    {allCrossStoreOrders.filter((o) =>
+                      o.assignedRider &&
+                      ['out for delivery', 'dispatched', 'processing', 'assigned', 'on the way'].includes(
+                        String(o.orderStatus || o.status || '').toLowerCase()
+                      )
+                    ).length}
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-medium mt-0.5">Live dispatches right now</div>
+                </div>
+              </div>
+
+              {/* Unallocated Branches Alert */}
+              {branchRiderCoverage.unallocated.length > 0 && (
+                <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 space-y-2.5 text-xs shadow-2xs">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
+                      <h3 className="font-black text-amber-950 text-sm">
+                        ⚠️ {branchRiderCoverage.unallocated.length} Store Branch{branchRiderCoverage.unallocated.length > 1 ? 'es' : ''} Awaiting Rider Assignment!
+                      </h3>
+                    </div>
+                    <span className="text-[11px] font-bold bg-amber-200/80 text-amber-900 px-2.5 py-0.5 rounded-full">
+                      {branchRiderCoverage.allocated.length} of {liveStores.length} Branches Assigned
+                    </span>
+                  </div>
+                  <p className="text-amber-900/80">
+                    The following store branches do not have a dedicated delivery rider assigned yet. Click any branch to assign a rider in Delivery Management:
+                  </p>
+                  <div className="flex items-center gap-2 flex-wrap pt-1">
+                    {branchRiderCoverage.unallocated.map((branch) => {
+                      const bName = branch.branchName || branch.name;
+                      const retailer = displayStores.find((s) => isSameTenant(s.id, branch.tenantId)) || CORE_RETAILERS[0];
+                      return (
+                        <button
+                          key={branch.storeId || branch._id || bName}
+                          onClick={() => {
+                            addToast('Navigate to Delivery Management', `Add a rider for ${bName} in Delivery Management.`, 'info');
+                            setActiveNav('delivery-management');
+                          }}
+                          className="px-3 py-1.5 bg-white hover:bg-amber-100/70 border border-amber-300 text-amber-900 rounded-xl font-bold flex items-center gap-1.5 transition-all shadow-2xs hover:scale-[1.02] cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3 text-amber-600" />
+                          <span>+ Assign Rider: <strong>{bName}</strong> <span className="opacity-70 text-[10px]">({retailer?.name || 'Store'})</span></span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Filters Bar */}
+              <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs space-y-3">
+                {/* Supermarket Tabs */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                  <button
+                    onClick={() => { setRiderTenantFilter('all'); setRiderBranchFilter('all'); }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                      riderTenantFilter === 'all'
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    All Supermarkets ({(riders || []).length})
+                  </button>
+
+                  {displayStores.map((store) => {
+                    const count = (riders || []).filter((r) => isSameTenant(r.tenantId, store.id) || String(r.tenantName || '').toLowerCase().includes(store.name.toLowerCase())).length;
+                    const isActive = riderTenantFilter === store.id;
+                    return (
+                      <button
+                        key={store.id}
+                        onClick={() => {
+                          setRiderTenantFilter(store.id);
+                          setRiderBranchFilter('all');
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer border ${
+                          isActive
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>{store.logo}</span>
+                        <span>{store.name}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                          isActive ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Search & Branch & Duty Dropdowns */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-1">
+                  <div className="sm:col-span-6 relative">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search rider by name, phone, branch, vehicle plate..."
+                      value={riderSearch}
+                      onChange={(e) => setRiderSearch(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-emerald-500 font-medium"
+                    />
+                    {riderSearch && (
+                      <button
+                        onClick={() => setRiderSearch('')}
+                        className="w-5 h-5 rounded-full text-slate-400 hover:text-slate-600 flex items-center justify-center absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="sm:col-span-3">
+                    <select
+                      value={riderBranchFilter}
+                      onChange={(e) => setRiderBranchFilter(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-semibold focus:bg-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    >
+                      <option value="all">🏢 All Branches ({liveStores.length})</option>
+                      {liveStores.map((store) => {
+                        const bName = store.branchName || store.name;
+                        const retailer = displayStores.find((s) => isSameTenant(s.id, store.tenantId)) || CORE_RETAILERS[0];
+                        return (
+                          <option key={store.storeId || store._id || bName} value={bName}>
+                            {retailer?.name || 'Store'} — {bName}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-3">
+                    <select
+                      value={riderDutyFilter}
+                      onChange={(e) => setRiderDutyFilter(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-semibold focus:bg-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    >
+                      <option value="all">⚡ All Duty Statuses</option>
+                      <option value="on-duty">🟢 On-Duty Only</option>
+                      <option value="off-duty">⚪ Off-Duty Only</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Riders Directory Grid */}
+              {filteredRiders.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {filteredRiders.map((rider) => {
+                    const rId = rider.id || rider.riderId;
+                    const retailer = displayStores.find((s) => isSameTenant(s.id, rider.tenantId)) || CORE_RETAILERS[0];
+                    const isOnDuty = rider.status === 'Active' || rider.status === 'On-Duty' || rider.status === 'Available';
+                    const activeDeliveries = getRiderActiveOrderCount(rider);
+                    const isAlfatah = isSameTenant(rider.tenantId, 'tenant-alfatah');
+
+                    return (
+                      <div
+                        key={rId}
+                        className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
+                      >
+                        {/* Supermarket Brand Banner */}
+                        <div className={`px-4 py-2.5 flex items-center justify-between border-b ${
+                          isAlfatah ? 'bg-red-50/70 border-red-100' : 'bg-slate-50 border-slate-100'
+                        }`}>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-base shrink-0">{retailer?.logo || '🏬'}</span>
+                            <div className="min-w-0">
+                              <span className={`text-xs font-black truncate block ${isAlfatah ? 'text-red-900' : 'text-slate-800'}`}>
+                                {rider.tenantName || retailer?.name || 'Supermarket'}
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-medium">
+                                {rider.city || 'Faisalabad'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Duty Status Badge */}
+                          <button
+                            onClick={() => toggleRiderStatus(rId)}
+                            title="Click to toggle On/Off duty"
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold border flex items-center gap-1.5 transition-transform hover:scale-105 cursor-pointer ${
+                              isOnDuty
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                : 'bg-slate-100 text-slate-600 border-slate-300'
+                            }`}
+                          >
+                            <span className={`w-2 h-2 rounded-full ${isOnDuty ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                            <span>{isOnDuty ? 'On-Duty' : 'Off-Duty'}</span>
+                          </button>
+                        </div>
+
+                        {/* Rider Profile Card Body */}
+                        <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                          {/* Top: Avatar, Name, ID */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-11 h-11 rounded-2xl bg-amber-500/15 text-amber-700 border border-amber-300/60 flex items-center justify-center font-black text-sm shrink-0 shadow-2xs">
+                                🏍️
+                              </div>
+                              <div className="min-w-0">
+                                <h4 className="text-sm font-black text-slate-900 truncate">
+                                  {rider.name || rider.username || 'Rider'}
+                                </h4>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold border border-slate-200">
+                                    {rId}
+                                  </span>
+                                  <span className="text-[11px] font-bold text-amber-600 flex items-center gap-0.5">
+                                    ★ {rider.rating || '5.0'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Active Orders Count Badge */}
+                            <div className="shrink-0 text-right">
+                              {activeDeliveries > 0 ? (
+                                <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                  <Truck className="w-3 h-3 text-emerald-600" />
+                                  <span>{activeDeliveries} Active</span>
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
+                                  Idle / Ready
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Branch & Zone Box */}
+                          <div className="bg-slate-50 rounded-xl p-3 border border-slate-200/80 space-y-1.5 text-xs">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                Assigned Store Branch:
+                              </span>
+                              <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                Dedicated
+                              </span>
+                            </div>
+                            <div className="font-black text-slate-900 flex items-center gap-1.5 truncate">
+                              <Building2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span className="truncate">{rider.branchName || 'D-Ground Flagship Hub'}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[11px] text-slate-600 truncate">
+                              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <span className="truncate">{rider.zone || rider.region || 'Faisalabad Delivery Area'}</span>
+                            </div>
+                          </div>
+
+                          {/* Contact & Vehicle Info */}
+                          <div className="grid grid-cols-2 gap-2 text-xs pt-0.5">
+                            <div className="bg-slate-50 rounded-lg p-2 border border-slate-200/60">
+                              <span className="text-[10px] font-bold text-slate-400 block uppercase">Phone</span>
+                              <a
+                                href={`tel:${rider.phone}`}
+                                className="font-bold text-slate-800 hover:text-emerald-700 truncate block mt-0.5 flex items-center gap-1"
+                              >
+                                <Phone className="w-3 h-3 text-slate-400" />
+                                <span>{rider.phone || '03001234567'}</span>
+                              </a>
+                            </div>
+
+                            <div className="bg-slate-50 rounded-lg p-2 border border-slate-200/60">
+                              <span className="text-[10px] font-bold text-slate-400 block uppercase">Vehicle</span>
+                              <span className="font-bold text-slate-800 truncate block mt-0.5">
+                                {rider.vehicleType || '🏍️ Bike'}
+                              </span>
+                              <span className="text-[10px] font-mono text-slate-500 block truncate">
+                                {rider.vehicleNumber || 'FS-0000'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons Footer */}
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                            <button
+                              onClick={() => toggleRiderStatus(rId)}
+                              className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+                            >
+                              {isOnDuty ? 'Set Off-Duty' : 'Set On-Duty'}
+                            </button>
+
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setActiveNav('delivery-management');
+                                  addToast('Delivery Console', `Viewing live dispatch for ${rider.name}`, 'info');
+                                }}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                              >
+                                <Truck className="w-3.5 h-3.5" />
+                                <span>Dispatch</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Are you sure you want to delete rider ${rider.name || rId}?`)) {
+                                    deleteRider(rId);
+                                    addToast('Rider Deleted', `${rider.name || rId} has been removed.`, 'success');
+                                  }
+                                }}
+                                title="Delete Rider"
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-2xs space-y-4">
+                  <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-500 border border-amber-200 flex items-center justify-center mx-auto text-2xl">
+                    🏍️
+                  </div>
+                  <div className="max-w-md mx-auto">
+                    <h3 className="text-base font-black text-slate-800">No Riders Found</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      No riders matched your current filter or search query. Try resetting filters or adding a new rider in Delivery Management.
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 pt-2">
+                    <button
+                      onClick={() => {
+                        setRiderSearch('');
+                        setRiderTenantFilter('all');
+                        setRiderBranchFilter('all');
+                        setRiderDutyFilter('all');
+                      }}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                    >
+                      Reset Filters
+                    </button>
+                    <button
+                      onClick={() => setActiveNav('delivery-management')}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>+ Add Rider in Delivery Management</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {(activeNav === 'delivery-management' || activeNav === 'delivery') && (
             <DeliveryView isSuperAdmin={true} />
           )}
 
