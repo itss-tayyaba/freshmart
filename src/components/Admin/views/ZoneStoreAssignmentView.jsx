@@ -19,6 +19,7 @@ import {
   Compass,
   Sparkles,
   Plus,
+  Edit2,
   Edit3,
   Sliders,
   Trash2
@@ -225,6 +226,24 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   const [editingStore, setEditingStore] = useState(null);
   const [editPriority, setEditPriority] = useState(1);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Edit & Delete Delivery Zone State
+  const [isEditZoneModalOpen, setIsEditZoneModalOpen] = useState(false);
+  const [isDeleteZoneModalOpen, setIsDeleteZoneModalOpen] = useState(false);
+  const [isDeletingZone, setIsDeletingZone] = useState(false);
+  const [isSavingZoneDetails, setIsSavingZoneDetails] = useState(false);
+  const [editZoneForm, setEditZoneForm] = useState({
+    name: '',
+    code: '',
+    city: 'Faisalabad',
+    area: '',
+    deliveryCharge: 60,
+    minOrderAmount: 400,
+    freeDeliveryThreshold: 2000,
+    estimatedDeliveryTime: '25-35 mins',
+    color: '#059669',
+    isActive: true
+  });
 
   // In-Place Polygon Drawing Mode in Zone Assignments
   const [isDrawingPolygon, setIsDrawingPolygon] = useState(false);
@@ -1739,6 +1758,114 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     }
   };
 
+  // Open Edit Zone Modal with Active Zone fields pre-filled
+  const handleOpenEditZoneModal = (zoneToEdit) => {
+    const target = zoneToEdit || activeZone;
+    if (!target) return;
+    setEditZoneForm({
+      name: target.name || '',
+      code: target.code || '',
+      city: target.city || 'Faisalabad',
+      area: target.area || target.description || '',
+      deliveryCharge: target.deliveryCharge ?? 60,
+      minOrderAmount: target.minOrderAmount ?? 400,
+      freeDeliveryThreshold: target.freeDeliveryThreshold ?? 2000,
+      estimatedDeliveryTime: target.estimatedDeliveryTime || '25-35 mins',
+      color: target.color || '#059669',
+      isActive: target.isActive !== false && target.status !== 'inactive'
+    });
+    setIsEditZoneModalOpen(true);
+  };
+
+  // Save changes to Active Zone
+  const handleSaveZoneDetails = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!activeZone) return;
+    const zId = activeZone.zoneId || activeZone._id || activeZone.id || activeZone.code;
+    setIsSavingZoneDetails(true);
+
+    const updatedZoneData = {
+      ...activeZone,
+      ...editZoneForm,
+      deliveryCharge: Number(editZoneForm.deliveryCharge) || 0,
+      minOrderAmount: Number(editZoneForm.minOrderAmount) || 0,
+      freeDeliveryThreshold: Number(editZoneForm.freeDeliveryThreshold) || 0,
+      status: editZoneForm.isActive ? 'active' : 'inactive',
+      isActive: Boolean(editZoneForm.isActive)
+    };
+
+    try {
+      await apiService.updateZone(zId, updatedZoneData);
+
+      setZones((prev) =>
+        prev.map((z) => ((z.zoneId || z._id || z.id) === zId ? { ...z, ...updatedZoneData } : z))
+      );
+
+      const saved = localStorage.getItem('freshmart_zones');
+      const list = saved ? JSON.parse(saved) : [];
+      const updatedList = list.map((z) => ((z.zoneId || z._id) === zId ? { ...z, ...updatedZoneData } : z));
+      localStorage.setItem('freshmart_zones', JSON.stringify(updatedList));
+      window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: updatedList }));
+
+      setIsEditZoneModalOpen(false);
+      if (addToast) {
+        addToast('Zone Updated ✅', `Successfully updated settings for "${editZoneForm.name}".`, 'success');
+      }
+    } catch (err) {
+      if (addToast) addToast('Update Failed', err.message || 'Failed to update zone.', 'error');
+    } finally {
+      setIsSavingZoneDetails(false);
+    }
+  };
+
+  // Delete Active Zone permanently
+  const handleDeleteZoneConfirm = async () => {
+    if (!activeZone) return;
+    setIsDeletingZone(true);
+    const zId = activeZone.zoneId || activeZone._id || activeZone.id || activeZone.code;
+
+    try {
+      await apiService.deleteZone(zId);
+
+      // Track explicitly deleted zone IDs in localStorage
+      try {
+        const rawDeleted = localStorage.getItem('freshmart_deleted_zone_ids');
+        const deletedSet = new Set(rawDeleted ? JSON.parse(rawDeleted) : []);
+        deletedSet.add(zId);
+        if (activeZone.code) deletedSet.add(activeZone.code);
+        localStorage.setItem('freshmart_deleted_zone_ids', JSON.stringify(Array.from(deletedSet)));
+      } catch (e) {}
+
+      const remainingZones = zones.filter((z) => (z.zoneId || z._id || z.id) !== zId);
+      setZones(remainingZones);
+
+      const saved = localStorage.getItem('freshmart_zones');
+      if (saved) {
+        const list = JSON.parse(saved);
+        const filtered = list.filter((z) => (z.zoneId || z._id) !== zId);
+        localStorage.setItem('freshmart_zones', JSON.stringify(filtered));
+        window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: filtered }));
+      }
+
+      setStores((prev) =>
+        prev.map((s) => (s.assignedZoneId === zId ? { ...s, assignedZoneId: null } : s))
+      );
+      setAssignments((prev) => prev.filter((a) => a.zoneId !== zId));
+
+      const nextZone = remainingZones.find((z) => !isStoreAreaPolygon(z));
+      setSelectedZoneId(nextZone ? (nextZone.zoneId || nextZone._id) : '');
+
+      setIsDeleteZoneModalOpen(false);
+      if (addToast) {
+        addToast('Zone Deleted 🗑️', `Delivery Zone "${activeZone.name}" has been deleted.`, 'success');
+      }
+    } catch (err) {
+      if (addToast) addToast('Deletion Failed', err.message || 'Failed to delete zone.', 'error');
+    } finally {
+      setIsDeletingZone(false);
+    }
+  };
+
   // Sync Map when activeZone or assigned stores change
   useEffect(() => {
     if (!mapInstanceRef.current || !polygonLayerRef.current || !storeMarkersGroupRef.current) return;
@@ -2288,13 +2415,29 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                   📍
                 </span>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-slate-900 text-sm">{activeZone.name}</h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <select
+                      value={activeZone.zoneId || activeZone._id || ''}
+                      onChange={(e) => setSelectedZoneId(e.target.value)}
+                      className="font-bold text-slate-900 text-sm bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2 py-0.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                      title="Switch Delivery Zone"
+                    >
+                      {deliveryZones.map((z) => (
+                        <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
+                          {z.name}
+                        </option>
+                      ))}
+                    </select>
                     <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold border border-slate-200">
                       {activeZone.code}
                     </span>
+                    {activeZone.status === 'inactive' && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-bold">
+                        Inactive
+                      </span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                  <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5 flex-wrap">
                     <span>Delivery Fee: <strong className="text-emerald-700 font-bold">Rs. {activeZone.deliveryCharge}</strong></span>
                     <span>•</span>
                     <span>Min Order: <strong>Rs. {activeZone.minOrderAmount || 400}</strong></span>
@@ -2304,7 +2447,17 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => handleOpenEditZoneModal(activeZone)}
+                  className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Edit Zone Parameters, Rates and Color"
+                >
+                  <Edit2 className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Edit Zone</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -2313,10 +2466,21 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                     setDrawnPoints([]);
                     if (mapInstanceRef.current) mapInstanceRef.current.closePopup();
                   }}
-                  className="px-3 py-1.5 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-1.5 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Redraw Polygon Boundary on Map"
                 >
                   <Edit3 className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Redraw Polygon</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteZoneModalOpen(true)}
+                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Delete Delivery Zone"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Delete Zone</span>
                 </button>
               </div>
             </div>
@@ -2818,6 +2982,247 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
           </div>
         );
       })()}
+
+      {/* Edit Zone Details Modal */}
+      {isEditZoneModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <Edit2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Edit Delivery Zone Details</h3>
+                  <p className="text-[11px] text-slate-400">Configure parameters, pricing, and visual color</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditZoneModalOpen(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center cursor-pointer transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveZoneDetails} className="p-5 space-y-4 text-xs max-h-[80vh] overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Zone Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editZoneForm.name}
+                    onChange={(e) => setEditZoneForm({ ...editZoneForm, name: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:bg-white focus:outline-hidden focus:border-emerald-500"
+                    placeholder="e.g. D-Ground Delivery Zone"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Zone Code *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editZoneForm.code}
+                    onChange={(e) => setEditZoneForm({ ...editZoneForm, code: e.target.value.toUpperCase() })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:bg-white focus:outline-hidden focus:border-emerald-500"
+                    placeholder="e.g. FSD-DGR"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">City</label>
+                  <input
+                    type="text"
+                    value={editZoneForm.city}
+                    onChange={(e) => setEditZoneForm({ ...editZoneForm, city: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:bg-white focus:outline-hidden focus:border-emerald-500"
+                    placeholder="Faisalabad"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Estimated Delivery Time</label>
+                  <input
+                    type="text"
+                    value={editZoneForm.estimatedDeliveryTime}
+                    onChange={(e) => setEditZoneForm({ ...editZoneForm, estimatedDeliveryTime: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:bg-white focus:outline-hidden focus:border-emerald-500"
+                    placeholder="25-35 mins"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Description / Area Covered</label>
+                <textarea
+                  rows={2}
+                  value={editZoneForm.area}
+                  onChange={(e) => setEditZoneForm({ ...editZoneForm, area: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:bg-white focus:outline-hidden focus:border-emerald-500 resize-none"
+                  placeholder="Peoples Colony, D-Ground Commercial Area"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2.5">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Fee (Rs.)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editZoneForm.deliveryCharge}
+                    onChange={(e) => setEditZoneForm({ ...editZoneForm, deliveryCharge: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-emerald-700 focus:bg-white focus:outline-hidden focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Min Order</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editZoneForm.minOrderAmount}
+                    onChange={(e) => setEditZoneForm({ ...editZoneForm, minOrderAmount: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:bg-white focus:outline-hidden focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Free Over</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editZoneForm.freeDeliveryThreshold}
+                    onChange={(e) => setEditZoneForm({ ...editZoneForm, freeDeliveryThreshold: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:bg-white focus:outline-hidden focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1.5">Polygon Color Theme</label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {[
+                    { color: '#10b981', label: 'Emerald' },
+                    { color: '#2563eb', label: 'Blue' },
+                    { color: '#dc2626', label: 'Red' },
+                    { color: '#d97706', label: 'Amber' },
+                    { color: '#7c3aed', label: 'Purple' },
+                    { color: '#0891b2', label: 'Cyan' },
+                    { color: '#475569', label: 'Slate' }
+                  ].map((p) => (
+                    <button
+                      key={p.color}
+                      type="button"
+                      onClick={() => setEditZoneForm({ ...editZoneForm, color: p.color })}
+                      className={`w-7 h-7 rounded-full flex items-center justify-center transition border-2 cursor-pointer ${
+                        editZoneForm.color === p.color ? 'border-slate-900 scale-110 shadow-sm' : 'border-transparent hover:scale-105'
+                      }`}
+                      style={{ backgroundColor: p.color }}
+                      title={p.label}
+                    >
+                      {editZoneForm.color === p.color && <Check className="w-3.5 h-3.5 text-white" />}
+                    </button>
+                  ))}
+                  <input
+                    type="color"
+                    value={editZoneForm.color}
+                    onChange={(e) => setEditZoneForm({ ...editZoneForm, color: e.target.value })}
+                    className="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 p-0.5 ml-1"
+                    title="Custom Color"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="zoneActiveCheckbox"
+                  checked={editZoneForm.isActive}
+                  onChange={(e) => setEditZoneForm({ ...editZoneForm, isActive: e.target.checked })}
+                  className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                />
+                <label htmlFor="zoneActiveCheckbox" className="font-bold text-slate-800 cursor-pointer text-xs">
+                  Zone is active and accepting grocery orders
+                </label>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditZoneModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-bold transition text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingZoneDetails}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition text-xs cursor-pointer shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{isSavingZoneDetails ? 'Saving...' : 'Save Zone Details'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Delivery Zone Confirmation Modal */}
+      {isDeleteZoneModalOpen && activeZone && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-rose-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-5 border-b border-rose-100 bg-rose-50/50 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-black text-slate-900 text-base">Delete Delivery Zone?</h3>
+                <p className="text-[11px] text-rose-600 font-medium">Permanent action for this polygon boundary</p>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-3 text-xs text-slate-600">
+              <p>
+                Are you sure you want to permanently delete delivery zone <strong className="text-slate-900">{activeZone.name}</strong> ({activeZone.code})?
+              </p>
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1 text-[11px]">
+                <div className="flex justify-between">
+                  <span>Linked Stores:</span>
+                  <strong className="text-slate-900">{assignedStores.length} Store(s)</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Delivery Charge:</span>
+                  <strong className="text-emerald-700 font-bold">Rs. {activeZone.deliveryCharge}</strong>
+                </div>
+              </div>
+              <p className="text-[11px] text-rose-700 font-medium">
+                ⚠️ All linked supermarkets will be unassigned from this delivery zone and its polygon boundary will be erased.
+              </p>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50">
+              <button
+                type="button"
+                onClick={() => setIsDeleteZoneModalOpen(false)}
+                className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-xl font-bold transition text-xs cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteZoneConfirm}
+                disabled={isDeletingZone}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition text-xs cursor-pointer shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeletingZone ? 'Deleting...' : 'Delete Delivery Zone'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

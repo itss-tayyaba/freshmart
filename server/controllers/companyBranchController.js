@@ -671,7 +671,12 @@ export const updateBranchDeliveryZone = async (req, res) => {
 
     if (deliveryStatus) updates.deliveryStatus = deliveryStatus;
     if (Array.isArray(deliveryTiers)) updates.deliveryTiers = deliveryTiers;
-    if (Array.isArray(deliveryPolygon)) updates.deliveryPolygon = deliveryPolygon;
+    if (Array.isArray(deliveryPolygon)) {
+      updates.deliveryPolygon = deliveryPolygon;
+    } else if (deliveryPolygon === null || deliveryPolygon === '') {
+      updates.deliveryPolygon = null;
+    }
+    if ('assignedZoneId' in req.body) updates.assignedZoneId = req.body.assignedZoneId;
     if (supportsExtendedDelivery !== undefined) updates.supportsExtendedDelivery = Boolean(supportsExtendedDelivery);
     if (address) updates.address = address;
     if (name) updates.name = name;
@@ -704,6 +709,38 @@ export const updateBranchDeliveryZone = async (req, res) => {
       (b) => String(b._id || b.id || '').toLowerCase().trim() === String(id).toLowerCase().trim()
     );
     let merged = { ...(existing || {}), _id: id, id, ...updates };
+
+    // Explicit Delete Delivery Zone request
+    if (req.body.deleteZone === true) {
+      try {
+        const diskZones = loadDiskZones();
+        const cleanId = String(id).toLowerCase().trim();
+        const targetZoneId = existing?.assignedZoneId || `ZONE-${String(id).toUpperCase()}`;
+        const filteredZones = diskZones.filter(
+          (z) =>
+            String(z.assignedStoreId || '').toLowerCase().trim() !== cleanId &&
+            String(z.zoneId || '').toLowerCase().trim() !== `zone-${cleanId}` &&
+            String(z.zoneId || '').toLowerCase().trim() !== String(targetZoneId).toLowerCase().trim()
+        );
+        saveDiskZones(filteredZones);
+
+        if (isDbOnline()) {
+          try {
+            await DeliveryZone.deleteMany({
+              $or: [{ assignedStoreId: id }, { zoneId: targetZoneId }, { zoneId: `ZONE-${String(id).toUpperCase()}` }]
+            });
+            await ZoneStore.deleteMany({ storeId: id });
+          } catch (dbDelErr) {}
+        }
+      } catch (e) {}
+
+      saveDiskBranch(merged);
+      return res.status(200).json({
+        success: true,
+        message: 'Branch delivery zone deleted and deactivated successfully',
+        branch: updatedBranch || merged
+      });
+    }
 
     // Bidirectional sync: Ensure this store's delivery zone is synchronized to DeliveryZone & ZoneStore collections
     let matchingZone = null;
