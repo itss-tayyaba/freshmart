@@ -163,10 +163,10 @@ async function seedInitialDatabase() {
       );
     }
 
-    // 2b. Synchronize Multi-Store Delivery Zones (DeliveryZone collection)
+    // 2b. Synchronize Multi-Store Delivery Zones & Store Area Polygons (DeliveryZone collection)
     const zoneCount = await DeliveryZone.countDocuments();
-    if (zoneCount < 4) {
-      console.log('🔄 Syncing Delivery Zones into MongoDB...');
+    if (zoneCount < 7) {
+      console.log('🔄 Syncing Delivery Zones & Master Store Area Polygons into MongoDB...');
       const zonesToSeed = loadDiskZones();
       for (const z of zonesToSeed) {
         await DeliveryZone.findOneAndUpdate(
@@ -187,13 +187,15 @@ async function seedInitialDatabase() {
             freeDeliveryThreshold: Number(z.freeDeliveryThreshold ?? 2500),
             estimatedDeliveryTime: z.estimatedDeliveryTime || '25-40 mins',
             assignedStoreId: z.assignedStoreId || null,
+            isStoreAreaPolygon: z.isStoreAreaPolygon === true || z.type === 'store_area_polygon',
+            type: z.type || (z.isStoreAreaPolygon ? 'store_area_polygon' : 'delivery_zone'),
             isActive: z.isActive !== false,
             status: z.status || 'active'
           },
           { upsert: true, new: true, setDefaultsOnInsert: true }
         );
       }
-      console.log(`✅ Delivery Zones synced into MongoDB.`);
+      console.log(`✅ Delivery Zones & Master Store Area Polygons synced into MongoDB.`);
     }
 
     // 2c. Synchronize Stores into MongoDB (Store collection)

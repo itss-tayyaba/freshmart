@@ -28,8 +28,95 @@ export const saveDiskZones = (zones) => {
   } catch (e) {}
 };
 
-// Default platform delivery zones associated 1-to-1 with flagship supermarket branches
+// Default platform delivery zones and Concept 1 Master Store Area Polygons
 export const DEFAULT_PLATFORM_ZONES = [
+  // --- Concept 1: 3 Master Store Area Polygons (Geographic Clusters Enclosing Physical Stores) ---
+  {
+    _id: 'ZONE-FSD-CENTRAL-BLUE',
+    zoneId: 'ZONE-FSD-CENTRAL-BLUE',
+    name: 'Central Region (D-Ground & Peoples Colony)',
+    code: 'FSD-BLUE',
+    city: 'Faisalabad',
+    area: 'Peoples Colony & D-Ground',
+    color: '#2563eb', // Vivid Blue
+    description: 'Central Commercial Area grouping flagship supermarket branches.',
+    isStoreAreaPolygon: true,
+    type: 'store_area_polygon',
+    isActive: true,
+    status: 'active',
+    deliveryCharge: 70,
+    minOrderAmount: 300,
+    freeDeliveryThreshold: 1500,
+    estimatedDeliveryTime: '15-25 mins',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.072, 31.432],
+        [73.1195, 31.432],
+        [73.1195, 31.385],
+        [73.072, 31.385],
+        [73.072, 31.432]
+      ]]
+    }
+  },
+  {
+    _id: 'ZONE-FSD-NORTH-GREEN',
+    zoneId: 'ZONE-FSD-NORTH-GREEN',
+    name: 'North-East Region (Susan Road & Canal Road)',
+    code: 'FSD-GREEN',
+    city: 'Faisalabad',
+    area: 'Susan Road & Madina Town',
+    color: '#16a34a', // Vivid Green
+    description: 'North-East Commercial Region covering Canal Road and Susan Road marts.',
+    isStoreAreaPolygon: true,
+    type: 'store_area_polygon',
+    isActive: true,
+    status: 'active',
+    deliveryCharge: 80,
+    minOrderAmount: 400,
+    freeDeliveryThreshold: 2000,
+    estimatedDeliveryTime: '20-30 mins',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.095, 31.465],
+        [73.148, 31.465],
+        [73.148, 31.415],
+        [73.095, 31.415],
+        [73.095, 31.465]
+      ]]
+    }
+  },
+  {
+    _id: 'ZONE-FSD-WEST-ORANGE',
+    zoneId: 'ZONE-FSD-WEST-ORANGE',
+    name: 'West-South Region (Samanabad & Jhang Road)',
+    code: 'FSD-ORANGE',
+    city: 'Faisalabad',
+    area: 'Samanabad & Jhang Road Hub',
+    color: '#ea580c', // Vivid Orange
+    description: 'Western & Southern commercial corridor covering Samanabad and Jhang Road marts.',
+    isStoreAreaPolygon: true,
+    type: 'store_area_polygon',
+    isActive: true,
+    status: 'active',
+    deliveryCharge: 75,
+    minOrderAmount: 350,
+    freeDeliveryThreshold: 1800,
+    estimatedDeliveryTime: '25-35 mins',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.030, 31.425],
+        [73.080, 31.425],
+        [73.080, 31.370],
+        [73.030, 31.370],
+        [73.030, 31.425]
+      ]]
+    }
+  },
+
+  // --- Concept 2: Store Delivery Regions ---
   {
     _id: 'ZONE-FSD-DGROUND',
     zoneId: 'ZONE-FSD-DGROUND',
@@ -278,6 +365,8 @@ export const createZone = async (req, res) => {
       minOrderAmount: Number(minOrderAmount ?? 500),
       freeDeliveryThreshold: Number(freeDeliveryThreshold ?? 2500),
       estimatedDeliveryTime: estimatedDeliveryTime || '25-40 mins',
+      isStoreAreaPolygon: req.body.isStoreAreaPolygon === true || req.body.type === 'store_area_polygon',
+      type: req.body.type || (req.body.isStoreAreaPolygon ? 'store_area_polygon' : 'delivery_zone'),
       isActive: isActive !== false && String(status).toLowerCase() !== 'inactive',
       status: status || 'active'
     };

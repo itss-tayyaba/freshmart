@@ -257,7 +257,17 @@ export const ZoneManagementView = () => {
     });
   };
 
-  // Fetch all Zones & Stores
+  // Helper to load explicitly deleted zone IDs from localStorage
+  const loadDeletedZoneIds = () => {
+    try {
+      const raw = localStorage.getItem('freshmart_deleted_zone_ids');
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  };
+
+  // Fetch all Zones & Stores: Always preserves the 3 master regional polygons alongside all custom polygons
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -266,26 +276,43 @@ export const ZoneManagementView = () => {
         apiService.getStores()
       ]);
 
+      const deletedIds = loadDeletedZoneIds();
+      const zoneMap = new Map();
+
+      // 1. First seed baseline 3 master regional sectors unless explicitly deleted by user
+      MASTER_STORE_AREA_POLYGONS.forEach((m) => {
+        if (!deletedIds.has(m.zoneId)) {
+          zoneMap.set(m.zoneId, m);
+        }
+      });
+
+      // 2. Layer on all server/database zones that are store area polygons
       if (zonesRes && zonesRes.success && Array.isArray(zonesRes.zones)) {
         const loadedZones = zonesRes.zones;
-        // On Page 1 (Store Area Polygons), show ONLY the store area polygons!
-        let storeAreaZones = loadedZones.filter(isStoreAreaPolygon);
-        if (storeAreaZones.length === 0) {
-          storeAreaZones = MASTER_STORE_AREA_POLYGONS;
-        }
-        setZones(storeAreaZones);
-        if (storeAreaZones.length > 0 && !selectedZoneId) {
-          setSelectedZoneId(storeAreaZones[0].zoneId || storeAreaZones[0]._id);
-        }
-      } else {
-        setZones(MASTER_STORE_AREA_POLYGONS);
-        setSelectedZoneId(MASTER_STORE_AREA_POLYGONS[0].zoneId);
+        const validStoreAreaZones = loadedZones
+          .filter(isStoreAreaPolygon)
+          .filter((z) => !deletedIds.has(z.zoneId) && !deletedIds.has(z._id));
+
+        validStoreAreaZones.forEach((z) => {
+          const zKey = z.zoneId || z._id;
+          zoneMap.set(zKey, z);
+        });
+      }
+
+      const mergedStoreAreaZones = Array.from(zoneMap.values());
+      setZones(mergedStoreAreaZones);
+
+      if (mergedStoreAreaZones.length > 0 && !selectedZoneId) {
+        setSelectedZoneId(mergedStoreAreaZones[0].zoneId || mergedStoreAreaZones[0]._id);
       }
 
       const cleanStores = getAllUnifiedStores(storesRes?.stores, allBranches);
       setStores(cleanStores);
     } catch (err) {
       console.warn('Zone management fetch error:', err.message);
+      const deletedIds = loadDeletedZoneIds();
+      const fallback = MASTER_STORE_AREA_POLYGONS.filter((m) => !deletedIds.has(m.zoneId));
+      setZones(fallback);
       setStores(getAllUnifiedStores([], allBranches));
     } finally {
       setIsLoading(false);
@@ -303,7 +330,18 @@ export const ZoneManagementView = () => {
     };
     const handleZonesUpdated = (e) => {
       if (e?.detail && Array.isArray(e.detail)) {
-        setZones(e.detail);
+        const deletedIds = loadDeletedZoneIds();
+        const zoneMap = new Map();
+        MASTER_STORE_AREA_POLYGONS.forEach((m) => {
+          if (!deletedIds.has(m.zoneId)) {
+            zoneMap.set(m.zoneId, m);
+          }
+        });
+        e.detail
+          .filter(isStoreAreaPolygon)
+          .filter((z) => !deletedIds.has(z.zoneId) && !deletedIds.has(z._id))
+          .forEach((z) => zoneMap.set(z.zoneId || z._id, z));
+        setZones(Array.from(zoneMap.values()));
       } else {
         fetchData();
       }
@@ -854,8 +892,25 @@ export const ZoneManagementView = () => {
 
       setIsSaveModalOpen(false);
       setMapMode('view');
+      mapModeRef.current = 'view';
       setDrawnVertices([]);
       setSelectedZoneId(payload.zoneId);
+
+      // Optimistically merge with existing zones and master regional sectors so nothing is ever dropped
+      setZones((prev) => {
+        const zoneMap = new Map();
+        const deletedIds = loadDeletedZoneIds();
+        MASTER_STORE_AREA_POLYGONS.forEach((m) => {
+          if (!deletedIds.has(m.zoneId)) zoneMap.set(m.zoneId, m);
+        });
+        prev.forEach((z) => {
+          const zKey = z.zoneId || z._id;
+          if (!deletedIds.has(zKey)) zoneMap.set(zKey, z);
+        });
+        zoneMap.set(payload.zoneId, payload);
+        return Array.from(zoneMap.values());
+      });
+
       fetchData();
     } catch (err) {
       if (addToast) addToast('Save Failed', err.message, 'error');
@@ -951,7 +1006,7 @@ export const ZoneManagementView = () => {
   const handleResetToThreeCleanSectors = async () => {
     setIsSaving(true);
     try {
-      // 1. Wipe out previous cluttered/overlapping test zones
+      localStorage.removeItem('freshmart_deleted_zone_ids');
       localStorage.setItem('freshmart_zones', JSON.stringify([]));
       localStorage.setItem('freshmart_assignments', JSON.stringify([]));
 
@@ -1005,6 +1060,8 @@ export const ZoneManagementView = () => {
   const handleClearAllPolygons = async () => {
     setIsSaving(true);
     try {
+      const allIds = zones.map((z) => z.zoneId || z._id);
+      localStorage.setItem('freshmart_deleted_zone_ids', JSON.stringify(allIds));
       localStorage.setItem('freshmart_zones', JSON.stringify([]));
       window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: [] }));
       for (const z of zones) {
@@ -1028,6 +1085,10 @@ export const ZoneManagementView = () => {
     if (!zoneToDelete) return;
     try {
       const zId = zoneToDelete.zoneId || zoneToDelete._id;
+      const deletedSet = loadDeletedZoneIds();
+      deletedSet.add(zId);
+      localStorage.setItem('freshmart_deleted_zone_ids', JSON.stringify(Array.from(deletedSet)));
+
       const res = await apiService.deleteZone(zId);
       if (res && res.success) {
         if (addToast) addToast(`Polygon "${zoneToDelete.name}" deleted.`, 'success');
