@@ -892,6 +892,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       if (onNavigateToZones) onNavigateToZones();
     };
     window.__startDrawingFromMap = () => {
+      if (mapInstanceRef.current) mapInstanceRef.current.closePopup();
       setIsDrawingPolygon(true);
       setDrawingTool('polygon');
       setDrawnPoints([]);
@@ -922,6 +923,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   // Start drawing custom delivery zone polygon for a specific store
   const handleStartDrawingDeliveryZoneForStore = (store) => {
     if (!store) return;
+    if (mapInstanceRef.current) mapInstanceRef.current.closePopup();
     setDrawingStoreTarget(store);
     setIsDrawingPolygon(true);
     setDrawingTool('polygon');

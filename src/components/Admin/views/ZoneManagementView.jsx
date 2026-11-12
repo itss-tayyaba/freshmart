@@ -440,6 +440,8 @@ export const ZoneManagementView = () => {
     if (!mapInstanceRef.current || !polygonsLayerGroupRef.current) return;
     polygonsLayerGroupRef.current.clearLayers();
 
+    const isDrawing = mapMode === 'draw';
+
     zones.forEach((z) => {
       const latLngs = getZonePolygonLatLngs(z);
       if (latLngs.length < 3) return;
@@ -457,8 +459,9 @@ export const ZoneManagementView = () => {
         color: color,
         weight: isSelected ? 3.5 : 2.2,
         fillColor: color,
-        fillOpacity: isSelected ? 0.32 : 0.16,
-        dashArray: isSelected ? null : null
+        fillOpacity: isSelected ? (isDrawing ? 0.12 : 0.32) : (isDrawing ? 0.08 : 0.16),
+        dashArray: isSelected ? null : null,
+        interactive: !isDrawing // In draw mode, allows clicks to fall straight through to map canvas so you can draw inside/intersecting any polygon!
       });
 
       const storesListHtml =
@@ -474,44 +477,45 @@ export const ZoneManagementView = () => {
               .join('')
           : '<li style="color: #94a3b8; font-style: italic;">No stores currently inside</li>';
 
-      // Clean tooltip that follows mouse on hover (NO permanent dark bars on map)
-      polygon.bindTooltip(
-        `<div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
-          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${color};"></span>
-          <span>${z.name}</span>
-          <span style="background: ${color}25; color: ${color}; padding: 1px 6px; border-radius: 9999px; font-size: 10px; font-weight: 900;">${insideStores.length} Stores</span>
-        </div>`,
-        { sticky: true, opacity: 0.95 }
-      );
+      // Only bind tooltip and popup when NOT drawing so popups never hijack clicks
+      if (!isDrawing) {
+        polygon.bindTooltip(
+          `<div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
+            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${color};"></span>
+            <span>${z.name}</span>
+            <span style="background: ${color}25; color: ${color}; padding: 1px 6px; border-radius: 9999px; font-size: 10px; font-weight: 900;">${insideStores.length} Stores</span>
+          </div>`,
+          { sticky: true, opacity: 0.95 }
+        );
 
-      polygon.bindPopup(`
-        <div style="font-family: inherit; font-size: 12px; min-width: 190px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-            <strong style="color: #0f172a; font-size: 13px;">${z.name}</strong>
-            <span style="font-size: 10px; background: ${color}25; color: ${color}; padding: 2px 7px; border-radius: 9999px; font-weight: 800;">
-              ${insideStores.length} Stores Inside
-            </span>
+        polygon.bindPopup(`
+          <div style="font-family: inherit; font-size: 12px; min-width: 190px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+              <strong style="color: #0f172a; font-size: 13px;">${z.name}</strong>
+              <span style="font-size: 10px; background: ${color}25; color: ${color}; padding: 2px 7px; border-radius: 9999px; font-weight: 800;">
+                ${insideStores.length} Stores Inside
+              </span>
+            </div>
+            <div style="font-size: 11px; color: #475569; margin-bottom: 6px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">
+              ${z.city || 'Faisalabad'}${z.area ? ` • ${z.area}` : ''}
+            </div>
+            <div style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">
+              Stores In This Polygon:
+            </div>
+            <ul style="margin: 0; padding-left: 14px; font-size: 11px; color: #1e293b; max-height: 120px; overflow-y: auto;">
+              ${storesListHtml}
+            </ul>
           </div>
-          <div style="font-size: 11px; color: #475569; margin-bottom: 6px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">
-            ${z.city || 'Faisalabad'}${z.area ? ` • ${z.area}` : ''}
-          </div>
-          <div style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">
-            Stores In This Polygon:
-          </div>
-          <ul style="margin: 0; padding-left: 14px; font-size: 11px; color: #1e293b; max-height: 120px; overflow-y: auto;">
-            ${storesListHtml}
-          </ul>
-        </div>
-      `);
+        `);
 
-      polygon.on('click', () => {
-        if (mapModeRef.current === 'draw') return;
-        setSelectedZoneId(zKey);
-      });
+        polygon.on('click', () => {
+          setSelectedZoneId(zKey);
+        });
+      }
 
       polygonsLayerGroupRef.current.addLayer(polygon);
     });
-  }, [zones, selectedZoneId, stores, polygonViewFilter]);
+  }, [zones, selectedZoneId, stores, polygonViewFilter, mapMode]);
 
   // Render Store Pins on Map (Compact, non-overlapping design)
   useEffect(() => {
@@ -519,6 +523,8 @@ export const ZoneManagementView = () => {
     storeMarkersGroupRef.current.clearLayers();
 
     if (!showStoreMarkers) return;
+
+    const isDrawing = mapMode === 'draw';
 
     stores.forEach((store) => {
       const lat = Number(store.latitude ?? store.coordinates?.lat);
@@ -530,7 +536,7 @@ export const ZoneManagementView = () => {
       const pinIcon = L.divIcon({
         className: 'custom-store-pin',
         html: `
-          <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer;">
+          <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: ${isDrawing ? 'crosshair' : 'pointer'};">
             <div style="width: 30px; height: 30px; border-radius: 50%; background: ${retailer.color}; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">
               ${retailer.logo}
             </div>
@@ -543,30 +549,29 @@ export const ZoneManagementView = () => {
         iconAnchor: [15, 38]
       });
 
-      const marker = L.marker([lat, lng], { icon: pinIcon });
-      marker.bindPopup(`
-        <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
-          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-            <span style="font-size: 16px;">${retailer.logo}</span>
-            <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
-          </div>
-          <p style="color: #64748b; font-size: 11px; margin: 2px 0 6px 0;">${store.address}</p>
-          <div style="font-size: 10px; color: #475569; font-family: monospace;">
-            GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)}
-          </div>
-        </div>
-      `);
-
-      marker.on('click', (e) => {
-        if (mapModeRef.current === 'draw') {
-          const { lat: mLat, lng: mLng } = e.latlng;
-          setDrawnVertices((prev) => [...prev, [Number(mLat.toFixed(6)), Number(mLng.toFixed(6))]]);
-        }
+      const marker = L.marker([lat, lng], {
+        icon: pinIcon,
+        interactive: !isDrawing // When drawing, clicks pass straight through to place vertex
       });
+
+      if (!isDrawing) {
+        marker.bindPopup(`
+          <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+              <span style="font-size: 16px;">${retailer.logo}</span>
+              <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
+            </div>
+            <p style="color: #64748b; font-size: 11px; margin: 2px 0 6px 0;">${store.address}</p>
+            <div style="font-size: 10px; color: #475569; font-family: monospace;">
+              GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)}
+            </div>
+          </div>
+        `);
+      }
 
       storeMarkersGroupRef.current.addLayer(marker);
     });
-  }, [stores, showStoreMarkers]);
+  }, [stores, showStoreMarkers, mapMode]);
 
   // Render Active Drawing / Editing Polyline & Vertex Markers
   useEffect(() => {
@@ -669,10 +674,13 @@ export const ZoneManagementView = () => {
     setDrawnVertices([]);
     setActivePolygonColor('#2563eb');
     if (drawingLayerGroupRef.current) drawingLayerGroupRef.current.clearLayers();
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.closePopup();
+    }
     if (addToast) {
       addToast(
         'Draw Mode Active ✏️',
-        'Click on the map around the stores to place polygon boundary points (at least 3 points).',
+        'Click anywhere on the map around stores to place boundary points (minimum 3). You can freely click inside or intersect existing polygons.',
         'info'
       );
     }
