@@ -39,21 +39,6 @@ const createUserPin = () =>
     popupAnchor: [0, -18]
   });
 
-const createStorePin = (logo = '🏬', color = '#10b981', isSelected = false) =>
-  L.divIcon({
-    className: 'custom-store-pin',
-    html: `
-      <div style="position: relative; width: ${isSelected ? '38px' : '32px'}; height: ${isSelected ? '38px' : '32px'}; display: flex; align-items: center; justify-content: center;">
-        <div style="width: 100%; height: 100%; background: ${color}; border: ${isSelected ? '3px solid #ffffff' : '2px solid #ffffff'}; border-radius: 12px; box-shadow: ${isSelected ? '0 8px 20px rgba(0,0,0,0.45), 0 0 0 3px ' + color : '0 4px 10px rgba(0,0,0,0.25)'}; display: flex; align-items: center; justify-content: center; font-size: ${isSelected ? '16px' : '13px'}; color: white;">
-          ${logo}
-        </div>
-      </div>
-    `,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
-    popupAnchor: [0, -18]
-  });
-
 export const NearbyStoresSection = ({ nearbyStores = [], onSelectStore }) => {
   const { currentTenant, deliveryLocation, isOutsideDeliveryZone, setIsLocationModalOpen } = useStore();
 

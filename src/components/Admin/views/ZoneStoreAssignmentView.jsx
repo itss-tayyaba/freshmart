@@ -1929,24 +1929,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         `);
 
         polygonLayerRef.current.addLayer(storePoly);
-      } else {
-        // Subtle dashed circular delivery coverage perimeter for stores without custom polygons
-        const sLat = Number(store.latitude);
-        const sLng = Number(store.longitude);
-        if (Number.isFinite(sLat) && Number.isFinite(sLng)) {
-          const radiusKm = Number(store.deliveryRadiusKm || store.deliveryRadius || 5);
-          const circle = L.circle([sLat, sLng], {
-            radius: radiusKm * 1000,
-            color: retailer.color,
-            weight: 1.2,
-            dashArray: '4, 8',
-            fillColor: retailer.color,
-            fillOpacity: 0.04,
-            interactive: false
-          });
-          polygonLayerRef.current.addLayer(circle);
-        }
       }
+      // No circular fallback radius: per specification, only display custom drawn polygon perimeters.
     });
   }, [activeZone, assignedStores, isDrawingPolygon, stores, storesWithDistance, assignments, zones, drawingStoreTarget]);
 

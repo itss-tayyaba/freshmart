@@ -62,7 +62,6 @@ export const LeafletLocationPicker = ({
   const mapInstanceRef = useRef(null);
   const tileLayerRef = useRef(null);
   const userMarkerRef = useRef(null);
-  const storeMarkersRef = useRef([]);
 
   const currentLat = Number(coords?.lat || 31.4125);
   const currentLng = Number(coords?.lng || 73.0995);
@@ -159,18 +158,8 @@ export const LeafletLocationPicker = ({
     }
   }, [currentLat, currentLng]);
 
-  // Render Store markers on map
-  useEffect(() => {
-    if (!mapInstanceRef.current) return;
-    const map = mapInstanceRef.current;
-
-    // Clear old store markers
-    storeMarkersRef.current.forEach((m) => map.removeLayer(m));
-    storeMarkersRef.current = [];
-
-    // Customer map: Stores are not rendered on the map canvas itself.
-  }, [nearbyStores, currentLat, currentLng]);
-
+  // Customer map: Only the user's draggable pin is rendered on the map canvas.
+  // Stores and radii are not drawn on the map canvas to maintain an uncluttered picker.
   return (
     <div className="space-y-3">
       {/* Interactive Map Box */}

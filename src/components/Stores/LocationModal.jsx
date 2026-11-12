@@ -41,28 +41,6 @@ const createUserPin = () =>
     popupAnchor: [0, -44]
   });
 
-// Custom Store Pin for Supermarket Stores on Leaflet Map
-const createStorePin = (store) => {
-  const color = store.color || '#0284c7';
-  const logo = store.logo || '🏬';
-  return L.divIcon({
-    className: 'custom-store-pin',
-    html: `
-      <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer;">
-        <div style="width: 30px; height: 30px; border-radius: 10px; background: ${color}; border: 2px solid #ffffff; box-shadow: 0 4px 8px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center; color: white; font-size: 13px;">
-          <span>${logo}</span>
-        </div>
-        <div style="margin-top: 2px; padding: 1px 5px; border-radius: 5px; background: #0f172a; color: white; font-size: 8px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-          ${store.displayName || store.name}
-        </div>
-      </div>
-    `,
-    iconSize: [34, 46],
-    iconAnchor: [17, 38],
-    popupAnchor: [0, -38]
-  });
-};
-
 export const LocationModal = () => {
   const { isLocationModalOpen } = useStore();
   return isLocationModalOpen ? <LocationModalContent /> : null;
@@ -113,9 +91,6 @@ const LocationModalContent = () => {
   const mapInstanceRef = useRef(null);
   const tileLayerRef = useRef(null);
   const userMarkerRef = useRef(null);
-  const storeMarkersRef = useRef([]);
-  const storePolygonsRef = useRef([]);
-  const deliveryCirclesRef = useRef([]);
 
   // Resilient delivery zones state: immediately reads from localStorage, then fetches backend API
   const [deliveryZones, setDeliveryZones] = useState(() => {
@@ -338,22 +313,11 @@ const LocationModalContent = () => {
     }
   };
 
-  // Update store markers and delivery boundaries (custom polygons and fallback circles) on Leaflet Map
+  // Customer map canvas is kept 100% clean and clear:
+  // ONLY displaying the customer's draggable delivery pin ("YOUR LOCATION").
+  // No circles, no radius rings, no polygons, and no store markers on the map canvas.
+  // Customer only pins location or types address; eligible stores are shown in the cards below.
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
-    const map = mapInstanceRef.current;
-
-    // Clear previous store markers, custom polygons, and delivery circles
-    storeMarkersRef.current.forEach((m) => map.removeLayer(m));
-    storeMarkersRef.current = [];
-    storePolygonsRef.current.forEach((p) => map.removeLayer(p));
-    storePolygonsRef.current = [];
-    deliveryCirclesRef.current.forEach((c) => map.removeLayer(c));
-    deliveryCirclesRef.current = [];
-
-    // On customer map, polygons and store pins are NOT shown on the map itself.
-    // The map is kept 100% clean and clear: displaying only the customer's delivery pin ("YOUR LOCATION").
-    // Eligible stores delivering to this pinned location are displayed cleanly below the map.
     if (zonesLayerGroupRef.current) {
       zonesLayerGroupRef.current.clearLayers();
     }
