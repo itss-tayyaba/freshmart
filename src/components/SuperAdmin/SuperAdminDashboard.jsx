@@ -166,9 +166,13 @@ export const SuperAdminDashboard = () => {
     phone: '',
     tenantId: 'tenant-alfatah',
     tenantName: '',
+    branchId: '',
+    branchName: '',
+    city: 'Faisalabad',
     status: 'Active'
   });
   const [showEditAdminPassword, setShowEditAdminPassword] = useState(false);
+  const [showNewAdminPassword, setShowNewAdminPassword] = useState(false);
 
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
@@ -413,6 +417,36 @@ export const SuperAdminDashboard = () => {
     };
   }, [displayStores, liveStores, liveZones, liveAssignments, allCrossStoreOrders]);
 
+  // 🏢 Track Branch Admin allocation across all unique store branches
+  const branchAllocationStatus = useMemo(() => {
+    const allocatedMap = new Map();
+    (storeAdmins || []).forEach((adm) => {
+      if (adm.branchId) {
+        allocatedMap.set(String(adm.branchId), adm);
+      }
+      if (adm.tenantId && adm.branchName) {
+        const k = `${String(adm.tenantId).toLowerCase()}__${String(adm.branchName).toLowerCase()}`;
+        allocatedMap.set(k, adm);
+      }
+    });
+
+    const unallocated = [];
+    const allocated = [];
+
+    (liveStores || []).forEach((store) => {
+      const sId = String(store.storeId || store._id || '');
+      const k = `${String(store.tenantId || '').toLowerCase()}__${String(store.branchName || store.name || '').toLowerCase()}`;
+      const adm = allocatedMap.get(sId) || allocatedMap.get(k);
+      if (adm) {
+        allocated.push({ store, admin: adm });
+      } else {
+        unallocated.push(store);
+      }
+    });
+
+    return { unallocated, allocated };
+  }, [liveStores, storeAdmins]);
+
   // =========================================================================
   // SUPER ADMIN MAIN DASHBOARD: ANALYTICS & GRAPH ENGINE
   // =========================================================================
@@ -631,6 +665,8 @@ export const SuperAdminDashboard = () => {
   // Form states
   const [newAdminForm, setNewAdminForm] = useState({
     tenantId: 'tenant-alfatah',
+    branchId: '',
+    branchName: '',
     name: '',
     email: '',
     phone: '',
@@ -778,6 +814,9 @@ export const SuperAdminDashboard = () => {
       phone: admin.phone || '',
       tenantId: admin.tenantId || 'tenant-alfatah',
       tenantName: admin.tenantName || '',
+      branchId: admin.branchId || '',
+      branchName: admin.branchName || '',
+      city: admin.city || 'Faisalabad',
       status: admin.status || 'Active'
     });
     setShowEditAdminPassword(false);
@@ -790,6 +829,9 @@ export const SuperAdminDashboard = () => {
     const targetStore = displayStores.find((s) => s.id === editAdminForm.tenantId);
     await updateStoreAdmin(editAdminForm.id, {
       ...editAdminForm,
+      city: editAdminForm.city || targetStore?.city || 'Faisalabad',
+      branchId: editAdminForm.branchId || null,
+      branchName: editAdminForm.branchName || null,
       tenantName: targetStore?.fullName || targetStore?.name || editAdminForm.tenantName || 'Supermarket'
     });
     setIsEditAdminOpen(false);
@@ -800,12 +842,16 @@ export const SuperAdminDashboard = () => {
     const targetStore = displayStores.find((s) => s.id === newAdminForm.tenantId);
     await addStoreAdmin({
       ...newAdminForm,
+      branchId: newAdminForm.branchId || null,
+      branchName: newAdminForm.branchName || null,
       city: newAdminForm.city || targetStore?.city || 'Faisalabad',
       tenantName: targetStore?.fullName || 'Supermarket'
     });
     setIsAddAdminOpen(false);
     setNewAdminForm({
       tenantId: 'tenant-alfatah',
+      branchId: '',
+      branchName: '',
       name: '',
       email: '',
       phone: '',
@@ -2351,6 +2397,67 @@ export const SuperAdminDashboard = () => {
                 </div>
               </div>
 
+              {/* Branch Allocation Status Alert Banner */}
+              {branchAllocationStatus.unallocated.length > 0 ? (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 space-y-2 text-xs">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
+                      <h3 className="font-black text-amber-950 text-sm">
+                        ⚠️ {branchAllocationStatus.unallocated.length} Store Branch{branchAllocationStatus.unallocated.length > 1 ? 'es' : ''} Awaiting Admin Allocation!
+                      </h3>
+                    </div>
+                    <span className="text-[11px] font-bold bg-amber-200/80 text-amber-900 px-2.5 py-0.5 rounded-full">
+                      {branchAllocationStatus.allocated.length} of {liveStores.length} Branches Allocated
+                    </span>
+                  </div>
+                  <p className="text-amber-900/80">
+                    The following unique branches do not have a dedicated Store Admin account or password assigned yet. Click any branch to immediately allocate credentials:
+                  </p>
+                  <div className="flex items-center gap-2 flex-wrap pt-1">
+                    {branchAllocationStatus.unallocated.map((branch) => {
+                      const bId = branch.storeId || branch._id;
+                      const bName = branch.branchName || branch.name;
+                      const retailer = displayStores.find((s) => s.id === branch.tenantId) || CORE_RETAILERS[0];
+                      const cleanSlug = bName.toLowerCase().replace(/[^a-z0-9]/g, '');
+                      const tenantSlug = (retailer?.slug || branch.tenantId?.replace('tenant-', '') || 'store');
+                      return (
+                        <button
+                          key={bId}
+                          type="button"
+                          onClick={() => {
+                            setNewAdminForm({
+                              tenantId: branch.tenantId || 'tenant-alfatah',
+                              branchId: bId,
+                              branchName: bName,
+                              city: branch.city || 'Faisalabad',
+                              name: `${retailer?.name || 'Store'} (${bName}) Admin`,
+                              email: `admin.${cleanSlug}@${tenantSlug}.pk`,
+                              phone: '',
+                              password: 'admin123'
+                            });
+                            setIsAddAdminOpen(true);
+                          }}
+                          className="px-3 py-1.5 bg-white hover:bg-amber-100 border border-amber-300 rounded-xl text-xs font-bold text-amber-900 shadow-2xs transition flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5 text-amber-700" />
+                          <span>Allocate Admin:</span>
+                          <span className="underline">{bName}</span>
+                          <span className="text-[10px] text-amber-700 font-normal">({branch.city || 'Faisalabad'})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center gap-2.5 text-xs text-emerald-800">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-bold">
+                    All {liveStores.length} unique store branches have allocated Store Admins with passwords set! ✨
+                  </span>
+                </div>
+              )}
+
               {/* City Filter Pills */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold text-slate-500 mr-1">City Filter:</span>
@@ -2412,6 +2519,11 @@ export const SuperAdminDashboard = () => {
                               <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
                                 📍 {admin.city || 'Faisalabad'}
                               </span>
+                              {admin.branchName && (
+                                <span className="text-[10px] bg-blue-50 text-blue-800 font-bold px-2 py-0.5 rounded-full border border-blue-200 flex items-center gap-1">
+                                  🏢 {admin.branchName}
+                                </span>
+                              )}
                               <span
                                 className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
                                   admin.status === 'Active'
@@ -3144,6 +3256,77 @@ export const SuperAdminDashboard = () => {
             </div>
 
             <form onSubmit={handleCreateAdminSubmit} className="space-y-3 text-xs">
+              {/* Branch Selector: Highlights Unallocated Branches at top */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-slate-700 block">
+                    Target Branch / Store *
+                  </label>
+                  {branchAllocationStatus.unallocated.length > 0 && (
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                      ⚠️ {branchAllocationStatus.unallocated.length} Not Allocated
+                    </span>
+                  )}
+                </div>
+                <select
+                  value={newAdminForm.branchId || ''}
+                  onChange={(e) => {
+                    const bId = e.target.value;
+                    const bObj = liveStores.find((s) => (s.storeId || s._id) === bId);
+                    if (bObj) {
+                      const retailer = displayStores.find((s) => s.id === bObj.tenantId) || CORE_RETAILERS[0];
+                      const bName = bObj.branchName || bObj.name || 'Branch';
+                      const cleanSlug = bName.toLowerCase().replace(/[^a-z0-9]/g, '');
+                      const tenantSlug = (retailer?.slug || bObj.tenantId?.replace('tenant-', '') || 'store');
+                      setNewAdminForm((prev) => ({
+                        ...prev,
+                        branchId: bId,
+                        branchName: bName,
+                        tenantId: bObj.tenantId || prev.tenantId,
+                        city: bObj.city || prev.city || 'Faisalabad',
+                        name: prev.name || `${retailer?.name || 'Store'} (${bName}) Admin`,
+                        email: prev.email || `admin.${cleanSlug}@${tenantSlug}.pk`
+                      }));
+                    } else {
+                      setNewAdminForm((prev) => ({ ...prev, branchId: '', branchName: '' }));
+                    }
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:outline-none"
+                >
+                  <option value="">-- Choose Branch to Allocate Admin --</option>
+                  {branchAllocationStatus.unallocated.length > 0 && (
+                    <optgroup label="⚠️ UNALLOCATED BRANCHES (NEEDS ADMIN & PASSWORD)">
+                      {branchAllocationStatus.unallocated.map((b) => {
+                        const bId = b.storeId || b._id;
+                        return (
+                          <option key={bId} value={bId}>
+                            ⚠️ [NO ADMIN] {b.name || b.branchName} ({b.city || 'Faisalabad'})
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+                  )}
+                  <optgroup label="✅ ALL STORE BRANCHES">
+                    {liveStores.map((b) => {
+                      const bId = b.storeId || b._id;
+                      const hasAdmin = branchAllocationStatus.allocated.some((a) => (a.store.storeId || a.store._id) === bId);
+                      return (
+                        <option key={bId} value={bId}>
+                          {hasAdmin ? '✅' : '⚠️'} {b.name || b.branchName} ({b.city || 'Faisalabad'})
+                        </option>
+                      );
+                    })}
+                  </optgroup>
+                </select>
+                {newAdminForm.branchName && (
+                  <div className="mt-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-0.5 font-bold flex items-center gap-1">
+                    <span>🏢 Allocating to:</span>
+                    <span>{newAdminForm.branchName}</span>
+                    <span className="text-emerald-600 font-normal">({newAdminForm.city || 'Faisalabad'})</span>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Select Supermarket Mart</label>
                 <select
@@ -3200,15 +3383,29 @@ export const SuperAdminDashboard = () => {
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Set Password</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Enter login password for this Store Admin"
-                  value={newAdminForm.password}
-                  onChange={(e) => setNewAdminForm({ ...newAdminForm, password: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-mono font-bold focus:bg-white focus:outline-none"
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-slate-700">Set Admin Password *</label>
+                  <span className="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-full">
+                    Secret Login Key
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showNewAdminPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Enter login password for this Store Admin"
+                    value={newAdminForm.password}
+                    onChange={(e) => setNewAdminForm({ ...newAdminForm, password: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-10 py-2 text-slate-800 font-mono font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewAdminPassword(!showNewAdminPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+                  >
+                    {showNewAdminPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -3266,6 +3463,48 @@ export const SuperAdminDashboard = () => {
             </div>
 
             <form onSubmit={handleSaveAdminSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Allocated Branch / Store
+                </label>
+                <select
+                  value={editAdminForm.branchId || ''}
+                  onChange={(e) => {
+                    const bId = e.target.value;
+                    const bObj = liveStores.find((s) => (s.storeId || s._id) === bId);
+                    if (bObj) {
+                      setEditAdminForm((prev) => ({
+                        ...prev,
+                        branchId: bId,
+                        branchName: bObj.branchName || bObj.name || 'Branch',
+                        tenantId: bObj.tenantId || prev.tenantId,
+                        city: bObj.city || prev.city || 'Faisalabad'
+                      }));
+                    } else {
+                      setEditAdminForm((prev) => ({ ...prev, branchId: '', branchName: '' }));
+                    }
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:outline-none"
+                >
+                  <option value="">-- All Branches / Flagship Hub --</option>
+                  {liveStores.map((b) => {
+                    const bId = b.storeId || b._id;
+                    return (
+                      <option key={bId} value={bId}>
+                        🏢 {b.name || b.branchName} ({b.city || 'Faisalabad'})
+                      </option>
+                    );
+                  })}
+                </select>
+                {editAdminForm.branchName && (
+                  <div className="mt-1 text-[10px] text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-2 py-0.5 font-bold flex items-center gap-1">
+                    <span>🏢 Bound to:</span>
+                    <span>{editAdminForm.branchName}</span>
+                    <span className="text-blue-600 font-normal">({editAdminForm.city || 'Faisalabad'})</span>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Assigned Supermarket Mart</label>
                 <select

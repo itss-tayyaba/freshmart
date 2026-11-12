@@ -231,6 +231,19 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   const isDrawingPolygonRef = useRef(false);
   useEffect(() => {
     isDrawingPolygonRef.current = isDrawingPolygon;
+    if (mapInstanceRef.current) {
+      setTimeout(() => {
+        mapInstanceRef.current?.invalidateSize();
+        if (isDrawingPolygon && drawnPoints.length >= 3) {
+          try {
+            mapInstanceRef.current?.fitBounds(L.latLngBounds(drawnPoints), {
+              padding: [60, 60],
+              maxZoom: 15
+            });
+          } catch (e) {}
+        }
+      }, 150);
+    }
   }, [isDrawingPolygon]);
   const [drawingTool, setDrawingTool] = useState('polygon');
   const drawingToolRef = useRef('polygon');
@@ -946,7 +959,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     const sLng = Number(store.longitude ?? store.coordinates?.lng);
 
     const rawPoly = store.deliveryPolygon;
+    let targetPoints = [];
     if (Array.isArray(rawPoly) && rawPoly.length >= 3) {
+      targetPoints = rawPoly;
       setDrawnPoints(rawPoly);
     } else if (Number.isFinite(sLat) && Number.isFinite(sLng)) {
       const radiusKm = Number(store.deliveryRadiusKm || store.deliveryRadius || 2.5);
@@ -962,13 +977,26 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
           Number((sLng + lngDelta * Math.cos(angle) * rFactor).toFixed(6))
         ]);
       }
+      targetPoints = initialPoly;
       setDrawnPoints(initialPoly);
     } else {
       setDrawnPoints([]);
     }
 
-    if (mapInstanceRef.current && Number.isFinite(sLat) && Number.isFinite(sLng)) {
-      mapInstanceRef.current.flyTo([sLat, sLng], 14, { duration: 1.2 });
+    if (mapInstanceRef.current) {
+      setTimeout(() => {
+        try {
+          mapInstanceRef.current?.invalidateSize();
+          if (targetPoints && targetPoints.length >= 3) {
+            mapInstanceRef.current?.fitBounds(L.latLngBounds(targetPoints), {
+              padding: [70, 70],
+              maxZoom: 15
+            });
+          } else if (Number.isFinite(sLat) && Number.isFinite(sLng)) {
+            mapInstanceRef.current?.setView([sLat, sLng], 14);
+          }
+        } catch (e) {}
+      }, 150);
     }
 
     if (addToast) {
@@ -2163,12 +2191,23 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         <div className="lg:col-span-7 space-y-4">
           {/* Interactive Map */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden">
-            <div className="p-3.5 border-b border-slate-100 flex items-center justify-between text-xs">
-              <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-emerald-600" />
-                <span>Delivery Coverage & Supermarkets Map</span>
-              </span>
-              <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Header: Non-colliding responsive flex container */}
+            <div className="p-3.5 sm:p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-white">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shrink-0">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="font-bold text-slate-900 text-xs sm:text-sm block truncate">
+                    Delivery Coverage & Supermarkets Map
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-medium block">
+                    {isDrawingPolygon ? 'Drag numbered dots on map to shape boundary' : 'Supermarket delivery boundaries & coverage'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap shrink-0">
                 <button
                   type="button"
                   onClick={() => {
@@ -2204,112 +2243,113 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                 )}
               </div>
             </div>
+
+            {/* Drawing Controls Bar (Located OUTSIDE / Above Map canvas so map is 100% visible) */}
+            {isDrawingPolygon && (
+              <div className="p-3 bg-slate-900 text-white border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs animate-in fade-in">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
+                      <span className="truncate">
+                        {drawingStoreTarget
+                          ? `Drawing Delivery Zone: ${drawingStoreTarget.branchName || drawingStoreTarget.name}`
+                          : `Drawing: ${activeZone?.name || 'New Delivery Boundary'}`}
+                      </span>
+                      <span className="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border border-emerald-500/40">
+                        {drawnPoints.length} Vertex{drawnPoints.length === 1 ? '' : 'es'}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-300">
+                      Drag numbered handles (1, 2, 3...) or click map to shape delivery perimeter.
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap self-end sm:self-auto shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleUndoPoint}
+                    disabled={drawnPoints.length === 0}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-lg text-xs font-semibold transition cursor-pointer"
+                  >
+                    Undo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearDrawing}
+                    disabled={drawnPoints.length === 0}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-lg text-xs font-semibold transition cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                  {drawnPoints.length >= 3 && (
+                    <button
+                      type="button"
+                      onClick={handleUntanglePoints}
+                      title="Untangle points into a smooth perimeter"
+                      className="px-2.5 py-1 bg-indigo-900/80 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/60 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Sparkles className="w-3 h-3 text-indigo-300" />
+                      <span>Untangle ✨</span>
+                    </button>
+                  )}
+                  {stores.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetStore = drawingStoreTarget || assignedStores[0] || storesWithDistance[0] || stores[0];
+                        if (targetStore) handleCreatePolygonAroundStore(targetStore, 2.5);
+                      }}
+                      title="Place authentic polygon around target store"
+                      className="px-2.5 py-1 bg-amber-900/80 hover:bg-amber-800 text-amber-200 border border-amber-700/60 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Store className="w-3 h-3 text-amber-300" />
+                      <span>Polygon Around Store ⬡</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleCancelDrawing}
+                    className="px-2.5 py-1 bg-rose-900/70 hover:bg-rose-800 text-rose-200 border border-rose-700/60 rounded-lg text-xs font-semibold transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveDrawnPolygon}
+                    disabled={drawnPoints.length < 3 || isSavingPolygon}
+                    className="px-3.5 py-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-40 text-slate-950 font-black rounded-xl text-xs transition shadow-md flex items-center gap-1 cursor-pointer shrink-0 ml-1"
+                  >
+                    {isSavingPolygon ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{drawingStoreTarget ? 'Save Store Delivery Zone' : 'Save Polygon'}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="relative">
               <div
                 ref={mapContainerRef}
                 className={`w-full z-10 transition-all ${isDrawingPolygon ? 'cursor-crosshair ring-2 ring-emerald-500 ring-inset' : ''}`}
-                style={{ height: '380px' }}
+                style={{ height: isDrawingPolygon ? '560px' : '450px' }}
               />
 
-              {/* Drawing Mode Overlay Banner */}
+              {/* Floating Helper Tip Pill over map */}
               {isDrawingPolygon && (
-                <div className="absolute top-2 left-2 right-2 z-[1000] bg-slate-900/95 backdrop-blur-md text-white rounded-2xl p-3 border border-emerald-500/60 shadow-2xl flex flex-col gap-2 animate-in fade-in max-w-full">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
-                          <span className="truncate">
-                            {drawingStoreTarget
-                              ? `Drawing Delivery Zone for: ${drawingStoreTarget.branchName || drawingStoreTarget.name}`
-                              : `Drawing: ${activeZone?.name || 'New Delivery Boundary'}`}
-                          </span>
-                          <span className="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
-                            {drawnPoints.length} Vertex{drawnPoints.length === 1 ? '' : 'es'}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-slate-300">
-                          {drawingStoreTarget
-                            ? 'Drag vertices or click on the map to shape this store\'s delivery region. Then click "Save Store Delivery Zone".'
-                            : (drawnPoints.length < 3
-                                ? `Click map around stores to place ${3 - drawnPoints.length} more point(s) to form delivery polygon.`
-                                : 'Click map to add more vertices, or click "Save Polygon" to apply.')}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-1.5 flex-wrap pt-1.5 border-t border-slate-800">
-                    <div className="flex items-center gap-1 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={handleUndoPoint}
-                        disabled={drawnPoints.length === 0}
-                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-lg text-xs font-semibold transition cursor-pointer"
-                      >
-                        Undo
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleClearDrawing}
-                        disabled={drawnPoints.length === 0}
-                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-lg text-xs font-semibold transition cursor-pointer"
-                      >
-                        Clear
-                      </button>
-                      {drawnPoints.length >= 3 && (
-                        <button
-                          type="button"
-                          onClick={handleUntanglePoints}
-                          title="Untangle points into a smooth perimeter"
-                          className="px-2.5 py-1 bg-indigo-900/70 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/60 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                        >
-                          <Sparkles className="w-3 h-3 text-indigo-300" />
-                          <span>Untangle ✨</span>
-                        </button>
-                      )}
-                      {stores.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const targetStore = assignedStores[0] || storesWithDistance[0] || stores[0];
-                            if (targetStore) handleCreatePolygonAroundStore(targetStore, 2.5);
-                          }}
-                          title="Place authentic polygon around target store"
-                          className="px-2.5 py-1 bg-amber-900/70 hover:bg-amber-800 text-amber-200 border border-amber-700/60 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                        >
-                          <Store className="w-3 h-3 text-amber-300" />
-                          <span>Polygon Around Store ⬡</span>
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={handleCancelDrawing}
-                        className="px-2.5 py-1 bg-rose-900/60 hover:bg-rose-800/80 text-rose-200 border border-rose-700/60 rounded-lg text-xs font-semibold transition cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleSaveDrawnPolygon}
-                      disabled={drawnPoints.length < 3 || isSavingPolygon}
-                      className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-40 text-slate-950 font-black rounded-xl text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer shrink-0 ml-auto"
-                    >
-                      {isSavingPolygon ? (
-                        <>
-                          <div className="w-3 h-3 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-                          <span>Saving...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>{drawingStoreTarget ? 'Save Store Delivery Zone' : 'Save Polygon'}</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+                <div className="absolute bottom-3 left-3 z-[500] bg-slate-900/85 backdrop-blur-md text-white text-[11px] px-3 py-1.5 rounded-full shadow-lg border border-slate-700 flex items-center gap-2 pointer-events-none">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  <span>💡 Drag numbered dots (1, 2, 3...) to fix points on map • Click to add vertices</span>
                 </div>
               )}
             </div>

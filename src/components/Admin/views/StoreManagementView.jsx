@@ -39,6 +39,7 @@ export const StoreManagementView = () => {
     allBranches = [],
     setAllBranches,
     tenants = [],
+    storeAdmins = [],
     addToast
   } = useStore();
 
@@ -749,9 +750,29 @@ export const StoreManagementView = () => {
                           />
                           <div className="min-w-0">
                             <p className="font-bold text-slate-900 text-xs truncate">{store.name}</p>
-                            <p className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
-                              ID: {sId} • {store.branchName}
-                            </p>
+                            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                              <span className="text-[10px] text-slate-400 font-mono truncate">
+                                ID: {sId} • {store.branchName}
+                              </span>
+                              {(() => {
+                                const matchedAdmin = (storeAdmins || []).find((a) =>
+                                  (a.branchId && (a.branchId === sId || a.branchId === store._id)) ||
+                                  (a.branchName && (a.branchName.toLowerCase() === (store.branchName || store.name || '').toLowerCase()))
+                                );
+                                if (matchedAdmin) {
+                                  return (
+                                    <span className="text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                                      🛡️ Admin: {matchedAdmin.name}
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span className="text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200 px-1.5 py-0.5 rounded-full">
+                                    ⚠️ No Admin Allocated
+                                  </span>
+                                );
+                              })()}
+                            </div>
                           </div>
                         </div>
                       </td>

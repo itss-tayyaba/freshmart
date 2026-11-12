@@ -5408,13 +5408,16 @@ export const StoreProvider = ({ children }) => {
     
     const email = (adminData.email || '').toLowerCase().trim();
     const newAdmin = {
-      id: `sa-${Date.now()}`,
+      id: adminData.id || `sa-${Date.now()}`,
       name: adminData.name || 'Store Admin',
       email,
       username: email,
       password: adminData.password || 'admin123',
       tenantId: adminData.tenantId,
       tenantName: adminData.tenantName || (targetTenant ? targetTenant.name : 'Supermarket'),
+      branchId: adminData.branchId || null,
+      branchName: adminData.branchName || null,
+      city: adminData.city || 'Faisalabad',
       phone: adminData.phone || '',
       role: 'admin',
       status: adminData.status || 'Active',
