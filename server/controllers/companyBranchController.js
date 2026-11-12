@@ -393,6 +393,32 @@ export const createBranch = async (req, res) => {
           newBranch,
           { upsert: true, new: true, setDefaultsOnInsert: true }
         );
+        try {
+          const { Store } = await import('../models/Store.js');
+          await Store.findOneAndUpdate(
+            { $or: [{ storeId: branchId }, { _id: branchId }] },
+            {
+              $set: {
+                _id: branchId,
+                storeId: branchId,
+                tenantId: newBranch.tenantId,
+                name: newBranch.name,
+                branchName: newBranch.name,
+                address: newBranch.address,
+                city: newBranch.city,
+                latitude: newBranch.latitude,
+                longitude: newBranch.longitude,
+                location: { type: 'Point', coordinates: [newBranch.longitude, newBranch.latitude] },
+                deliveryRadiusKm: Number(newBranch.deliveryRadius || 5),
+                status: newBranch.status || 'active',
+                isActive: true,
+                contactNumber: newBranch.phone || '+92 300 0000000',
+                operatingStatus: 'Open'
+              }
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+          );
+        } catch (storeSyncErr) {}
         return res.status(201).json({
           success: true,
           message: 'Branch stored in database successfully',
@@ -657,10 +683,18 @@ export const updateBranchDeliveryZone = async (req, res) => {
         updatedBranch = await Branch.findOneAndUpdate(
           { $or: [{ _id: id }, { id }] },
           { $set: updates },
-          { new: true }
+          { new: true, upsert: true, setDefaultsOnInsert: true }
         );
+        try {
+          const { Store } = await import('../models/Store.js');
+          await Store.findOneAndUpdate(
+            { $or: [{ storeId: id }, { _id: id }] },
+            { $set: updates },
+            { new: true, upsert: true, setDefaultsOnInsert: true }
+          );
+        } catch (storeSyncErr) {}
       } catch (e) {
-        console.warn('Branch DB delivery-zone update error:', e.message);
+        console.warn('Branch/Store DB delivery-zone update error:', e.message);
       }
     }
 

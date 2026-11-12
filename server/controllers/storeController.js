@@ -444,9 +444,19 @@ export const updateStore = async (req, res) => {
 
     if (isDbOnline()) {
       try {
-        await Store.findOneAndUpdate({ $or: [{ storeId: id }, { _id: id }] }, updates, { new: true });
-        await Branch.findOneAndUpdate({ $or: [{ id }, { _id: id }] }, updates, { new: true });
-      } catch (err) {}
+        await Store.findOneAndUpdate(
+          { $or: [{ storeId: id }, { _id: id }] },
+          { $set: { ...updates, storeId: id } },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+        await Branch.findOneAndUpdate(
+          { $or: [{ id }, { _id: id }] },
+          { $set: { ...updates, id } },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      } catch (err) {
+        console.warn('MongoDB store update warning:', err.message);
+      }
     }
 
     // Update disk stores

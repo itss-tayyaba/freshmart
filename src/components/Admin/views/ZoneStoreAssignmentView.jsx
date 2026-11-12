@@ -1178,13 +1178,39 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
     try {
       await apiService.createStore(newStore);
-    } catch (err) {}
+      await apiService.createBranch({
+        _id: sId,
+        id: sId,
+        tenantId: quickBranchForm.tenantId,
+        code: `BR-${Date.now().toString().slice(-4)}`,
+        name: sName,
+        branchName: bName,
+        address: newStore.address,
+        city: newStore.city,
+        latitude: lat,
+        longitude: lng,
+        deliveryRadius: newStore.deliveryRadiusKm,
+        deliveryRadiusKm: newStore.deliveryRadiusKm,
+        status: 'active'
+      });
+      if (activeRegion && activeRegion.id) {
+        await apiService.assignStoresToZone(activeRegion.id, [sId]);
+      }
+    } catch (err) {
+      console.warn('Store creation sync warning:', err);
+    }
 
-    // Save to local storage
+    // Save to local storage (both custom stores and branches)
     try {
       const raw = localStorage.getItem('freshmart_custom_stores');
       const existing = raw ? JSON.parse(raw) : [];
       localStorage.setItem('freshmart_custom_stores', JSON.stringify([newStore, ...existing]));
+      window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
+
+      const rawB = localStorage.getItem('freshmart_branches');
+      const existingB = rawB ? JSON.parse(rawB) : [];
+      localStorage.setItem('freshmart_branches', JSON.stringify([newStore, ...existingB]));
+      window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: [newStore, ...existingB] }));
     } catch {}
 
     setStores((prev) => deduplicateStores([newStore, ...prev]));

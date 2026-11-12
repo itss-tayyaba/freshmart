@@ -1120,37 +1120,26 @@ export const ZoneManagementView = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 flex-wrap">
           <button
             onClick={fetchData}
-            className="px-3 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
 
           {mapMode !== 'draw' ? (
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={handleResetToThreeCleanSectors}
-                disabled={isSaving}
-                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-950/10 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                title="Wipe duplicate/overlapping polygons and reset to 3 master non-overlapping regional sectors (Blue, Green, Orange)"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>🧹 Reset 3 Master Sectors</span>
-              </button>
-
+            <>
               {zones.length > 0 && (
                 <button
                   type="button"
                   onClick={handleClearAllPolygons}
                   disabled={isSaving}
-                  className="px-3 py-2 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                  className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
                   title="Clear all polygons to start fresh"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                   <span>Clear All</span>
                 </button>
               )}
@@ -1158,17 +1147,17 @@ export const ZoneManagementView = () => {
               <button
                 type="button"
                 onClick={handleStartDraw}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-950/10 flex items-center gap-2 cursor-pointer"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm hover:shadow-md flex items-center gap-2 cursor-pointer"
               >
                 <Edit3 className="w-4 h-4" />
-                <span>✏️ Draw Polygon for Stores</span>
+                <span>Draw Polygon for Stores</span>
               </button>
-            </div>
+            </>
           ) : (
             <button
               onClick={handleOpenSaveModal}
               disabled={cleanDrawnVertices.length < 3}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-950/10 flex items-center gap-2 cursor-pointer disabled:opacity-40"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm hover:shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-40"
             >
               <Check className="w-4 h-4" />
               <span>Save Polygon ({storesInsideDrawing.length} Stores Inside)</span>
@@ -1522,37 +1511,26 @@ export const ZoneManagementView = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={handleResetToThreeCleanSectors}
-              disabled={isSaving}
-              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
-              title="Reset to 3 clean non-overlapping regional sectors (Blue, Green, Orange)"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-              <span>🧹 Reset 3 Master Sectors</span>
-            </button>
-
+          <div className="flex items-center gap-2 shrink-0">
             {zones.length > 3 && (
               <button
                 type="button"
                 onClick={handleClearAllPolygons}
                 disabled={isSaving}
-                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
                 title="Remove extra duplicate polygons"
               >
                 <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                <span>🗑️ Clear Polygons</span>
+                <span>Clear Polygons</span>
               </button>
             )}
 
             <button
               onClick={handleStartDraw}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs hover:shadow-sm"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>+ Draw Another Polygon</span>
+              <span>Draw Another Polygon</span>
             </button>
           </div>
         </div>
@@ -1567,15 +1545,6 @@ export const ZoneManagementView = () => {
               Draw large polygons on the map above to group physical supermarket stores geographically (e.g. 3 large polygons like Blue, Green, and Orange regions).
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={handleResetToThreeCleanSectors}
-                disabled={isSaving}
-                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>✨ Auto-Initialize 3 Regional Polygons (Blue, Green, Orange)</span>
-              </button>
               <button
                 type="button"
                 onClick={handleStartDraw}

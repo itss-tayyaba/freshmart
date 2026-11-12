@@ -487,6 +487,20 @@ export const StoreManagementView = () => {
           if (chosenZone) {
             await apiService.assignStoresToZone(chosenZone, [finalId]);
           }
+          await apiService.createBranch({
+            _id: finalId,
+            id: finalId,
+            tenantId: storeRecord.tenantId,
+            code: `BR-${Date.now().toString().slice(-4)}`,
+            name: storeRecord.name,
+            branchName: storeRecord.branchName,
+            address: storeRecord.address,
+            city: storeRecord.city,
+            latitude: Number(storeRecord.latitude),
+            longitude: Number(storeRecord.longitude),
+            deliveryRadius: Number(storeRecord.deliveryRadiusKm || 5),
+            status: 'active'
+          });
         } catch (apiErr) {
           console.warn('Backend createStore offline/fallback:', apiErr.message);
         }

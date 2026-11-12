@@ -483,8 +483,14 @@ export const updateZone = async (req, res) => {
 
     if (isDbOnline()) {
       try {
-        await DeliveryZone.findOneAndUpdate({ $or: [{ zoneId: id }, { _id: id }] }, updates, { new: true });
-      } catch (dbErr) {}
+        await DeliveryZone.findOneAndUpdate(
+          { $or: [{ zoneId: id }, { _id: id }] },
+          { $set: { ...updates, zoneId: id } },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      } catch (dbErr) {
+        console.warn('MongoDB DeliveryZone update warning:', dbErr.message);
+      }
     }
 
     const disk = loadDiskZones();
@@ -662,8 +668,14 @@ export const toggleZoneStatus = async (req, res) => {
 
     if (isDbOnline()) {
       try {
-        await DeliveryZone.findOneAndUpdate({ $or: [{ zoneId: id }, { _id: id }] }, updates, { new: true });
-      } catch (dbErr) {}
+        await DeliveryZone.findOneAndUpdate(
+          { $or: [{ zoneId: id }, { _id: id }] },
+          { $set: { ...updates, zoneId: id } },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      } catch (dbErr) {
+        console.warn('MongoDB DeliveryZone update warning:', dbErr.message);
+      }
     }
 
     const disk = loadDiskZones();
