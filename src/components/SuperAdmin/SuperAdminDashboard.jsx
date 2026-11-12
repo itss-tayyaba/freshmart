@@ -419,26 +419,29 @@ export const SuperAdminDashboard = () => {
 
   // 🏢 Track Branch Admin allocation across all unique store branches
   const branchAllocationStatus = useMemo(() => {
-    const allocatedMap = new Map();
-    (storeAdmins || []).forEach((adm) => {
-      if (adm.branchId) {
-        allocatedMap.set(String(adm.branchId), adm);
-      }
-      if (adm.tenantId && adm.branchName) {
-        const k = `${String(adm.tenantId).toLowerCase()}__${String(adm.branchName).toLowerCase()}`;
-        allocatedMap.set(k, adm);
-      }
-    });
-
     const unallocated = [];
     const allocated = [];
 
     (liveStores || []).forEach((store) => {
       const sId = String(store.storeId || store._id || '');
-      const k = `${String(store.tenantId || '').toLowerCase()}__${String(store.branchName || store.name || '').toLowerCase()}`;
-      const adm = allocatedMap.get(sId) || allocatedMap.get(k);
-      if (adm) {
-        allocated.push({ store, admin: adm });
+      const storeBName = String(store.branchName || store.name || '').trim().toLowerCase();
+
+      const matchedAdmin = (storeAdmins || []).find((adm) => {
+        if (adm.branchId && (String(adm.branchId) === sId || (store._id && String(adm.branchId) === String(store._id)))) {
+          return true;
+        }
+        if (adm.branchName) {
+          const admBName = String(adm.branchName).trim().toLowerCase();
+          const tenantMatch = !adm.tenantId || !store.tenantId || isSameTenant(adm.tenantId, store.tenantId);
+          if (tenantMatch && (admBName === storeBName || storeBName.includes(admBName) || admBName.includes(storeBName))) {
+            return true;
+          }
+        }
+        return false;
+      });
+
+      if (matchedAdmin) {
+        allocated.push({ store, admin: matchedAdmin });
       } else {
         unallocated.push(store);
       }
@@ -2386,15 +2389,6 @@ export const SuperAdminDashboard = () => {
                     Every grocery shop has its dedicated Store Admin account bound to its specific city and branch.
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsAddAdminOpen(true)}
-                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>+ Add Store Admin & Set Password</span>
-                  </button>
-                </div>
               </div>
 
               {/* Branch Allocation Status Alert Banner */}
@@ -2418,7 +2412,7 @@ export const SuperAdminDashboard = () => {
                     {branchAllocationStatus.unallocated.map((branch) => {
                       const bId = branch.storeId || branch._id;
                       const bName = branch.branchName || branch.name;
-                      const retailer = displayStores.find((s) => s.id === branch.tenantId) || CORE_RETAILERS[0];
+                      const retailer = displayStores.find((s) => isSameTenant(s.id, branch.tenantId)) || CORE_RETAILERS[0];
                       const cleanSlug = bName.toLowerCase().replace(/[^a-z0-9]/g, '');
                       const tenantSlug = (retailer?.slug || branch.tenantId?.replace('tenant-', '') || 'store');
                       return (
@@ -2442,7 +2436,7 @@ export const SuperAdminDashboard = () => {
                         >
                           <Plus className="w-3.5 h-3.5 text-amber-700" />
                           <span>Allocate Admin:</span>
-                          <span className="underline">{bName}</span>
+                          <span className="font-extrabold">{retailer?.name || 'Store'} — {bName}</span>
                           <span className="text-[10px] text-amber-700 font-normal">({branch.city || 'Faisalabad'})</span>
                         </button>
                       );
@@ -2483,17 +2477,21 @@ export const SuperAdminDashboard = () => {
 
               {/* Mart Admins Table */}
               <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
                   <span className="text-xs font-bold text-slate-700">
                     {(storeAdmins || []).filter((a) => adminCityFilter === 'all' || (a.city || 'Faisalabad').toLowerCase() === adminCityFilter.toLowerCase()).length} Registered Mart Admins
                   </span>
-                  <button
-                    onClick={() => setIsAddAdminOpen(true)}
-                    className="text-xs font-bold text-amber-700 hover:text-amber-900 transition flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Another Admin</span>
-                  </button>
+                  <div className="text-xs font-medium">
+                    {branchAllocationStatus.unallocated.length > 0 ? (
+                      <span className="text-amber-600 font-bold bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full text-[11px]">
+                        ⚠️ {branchAllocationStatus.unallocated.length} Branches Awaiting Admin Allocation (Click branch above to allocate)
+                      </span>
+                    ) : (
+                      <span className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full text-[11px]">
+                        ✅ All Branches Fully Allocated
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="divide-y divide-slate-100">
@@ -3274,7 +3272,7 @@ export const SuperAdminDashboard = () => {
                     const bId = e.target.value;
                     const bObj = liveStores.find((s) => (s.storeId || s._id) === bId);
                     if (bObj) {
-                      const retailer = displayStores.find((s) => s.id === bObj.tenantId) || CORE_RETAILERS[0];
+                      const retailer = displayStores.find((s) => isSameTenant(s.id, bObj.tenantId)) || CORE_RETAILERS[0];
                       const bName = bObj.branchName || bObj.name || 'Branch';
                       const cleanSlug = bName.toLowerCase().replace(/[^a-z0-9]/g, '');
                       const tenantSlug = (retailer?.slug || bObj.tenantId?.replace('tenant-', '') || 'store');
@@ -3294,53 +3292,58 @@ export const SuperAdminDashboard = () => {
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:outline-none"
                 >
                   <option value="">-- Choose Branch to Allocate Admin --</option>
-                  {branchAllocationStatus.unallocated.length > 0 && (
-                    <optgroup label="⚠️ UNALLOCATED BRANCHES (NEEDS ADMIN & PASSWORD)">
-                      {branchAllocationStatus.unallocated.map((b) => {
-                        const bId = b.storeId || b._id;
-                        return (
-                          <option key={bId} value={bId}>
-                            ⚠️ [NO ADMIN] {b.name || b.branchName} ({b.city || 'Faisalabad'})
-                          </option>
-                        );
-                      })}
-                    </optgroup>
-                  )}
-                  <optgroup label="✅ ALL STORE BRANCHES">
-                    {liveStores.map((b) => {
-                      const bId = b.storeId || b._id;
-                      const hasAdmin = branchAllocationStatus.allocated.some((a) => (a.store.storeId || a.store._id) === bId);
-                      return (
-                        <option key={bId} value={bId}>
-                          {hasAdmin ? '✅' : '⚠️'} {b.name || b.branchName} ({b.city || 'Faisalabad'})
-                        </option>
-                      );
-                    })}
-                  </optgroup>
+                  {branchAllocationStatus.unallocated.map((b) => {
+                    const bId = b.storeId || b._id;
+                    const bName = b.branchName || b.name;
+                    const retailer = displayStores.find((s) => isSameTenant(s.id, b.tenantId)) || CORE_RETAILERS[0];
+                    return (
+                      <option key={bId} value={bId}>
+                        🏢 {retailer?.name || 'Store'} — {bName} ({b.city || 'Faisalabad'})
+                      </option>
+                    );
+                  })}
                 </select>
                 {newAdminForm.branchName && (
-                  <div className="mt-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-0.5 font-bold flex items-center gap-1">
-                    <span>🏢 Allocating to:</span>
-                    <span>{newAdminForm.branchName}</span>
-                    <span className="text-emerald-600 font-normal">({newAdminForm.city || 'Faisalabad'})</span>
+                  <div className="mt-1.5 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 font-bold flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <span>🏢 Allocating to:</span>
+                      <strong className="text-slate-900">{newAdminForm.branchName}</strong>
+                    </span>
+                    <span className="text-emerald-700 font-bold bg-white px-1.5 py-0.5 rounded border border-emerald-200">
+                      📍 {newAdminForm.city || 'Faisalabad'}
+                    </span>
                   </div>
                 )}
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Select Supermarket Mart</label>
-                <select
-                  value={newAdminForm.tenantId}
-                  onChange={(e) => setNewAdminForm({ ...newAdminForm, tenantId: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
-                >
-                  {displayStores.map((store) => (
-                    <option key={store.id} value={store.id}>
-                      {store.logo} {store.fullName}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Supermarket Retailer (Bound to Selected Branch) */}
+              {newAdminForm.branchName ? (
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Supermarket Retailer (Bound to Branch)</label>
+                  <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold flex items-center gap-2">
+                    <span>{displayStores.find((s) => isSameTenant(s.id, newAdminForm.tenantId))?.logo || '🏬'}</span>
+                    <span>{displayStores.find((s) => isSameTenant(s.id, newAdminForm.tenantId))?.fullName || displayStores.find((s) => isSameTenant(s.id, newAdminForm.tenantId))?.name || 'Supermarket'}</span>
+                    <span className="text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full ml-auto font-bold">
+                      ✓ Auto-Matched to Branch
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Select Supermarket Mart</label>
+                  <select
+                    value={newAdminForm.tenantId}
+                    onChange={(e) => setNewAdminForm({ ...newAdminForm, tenantId: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  >
+                    {displayStores.map((store) => (
+                      <option key={store.id} value={store.id}>
+                        {store.logo} {store.fullName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Assigned City Location</label>
@@ -3486,12 +3489,13 @@ export const SuperAdminDashboard = () => {
                   }}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:outline-none"
                 >
-                  <option value="">-- All Branches / Flagship Hub --</option>
+                  <option value="">-- Flagship Mart Admin (All Branches) --</option>
                   {liveStores.map((b) => {
                     const bId = b.storeId || b._id;
+                    const retailer = displayStores.find((s) => isSameTenant(s.id, b.tenantId)) || CORE_RETAILERS[0];
                     return (
                       <option key={bId} value={bId}>
-                        🏢 {b.name || b.branchName} ({b.city || 'Faisalabad'})
+                        🏢 {retailer?.name || 'Store'} — {b.name || b.branchName} ({b.city || 'Faisalabad'})
                       </option>
                     );
                   })}
@@ -3505,20 +3509,33 @@ export const SuperAdminDashboard = () => {
                 )}
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Assigned Supermarket Mart</label>
-                <select
-                  value={editAdminForm.tenantId}
-                  onChange={(e) => setEditAdminForm({ ...editAdminForm, tenantId: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
-                >
-                  {displayStores.map((store) => (
-                    <option key={store.id} value={store.id}>
-                      {store.logo} {store.fullName}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {editAdminForm.branchName ? (
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Supermarket Retailer (Bound to Branch)</label>
+                  <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold flex items-center gap-2">
+                    <span>{displayStores.find((s) => isSameTenant(s.id, editAdminForm.tenantId))?.logo || '🏬'}</span>
+                    <span>{displayStores.find((s) => isSameTenant(s.id, editAdminForm.tenantId))?.fullName || displayStores.find((s) => isSameTenant(s.id, editAdminForm.tenantId))?.name || 'Supermarket'}</span>
+                    <span className="text-[10px] text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full ml-auto font-bold">
+                      ✓ Auto-Matched to Branch
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Assigned Supermarket Mart</label>
+                  <select
+                    value={editAdminForm.tenantId}
+                    onChange={(e) => setEditAdminForm({ ...editAdminForm, tenantId: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  >
+                    {displayStores.map((store) => (
+                      <option key={store.id} value={store.id}>
+                        {store.logo} {store.fullName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Admin Full Name</label>
