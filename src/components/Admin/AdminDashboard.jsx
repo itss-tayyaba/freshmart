@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { isSameTenant, resolveTenantId } from '../../data/companyHierarchyData';
+import { INITIAL_TENANTS } from '../../data/tenantData';
 import { sanitizeOrder } from '../../utils/orderSanitizer';
 import { isOrderVisibleToUser } from '../../utils/orderScope';
 import { getStoreTheme } from '../../utils/storeTheme';
@@ -130,12 +131,45 @@ const StoreAdminConsole = () => {
     ? { title: 'Rider', badge: 'Rider', tag: 'Delivery Operations', iconBg: 'bg-emerald-600' }
     : roleMeta[adminRole] || roleMeta.admin;
 
-  const activeTenantId = (user?.role !== 'superadmin' && user?.tenantId)
-    ? user.tenantId
-    : (currentTenant?.id || user?.tenantId || 'tenant-freshmart');
+  const activeTenantId = useMemo(() => {
+    if (user?.role !== 'superadmin' && user?.tenantId) {
+      return user.tenantId;
+    }
+    return currentTenant?.id || user?.tenantId || 'tenant-freshmart';
+  }, [user?.role, user?.tenantId, currentTenant?.id]);
+
+  const effectiveTenant = useMemo(() => {
+    if (user?.role !== 'superadmin' && user?.tenantId) {
+      const match =
+        (allTenants || []).find((t) => isSameTenant(t.id, user.tenantId)) ||
+        INITIAL_TENANTS.find((t) => isSameTenant(t.id, user.tenantId));
+      if (match) return match;
+      if (currentTenant && isSameTenant(currentTenant.id, user.tenantId)) return currentTenant;
+      return {
+        id: user.tenantId,
+        name: user.tenantName || 'Al-Fatah Supermarket',
+        displayName: user.tenantName || 'Al-Fatah',
+        logo: '🏬',
+        color: '#991b1b'
+      };
+    }
+    return currentTenant || allTenants?.[0] || null;
+  }, [user?.role, user?.tenantId, user?.tenantName, currentTenant, allTenants]);
+
+  // Synchronize currentTenant in context and storage for store admins so children match
+  useEffect(() => {
+    if (user?.role !== 'superadmin' && effectiveTenant && currentTenant?.id !== effectiveTenant.id) {
+      setCurrentTenant(effectiveTenant);
+      try {
+        localStorage.setItem('freshmart_current_tenant_id', effectiveTenant.id);
+        localStorage.setItem('freshmart_current_tenant', JSON.stringify(effectiveTenant));
+      } catch (e) {}
+    }
+  }, [user?.role, effectiveTenant, currentTenant?.id, setCurrentTenant]);
+
   const storeTheme = useMemo(() => {
-    return getStoreTheme(currentTenant || activeTenantId);
-  }, [currentTenant, activeTenantId]);
+    return getStoreTheme(effectiveTenant || activeTenantId);
+  }, [effectiveTenant, activeTenantId]);
 
   // Track locally completed delivered orders to ensure synced badge counts
   const deliveredOrderIds = useMemo(() => {
@@ -313,10 +347,10 @@ const StoreAdminConsole = () => {
               color: storeTheme.accentText
             }}
           >
-            {currentTenant?.logo || '🏬'}
+            {effectiveTenant?.logo || '🏬'}
           </div>
           <div>
-            <h2 className="text-sm font-black text-white leading-none">{currentTenant?.name || 'Store Admin'}</h2>
+            <h2 className="text-sm font-black text-white leading-none">{effectiveTenant?.displayName || effectiveTenant?.name || user?.tenantName || 'Store Admin'}</h2>
             <span
               className="text-[10px] font-bold uppercase tracking-wider block mt-0.5"
               style={{ color: storeTheme.accentText }}
@@ -361,10 +395,10 @@ const StoreAdminConsole = () => {
                   style={{ backgroundColor: storeTheme.primaryLight, borderColor: storeTheme.primaryBorder, color: storeTheme.accentText }}
                   className="w-9 h-9 rounded-xl border flex items-center justify-center font-black text-lg shadow-md"
                 >
-                  {currentTenant?.logo || '🏬'}
+                  {effectiveTenant?.logo || '🏬'}
                 </div>
                 <div>
-                  <h2 className="text-base font-black text-white leading-none">{currentTenant?.displayName || currentTenant?.name || 'Store Admin'}</h2>
+                  <h2 className="text-base font-black text-white leading-none">{effectiveTenant?.displayName || effectiveTenant?.name || user?.tenantName || 'Store Admin'}</h2>
                   <span
                     style={{ color: storeTheme.accentText }}
                     className="text-[10px] font-bold uppercase tracking-wider block mt-1"
@@ -473,12 +507,12 @@ const StoreAdminConsole = () => {
                   color: storeTheme.accentText
                 }}
               >
-                {currentTenant?.logo || '🏬'}
+                {effectiveTenant?.logo || '🏬'}
               </div>
               {!isSidebarCollapsed && (
                 <div className="min-w-0 flex-1 truncate">
                   <h2 className="text-sm font-black text-white leading-tight truncate">
-                    {currentTenant?.displayName || currentTenant?.name || user?.tenantName || 'Store Admin'}
+                    {effectiveTenant?.displayName || effectiveTenant?.name || user?.tenantName || 'Store Admin'}
                   </h2>
                   <span
                     className="text-[10px] font-bold uppercase tracking-wider block truncate mt-0.5"
@@ -651,7 +685,7 @@ const StoreAdminConsole = () => {
               <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
                 <Store className="w-3.5 h-3.5 text-slate-600 shrink-0" />
                 <span className="text-xs font-bold text-slate-800">
-                  {currentTenant?.logo || '🏬'} {currentTenant?.displayName || currentTenant?.name || user?.tenantName || 'Store'}
+                  {effectiveTenant?.logo || '🏬'} {effectiveTenant?.displayName || effectiveTenant?.name || user?.tenantName || 'Store'}
                 </span>
               </div>
             )}

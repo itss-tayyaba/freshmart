@@ -826,7 +826,7 @@ export const SuperAdminDashboard = () => {
   const handleSaveAdminSubmit = async (e) => {
     e.preventDefault();
     if (!editAdminForm.id) return;
-    const targetStore = displayStores.find((s) => s.id === editAdminForm.tenantId);
+    const targetStore = displayStores.find((s) => isSameTenant(s.id, editAdminForm.tenantId)) || displayStores.find((s) => s.id === editAdminForm.tenantId);
     await updateStoreAdmin(editAdminForm.id, {
       ...editAdminForm,
       city: editAdminForm.city || targetStore?.city || 'Faisalabad',
@@ -839,13 +839,13 @@ export const SuperAdminDashboard = () => {
 
   const handleCreateAdminSubmit = async (e) => {
     e.preventDefault();
-    const targetStore = displayStores.find((s) => s.id === newAdminForm.tenantId);
+    const targetStore = displayStores.find((s) => isSameTenant(s.id, newAdminForm.tenantId)) || displayStores.find((s) => s.id === newAdminForm.tenantId);
     await addStoreAdmin({
       ...newAdminForm,
       branchId: newAdminForm.branchId || null,
       branchName: newAdminForm.branchName || null,
       city: newAdminForm.city || targetStore?.city || 'Faisalabad',
-      tenantName: targetStore?.fullName || 'Supermarket'
+      tenantName: targetStore?.fullName || targetStore?.name || 'Supermarket'
     });
     setIsAddAdminOpen(false);
     setNewAdminForm({

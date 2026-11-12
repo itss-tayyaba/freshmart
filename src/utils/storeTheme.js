@@ -134,6 +134,8 @@ export const STORE_THEMES = {
 // Friendly aliases for convenience
 STORE_THEMES.al_fatah = STORE_THEMES.company_001;
 STORE_THEMES.alfatah = STORE_THEMES.company_001;
+STORE_THEMES.al_fateh = STORE_THEMES.company_001;
+STORE_THEMES.alfateh = STORE_THEMES.company_001;
 STORE_THEMES.chase_up = STORE_THEMES.company_002;
 STORE_THEMES.chaseup = STORE_THEMES.company_002;
 STORE_THEMES.case_value = STORE_THEMES.company_003;
@@ -166,11 +168,13 @@ export const getStoreTheme = (tenantOrStore) => {
     ].filter(Boolean).join(' ').toLowerCase().trim();
   }
 
-  // 1. Al-Fatah (Red)
+  // 1. Al-Fatah / Al-Fateh (Red)
   if (
     key === 'company_001' ||
     key.includes('alfatah') ||
     key.includes('al-fatah') ||
+    key.includes('alfateh') ||
+    key.includes('al-fateh') ||
     key.includes('al fateh') ||
     key.includes('fatah') ||
     key.includes('fateh')

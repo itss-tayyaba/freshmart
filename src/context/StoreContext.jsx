@@ -2232,8 +2232,8 @@ export const StoreProvider = ({ children }) => {
     if (search.includes('unimart') || search.includes('unimaart') || search.includes('freshmart')) {
       return allTenantsList.find((t) => t.id === 'tenant-freshmart') || INITIAL_TENANTS.find((t) => t.id === 'tenant-freshmart');
     }
-    if (search.includes('alfatah') || search.includes('al-fatah')) {
-      return allTenantsList.find((t) => t.id === 'tenant-alfatah') || INITIAL_TENANTS[0];
+    if (search.includes('alfatah') || search.includes('al-fatah') || search.includes('alfateh') || search.includes('al-fateh') || search.includes('fateh') || search.includes('fatah')) {
+      return allTenantsList.find((t) => isSameTenant(t.id, 'tenant-alfatah')) || INITIAL_TENANTS[0];
     }
     if (candidateTenantId && candidateTenantId !== 'all') {
       const bySlug = allTenantsList.find((t) => t.slug === candidateTenantId || (t.name && t.name.toLowerCase().includes(search)));
@@ -2769,8 +2769,8 @@ export const StoreProvider = ({ children }) => {
         }
 
         const activeTenant =
-          (tenants || []).find((t) => t.id === matchedStoreAdmin.tenantId) ||
-          INITIAL_TENANTS.find((t) => t.id === matchedStoreAdmin.tenantId) ||
+          (tenants || []).find((t) => isSameTenant(t.id, matchedStoreAdmin.tenantId)) ||
+          INITIAL_TENANTS.find((t) => isSameTenant(t.id, matchedStoreAdmin.tenantId)) ||
           resolveStoreTenant(matchedStoreAdmin.tenantId || preferredTenantId, cleanUser);
 
         if (activeTenant) {
@@ -5403,18 +5403,20 @@ export const StoreProvider = ({ children }) => {
   // --- 🛡️ Mart Admins (Store Admins) Management by Super Admin ---
   const addStoreAdmin = async (adminData) => {
     const targetTenant =
-      (tenants || []).find((t) => t.id === adminData.tenantId) ||
-      INITIAL_TENANTS.find((t) => t.id === adminData.tenantId);
+      (tenants || []).find((t) => isSameTenant(t.id, adminData.tenantId)) ||
+      INITIAL_TENANTS.find((t) => isSameTenant(t.id, adminData.tenantId)) ||
+      resolveStoreTenant(adminData.tenantId, `${adminData.name || ''} ${adminData.email || ''}`);
     
     const email = (adminData.email || '').toLowerCase().trim();
+    const resolvedTenantId = targetTenant ? targetTenant.id : (adminData.tenantId || 'tenant-alfatah');
     const newAdmin = {
       id: adminData.id || `sa-${Date.now()}`,
       name: adminData.name || 'Store Admin',
       email,
       username: email,
       password: adminData.password || 'admin123',
-      tenantId: adminData.tenantId,
-      tenantName: adminData.tenantName || (targetTenant ? targetTenant.name : 'Supermarket'),
+      tenantId: resolvedTenantId,
+      tenantName: adminData.tenantName || (targetTenant ? (targetTenant.displayName || targetTenant.name) : 'Supermarket'),
       branchId: adminData.branchId || null,
       branchName: adminData.branchName || null,
       city: adminData.city || 'Faisalabad',

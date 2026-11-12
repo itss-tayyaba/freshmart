@@ -160,7 +160,7 @@ export const deduplicateStores = (storesList = []) => {
 
   const normalizeT = (raw) => {
     const s = String(raw || '').toLowerCase();
-    if (s.includes('alfatah') || s.includes('company_001')) return 'tenant-alfatah';
+    if (s.includes('alfatah') || s.includes('fatah') || s.includes('alfateh') || s.includes('fateh') || s.includes('company_001')) return 'tenant-alfatah';
     if (s.includes('chaseval') || s.includes('company_003')) return 'tenant-chasevalue';
     if (s.includes('chaseup') || s.includes('company_002')) return 'tenant-chaseup';
     if (s.includes('unimart') || s.includes('freshmart') || s.includes('company_004')) return 'tenant-unimart';

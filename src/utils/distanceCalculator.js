@@ -270,7 +270,7 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
   const normalizeTenantId = (raw) => {
     if (!raw) return 'unknown';
     const s = String(raw).toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (s.includes('alfatah') || s.includes('fatah') || s === 'company001') return 'tenant-alfatah';
+    if (s.includes('alfatah') || s.includes('fatah') || s.includes('alfateh') || s.includes('fateh') || s === 'company001') return 'tenant-alfatah';
     if (s.includes('chaseup') || s.includes('caseup') || s === 'cu' || s === 'company002') return 'tenant-chaseup';
     if (s.includes('chaseval') || s.includes('caseval') || s === 'cv' || s === 'company003') return 'tenant-chasevalue';
     if (s.includes('freshmart') || s.includes('unimart') || s.includes('unimaart') || s === 'company004') return 'tenant-freshmart';

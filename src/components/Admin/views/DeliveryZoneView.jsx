@@ -104,13 +104,24 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
   // Selected Retailer State
   const [selectedTenantId, setSelectedTenantId] = useState(() => {
     if (initialTenantId) return initialTenantId;
+    if (!isSuperAdmin && user?.tenantId) return user.tenantId;
     if (isSuperAdmin) return allRetailers[0]?.id || 'tenant-freshmart';
     return currentTenant?.id || 'tenant-freshmart';
   });
 
+  // Automatically synchronize selected retailer for Store Admin
+  useEffect(() => {
+    if (!isSuperAdmin && user?.tenantId) {
+      setSelectedTenantId(user.tenantId);
+    } else if (!isSuperAdmin && currentTenant?.id) {
+      setSelectedTenantId(currentTenant.id);
+    }
+  }, [isSuperAdmin, user?.tenantId, currentTenant?.id]);
+
   const activeRetailer = useMemo(() => {
-    return allRetailers.find((r) => isSameTenant(r.id, selectedTenantId)) || allRetailers[0];
-  }, [allRetailers, selectedTenantId]);
+    const target = (!isSuperAdmin && user?.tenantId) ? user.tenantId : selectedTenantId;
+    return allRetailers.find((r) => isSameTenant(r.id, target)) || allRetailers[0];
+  }, [allRetailers, selectedTenantId, isSuperAdmin, user?.tenantId]);
 
   // Get branches belonging to selected retailer
   const tenantBranches = useMemo(() => {
