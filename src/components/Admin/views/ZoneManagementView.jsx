@@ -382,6 +382,25 @@ export const ZoneManagementView = () => {
     tileLayerRef.current = L.tileLayer(url, { attribution, maxZoom: 19 }).addTo(mapInstanceRef.current);
   };
 
+  // Dedicated helper to add a vertex point from any click source (map canvas, existing polygon, store marker)
+  const handleAddVertexFromCoord = (lat, lng) => {
+    const roundedLat = Number(Number(lat).toFixed(6));
+    const roundedLng = Number(Number(lng).toFixed(6));
+    if (isNaN(roundedLat) || isNaN(roundedLng)) return;
+
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.closePopup();
+    }
+
+    setDrawnVertices((prev) => {
+      const next = [...prev, [roundedLat, roundedLng]];
+      if (next.length >= 3 && hasCrossingSegments(next)) {
+        return untanglePolygonPoints(next);
+      }
+      return next;
+    });
+  };
+
   // Initialize Leaflet Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -411,16 +430,7 @@ export const ZoneManagementView = () => {
     // Handle map click during Drawing mode
     map.on('click', (e) => {
       if (mapModeRef.current !== 'draw') return;
-      const roundedLat = Number(e.latlng.lat.toFixed(6));
-      const roundedLng = Number(e.latlng.lng.toFixed(6));
-
-      setDrawnVertices((prev) => {
-        const next = [...prev, [roundedLat, roundedLng]];
-        if (next.length >= 3 && hasCrossingSegments(next)) {
-          return untanglePolygonPoints(next);
-        }
-        return next;
-      });
+      handleAddVertexFromCoord(e.latlng.lat, e.latlng.lng);
     });
 
     setTimeout(() => {
@@ -461,7 +471,19 @@ export const ZoneManagementView = () => {
         fillColor: color,
         fillOpacity: isSelected ? (isDrawing ? 0.12 : 0.32) : (isDrawing ? 0.08 : 0.16),
         dashArray: isSelected ? null : null,
-        interactive: !isDrawing // In draw mode, allows clicks to fall straight through to map canvas so you can draw inside/intersecting any polygon!
+        interactive: true
+      });
+
+      // Direct Click Handler: If in Draw mode, clicking ON an existing polygon directly captures the point and places the vertex!
+      // This guarantees users can draw overlapping, intersecting, or nested polygons inside any existing polygon without clicks being swallowed.
+      polygon.on('click', (e) => {
+        if (mapModeRef.current === 'draw') {
+          if (e.originalEvent) e.originalEvent.stopPropagation();
+          L.DomEvent.stopPropagation(e);
+          handleAddVertexFromCoord(e.latlng.lat, e.latlng.lng);
+          return;
+        }
+        setSelectedZoneId(zKey);
       });
 
       const storesListHtml =
@@ -477,7 +499,7 @@ export const ZoneManagementView = () => {
               .join('')
           : '<li style="color: #94a3b8; font-style: italic;">No stores currently inside</li>';
 
-      // Only bind tooltip and popup when NOT drawing so popups never hijack clicks
+      // Only bind tooltip and popup when NOT drawing so popups and tooltips NEVER hijack draw clicks
       if (!isDrawing) {
         polygon.bindTooltip(
           `<div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
@@ -507,10 +529,6 @@ export const ZoneManagementView = () => {
             </ul>
           </div>
         `);
-
-        polygon.on('click', () => {
-          setSelectedZoneId(zKey);
-        });
       }
 
       polygonsLayerGroupRef.current.addLayer(polygon);
@@ -551,7 +569,15 @@ export const ZoneManagementView = () => {
 
       const marker = L.marker([lat, lng], {
         icon: pinIcon,
-        interactive: !isDrawing // When drawing, clicks pass straight through to place vertex
+        interactive: true
+      });
+
+      marker.on('click', (e) => {
+        if (mapModeRef.current === 'draw') {
+          if (e.originalEvent) e.originalEvent.stopPropagation();
+          L.DomEvent.stopPropagation(e);
+          handleAddVertexFromCoord(e.latlng.lat, e.latlng.lng);
+        }
       });
 
       if (!isDrawing) {
@@ -671,11 +697,16 @@ export const ZoneManagementView = () => {
   // Start Drawing Mode
   const handleStartDraw = () => {
     setMapMode('draw');
+    mapModeRef.current = 'draw';
     setDrawnVertices([]);
     setActivePolygonColor('#2563eb');
     if (drawingLayerGroupRef.current) drawingLayerGroupRef.current.clearLayers();
     if (mapInstanceRef.current) {
       mapInstanceRef.current.closePopup();
+      mapInstanceRef.current.eachLayer((layer) => {
+        if (layer.closePopup) layer.closePopup();
+        if (layer.closeTooltip) layer.closeTooltip();
+      });
     }
     if (addToast) {
       addToast(

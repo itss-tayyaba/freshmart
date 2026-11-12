@@ -892,10 +892,17 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       if (onNavigateToZones) onNavigateToZones();
     };
     window.__startDrawingFromMap = () => {
-      if (mapInstanceRef.current) mapInstanceRef.current.closePopup();
+      isDrawingPolygonRef.current = true;
       setIsDrawingPolygon(true);
       setDrawingTool('polygon');
       setDrawnPoints([]);
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.closePopup();
+        mapInstanceRef.current.eachLayer((layer) => {
+          if (layer.closePopup) layer.closePopup();
+          if (layer.closeTooltip) layer.closeTooltip();
+        });
+      }
     };
     window.__createBoxAroundStore = (sId) => {
       const s = stores.find((st) => (st.storeId || st._id) === sId);
@@ -923,10 +930,17 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   // Start drawing custom delivery zone polygon for a specific store
   const handleStartDrawingDeliveryZoneForStore = (store) => {
     if (!store) return;
-    if (mapInstanceRef.current) mapInstanceRef.current.closePopup();
-    setDrawingStoreTarget(store);
+    isDrawingPolygonRef.current = true;
     setIsDrawingPolygon(true);
     setDrawingTool('polygon');
+    setDrawingStoreTarget(store);
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.closePopup();
+      mapInstanceRef.current.eachLayer((layer) => {
+        if (layer.closePopup) layer.closePopup();
+        if (layer.closeTooltip) layer.closeTooltip();
+      });
+    }
 
     const sLat = Number(store.latitude ?? store.coordinates?.lat);
     const sLng = Number(store.longitude ?? store.coordinates?.lng);
@@ -1167,6 +1181,25 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     }
   };
 
+  // Dedicated helper to add a vertex point from any click source (map canvas, existing polygon, store marker)
+  const handleAddDrawPoint = (lat, lng) => {
+    const roundedLat = Number(Number(lat).toFixed(6));
+    const roundedLng = Number(Number(lng).toFixed(6));
+    if (isNaN(roundedLat) || isNaN(roundedLng)) return;
+
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.closePopup();
+    }
+
+    setDrawnPoints((prev) => {
+      const next = [...prev, [roundedLat, roundedLng]];
+      if (next.length >= 3 && hasCrossingSegments(next)) {
+        return untanglePoints(next);
+      }
+      return next;
+    });
+  };
+
   // Leaflet Map Initialization
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -1194,17 +1227,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     // Map click adds polygon vertices around stores
     map.on('click', (e) => {
       if (!isDrawingPolygonRef.current) return;
-      const lat = Number(e.latlng.lat.toFixed(6));
-      const lng = Number(e.latlng.lng.toFixed(6));
-
-      // Freehand / Polygon mode: auto-order to prevent self-crossing
-      setDrawnPoints((prev) => {
-        const next = [...prev, [lat, lng]];
-        if (next.length >= 3 && hasCrossingSegments(next)) {
-          return untanglePoints(next);
-        }
-        return next;
-      });
+      handleAddDrawPoint(e.latlng.lat, e.latlng.lng);
     });
 
     mapInstanceRef.current = map;
@@ -1683,19 +1706,29 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
           iconAnchor: [16, 40]
         });
 
-        const marker = L.marker([sLat, sLng], { icon: pinIcon, interactive: !isDrawingPolygon });
-        marker.bindPopup(`
-          <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
-            <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
-            <p style="color: #64748b; font-size: 10px; margin: 2px 0 4px 0;">${store.address}</p>
-            <div style="font-size: 10px; color: #475569; margin-bottom: 6px;">
-              Retailer Delivery Radius: <strong>${radiusKm} km</strong>
+        const marker = L.marker([sLat, sLng], { icon: pinIcon, interactive: true });
+        marker.on('click', (e) => {
+          if (isDrawingPolygonRef.current) {
+            if (e.originalEvent) e.originalEvent.stopPropagation();
+            L.DomEvent.stopPropagation(e);
+            handleAddDrawPoint(e.latlng.lat, e.latlng.lng);
+          }
+        });
+
+        if (!isDrawingPolygon) {
+          marker.bindPopup(`
+            <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
+              <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
+              <p style="color: #64748b; font-size: 10px; margin: 2px 0 4px 0;">${store.address}</p>
+              <div style="font-size: 10px; color: #475569; margin-bottom: 6px;">
+                Retailer Delivery Radius: <strong>${radiusKm} km</strong>
+              </div>
+              <div style="font-size: 9px; color: #059669; font-weight: bold;">
+                Draw polygon above or select/create zone to assign store
+              </div>
             </div>
-            <div style="font-size: 9px; color: #059669; font-weight: bold;">
-              Draw polygon above or select/create zone to assign store
-            </div>
-          </div>
-        `);
+          `);
+        }
         storeMarkersGroupRef.current.addLayer(marker);
       });
       return;
@@ -1712,46 +1745,57 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
           fillColor: activeColor,
           fillOpacity: isDrawingPolygon ? 0.04 : 0.08,
           dashArray: '8, 8',
-          interactive: !isDrawingPolygon
+          interactive: true
         });
 
-        activePolygon.bindTooltip(`
-          <div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
-            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${activeColor};"></span>
-            <span>Target Zone: ${activeZone.name}</span>
-          </div>
-        `, { sticky: true });
+        // Direct Click Forwarder: Capture click when drawing and add vertex immediately
+        activePolygon.on('click', (e) => {
+          if (isDrawingPolygonRef.current) {
+            if (e.originalEvent) e.originalEvent.stopPropagation();
+            L.DomEvent.stopPropagation(e);
+            handleAddDrawPoint(e.latlng.lat, e.latlng.lng);
+          }
+        });
 
-        activePolygon.bindPopup(`
-          <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-              <strong style="color: #0f172a; font-size: 13px;">${activeZone.name}</strong>
-              <span style="font-size: 10px; background: ${activeColor}20; color: ${activeColor}; padding: 2px 6px; border-radius: 6px; font-weight: 800;">
-                ${activeZone.code || ''}
-              </span>
+        if (!isDrawingPolygon) {
+          activePolygon.bindTooltip(`
+            <div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
+              <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${activeColor};"></span>
+              <span>Target Zone: ${activeZone.name}</span>
             </div>
-            <div style="font-size: 11px; color: #475569; margin: 3px 0;">
-              Delivery Fee: <strong style="color: #059669;">Rs. ${activeZone.deliveryCharge || 70}</strong>
+          `, { sticky: true });
+
+          activePolygon.bindPopup(`
+            <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                <strong style="color: #0f172a; font-size: 13px;">${activeZone.name}</strong>
+                <span style="font-size: 10px; background: ${activeColor}20; color: ${activeColor}; padding: 2px 6px; border-radius: 6px; font-weight: 800;">
+                  ${activeZone.code || ''}
+                </span>
+              </div>
+              <div style="font-size: 11px; color: #475569; margin: 3px 0;">
+                Delivery Fee: <strong style="color: #059669;">Rs. ${activeZone.deliveryCharge || 70}</strong>
+              </div>
+              <div style="font-size: 11px; color: #475569; margin-bottom: 8px;">
+                Free Delivery Over: <strong>Rs. ${activeZone.freeDeliveryThreshold || 2000}</strong>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <button
+                  onclick="window.__startDrawingFromMap && window.__startDrawingFromMap()"
+                  style="width: 100%; padding: 4px 8px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+                >
+                  ✏️ Redraw Zone Polygon
+                </button>
+                <button
+                  onclick="window.__editZoneFromMap && window.__editZoneFromMap()"
+                  style="width: 100%; padding: 4px 8px; background: #0f172a; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+                >
+                  ⚙️ Edit Zone Details & Rates
+                </button>
+              </div>
             </div>
-            <div style="font-size: 11px; color: #475569; margin-bottom: 8px;">
-              Free Delivery Over: <strong>Rs. ${activeZone.freeDeliveryThreshold || 2000}</strong>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <button
-                onclick="window.__startDrawingFromMap && window.__startDrawingFromMap()"
-                style="width: 100%; padding: 4px 8px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-              >
-                ✏️ Redraw Zone Polygon
-              </button>
-              <button
-                onclick="window.__editZoneFromMap && window.__editZoneFromMap()"
-                style="width: 100%; padding: 4px 8px; background: #0f172a; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-              >
-                ⚙️ Edit Zone Details & Rates
-              </button>
-            </div>
-          </div>
-        `);
+          `);
+        }
 
         polygonLayerRef.current.addLayer(activePolygon);
 
@@ -1792,37 +1836,47 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         iconAnchor: [16, 40]
       });
 
-      const marker = L.marker([sLat, sLng], { icon: pinIcon, interactive: !isDrawingPolygon });
-      marker.bindPopup(`
-        <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
-          <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
-          <p style="color: #64748b; font-size: 10px; margin: 2px 0 4px 0;">${store.address}</p>
-          <div style="display: flex; align-items: center; justify-content: space-between; font-size: 10px; margin-bottom: 6px;">
-            <span style="color: #059669; font-weight: bold;">✓ Serving this zone</span>
-            <span style="background: #ecfdf5; color: #047857; padding: 1px 5px; border-radius: 4px; font-weight: 700;">${priorityLabel}</span>
+      const marker = L.marker([sLat, sLng], { icon: pinIcon, interactive: true });
+      marker.on('click', (e) => {
+        if (isDrawingPolygonRef.current) {
+          if (e.originalEvent) e.originalEvent.stopPropagation();
+          L.DomEvent.stopPropagation(e);
+          handleAddDrawPoint(e.latlng.lat, e.latlng.lng);
+        }
+      });
+
+      if (!isDrawingPolygon) {
+        marker.bindPopup(`
+          <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
+            <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
+            <p style="color: #64748b; font-size: 10px; margin: 2px 0 4px 0;">${store.address}</p>
+            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 10px; margin-bottom: 6px;">
+              <span style="color: #059669; font-weight: bold;">✓ Serving this zone</span>
+              <span style="background: #ecfdf5; color: #047857; padding: 1px 5px; border-radius: 4px; font-weight: 700;">${priorityLabel}</span>
+            </div>
+            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+              <button
+                onclick="window.__createPolygonAroundStore && window.__createPolygonAroundStore('${sId}')"
+                style="flex: 1; padding: 4px 6px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+              >
+                ⬡ Polygon
+              </button>
+              <button
+                onclick="window.__editStoreFromMap && window.__editStoreFromMap('${sId}')"
+                style="flex: 1; padding: 4px 6px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+              >
+                ⚙️ Priority
+              </button>
+              <button
+                onclick="window.__removeStoreFromMap && window.__removeStoreFromMap('${sId}')"
+                style="padding: 4px 6px; background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+              >
+                ✕ Unlink
+              </button>
+            </div>
           </div>
-          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-            <button
-              onclick="window.__createPolygonAroundStore && window.__createPolygonAroundStore('${sId}')"
-              style="flex: 1; padding: 4px 6px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-            >
-              ⬡ Polygon
-            </button>
-            <button
-              onclick="window.__editStoreFromMap && window.__editStoreFromMap('${sId}')"
-              style="flex: 1; padding: 4px 6px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-            >
-              ⚙️ Priority
-            </button>
-            <button
-              onclick="window.__removeStoreFromMap && window.__removeStoreFromMap('${sId}')"
-              style="padding: 4px 6px; background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-            >
-              ✕ Unlink
-            </button>
-          </div>
-        </div>
-      `);
+        `);
+      }
       storeMarkersGroupRef.current.addLayer(marker);
     });
 
@@ -1853,30 +1907,40 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         iconAnchor: [14, 36]
       });
 
-      const marker = L.marker([sLat, sLng], { icon: pinIcon, interactive: !isDrawingPolygon });
-      marker.bindPopup(`
-        <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
-          <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
-          <p style="color: #64748b; font-size: 10px; margin: 2px 0 4px 0;">${store.address}</p>
-          <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;">
-            Distance to zone: <strong>~${store.distanceToZoneCentroidKm} km</strong>
+      const marker = L.marker([sLat, sLng], { icon: pinIcon, interactive: true });
+      marker.on('click', (e) => {
+        if (isDrawingPolygonRef.current) {
+          if (e.originalEvent) e.originalEvent.stopPropagation();
+          L.DomEvent.stopPropagation(e);
+          handleAddDrawPoint(e.latlng.lat, e.latlng.lng);
+        }
+      });
+
+      if (!isDrawingPolygon) {
+        marker.bindPopup(`
+          <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
+            <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
+            <p style="color: #64748b; font-size: 10px; margin: 2px 0 4px 0;">${store.address}</p>
+            <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;">
+              Distance to zone: <strong>~${store.distanceToZoneCentroidKm} km</strong>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <button
+                onclick="window.__createPolygonAroundStore && window.__createPolygonAroundStore('${sId}')"
+                style="width: 100%; padding: 4px 8px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+              >
+                ⬡ Polygon Around Store
+              </button>
+              <button
+                onclick="window.__assignStoreFromMap && window.__assignStoreFromMap('${sId}')"
+                style="width: 100%; padding: 4px 8px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+              >
+                + Assign Store to ${activeZone.name}
+              </button>
+            </div>
           </div>
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <button
-              onclick="window.__createPolygonAroundStore && window.__createPolygonAroundStore('${sId}')"
-              style="width: 100%; padding: 4px 8px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-            >
-              ⬡ Polygon Around Store
-            </button>
-            <button
-              onclick="window.__assignStoreFromMap && window.__assignStoreFromMap('${sId}')"
-              style="width: 100%; padding: 4px 8px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-            >
-              + Assign Store to ${activeZone.name}
-            </button>
-          </div>
-        </div>
-      `);
+        `);
+      }
       storeMarkersGroupRef.current.addLayer(marker);
     });
 
@@ -1896,37 +1960,48 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
           dashArray: '6, 6', // Polygons Dashed Lines
           fillColor: retailer.color,
           fillOpacity: 0.18,
-          interactive: !isDrawingPolygon
+          interactive: true
         });
 
-        storePoly.bindTooltip(`
-          <div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
-            <span>${retailer.logo}</span>
-            <span style="color: ${retailer.color};">${store.branchName || store.name} Delivery Region</span>
-            <span style="background: ${retailer.color}20; color: ${retailer.color}; padding: 1px 5px; border-radius: 9999px; font-size: 9px; font-weight: 900;">
-              ${rawPoly.length} pts
-            </span>
-          </div>
-        `, { sticky: true });
+        // Direct Click Forwarder: Capture click when drawing and add vertex immediately
+        storePoly.on('click', (e) => {
+          if (isDrawingPolygonRef.current) {
+            if (e.originalEvent) e.originalEvent.stopPropagation();
+            L.DomEvent.stopPropagation(e);
+            handleAddDrawPoint(e.latlng.lat, e.latlng.lng);
+          }
+        });
 
-        storePoly.bindPopup(`
-          <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
-            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+        if (!isDrawingPolygon) {
+          storePoly.bindTooltip(`
+            <div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
               <span>${retailer.logo}</span>
-              <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
+              <span style="color: ${retailer.color};">${store.branchName || store.name} Delivery Region</span>
+              <span style="background: ${retailer.color}20; color: ${retailer.color}; padding: 1px 5px; border-radius: 9999px; font-size: 9px; font-weight: 900;">
+                ${rawPoly.length} pts
+              </span>
             </div>
-            <p style="color: #64748b; font-size: 10px; margin: 2px 0 6px 0;">${store.address}</p>
-            <div style="font-size: 10px; color: #475569; margin-bottom: 8px;">
-              Delivery Boundary: <strong>Custom Polygon (${rawPoly.length} points)</strong>
+          `, { sticky: true });
+
+          storePoly.bindPopup(`
+            <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
+              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                <span>${retailer.logo}</span>
+                <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
+              </div>
+              <p style="color: #64748b; font-size: 10px; margin: 2px 0 6px 0;">${store.address}</p>
+              <div style="font-size: 10px; color: #475569; margin-bottom: 8px;">
+                Delivery Boundary: <strong>Custom Polygon (${rawPoly.length} points)</strong>
+              </div>
+              <button
+                onclick="window.__createPolygonAroundStore && window.__createPolygonAroundStore('${store.storeId || store._id}')"
+                style="width: 100%; padding: 5px 8px; background: ${retailer.color}; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+              >
+                ✏️ Edit Store Delivery Polygon
+              </button>
             </div>
-            <button
-              onclick="window.__createPolygonAroundStore && window.__createPolygonAroundStore('${store.storeId || store._id}')"
-              style="width: 100%; padding: 5px 8px; background: ${retailer.color}; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-            >
-              ✏️ Edit Store Delivery Polygon
-            </button>
-          </div>
-        `);
+          `);
+        }
 
         polygonLayerRef.current.addLayer(storePoly);
       }
@@ -1994,8 +2069,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
             <button
               type="button"
               onClick={() => {
+                isDrawingPolygonRef.current = true;
                 setIsDrawingPolygon(true);
                 setDrawnPoints([]);
+                if (mapInstanceRef.current) mapInstanceRef.current.closePopup();
                 if (addToast) addToast('Click map around stores to place at least 3 points, then click "Save Polygon".', 'info');
               }}
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition shadow-sm shrink-0 flex items-center gap-1.5 cursor-pointer"
@@ -2098,9 +2175,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                     if (isDrawingPolygon) {
                       handleCancelDrawing();
                     } else {
+                      isDrawingPolygonRef.current = true;
                       setIsDrawingPolygon(true);
                       setDrawingTool('polygon');
                       setDrawnPoints([]);
+                      if (mapInstanceRef.current) mapInstanceRef.current.closePopup();
                       if (addToast) addToast('✏️ Draw Polygon Mode', 'Click points around the stores on the map to define the delivery boundary.', 'info');
                     }
                   }}
@@ -2267,8 +2346,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                 <button
                   type="button"
                   onClick={() => {
+                    isDrawingPolygonRef.current = true;
                     setIsDrawingPolygon(true);
                     setDrawnPoints([]);
+                    if (mapInstanceRef.current) mapInstanceRef.current.closePopup();
                   }}
                   className="px-3 py-1.5 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                 >
