@@ -26,9 +26,13 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
-import { calculateDistanceKm } from '../../../data/pakistanLocations';
+import { calculateDistanceKm, PAKISTAN_CITIES } from '../../../data/pakistanLocations';
 import { getAllUnifiedStores } from '../../../utils/storeHelper';
 import { isPointInPolygon } from '../../../utils/distanceCalculator';
+import {
+  calculateDeliveryPolygonAreaKm2,
+  calculateDeliveryZoneReachKm
+} from '../../../utils/deliveryZoneMetrics';
 
 // 3 Master Regional Polygons covering all physical stores in the platform
 export const THREE_MASTER_REGIONS = [
@@ -331,6 +335,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   const tileLayerRef = useRef(null);
   const polygonLayerRef = useRef(null);
   const storeMarkersGroupRef = useRef(null);
+  const storeCoverageSectionRef = useRef(null);
   const [tileLayerType, setTileLayerType] = useState('carto'); // 'carto' | 'osm' | 'satellite'
   const [showAllStorePolygons, setShowAllStorePolygons] = useState(false);
 
@@ -345,9 +350,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       } catch (e) {}
     }
 
-    let url = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-    let attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>';
-    let subdomains = ['a', 'b', 'c', 'd'];
+    let url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+    let attribution = 'Tiles &copy; Esri &mdash; Sources: Esri, HERE, Garmin, Intermap, increment P Corp., GEBCO, USGS, FAO, NPS, NRCAN, GeoBase, IGN, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), (c) OpenStreetMap contributors, and the GIS User Community';
+    let subdomains = [];
 
     if (type === 'satellite') {
       url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
@@ -1167,8 +1172,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       });
       modalMapInstanceRef.current = map;
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
         subdomains: ['a', 'b', 'c', 'd'],
         maxZoom: 19,
         crossOrigin: true
@@ -1368,9 +1373,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       zoomControl: true
     });
 
-    let initialUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-    let initialAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>';
-    let initialSubdomains = ['a', 'b', 'c', 'd'];
+    let initialUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+    let initialAttr = 'Tiles &copy; Esri &mdash; Sources: Esri, HERE, Garmin, Intermap, increment P Corp., GEBCO, USGS, FAO, NPS, NRCAN, GeoBase, IGN, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), (c) OpenStreetMap contributors, and the GIS User Community';
+    let initialSubdomains = [];
     if (tileLayerType === 'satellite') {
       initialUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
       initialAttr = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS';
@@ -1717,24 +1722,38 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
 
         // Persist directly to backend database (MongoDB Branch, Store, and DeliveryZone)
+        let backendSaved = false;
         try {
-          await apiService.updateBranchDeliveryZone(storeId, {
+          const branchResult = await apiService.updateBranchDeliveryZone(storeId, {
             deliveryPolygon: cleanPoints,
             name: sName,
             deliveryRadiusKm: Number(drawingStoreTarget.deliveryRadiusKm || 5)
           });
-          await apiService.updateStore(storeId, {
+          if (!branchResult?.success) {
+            throw new Error(branchResult?.message || branchResult?.error || 'Branch delivery zone could not be saved.');
+          }
+          const storeResult = await apiService.updateStore(storeId, {
             deliveryPolygon: cleanPoints,
             deliveryRadiusKm: Number(drawingStoreTarget.deliveryRadiusKm || 5)
           });
+          if (!storeResult?.success) {
+            throw new Error(storeResult?.message || storeResult?.error || 'Store delivery zone could not be synchronized.');
+          }
+          backendSaved = true;
         } catch (apiErr) {
-          console.warn('Backend sync warning for store delivery zone:', apiErr);
+          if (addToast) {
+            addToast(
+              'Server Sync Failed',
+              `The delivery zone is saved on this device, but could not be saved to the server: ${apiErr.message}`,
+              'error'
+            );
+          }
         }
 
-        if (addToast) {
+        if (backendSaved && addToast) {
           addToast(
             'Store Delivery Zone Saved! ⬡',
-            `Custom delivery polygon successfully saved to database for "${sName}" (${cleanPoints.length} vertices).`,
+            `Delivery zone saved for "${sName}" (${cleanPoints.length} vertices).`,
             'success'
           );
         }
@@ -2355,11 +2374,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
           <button
             type="button"
-            onClick={() => setIsQuickAddModalOpen(true)}
+            onClick={() => storeCoverageSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
             className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            <span>+ Add Store & Draw Delivery Zone</span>
+            <span>Add Delivery Zone</span>
           </button>
           <button
             onClick={loadData}
@@ -2573,6 +2592,128 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
               )}
             </div>
           </div>
+
+          {/* Per-store delivery zone setup and coverage summary */}
+          <section
+            ref={storeCoverageSectionRef}
+            className="bg-white rounded-3xl border border-slate-200 shadow-2xs p-5 space-y-4 scroll-mt-6"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">Store Delivery Zones</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Add or edit a separate polygon for each store. Saved coverage shows the delivery radius, polygon area, and the area label.
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-black self-start sm:self-auto">
+                {stores.filter((store) => Array.isArray(store.deliveryPolygon) && store.deliveryPolygon.length >= 3).length} of {stores.length} zoned
+              </span>
+            </div>
+
+            {stores.length === 0 ? (
+              <div className="p-6 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center text-xs text-slate-500">
+                No stores are available to configure yet. Use <strong>+ Add Store</strong> in the store assignment section to create one.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {stores.map((store, index) => {
+                  const storeId = store.storeId || store._id || store.id;
+                  const hasPolygon = Array.isArray(store.deliveryPolygon) && store.deliveryPolygon.length >= 3;
+                  const polygonAreaKm2 = hasPolygon
+                    ? calculateDeliveryPolygonAreaKm2(store.deliveryPolygon)
+                    : null;
+                  const storeLat = Number(store.latitude ?? store.coordinates?.lat);
+                  const storeLng = Number(store.longitude ?? store.coordinates?.lng);
+                  const polygonReachKm = hasPolygon
+                    ? calculateDeliveryZoneReachKm(store.deliveryPolygon, { lat: storeLat, lng: storeLng })
+                    : null;
+                  const storeCity = PAKISTAN_CITIES.find(({ city }) =>
+                    String(store.city || '').toLowerCase().includes(city.split(',')[0].toLowerCase())
+                  );
+                  const coveredNeighborhoods = hasPolygon
+                    ? (storeCity?.neighborhoods || [])
+                      .filter((neighborhood) => isPointInPolygon(neighborhood.coords, store.deliveryPolygon))
+                      .map((neighborhood) => neighborhood.area || neighborhood.name)
+                    : [];
+                  const coverageArea = coveredNeighborhoods.length > 0
+                    ? coveredNeighborhoods.join(', ')
+                    : store.deliveryArea || store.coverageArea || store.area || store.address || store.city || 'Area not specified';
+                  const deliveryRadiusKm = Number(store.deliveryRadiusKm || store.deliveryRadius || 5);
+                  const retailer = CORE_RETAILERS.find((item) =>
+                    String(store.tenantId || '').toLowerCase().includes(item.id.replace('tenant-', ''))
+                  ) || { name: 'Supermarket', color: '#059669', logo: '🏬' };
+
+                  return (
+                    <article
+                      key={storeId || `${store.name || 'store'}-${index}`}
+                      className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border"
+                            style={{ backgroundColor: `${retailer.color}15`, borderColor: `${retailer.color}35` }}
+                          >
+                            {retailer.logo}
+                          </span>
+                          <div className="min-w-0">
+                            <strong className="block truncate text-xs text-slate-900">{store.name || store.branchName || retailer.name}</strong>
+                            <span className="block truncate text-[11px] text-slate-500">{store.branchName || retailer.name}</span>
+                          </div>
+                        </div>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
+                          hasPolygon
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                            : 'bg-amber-50 border-amber-200 text-amber-700'
+                        }`}>
+                          {hasPolygon ? 'Zone saved' : 'Zone needed'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                          <span className="block text-[10px] text-slate-500">
+                            {polygonReachKm == null ? 'Delivery radius' : 'Max delivery reach'}
+                          </span>
+                          <strong className="text-xs text-slate-900">
+                            {polygonReachKm == null
+                              ? `${Number.isFinite(deliveryRadiusKm) ? deliveryRadiusKm : 5} km`
+                              : `${polygonReachKm.toFixed(2)} km`}
+                          </strong>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                          <span className="block text-[10px] text-slate-500">Polygon coverage</span>
+                          <strong className="text-xs text-slate-900">
+                            {polygonAreaKm2 == null ? '—' : `${polygonAreaKm2.toFixed(2)} km²`}
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-slate-600">
+                        <span className="font-bold text-slate-700">
+                          {coveredNeighborhoods.length > 0 ? 'Known areas inside polygon:' : 'Coverage area:'}
+                        </span>{' '}
+                        {coverageArea}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleStartDrawingDeliveryZoneForStore(store)}
+                        className={`w-full px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border ${
+                          hasPolygon
+                            ? 'bg-white hover:bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700'
+                        }`}
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>{hasPolygon ? 'Edit Delivery Zone' : 'Add Delivery Zone'}</span>
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
           {/* Active Zone Summary Card */}
           {activeZone ? (
