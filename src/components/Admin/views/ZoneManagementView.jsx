@@ -194,7 +194,7 @@ export const ZoneManagementView = () => {
   });
 
   // Map Tile & Geocoding State
-  const [tileLayerType, setTileLayerType] = useState('osm'); // 'osm' | 'satellite' | 'carto'
+  const [tileLayerType, setTileLayerType] = useState('carto'); // 'carto' | 'satellite' | 'osm'
   const [geocodingQuery, setGeocodingQuery] = useState('');
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [showStoreMarkers, setShowStoreMarkers] = useState(true);
@@ -424,18 +424,32 @@ export const ZoneManagementView = () => {
       mapInstanceRef.current.removeLayer(tileLayerRef.current);
     }
 
-    let url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-    let attribution = '&copy; OpenStreetMap contributors';
+    let url = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    let attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>';
+    let subdomains = ['a', 'b', 'c', 'd'];
 
     if (type === 'satellite') {
       url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
       attribution = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS';
-    } else if (type === 'carto') {
-      url = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-      attribution = '&copy; OpenStreetMap contributors &copy; CARTO';
+      subdomains = ['server', 'services'];
+    } else if (type === 'osm') {
+      url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      attribution = '&copy; OpenStreetMap contributors';
+      subdomains = ['a', 'b', 'c'];
     }
 
-    tileLayerRef.current = L.tileLayer(url, { attribution, maxZoom: 19 }).addTo(mapInstanceRef.current);
+    tileLayerRef.current = L.tileLayer(url, {
+      attribution,
+      subdomains,
+      maxZoom: 19,
+      crossOrigin: true
+    }).addTo(mapInstanceRef.current);
+
+    setTimeout(() => {
+      try {
+        mapInstanceRef.current?.invalidateSize(true);
+      } catch (e) {}
+    }, 50);
   };
 
   // Dedicated helper to add a vertex point from any click source (map canvas, existing polygon, store marker)
@@ -472,9 +486,24 @@ export const ZoneManagementView = () => {
       zoomControl: true
     });
 
-    tileLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 19
+    let initialUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    let initialAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>';
+    let initialSubdomains = ['a', 'b', 'c', 'd'];
+    if (tileLayerType === 'satellite') {
+      initialUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+      initialAttr = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS';
+      initialSubdomains = ['server', 'services'];
+    } else if (tileLayerType === 'osm') {
+      initialUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      initialAttr = '&copy; OpenStreetMap contributors';
+      initialSubdomains = ['a', 'b', 'c'];
+    }
+
+    tileLayerRef.current = L.tileLayer(initialUrl, {
+      attribution: initialAttr,
+      subdomains: initialSubdomains,
+      maxZoom: 19,
+      crossOrigin: true
     }).addTo(map);
 
     polygonsLayerGroupRef.current = L.layerGroup().addTo(map);
@@ -517,6 +546,10 @@ export const ZoneManagementView = () => {
 
       // Filter: if user chose to view only the active polygon, hide other polygons for maximum clarity
       if (polygonViewFilter === 'selected' && selectedZoneId && !isSelected) return;
+
+      // In edit mode: if this zone is currently being actively reshaped with drag handles,
+      // hide its static polygon so the user never sees ghost duplicate polygons underneath!
+      if (mapMode === 'edit' && isSelected) return;
 
       const color = z.color || '#2563eb';
       const insideStores = getStoresInPolygon(latLngs, stores);
@@ -1352,8 +1385,8 @@ export const ZoneManagementView = () => {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-slate-200/70 p-1 rounded-xl text-[11px] font-medium">
               <button
-                onClick={() => setTileLayer('osm')}
-                className={`px-2 py-0.5 rounded-md transition ${tileLayerType === 'osm' ? 'bg-white font-bold shadow-2xs' : 'text-slate-600'}`}
+                onClick={() => setTileLayer('carto')}
+                className={`px-2 py-0.5 rounded-md transition ${tileLayerType === 'carto' ? 'bg-white font-bold shadow-2xs' : 'text-slate-600'}`}
               >
                 Street
               </button>
@@ -1364,10 +1397,10 @@ export const ZoneManagementView = () => {
                 Satellite
               </button>
               <button
-                onClick={() => setTileLayer('carto')}
-                className={`px-2 py-0.5 rounded-md transition ${tileLayerType === 'carto' ? 'bg-white font-bold shadow-2xs' : 'text-slate-600'}`}
+                onClick={() => setTileLayer('osm')}
+                className={`px-2 py-0.5 rounded-md transition ${tileLayerType === 'osm' ? 'bg-white font-bold shadow-2xs' : 'text-slate-600'}`}
               >
-                Light
+                OSM
               </button>
             </div>
 
@@ -1390,7 +1423,7 @@ export const ZoneManagementView = () => {
         <div className="relative">
           <div
             ref={mapContainerRef}
-            className="w-full h-[520px] z-10"
+            className="w-full h-[520px] z-10 bg-slate-100"
             style={{ minHeight: '520px' }}
           ></div>
 

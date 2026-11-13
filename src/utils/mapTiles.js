@@ -11,9 +11,11 @@ export const MAP_LAYERS = {
     name: 'Street View',
     label: 'Street',
     icon: '🗺️',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; OpenStreetMap contributors',
-    maxZoom: 19
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains: ['a', 'b', 'c', 'd'],
+    maxZoom: 19,
+    crossOrigin: true
   },
   satellite: {
     id: 'satellite',
@@ -22,6 +24,7 @@ export const MAP_LAYERS = {
     icon: '🛰️',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and GIS Community',
+    subdomains: ['server', 'services'],
     maxZoom: 19
   },
   hybrid: {
@@ -52,7 +55,9 @@ export const switchMapTileLayer = (map, layerKey = 'street', currentTileLayerRef
 
   const newTileLayer = L.tileLayer(config.url, {
     attribution: config.attribution,
-    maxZoom: config.maxZoom
+    subdomains: config.subdomains || ['a', 'b', 'c'],
+    maxZoom: config.maxZoom,
+    crossOrigin: config.crossOrigin || false
   });
 
   newTileLayer.addTo(map);

@@ -331,7 +331,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   const tileLayerRef = useRef(null);
   const polygonLayerRef = useRef(null);
   const storeMarkersGroupRef = useRef(null);
-  const [tileLayerType, setTileLayerType] = useState('osm'); // 'osm' | 'satellite' | 'carto'
+  const [tileLayerType, setTileLayerType] = useState('carto'); // 'carto' | 'osm' | 'satellite'
   const [showAllStorePolygons, setShowAllStorePolygons] = useState(false);
 
   // Switch Map Tile Layer
@@ -345,22 +345,32 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       } catch (e) {}
     }
 
-    let url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-    let attribution = '&copy; OpenStreetMap contributors';
+    let url = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    let attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>';
+    let subdomains = ['a', 'b', 'c', 'd'];
 
     if (type === 'satellite') {
       url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
       attribution = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS';
-    } else if (type === 'carto') {
-      url = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-      attribution = '&copy; OpenStreetMap contributors &copy; CARTO';
+      subdomains = ['server', 'services'];
+    } else if (type === 'osm') {
+      url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      attribution = '&copy; OpenStreetMap contributors';
+      subdomains = ['a', 'b', 'c'];
     }
 
     tileLayerRef.current = L.tileLayer(url, {
       attribution,
+      subdomains,
       maxZoom: 19,
-      errorTileUrl: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/0/0/0.png'
+      crossOrigin: true
     }).addTo(mapInstanceRef.current);
+
+    setTimeout(() => {
+      try {
+        mapInstanceRef.current?.invalidateSize(true);
+      } catch (e) {}
+    }, 50);
   };
 
   // 4 Core Retailers
@@ -1157,8 +1167,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       });
       modalMapInstanceRef.current = map;
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        subdomains: ['a', 'b', 'c', 'd'],
+        maxZoom: 19,
+        crossOrigin: true
       }).addTo(map);
 
       // Draw the 3 master regions lightly on the modal map
@@ -1355,20 +1368,24 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       zoomControl: true
     });
 
-    let initialUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-    let initialAttr = '&copy; OpenStreetMap contributors';
+    let initialUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    let initialAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>';
+    let initialSubdomains = ['a', 'b', 'c', 'd'];
     if (tileLayerType === 'satellite') {
       initialUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
       initialAttr = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS';
-    } else if (tileLayerType === 'carto') {
-      initialUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-      initialAttr = '&copy; OpenStreetMap contributors &copy; CARTO';
+      initialSubdomains = ['server', 'services'];
+    } else if (tileLayerType === 'osm') {
+      initialUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      initialAttr = '&copy; OpenStreetMap contributors';
+      initialSubdomains = ['a', 'b', 'c'];
     }
 
     tileLayerRef.current = L.tileLayer(initialUrl, {
       attribution: initialAttr,
+      subdomains: initialSubdomains,
       maxZoom: 19,
-      errorTileUrl: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/0/0/0.png'
+      crossOrigin: true
     }).addTo(map);
 
     polygonLayerRef.current = L.layerGroup().addTo(map);
@@ -2057,71 +2074,62 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     }
 
     // 1. Draw Active Target Delivery Zone Boundary (Clean, non-intrusive dashed outline)
-    if (activeZone) {
+    // Only rendered in normal viewing mode; when actively drawing or shaping a perimeter,
+    // drawingLayerRef exclusively renders the polygon and vertices so no ghost duplicate lines appear!
+    if (activeZone && !isDrawingPolygon) {
       const activeLatLngs = getZonePolygonLatLngs(activeZone);
       if (activeLatLngs.length >= 3) {
         const activeColor = activeZone.color || '#10b981';
         const activePolygon = L.polygon(activeLatLngs, {
           color: activeColor,
-          weight: isDrawingPolygon ? 1.5 : 2.5,
+          weight: 2.5,
           fillColor: activeColor,
-          fillOpacity: isDrawingPolygon ? 0.04 : 0.08,
+          fillOpacity: 0.08,
           dashArray: '8, 8',
           interactive: true
         });
 
-        // Direct Click Forwarder: Capture click when drawing and add vertex immediately
-        activePolygon.on('click', (e) => {
-          if (isDrawingPolygonRef.current) {
-            if (e.originalEvent) e.originalEvent.stopPropagation();
-            L.DomEvent.stopPropagation(e);
-            handleAddDrawPoint(e.latlng.lat, e.latlng.lng);
-          }
-        });
+        activePolygon.bindTooltip(`
+          <div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
+            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${activeColor};"></span>
+            <span>Target Zone: ${activeZone.name}</span>
+          </div>
+        `, { sticky: true });
 
-        if (!isDrawingPolygon) {
-          activePolygon.bindTooltip(`
-            <div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
-              <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${activeColor};"></span>
-              <span>Target Zone: ${activeZone.name}</span>
+        activePolygon.bindPopup(`
+          <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <strong style="color: #0f172a; font-size: 13px;">${activeZone.name}</strong>
+              <span style="font-size: 10px; background: ${activeColor}20; color: ${activeColor}; padding: 2px 6px; border-radius: 6px; font-weight: 800;">
+                ${activeZone.code || ''}
+              </span>
             </div>
-          `, { sticky: true });
-
-          activePolygon.bindPopup(`
-            <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                <strong style="color: #0f172a; font-size: 13px;">${activeZone.name}</strong>
-                <span style="font-size: 10px; background: ${activeColor}20; color: ${activeColor}; padding: 2px 6px; border-radius: 6px; font-weight: 800;">
-                  ${activeZone.code || ''}
-                </span>
-              </div>
-              <div style="font-size: 11px; color: #475569; margin: 3px 0;">
-                Delivery Fee: <strong style="color: #059669;">Rs. ${activeZone.deliveryCharge || 70}</strong>
-              </div>
-              <div style="font-size: 11px; color: #475569; margin-bottom: 8px;">
-                Free Delivery Over: <strong>Rs. ${activeZone.freeDeliveryThreshold || 2000}</strong>
-              </div>
-              <div style="display: flex; flex-direction: column; gap: 4px;">
-                <button
-                  onclick="window.__startDrawingFromMap && window.__startDrawingFromMap()"
-                  style="width: 100%; padding: 4px 8px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-                >
-                  ✏️ Redraw Zone Polygon
-                </button>
-                <button
-                  onclick="window.__editZoneFromMap && window.__editZoneFromMap()"
-                  style="width: 100%; padding: 4px 8px; background: #0f172a; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-                >
-                  ⚙️ Edit Zone Details & Rates
-                </button>
-              </div>
+            <div style="font-size: 11px; color: #475569; margin: 3px 0;">
+              Delivery Fee: <strong style="color: #059669;">Rs. ${activeZone.deliveryCharge || 70}</strong>
             </div>
-          `);
-        }
+            <div style="font-size: 11px; color: #475569; margin-bottom: 8px;">
+              Free Delivery Over: <strong>Rs. ${activeZone.freeDeliveryThreshold || 2000}</strong>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <button
+                onclick="window.__startDrawingFromMap && window.__startDrawingFromMap()"
+                style="width: 100%; padding: 4px 8px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+              >
+                ✏️ Redraw Zone Polygon
+              </button>
+              <button
+                onclick="window.__editZoneFromMap && window.__editZoneFromMap()"
+                style="width: 100%; padding: 4px 8px; background: #0f172a; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+              >
+                ⚙️ Edit Zone Details & Rates
+              </button>
+            </div>
+          </div>
+        `);
 
         polygonLayerRef.current.addLayer(activePolygon);
 
-        if (activeLatLngs.length > 0 && !isDrawingPolygon) {
+        if (activeLatLngs.length > 0) {
           const bounds = L.latLngBounds(activeLatLngs);
           mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
         }
@@ -2267,64 +2275,68 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     });
 
     // 4. Draw Store-Level Custom Delivery Polygons (Polygons Dashed Lines)
-    stores.forEach((store) => {
-      const rawPoly = store.deliveryPolygon;
-      const retailer = CORE_RETAILERS.find((r) =>
-        String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
-      ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
+    // Only rendered in normal mode or when showAllStorePolygons is explicitly checked;
+    // hides background dashed boxes when the user is actively drawing/editing a polygon!
+    if (!isDrawingPolygon || showAllStorePolygons) {
+      stores.forEach((store) => {
+        const rawPoly = store.deliveryPolygon;
+        const retailer = CORE_RETAILERS.find((r) =>
+          String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
+        ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
 
-      if (Array.isArray(rawPoly) && rawPoly.length >= 3) {
-        const sId = store.storeId || store._id;
-        if (drawingStoreTarget && (drawingStoreTarget.storeId || drawingStoreTarget._id) === sId) return;
+        if (Array.isArray(rawPoly) && rawPoly.length >= 3) {
+          const sId = store.storeId || store._id;
+          if (drawingStoreTarget && (drawingStoreTarget.storeId || drawingStoreTarget._id) === sId) return;
 
-        const isAssigned = assignedStores.some((as) => (as.storeId || as._id) === sId);
-        // Clean uncluttered view: if not toggled to show all, only show polygons for stores serving active zone
-        if (!showAllStorePolygons && !isAssigned) return;
+          const isAssigned = assignedStores.some((as) => (as.storeId || as._id) === sId);
+          // Clean uncluttered view: if not toggled to show all, only show polygons for stores serving active zone
+          if (!showAllStorePolygons && !isAssigned) return;
 
-        const storePoly = L.polygon(rawPoly, {
-          color: retailer.color,
-          weight: 2.5,
-          dashArray: '6, 6', // Polygons Dashed Lines
-          fillColor: retailer.color,
-          fillOpacity: isDrawingPolygon ? 0.04 : 0.18,
-          interactive: !isDrawingPolygon
-        });
+          const storePoly = L.polygon(rawPoly, {
+            color: retailer.color,
+            weight: 2.5,
+            dashArray: '6, 6', // Polygons Dashed Lines
+            fillColor: retailer.color,
+            fillOpacity: 0.18,
+            interactive: !isDrawingPolygon
+          });
 
-        if (!isDrawingPolygon) {
-          storePoly.bindTooltip(`
-            <div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
-              <span>${retailer.logo}</span>
-              <span style="color: ${retailer.color};">${store.branchName || store.name} Delivery Region</span>
-              <span style="background: ${retailer.color}20; color: ${retailer.color}; padding: 1px 5px; border-radius: 9999px; font-size: 9px; font-weight: 900;">
-                ${rawPoly.length} pts
-              </span>
-            </div>
-          `, { sticky: true });
-
-          storePoly.bindPopup(`
-            <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
-              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+          if (!isDrawingPolygon) {
+            storePoly.bindTooltip(`
+              <div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
                 <span>${retailer.logo}</span>
-                <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
+                <span style="color: ${retailer.color};">${store.branchName || store.name} Delivery Region</span>
+                <span style="background: ${retailer.color}20; color: ${retailer.color}; padding: 1px 5px; border-radius: 9999px; font-size: 9px; font-weight: 900;">
+                  ${rawPoly.length} pts
+                </span>
               </div>
-              <p style="color: #64748b; font-size: 10px; margin: 2px 0 6px 0;">${store.address}</p>
-              <div style="font-size: 10px; color: #475569; margin-bottom: 8px;">
-                Delivery Boundary: <strong>Custom Polygon (${rawPoly.length} points)</strong>
-              </div>
-              <button
-                onclick="window.__createPolygonAroundStore && window.__createPolygonAroundStore('${store.storeId || store._id}')"
-                style="width: 100%; padding: 5px 8px; background: ${retailer.color}; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-              >
-                ✏️ Edit Store Delivery Polygon
-              </button>
-            </div>
-          `);
-        }
+            `, { sticky: true });
 
-        polygonLayerRef.current.addLayer(storePoly);
-      }
-      // No circular fallback radius: per specification, only display custom drawn polygon perimeters.
-    });
+            storePoly.bindPopup(`
+              <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
+                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                  <span>${retailer.logo}</span>
+                  <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
+                </div>
+                <p style="color: #64748b; font-size: 10px; margin: 2px 0 6px 0;">${store.address}</p>
+                <div style="font-size: 10px; color: #475569; margin-bottom: 8px;">
+                  Delivery Boundary: <strong>Custom Polygon (${rawPoly.length} points)</strong>
+                </div>
+                <button
+                  onclick="window.__createPolygonAroundStore && window.__createPolygonAroundStore('${store.storeId || store._id}')"
+                  style="width: 100%; padding: 5px 8px; background: ${retailer.color}; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+                >
+                  ✏️ Edit Store Delivery Polygon
+                </button>
+              </div>
+            `);
+          }
+
+          polygonLayerRef.current.addLayer(storePoly);
+        }
+        // No circular fallback radius: per specification, only display custom drawn polygon perimeters.
+      });
+    }
   }, [activeZone, assignedStores, isDrawingPolygon, stores, storesWithDistance, assignments, zones, drawingStoreTarget, showAllStorePolygons]);
 
   return (
@@ -2384,9 +2396,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-[11px] font-medium border border-slate-200">
                   <button
                     type="button"
-                    onClick={() => setTileLayer('osm')}
+                    onClick={() => setTileLayer('carto')}
                     className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                      tileLayerType === 'osm' ? 'bg-white font-bold text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                      tileLayerType === 'carto' ? 'bg-white font-bold text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
                     Street
@@ -2402,12 +2414,12 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                   </button>
                   <button
                     type="button"
-                    onClick={() => setTileLayer('carto')}
+                    onClick={() => setTileLayer('osm')}
                     className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                      tileLayerType === 'carto' ? 'bg-white font-bold text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                      tileLayerType === 'osm' ? 'bg-white font-bold text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Light
+                    OSM
                   </button>
                 </div>
 
@@ -2548,7 +2560,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
             <div className="relative">
               <div
                 ref={mapContainerRef}
-                className={`w-full z-10 ${isDrawingPolygon ? 'cursor-crosshair ring-2 ring-emerald-500 ring-inset' : ''}`}
+                className={`w-full z-10 bg-slate-100 ${isDrawingPolygon ? 'cursor-crosshair ring-2 ring-emerald-500 ring-inset' : ''}`}
                 style={{ height: '520px' }}
               />
 
