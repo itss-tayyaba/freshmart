@@ -336,10 +336,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   const polygonLayerRef = useRef(null);
   const storeMarkersGroupRef = useRef(null);
   const storeCoverageSectionRef = useRef(null);
-  const [tileLayerType, setTileLayerType] = useState('osm'); // 'osm' | 'satellite'
+  const [tileLayerType, setTileLayerType] = useState('street'); // 'street' | 'satellite'
   const [showAllStorePolygons, setShowAllStorePolygons] = useState(false);
 
-  // Switch Map Tile Layer - Standard OpenStreetMap Leaflet Map (No API Key Required)
+  // Switch Map Tile Layer - High-Resolution Street Map (Zero API Key, Zero Blocked Requests)
   const setTileLayer = (type) => {
     setTileLayerType(type);
     if (!mapInstanceRef.current) return;
@@ -350,19 +350,16 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       } catch (e) {}
     }
 
-    let url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-    let attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-    let subdomains = ['a', 'b', 'c'];
+    let url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+    let attribution = 'Tiles &copy; Esri &mdash; Street Map';
 
     if (type === 'satellite') {
       url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
       attribution = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS';
-      subdomains = ['server', 'services'];
     }
 
     tileLayerRef.current = L.tileLayer(url, {
       attribution,
-      subdomains,
       maxZoom: 19
     }).addTo(mapInstanceRef.current);
 
@@ -1426,18 +1423,15 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       zoomControl: true
     });
 
-    let initialUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-    let initialAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-    let initialSubdomains = ['a', 'b', 'c'];
+    let initialUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+    let initialAttr = 'Tiles &copy; Esri &mdash; Street Map';
     if (tileLayerType === 'satellite') {
       initialUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
       initialAttr = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS';
-      initialSubdomains = ['server', 'services'];
     }
 
     tileLayerRef.current = L.tileLayer(initialUrl, {
       attribution: initialAttr,
-      subdomains: initialSubdomains,
       maxZoom: 19
     }).addTo(map);
 
@@ -2472,12 +2466,12 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-[11px] font-medium border border-slate-200">
                   <button
                     type="button"
-                    onClick={() => setTileLayer('osm')}
+                    onClick={() => setTileLayer('street')}
                     className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                      tileLayerType === 'osm' ? 'bg-white font-bold text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                      tileLayerType === 'street' ? 'bg-white font-bold text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Street (Leaflet)
+                    Street Map
                   </button>
                   <button
                     type="button"
