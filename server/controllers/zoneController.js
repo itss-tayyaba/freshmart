@@ -131,6 +131,9 @@ export const DEFAULT_PLATFORM_ZONES = [
     freeDeliveryThreshold: 2000,
     estimatedDeliveryTime: '15-25 mins',
     assignedStoreId: 'branch_um_fsd',
+    type: 'delivery_zone',
+    isDeliveryZone: true,
+    isStoreAreaPolygon: false,
     status: 'active',
     isActive: true,
     geometry: {
@@ -160,6 +163,9 @@ export const DEFAULT_PLATFORM_ZONES = [
     freeDeliveryThreshold: 2500,
     estimatedDeliveryTime: '20-30 mins',
     assignedStoreId: 'branch_af_kohinoor',
+    type: 'delivery_zone',
+    isDeliveryZone: true,
+    isStoreAreaPolygon: false,
     status: 'active',
     isActive: true,
     geometry: {
@@ -188,6 +194,9 @@ export const DEFAULT_PLATFORM_ZONES = [
     freeDeliveryThreshold: 2200,
     estimatedDeliveryTime: '20-35 mins',
     assignedStoreId: 'branch_cv_fsd',
+    type: 'delivery_zone',
+    isDeliveryZone: true,
+    isStoreAreaPolygon: false,
     status: 'active',
     isActive: true,
     geometry: {
@@ -216,6 +225,9 @@ export const DEFAULT_PLATFORM_ZONES = [
     freeDeliveryThreshold: 2200,
     estimatedDeliveryTime: '25-35 mins',
     assignedStoreId: 'branch_006',
+    type: 'delivery_zone',
+    isDeliveryZone: true,
+    isStoreAreaPolygon: false,
     status: 'active',
     isActive: true,
     geometry: {

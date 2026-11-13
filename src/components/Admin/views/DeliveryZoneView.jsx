@@ -840,6 +840,9 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
           freeDeliveryThreshold: 2000,
           estimatedDeliveryTime: '20-30 mins',
           assignedStoreId: branchId,
+          type: 'delivery_zone',
+          isDeliveryZone: true,
+          isStoreAreaPolygon: false,
           isActive: deliveryStatus !== 'inactive',
           status: deliveryStatus,
           ...(cleanRing ? { geometry: { type: 'Polygon', coordinates: [cleanRing] }, coordinates: [cleanRing] } : {})

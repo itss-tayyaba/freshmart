@@ -83,21 +83,30 @@ export const THREE_MASTER_REGIONS = [
 // Identify whether a zone is Concept 1 (Store Area Polygon) vs Concept 2 (Store Delivery Zone)
 export const isStoreAreaPolygon = (z) => {
   if (!z) return false;
+  // Explicitly exclude store delivery zones (Concept 2)
+  if (z.isStoreAreaPolygon === false) return false;
+  if (z.assignedStoreId || z.type === 'delivery_zone' || z.isDeliveryZone === true) return false;
+  const name = String(z.name || '').toLowerCase();
+  if (
+    name.includes('delivery zone') ||
+    name.includes('delivery region') ||
+    name.includes('hub delivery') ||
+    name.includes('reach') ||
+    name.includes('express zone')
+  ) return false;
+
   if (z.isStoreAreaPolygon === true || z.type === 'store_area_polygon') return true;
   const zid = String(z.zoneId || z._id || z.id || '').toUpperCase();
-  const name = String(z.name || '').toLowerCase();
   return (
-    zid.includes('MASTER') ||
-    zid.includes('FSD-BLUE') ||
-    zid.includes('FSD-GREEN') ||
-    zid.includes('FSD-ORANGE') ||
     zid.includes('FSD-CENTRAL-BLUE') ||
     zid.includes('FSD-NORTH-GREEN') ||
     zid.includes('FSD-WEST-ORANGE') ||
+    zid.includes('FSD-BLUE') ||
+    zid.includes('FSD-GREEN') ||
+    zid.includes('FSD-ORANGE') ||
     zid.includes('SAP-') ||
     name.includes('store area polygon') ||
-    name.includes('master regional') ||
-    name.includes('sector')
+    name.includes('regional sector')
   );
 };
 
@@ -110,6 +119,9 @@ export const DEFAULT_DELIVERY_ZONES = [
     city: 'Faisalabad',
     area: 'D-Ground / Peoples Colony',
     color: '#0284c7',
+    type: 'delivery_zone',
+    isDeliveryZone: true,
+    isStoreAreaPolygon: false,
     deliveryCharge: 60,
     minOrderAmount: 400,
     freeDeliveryThreshold: 2000,
@@ -134,6 +146,9 @@ export const DEFAULT_DELIVERY_ZONES = [
     city: 'Faisalabad',
     area: 'East Canal Road / Kohinoor',
     color: '#2563eb',
+    type: 'delivery_zone',
+    isDeliveryZone: true,
+    isStoreAreaPolygon: false,
     deliveryCharge: 80,
     minOrderAmount: 500,
     freeDeliveryThreshold: 2500,
@@ -157,6 +172,9 @@ export const DEFAULT_DELIVERY_ZONES = [
     city: 'Faisalabad',
     area: 'Madina Town / Susan Road',
     color: '#059669',
+    type: 'delivery_zone',
+    isDeliveryZone: true,
+    isStoreAreaPolygon: false,
     deliveryCharge: 70,
     minOrderAmount: 450,
     freeDeliveryThreshold: 2200,
@@ -179,6 +197,9 @@ export const DEFAULT_DELIVERY_ZONES = [
     city: 'Faisalabad',
     area: 'Clock Tower & Historic Bazaars',
     color: '#d97706',
+    type: 'delivery_zone',
+    isDeliveryZone: true,
+    isStoreAreaPolygon: false,
     deliveryCharge: 65,
     minOrderAmount: 350,
     freeDeliveryThreshold: 1800,
@@ -253,7 +274,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     if (mapInstanceRef.current) {
       [50, 150, 300, 500].forEach((delay) => {
         setTimeout(() => {
-          mapInstanceRef.current?.invalidateSize();
+          mapInstanceRef.current?.invalidateSize(true);
           if (isDrawingPolygon && drawnPoints.length >= 3) {
             try {
               mapInstanceRef.current?.fitBounds(L.latLngBounds(drawnPoints), {
@@ -265,7 +286,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         }, delay);
       });
     }
-  }, [isDrawingPolygon]);
+  }, [isDrawingPolygon, drawnPoints.length]);
   const [drawingTool, setDrawingTool] = useState('polygon');
   const drawingToolRef = useRef('polygon');
   useEffect(() => {
@@ -299,11 +320,43 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   const [isSubmitting, setIsSubmitting] = useState(false);
 
 
-  // Leaflet Map Reference
+  // Leaflet Map Reference & Tile Layers
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const tileLayerRef = useRef(null);
   const polygonLayerRef = useRef(null);
   const storeMarkersGroupRef = useRef(null);
+  const [tileLayerType, setTileLayerType] = useState('osm'); // 'osm' | 'satellite' | 'carto'
+  const [showAllStorePolygons, setShowAllStorePolygons] = useState(false);
+
+  // Switch Map Tile Layer
+  const setTileLayer = (type) => {
+    setTileLayerType(type);
+    if (!mapInstanceRef.current) return;
+
+    if (tileLayerRef.current) {
+      try {
+        mapInstanceRef.current.removeLayer(tileLayerRef.current);
+      } catch (e) {}
+    }
+
+    let url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    let attribution = '&copy; OpenStreetMap contributors';
+
+    if (type === 'satellite') {
+      url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+      attribution = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS';
+    } else if (type === 'carto') {
+      url = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+      attribution = '&copy; OpenStreetMap contributors &copy; CARTO';
+    }
+
+    tileLayerRef.current = L.tileLayer(url, {
+      attribution,
+      maxZoom: 19,
+      errorTileUrl: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/0/0/0.png'
+    }).addTo(mapInstanceRef.current);
+  };
 
   // 4 Core Retailers
   const CORE_RETAILERS = [
@@ -1286,14 +1339,25 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     }
 
     const map = L.map(mapContainerRef.current, {
-      center: [zoneCentroid.lat, zoneCentroid.lng],
+      center: [zoneCentroid.lat || 31.4145, zoneCentroid.lng || 73.1095],
       zoom: 13,
       zoomControl: true
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 19
+    let initialUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    let initialAttr = '&copy; OpenStreetMap contributors';
+    if (tileLayerType === 'satellite') {
+      initialUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+      initialAttr = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS';
+    } else if (tileLayerType === 'carto') {
+      initialUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+      initialAttr = '&copy; OpenStreetMap contributors &copy; CARTO';
+    }
+
+    tileLayerRef.current = L.tileLayer(initialUrl, {
+      attribution: initialAttr,
+      maxZoom: 19,
+      errorTileUrl: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/0/0/0.png'
     }).addTo(map);
 
     polygonLayerRef.current = L.layerGroup().addTo(map);
@@ -1447,10 +1511,12 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
   // Helper to create an organic delivery polygon centered around any store
   const handleCreatePolygonAroundStore = (store, radiusKm = 2.5) => {
-    if (!store) return;
-    const sLat = Number(store.latitude);
-    const sLng = Number(store.longitude);
-    if (isNaN(sLat) || isNaN(sLng) || !Number.isFinite(sLat) || !Number.isFinite(sLng)) return;
+    let sLat = Number(store?.latitude);
+    let sLng = Number(store?.longitude);
+    if (isNaN(sLat) || isNaN(sLng) || !Number.isFinite(sLat) || !Number.isFinite(sLng)) {
+      sLat = 31.4125;
+      sLng = 73.0950;
+    }
 
     const latDelta = radiusKm / 111.0;
     const lngDelta = radiusKm / (111.0 * Math.cos((sLat * Math.PI) / 180));
@@ -1465,6 +1531,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       ]);
     }
 
+    isDrawingPolygonRef.current = true;
     setIsDrawingPolygon(true);
     setDrawingTool('polygon');
     setDrawnPoints(polyPoints);
@@ -1473,8 +1540,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       [50, 150, 300, 500].forEach((delay) => {
         setTimeout(() => {
           try {
-            mapInstanceRef.current?.invalidateSize();
-            mapInstanceRef.current?.fitBounds(L.latLngBounds(polyPoints), { padding: [80, 80] });
+            mapInstanceRef.current?.invalidateSize(true);
+            mapInstanceRef.current?.fitBounds(L.latLngBounds(polyPoints), { padding: [80, 80], maxZoom: 15 });
           } catch (e) {}
         }, delay);
       });
@@ -1482,9 +1549,55 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     if (addToast) {
       addToast(
         'Delivery Polygon Created ⬡',
-        `A 6-vertex polygon placed around ${store.name || store.branchName}. Click "Save Polygon" to apply or drag vertices to adjust.`,
+        `A 6-vertex polygon placed around ${store?.name || store?.branchName || 'store'}. Drag numbered handles to reshape or click to add more vertices.`,
         'success'
       );
+    }
+  };
+
+  // Toggle In-Place Polygon Drawing Mode
+  const handleToggleDrawPolygon = () => {
+    if (isDrawingPolygon) {
+      handleCancelDrawing();
+      return;
+    }
+
+    isDrawingPolygonRef.current = true;
+    setIsDrawingPolygon(true);
+    setDrawingTool('polygon');
+
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.closePopup();
+    }
+
+    // 1. Check if activeZone already has polygon coordinates
+    const existingLatLngs = getZonePolygonLatLngs(activeZone);
+    if (existingLatLngs.length >= 3) {
+      setDrawnPoints(existingLatLngs);
+      if (mapInstanceRef.current) {
+        [50, 150, 300, 500].forEach((delay) => {
+          setTimeout(() => {
+            mapInstanceRef.current?.invalidateSize(true);
+            try {
+              mapInstanceRef.current?.fitBounds(L.latLngBounds(existingLatLngs), {
+                padding: [60, 60],
+                maxZoom: 15
+              });
+            } catch (e) {}
+          }, delay);
+        });
+      }
+      if (addToast) {
+        addToast(
+          'Editing Polygon ✏️',
+          `Loaded ${existingLatLngs.length} existing boundary points for "${activeZone.name}". Drag the numbered points to shape your zone.`,
+          'info'
+        );
+      }
+    } else {
+      // 2. Zone has no polygon yet. Find the target store:
+      const targetStore = drawingStoreTarget || assignedStores[0] || storesWithDistance[0] || stores[0];
+      handleCreatePolygonAroundStore(targetStore, 2.5);
     }
   };
 
@@ -1617,20 +1730,23 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       }
 
       if (!activeZone) {
-        // Create brand new master delivery polygon on demand
+        // Create brand new store delivery zone on demand
         const newZonePayload = {
-          zoneId: `ZONE-FSD-MASTER-${Date.now().toString().slice(-4)}`,
-          name: 'Faisalabad Master Delivery Region',
-          code: 'FSD-MASTER',
+          zoneId: `ZONE-FSD-DELIVERY-${Date.now().toString().slice(-4)}`,
+          name: 'Faisalabad Hub Delivery Zone',
+          code: `FSD-DEL-${Date.now().toString().slice(-3)}`,
           city: 'Faisalabad',
           area: 'Faisalabad Core Region',
-          description: 'Master Supermarket Delivery Region covering flagship partner hubs.',
+          description: 'Store Delivery Region covering partner supermarkets and riders.',
           deliveryCharge: 80,
           minOrderAmount: 400,
           freeDeliveryThreshold: 2000,
           color: '#10b981',
           isActive: true,
           status: 'active',
+          type: 'delivery_zone',
+          isDeliveryZone: true,
+          isStoreAreaPolygon: false,
           geometry: {
             type: 'Polygon',
             coordinates: [ring]
@@ -1640,7 +1756,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         const createRes = await apiService.createZone(newZonePayload);
         if (createRes && createRes.success) {
           const created = createRes.zone || newZonePayload;
-          if (addToast) addToast('Master Polygon Created ✨', `Delivery zone "${created.name}" created and applied!`, 'success');
+          if (addToast) addToast('Delivery Zone Created ✨', `Delivery zone "${created.name}" created and applied!`, 'success');
           setZones((prev) => [created, ...(prev || [])]);
           setSelectedZoneId(created.zoneId);
           setIsDrawingPolygon(false);
@@ -2147,24 +2263,20 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
 
       if (Array.isArray(rawPoly) && rawPoly.length >= 3) {
-        if (drawingStoreTarget && (drawingStoreTarget.storeId || drawingStoreTarget._id) === (store.storeId || store._id)) return;
+        const sId = store.storeId || store._id;
+        if (drawingStoreTarget && (drawingStoreTarget.storeId || drawingStoreTarget._id) === sId) return;
+
+        const isAssigned = assignedStores.some((as) => (as.storeId || as._id) === sId);
+        // Clean uncluttered view: if not toggled to show all, only show polygons for stores serving active zone
+        if (!showAllStorePolygons && !isAssigned) return;
 
         const storePoly = L.polygon(rawPoly, {
           color: retailer.color,
           weight: 2.5,
           dashArray: '6, 6', // Polygons Dashed Lines
           fillColor: retailer.color,
-          fillOpacity: 0.18,
-          interactive: true
-        });
-
-        // Direct Click Forwarder: Capture click when drawing and add vertex immediately
-        storePoly.on('click', (e) => {
-          if (isDrawingPolygonRef.current) {
-            if (e.originalEvent) e.originalEvent.stopPropagation();
-            L.DomEvent.stopPropagation(e);
-            handleAddDrawPoint(e.latlng.lat, e.latlng.lng);
-          }
+          fillOpacity: isDrawingPolygon ? 0.04 : 0.18,
+          interactive: !isDrawingPolygon
         });
 
         if (!isDrawingPolygon) {
@@ -2202,7 +2314,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       }
       // No circular fallback radius: per specification, only display custom drawn polygon perimeters.
     });
-  }, [activeZone, assignedStores, isDrawingPolygon, stores, storesWithDistance, assignments, zones, drawingStoreTarget]);
+  }, [activeZone, assignedStores, isDrawingPolygon, stores, storesWithDistance, assignments, zones, drawingStoreTarget, showAllStorePolygons]);
 
   return (
     <div className="space-y-6">
@@ -2256,24 +2368,59 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
+                {/* Tile Layer Switcher */}
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-[11px] font-medium border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setTileLayer('osm')}
+                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                      tileLayerType === 'osm' ? 'bg-white font-bold text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Street
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTileLayer('satellite')}
+                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                      tileLayerType === 'satellite' ? 'bg-white font-bold text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Satellite
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTileLayer('carto')}
+                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                      tileLayerType === 'carto' ? 'bg-white font-bold text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Light
+                  </button>
+                </div>
+
+                {/* All Polygons vs Active Zone Only Toggle */}
                 <button
                   type="button"
-                  onClick={() => {
-                    if (isDrawingPolygon) {
-                      handleCancelDrawing();
-                    } else {
-                      isDrawingPolygonRef.current = true;
-                      setIsDrawingPolygon(true);
-                      setDrawingTool('polygon');
-                      setDrawnPoints([]);
-                      if (mapInstanceRef.current) mapInstanceRef.current.closePopup();
-                      if (addToast) addToast('✏️ Draw Polygon Mode', 'Click points around the stores on the map to define the delivery boundary.', 'info');
-                    }
-                  }}
+                  onClick={() => setShowAllStorePolygons((prev) => !prev)}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center gap-1 ${
+                    showAllStorePolygons
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}
+                  title={showAllStorePolygons ? 'Show active zone stores only' : 'Show all store delivery polygons'}
+                >
+                  <Layers className="w-3.5 h-3.5 text-slate-500" />
+                  <span>{showAllStorePolygons ? 'All Polygons Visible' : 'Active Zone Only'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleToggleDrawPolygon}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border shadow-xs ${
                     isDrawingPolygon
-                      ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 animate-pulse'
+                      ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600'
                       : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700'
                   }`}
                 >
@@ -2390,8 +2537,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
             <div className="relative">
               <div
                 ref={mapContainerRef}
-                className={`w-full z-10 transition-all ${isDrawingPolygon ? 'cursor-crosshair ring-2 ring-emerald-500 ring-inset' : ''}`}
-                style={{ height: isDrawingPolygon ? '580px' : '480px' }}
+                className={`w-full z-10 ${isDrawingPolygon ? 'cursor-crosshair ring-2 ring-emerald-500 ring-inset' : ''}`}
+                style={{ height: '520px' }}
               />
 
               {/* Floating Helper Tip Pill over map */}
@@ -2460,14 +2607,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
                 <button
                   type="button"
-                  onClick={() => {
-                    isDrawingPolygonRef.current = true;
-                    setIsDrawingPolygon(true);
-                    setDrawnPoints([]);
-                    if (mapInstanceRef.current) mapInstanceRef.current.closePopup();
-                  }}
+                  onClick={handleToggleDrawPolygon}
                   className="px-3 py-1.5 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  title="Redraw Polygon Boundary on Map"
+                  title="Reshape or redraw polygon boundary on map"
                 >
                   <Edit3 className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Redraw Polygon</span>

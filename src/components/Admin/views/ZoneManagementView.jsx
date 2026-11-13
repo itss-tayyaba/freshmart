@@ -87,6 +87,8 @@ export const MASTER_STORE_AREA_POLYGONS = [
     area: 'Peoples Colony & D-Ground',
     color: '#2563eb', // Vivid Blue
     description: 'Central Commercial Area grouping flagship supermarket branches.',
+    isStoreAreaPolygon: true,
+    type: 'store_area_polygon',
     isActive: true,
     status: 'active',
     deliveryCharge: 70,
@@ -111,6 +113,8 @@ export const MASTER_STORE_AREA_POLYGONS = [
     area: 'Susan Road & Madina Town',
     color: '#16a34a', // Vivid Green
     description: 'North-East Commercial Region covering Canal Road and Susan Road marts.',
+    isStoreAreaPolygon: true,
+    type: 'store_area_polygon',
     isActive: true,
     status: 'active',
     deliveryCharge: 80,
@@ -136,6 +140,8 @@ export const MASTER_STORE_AREA_POLYGONS = [
     area: 'Samanabad & Clock Tower',
     color: '#ea580c', // Vivid Orange
     description: 'West-South Commercial Region covering Clock Tower and Samanabad marts.',
+    isStoreAreaPolygon: true,
+    type: 'store_area_polygon',
     isActive: true,
     status: 'active',
     deliveryCharge: 75,
@@ -229,21 +235,30 @@ export const ZoneManagementView = () => {
   // Helper to identify Concept 1 Store Area Polygons (where stores physically lie)
   const isStoreAreaPolygon = (z) => {
     if (!z) return false;
+    // Explicitly exclude store delivery zones (Concept 2)
+    if (z.isStoreAreaPolygon === false) return false;
+    if (z.assignedStoreId || z.type === 'delivery_zone' || z.isDeliveryZone === true) return false;
+    const name = String(z.name || '').toLowerCase();
+    if (
+      name.includes('delivery zone') ||
+      name.includes('delivery region') ||
+      name.includes('hub delivery') ||
+      name.includes('reach') ||
+      name.includes('express zone')
+    ) return false;
+
     if (z.isStoreAreaPolygon === true || z.type === 'store_area_polygon') return true;
     const zid = String(z.zoneId || z._id || z.id || '').toUpperCase();
-    const name = String(z.name || '').toLowerCase();
     return (
-      zid.includes('MASTER') ||
-      zid.includes('FSD-BLUE') ||
-      zid.includes('FSD-GREEN') ||
-      zid.includes('FSD-ORANGE') ||
       zid.includes('FSD-CENTRAL-BLUE') ||
       zid.includes('FSD-NORTH-GREEN') ||
       zid.includes('FSD-WEST-ORANGE') ||
+      zid.includes('FSD-BLUE') ||
+      zid.includes('FSD-GREEN') ||
+      zid.includes('FSD-ORANGE') ||
       zid.includes('SAP-') ||
       name.includes('store area polygon') ||
-      name.includes('master regional') ||
-      name.includes('sector')
+      name.includes('regional sector')
     );
   };
 
