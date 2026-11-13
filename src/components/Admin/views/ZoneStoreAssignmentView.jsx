@@ -1008,6 +1008,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         });
       }
     };
+    window.__startDrawingForStore = (sId) => {
+      const s = stores.find((st) => (st.storeId || st._id) === sId);
+      if (s) handleStartDrawingDeliveryZoneForStore(s, false);
+    };
     window.__createBoxAroundStore = (sId) => {
       const s = stores.find((st) => (st.storeId || st._id) === sId);
       if (s) handleCreatePolygonAroundStore(s);
@@ -1025,6 +1029,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       delete window.__editStoreFromMap;
       delete window.__editZoneFromMap;
       delete window.__startDrawingFromMap;
+      delete window.__startDrawingForStore;
       delete window.__createBoxAroundStore;
       delete window.__createPolygonAroundStore;
       delete window.__selectZoneFromMap;
@@ -1032,7 +1037,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   }, [stores, assignments, activeZone, onNavigateToZones]);
 
   // Start drawing custom delivery zone polygon for a specific store
-  const handleStartDrawingDeliveryZoneForStore = (store) => {
+  // Strict rule: DO NOT auto-generate or pre-fill artificial polygon points!
+  // Start with empty points so the user can choose points on the map.
+  const handleStartDrawingDeliveryZoneForStore = (store, keepExisting = false) => {
     if (!store) return;
     isDrawingPolygonRef.current = true;
     setIsDrawingPolygon(true);
@@ -1050,27 +1057,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     const sLng = Number(store.longitude ?? store.coordinates?.lng);
 
     const rawPoly = store.deliveryPolygon;
-    let targetPoints = [];
-    if (Array.isArray(rawPoly) && rawPoly.length >= 3) {
-      targetPoints = rawPoly;
+    if (keepExisting && Array.isArray(rawPoly) && rawPoly.length >= 3) {
       setDrawnPoints(rawPoly);
-    } else if (Number.isFinite(sLat) && Number.isFinite(sLng)) {
-      const radiusKm = Number(store.deliveryRadiusKm || store.deliveryRadius || 2.5);
-      const latDelta = radiusKm / 111.0;
-      const lngDelta = radiusKm / (111.0 * Math.cos((sLat * Math.PI) / 180));
-      const numPoints = 6;
-      const initialPoly = [];
-      for (let i = 0; i < numPoints; i++) {
-        const angle = (i * 2 * Math.PI) / numPoints;
-        const rFactor = i % 2 === 0 ? 1.05 : 0.95;
-        initialPoly.push([
-          Number((sLat + latDelta * Math.sin(angle) * rFactor).toFixed(6)),
-          Number((sLng + lngDelta * Math.cos(angle) * rFactor).toFixed(6))
-        ]);
-      }
-      targetPoints = initialPoly;
-      setDrawnPoints(initialPoly);
     } else {
+      // Blank canvas - user chooses by points!
       setDrawnPoints([]);
     }
 
@@ -1078,9 +1068,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       [50, 150, 300, 500].forEach((delay) => {
         setTimeout(() => {
           try {
-            mapInstanceRef.current?.invalidateSize();
-            if (targetPoints && targetPoints.length >= 3) {
-              mapInstanceRef.current?.fitBounds(L.latLngBounds(targetPoints), {
+            mapInstanceRef.current?.invalidateSize(true);
+            if (keepExisting && Array.isArray(rawPoly) && rawPoly.length >= 3) {
+              mapInstanceRef.current?.fitBounds(L.latLngBounds(rawPoly), {
                 padding: [80, 80],
                 maxZoom: 15
               });
@@ -1099,7 +1089,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     if (addToast) {
       addToast(
         `Draw Delivery Zone: ${store.branchName || store.name}`,
-        'Drag the vertex handles on the map to outline the delivery boundary for this store, then click "Save Store Delivery Zone".',
+        'Click on the map around the store to place delivery points (at least 3 points), then click "Save Store Delivery Zone".',
         'info'
       );
     }
@@ -1222,11 +1212,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       });
       modalMapInstanceRef.current = map;
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-        subdomains: ['a', 'b', 'c', 'd'],
-        maxZoom: 19,
-        crossOrigin: true
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Street Map',
+        maxZoom: 19
       }).addTo(map);
 
       // Draw the 3 master regions lightly on the modal map
@@ -1399,13 +1387,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       mapInstanceRef.current.closePopup();
     }
 
-    setDrawnPoints((prev) => {
-      const next = [...prev, [roundedLat, roundedLng]];
-      if (next.length >= 3 && hasCrossingSegments(next)) {
-        return untanglePoints(next);
-      }
-      return next;
-    });
+    setDrawnPoints((prev) => [...prev, [roundedLat, roundedLng]]);
   };
 
   // Leaflet Map Initialization
@@ -1470,20 +1452,22 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
     if (!isDrawingPolygon || drawnPoints.length === 0) return;
 
-    const color = activeZone?.color || '#10b981';
-
-    // Auto-untangle if crossing lines exist so preview NEVER looks like a twisted hourglass
-    const cleanPoints = hasCrossingSegments(drawnPoints) ? untanglePoints(drawnPoints) : drawnPoints;
+    const retailer = drawingStoreTarget
+      ? CORE_RETAILERS.find((r) =>
+          String(drawingStoreTarget.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
+        )
+      : null;
+    const color = retailer?.color || activeZone?.color || '#10b981';
 
     // 1. Draw each vertex point with corner / number badge
-    cleanPoints.forEach(([lat, lng], idx) => {
+    drawnPoints.forEach(([lat, lng], idx) => {
       const isFirst = idx === 0;
       const cornerLabel = `${idx + 1}`;
 
       const vertexIcon = L.divIcon({
         className: 'custom-drawing-vertex',
         html: `
-          <div style="display: flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 4px; border-radius: 9999px; background: ${isFirst ? '#059669' : color}; color: #ffffff; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.35); font-size: 10px; font-weight: 900; font-family: monospace;">
+          <div style="display: flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 4px; border-radius: 9999px; background: ${isFirst ? '#059669' : color}; color: #ffffff; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.35); font-size: 10px; font-weight: 900; font-family: monospace; cursor: grab;">
             ${cornerLabel}
           </div>
         `,
@@ -1508,30 +1492,26 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       drawingLayerRef.current.addLayer(marker);
     });
 
-    // 2. Draw connecting polyline loop around perimeter
-    if (cleanPoints.length >= 2) {
-      const loop = cleanPoints.length >= 3 ? [...cleanPoints, cleanPoints[0]] : cleanPoints;
-      const line = L.polyline(loop, {
+    // 2. Draw connecting shape preview (EXACTLY ONE SHAPE: polyline for 2 pts, polygon for >= 3 pts)
+    if (drawnPoints.length === 2) {
+      const line = L.polyline(drawnPoints, {
         color: color,
-        weight: 3.5,
+        weight: 3,
         dashArray: '6, 6'
       });
       drawingLayerRef.current.addLayer(line);
-    }
-
-    // 3. Draw closing preview if 3 or more points
-    if (cleanPoints.length >= 3) {
-      const previewPolygon = L.polygon(cleanPoints, {
+    } else if (drawnPoints.length >= 3) {
+      const previewPolygon = L.polygon(drawnPoints, {
         color: color,
-        weight: 2,
+        weight: 2.5,
         fillColor: color,
-        fillOpacity: 0.25,
-        dashArray: '4, 4',
+        fillOpacity: 0.2,
+        dashArray: '6, 6',
         interactive: false
       });
       drawingLayerRef.current.addLayer(previewPolygon);
     }
-  }, [drawnPoints, isDrawingPolygon, activeZone]);
+  }, [drawnPoints, isDrawingPolygon, activeZone, drawingStoreTarget]);
 
   // Helper to reorder points clockwise around their geometric centroid into a clean non-crossing perimeter
   const untanglePoints = (pts) => {
@@ -1670,9 +1650,25 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         );
       }
     } else {
-      // 2. Zone has no polygon yet. Find the target store:
-      const targetStore = drawingStoreTarget || assignedStores[0] || storesWithDistance[0] || stores[0];
-      handleCreatePolygonAroundStore(targetStore, 2.5);
+      // Zone has no polygon yet. Blank canvas - user clicks to place points!
+      setDrawnPoints([]);
+      const sLat = Number(assignedStores[0]?.latitude || 31.4145);
+      const sLng = Number(assignedStores[0]?.longitude || 73.1095);
+      if (mapInstanceRef.current) {
+        [50, 150, 300].forEach((delay) => {
+          setTimeout(() => {
+            mapInstanceRef.current?.invalidateSize(true);
+            mapInstanceRef.current?.setView([sLat, sLng], 14);
+          }, delay);
+        });
+      }
+      if (addToast) {
+        addToast(
+          'Draw Polygon ✏️',
+          'Click on the map to place boundary points (at least 3 points), then click "Save Polygon".',
+          'info'
+        );
+      }
     }
   };
 
@@ -2086,67 +2082,161 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     polygonLayerRef.current.clearLayers();
     storeMarkersGroupRef.current.clearLayers();
 
-    if (!activeZone) {
-      // Draw all stores with their authentic delivery radius regions so users see the store locations/areas even before polygons exist
+    // In drawing mode: NEVER render any static background polygons!
+    // The drawingLayer exclusively renders the active drawn polygon and its vertices.
+    if (isDrawingPolygon) {
+      const targetStoreId = drawingStoreTarget
+        ? String(drawingStoreTarget.storeId || drawingStoreTarget._id || drawingStoreTarget.id || '').toLowerCase()
+        : null;
+
       stores.forEach((store) => {
         const sLat = Number(store.latitude);
         const sLng = Number(store.longitude);
         if (isNaN(sLat) || isNaN(sLng) || !Number.isFinite(sLat) || !Number.isFinite(sLng)) return;
 
+        const sId = String(store.storeId || store._id || store.id || '').toLowerCase();
+        const isTarget = targetStoreId && sId === targetStoreId;
         const retailer = CORE_RETAILERS.find((r) =>
           String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
         ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
 
-        const radiusKm = Number(store.deliveryRadiusKm || store.deliveryRadius || 5);
-
         const pinIcon = L.divIcon({
-          className: 'custom-unassigned-store-pin',
+          className: 'custom-drawing-store-pin',
           html: `
             <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer;">
-              <div style="width: 32px; height: 32px; border-radius: 10px; background: ${retailer.color}; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">
+              <div style="width: ${isTarget ? '36px' : '28px'}; height: ${isTarget ? '36px' : '28px'}; border-radius: 10px; background: ${retailer.color}; border: ${isTarget ? '3px solid #10b981' : '2px solid #ffffff'}; box-shadow: 0 4px 10px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; color: white; font-size: ${isTarget ? '16px' : '12px'};">
                 ${retailer.logo}
               </div>
-              <div style="margin-top: 2px; padding: 1px 6px; border-radius: 9999px; background: #0f172a; color: white; font-size: 9px; font-weight: 700; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+              <div style="margin-top: 2px; padding: 1px 6px; border-radius: 9999px; background: ${isTarget ? '#059669' : '#0f172a'}; color: white; font-size: 9px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
                 ${store.branchName || store.name}
               </div>
             </div>
           `,
-          iconSize: [32, 48],
-          iconAnchor: [16, 40]
+          iconSize: [36, 48],
+          iconAnchor: [18, 40]
         });
 
         const marker = L.marker([sLat, sLng], { icon: pinIcon, interactive: true });
         marker.on('click', (e) => {
-          if (isDrawingPolygonRef.current) {
-            if (e.originalEvent) e.originalEvent.stopPropagation();
-            L.DomEvent.stopPropagation(e);
-            handleAddDrawPoint(e.latlng.lat, e.latlng.lng);
-          }
+          if (e.originalEvent) e.originalEvent.stopPropagation();
+          L.DomEvent.stopPropagation(e);
+          handleAddDrawPoint(e.latlng.lat, e.latlng.lng);
         });
-
-        if (!isDrawingPolygon) {
-          marker.bindPopup(`
-            <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
-              <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
-              <p style="color: #64748b; font-size: 10px; margin: 2px 0 4px 0;">${store.address}</p>
-              <div style="font-size: 10px; color: #475569; margin-bottom: 6px;">
-                Retailer Delivery Radius: <strong>${radiusKm} km</strong>
-              </div>
-              <div style="font-size: 9px; color: #059669; font-weight: bold;">
-                Draw polygon above or select/create zone to assign store
-              </div>
-            </div>
-          `);
-        }
         storeMarkersGroupRef.current.addLayer(marker);
       });
       return;
     }
 
-    // 1. Draw Active Target Delivery Zone Boundary (Clean, non-intrusive dashed outline)
-    // Only rendered in normal viewing mode; when actively drawing or shaping a perimeter,
-    // drawingLayerRef exclusively renders the polygon and vertices so no ghost duplicate lines appear!
-    if (activeZone && !isDrawingPolygon) {
+    // 1. Render Store Markers with Popups in normal viewing mode
+    stores.forEach((store) => {
+      const sLat = Number(store.latitude);
+      const sLng = Number(store.longitude);
+      if (isNaN(sLat) || isNaN(sLng) || !Number.isFinite(sLat) || !Number.isFinite(sLng)) return;
+
+      const retailer = CORE_RETAILERS.find((r) =>
+        String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
+      ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
+
+      const sId = store.storeId || store._id;
+      const isAssigned = assignedStores.some((as) => (as.storeId || as._id) === sId);
+      const hasCustomPoly = Array.isArray(store.deliveryPolygon) && store.deliveryPolygon.length >= 3;
+
+      const pinIcon = L.divIcon({
+        className: 'custom-store-pin',
+        html: `
+          <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer;">
+            <div style="width: 32px; height: 32px; border-radius: 10px; background: ${retailer.color}; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">
+              ${retailer.logo}
+            </div>
+            <div style="margin-top: 2px; padding: 1px 6px; border-radius: 9999px; background: ${isAssigned ? '#059669' : '#0f172a'}; color: white; font-size: 9px; font-weight: 700; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+              ${isAssigned ? '✓ ' : ''}${store.branchName || store.name}
+            </div>
+          </div>
+        `,
+        iconSize: [32, 48],
+        iconAnchor: [16, 40]
+      });
+
+      const marker = L.marker([sLat, sLng], { icon: pinIcon, interactive: true });
+      marker.bindPopup(`
+        <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <span>${retailer.logo}</span>
+            <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
+          </div>
+          <p style="color: #64748b; font-size: 10px; margin: 2px 0 4px 0;">${store.address}</p>
+          <div style="font-size: 10px; color: #475569; margin-bottom: 6px;">
+            ${hasCustomPoly ? `Delivery Zone: <strong style="color: #059669;">Custom (${store.deliveryPolygon.length} pts)</strong>` : 'Delivery Zone: <span style="color: #94a3b8;">Not configured</span>'}
+          </div>
+          <button
+            onclick="window.__startDrawingForStore && window.__startDrawingForStore('${sId}')"
+            style="width: 100%; padding: 5px 8px; background: ${retailer.color}; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+          >
+            ✏️ ${hasCustomPoly ? 'Redraw Delivery Zone' : '+ Draw Delivery Zone'}
+          </button>
+        </div>
+      `);
+      storeMarkersGroupRef.current.addLayer(marker);
+    });
+
+    // 2. Render Store Custom Delivery Polygons (EXACTLY ONE polygon per store)
+    stores.forEach((store) => {
+      const rawPoly = store.deliveryPolygon;
+      if (Array.isArray(rawPoly) && rawPoly.length >= 3) {
+        const sId = store.storeId || store._id;
+        const isAssigned = assignedStores.some((as) => (as.storeId || as._id) === sId);
+        if (!showAllStorePolygons && !isAssigned && activeZone) return;
+
+        const retailer = CORE_RETAILERS.find((r) =>
+          String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
+        ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
+
+        const storePoly = L.polygon(rawPoly, {
+          color: retailer.color,
+          weight: 2.5,
+          dashArray: '6, 6',
+          fillColor: retailer.color,
+          fillOpacity: 0.18,
+          interactive: true
+        });
+
+        storePoly.bindTooltip(`
+          <div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
+            <span>${retailer.logo}</span>
+            <span style="color: ${retailer.color};">${store.branchName || store.name} Delivery Region</span>
+          </div>
+        `, { sticky: true });
+
+        storePoly.bindPopup(`
+          <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+              <span>${retailer.logo}</span>
+              <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
+            </div>
+            <p style="color: #64748b; font-size: 10px; margin: 2px 0 6px 0;">${store.address}</p>
+            <div style="font-size: 10px; color: #475569; margin-bottom: 8px;">
+              Delivery Boundary: <strong>Custom Polygon (${rawPoly.length} points)</strong>
+            </div>
+            <button
+              onclick="window.__startDrawingForStore && window.__startDrawingForStore('${store.storeId || store._id}')"
+              style="width: 100%; padding: 5px 8px; background: ${retailer.color}; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+            >
+              ✏️ Redraw Delivery Zone
+            </button>
+          </div>
+        `);
+
+        polygonLayerRef.current.addLayer(storePoly);
+      }
+    });
+
+    // 3. ONLY render activeZone polygon if NONE of the stores assigned to this zone have a custom delivery polygon!
+    // This strictly avoids duplicate nested polygons (e.g. outer hexagon + inner triangle)
+    const hasAssignedCustomPoly = assignedStores.some(
+      (s) => Array.isArray(s.deliveryPolygon) && s.deliveryPolygon.length >= 3
+    );
+
+    if (activeZone && !hasAssignedCustomPoly) {
       const activeLatLngs = getZonePolygonLatLngs(activeZone);
       if (activeLatLngs.length >= 3) {
         const activeColor = activeZone.color || '#10b981';
@@ -2154,8 +2244,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
           color: activeColor,
           weight: 2.5,
           fillColor: activeColor,
-          fillOpacity: 0.08,
-          dashArray: '8, 8',
+          fillOpacity: 0.12,
+          dashArray: '6, 6',
           interactive: true
         });
 
@@ -2187,225 +2277,12 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
               >
                 ✏️ Redraw Zone Polygon
               </button>
-              <button
-                onclick="window.__editZoneFromMap && window.__editZoneFromMap()"
-                style="width: 100%; padding: 4px 8px; background: #0f172a; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-              >
-                ⚙️ Edit Zone Details & Rates
-              </button>
             </div>
           </div>
         `);
 
         polygonLayerRef.current.addLayer(activePolygon);
-
-        if (activeLatLngs.length > 0) {
-          const bounds = L.latLngBounds(activeLatLngs);
-          mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
-        }
       }
-    }
-
-    // 2. Draw Assigned Stores Markers (Solid Green Pins)
-    assignedStores.forEach((store) => {
-      const sLat = Number(store.latitude);
-      const sLng = Number(store.longitude);
-      if (isNaN(sLat) || isNaN(sLng)) return;
-
-      const retailer = CORE_RETAILERS.find((r) =>
-        String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
-      ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
-
-      const sId = store.storeId || store._id;
-      const curr = assignments.find((a) => a.zoneId === activeZone.zoneId && a.storeId === sId);
-      const priorityLabel = curr?.priority === 1 ? 'Priority 1 (Primary)' : `Priority ${curr?.priority || 1}`;
-
-      const pinIcon = L.divIcon({
-        className: 'custom-assigned-store-pin',
-        html: `
-          <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer;">
-            <div style="width: 32px; height: 32px; border-radius: 10px; background: ${retailer.color}; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">
-              ${retailer.logo}
-            </div>
-            <div style="margin-top: 2px; padding: 1px 6px; border-radius: 9999px; background: #059669; color: white; font-size: 9px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.25);">
-              ✓ ${store.branchName || store.name}
-            </div>
-          </div>
-        `,
-        iconSize: [32, 48],
-        iconAnchor: [16, 40]
-      });
-
-      const marker = L.marker([sLat, sLng], { icon: pinIcon, interactive: true });
-      marker.on('click', (e) => {
-        if (isDrawingPolygonRef.current) {
-          if (e.originalEvent) e.originalEvent.stopPropagation();
-          L.DomEvent.stopPropagation(e);
-          handleAddDrawPoint(e.latlng.lat, e.latlng.lng);
-        }
-      });
-
-      if (!isDrawingPolygon) {
-        marker.bindPopup(`
-          <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
-            <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
-            <p style="color: #64748b; font-size: 10px; margin: 2px 0 4px 0;">${store.address}</p>
-            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 10px; margin-bottom: 6px;">
-              <span style="color: #059669; font-weight: bold;">✓ Serving this zone</span>
-              <span style="background: #ecfdf5; color: #047857; padding: 1px 5px; border-radius: 4px; font-weight: 700;">${priorityLabel}</span>
-            </div>
-            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-              <button
-                onclick="window.__createPolygonAroundStore && window.__createPolygonAroundStore('${sId}')"
-                style="flex: 1; padding: 4px 6px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-              >
-                ⬡ Polygon
-              </button>
-              <button
-                onclick="window.__editStoreFromMap && window.__editStoreFromMap('${sId}')"
-                style="flex: 1; padding: 4px 6px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-              >
-                ⚙️ Priority
-              </button>
-              <button
-                onclick="window.__removeStoreFromMap && window.__removeStoreFromMap('${sId}')"
-                style="padding: 4px 6px; background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-              >
-                ✕ Unlink
-              </button>
-            </div>
-          </div>
-        `);
-      }
-      storeMarkersGroupRef.current.addLayer(marker);
-    });
-
-    // 3. Draw Nearby Available Stores (Dashed Pins clickable to assign from map)
-    storesWithDistance.slice(0, 10).forEach((store) => {
-      const sLat = Number(store.latitude);
-      const sLng = Number(store.longitude);
-      if (isNaN(sLat) || isNaN(sLng)) return;
-
-      const retailer = CORE_RETAILERS.find((r) =>
-        String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
-      ) || { name: 'Retailer', color: '#64748b', logo: '🏬' };
-
-      const sId = store.storeId || store._id;
-      const pinIcon = L.divIcon({
-        className: 'custom-available-store-pin',
-        html: `
-          <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer; opacity: 0.9;">
-            <div style="width: 28px; height: 28px; border-radius: 8px; background: #ffffff; border: 2px dashed ${retailer.color}; box-shadow: 0 2px 6px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; color: ${retailer.color}; font-size: 12px;">
-              ${retailer.logo}
-            </div>
-            <div style="margin-top: 1px; padding: 1px 5px; border-radius: 9999px; background: #ffffff; color: #475569; border: 1px solid #cbd5e1; font-size: 8px; font-weight: 700; white-space: nowrap; max-width: 90px; overflow: hidden; text-overflow: ellipsis;">
-              + ${store.branchName || store.name}
-            </div>
-          </div>
-        `,
-        iconSize: [28, 42],
-        iconAnchor: [14, 36]
-      });
-
-      const marker = L.marker([sLat, sLng], { icon: pinIcon, interactive: true });
-      marker.on('click', (e) => {
-        if (isDrawingPolygonRef.current) {
-          if (e.originalEvent) e.originalEvent.stopPropagation();
-          L.DomEvent.stopPropagation(e);
-          handleAddDrawPoint(e.latlng.lat, e.latlng.lng);
-        }
-      });
-
-      if (!isDrawingPolygon) {
-        marker.bindPopup(`
-          <div style="font-family: inherit; font-size: 12px; min-width: 170px;">
-            <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
-            <p style="color: #64748b; font-size: 10px; margin: 2px 0 4px 0;">${store.address}</p>
-            <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;">
-              Distance to zone: <strong>~${store.distanceToZoneCentroidKm} km</strong>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <button
-                onclick="window.__createPolygonAroundStore && window.__createPolygonAroundStore('${sId}')"
-                style="width: 100%; padding: 4px 8px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-              >
-                ⬡ Polygon Around Store
-              </button>
-              <button
-                onclick="window.__assignStoreFromMap && window.__assignStoreFromMap('${sId}')"
-                style="width: 100%; padding: 4px 8px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-              >
-                + Assign Store to ${activeZone.name}
-              </button>
-            </div>
-          </div>
-        `);
-      }
-      storeMarkersGroupRef.current.addLayer(marker);
-    });
-
-    // 4. Draw Store-Level Custom Delivery Polygons (Polygons Dashed Lines)
-    // Only rendered in normal mode or when showAllStorePolygons is explicitly checked;
-    // hides background dashed boxes when the user is actively drawing/editing a polygon!
-    if (!isDrawingPolygon || showAllStorePolygons) {
-      stores.forEach((store) => {
-        const rawPoly = store.deliveryPolygon;
-        const retailer = CORE_RETAILERS.find((r) =>
-          String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
-        ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
-
-        if (Array.isArray(rawPoly) && rawPoly.length >= 3) {
-          const sId = store.storeId || store._id;
-          if (drawingStoreTarget && (drawingStoreTarget.storeId || drawingStoreTarget._id) === sId) return;
-
-          const isAssigned = assignedStores.some((as) => (as.storeId || as._id) === sId);
-          // Clean uncluttered view: if not toggled to show all, only show polygons for stores serving active zone
-          if (!showAllStorePolygons && !isAssigned) return;
-
-          const storePoly = L.polygon(rawPoly, {
-            color: retailer.color,
-            weight: 2.5,
-            dashArray: '6, 6', // Polygons Dashed Lines
-            fillColor: retailer.color,
-            fillOpacity: 0.18,
-            interactive: !isDrawingPolygon
-          });
-
-          if (!isDrawingPolygon) {
-            storePoly.bindTooltip(`
-              <div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
-                <span>${retailer.logo}</span>
-                <span style="color: ${retailer.color};">${store.branchName || store.name} Delivery Region</span>
-                <span style="background: ${retailer.color}20; color: ${retailer.color}; padding: 1px 5px; border-radius: 9999px; font-size: 9px; font-weight: 900;">
-                  ${rawPoly.length} pts
-                </span>
-              </div>
-            `, { sticky: true });
-
-            storePoly.bindPopup(`
-              <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
-                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                  <span>${retailer.logo}</span>
-                  <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
-                </div>
-                <p style="color: #64748b; font-size: 10px; margin: 2px 0 6px 0;">${store.address}</p>
-                <div style="font-size: 10px; color: #475569; margin-bottom: 8px;">
-                  Delivery Boundary: <strong>Custom Polygon (${rawPoly.length} points)</strong>
-                </div>
-                <button
-                  onclick="window.__createPolygonAroundStore && window.__createPolygonAroundStore('${store.storeId || store._id}')"
-                  style="width: 100%; padding: 5px 8px; background: ${retailer.color}; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-                >
-                  ✏️ Edit Store Delivery Polygon
-                </button>
-              </div>
-            `);
-          }
-
-          polygonLayerRef.current.addLayer(storePoly);
-        }
-        // No circular fallback radius: per specification, only display custom drawn polygon perimeters.
-      });
     }
   }, [activeZone, assignedStores, isDrawingPolygon, stores, storesWithDistance, assignments, zones, drawingStoreTarget, showAllStorePolygons]);
 
@@ -2524,110 +2401,112 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
               </div>
             </div>
 
-            {/* Drawing Controls Bar (Located OUTSIDE / Above Map canvas so map is 100% visible) */}
-            {isDrawingPolygon && (
-              <div className="p-3.5 sm:p-4 bg-slate-900 text-white border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-white flex items-center gap-2 flex-wrap">
-                      <span className="truncate">
-                        {drawingStoreTarget
-                          ? `Drawing Delivery Zone: ${drawingStoreTarget.branchName || drawingStoreTarget.name}`
-                          : `Drawing: ${activeZone?.name || 'New Delivery Boundary'}`}
-                      </span>
-                      <span className="bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border border-emerald-500/40">
-                        {drawnPoints.length} Vertex{drawnPoints.length === 1 ? '' : 'es'}
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-300 mt-0.5">
-                      Drag numbered handles (1, 2, 3...) or click map to shape delivery perimeter.
+            <div className="relative overflow-hidden">
+              {/* In-Map Drawing Controls Bar Overlay */}
+              {isDrawingPolygon && (
+                <div className="absolute top-3 left-3 right-3 z-[400] bg-slate-900/95 backdrop-blur-md text-white p-3 sm:p-3.5 rounded-2xl shadow-2xl border border-slate-700/80 flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-white flex items-center gap-2 flex-wrap">
+                        <span className="truncate">
+                          {drawingStoreTarget
+                            ? `Drawing Delivery Zone: ${drawingStoreTarget.branchName || drawingStoreTarget.name}`
+                            : `Drawing: ${activeZone?.name || 'New Delivery Boundary'}`}
+                        </span>
+                        <span className="bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border border-emerald-500/40">
+                          {drawnPoints.length} Vertex{drawnPoints.length === 1 ? '' : 'es'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-300 mt-0.5">
+                        {drawnPoints.length === 0
+                          ? '👉 Click anywhere on the map around the store to place boundary points.'
+                          : 'Click to add more points • Drag numbered handles (1, 2, 3...) to reshape perimeter.'}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2 flex-wrap shrink-0">
-                  <button
-                    type="button"
-                    onClick={handleUndoPoint}
-                    disabled={drawnPoints.length === 0}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-xl text-xs font-semibold transition cursor-pointer border border-slate-700 shadow-xs"
-                  >
-                    Undo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleClearDrawing}
-                    disabled={drawnPoints.length === 0}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-xl text-xs font-semibold transition cursor-pointer border border-slate-700 shadow-xs"
-                  >
-                    Clear
-                  </button>
-                  {drawnPoints.length >= 3 && (
+                  <div className="flex items-center gap-2 flex-wrap shrink-0">
                     <button
                       type="button"
-                      onClick={handleUntanglePoints}
-                      title="Untangle points into a smooth perimeter"
-                      className="px-3 py-1.5 bg-indigo-900/80 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/60 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      onClick={handleUndoPoint}
+                      disabled={drawnPoints.length === 0}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-xl text-xs font-semibold transition cursor-pointer border border-slate-700 shadow-xs"
                     >
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-300" />
-                      <span>Untangle ✨</span>
+                      Undo
                     </button>
-                  )}
-                  {stores.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => {
-                        const targetStore = drawingStoreTarget || assignedStores[0] || storesWithDistance[0] || stores[0];
-                        if (targetStore) handleCreatePolygonAroundStore(targetStore, 2.5);
-                      }}
-                      title="Place authentic polygon around target store"
-                      className="px-3 py-1.5 bg-amber-900/80 hover:bg-amber-800 text-amber-200 border border-amber-700/60 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      onClick={handleClearDrawing}
+                      disabled={drawnPoints.length === 0}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-xl text-xs font-semibold transition cursor-pointer border border-slate-700 shadow-xs"
                     >
-                      <Store className="w-3.5 h-3.5 text-amber-300" />
-                      <span>Polygon Around Store ⬡</span>
+                      Clear
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleCancelDrawing}
-                    className="px-3 py-1.5 bg-rose-900/70 hover:bg-rose-800 text-rose-200 border border-rose-700/60 rounded-xl text-xs font-semibold transition cursor-pointer shadow-xs"
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleSaveDrawnPolygon}
-                    disabled={drawnPoints.length < 3 || isSavingPolygon}
-                    className="px-4 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-40 text-slate-950 font-black rounded-xl text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer shrink-0 ml-1"
-                  >
-                    {isSavingPolygon ? (
-                      <>
-                        <div className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-4 h-4" />
-                        <span>{drawingStoreTarget ? 'Save Store Delivery Zone' : 'Save Polygon'}</span>
-                      </>
+                    {drawnPoints.length >= 3 && (
+                      <button
+                        type="button"
+                        onClick={handleUntanglePoints}
+                        title="Untangle points into a smooth perimeter"
+                        className="px-3 py-1.5 bg-indigo-900/80 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/60 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-300" />
+                        <span>Untangle ✨</span>
+                      </button>
                     )}
-                  </button>
-                </div>
-              </div>
-            )}
+                    {stores.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const targetStore = drawingStoreTarget || assignedStores[0] || storesWithDistance[0] || stores[0];
+                          if (targetStore) handleCreatePolygonAroundStore(targetStore, 2.5);
+                        }}
+                        title="Place authentic polygon around target store"
+                        className="px-3 py-1.5 bg-amber-900/80 hover:bg-amber-800 text-amber-200 border border-amber-700/60 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <Store className="w-3.5 h-3.5 text-amber-300" />
+                        <span>Polygon Around Store ⬡</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleCancelDrawing}
+                      className="px-3 py-1.5 bg-rose-900/70 hover:bg-rose-800 text-rose-200 border border-rose-700/60 rounded-xl text-xs font-semibold transition cursor-pointer shadow-xs"
+                    >
+                      Cancel
+                    </button>
 
-            <div className="relative">
+                    <button
+                      type="button"
+                      onClick={handleSaveDrawnPolygon}
+                      disabled={drawnPoints.length < 3 || isSavingPolygon}
+                      className="px-4 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-40 text-slate-950 font-black rounded-xl text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer shrink-0 ml-1"
+                    >
+                      {isSavingPolygon ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>{drawingStoreTarget ? 'Save Store Delivery Zone' : 'Save Polygon'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div
                 ref={mapContainerRef}
                 className={`w-full z-10 bg-slate-100 ${isDrawingPolygon ? 'cursor-crosshair ring-2 ring-emerald-500 ring-inset' : ''}`}
-                style={{ height: '520px' }}
+                style={{ height: '520px', minHeight: '520px' }}
               />
 
               {/* Floating Helper Tip Pill over map */}
               {isDrawingPolygon && (
-                <div className="absolute bottom-3 left-3 z-[500] bg-slate-900/85 backdrop-blur-md text-white text-[11px] px-3 py-1.5 rounded-full shadow-lg border border-slate-700 flex items-center gap-2 pointer-events-none">
+                <div className="absolute bottom-3 left-3 z-[400] bg-slate-900/85 backdrop-blur-md text-white text-[11px] px-3 py-1.5 rounded-full shadow-lg border border-slate-700 flex items-center gap-2 pointer-events-none">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                   <span>💡 Drag numbered dots (1, 2, 3...) to fix points on map • Click to add vertices</span>
                 </div>
@@ -2761,7 +2640,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                       <div className="pt-1 flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => handleStartDrawingDeliveryZoneForStore(store)}
+                          onClick={() => handleStartDrawingDeliveryZoneForStore(store, hasPolygon)}
                           className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border shadow-2xs ${
                             hasPolygon
                               ? 'bg-white hover:bg-emerald-50 text-emerald-800 border-emerald-300'
@@ -3020,12 +2899,12 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                         <div className="flex items-center gap-1.5 ml-auto flex-wrap">
                           <button
                             type="button"
-                            onClick={() => handleStartDrawingDeliveryZoneForStore(store)}
+                            onClick={() => handleStartDrawingDeliveryZoneForStore(store, Array.isArray(store.deliveryPolygon) && store.deliveryPolygon.length >= 3)}
                             className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
-                            title="Draw or reshape delivery zone polygon around this store"
+                            title="Draw or reshape delivery zone polygon for this store"
                           >
                             <Edit3 className="w-3 h-3 text-emerald-600" />
-                            <span>Polygon Around Store</span>
+                            <span>{Array.isArray(store.deliveryPolygon) && store.deliveryPolygon.length >= 3 ? '✏️ Edit Zone' : '+ Draw Zone'}</span>
                           </button>
 
                           <button
@@ -3661,7 +3540,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                                 type="button"
                                 onClick={() => {
                                   setIsAddDeliveryZoneModalOpen(false);
-                                  handleStartDrawingDeliveryZoneForStore(st);
+                                  handleStartDrawingDeliveryZoneForStore(st, false);
                                 }}
                                 className="w-full text-left p-3 rounded-2xl bg-amber-50/60 hover:bg-amber-100/70 border border-amber-200 transition flex items-center justify-between gap-3 group cursor-pointer"
                               >
@@ -3705,7 +3584,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                                 type="button"
                                 onClick={() => {
                                   setIsAddDeliveryZoneModalOpen(false);
-                                  handleStartDrawingDeliveryZoneForStore(st);
+                                  handleStartDrawingDeliveryZoneForStore(st, true);
                                 }}
                                 className="w-full text-left p-2.5 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition flex items-center justify-between gap-3 group cursor-pointer"
                               >
