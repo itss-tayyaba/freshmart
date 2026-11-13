@@ -194,7 +194,7 @@ export const ZoneManagementView = () => {
   });
 
   // Map Tile & Geocoding State
-  const [tileLayerType, setTileLayerType] = useState('carto'); // 'carto' | 'satellite' | 'osm'
+  const [tileLayerType, setTileLayerType] = useState('osm'); // 'osm' | 'satellite'
   const [geocodingQuery, setGeocodingQuery] = useState('');
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [showStoreMarkers, setShowStoreMarkers] = useState(true);
@@ -424,25 +424,20 @@ export const ZoneManagementView = () => {
       mapInstanceRef.current.removeLayer(tileLayerRef.current);
     }
 
-    let url = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-    let attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>';
-    let subdomains = ['a', 'b', 'c', 'd'];
+    let url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    let attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+    let subdomains = ['a', 'b', 'c'];
 
     if (type === 'satellite') {
       url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
       attribution = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS';
       subdomains = ['server', 'services'];
-    } else if (type === 'osm') {
-      url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-      attribution = '&copy; OpenStreetMap contributors';
-      subdomains = ['a', 'b', 'c'];
     }
 
     tileLayerRef.current = L.tileLayer(url, {
       attribution,
       subdomains,
-      maxZoom: 19,
-      crossOrigin: true
+      maxZoom: 19
     }).addTo(mapInstanceRef.current);
 
     setTimeout(() => {
@@ -486,24 +481,19 @@ export const ZoneManagementView = () => {
       zoomControl: true
     });
 
-    let initialUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-    let initialAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>';
-    let initialSubdomains = ['a', 'b', 'c', 'd'];
+    let initialUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    let initialAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+    let initialSubdomains = ['a', 'b', 'c'];
     if (tileLayerType === 'satellite') {
       initialUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
       initialAttr = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS';
       initialSubdomains = ['server', 'services'];
-    } else if (tileLayerType === 'osm') {
-      initialUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-      initialAttr = '&copy; OpenStreetMap contributors';
-      initialSubdomains = ['a', 'b', 'c'];
     }
 
     tileLayerRef.current = L.tileLayer(initialUrl, {
       attribution: initialAttr,
       subdomains: initialSubdomains,
-      maxZoom: 19,
-      crossOrigin: true
+      maxZoom: 19
     }).addTo(map);
 
     polygonsLayerGroupRef.current = L.layerGroup().addTo(map);
@@ -1385,22 +1375,16 @@ export const ZoneManagementView = () => {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-slate-200/70 p-1 rounded-xl text-[11px] font-medium">
               <button
-                onClick={() => setTileLayer('carto')}
-                className={`px-2 py-0.5 rounded-md transition ${tileLayerType === 'carto' ? 'bg-white font-bold shadow-2xs' : 'text-slate-600'}`}
+                onClick={() => setTileLayer('osm')}
+                className={`px-2 py-0.5 rounded-md transition ${tileLayerType === 'osm' ? 'bg-white font-bold shadow-2xs' : 'text-slate-600'}`}
               >
-                Street
+                Street (Leaflet)
               </button>
               <button
                 onClick={() => setTileLayer('satellite')}
                 className={`px-2 py-0.5 rounded-md transition ${tileLayerType === 'satellite' ? 'bg-white font-bold shadow-2xs' : 'text-slate-600'}`}
               >
                 Satellite
-              </button>
-              <button
-                onClick={() => setTileLayer('osm')}
-                className={`px-2 py-0.5 rounded-md transition ${tileLayerType === 'osm' ? 'bg-white font-bold shadow-2xs' : 'text-slate-600'}`}
-              >
-                OSM
               </button>
             </div>
 
