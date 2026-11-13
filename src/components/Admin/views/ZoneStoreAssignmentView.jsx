@@ -88,11 +88,11 @@ export const isStoreAreaPolygon = (z) => {
   if (z.assignedStoreId || z.type === 'delivery_zone' || z.isDeliveryZone === true) return false;
   const name = String(z.name || '').toLowerCase();
   if (
-    name.includes('delivery zone') ||
-    name.includes('delivery region') ||
-    name.includes('hub delivery') ||
+    name.includes('delivery') ||
+    name.includes('hub') ||
     name.includes('reach') ||
-    name.includes('express zone')
+    name.includes('express zone') ||
+    name.includes('radius')
   ) return false;
 
   if (z.isStoreAreaPolygon === true || z.type === 'store_area_polygon') return true;
@@ -106,7 +106,10 @@ export const isStoreAreaPolygon = (z) => {
     zid.includes('FSD-ORANGE') ||
     zid.includes('SAP-') ||
     name.includes('store area polygon') ||
-    name.includes('regional sector')
+    name.includes('regional sector') ||
+    name.includes('central region') ||
+    name.includes('north-east region') ||
+    name.includes('west-south region')
   );
 };
 
@@ -269,6 +272,17 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   // In-Place Polygon Drawing Mode in Zone Assignments
   const [isDrawingPolygon, setIsDrawingPolygon] = useState(false);
   const isDrawingPolygonRef = useRef(false);
+  const [drawnPoints, setDrawnPoints] = useState([]);
+  const [drawingTool, setDrawingTool] = useState('polygon');
+  const drawingToolRef = useRef('polygon');
+  const [isSavingPolygon, setIsSavingPolygon] = useState(false);
+  const drawingLayerRef = useRef(null);
+  const [drawingStoreTarget, setDrawingStoreTarget] = useState(null); // Specific store being drawn for
+
+  useEffect(() => {
+    drawingToolRef.current = drawingTool;
+  }, [drawingTool]);
+
   useEffect(() => {
     isDrawingPolygonRef.current = isDrawingPolygon;
     if (mapInstanceRef.current) {
@@ -287,15 +301,6 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       });
     }
   }, [isDrawingPolygon, drawnPoints.length]);
-  const [drawingTool, setDrawingTool] = useState('polygon');
-  const drawingToolRef = useRef('polygon');
-  useEffect(() => {
-    drawingToolRef.current = drawingTool;
-  }, [drawingTool]);
-  const [drawnPoints, setDrawnPoints] = useState([]);
-  const [isSavingPolygon, setIsSavingPolygon] = useState(false);
-  const drawingLayerRef = useRef(null);
-  const [drawingStoreTarget, setDrawingStoreTarget] = useState(null); // Specific store being drawn for
 
   // Quick Store Branch Modal
   const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false);
@@ -431,8 +436,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   }, [allBranches]);
 
   useEffect(() => {
-    const handleStoresUpdated = () => {
-      setStores(getAllUnifiedStores([], allBranches));
+    const handleSyncUpdate = () => {
+      loadData();
     };
     const handleAssignmentsUpdated = (e) => {
       if (e?.detail && Array.isArray(e.detail)) {
@@ -441,11 +446,17 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         loadData();
       }
     };
-    window.addEventListener('freshmart_stores_updated', handleStoresUpdated);
+    window.addEventListener('freshmart_stores_updated', handleSyncUpdate);
+    window.addEventListener('freshmart_branches_updated', handleSyncUpdate);
+    window.addEventListener('freshmart_zones_updated', handleSyncUpdate);
     window.addEventListener('freshmart_assignments_updated', handleAssignmentsUpdated);
+    window.addEventListener('storage', handleSyncUpdate);
     return () => {
-      window.removeEventListener('freshmart_stores_updated', handleStoresUpdated);
+      window.removeEventListener('freshmart_stores_updated', handleSyncUpdate);
+      window.removeEventListener('freshmart_branches_updated', handleSyncUpdate);
+      window.removeEventListener('freshmart_zones_updated', handleSyncUpdate);
       window.removeEventListener('freshmart_assignments_updated', handleAssignmentsUpdated);
+      window.removeEventListener('storage', handleSyncUpdate);
     };
   }, [allBranches]);
 

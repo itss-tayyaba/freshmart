@@ -240,11 +240,11 @@ export const ZoneManagementView = () => {
     if (z.assignedStoreId || z.type === 'delivery_zone' || z.isDeliveryZone === true) return false;
     const name = String(z.name || '').toLowerCase();
     if (
-      name.includes('delivery zone') ||
-      name.includes('delivery region') ||
-      name.includes('hub delivery') ||
+      name.includes('delivery') ||
+      name.includes('hub') ||
       name.includes('reach') ||
-      name.includes('express zone')
+      name.includes('express zone') ||
+      name.includes('radius')
     ) return false;
 
     if (z.isStoreAreaPolygon === true || z.type === 'store_area_polygon') return true;
@@ -258,7 +258,10 @@ export const ZoneManagementView = () => {
       zid.includes('FSD-ORANGE') ||
       zid.includes('SAP-') ||
       name.includes('store area polygon') ||
-      name.includes('regional sector')
+      name.includes('regional sector') ||
+      name.includes('central region') ||
+      name.includes('north-east region') ||
+      name.includes('west-south region')
     );
   };
 

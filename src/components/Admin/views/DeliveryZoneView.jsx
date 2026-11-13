@@ -795,6 +795,21 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     }
 
     try {
+      const savedBranches = localStorage.getItem('freshmart_branches');
+      if (savedBranches) {
+        const bList = JSON.parse(savedBranches);
+        const updatedBList = bList.map((b) => (b._id === branchId || b.id === branchId ? { ...b, ...payload } : b));
+        localStorage.setItem('freshmart_branches', JSON.stringify(updatedBList));
+      }
+      const savedStores = localStorage.getItem('freshmart_stores');
+      if (savedStores) {
+        const sList = JSON.parse(savedStores);
+        const updatedSList = sList.map((s) => (s._id === branchId || s.id === branchId || s.storeId === branchId ? { ...s, ...payload } : s));
+        localStorage.setItem('freshmart_stores', JSON.stringify(updatedSList));
+      }
+    } catch (e) {}
+
+    try {
       window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: payload }));
       window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
     } catch (e) {}
