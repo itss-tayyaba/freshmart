@@ -510,16 +510,15 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     };
   }, [mapDrawMode]);
 
-  // When drawing mode changes, invalidate map size smoothly so the map canvas never goes blank/white
+  // When drawing mode changes, invalidate map size quietly without camera jitter
   useEffect(() => {
     if (!mapInstanceRef.current) return;
-    [50, 150, 300].forEach((delay) => {
-      setTimeout(() => {
-        try {
-          mapInstanceRef.current?.invalidateSize(true);
-        } catch (e) {}
-      }, delay);
-    });
+    const timer = setTimeout(() => {
+      try {
+        mapInstanceRef.current?.invalidateSize({ debounceMoveEvents: true });
+      } catch (e) {}
+    }, 100);
+    return () => clearTimeout(timer);
   }, [mapDrawMode]);
 
   // Update Center Marker position when lat or lng change

@@ -290,22 +290,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
   useEffect(() => {
     isDrawingPolygonRef.current = isDrawingPolygon;
-    if (mapInstanceRef.current) {
-      [50, 150, 300, 500].forEach((delay) => {
-        setTimeout(() => {
-          mapInstanceRef.current?.invalidateSize(true);
-          if (isDrawingPolygon && drawnPoints.length >= 3) {
-            try {
-              mapInstanceRef.current?.fitBounds(L.latLngBounds(drawnPoints), {
-                padding: [80, 80],
-                maxZoom: 15
-              });
-            } catch (e) {}
-          }
-        }, delay);
-      });
-    }
-  }, [isDrawingPolygon, drawnPoints.length]);
+  }, [isDrawingPolygon]);
 
   // Quick Store Branch Modal
   const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false);
@@ -1041,25 +1026,23 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     }
 
     if (mapInstanceRef.current) {
-      [50, 150, 300, 500].forEach((delay) => {
-        setTimeout(() => {
-          try {
-            mapInstanceRef.current?.invalidateSize(true);
-            if (keepExisting && hasValidPolygon) {
-              mapInstanceRef.current?.fitBounds(L.latLngBounds(rawPoly), {
-                padding: [80, 80],
-                maxZoom: 15
-              });
-            } else if (Number.isFinite(sLat) && Number.isFinite(sLng)) {
-              mapInstanceRef.current?.setView([sLat, sLng], 15);
-            }
-          } catch (e) {}
-        }, delay);
-      });
-    }
+      const map = mapInstanceRef.current;
+      const currentBounds = map.getBounds();
+      const targetPoint = (hasValidPolygon && rawPoly[0])
+        ? L.latLng(rawPoly[0][0], rawPoly[0][1])
+        : (Number.isFinite(sLat) && Number.isFinite(sLng) ? L.latLng(sLat, sLng) : null);
 
-    if (mapContainerRef.current) {
-      mapContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Keep map completely still if target is already in current view
+      const isVisible = targetPoint && currentBounds.isValid() && currentBounds.contains(targetPoint);
+      if (!isVisible && targetPoint) {
+        map.panTo(targetPoint, { animate: false });
+      }
+
+      setTimeout(() => {
+        try {
+          map.invalidateSize({ debounceMoveEvents: true });
+        } catch (e) {}
+      }, 100);
     }
 
     if (addToast) {
@@ -1394,15 +1377,12 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
     mapInstanceRef.current = map;
 
-    setTimeout(() => {
-      [50, 150, 300, 500].forEach((delay) => {
-        setTimeout(() => {
-          map.invalidateSize();
-        }, delay);
-      });
-    }, 100);
+    const initTimer = setTimeout(() => {
+      map.invalidateSize({ debounceMoveEvents: true });
+    }, 150);
 
     return () => {
+      clearTimeout(initTimer);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -1410,16 +1390,15 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     };
   }, []);
 
-  // When drawing mode activates or finishes, smoothly recalculate map dimensions so canvas never turns white
+  // When drawing mode activates or finishes, softly recalculate map dimensions without camera jitter
   useEffect(() => {
     if (!mapInstanceRef.current) return;
-    [50, 150, 300, 500].forEach((delay) => {
-      setTimeout(() => {
-        try {
-          mapInstanceRef.current?.invalidateSize(true);
-        } catch (e) {}
-      }, delay);
-    });
+    const timer = setTimeout(() => {
+      try {
+        mapInstanceRef.current?.invalidateSize({ debounceMoveEvents: true });
+      } catch (e) {}
+    }, 100);
+    return () => clearTimeout(timer);
   }, [isDrawingPolygon]);
 
   // Update Drawing Layer Preview whenever drawnPoints change
@@ -1569,14 +1548,19 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     setDrawnPoints(polyPoints);
 
     if (mapInstanceRef.current) {
-      [50, 150, 300, 500].forEach((delay) => {
-        setTimeout(() => {
-          try {
-            mapInstanceRef.current?.invalidateSize(true);
-            mapInstanceRef.current?.fitBounds(L.latLngBounds(polyPoints), { padding: [80, 80], maxZoom: 15 });
-          } catch (e) {}
-        }, delay);
-      });
+      const map = mapInstanceRef.current;
+      const currentBounds = map.getBounds();
+      const pt = L.latLng(sLat, sLng);
+      if (!currentBounds.isValid() || !currentBounds.contains(pt)) {
+        try {
+          map.fitBounds(L.latLngBounds(polyPoints), { padding: [80, 80], maxZoom: 15, animate: false });
+        } catch (e) {}
+      }
+      setTimeout(() => {
+        try {
+          map.invalidateSize({ debounceMoveEvents: true });
+        } catch (e) {}
+      }, 100);
     }
     if (addToast) {
       addToast(
@@ -1607,17 +1591,23 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     if (existingLatLngs.length >= 3) {
       setDrawnPoints(existingLatLngs);
       if (mapInstanceRef.current) {
-        [50, 150, 300, 500].forEach((delay) => {
-          setTimeout(() => {
-            mapInstanceRef.current?.invalidateSize(true);
-            try {
-              mapInstanceRef.current?.fitBounds(L.latLngBounds(existingLatLngs), {
-                padding: [60, 60],
-                maxZoom: 15
-              });
-            } catch (e) {}
-          }, delay);
-        });
+        const map = mapInstanceRef.current;
+        const currentBounds = map.getBounds();
+        const firstPoint = L.latLng(existingLatLngs[0][0], existingLatLngs[0][1]);
+        if (!currentBounds.isValid() || !currentBounds.contains(firstPoint)) {
+          try {
+            map.fitBounds(L.latLngBounds(existingLatLngs), {
+              padding: [60, 60],
+              maxZoom: 15,
+              animate: false
+            });
+          } catch (e) {}
+        }
+        setTimeout(() => {
+          try {
+            map.invalidateSize({ debounceMoveEvents: true });
+          } catch (e) {}
+        }, 100);
       }
       if (addToast) {
         addToast(
@@ -1632,12 +1622,17 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       const sLat = Number(assignedStores[0]?.latitude || 31.4145);
       const sLng = Number(assignedStores[0]?.longitude || 73.1095);
       if (mapInstanceRef.current) {
-        [50, 150, 300].forEach((delay) => {
-          setTimeout(() => {
-            mapInstanceRef.current?.invalidateSize(true);
-            mapInstanceRef.current?.setView([sLat, sLng], 14);
-          }, delay);
-        });
+        const map = mapInstanceRef.current;
+        const currentBounds = map.getBounds();
+        const pt = L.latLng(sLat, sLng);
+        if (!currentBounds.isValid() || !currentBounds.contains(pt)) {
+          map.setView([sLat, sLng], 14, { animate: false });
+        }
+        setTimeout(() => {
+          try {
+            map.invalidateSize({ debounceMoveEvents: true });
+          } catch (e) {}
+        }, 100);
       }
       if (addToast) {
         addToast(

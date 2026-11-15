@@ -483,16 +483,15 @@ export const ZoneManagementView = () => {
     };
   }, []);
 
-  // Invalidate map size whenever drawing or edit mode toggles so tiles never turn white
+  // Invalidate map size quietly whenever drawing or edit mode toggles without camera jitter
   useEffect(() => {
     if (!mapInstanceRef.current) return;
-    [50, 150, 300].forEach((delay) => {
-      setTimeout(() => {
-        try {
-          mapInstanceRef.current?.invalidateSize(true);
-        } catch (e) {}
-      }, delay);
-    });
+    const timer = setTimeout(() => {
+      try {
+        mapInstanceRef.current?.invalidateSize({ debounceMoveEvents: true });
+      } catch (e) {}
+    }, 100);
+    return () => clearTimeout(timer);
   }, [mapMode]);
 
   // Render Saved Colored Store Area Polygons on Map (Clean, non-cluttering)
