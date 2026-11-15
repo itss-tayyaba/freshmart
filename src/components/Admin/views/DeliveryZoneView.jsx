@@ -510,6 +510,18 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     };
   }, [mapDrawMode]);
 
+  // When drawing mode changes, invalidate map size smoothly so the map canvas never goes blank/white
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    [50, 150, 300].forEach((delay) => {
+      setTimeout(() => {
+        try {
+          mapInstanceRef.current?.invalidateSize(true);
+        } catch (e) {}
+      }, delay);
+    });
+  }, [mapDrawMode]);
+
   // Update Center Marker position when lat or lng change
   useEffect(() => {
     const sLat = getSafeCoord(lat, 31.4087);
@@ -549,7 +561,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
         dashArray: isPolyActive ? '4, 6' : (idx === sortedTiers.length - 1 ? null : '5, 5'),
         opacity: isPolyActive ? 0.35 : 0.7,
         fillColor: themeColor,
-        fillOpacity: isPolyActive ? 0.04 : Math.min(0.22, 0.06 + idx * 0.04)
+        fillOpacity: mapDrawMode === 'polygon' ? 0.01 : (isPolyActive ? 0.03 : Math.min(0.18, 0.05 + idx * 0.03))
       }).addTo(map);
 
       circle.bindTooltip(`Radius ${tier.distanceKm} km • Fee: Rs. ${tier.fee}`, {
@@ -590,7 +602,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
         color: themeColor,
         weight: 3,
         fillColor: themeColor,
-        fillOpacity: 0.28,
+        fillOpacity: 0.20,
         dashArray: mapDrawMode === 'polygon' ? '6, 4' : null
       }).addTo(map);
 
@@ -1317,24 +1329,39 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
             </div>
 
             {/* Map Layer Mode buttons */}
-            <div className="absolute top-2 right-2 z-[1000] flex items-center bg-white/90 dark:bg-slate-900/90 rounded-xl p-0.5 shadow-md text-[10px] font-bold">
+            <div className="absolute top-2 right-2 z-[1000] flex items-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs rounded-xl p-1 shadow-md text-[10px] font-bold border border-slate-200/80 dark:border-slate-700/80 gap-1">
               <button
                 type="button"
                 onClick={() => handleLayerChange('street')}
-                className={`px-2 py-0.5 rounded-lg transition cursor-pointer ${
-                  mapViewMode === 'street' ? 'bg-emerald-600 text-white' : 'text-slate-700 dark:text-slate-300'
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                  mapViewMode === 'street' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-700 dark:text-slate-300 hover:text-slate-900'
                 }`}
+                title="Vibrant Street Map"
               >
-                Street
+                <span>🗺️</span>
+                <span>Street</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleLayerChange('satellite')}
-                className={`px-2 py-0.5 rounded-lg transition cursor-pointer ${
-                  mapViewMode === 'satellite' ? 'bg-emerald-600 text-white' : 'text-slate-700 dark:text-slate-300'
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                  mapViewMode === 'satellite' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-700 dark:text-slate-300 hover:text-slate-900'
                 }`}
+                title="Satellite Imagery"
               >
-                Satellite
+                <span>🛰️</span>
+                <span>Satellite</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLayerChange('hybrid')}
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                  mapViewMode === 'hybrid' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-700 dark:text-slate-300 hover:text-slate-900'
+                }`}
+                title="Satellite with Street Labels"
+              >
+                <span>🏙️</span>
+                <span>Hybrid</span>
               </button>
             </div>
           </div>

@@ -489,13 +489,9 @@ html, body, header, nav, main, footer, div, section, article {
   background: #475569;
 }
 
-/* Dark Leaflet Map Tile Inversion & Popups */
-.dark .leaflet-tile {
-  filter: brightness(0.68) invert(1) contrast(2.4) hue-rotate(200deg) saturate(0.35);
-}
-
+/* Leaflet Map Controls & Popups (Keep map tiles in full vibrant authentic color) */
 .dark .leaflet-container {
-  background: #0b0f19 !important;
+  background: #0f172a !important;
 }
 
 .dark .leaflet-popup-content-wrapper,

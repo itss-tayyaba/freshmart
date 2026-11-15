@@ -29,6 +29,7 @@ import { apiService } from '../../../services/api';
 import { calculateDistanceKm, PAKISTAN_CITIES } from '../../../data/pakistanLocations';
 import { getAllUnifiedStores } from '../../../utils/storeHelper';
 import { isPointInPolygon } from '../../../utils/distanceCalculator';
+import { switchMapTileLayer } from '../../../utils/mapTiles';
 import {
   calculateDeliveryPolygonAreaKm2,
   calculateDeliveryZoneReachKm
@@ -339,35 +340,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   const [tileLayerType, setTileLayerType] = useState('street'); // 'street' | 'satellite'
   const [showAllStorePolygons, setShowAllStorePolygons] = useState(false);
 
-  // Switch Map Tile Layer - High-Resolution Street Map (Zero API Key, Zero Blocked Requests)
+  // Switch Map Tile Layer - Vibrant Street Map, High-Res Satellite, and Hybrid View
   const setTileLayer = (type) => {
     setTileLayerType(type);
     if (!mapInstanceRef.current) return;
-
-    if (tileLayerRef.current) {
-      try {
-        mapInstanceRef.current.removeLayer(tileLayerRef.current);
-      } catch (e) {}
-    }
-
-    let url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
-    let attribution = 'Tiles &copy; Esri &mdash; Street Map';
-
-    if (type === 'satellite') {
-      url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-      attribution = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS';
-    }
-
-    tileLayerRef.current = L.tileLayer(url, {
-      attribution,
-      maxZoom: 19
-    }).addTo(mapInstanceRef.current);
-
-    setTimeout(() => {
-      try {
-        mapInstanceRef.current?.invalidateSize(true);
-      } catch (e) {}
-    }, 50);
+    switchMapTileLayer(mapInstanceRef.current, type, tileLayerRef);
   };
 
   // 4 Core Retailers
@@ -1010,7 +987,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     };
     window.__startDrawingForStore = (sId) => {
       const s = stores.find((st) => (st.storeId || st._id) === sId);
-      if (s) handleStartDrawingDeliveryZoneForStore(s, false);
+      if (s) handleStartDrawingDeliveryZoneForStore(s, true);
     };
     window.__createBoxAroundStore = (sId) => {
       const s = stores.find((st) => (st.storeId || st._id) === sId);
@@ -1036,10 +1013,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     };
   }, [stores, assignments, activeZone, onNavigateToZones]);
 
-  // Start drawing custom delivery zone polygon for a specific store
-  // Strict rule: DO NOT auto-generate or pre-fill artificial polygon points!
-  // Start with empty points so the user can choose points on the map.
-  const handleStartDrawingDeliveryZoneForStore = (store, keepExisting = false) => {
+  // Start drawing or editing custom delivery zone polygon for a specific store
+  // Automatically preserves existing delivery polygon when editing so it remains visible on map!
+  const handleStartDrawingDeliveryZoneForStore = (store, keepExisting = true) => {
     if (!store) return;
     isDrawingPolygonRef.current = true;
     setIsDrawingPolygon(true);
@@ -1057,10 +1033,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     const sLng = Number(store.longitude ?? store.coordinates?.lng);
 
     const rawPoly = store.deliveryPolygon;
-    if (keepExisting && Array.isArray(rawPoly) && rawPoly.length >= 3) {
+    const hasValidPolygon = Array.isArray(rawPoly) && rawPoly.length >= 3;
+    if (keepExisting && hasValidPolygon) {
       setDrawnPoints(rawPoly);
     } else {
-      // Blank canvas - user chooses by points!
       setDrawnPoints([]);
     }
 
@@ -1069,13 +1045,13 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         setTimeout(() => {
           try {
             mapInstanceRef.current?.invalidateSize(true);
-            if (keepExisting && Array.isArray(rawPoly) && rawPoly.length >= 3) {
+            if (keepExisting && hasValidPolygon) {
               mapInstanceRef.current?.fitBounds(L.latLngBounds(rawPoly), {
                 padding: [80, 80],
                 maxZoom: 15
               });
             } else if (Number.isFinite(sLat) && Number.isFinite(sLng)) {
-              mapInstanceRef.current?.setView([sLat, sLng], 14);
+              mapInstanceRef.current?.setView([sLat, sLng], 15);
             }
           } catch (e) {}
         }, delay);
@@ -1088,8 +1064,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
     if (addToast) {
       addToast(
-        `Draw Delivery Zone: ${store.branchName || store.name}`,
-        'Click on the map around the store to place delivery points (at least 3 points), then click "Save Store Delivery Zone".',
+        hasValidPolygon ? `Edit Delivery Zone: ${store.branchName || store.name}` : `Draw Delivery Zone: ${store.branchName || store.name}`,
+        hasValidPolygon
+          ? 'Drag the numbered corner handles on the map to reshape the delivery boundary, or click on the map to add more points.'
+          : 'Click on the map around the store to place delivery points (at least 3), or click "Polygon Around Store ⬡" to auto-place an initial boundary.',
         'info'
       );
     }
@@ -1212,10 +1190,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       });
       modalMapInstanceRef.current = map;
 
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri &mdash; Street Map',
-        maxZoom: 19
-      }).addTo(map);
+      switchMapTileLayer(map, 'street');
 
       // Draw the 3 master regions lightly on the modal map
       THREE_MASTER_REGIONS.forEach((reg) => {
@@ -1405,17 +1380,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       zoomControl: true
     });
 
-    let initialUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
-    let initialAttr = 'Tiles &copy; Esri &mdash; Street Map';
-    if (tileLayerType === 'satellite') {
-      initialUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-      initialAttr = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS';
-    }
-
-    tileLayerRef.current = L.tileLayer(initialUrl, {
-      attribution: initialAttr,
-      maxZoom: 19
-    }).addTo(map);
+    switchMapTileLayer(map, tileLayerType || 'street', tileLayerRef);
 
     polygonLayerRef.current = L.layerGroup().addTo(map);
     storeMarkersGroupRef.current = L.layerGroup().addTo(map);
@@ -1444,6 +1409,18 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       }
     };
   }, []);
+
+  // When drawing mode activates or finishes, smoothly recalculate map dimensions so canvas never turns white
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    [50, 150, 300, 500].forEach((delay) => {
+      setTimeout(() => {
+        try {
+          mapInstanceRef.current?.invalidateSize(true);
+        } catch (e) {}
+      }, delay);
+    });
+  }, [isDrawingPolygon]);
 
   // Update Drawing Layer Preview whenever drawnPoints change
   useEffect(() => {
@@ -2340,24 +2317,39 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
               <div className="flex items-center gap-2 flex-wrap shrink-0">
                 {/* Tile Layer Switcher */}
-                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-[11px] font-medium border border-slate-200">
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-[11px] font-medium border border-slate-200 dark:border-slate-700">
                   <button
                     type="button"
                     onClick={() => setTileLayer('street')}
-                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                      tileLayerType === 'street' ? 'bg-white font-bold text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                      tileLayerType === 'street' ? 'bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-white shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                     }`}
+                    title="Vibrant Street Map"
                   >
-                    Street Map
+                    <span>🗺️</span>
+                    <span>Street</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setTileLayer('satellite')}
-                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                      tileLayerType === 'satellite' ? 'bg-white font-bold text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                      tileLayerType === 'satellite' ? 'bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-white shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                     }`}
+                    title="Satellite Imagery"
                   >
-                    Satellite
+                    <span>🛰️</span>
+                    <span>Satellite</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTileLayer('hybrid')}
+                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                      tileLayerType === 'hybrid' ? 'bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-white shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    }`}
+                    title="Satellite with Streets"
+                  >
+                    <span>🏙️</span>
+                    <span>Hybrid</span>
                   </button>
                 </div>
 

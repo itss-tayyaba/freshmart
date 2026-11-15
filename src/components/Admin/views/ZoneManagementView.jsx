@@ -26,6 +26,7 @@ import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
 import { getAllUnifiedStores, CORE_RETAILERS } from '../../../utils/storeHelper';
 import { isPointInPolygon, normalizeLatLng } from '../../../utils/distanceCalculator';
+import { switchMapTileLayer } from '../../../utils/mapTiles';
 
 // Helper to detect if line segments cross each other
 const hasCrossingSegments = (pts) => {
@@ -419,29 +420,7 @@ export const ZoneManagementView = () => {
   const setTileLayer = (type) => {
     setTileLayerType(type);
     if (!mapInstanceRef.current) return;
-
-    if (tileLayerRef.current) {
-      mapInstanceRef.current.removeLayer(tileLayerRef.current);
-    }
-
-    let url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
-    let attribution = 'Tiles &copy; Esri &mdash; Street Map';
-
-    if (type === 'satellite') {
-      url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-      attribution = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS';
-    }
-
-    tileLayerRef.current = L.tileLayer(url, {
-      attribution,
-      maxZoom: 19
-    }).addTo(mapInstanceRef.current);
-
-    setTimeout(() => {
-      try {
-        mapInstanceRef.current?.invalidateSize(true);
-      } catch (e) {}
-    }, 50);
+    switchMapTileLayer(mapInstanceRef.current, type, tileLayerRef);
   };
 
   // Dedicated helper to add a vertex point from any click source (map canvas, existing polygon, store marker)
@@ -478,17 +457,7 @@ export const ZoneManagementView = () => {
       zoomControl: true
     });
 
-    let initialUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
-    let initialAttr = 'Tiles &copy; Esri &mdash; Street Map';
-    if (tileLayerType === 'satellite') {
-      initialUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-      initialAttr = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS';
-    }
-
-    tileLayerRef.current = L.tileLayer(initialUrl, {
-      attribution: initialAttr,
-      maxZoom: 19
-    }).addTo(map);
+    switchMapTileLayer(map, tileLayerType || 'street', tileLayerRef);
 
     polygonsLayerGroupRef.current = L.layerGroup().addTo(map);
     storeMarkersGroupRef.current = L.layerGroup().addTo(map);
@@ -513,6 +482,18 @@ export const ZoneManagementView = () => {
       }
     };
   }, []);
+
+  // Invalidate map size whenever drawing or edit mode toggles so tiles never turn white
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    [50, 150, 300].forEach((delay) => {
+      setTimeout(() => {
+        try {
+          mapInstanceRef.current?.invalidateSize(true);
+        } catch (e) {}
+      }, delay);
+    });
+  }, [mapMode]);
 
   // Render Saved Colored Store Area Polygons on Map (Clean, non-cluttering)
   useEffect(() => {
@@ -697,7 +678,7 @@ export const ZoneManagementView = () => {
           color: activePolygonColor,
           weight: 2,
           fillColor: activePolygonColor,
-          fillOpacity: 0.3
+          fillOpacity: 0.20
         });
         drawingLayerGroupRef.current.addLayer(previewPoly);
       }
@@ -1369,16 +1350,28 @@ export const ZoneManagementView = () => {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-slate-200/70 p-1 rounded-xl text-[11px] font-medium">
               <button
+                type="button"
                 onClick={() => setTileLayer('street')}
-                className={`px-2 py-0.5 rounded-md transition ${tileLayerType === 'street' ? 'bg-white font-bold shadow-2xs' : 'text-slate-600'}`}
+                className={`px-2 py-0.5 rounded-md transition cursor-pointer flex items-center gap-1 ${tileLayerType === 'street' ? 'bg-white font-bold shadow-2xs text-slate-900' : 'text-slate-600'}`}
               >
-                Street Map
+                <span>🗺️</span>
+                <span>Street</span>
               </button>
               <button
+                type="button"
                 onClick={() => setTileLayer('satellite')}
-                className={`px-2 py-0.5 rounded-md transition ${tileLayerType === 'satellite' ? 'bg-white font-bold shadow-2xs' : 'text-slate-600'}`}
+                className={`px-2 py-0.5 rounded-md transition cursor-pointer flex items-center gap-1 ${tileLayerType === 'satellite' ? 'bg-white font-bold shadow-2xs text-slate-900' : 'text-slate-600'}`}
               >
-                Satellite
+                <span>🛰️</span>
+                <span>Satellite</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTileLayer('hybrid')}
+                className={`px-2 py-0.5 rounded-md transition cursor-pointer flex items-center gap-1 ${tileLayerType === 'hybrid' ? 'bg-white font-bold shadow-2xs text-slate-900' : 'text-slate-600'}`}
+              >
+                <span>🏙️</span>
+                <span>Hybrid</span>
               </button>
             </div>
 

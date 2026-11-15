@@ -270,10 +270,7 @@ export const StoreManagementView = () => {
         zoomControl: true
       });
 
-      tileLayerRef.current = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri &mdash; Street Map',
-        maxZoom: 19
-      }).addTo(map);
+      switchMapTileLayer(map, 'street', tileLayerRef);
 
       // Custom draggable pin
       const pinIcon = L.divIcon({
