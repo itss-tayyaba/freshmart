@@ -17,7 +17,10 @@ import { Store } from '../models/Store.js';
 import { DeliveryZone } from '../models/DeliveryZone.js';
 import { isDbOnline } from '../config/db.js';
 import { validateAndNormalizePolygon } from '../utils/gisValidator.js';
-import { resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyData.js';
+import { resolveTenantId, isSameTenant, BRANCHES } from '../../src/data/companyHierarchyData.js';
+import { loadDiskBranches, saveDiskBranch } from './companyBranchController.js';
+import { loadDiskStores, saveDiskStores } from './storeController.js';
+import { BASELINE_FOUR_STORES } from '../../src/utils/storeHelper.js';
 
 const MIN_VERTICES = 3;
 const MAX_VERTICES = 50;
@@ -27,8 +30,102 @@ const isSuper = (req) => roleOf(req) === 'superadmin' || !!req.user?.isSuperAdmi
 const actorName = (req) =>
   req.user?.name || req.user?.email || req.user?.username || String(req.user?.id || 'unknown');
 
-const findBranch = (id) =>
-  Branch.findOne({ $or: [{ _id: id }, { id }] }).lean();
+const findBranch = async (id) => {
+  if (!id) return null;
+  const cleanId = String(id).trim();
+
+  // 1. Check MongoDB Branch collection
+  try {
+    const b = await Branch.findOne({ $or: [{ _id: cleanId }, { id: cleanId }] }).lean();
+    if (b) return b;
+  } catch (err) {
+    console.warn('Branch find error:', err.message);
+  }
+
+  // 2. Check MongoDB Store collection (Store schema uses storeId and _id)
+  try {
+    const s = await Store.findOne({ $or: [{ storeId: cleanId }, { _id: cleanId }] }).lean();
+    if (s) {
+      return {
+        _id: s.storeId || s._id,
+        id: s.storeId || s._id,
+        tenantId: s.tenantId || 'tenant-unimart',
+        name: s.name,
+        branchName: s.branchName || s.name,
+        address: s.address || '',
+        city: s.city || 'Faisalabad',
+        latitude: s.latitude,
+        longitude: s.longitude,
+        deliveryRadiusKm: s.deliveryRadiusKm || 5,
+        deliveryPolygon: s.deliveryPolygon || [],
+        assignedZoneId: s.assignedZoneId || null,
+        deliveryZoneVersion: s.deliveryZoneVersion || 0,
+        deliveryZoneUpdatedAt: s.deliveryZoneUpdatedAt || null,
+        deliveryZoneUpdatedBy: s.deliveryZoneUpdatedBy || '',
+        deliveryZoneUpdatedByRole: s.deliveryZoneUpdatedByRole || '',
+        deliveryZoneOutsidePct: s.deliveryZoneOutsidePct || 0
+      };
+    }
+  } catch (err) {
+    console.warn('Store find error:', err.message);
+  }
+
+  // 3. Check Disk Branches
+  try {
+    const diskBranches = loadDiskBranches();
+    const diskB = diskBranches.find((b) => (b._id && String(b._id) === cleanId) || (b.id && String(b.id) === cleanId));
+    if (diskB) return diskB;
+  } catch {}
+
+  // 4. Check Disk Stores
+  try {
+    const diskStores = loadDiskStores();
+    const diskS = diskStores.find((s) => (s.storeId && String(s.storeId) === cleanId) || (s._id && String(s._id) === cleanId));
+    if (diskS) {
+      return {
+        _id: diskS.storeId || diskS._id,
+        id: diskS.storeId || diskS._id,
+        tenantId: diskS.tenantId || 'tenant-unimart',
+        name: diskS.name,
+        branchName: diskS.branchName || diskS.name,
+        address: diskS.address || '',
+        city: diskS.city || 'Faisalabad',
+        latitude: diskS.latitude,
+        longitude: diskS.longitude,
+        deliveryRadiusKm: diskS.deliveryRadiusKm || 5,
+        deliveryPolygon: diskS.deliveryPolygon || [],
+        assignedZoneId: diskS.assignedZoneId || null
+      };
+    }
+  } catch {}
+
+  // 5. Check BASELINE_FOUR_STORES
+  const baseStore = (BASELINE_FOUR_STORES || []).find(
+    (s) => String(s.storeId || s._id) === cleanId || String(s.name || '').toLowerCase().includes(cleanId.toLowerCase())
+  );
+  if (baseStore) {
+    return {
+      _id: baseStore.storeId || baseStore._id,
+      id: baseStore.storeId || baseStore._id,
+      tenantId: baseStore.tenantId || 'tenant-unimart',
+      name: baseStore.name,
+      branchName: baseStore.branchName || baseStore.name,
+      address: baseStore.address || '',
+      city: baseStore.city || 'Faisalabad',
+      latitude: baseStore.latitude,
+      longitude: baseStore.longitude,
+      deliveryRadiusKm: baseStore.deliveryRadiusKm || 5,
+      deliveryPolygon: baseStore.deliveryPolygon || [],
+      assignedZoneId: null
+    };
+  }
+
+  // 6. Check static BRANCHES
+  const baseBranch = (BRANCHES || []).find((b) => (b._id && String(b._id) === cleanId) || (b.id && String(b.id) === cleanId));
+  if (baseBranch) return baseBranch;
+
+  return null;
+};
 
 /** Store admin may only touch his own branch. Super admin may touch all. */
 const canEditBranch = (req, branch) => {
@@ -105,7 +202,6 @@ const publicShape = (b, zoneMap = {}) => ({
 /* ------------------------------------------------------------------ */
 export const getStoreDeliveryZone = async (req, res) => {
   try {
-    if (!isDbOnline()) return res.status(503).json({ success: false, message: 'Database offline' });
     const branch = await findBranch(req.params.id);
     if (!branch) return res.status(404).json({ success: false, message: 'Store not found' });
     if (!canEditBranch(req, branch)) {
@@ -123,10 +219,6 @@ export const getStoreDeliveryZone = async (req, res) => {
 /* ------------------------------------------------------------------ */
 export const saveStoreDeliveryZone = async (req, res) => {
   try {
-    if (!isDbOnline()) {
-      return res.status(503).json({ success: false, message: 'Database offline - zone not saved.' });
-    }
-
     const { id } = req.params;
     const branch = await findBranch(id);
     if (!branch) return res.status(404).json({ success: false, message: 'Store not found' });
@@ -219,23 +311,95 @@ export const saveStoreDeliveryZone = async (req, res) => {
     }
 
     const incr = 'deliveryPolygon' in updates ? { deliveryZoneVersion: 1 } : {};
-    const saved = await Branch.findOneAndUpdate(
-      { _id: branch._id },
-      { $set: updates, ...(Object.keys(incr).length ? { $inc: incr } : {}) },
-      { new: true }
-    ).lean();
+    const branchId = String(branch._id || branch.id || id);
 
-    // Keep the Store collection in sync (no upsert: never create junk stores)
-    try {
-      await Store.updateOne(
-        { $or: [{ storeId: String(branch._id) }, { _id: String(branch._id) }] },
-        { $set: updates, ...(Object.keys(incr).length ? { $inc: incr } : {}) }
-      );
-    } catch {
-      /* Store doc may not exist for this branch - not fatal */
+    let savedBranch = null;
+    if (isDbOnline()) {
+      try {
+        savedBranch = await Branch.findOneAndUpdate(
+          { $or: [{ _id: branchId }, { id: branchId }] },
+          {
+            $set: {
+              ...updates,
+              _id: branchId,
+              id: branchId,
+              name: updates.name || branch.name,
+              tenantId: branch.tenantId || 'tenant-unimart',
+              city: updates.city || branch.city || 'Faisalabad',
+              address: updates.address || branch.address || '',
+              latitude: updates.latitude ?? branch.latitude ?? 31.4125,
+              longitude: updates.longitude ?? branch.longitude ?? 73.0830
+            },
+            ...(Object.keys(incr).length ? { $inc: incr } : {})
+          },
+          { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+        ).lean();
+      } catch (dbErr) {
+        console.warn('Branch update warning:', dbErr.message);
+      }
+
+      // Keep Store collection in sync (Store schema uses storeId and _id)
+      try {
+        await Store.findOneAndUpdate(
+          { $or: [{ storeId: branchId }, { _id: branchId }] },
+          {
+            $set: {
+              ...updates,
+              _id: branchId,
+              storeId: branchId,
+              name: updates.name || branch.name,
+              branchName: branch.branchName || updates.name || branch.name,
+              tenantId: branch.tenantId || 'tenant-unimart',
+              city: updates.city || branch.city || 'Faisalabad',
+              address: updates.address || branch.address || '',
+              latitude: updates.latitude ?? branch.latitude ?? 31.4125,
+              longitude: updates.longitude ?? branch.longitude ?? 73.0830,
+              location: {
+                type: 'Point',
+                coordinates: [
+                  updates.longitude ?? branch.longitude ?? 73.0830,
+                  updates.latitude ?? branch.latitude ?? 31.4125
+                ]
+              }
+            },
+            ...(Object.keys(incr).length ? { $inc: incr } : {})
+          },
+          { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+        );
+      } catch (sErr) {
+        console.warn('Store collection update warning:', sErr.message);
+      }
     }
 
-    return res.json({ success: true, warning, store: publicShape(saved) });
+    // Always sync to disk caches so polygon is permanently preserved
+    try {
+      saveDiskBranch({
+        ...branch,
+        ...updates,
+        _id: branchId,
+        id: branchId
+      });
+    } catch {}
+
+    try {
+      const diskStores = loadDiskStores();
+      const sIdx = diskStores.findIndex((s) => s.storeId === branchId || s._id === branchId);
+      const storeRecord = {
+        ...branch,
+        ...updates,
+        _id: branchId,
+        storeId: branchId
+      };
+      if (sIdx >= 0) {
+        diskStores[sIdx] = { ...diskStores[sIdx], ...storeRecord };
+      } else {
+        diskStores.unshift(storeRecord);
+      }
+      saveDiskStores(diskStores);
+    } catch {}
+
+    const returnedShape = publicShape(savedBranch || { ...branch, ...updates, _id: branchId });
+    return res.json({ success: true, warning, store: returnedShape });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }

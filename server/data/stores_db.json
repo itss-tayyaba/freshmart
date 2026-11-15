@@ -24,31 +24,61 @@
     "status": "active",
     "isActive": true,
     "operatingStatus": "Open",
-    "manager": "Unimart Store Manager",
+    "manager": "",
     "deliveryRadiusKm": 5,
-    "assignedZoneId": "ZONE-FSD-DGROUND",
+    "assignedZoneId": null,
     "deliveryPolygon": [
       [
-        31.425,
-        73.065
+        31.411,
+        73.081
       ],
       [
-        31.425,
-        73.095
+        31.416,
+        73.081
       ],
       [
-        31.395,
-        73.095
+        31.416,
+        73.087
       ],
       [
-        31.395,
-        73.065
-      ],
-      [
-        31.425,
-        73.065
+        31.411,
+        73.087
       ]
-    ]
+    ],
+    "__v": 0,
+    "code": "",
+    "companyId": "",
+    "createdAt": "2026-11-15T15:48:07.575Z",
+    "deliveryRadius": 5,
+    "deliveryStatus": "active",
+    "deliveryTiers": [
+      {
+        "distanceKm": 1,
+        "fee": 0
+      },
+      {
+        "distanceKm": 2,
+        "fee": 40
+      },
+      {
+        "distanceKm": 3,
+        "fee": 80
+      },
+      {
+        "distanceKm": 5,
+        "fee": 120
+      }
+    ],
+    "deliveryZoneOutsidePct": 0,
+    "deliveryZoneUpdatedAt": "2026-11-15T16:08:57.881Z",
+    "deliveryZoneUpdatedBy": "Platform Super Admin",
+    "deliveryZoneUpdatedByRole": "superadmin",
+    "deliveryZoneVersion": 0,
+    "id": "STR-UM-001",
+    "operatingHours": "08:00 AM - 11:00 PM",
+    "phone": "",
+    "supportsExtendedDelivery": false,
+    "updatedAt": "2026-11-15T15:49:52.776Z"
   },
   {
     "_id": "STR-AF-001",

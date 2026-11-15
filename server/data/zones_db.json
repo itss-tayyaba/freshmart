@@ -1,1 +1,337 @@
-[]
+[
+  {
+    "_id": "ZONE-FSD-CENTRAL-BLUE",
+    "zoneId": "ZONE-FSD-CENTRAL-BLUE",
+    "name": "Central Region (D-Ground & Peoples Colony)",
+    "code": "FSD-BLUE",
+    "city": "Faisalabad",
+    "area": "Peoples Colony & D-Ground",
+    "color": "#2563eb",
+    "description": "Central Commercial Area grouping flagship supermarket branches.",
+    "isStoreAreaPolygon": true,
+    "type": "store_area_polygon",
+    "isActive": true,
+    "status": "active",
+    "deliveryCharge": 70,
+    "minOrderAmount": 300,
+    "freeDeliveryThreshold": 1500,
+    "estimatedDeliveryTime": "15-25 mins",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            73.072,
+            31.432
+          ],
+          [
+            73.1195,
+            31.432
+          ],
+          [
+            73.1195,
+            31.385
+          ],
+          [
+            73.072,
+            31.385
+          ],
+          [
+            73.072,
+            31.432
+          ]
+        ]
+      ]
+    }
+  },
+  {
+    "_id": "ZONE-FSD-NORTH-GREEN",
+    "zoneId": "ZONE-FSD-NORTH-GREEN",
+    "name": "North-East Region (Susan Road & Canal Road)",
+    "code": "FSD-GREEN",
+    "city": "Faisalabad",
+    "area": "Susan Road & Madina Town",
+    "color": "#16a34a",
+    "description": "North-East Commercial Region covering Canal Road and Susan Road marts.",
+    "isStoreAreaPolygon": true,
+    "type": "store_area_polygon",
+    "isActive": true,
+    "status": "active",
+    "deliveryCharge": 80,
+    "minOrderAmount": 400,
+    "freeDeliveryThreshold": 2000,
+    "estimatedDeliveryTime": "20-30 mins",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            73.095,
+            31.465
+          ],
+          [
+            73.148,
+            31.465
+          ],
+          [
+            73.148,
+            31.415
+          ],
+          [
+            73.095,
+            31.415
+          ],
+          [
+            73.095,
+            31.465
+          ]
+        ]
+      ]
+    }
+  },
+  {
+    "_id": "ZONE-FSD-WEST-ORANGE",
+    "zoneId": "ZONE-FSD-WEST-ORANGE",
+    "name": "West-South Region (Samanabad & Jhang Road)",
+    "code": "FSD-ORANGE",
+    "city": "Faisalabad",
+    "area": "Samanabad & Jhang Road Hub",
+    "color": "#ea580c",
+    "description": "Western & Southern commercial corridor covering Samanabad and Jhang Road marts.",
+    "isStoreAreaPolygon": true,
+    "type": "store_area_polygon",
+    "isActive": true,
+    "status": "active",
+    "deliveryCharge": 75,
+    "minOrderAmount": 350,
+    "freeDeliveryThreshold": 1800,
+    "estimatedDeliveryTime": "25-35 mins",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            73.03,
+            31.425
+          ],
+          [
+            73.08,
+            31.425
+          ],
+          [
+            73.08,
+            31.37
+          ],
+          [
+            73.03,
+            31.37
+          ],
+          [
+            73.03,
+            31.425
+          ]
+        ]
+      ]
+    }
+  },
+  {
+    "_id": "ZONE-FSD-DGROUND",
+    "zoneId": "ZONE-FSD-DGROUND",
+    "name": "D-Ground Commercial & Peoples Colony Hub",
+    "code": "FSD-DGROUND",
+    "city": "Faisalabad",
+    "area": "D-Ground & Peoples Colony",
+    "description": "Premier commercial, dining, and central residential zone surrounding D-Ground and Peoples Colony 1 & 2.",
+    "color": "#0284c7",
+    "deliveryCharge": 60,
+    "minOrderAmount": 400,
+    "freeDeliveryThreshold": 2000,
+    "estimatedDeliveryTime": "15-25 mins",
+    "assignedStoreId": "branch_um_fsd",
+    "type": "delivery_zone",
+    "isDeliveryZone": true,
+    "isStoreAreaPolygon": false,
+    "status": "active",
+    "isActive": true,
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            73.07,
+            31.4
+          ],
+          [
+            73.09,
+            31.4
+          ],
+          [
+            73.09,
+            31.42
+          ],
+          [
+            73.07,
+            31.42
+          ],
+          [
+            73.07,
+            31.4
+          ]
+        ]
+      ]
+    }
+  },
+  {
+    "_id": "ZONE-FSD-CANAL",
+    "zoneId": "ZONE-FSD-CANAL",
+    "name": "Canal Road & Kohinoor Express Zone",
+    "code": "FSD-CNR",
+    "city": "Faisalabad",
+    "area": "East Canal Road / Kohinoor",
+    "description": "High-density residential corridor covering Kohinoor City, Canal Road gated communities, and Medina Commercial.",
+    "color": "#2563eb",
+    "deliveryCharge": 80,
+    "minOrderAmount": 500,
+    "freeDeliveryThreshold": 2500,
+    "estimatedDeliveryTime": "20-30 mins",
+    "assignedStoreId": "branch_af_kohinoor",
+    "type": "delivery_zone",
+    "isDeliveryZone": true,
+    "isStoreAreaPolygon": false,
+    "status": "active",
+    "isActive": true,
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            73.098,
+            31.438
+          ],
+          [
+            73.124,
+            31.442
+          ],
+          [
+            73.131,
+            31.422
+          ],
+          [
+            73.119,
+            31.406
+          ],
+          [
+            73.094,
+            31.414
+          ],
+          [
+            73.098,
+            31.438
+          ]
+        ]
+      ]
+    }
+  },
+  {
+    "_id": "ZONE-FSD-MADINA",
+    "zoneId": "ZONE-FSD-MADINA",
+    "name": "Madina Town & Susan Road Commercial Zone",
+    "code": "FSD-MDN",
+    "city": "Faisalabad",
+    "area": "Madina Town / Susan Road",
+    "description": "Thriving retail and grocery market hub spanning Susan Road, Madina Town, and adjacent shopping centers.",
+    "color": "#059669",
+    "deliveryCharge": 70,
+    "minOrderAmount": 450,
+    "freeDeliveryThreshold": 2200,
+    "estimatedDeliveryTime": "20-35 mins",
+    "assignedStoreId": "branch_cv_fsd",
+    "type": "delivery_zone",
+    "isDeliveryZone": true,
+    "isStoreAreaPolygon": false,
+    "status": "active",
+    "isActive": true,
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            73.104,
+            31.446
+          ],
+          [
+            73.134,
+            31.444
+          ],
+          [
+            73.138,
+            31.426
+          ],
+          [
+            73.118,
+            31.416
+          ],
+          [
+            73.101,
+            31.428
+          ],
+          [
+            73.104,
+            31.446
+          ]
+        ]
+      ]
+    }
+  },
+  {
+    "_id": "ZONE-FSD-CLOCKTOWER",
+    "zoneId": "ZONE-FSD-CLOCKTOWER",
+    "name": "Clock Tower & Eight Bazaars Central Zone",
+    "code": "FSD-CTW",
+    "city": "Faisalabad",
+    "area": "Old City / Clock Tower / Samanabad",
+    "description": "Historical heart of Faisalabad covering the 8 famous bazaars and surrounding wholesale networks.",
+    "color": "#d97706",
+    "deliveryCharge": 75,
+    "minOrderAmount": 450,
+    "freeDeliveryThreshold": 2200,
+    "estimatedDeliveryTime": "25-35 mins",
+    "assignedStoreId": "branch_006",
+    "type": "delivery_zone",
+    "isDeliveryZone": true,
+    "isStoreAreaPolygon": false,
+    "status": "active",
+    "isActive": true,
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            73.054,
+            31.421
+          ],
+          [
+            73.076,
+            31.426
+          ],
+          [
+            73.082,
+            31.402
+          ],
+          [
+            73.068,
+            31.386
+          ],
+          [
+            73.046,
+            31.394
+          ],
+          [
+            73.054,
+            31.421
+          ]
+        ]
+      ]
+    }
+  }
+]

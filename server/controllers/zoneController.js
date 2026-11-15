@@ -386,7 +386,13 @@ export const createZone = async (req, res) => {
     // Save to MongoDB
     if (isDbOnline()) {
       try {
-        await DeliveryZone.findOneAndUpdate({ zoneId: generatedId }, newZoneData, { upsert: true, new: true });
+        const insertDoc = { ...newZoneData };
+        delete insertDoc._id;
+        await DeliveryZone.findOneAndUpdate(
+          { zoneId: generatedId },
+          { $set: insertDoc, $setOnInsert: { _id: generatedId } },
+          { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+        );
       } catch (dbErr) {
         console.warn('MongoDB DeliveryZone save warning:', dbErr.message);
       }
@@ -495,10 +501,15 @@ export const updateZone = async (req, res) => {
 
     if (isDbOnline()) {
       try {
+        const updateDoc = { ...updates };
+        delete updateDoc._id;
         await DeliveryZone.findOneAndUpdate(
           { $or: [{ zoneId: id }, { _id: id }] },
-          { $set: { ...updates, zoneId: id } },
-          { upsert: true, new: true, setDefaultsOnInsert: true }
+          {
+            $set: { ...updateDoc, zoneId: id },
+            $setOnInsert: { _id: id }
+          },
+          { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
         );
       } catch (dbErr) {
         console.warn('MongoDB DeliveryZone update warning:', dbErr.message);
@@ -680,10 +691,15 @@ export const toggleZoneStatus = async (req, res) => {
 
     if (isDbOnline()) {
       try {
+        const updateDoc = { ...updates };
+        delete updateDoc._id;
         await DeliveryZone.findOneAndUpdate(
           { $or: [{ zoneId: id }, { _id: id }] },
-          { $set: { ...updates, zoneId: id } },
-          { upsert: true, new: true, setDefaultsOnInsert: true }
+          {
+            $set: { ...updateDoc, zoneId: id },
+            $setOnInsert: { _id: id }
+          },
+          { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
         );
       } catch (dbErr) {
         console.warn('MongoDB DeliveryZone update warning:', dbErr.message);

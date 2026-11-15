@@ -1,5 +1,130 @@
 [
   {
+    "_id": "branch_um_fsd",
+    "id": "branch_um_fsd",
+    "tenantId": "tenant-freshmart",
+    "companyId": "company_004",
+    "code": "FM-FSD-01",
+    "name": "FreshMart Peoples Colony Dark Store",
+    "city": "Faisalabad",
+    "address": "House 88, Main D-Ground, Peoples Colony 1, Faisalabad",
+    "manager": "Aimen Yasin",
+    "phone": "+92 41 8540099",
+    "latitude": 31.4015,
+    "longitude": 73.083,
+    "deliveryRadiusKm": 3.5,
+    "deliveryRadius": 3.5,
+    "deliveryStatus": "active",
+    "deliveryTiers": [
+      {
+        "distanceKm": 1,
+        "fee": 0
+      },
+      {
+        "distanceKm": 2,
+        "fee": 30
+      },
+      {
+        "distanceKm": 3,
+        "fee": 60
+      },
+      {
+        "distanceKm": 5,
+        "fee": 100
+      }
+    ],
+    "operatingHours": "07:30 AM - 12:00 AM",
+    "status": "active",
+    "assignedZoneId": "ZONE-FSD-DGROUND",
+    "deliveryPolygon": [
+      [
+        31.4,
+        73.07
+      ],
+      [
+        31.4,
+        73.09
+      ],
+      [
+        31.42,
+        73.09
+      ],
+      [
+        31.42,
+        73.07
+      ],
+      [
+        31.4,
+        73.07
+      ]
+    ]
+  },
+  {
+    "_id": "STR-UM-001",
+    "__v": 0,
+    "address": "D-Ground Commercial Area, Peoples Colony 1, Faisalabad",
+    "assignedZoneId": null,
+    "city": "Faisalabad",
+    "code": "",
+    "companyId": "",
+    "createdAt": "2026-11-15T15:48:07.575Z",
+    "deliveryPolygon": [
+      [
+        31.411,
+        73.081
+      ],
+      [
+        31.416,
+        73.081
+      ],
+      [
+        31.416,
+        73.087
+      ],
+      [
+        31.411,
+        73.087
+      ]
+    ],
+    "deliveryRadius": 5,
+    "deliveryRadiusKm": 5,
+    "deliveryStatus": "active",
+    "deliveryTiers": [
+      {
+        "distanceKm": 1,
+        "fee": 0
+      },
+      {
+        "distanceKm": 2,
+        "fee": 40
+      },
+      {
+        "distanceKm": 3,
+        "fee": 80
+      },
+      {
+        "distanceKm": 5,
+        "fee": 120
+      }
+    ],
+    "deliveryZoneOutsidePct": 0,
+    "deliveryZoneUpdatedAt": "2026-11-15T16:08:57.881Z",
+    "deliveryZoneUpdatedBy": "Platform Super Admin",
+    "deliveryZoneUpdatedByRole": "superadmin",
+    "deliveryZoneVersion": 0,
+    "id": "STR-UM-001",
+    "latitude": 31.4125,
+    "longitude": 73.083,
+    "manager": "",
+    "name": "Store A – D-Ground Branch",
+    "operatingHours": "08:00 AM - 11:00 PM",
+    "phone": "",
+    "status": "active",
+    "supportsExtendedDelivery": false,
+    "tenantId": "tenant-unimart",
+    "updatedAt": "2026-11-15T15:49:52.776Z"
+  },
+  {
     "_id": "branch_af_fsd",
     "id": "branch_af_fsd",
     "tenantId": "tenant-alfatah",
@@ -273,66 +398,6 @@
     ],
     "operatingHours": "10:00 AM - 11:00 PM",
     "status": "active"
-  },
-  {
-    "_id": "branch_um_fsd",
-    "id": "branch_um_fsd",
-    "tenantId": "tenant-freshmart",
-    "companyId": "company_004",
-    "code": "FM-FSD-01",
-    "name": "FreshMart Peoples Colony Dark Store",
-    "city": "Faisalabad",
-    "address": "House 88, Main D-Ground, Peoples Colony 1, Faisalabad",
-    "manager": "Aimen Yasin",
-    "phone": "+92 41 8540099",
-    "latitude": 31.4015,
-    "longitude": 73.083,
-    "deliveryRadiusKm": 3.5,
-    "deliveryRadius": 3.5,
-    "deliveryStatus": "active",
-    "deliveryTiers": [
-      {
-        "distanceKm": 1,
-        "fee": 0
-      },
-      {
-        "distanceKm": 2,
-        "fee": 30
-      },
-      {
-        "distanceKm": 3,
-        "fee": 60
-      },
-      {
-        "distanceKm": 5,
-        "fee": 100
-      }
-    ],
-    "operatingHours": "07:30 AM - 12:00 AM",
-    "status": "active",
-    "assignedZoneId": "ZONE-FSD-DGROUND",
-    "deliveryPolygon": [
-      [
-        31.425,
-        73.065
-      ],
-      [
-        31.425,
-        73.095
-      ],
-      [
-        31.395,
-        73.095
-      ],
-      [
-        31.395,
-        73.065
-      ],
-      [
-        31.425,
-        73.065
-      ]
-    ]
   },
   {
     "_id": "branch_um_madina",

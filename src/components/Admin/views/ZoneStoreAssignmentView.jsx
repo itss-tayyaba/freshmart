@@ -1787,13 +1787,14 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
           if (!branchResult?.success) {
             throw new Error(branchResult?.message || branchResult?.error || 'Branch delivery zone could not be saved.');
           }
-          const storeResult = await apiService.updateStore(storeId, {
-            deliveryPolygon: cleanPoints,
-            deliveryRadiusKm: Number(drawingStoreTarget.deliveryRadiusKm || 5)
-          });
-          if (!storeResult?.success) {
-            throw new Error(storeResult?.message || storeResult?.error || 'Store delivery zone could not be synchronized.');
-          }
+          // The backend updateBranchDeliveryZone already synchronizes both Branch and Store in MongoDB Atlas.
+          // Secondary updateStore call is made as additional redundancy.
+          try {
+            await apiService.updateStore(storeId, {
+              deliveryPolygon: cleanPoints,
+              deliveryRadiusKm: Number(drawingStoreTarget.deliveryRadiusKm || 5)
+            });
+          } catch {}
           backendSaved = true;
         } catch (apiErr) {
           if (addToast) {
