@@ -300,7 +300,7 @@ import { enforceTenantBranchScope } from '../middleware/tenantBranchMiddleware.j
 
 router.get('/companies', getCompanies);
 router.get('/branches', getAllBranches);
-router.post('/branches', protect, adminOnly, createBranch);
+router.post('/branches', protect, superAdminOnly, createBranch);
 router.put('/branches/:id', protect, adminOnly, updateBranch);
 router.delete('/branches/:id', protect, adminOnly, deleteBranch);
 router.get('/companies/:tenantId/branches', getCompanyBranches);
@@ -370,21 +370,21 @@ router.delete('/admin/stores/:id', protect, adminOnly, deleteStore);
 router.patch('/admin/stores/:id/status', protect, adminOnly, toggleStoreStatus);
 router.get('/retailer/stores', protect, getRetailerStores);
 
-// --- Delivery Zones Management ---
+// --- Delivery Zones Management (Super Admin Exclusive) ---
 router.get('/admin/zones', getZones);
-router.post('/admin/zones', protect, adminOnly, createZone);
+router.post('/admin/zones', protect, superAdminOnly, createZone);
 router.get('/admin/zones/:id', getZoneById);
-router.put('/admin/zones/:id', protect, adminOnly, updateZone);
-router.delete('/admin/zones/:id', protect, adminOnly, deleteZone);
-router.patch('/admin/zones/:id/status', protect, adminOnly, toggleZoneStatus);
+router.put('/admin/zones/:id', protect, superAdminOnly, updateZone);
+router.delete('/admin/zones/:id', protect, superAdminOnly, deleteZone);
+router.patch('/admin/zones/:id/status', protect, superAdminOnly, toggleZoneStatus);
 
 // Delivery Zones Public & Mobile Aliases
 router.get('/zones', getZones);
-router.post('/zones', protect, adminOnly, createZone);
+router.post('/zones', protect, superAdminOnly, createZone);
 router.get('/zones/:id', getZoneById);
-router.put('/zones/:id', protect, adminOnly, updateZone);
-router.delete('/zones/:id', protect, adminOnly, deleteZone);
-router.patch('/zones/:id/status', protect, adminOnly, toggleZoneStatus);
+router.put('/zones/:id', protect, superAdminOnly, updateZone);
+router.delete('/zones/:id', protect, superAdminOnly, deleteZone);
+router.patch('/zones/:id/status', protect, superAdminOnly, toggleZoneStatus);
 
 // Stores Aliases
 router.get('/stores', getStores);
@@ -395,8 +395,8 @@ router.delete('/stores/:id', protect, adminOnly, deleteStore);
 // --- Zone-Store Assignments ---
 router.get('/admin/assignments', getAllAssignments);
 router.get('/admin/zones/:id/stores', getZoneStores);
-router.post('/admin/zones/:id/stores', protect, adminOnly, assignStoresToZone);
-router.delete('/admin/zones/:id/stores/:storeId', protect, adminOnly, removeStoreFromZone);
+router.post('/admin/zones/:id/stores', protect, superAdminOnly, assignStoresToZone);
+router.delete('/admin/zones/:id/stores/:storeId', protect, superAdminOnly, removeStoreFromZone);
 
 // --- Customer Delivery Geovalidation & Calculation ---
 router.post('/delivery/check-availability', authLimiter, checkDeliveryAvailability);

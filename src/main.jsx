@@ -1,14 +1,29 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import './index.css';
 import App from './App.jsx';
 import { ErrorBoundary } from './components/Common/ErrorBoundary.jsx';
 import { normalizeOrderTenantId } from './utils/orderScope';
-import './index.css';
-import 'leaflet/dist/leaflet.css';
 
 // Global Leaflet LatLng safety wrapper: Prevents "Invalid LatLng object: (NaN, NaN)" from crashing React
 if (L) {
+  // TileLayer interceptor: guarantee full vibrant authentic colors on every tile image
+  // Inline style overrides Leaflet 1.9's 'mix-blend-mode: plus-lighter' which blows tiles out to pure white
+  if (L.TileLayer && L.TileLayer.prototype) {
+    const origCreateTile = L.TileLayer.prototype.createTile;
+    L.TileLayer.prototype.createTile = function (coords, done) {
+      const tile = origCreateTile.call(this, coords, done);
+      if (tile && tile.style) {
+        tile.style.mixBlendMode = 'normal';
+        tile.style.opacity = '1';
+        tile.style.filter = 'none';
+      }
+      return tile;
+    };
+  }
+
   if (L.LatLng) {
     const OrigLatLngClass = L.LatLng;
     const SafeLatLng = function (lat, lng, alt) {

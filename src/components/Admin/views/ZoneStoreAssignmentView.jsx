@@ -36,6 +36,16 @@ import {
 } from '../../../utils/deliveryZoneMetrics';
 import { useStoreZoneSync } from '../../../hooks/useStoreZoneSync';
 
+// HTML escape helper to prevent Stored XSS in Leaflet HTML markers and popups
+const esc = (s) =>
+  String(s ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[c]));
+
 // 3 Master Regional Polygons covering all physical stores in the platform
 export const THREE_MASTER_REGIONS = [
   {
@@ -2156,7 +2166,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
               ${retailer.logo}
             </div>
             <div style="margin-top: 2px; padding: 1px 6px; border-radius: 9999px; background: ${isAssigned ? '#059669' : '#0f172a'}; color: white; font-size: 9px; font-weight: 700; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-              ${isAssigned ? '✓ ' : ''}${store.branchName || store.name}
+              ${isAssigned ? '✓ ' : ''}${esc(store.branchName || store.name)}
             </div>
           </div>
         `,
@@ -2169,9 +2179,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
           <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
             <span>${retailer.logo}</span>
-            <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
+            <strong style="color: ${retailer.color}; font-size: 13px;">${esc(store.name)}</strong>
           </div>
-          <p style="color: #64748b; font-size: 10px; margin: 2px 0 4px 0;">${store.address}</p>
+          <p style="color: #64748b; font-size: 10px; margin: 2px 0 4px 0;">${esc(store.address)}</p>
           <div style="font-size: 10px; color: #475569; margin-bottom: 6px;">
             ${hasCustomPoly ? `Delivery Zone: <strong style="color: #059669;">Custom (${store.deliveryPolygon.length} pts)</strong>` : 'Delivery Zone: <span style="color: #94a3b8;">Not configured</span>'}
           </div>
@@ -2210,7 +2220,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         storePoly.bindTooltip(`
           <div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
             <span>${retailer.logo}</span>
-            <span style="color: ${retailer.color};">${store.branchName || store.name} Delivery Region</span>
+            <span style="color: ${retailer.color};">${esc(store.branchName || store.name)} Delivery Region</span>
           </div>
         `, { sticky: true });
 
@@ -2218,9 +2228,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
           <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
             <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
               <span>${retailer.logo}</span>
-              <strong style="color: ${retailer.color}; font-size: 13px;">${store.name}</strong>
+              <strong style="color: ${retailer.color}; font-size: 13px;">${esc(store.name)}</strong>
             </div>
-            <p style="color: #64748b; font-size: 10px; margin: 2px 0 6px 0;">${store.address}</p>
+            <p style="color: #64748b; font-size: 10px; margin: 2px 0 6px 0;">${esc(store.address)}</p>
             <div style="font-size: 10px; color: #475569; margin-bottom: 8px;">
               Delivery Boundary: <strong>Custom Polygon (${rawPoly.length} points)</strong>
             </div>
@@ -2259,16 +2269,16 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         activePolygon.bindTooltip(`
           <div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
             <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${activeColor};"></span>
-            <span>Target Zone: ${activeZone.name}</span>
+            <span>Target Zone: ${esc(activeZone.name)}</span>
           </div>
         `, { sticky: true });
 
         activePolygon.bindPopup(`
           <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-              <strong style="color: #0f172a; font-size: 13px;">${activeZone.name}</strong>
+              <strong style="color: #0f172a; font-size: 13px;">${esc(activeZone.name)}</strong>
               <span style="font-size: 10px; background: ${activeColor}20; color: ${activeColor}; padding: 2px 6px; border-radius: 6px; font-weight: 800;">
-                ${activeZone.code || ''}
+                ${esc(activeZone.code || '')}
               </span>
             </div>
             <div style="font-size: 11px; color: #475569; margin: 3px 0;">
@@ -2522,7 +2532,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
               <div
                 ref={mapContainerRef}
-                className={`w-full z-10 bg-slate-100 ${isDrawingPolygon ? 'cursor-crosshair ring-2 ring-emerald-500 ring-inset' : ''}`}
+                className={`leaflet-container w-full z-10 bg-slate-900 ${isDrawingPolygon ? 'cursor-crosshair ring-2 ring-emerald-500 ring-inset' : ''}`}
                 style={{ height: '520px', minHeight: '520px', isolation: 'isolate' }}
               />
 
@@ -3208,8 +3218,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                   </div>
 
                   {/* Interactive Leaflet Map Box */}
-                  <div className="relative rounded-2xl overflow-hidden border border-slate-300 shadow-inner bg-slate-100">
-                    <div ref={modalMapContainerRef} style={{ height: '210px', width: '100%' }} />
+                  <div className="relative rounded-2xl overflow-hidden border border-slate-700 shadow-inner bg-slate-900">
+                    <div ref={modalMapContainerRef} className="leaflet-container" style={{ height: '210px', width: '100%' }} />
 
                     {/* Coordinates & Region Status Pill */}
                     <div className="absolute bottom-2 left-2 right-2 z-1000 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200 shadow-md flex items-center justify-between text-[10px]">

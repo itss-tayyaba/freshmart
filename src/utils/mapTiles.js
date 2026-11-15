@@ -84,7 +84,7 @@ export const MAP_LAYERS = {
 };
 
 const ERRORS_BEFORE_FAILOVER = 4;
-const FIRST_TILE_TIMEOUT_MS = 6000;
+const FIRST_TILE_TIMEOUT_MS = 12000;
 
 /**
  * Build a tile layer for providers[index]. If it fails to load tiles, it removes
@@ -124,7 +124,12 @@ const buildFailoverLayer = (map, providers, index, ref) => {
     if (ref) ref.current = next;
   };
 
-  layer.on('tileload', () => {
+  layer.on('tileload', (e) => {
+    if (e && e.tile) {
+      e.tile.style.mixBlendMode = 'normal';
+      e.tile.style.opacity = '1';
+      e.tile.style.filter = 'none';
+    }
     loadedAny = true;
     clearTimeout(timer);
   });

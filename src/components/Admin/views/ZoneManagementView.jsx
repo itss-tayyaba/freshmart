@@ -1393,7 +1393,7 @@ export const ZoneManagementView = () => {
         <div className="relative">
           <div
             ref={mapContainerRef}
-            className="w-full h-[520px] z-10 bg-slate-100"
+            className="leaflet-container w-full h-[520px] z-10 bg-slate-900"
             style={{ minHeight: '520px', isolation: 'isolate' }}
           ></div>
 

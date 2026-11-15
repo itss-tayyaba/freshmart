@@ -34,6 +34,16 @@ import { PAKISTAN_CITIES } from '../../../data/pakistanLocations';
 import { apiService } from '../../../services/api';
 import { normalizeLatLng, isPointInPolygon } from '../../../utils/distanceCalculator';
 
+// HTML escape helper to prevent Stored XSS in Leaflet HTML markers and popups
+const esc = (s) =>
+  String(s ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[c]));
+
 // Custom SVG pin for Store Branch on Leaflet Map
 const createStoreBranchPin = (name, color = '#059669') =>
   L.divIcon({
@@ -50,7 +60,7 @@ const createStoreBranchPin = (name, color = '#059669') =>
           </svg>
         </div>
         <div style="margin-top: 3px; padding: 2px 8px; border-radius: 9999px; background: #0f172a; color: white; font-size: 10px; font-weight: 800; letter-spacing: 0.3px; white-space: nowrap; box-shadow: 0 4px 6px rgba(0,0,0,0.25);">
-          ${name}
+          ${esc(name)}
         </div>
       </div>
     `,
@@ -123,11 +133,15 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     return allRetailers.find((r) => isSameTenant(r.id, target)) || allRetailers[0];
   }, [allRetailers, selectedTenantId, isSuperAdmin, user?.tenantId]);
 
-  // Get branches belonging to selected retailer
+  // Get branches belonging to selected retailer (restricted to own branch for store admins)
   const tenantBranches = useMemo(() => {
     const list = (allBranches && allBranches.length > 0) ? allBranches : BRANCHES;
-    return list.filter((b) => isSameTenant(b.tenantId, selectedTenantId) || isSameTenant(b.companyId, selectedTenantId));
-  }, [allBranches, BRANCHES, selectedTenantId]);
+    let filtered = list.filter((b) => isSameTenant(b.tenantId, selectedTenantId) || isSameTenant(b.companyId, selectedTenantId));
+    if (!isSuperAdmin && user?.branchId && user?.branchId !== 'all') {
+      filtered = filtered.filter((b) => (b._id || b.id) === user.branchId);
+    }
+    return filtered;
+  }, [allBranches, BRANCHES, selectedTenantId, isSuperAdmin, user?.branchId]);
 
   // Selected Branch ID
   const [selectedBranchId, setSelectedBranchId] = useState(() => {
@@ -234,6 +248,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
   const [mapDrawMode, setMapDrawMode] = useState('center');
   const [isSaving, setIsSaving] = useState(false);
   const [mapViewMode, setMapViewMode] = useState('street');
+  const [mapReady, setMapReady] = useState(0);
   const [isAddZoneModalOpen, setIsAddZoneModalOpen] = useState(false);
   const [isDeleteZoneModalOpen, setIsDeleteZoneModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -448,8 +463,8 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
 
     marker.bindPopup(`
       <div style="font-family: inherit; font-size: 11px;">
-        <strong style="color: #0f172a; font-size: 13px;">${branchName}</strong>
-        <p style="margin: 3px 0 0; color: #475569;">${address || 'Store Delivery Hub'}</p>
+        <strong style="color: #0f172a; font-size: 13px;">${esc(branchName)}</strong>
+        <p style="margin: 3px 0 0; color: #475569;">${esc(address || 'Store Delivery Hub')}</p>
         <div style="margin-top: 4px; font-weight: 700; color: #059669;">
           📍 Center GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}
         </div>
@@ -466,6 +481,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
 
     mapInstanceRef.current = map;
     branchMarkerRef.current = marker;
+    setMapReady((n) => n + 1);
 
     const timer = setTimeout(() => {
       if (mapInstanceRef.current) {
@@ -508,7 +524,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     return () => {
       map.off('click', handleMapClick);
     };
-  }, [mapDrawMode]);
+  }, [mapDrawMode, mapReady]);
 
   // When drawing mode changes, invalidate map size quietly without camera jitter
   useEffect(() => {
@@ -528,7 +544,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     if (branchMarkerRef.current) {
       branchMarkerRef.current.setLatLng([sLat, sLng]);
     }
-  }, [lat, lng]);
+  }, [lat, lng, mapReady]);
 
   // Render Concentric Radius Circles (when no custom polygon, or alongside polygon)
   useEffect(() => {
@@ -570,7 +586,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
 
       concentricCirclesRef.current.push(circle);
     });
-  }, [lat, lng, deliveryTiers, activeRetailer, polygonPoints.length]);
+  }, [lat, lng, deliveryTiers, activeRetailer, polygonPoints.length, mapReady]);
 
   // Render Polygon Boundary & Corner Vertex Markers
   useEffect(() => {
@@ -591,35 +607,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
       (pt) => Array.isArray(pt) && Number.isFinite(pt[0]) && Number.isFinite(pt[1]) && !isNaN(pt[0]) && !isNaN(pt[1])
     );
 
-    if (cleanPolyPoints.length < 2) return;
-
-    const themeColor = activeRetailer?.color || '#059669';
-
-    if (cleanPolyPoints.length >= 3) {
-      // Draw closed polygon
-      const poly = L.polygon(cleanPolyPoints, {
-        color: themeColor,
-        weight: 3,
-        fillColor: themeColor,
-        fillOpacity: 0.20,
-        dashArray: mapDrawMode === 'polygon' ? '6, 4' : null
-      }).addTo(map);
-
-      poly.bindTooltip(`${branchName} Custom Boundary Zone (${cleanPolyPoints.length} vertices)`, {
-        sticky: true
-      });
-      polygonLayerRef.current = poly;
-    } else if (cleanPolyPoints.length === 2) {
-      // Draw temporary polyline while drawing
-      const line = L.polyline(cleanPolyPoints, {
-        color: themeColor,
-        weight: 2.5,
-        dashArray: '6, 4'
-      }).addTo(map);
-      polygonLayerRef.current = line;
-    }
-
-    // Render SuperAdmin Master Geofence reference boundary if one exists
+    // Render SuperAdmin Master Geofence reference boundary regardless of store polygon presence
     if (masterZoneLayerRef.current) {
       try { map.removeLayer(masterZoneLayerRef.current); } catch (e) {}
       masterZoneLayerRef.current = null;
@@ -637,7 +625,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
       mzPoly.bindTooltip(
         `<div style="font-family: inherit; font-size: 11px;">
            <strong style="color: #b45309; font-size: 12px;">🛡️ SuperAdmin Master Geofence</strong>
-           <div style="font-size: 10px; color: #334155;">Zone: ${matchingMasterZone.name}</div>
+           <div style="font-size: 10px; color: #334155;">Zone: ${esc(matchingMasterZone.name)}</div>
            <div style="font-size: 9px; color: #0284c7; font-weight: bold; margin-top: 2px;">
              Click "Adopt Master Geofence" to copy boundary to this store
            </div>
@@ -647,6 +635,34 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
       masterZoneLayerRef.current = mzPoly;
     }
 
+    if (cleanPolyPoints.length < 2) return;
+
+    const themeColor = activeRetailer?.color || '#059669';
+
+    if (cleanPolyPoints.length >= 3) {
+      // Draw closed polygon
+      const poly = L.polygon(cleanPolyPoints, {
+        color: themeColor,
+        weight: 3,
+        fillColor: themeColor,
+        fillOpacity: 0.20,
+        dashArray: mapDrawMode === 'polygon' ? '6, 4' : null
+      }).addTo(map);
+
+      poly.bindTooltip(`${esc(branchName)} Custom Boundary Zone (${cleanPolyPoints.length} vertices)`, {
+        sticky: true
+      });
+      polygonLayerRef.current = poly;
+    } else if (cleanPolyPoints.length === 2) {
+      // Draw temporary polyline while drawing
+      const line = L.polyline(cleanPolyPoints, {
+        color: themeColor,
+        weight: 2.5,
+        dashArray: '6, 4'
+      }).addTo(map);
+      polygonLayerRef.current = line;
+    }
+
     // Clean up any old extended circle layer
     if (extendedRegionCircleRef.current) {
       try { map.removeLayer(extendedRegionCircleRef.current); } catch (e) {}
@@ -654,6 +670,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     }
 
     // Add interactive draggable handles at each vertex so Store Admin can easily reshape boundary
+    const livePts = cleanPolyPoints.map((p) => [...p]);
     cleanPolyPoints.forEach((pt, idx) => {
       const handleIcon = L.divIcon({
         className: 'delivery-zone-vertex-handle',
@@ -673,12 +690,13 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
       }).addTo(map);
 
       handleMarker.on('drag', (e) => {
-        const newPos = e.target.getLatLng();
-        setPolygonPoints((prev) => {
-          const copy = [...prev];
-          copy[idx] = [Number(newPos.lat.toFixed(6)), Number(newPos.lng.toFixed(6))];
-          return copy;
-        });
+        const p = e.target.getLatLng();
+        livePts[idx] = [p.lat, p.lng];
+        if (polygonLayerRef.current?.setLatLngs) polygonLayerRef.current.setLatLngs(livePts);
+      });
+
+      handleMarker.on('dragend', () => {
+        setPolygonPoints(livePts.map(([a, b]) => [Number(a.toFixed(6)), Number(b.toFixed(6))]));
       });
 
       handleMarker.bindTooltip(
@@ -700,7 +718,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
 
       vertexMarkersRef.current.push(handleMarker);
     });
-  }, [polygonPoints, activeRetailer, mapDrawMode, branchName, matchingMasterZone, deliveryRadiusKm, lat, lng]);
+  }, [polygonPoints, activeRetailer, mapDrawMode, branchName, matchingMasterZone, deliveryRadiusKm, lat, lng, mapReady]);
 
   const handleLayerChange = (layerKey) => {
     setMapViewMode(layerKey);
@@ -777,10 +795,13 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
 
   // Save changes to backend and sync with StoreContext
   const handleSaveDeliveryZone = async () => {
+    if (polygonPoints.length > 0 && polygonPoints.length < 3) {
+      addToast('Need at least 3 points', 'Add more corners, or press Clear to remove the polygon.', 'error');
+      return;
+    }
     setIsSaving(true);
     const branchId = activeBranch._id || activeBranch.id;
-
-    const maxTierDist = deliveryTiers.length > 0
+    const maxTierDist = deliveryTiers.length
       ? Math.max(...deliveryTiers.map((t) => Number(t.distanceKm) || 0))
       : Number(deliveryRadiusKm);
 
@@ -788,111 +809,30 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
       name: branchName,
       city: branchCity,
       address,
-      latitude: Number(lat),
-      longitude: Number(lng),
       deliveryRadiusKm: Math.max(Number(deliveryRadiusKm), maxTierDist),
       deliveryRadius: Math.max(Number(deliveryRadiusKm), maxTierDist),
-      deliveryPolygon: polygonPoints && polygonPoints.length >= 3 ? polygonPoints : null,
+      deliveryPolygon: polygonPoints.length >= 3 ? polygonPoints : [],
       supportsExtendedDelivery: false,
       deliveryStatus,
-      deliveryTiers: [...deliveryTiers].sort((a, b) => a.distanceKm - b.distanceKm)
+      deliveryTiers: [...deliveryTiers].sort((a, b) => a.distanceKm - b.distanceKm),
+      // only the super admin may move the store pin
+      ...(isSuperAdmin ? { latitude: Number(lat), longitude: Number(lng) } : {})
     };
 
-    // 1. Immediately update local StoreContext and allBranches state
-    if (typeof updateBranch === 'function') {
-      try {
-        await updateBranch(branchId, payload);
-      } catch (e) {}
-    }
-
     try {
-      const savedBranches = localStorage.getItem('freshmart_branches');
-      if (savedBranches) {
-        const bList = JSON.parse(savedBranches);
-        const updatedBList = bList.map((b) => (b._id === branchId || b.id === branchId ? { ...b, ...payload } : b));
-        localStorage.setItem('freshmart_branches', JSON.stringify(updatedBList));
+      const result = await apiService.updateBranchDeliveryZone(branchId, payload);
+      if (!result || result.success === false) {
+        addToast('Could not save', result?.message || result?.error || 'The server rejected this delivery zone.', 'error');
+        return; // never show "saved" on failure
       }
-      const savedStores = localStorage.getItem('freshmart_stores');
-      if (savedStores) {
-        const sList = JSON.parse(savedStores);
-        const updatedSList = sList.map((s) => (s._id === branchId || s.id === branchId || s.storeId === branchId ? { ...s, ...payload } : s));
-        localStorage.setItem('freshmart_stores', JSON.stringify(updatedSList));
+      if (typeof updateBranch === 'function') {
+        try { await updateBranch(branchId, payload); } catch (e) {}
       }
-    } catch (e) {}
-
-    try {
       window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: payload }));
-      window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
-    } catch (e) {}
-
-    // 2. Persist to backend delivery-zone API endpoint
-    try {
-      try {
-        await apiService.updateBranchDeliveryZone(branchId, payload);
-      } catch (e) {}
-
-      const response = await fetch(`/api/branches/${encodeURIComponent(branchId)}/delivery-zone`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-      // Also sync delivery zone in localStorage and dispatch freshmart_zones_updated
-      try {
-        const savedZones = localStorage.getItem('freshmart_zones');
-        const localZones = savedZones ? JSON.parse(savedZones) : [];
-        const zId = activeBranch.assignedZoneId || `ZONE-${String(branchId).toUpperCase()}`;
-        let cleanRing = null;
-        if (payload.deliveryPolygon && payload.deliveryPolygon.length >= 3) {
-          cleanRing = payload.deliveryPolygon.map(([pLat, pLng]) => [Number(Number(pLng).toFixed(6)), Number(Number(pLat).toFixed(6))]);
-          const first = cleanRing[0];
-          const last = cleanRing[cleanRing.length - 1];
-          if (first[0] !== last[0] || first[1] !== last[1]) {
-            cleanRing.push([first[0], first[1]]);
-          }
-        }
-        const updatedZone = {
-          zoneId: zId,
-          _id: zId,
-          name: `${branchName} Delivery Zone`,
-          code: `Z-${String(branchId).slice(-4).toUpperCase()}`,
-          city: branchCity,
-          area: address || branchName,
-          description: `Dedicated delivery zone for ${branchName}`,
-          color: activeRetailer?.color || '#059669',
-          deliveryCharge: Number(payload.deliveryTiers?.[0]?.fee || 60),
-          minOrderAmount: 400,
-          freeDeliveryThreshold: 2000,
-          estimatedDeliveryTime: '20-30 mins',
-          assignedStoreId: branchId,
-          type: 'delivery_zone',
-          isDeliveryZone: true,
-          isStoreAreaPolygon: false,
-          isActive: deliveryStatus !== 'inactive',
-          status: deliveryStatus,
-          ...(cleanRing ? { geometry: { type: 'Polygon', coordinates: [cleanRing] }, coordinates: [cleanRing] } : {})
-        };
-        const existingZIdx = localZones.findIndex((z) => z.zoneId === zId || z.assignedStoreId === branchId);
-        if (existingZIdx >= 0) {
-          localZones[existingZIdx] = { ...localZones[existingZIdx], ...updatedZone };
-        } else {
-          localZones.unshift(updatedZone);
-        }
-        localStorage.setItem('freshmart_zones', JSON.stringify(localZones));
-        window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: localZones }));
-      } catch (localErr) {}
-
-      addToast(
-        'Delivery Zone Saved! 💾',
-        `Successfully saved zone for ${branchName} (GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)}${payload.deliveryPolygon ? ` • ${polygonPoints.length}-pt Polygon` : ''}).`
-      );
+      addToast('Delivery Zone Saved! 💾', `${branchName}${payload.deliveryPolygon.length ? ` • ${polygonPoints.length}-point polygon` : ''}`);
+      if (result.warning) addToast('Heads up', result.warning, 'info');
     } catch (err) {
-      Object.assign(activeBranch, payload);
-      addToast(
-        'Delivery Zone Saved! 💾',
-        `Settings saved locally for ${branchName} (GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)}${payload.deliveryPolygon ? ` • ${polygonPoints.length}-pt Polygon` : ''}).`
-      );
+      addToast('Could not save', err.message, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -902,78 +842,28 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
   const handleDeleteDeliveryZone = async () => {
     setIsDeleting(true);
     const branchId = activeBranch._id || activeBranch.id;
-    const targetZoneId = activeBranch.assignedZoneId || `ZONE-${String(branchId).toUpperCase()}`;
-
-    const payload = {
-      name: branchName,
-      city: branchCity,
-      address,
-      latitude: Number(lat),
-      longitude: Number(lng),
-      deliveryRadiusKm: Number(deliveryRadiusKm || 5),
-      deliveryRadius: Number(deliveryRadiusKm || 5),
-      deliveryPolygon: null,
-      deliveryStatus: 'inactive',
-      assignedZoneId: null,
-      deleteZone: true
-    };
-
-    // 1. Update context
-    if (typeof updateBranch === 'function') {
-      try {
-        await updateBranch(branchId, payload);
-      } catch (e) {}
-    }
-
-    // 2. Persist to backend branch delivery-zone endpoint
     try {
-      await apiService.updateBranchDeliveryZone(branchId, payload);
-    } catch (e) {
-      try {
-        await fetch(`/api/branches/${encodeURIComponent(branchId)}/delivery-zone`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-      } catch (err) {}
-    }
-
-    // 3. Delete zone from DeliveryZone collection
-    try {
-      await apiService.deleteZone(targetZoneId);
-    } catch (e) {}
-
-    // 4. Reset component states
-    setPolygonPoints([]);
-    setDeliveryStatus('inactive');
-    Object.assign(activeBranch, { deliveryPolygon: null, deliveryStatus: 'inactive', assignedZoneId: null });
-
-    // 5. Clean up localStorage freshmart_zones
-    try {
-      const savedZones = localStorage.getItem('freshmart_zones');
-      if (savedZones) {
-        const localZones = JSON.parse(savedZones);
-        const filtered = localZones.filter(
-          (z) => z.zoneId !== targetZoneId && z._id !== targetZoneId && z.assignedStoreId !== branchId
-        );
-        localStorage.setItem('freshmart_zones', JSON.stringify(filtered));
-        window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: filtered }));
+      const result = await apiService.updateBranchDeliveryZone(branchId, {
+        deliveryPolygon: [],
+        deliveryStatus: 'inactive'
+      });
+      if (!result || result.success === false) {
+        addToast('Could not delete', result?.message || result?.error || 'Server rejected the request.', 'error');
+        return;
       }
-    } catch (e) {}
-
-    try {
-      window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: payload }));
-      window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
-    } catch (e) {}
-
-    setIsDeleting(false);
-    setIsDeleteZoneModalOpen(false);
-
-    addToast(
-      'Delivery Zone Deleted 🗑️',
-      `Delivery zone for "${branchName}" has been deleted and deactivated.`,
-      'success'
-    );
+      setPolygonPoints([]);
+      setDeliveryStatus('inactive');
+      if (typeof updateBranch === 'function') {
+        try { await updateBranch(branchId, { deliveryPolygon: [], deliveryStatus: 'inactive' }); } catch (e) {}
+      }
+      window.dispatchEvent(new CustomEvent('freshmart_branches_updated', {}));
+      setIsDeleteZoneModalOpen(false);
+      addToast('Delivery zone cleared 🗑️', `${branchName} is paused until you draw a new zone.`, 'success');
+    } catch (err) {
+      addToast('Could not delete', err.message, 'error');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Handle creating a brand new delivery zone for the selected retailer
@@ -1056,26 +946,28 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
             </button>
           </div>
 
-          {/* Add Delivery Zone Button */}
-          <button
-            type="button"
-            onClick={() => {
-              setNewZoneForm({
-                name: `${activeRetailer.name} Hub #${tenantBranches.length + 1}`,
-                city: 'Faisalabad',
-                address: '',
-                latitude: Number(lat.toFixed(5)),
-                longitude: Number(lng.toFixed(5)),
-                deliveryRadiusKm: 5,
-                phone: '+92 41 8541122'
-              });
-              setIsAddZoneModalOpen(true);
-            }}
-            className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>+ Add Delivery Zone</span>
-          </button>
+          {/* Add Delivery Zone Button (Super Admin Only) */}
+          {isSuperAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                setNewZoneForm({
+                  name: `${activeRetailer.name} Hub #${tenantBranches.length + 1}`,
+                  city: 'Faisalabad',
+                  address: '',
+                  latitude: Number(lat.toFixed(5)),
+                  longitude: Number(lng.toFixed(5)),
+                  deliveryRadiusKm: 5,
+                  phone: '+92 41 8541122'
+                });
+                setIsAddZoneModalOpen(true);
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Add Delivery Zone</span>
+            </button>
+          )}
 
           {/* Delete Delivery Zone Button */}
           <button
@@ -1317,7 +1209,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
 
           {/* Leaflet Map Canvas */}
           <div className="rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 relative isolate">
-            <div ref={mapContainerRef} className="w-full h-84 sm:h-96 z-0" style={{ isolation: 'isolate' }} />
+            <div ref={mapContainerRef} className="leaflet-container w-full h-84 sm:h-96 z-0 bg-slate-900" style={{ isolation: 'isolate' }} />
 
             {/* Floating Coordinate Pill */}
             <div className="absolute bottom-2 left-2 z-[1000] bg-slate-900/90 text-white text-[10px] font-mono px-3 py-1.5 rounded-xl shadow-md flex items-center gap-2 pointer-events-none">
