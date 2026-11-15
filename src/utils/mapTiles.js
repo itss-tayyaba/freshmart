@@ -1,28 +1,18 @@
 /**
  * Multi-layer Map Tile Provider for Leaflet
- * Supports Vibrant Colorful Street View (Carto Voyager / OpenStreetMap),
- * High-Resolution Satellite View (Esri World Imagery),
- * and Hybrid View (High-Res Satellite + Street & Landmark Labels)
+ * Uses 100% Free, Public Tile Layers with Zero API Key Required:
+ * - Street View: Official OpenStreetMap (Full authentic colors, no API key, no watermark)
+ * - Satellite View: High-Resolution Esri World Imagery (No API key, no watermark)
+ * - Hybrid View: High-Res Satellite + Reference Boundaries & Streets (No API key, no watermark)
  */
 import L from 'leaflet';
 
 export const MAP_LAYERS = {
   street: {
     id: 'street',
-    name: 'Street View (Vibrant Color)',
+    name: 'Street View (OpenStreetMap)',
     label: 'Street',
     icon: '🗺️',
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
-    subdomains: ['a', 'b', 'c', 'd'],
-    maxZoom: 19,
-    crossOrigin: true
-  },
-  osm: {
-    id: 'osm',
-    name: 'OpenStreetMap (Classic Color)',
-    label: 'OSM',
-    icon: '🌍',
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     subdomains: ['a', 'b', 'c'],
@@ -35,7 +25,7 @@ export const MAP_LAYERS = {
     label: 'Satellite',
     icon: '🛰️',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and GIS Community',
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS',
     subdomains: ['server', 'services'],
     maxZoom: 19,
     crossOrigin: true
@@ -46,9 +36,9 @@ export const MAP_LAYERS = {
     label: 'Hybrid',
     icon: '🏙️',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    overlayUrl: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
-    overlaySubdomains: ['a', 'b', 'c', 'd'],
-    attribution: 'Tiles &copy; Esri, &copy; OpenStreetMap contributors &copy; CARTO',
+    overlayUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+    overlaySubdomains: ['server', 'services'],
+    attribution: 'Tiles &copy; Esri &mdash; World Imagery & Boundaries',
     subdomains: ['server', 'services'],
     maxZoom: 19,
     crossOrigin: true
@@ -82,7 +72,7 @@ export const switchMapTileLayer = (map, layerKey = 'street', currentTileLayerRef
       crossOrigin: config.crossOrigin ?? true
     });
     const labelLayer = L.tileLayer(config.overlayUrl, {
-      subdomains: config.overlaySubdomains || ['a', 'b', 'c', 'd'],
+      subdomains: config.overlaySubdomains || ['server', 'services'],
       maxZoom: config.maxZoom,
       crossOrigin: true,
       zIndex: 500
@@ -91,7 +81,7 @@ export const switchMapTileLayer = (map, layerKey = 'street', currentTileLayerRef
   } else {
     newLayer = L.tileLayer(config.url, {
       attribution: config.attribution,
-      subdomains: config.subdomains || ['a', 'b', 'c', 'd'],
+      subdomains: config.subdomains || ['a', 'b', 'c'],
       maxZoom: config.maxZoom,
       crossOrigin: config.crossOrigin ?? true
     });
