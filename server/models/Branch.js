@@ -118,6 +118,26 @@ const branchSchema = new mongoose.Schema(
       default: null,
       index: true
     },
+    deliveryZoneUpdatedAt: {
+      type: Date,
+      default: null
+    },
+    deliveryZoneUpdatedBy: {
+      type: String,
+      default: ''
+    },
+    deliveryZoneUpdatedByRole: {
+      type: String,
+      default: ''
+    },
+    deliveryZoneVersion: {
+      type: Number,
+      default: 0
+    },
+    deliveryZoneOutsidePct: {
+      type: Number,
+      default: 0
+    },
     supportsExtendedDelivery: {
       type: Boolean,
       default: false

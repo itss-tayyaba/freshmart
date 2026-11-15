@@ -1222,6 +1222,18 @@ export const apiService = {
     }
   },
 
+  async getStoreZones(since) {
+    try {
+      const qs = since ? `?since=${encodeURIComponent(since)}` : '';
+      const res = await fetch(`${API_BASE_URL}/admin/store-zones${qs}`, {
+        headers: getAuthHeaders()
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
   async deleteBranch(id) {
     try {
       const res = await fetch(`${API_BASE_URL}/branches/${encodeURIComponent(id)}`, {

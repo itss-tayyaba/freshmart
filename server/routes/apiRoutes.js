@@ -104,6 +104,11 @@ import {
   getPlatformOverview
 } from '../controllers/tenantController.js';
 import { protect, adminOnly, protectVendor, superAdminOnly, staffOrAdmin, requireRoles, adminOrRiderSelf } from '../middleware/authMiddleware.js';
+import {
+  saveStoreDeliveryZone,
+  getStoreDeliveryZone,
+  listStoreZones
+} from '../controllers/storeZoneController.js';
 import { authLimiter } from '../middleware/rateLimitMiddleware.js';
 import {
   validate,
@@ -308,7 +313,9 @@ router.post('/branches/:branchId/orders', protect, staffOrAdmin, createBranchOrd
 router.post('/retailers/find-available', findAvailableRetailersController);
 router.get('/retailers/find-available', findAvailableRetailersController);
 router.get('/branches/available', findAvailableRetailersController);
-router.put('/branches/:id/delivery-zone', protect, adminOnly, updateBranchDeliveryZone);
+router.put('/branches/:id/delivery-zone', protect, requireRoles('superadmin', 'admin', 'store admin'), saveStoreDeliveryZone);
+router.get('/branches/:id/delivery-zone', protect, requireRoles('superadmin', 'admin', 'store admin'), getStoreDeliveryZone);
+router.get('/admin/store-zones', protect, superAdminOnly, listStoreZones);
 
 // ============================================================
 // 📍 MULTI-STORE GIS DELIVERY PLATFORM APIS (MODULES 1 - 10)

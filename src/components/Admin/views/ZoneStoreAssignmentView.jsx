@@ -34,6 +34,7 @@ import {
   calculateDeliveryPolygonAreaKm2,
   calculateDeliveryZoneReachKm
 } from '../../../utils/deliveryZoneMetrics';
+import { useStoreZoneSync } from '../../../hooks/useStoreZoneSync';
 
 // 3 Master Regional Polygons covering all physical stores in the platform
 export const THREE_MASTER_REGIONS = [
@@ -307,6 +308,33 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   const modalMapContainerRef = useRef(null);
   const modalMapInstanceRef = useRef(null);
   const modalMarkerRef = useRef(null);
+
+  // Live polling for store delivery polygon updates made by store admins or super admin
+  useStoreZoneSync({
+    enabled: true,
+    intervalMs: 8000,
+    onChange: (changed) => {
+      setStores((prev) =>
+        prev.map((s) => {
+          const id = s.storeId || s._id || s.id;
+          const c = changed.find((x) => x.storeId === id);
+          if (!c) return s;
+          // Don't overwrite polygon if super admin is actively editing this store right now
+          const drawingId = drawingStoreTarget && (drawingStoreTarget.storeId || drawingStoreTarget._id || drawingStoreTarget.id);
+          if (isDrawingPolygonRef.current && drawingId === id) return s;
+          return {
+            ...s,
+            deliveryPolygon: c.deliveryPolygon,
+            assignedZoneId: c.assignedZoneId ?? s.assignedZoneId,
+            deliveryZoneUpdatedAt: c.deliveryZoneUpdatedAt,
+            deliveryZoneUpdatedBy: c.deliveryZoneUpdatedBy,
+            deliveryZoneUpdatedByRole: c.deliveryZoneUpdatedByRole,
+            deliveryZoneOutsidePct: c.deliveryZoneOutsidePct
+          };
+        })
+      );
+    }
+  });
 
   // Store Filters
   const [retailerFilter, setRetailerFilter] = useState('all');
@@ -2629,6 +2657,27 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                             {hasPolygon ? coverageArea : 'No custom delivery polygon drawn yet. Click "+ Add Delivery Zone" to draw perimeter.'}
                           </p>
                         </div>
+
+                        {/* Audit Trail & Warnings from Store Admin Edits */}
+                        {(store.deliveryZoneUpdatedByRole === 'store admin' || (store.deliveryZoneOutsidePct && store.deliveryZoneOutsidePct > 0)) && (
+                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                            {store.deliveryZoneUpdatedByRole === 'store admin' && (
+                              <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <span>🏬 Edited by store admin</span>
+                                {store.deliveryZoneUpdatedAt && (
+                                  <span className="opacity-75">
+                                    • {new Date(store.deliveryZoneUpdatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                            {store.deliveryZoneOutsidePct > 0 && (
+                              <span className="text-[10px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
+                                ⚠️ {store.deliveryZoneOutsidePct}% outside assigned zone
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div className="pt-1 flex items-center gap-2">
