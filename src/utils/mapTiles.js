@@ -24,13 +24,13 @@ const ESRI_ATTR = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS';
 // Street providers, tried in order until one actually loads tiles
 const STREET_PROVIDERS = [
   {
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Tiles &copy; Esri &mdash; World Street Map',
+    url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png',
+    attribution: OSM_ATTR,
     maxZoom: 19
   },
   {
-    url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png',
-    attribution: OSM_ATTR,
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; World Street Map',
     maxZoom: 19
   },
   {
@@ -51,7 +51,7 @@ const SATELLITE_PROVIDERS = [
 export const MAP_LAYERS = {
   street: {
     id: 'street',
-    name: 'Street View (World Street)',
+    name: 'Street View (OpenStreetMap)',
     label: 'Street',
     icon: '🗺️',
     providers: STREET_PROVIDERS,

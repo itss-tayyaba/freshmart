@@ -1390,7 +1390,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     };
   }, []);
 
-  // When drawing mode activates or finishes, guarantee tile layer is attached and redraws cleanly
+  // When drawing mode activates or finishes, guarantee tile layer is attached and sized quietly
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -1400,12 +1400,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         const layer = tileLayerRef.current;
         if (!layer) {
           switchMapTileLayer(map, tileLayerType || 'street', tileLayerRef);
-        } else {
-          if (!map.hasLayer(layer)) layer.addTo(map);
-          if (typeof layer.redraw === 'function') layer.redraw();
+        } else if (!map.hasLayer(layer)) {
+          layer.addTo(map);
         }
       } catch (e) {}
-    }, 150);
+    }, 100);
     return () => clearTimeout(timer);
   }, [isDrawingPolygon, tileLayerType]);
 

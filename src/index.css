@@ -512,3 +512,26 @@ html, body, header, nav, main, footer, div, section, article {
   background-color: #334155 !important;
 }
 
+/* ========================================================================= */
+/* LEAFLET TILE FIX: Prevent white / blank tiles and compositing washouts    */
+/* Overrides Leaflet 1.9's 'mix-blend-mode: plus-lighter' which blows out    */
+/* tile colors to pure white against container backgrounds and SVG overlays. */
+/* ========================================================================= */
+.leaflet-container img.leaflet-tile,
+.leaflet-container .leaflet-tile {
+  mix-blend-mode: normal !important;
+  filter: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.leaflet-tile-pane {
+  z-index: 200 !important;
+  opacity: 1 !important;
+}
+
+.leaflet-tile-container {
+  opacity: 1 !important;
+}
+
+

@@ -175,10 +175,9 @@ router.get('/inventory', protect, adminOnly, getInventory);
 router.post('/inventory/:id/restock', protect, adminOnly, validate(restockSchema), restockProduct);
 
 // --- Customers Routes ---
-// Admin Locked: Viewing customer registry
+// Admin Locked: Viewing and managing customer registry
 router.get('/customers', protect, adminOnly, getCustomers);
-// Public: Customer enrollment (Rate Limited)
-router.post('/customers', authLimiter, addCustomer);
+router.post('/customers', protect, adminOnly, addCustomer);
 router.delete('/customers/:id', protect, adminOnly, deleteCustomer);
 // Delivery Location Persistence (Stores to Database & Session - Rate Limited)
 router.post('/customer/location', authLimiter, saveCustomerLocation);
@@ -301,15 +300,15 @@ router.put('/branches/:id', protect, adminOnly, updateBranch);
 router.delete('/branches/:id', protect, adminOnly, deleteBranch);
 router.get('/companies/:tenantId/branches', getCompanyBranches);
 router.get('/branches/:branchId/inventory', getBranchInventory);
-router.put('/branches/:branchId/inventory/:productId', updateBranchInventory);
-router.get('/branches/:branchId/orders', getBranchOrders);
-router.post('/branches/:branchId/orders', createBranchOrder);
+router.put('/branches/:branchId/inventory/:productId', protect, adminOnly, updateBranchInventory);
+router.get('/branches/:branchId/orders', protect, staffOrAdmin, getBranchOrders);
+router.post('/branches/:branchId/orders', protect, staffOrAdmin, createBranchOrder);
 
 // Multi-Retailer Delivery Zones (Faisalabad Dynamic Discovery)
 router.post('/retailers/find-available', findAvailableRetailersController);
 router.get('/retailers/find-available', findAvailableRetailersController);
 router.get('/branches/available', findAvailableRetailersController);
-router.put('/branches/:id/delivery-zone', updateBranchDeliveryZone);
+router.put('/branches/:id/delivery-zone', protect, adminOnly, updateBranchDeliveryZone);
 
 // ============================================================
 // 📍 MULTI-STORE GIS DELIVERY PLATFORM APIS (MODULES 1 - 10)
