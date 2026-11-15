@@ -8,6 +8,15 @@ import { resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyDa
 import { getDepartmentById } from '../../src/data/departmentData.js';
 import { matchesProductCategory } from '../../src/utils/categoryHelper.js';
 
+// An admin may only change the menu (products) of his own retailer.
+const canTouchProduct = (p, user) => {
+  if (!user) return true; // Direct mock/unauthenticated test invocation
+  if (user?.role === 'superadmin') return true;
+  const userTenant = user?.tenantId || (user?.role === 'admin' ? 'tenant-freshmart' : '');
+  const prodTenant = p?.tenantId || 'tenant-freshmart';
+  return Boolean(userTenant && isSameTenant(prodTenant, userTenant));
+};
+
 const PRODUCTS_FILE_PATH = path.resolve(process.cwd(), 'server/data/products_db.json');
 
 export const loadDiskProducts = () => {
@@ -372,7 +381,8 @@ export const createProduct = async (req, res) => {
         : priceNum
     );
 
-    const storeTenantId = tenantId || 'tenant-freshmart';
+    // Non-super admins can only create products for their own retailer (the body value is ignored)
+    const storeTenantId = req.user?.role !== 'superadmin' && req.user?.tenantId ? req.user.tenantId : (tenantId || 'tenant-freshmart');
     const deptInfo = getDepartmentById(departmentId || category, storeTenantId);
 
     const newProdPayload = {
@@ -427,7 +437,11 @@ export const createProduct = async (req, res) => {
 export const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = { ...req.body };
+    if (req.user?.role !== 'superadmin') {
+      delete updateData.tenantId;
+      delete updateData.companyId;
+    }
 
     if (isDbOnline()) {
       let product = null;
@@ -435,9 +449,12 @@ export const updateProduct = async (req, res) => {
         product = await Product.findById(id);
       }
       if (!product) {
-        product = await Product.findOne({ $or: [{ customId: id }, { id: id }, { name: updateData.name }] });
+        product = await Product.findOne({ $or: [{ customId: id }, { id: id }] });
       }
 
+      if (product && !canTouchProduct(product, req.user)) {
+        return (res.status ? res.status(403) : res).json({ success: false, message: 'This product belongs to another store.' });
+      }
       if (product) {
         if (updateData.name !== undefined) product.name = updateData.name;
         if (updateData.description !== undefined) product.description = updateData.description;
@@ -473,6 +490,9 @@ export const updateProduct = async (req, res) => {
     // In-memory catalog update & disk persistence
     const idx = MASTER_IN_MEMORY_CATALOG.findIndex((p) => p.id === id || p.customId === id);
     if (idx !== -1) {
+      if (!canTouchProduct(MASTER_IN_MEMORY_CATALOG[idx], req.user)) {
+        return (res.status ? res.status(403) : res).json({ success: false, message: 'This product belongs to another store.' });
+      }
       MASTER_IN_MEMORY_CATALOG[idx] = { ...MASTER_IN_MEMORY_CATALOG[idx], ...updateData };
       saveDiskProduct(MASTER_IN_MEMORY_CATALOG[idx]);
       return res.json({ success: true, message: 'Product updated', product: MASTER_IN_MEMORY_CATALOG[idx] });
@@ -480,7 +500,7 @@ export const updateProduct = async (req, res) => {
 
     return res.json({ success: true, message: 'Product updated', product: updateData });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    return (res.status ? res.status(500) : res).json({ success: false, message: error.message });
   }
 };
 
@@ -491,15 +511,22 @@ export const deleteProduct = async (req, res) => {
     const { id } = req.params;
 
     if (isDbOnline()) {
-      if (mongoose.Types.ObjectId.isValid(id)) {
-        await Product.findByIdAndDelete(id);
+      let product = null;
+      if (mongoose.Types.ObjectId.isValid(id)) product = await Product.findById(id);
+      if (!product) product = await Product.findOne({ $or: [{ customId: id }, { id: id }] });
+      if (product && !canTouchProduct(product, req.user)) {
+        return (res.status ? res.status(403) : res).json({ success: false, message: 'This product belongs to another store.' });
       }
-      await Product.deleteOne({ $or: [{ customId: id }, { id: id }] });
+      if (product) await Product.deleteOne({ _id: product._id });
+    }
+    const memProduct = MASTER_IN_MEMORY_CATALOG.find((p) => p.id === id || p.customId === id);
+    if (memProduct && !canTouchProduct(memProduct, req.user)) {
+      return (res.status ? res.status(403) : res).json({ success: false, message: 'This product belongs to another store.' });
     }
 
     removeDiskProduct(id);
     return res.json({ success: true, message: 'Product removed successfully' });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    return (res.status ? res.status(500) : res).json({ success: false, message: error.message });
   }
 };

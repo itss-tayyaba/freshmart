@@ -9,6 +9,7 @@ import { ADMIN_ORDERS_FULL } from '../../src/data/adminSuiteData.js';
 import { ORDERS, BRANCHES, resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyData.js';
 import { resolveOrderRouting, normalizeOrderTenantId } from '../../src/utils/orderScope.js';
 import { loadDiskRiders, saveAllDiskRiders } from './extraControllers.js';
+import { routeOrderToCity, adminCanAccessRecord } from '../utils/regionRouting.js';
 import { PickupStaff } from '../models/PickupStaff.js';
 import { loadDiskPickupStaff } from './authController.js';
 import { TERMINAL_STATUSES, pickupStaffCanSee, riderCanSee, canRiderStartDelivery, dispatchToAssignedRider } from '../utils/orderVisibility.js';
@@ -288,21 +289,21 @@ export const createOrder = async (req, res) => {
       streetAddress = shippingAddress;
       shippingAddress = {
         address: shippingAddress,
-        city: req.body.city || 'Lahore, Pakistan',
+        city: req.body.city || '',
         deliverySlot: req.body.deliverySlot || '⚡ 15-25 Mins Express Delivery'
       };
     } else if (shippingAddress && typeof shippingAddress === 'object') {
       streetAddress = shippingAddress.address || req.body.address || '';
       shippingAddress = {
         address: streetAddress,
-        city: shippingAddress.city || req.body.city || 'Lahore, Pakistan',
+        city: shippingAddress.city || req.body.city || '',
         deliverySlot: shippingAddress.deliverySlot || req.body.deliverySlot || '⚡ 15-25 Mins Express Delivery'
       };
     } else {
       streetAddress = req.body.address || (isTestEnv ? '123 Main Street, Gulberg, Lahore' : '');
       shippingAddress = {
         address: streetAddress,
-        city: req.body.city || 'Lahore, Pakistan',
+        city: req.body.city || '',
         deliverySlot: req.body.deliverySlot || '⚡ 15-25 Mins Express Delivery'
       };
     }
@@ -351,9 +352,28 @@ export const createOrder = async (req, res) => {
     const rawTenantId = req.body.tenantId || req.body.tenant || req.user?.tenantId || 'tenant-freshmart';
     const rawBranchId = req.body.branchId || req.body.branch || req.user?.branchId;
 
+    // A store only takes orders from ITS OWN city: a Faisalabad branch can never take an Islamabad order.
+    const canonicalOrderTenant = resolveTenantId(rawTenantId);
+    const tenantBranchesForCity = BRANCHES.filter((b) => b.tenantId === canonicalOrderTenant && (b.status === 'active' || !b.status));
+    const customerCityRaw = (req.body.shippingAddress && typeof req.body.shippingAddress === 'object' && req.body.shippingAddress.city) || req.body.city || '';
+    const cityRoute = routeOrderToCity({
+      tenantBranches: tenantBranchesForCity,
+      allBranches: BRANCHES,
+      requestedBranchId: rawBranchId,
+      shippingAddress: { city: customerCityRaw, address: streetAddress },
+      destinationCoords,
+      tenantName: req.body.tenantName || req.body.storeName || 'This store'
+    });
+    if (!cityRoute.ok) {
+      return res.status(400).json({ success: false, code: cityRoute.code, message: cityRoute.message });
+    }
+    if (cityRoute.city) {
+      shippingAddress.city = cityRoute.city.charAt(0).toUpperCase() + cityRoute.city.slice(1);
+    }
+
     const routing = resolveOrderRouting({
       tenantId: rawTenantId,
-      branchId: rawBranchId,
+      branchId: cityRoute.branch ? (cityRoute.branch._id || cityRoute.branch.id) : rawBranchId,
       shippingAddress,
       destinationCoords,
       availableBranches: BRANCHES
@@ -867,6 +887,9 @@ export const assignRiderToOrder = async (req, res) => {
       });
 
       if (order) {
+        if (!adminCanAccessRecord(order, req.user, { sameTenant: isSameTenant })) {
+          return res.status(403).json({ success: false, message: 'This order belongs to another store or branch.' });
+        }
         // Enforce store and branch isolation: Reject cross-store or cross-branch assignment (unless global fleet courier)
         const isGlobalFleet = targetRider?.isGlobal === true || !targetRider?.tenantId;
         const orderTenant = normalizeOrderTenantId(order);
@@ -894,7 +917,7 @@ export const assignRiderToOrder = async (req, res) => {
 
         // Set status to requested status or Out for Delivery
         // The rider sees the parcel right away (phase "preparing"); it only goes "Out for Delivery"
-        // once the pickup staff marked it Ready.
+        // once the pickup staff marked it Ready (or if order was already ready / no staff needed).
         const readyForHandover = Boolean(
           order.isDispatchedByStaff ||
           !order.pickupStaffId ||
@@ -935,6 +958,9 @@ export const assignRiderToOrder = async (req, res) => {
       (o) => o.id === id || o.orderId === id || o.id === `#${id}` || o.id === id.replace(/^#/, '')
     );
     if (memOrder) {
+      if (!adminCanAccessRecord(memOrder, req.user, { sameTenant: isSameTenant })) {
+        return res.status(403).json({ success: false, message: 'This order belongs to another store or branch.' });
+      }
       // Enforce store and branch isolation: Reject cross-store or cross-branch assignment (unless global fleet courier)
       const isGlobalFleet = targetRider?.isGlobal === true || !targetRider?.tenantId;
       const orderTenant = normalizeOrderTenantId(memOrder);
@@ -1134,6 +1160,8 @@ export const updateOrderStatus = async (req, res) => {
         if (!canRiderStartDelivery(order)) return false;
       } else if (!isAdmin) {
         return false;
+      } else if (!adminCanAccessRecord(order, req.user, { sameTenant: isSameTenant })) {
+        return false; // admin of another retailer / branch
       }
 
       order.status = (status === 'Ready' || status === 'Ready for Dispatch') ? 'Prepared' : status;
@@ -1461,6 +1489,8 @@ export const getMyOrders = async (req, res) => {
 export const getAssignedRiderOrders = async (req, res) => {
   try {
     const riderId = String(req.user?.riderId || req.user?.id || req.user?._id || '').toLowerCase().trim();
+    const riderName = (req.user?.name || '').toLowerCase().trim();
+    const riderPhone = (req.user?.phone || '').replace(/[^0-9]/g, '');
 
     // Assigned by id only (no fuzzy name/phone match). Active parcels: preparing + dispatched; ?history=true adds finished ones.
     const matchesRider = (order) =>
@@ -1516,6 +1546,8 @@ export const getAssignedRiderOrders = async (req, res) => {
 export const getPickupAssignedOrders = async (req, res) => {
   try {
     const staffId = String(req.user?.staffId || req.user?.id || req.user?._id || '').toLowerCase().trim();
+    const userTenantId = req.user?.tenantId;
+    const userBranchId = req.user?.branchId;
 
     // Only orders the admin assigned to THIS staff member (no shared unassigned queue)
     const matchesPickup = (order) => pickupStaffCanSee(order, req.user, { sameTenant: isSameTenant });
@@ -1569,6 +1601,9 @@ export const updateOrderPickupStatus = async (req, res) => {
 
     const normalized = String(status).trim();
     const cleanId = String(id).replace(/^#/, '').toLowerCase().trim();
+
+    const staffId = req.user?.staffId || req.user?.id || req.user?._id;
+    const staffName = req.user?.name || req.user?.username || 'Pickup Staff';
 
     const applyPickup = (order) => {
       const isAdminUser = ['admin', 'superadmin', 'store admin'].includes(req.user?.role);
