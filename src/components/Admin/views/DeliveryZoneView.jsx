@@ -1317,7 +1317,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
 
           {/* Leaflet Map Canvas */}
           <div className="rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 relative isolate">
-            <div ref={mapContainerRef} className="w-full h-84 sm:h-96 z-0" />
+            <div ref={mapContainerRef} className="w-full h-84 sm:h-96 z-0" style={{ isolation: 'isolate' }} />
 
             {/* Floating Coordinate Pill */}
             <div className="absolute bottom-2 left-2 z-[1000] bg-slate-900/90 text-white text-[10px] font-mono px-3 py-1.5 rounded-xl shadow-md flex items-center gap-2 pointer-events-none">

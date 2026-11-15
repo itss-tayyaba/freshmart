@@ -1394,12 +1394,12 @@ export const ZoneManagementView = () => {
           <div
             ref={mapContainerRef}
             className="w-full h-[520px] z-10 bg-slate-100"
-            style={{ minHeight: '520px' }}
+            style={{ minHeight: '520px', isolation: 'isolate' }}
           ></div>
 
-          {/* IN-MAP DRAWING OVERLAY BANNER */}
+          {/* IN-MAP DRAWING OVERLAY BANNER (Solid background to prevent GPU backdrop-filter compositing glitch) */}
           {mapMode === 'draw' && (
-            <div className="absolute top-4 left-4 right-4 z-20 bg-slate-900/95 backdrop-blur-md text-white p-3.5 rounded-2xl shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs border border-slate-700/60">
+            <div className="absolute top-4 left-4 right-4 z-20 bg-slate-900 text-white p-3.5 rounded-2xl shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs border border-slate-700/60">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
@@ -1477,9 +1477,9 @@ export const ZoneManagementView = () => {
             </div>
           )}
 
-          {/* IN-MAP EDIT OVERLAY BANNER */}
+          {/* IN-MAP EDIT OVERLAY BANNER (Solid background to prevent GPU backdrop-filter compositing glitch) */}
           {mapMode === 'edit' && (
-            <div className="absolute top-4 left-4 right-4 z-20 bg-amber-950/95 backdrop-blur-md text-white p-3.5 rounded-2xl shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs border border-amber-600/40">
+            <div className="absolute top-4 left-4 right-4 z-20 bg-amber-950 text-white p-3.5 rounded-2xl shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs border border-amber-600/40">
               <div className="flex items-center gap-2 text-amber-200">
                 <Sliders className="w-4 h-4 text-amber-400 shrink-0" />
                 <div>

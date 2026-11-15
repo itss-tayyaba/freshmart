@@ -1390,16 +1390,24 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     };
   }, []);
 
-  // When drawing mode activates or finishes, softly recalculate map dimensions without camera jitter
+  // When drawing mode activates or finishes, guarantee tile layer is attached and redraws cleanly
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+    if (!map) return;
     const timer = setTimeout(() => {
       try {
-        mapInstanceRef.current?.invalidateSize({ debounceMoveEvents: true });
+        map.invalidateSize({ debounceMoveEvents: true });
+        const layer = tileLayerRef.current;
+        if (!layer) {
+          switchMapTileLayer(map, tileLayerType || 'street', tileLayerRef);
+        } else {
+          if (!map.hasLayer(layer)) layer.addTo(map);
+          if (typeof layer.redraw === 'function') layer.redraw();
+        }
       } catch (e) {}
-    }, 100);
+    }, 150);
     return () => clearTimeout(timer);
-  }, [isDrawingPolygon]);
+  }, [isDrawingPolygon, tileLayerType]);
 
   // Update Drawing Layer Preview whenever drawnPoints change
   useEffect(() => {
@@ -2391,7 +2399,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
             <div className="relative overflow-hidden">
               {/* In-Map Drawing Controls Bar Overlay */}
               {isDrawingPolygon && (
-                <div className="absolute top-3 left-3 right-3 z-[400] bg-slate-900/95 backdrop-blur-md text-white p-3 sm:p-3.5 rounded-2xl shadow-2xl border border-slate-700/80 flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="absolute top-3 left-3 right-3 z-[400] bg-slate-900 text-white p-3 sm:p-3.5 rounded-2xl shadow-2xl border border-slate-700/80 flex flex-wrap items-center justify-between gap-3 text-xs">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
                     <div className="min-w-0">
@@ -2488,12 +2496,12 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
               <div
                 ref={mapContainerRef}
                 className={`w-full z-10 bg-slate-100 ${isDrawingPolygon ? 'cursor-crosshair ring-2 ring-emerald-500 ring-inset' : ''}`}
-                style={{ height: '520px', minHeight: '520px' }}
+                style={{ height: '520px', minHeight: '520px', isolation: 'isolate' }}
               />
 
-              {/* Floating Helper Tip Pill over map */}
+              {/* Floating Helper Tip Pill over map (solid background to prevent GPU backdrop-filter compositing glitch) */}
               {isDrawingPolygon && (
-                <div className="absolute bottom-3 left-3 z-[400] bg-slate-900/85 backdrop-blur-md text-white text-[11px] px-3 py-1.5 rounded-full shadow-lg border border-slate-700 flex items-center gap-2 pointer-events-none">
+                <div className="absolute bottom-3 left-3 z-[400] bg-slate-900 text-white text-[11px] px-3 py-1.5 rounded-full shadow-lg border border-slate-700 flex items-center gap-2 pointer-events-none">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                   <span>💡 Drag numbered dots (1, 2, 3...) to fix points on map • Click to add vertices</span>
                 </div>
