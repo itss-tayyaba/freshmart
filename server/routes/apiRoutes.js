@@ -30,6 +30,7 @@ import {
   getMyOrders,
   getAssignedRiderOrders,
   getPickupAssignedOrders,
+  assignPickupStaff,
   updateOrderPickupStatus,
   updateMyRiderLocation,
   trackOrder,
@@ -166,6 +167,7 @@ router.get('/orders/pickup-assigned-to-me', protect, getPickupAssignedOrders);
 router.get('/orders/track/:orderId', trackOrder);
 // Admin & Staff Operations
 router.put('/orders/:id/assign-rider', protect, adminOnly, assignRiderToOrder);
+router.put('/orders/:id/assign-pickup', protect, adminOnly, assignPickupStaff);
 router.put('/orders/:id/rider-location', protect, updateRiderLocation);
 router.put('/orders/:id/pickup-status', protect, requireRoles('pickup_staff', 'staff', 'admin', 'superadmin', 'store admin'), updateOrderPickupStatus);
 router.post('/orders/:id/verify-delivery-otp', verifyDeliveryOtp);

@@ -9,6 +9,9 @@ import { ADMIN_ORDERS_FULL } from '../../src/data/adminSuiteData.js';
 import { ORDERS, BRANCHES, resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyData.js';
 import { resolveOrderRouting, normalizeOrderTenantId } from '../../src/utils/orderScope.js';
 import { loadDiskRiders, saveAllDiskRiders } from './extraControllers.js';
+import { PickupStaff } from '../models/PickupStaff.js';
+import { loadDiskPickupStaff } from './authController.js';
+import { TERMINAL_STATUSES, pickupStaffCanSee, riderCanSee, canRiderStartDelivery, dispatchToAssignedRider } from '../utils/orderVisibility.js';
 
 const ORDERS_FILE_PATH = path.resolve(process.cwd(), 'server/data/orders_db.json');
 
@@ -527,9 +530,20 @@ export const getOrders = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied: staff or admin account required.' });
     }
 
+    // Pickup staff only see orders the admin assigned to them; riders only their own assigned parcels.
+    const gateForRole = (list) => {
+      if (role === 'pickup_staff' || role === 'staff') {
+        return list.filter((o) => pickupStaffCanSee(o, req.user, { sameTenant: isSameTenant }));
+      }
+      if (role === 'rider') {
+        return list.filter((o) => riderCanSee(o, req.user, { sameTenant: isSameTenant, history: req.query?.history === 'true' }));
+      }
+      return list;
+    };
+
     const filter = {};
     if (role === 'pickup_staff' || role === 'staff') {
-      if (staffId && req.query?.assignedOnly === 'true') filter.pickupStaffId = staffId;
+      filter.pickupStaffId = String(staffId || '__none__');
       if (userTenantId && role !== 'superadmin') {
         const canonical = resolveTenantId(userTenantId);
         filter.$or = [
@@ -585,7 +599,8 @@ export const getOrders = async (req, res) => {
         }
         combined.push(d);
       });
-      return res.json({ success: true, count: combined.length, orders: combined });
+      const gatedCombined = gateForRole(combined);
+      return res.json({ success: true, count: gatedCombined.length, orders: gatedCombined });
     }
 
     const diskOrders = loadDiskOrders();
@@ -637,6 +652,7 @@ export const getOrders = async (req, res) => {
         return matchTenant && matchBranch;
       });
     }
+    orders = gateForRole(orders);
     return res.json({ success: true, count: orders.length, orders });
   } catch (error) {
     console.error('getOrders error:', error);
@@ -840,8 +856,6 @@ export const assignRiderToOrder = async (req, res) => {
       etaMinutes: 15
     };
 
-    const newStatus = 'Out for Delivery';
-
     if (isDbOnline()) {
       const order = await Order.findOne({
         $or: [
@@ -879,8 +893,16 @@ export const assignRiderToOrder = async (req, res) => {
         assignedInfo.etaMinutes = etaMinutes;
 
         // Set status to requested status or Out for Delivery
-        const assignedStatus = req.body.status || 'Out for Delivery';
-        const isDispatched = true;
+        // The rider sees the parcel right away (phase "preparing"); it only goes "Out for Delivery"
+        // once the pickup staff marked it Ready.
+        const readyForHandover = Boolean(
+          order.isDispatchedByStaff ||
+          !order.pickupStaffId ||
+          req.body.status === 'Out for Delivery' ||
+          ['ready for dispatch', 'prepared', 'ready for pickup'].includes(String(order.status).toLowerCase())
+        );
+        const assignedStatus = readyForHandover ? (req.body.status || 'Out for Delivery') : order.status;
+        const isDispatched = readyForHandover;
 
         // Ensure 4-digit Handover OTP is assigned
         if (!order.deliveryOtp) {
@@ -889,9 +911,9 @@ export const assignRiderToOrder = async (req, res) => {
 
         order.assignedRider = assignedInfo;
         order.status = assignedStatus;
-        order.fulfillmentStage = 3; // Stage 3: Dispatched & Out for Delivery
-        order.isDispatched = true;
-        order.dispatchStatus = assignedStatus;
+        order.fulfillmentStage = readyForHandover ? 3 : (order.fulfillmentStage || 2);
+        order.isDispatched = readyForHandover;
+        order.dispatchStatus = readyForHandover ? assignedStatus : (order.dispatchStatus || '');
         order.destinationCoords = destCoords;
         order.distanceKm = distanceKm;
         order.eta = etaText;
@@ -939,8 +961,14 @@ export const assignRiderToOrder = async (req, res) => {
       assignedInfo.etaMinutes = etaMinutes;
 
       // Set status to requested status or Out for Delivery
-      const assignedStatus = req.body.status || 'Out for Delivery';
-      const isDispatched = true;
+      const readyForHandover = Boolean(
+        memOrder.isDispatchedByStaff ||
+        !memOrder.pickupStaffId ||
+        req.body.status === 'Out for Delivery' ||
+        ['ready for dispatch', 'prepared', 'ready for pickup'].includes(String(memOrder.status).toLowerCase())
+      );
+      const assignedStatus = readyForHandover ? (req.body.status || 'Out for Delivery') : memOrder.status;
+      const isDispatched = readyForHandover;
 
       // Ensure 4-digit Handover OTP is assigned
       if (!memOrder.deliveryOtp) {
@@ -949,9 +977,9 @@ export const assignRiderToOrder = async (req, res) => {
 
       memOrder.assignedRider = assignedInfo;
       memOrder.status = assignedStatus;
-      memOrder.fulfillmentStage = 3; // Stage 3: Dispatched & Out for Delivery
-      memOrder.isDispatched = true;
-      memOrder.dispatchStatus = assignedStatus;
+      memOrder.fulfillmentStage = readyForHandover ? 3 : (memOrder.fulfillmentStage || 2);
+      memOrder.isDispatched = readyForHandover;
+      memOrder.dispatchStatus = readyForHandover ? assignedStatus : (memOrder.dispatchStatus || '');
       memOrder.statusClass = 'bg-amber-100 text-amber-800';
       memOrder.destinationCoords = destCoords;
       memOrder.distanceKm = distanceKm;
@@ -1097,31 +1125,27 @@ export const updateOrderStatus = async (req, res) => {
         const userBranch = req.user?.branchId;
         if (userTenant && !isSameTenant(ordTenant, userTenant)) return false;
         if (userBranch && order.branchId && order.branchId !== userBranch) return false;
-        if (order.pickupStaffId && staffId && String(order.pickupStaffId) !== String(staffId)) return false;
+        // Only the staff member the admin assigned this order to may work on it (no self-claiming)
+        if (!pickupStaffCanSee(order, req.user, { sameTenant: isSameTenant })) return false;
         if (!pickupStatuses.has(status)) return false;
-
-        // Auto-assign staff ID when pickup staff starts working on an unassigned order
-        if (!order.pickupStaffId && staffId) {
-          order.pickupStaffId = staffId;
-          order.pickupStaffName = req.user?.name || req.user?.username || 'Pickup Staff';
-          order.pickupStaffUsername = req.user?.username;
-        }
-
-        // If marking prepared / ready for delivery, stage it without assigning a rider
-        if (status === 'Prepared' || status === 'Ready' || status === 'Ready for Dispatch') {
-          order.isDispatchedByStaff = true;
-          order.readyForDispatchAt = new Date().toISOString();
-        }
       } else if (role === 'rider') {
-        const assignedId = order.assignedRider?.id || order.assignedRider?.riderId;
-        if (assignedId && riderId && String(assignedId) !== String(riderId)) return false;
+        // A rider may only update a parcel assigned to him, and only after pickup staff handed it over
+        if (!riderCanSee(order, req.user, { sameTenant: isSameTenant })) return false;
+        if (!canRiderStartDelivery(order)) return false;
       } else if (!isAdmin) {
         return false;
       }
 
       order.status = (status === 'Ready' || status === 'Ready for Dispatch') ? 'Prepared' : status;
+      // Only admins may re-assign staff/riders or flip dispatch flags through the request body
+      const adminOnlyFields = new Set(['pickupStaffId', 'pickupStaffName', 'pickupStaffUsername', 'pickupAssignedAt', 'assignedRider', 'isDispatched']);
       for (const field of metadataFields) {
+        if (!isAdmin && adminOnlyFields.has(field)) continue;
         if (Object.prototype.hasOwnProperty.call(updates, field)) order[field] = updates[field];
+      }
+      // Staff marked it Ready: it goes to the assigned rider (if any) now, not earlier
+      if ((role === 'pickup_staff' || role === 'staff') && ['Prepared', 'Ready', 'Ready for Dispatch'].includes(status)) {
+        dispatchToAssignedRider(order);
       }
       if (!updates.fulfillmentUpdatedAt && ['pickup_staff', 'staff', 'rider'].includes(role)) {
         order.fulfillmentUpdatedAt = new Date();
@@ -1437,23 +1461,10 @@ export const getMyOrders = async (req, res) => {
 export const getAssignedRiderOrders = async (req, res) => {
   try {
     const riderId = String(req.user?.riderId || req.user?.id || req.user?._id || '').toLowerCase().trim();
-    const riderName = (req.user?.name || '').toLowerCase().trim();
-    const riderPhone = (req.user?.phone || '').replace(/[^0-9]/g, '');
 
-    const matchesRider = (order) => {
-      if (!order) return false;
-      const assigned = order.assignedRider;
-      if (assigned) {
-        const aId = String(assigned.id || assigned.riderId || assigned._id || '').toLowerCase().trim();
-        if (riderId && aId && aId === riderId) return true;
-        const aName = String(assigned.name || '').toLowerCase().trim();
-        if (riderName && aName && (aName === riderName || aName.includes(riderName) || riderName.includes(aName))) return true;
-        const aPhone = String(assigned.phone || '').replace(/[^0-9]/g, '');
-        if (riderPhone && aPhone && riderPhone.length >= 7 && aPhone.includes(riderPhone.slice(-7))) return true;
-      }
-      if (order.riderId && String(order.riderId).toLowerCase().trim() === riderId) return true;
-      return false;
-    };
+    // Assigned by id only (no fuzzy name/phone match). Active parcels: preparing + dispatched; ?history=true adds finished ones.
+    const matchesRider = (order) =>
+      riderCanSee(order, req.user, { sameTenant: isSameTenant, history: req.query?.history === 'true' });
 
     let matched = [];
     if (isDbOnline()) {
@@ -1464,12 +1475,11 @@ export const getAssignedRiderOrders = async (req, res) => {
             { 'assignedRider.riderId': { $regex: new RegExp(`^${riderId}$`, 'i') } },
             { riderId: { $regex: new RegExp(`^${riderId}$`, 'i') } }
           ] : []),
-          ...(riderName ? [{ 'assignedRider.name': { $regex: new RegExp(riderName, 'i') } }] : [])
         ]
       };
       if (query.$or.length > 0) {
         const dbFound = await Order.find(query).sort({ createdAt: -1 });
-        matched = dbFound.map((o) => (o.toObject ? o.toObject() : o));
+        matched = dbFound.map((o) => (o.toObject ? o.toObject() : o)).filter(matchesRider);
       }
     }
 
@@ -1506,37 +1516,14 @@ export const getAssignedRiderOrders = async (req, res) => {
 export const getPickupAssignedOrders = async (req, res) => {
   try {
     const staffId = String(req.user?.staffId || req.user?.id || req.user?._id || '').toLowerCase().trim();
-    const userTenantId = req.user?.tenantId;
-    const userBranchId = req.user?.branchId;
 
-    const matchesPickup = (order) => {
-      if (!order) return false;
-      const orderTenant = order.tenantId || order.companyId;
-      if (userTenantId && !isSameTenant(orderTenant, userTenantId)) return false;
-      if (userBranchId && order.branchId && order.branchId !== userBranchId && userBranchId !== 'all') return false;
-
-      // Specifically assigned to this staff member
-      if (order.pickupStaffId && String(order.pickupStaffId).toLowerCase().trim() === staffId) return true;
-
-      // Or unassigned and in active fulfillment stage
-      const status = (order.status || '').toLowerCase();
-      const isFulfillmentQueue = [
-        'pending', 'confirmed', 'processing', 'preparing',
-        'picking', 'packed', 'ready', 'ready for pickup', 'ready for dispatch', 'prepared'
-      ].includes(status);
-
-      return isFulfillmentQueue;
-    };
+    // Only orders the admin assigned to THIS staff member (no shared unassigned queue)
+    const matchesPickup = (order) => pickupStaffCanSee(order, req.user, { sameTenant: isSameTenant });
 
     let matched = [];
-    if (isDbOnline()) {
+    if (isDbOnline() && staffId) {
       const query = {
-        $or: [
-          ...(staffId ? [{ pickupStaffId: staffId }] : []),
-          { pickupStaffId: { $exists: false } },
-          { pickupStaffId: null },
-          { pickupStaffId: '' }
-        ]
+        pickupStaffId: { $regex: new RegExp(`^${staffId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
       };
       const dbFound = await Order.find(query).sort({ createdAt: -1 });
       matched = dbFound.map((o) => (o.toObject ? o.toObject() : o)).filter(matchesPickup);
@@ -1583,18 +1570,13 @@ export const updateOrderPickupStatus = async (req, res) => {
     const normalized = String(status).trim();
     const cleanId = String(id).replace(/^#/, '').toLowerCase().trim();
 
-    const staffId = req.user?.staffId || req.user?.id || req.user?._id;
-    const staffName = req.user?.name || req.user?.username || 'Pickup Staff';
-
     const applyPickup = (order) => {
+      const isAdminUser = ['admin', 'superadmin', 'store admin'].includes(req.user?.role);
+      if (!isAdminUser && !pickupStaffCanSee(order, req.user, { sameTenant: isSameTenant })) return false;
       order.status = normalized;
       order.pickupStatus = normalized;
       order.fulfillmentStatus = normalized;
       order.fulfillmentUpdatedAt = new Date().toISOString();
-      if (!order.pickupStaffId && staffId) {
-        order.pickupStaffId = String(staffId);
-        order.pickupStaffName = staffName;
-      }
       if (normalized.toLowerCase() === 'preparing' || normalized.toLowerCase() === 'picking') {
         order.fulfillmentStage = 2; // In preparation
         order.preparingAt = order.preparingAt || new Date().toISOString();
@@ -1608,6 +1590,9 @@ export const updateOrderPickupStatus = async (req, res) => {
         order.isDispatchedByStaff = true;
         order.readyForPickupAt = new Date().toISOString();
         order.readyForDispatchAt = new Date().toISOString();
+        if (normalized.toLowerCase() === 'prepared' || normalized.toLowerCase() === 'ready for dispatch') {
+          dispatchToAssignedRider(order);
+        }
       }
       order.timeline = buildDynamicTimeline(order);
       return true;
@@ -1627,9 +1612,10 @@ export const updateOrderPickupStatus = async (req, res) => {
       });
 
       if (order) {
-        applyPickup(order);
-        updatedOrder = await order.save();
-        saveDiskOrder(updatedOrder);
+        if (applyPickup(order)) {
+          updatedOrder = await order.save();
+          saveDiskOrder(updatedOrder);
+        }
       }
     }
 
@@ -1639,9 +1625,10 @@ export const updateOrderPickupStatus = async (req, res) => {
         return oId === cleanId || o.id === id || o.orderId === id;
       });
       if (memOrder) {
-        applyPickup(memOrder);
-        saveDiskOrder(memOrder);
-        updatedOrder = memOrder;
+        if (applyPickup(memOrder)) {
+          saveDiskOrder(memOrder);
+          updatedOrder = memOrder;
+        }
       }
     }
 
@@ -1651,9 +1638,10 @@ export const updateOrderPickupStatus = async (req, res) => {
         return oId === cleanId || o.id === id || o.orderId === id;
       });
       if (diskOrder) {
-        applyPickup(diskOrder);
-        saveDiskOrder(diskOrder);
-        updatedOrder = diskOrder;
+        if (applyPickup(diskOrder)) {
+          saveDiskOrder(diskOrder);
+          updatedOrder = diskOrder;
+        }
       }
     }
 
@@ -1828,6 +1816,92 @@ export const deleteOrder = async (req, res) => {
     });
   } catch (error) {
     console.error('deleteOrder error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Admin assigns an order to a pickup staff member. Until this happens the order is
+//          invisible to every pickup staff account.
+// @route   PUT /api/orders/:id/assign-pickup      body: { staffId }
+export const assignPickupStaff = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const staffId = String(req.body?.staffId || '').trim();
+    if (!staffId) return res.status(400).json({ success: false, message: 'staffId is required.' });
+    const cleanId = String(id).replace(/^#/, '').toLowerCase().trim();
+    const sid = staffId.toLowerCase();
+
+    let staff = null;
+    if (isDbOnline()) {
+      staff = await PickupStaff.findOne({ $or: [{ staffId }, { id: staffId }] }).lean();
+    }
+    if (!staff) {
+      staff = loadDiskPickupStaff().find((x) => String(x.staffId || x.id || '').toLowerCase() === sid) || null;
+    }
+    if (!staff) return res.status(404).json({ success: false, message: 'Pickup staff not found.' });
+    if (staff.status && staff.status !== 'Active') {
+      return res.status(400).json({ success: false, message: 'This pickup staff account is not active.' });
+    }
+
+    const apply = (order) => {
+      const orderTenant = normalizeOrderTenantId(order);
+      if (req.user?.role !== 'superadmin' && req.user?.tenantId && !isSameTenant(orderTenant, req.user.tenantId)) {
+        return { error: 403, message: 'This order belongs to another store.' };
+      }
+      if (!isSameTenant(orderTenant, staff.tenantId)) {
+        return { error: 400, message: 'This pickup staff works for a different store.' };
+      }
+      if (order.branchId && staff.branchId && staff.branchId !== 'all' && order.branchId !== staff.branchId) {
+        return { error: 400, message: 'This pickup staff works at a different branch.' };
+      }
+      if (TERMINAL_STATUSES.has(String(order.status || '').toLowerCase())) {
+        return { error: 400, message: 'This order is already closed.' };
+      }
+      order.pickupStaffId = String(staff.staffId || staff.id);
+      order.pickupStaffName = staff.name;
+      order.pickupStaffUsername = staff.username;
+      order.pickupAssignedAt = new Date().toISOString();
+      order.timeline = buildDynamicTimeline(order);
+      return { ok: true };
+    };
+    const matchId = (o) => {
+      const oId = String(o.id || o.orderId || '').replace(/^#/, '').toLowerCase().trim();
+      return oId === cleanId || o.id === id || o.orderId === id;
+    };
+    const reply = (result, order) =>
+      result.ok
+        ? res.json({ success: true, message: `Order assigned to ${staff.name}.`, order })
+        : res.status(result.error).json({ success: false, message: result.message });
+
+    if (isDbOnline()) {
+      const order = await Order.findOne({
+        $or: [
+          ...(id && id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : []),
+          { orderId: id }, { id }, { orderId: `#${cleanId}` }, { orderId: cleanId }
+        ]
+      });
+      if (order) {
+        const result = apply(order);
+        if (!result.ok) return reply(result);
+        const saved = await order.save();
+        saveDiskOrder(saved);
+        return reply(result, saved);
+      }
+    }
+    const memOrder = ADMIN_ORDERS_FULL.find(matchId);
+    if (memOrder) {
+      const result = apply(memOrder);
+      if (result.ok) saveDiskOrder(memOrder);
+      return reply(result, memOrder);
+    }
+    const diskOrder = loadDiskOrders().find(matchId);
+    if (diskOrder) {
+      const result = apply(diskOrder);
+      if (result.ok) saveDiskOrder(diskOrder);
+      return reply(result, diskOrder);
+    }
+    return res.status(404).json({ success: false, message: 'Order not found.' });
+  } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
 };

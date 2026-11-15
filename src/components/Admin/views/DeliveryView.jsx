@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { PAKISTAN_CITIES, calculateDistanceKm } from '../../../data/pakistanLocations';
+import { isPointInPolygon } from '../../../utils/distanceCalculator';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 import { getWhatsAppDeliveryLink } from '../../../utils/whatsappHelper';
 import { normalizeOrderTenantId } from '../../../utils/orderScope';
@@ -320,6 +321,26 @@ export const DeliveryView = () => {
     return getSectorForBranch(selectedBranchForForm);
   }, [selectedBranchForForm]);
 
+  // Areas an admin may give a rider: ONLY neighbourhoods inside this store's real delivery region
+  // (its drawn polygon, or its radius when no polygon is drawn yet).
+  const regionAreas = useMemo(() => {
+    const b = selectedBranchForForm;
+    if (!b) return [];
+    const wantedCity = String(b.city || 'Faisalabad').toLowerCase();
+    const cityData = PAKISTAN_CITIES.find(({ city }) => String(city).toLowerCase() === wantedCity) || PAKISTAN_CITIES[0];
+    const all = cityData?.neighborhoods || [];
+    if (Array.isArray(b.deliveryPolygon) && b.deliveryPolygon.length >= 3) {
+      return all.filter((n) => isPointInPolygon(n.coords, b.deliveryPolygon));
+    }
+    const radius = Number(b.deliveryRadiusKm ?? b.deliveryRadius);
+    const bLat = Number(b.latitude ?? b.coordinates?.lat);
+    const bLng = Number(b.longitude ?? b.coordinates?.lng);
+    if (radius > 0 && Number.isFinite(bLat) && Number.isFinite(bLng)) {
+      return all.filter((n) => calculateDistanceKm(bLat, bLng, n.coords.lat, n.coords.lng) <= radius);
+    }
+    return [];
+  }, [selectedBranchForForm]);
+
   const [showRiderPassword, setShowRiderPassword] = useState(false);
   const [editingRider, setEditingRider] = useState(null);
   const [editRiderForm, setEditRiderForm] = useState({
@@ -592,27 +613,22 @@ export const DeliveryView = () => {
       (b) => (b.id || b._id || b.name) === newRiderForm.branchId || b.name === newRiderForm.branchName
     ) || availableBranches[0];
 
-    // Enforce that rider's location must be in Faisalabad and within the branch's delivery region:
     const branchSector = getSectorForBranch(selectedBranch);
-    const areaLower = (newRiderForm.serviceArea || '').toLowerCase().trim();
 
-    // Check if the area belongs to another distant sector
-    const otherSectors = FAISALABAD_DELIVERY_SECTORS.filter((s) => s.id !== branchSector.id);
-    const isOutOfRegion = otherSectors.some((other) =>
-      other.neighborhoods.some((n) => areaLower.includes(n.toLowerCase()))
-    );
-
-    if (isOutOfRegion) {
+    // The rider's area must be one of the neighbourhoods inside THIS store's delivery region.
+    // (The server checks the coordinates again, so this cannot be bypassed.)
+    const pickedArea = regionAreas.find((n) => (n.name || n.area) === newRiderForm.serviceArea);
+    if (!isCustomRegion && !pickedArea) {
       addToast(
-        'Out of Delivery Region ❌',
-        `Cannot add rider: "${newRiderForm.serviceArea}" is outside ${selectedBranch.name}'s delivery region (${branchSector.shortName}). Please assign a location around this store.`,
+        'Pick an area inside the delivery region',
+        `Choose one of the areas shown under "Inside Delivery Region" for ${selectedBranch?.name || 'this store'}.`,
         'error'
       );
       return;
     }
 
-    let lat = Number(newRiderForm.latitude);
-    let lng = Number(newRiderForm.longitude);
+    let lat = pickedArea ? Number(pickedArea.coords.lat) : Number(newRiderForm.latitude);
+    let lng = pickedArea ? Number(pickedArea.coords.lng) : Number(newRiderForm.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       lat = selectedBranch ? Number(selectedBranch.latitude) : 31.4125;
       lng = selectedBranch ? Number(selectedBranch.longitude) : 73.0915;
@@ -1947,31 +1963,39 @@ export const DeliveryView = () => {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Peoples Colony, D-Ground"
+                    readOnly
+                    placeholder="Pick an area below (inside this store's delivery region)"
                     value={newRiderForm.serviceArea}
                     onChange={(e) => setNewRiderForm({ ...newRiderForm, serviceArea: e.target.value, region: e.target.value, zone: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                   {/* Dynamic Quick Select Area Chips around Store Location */}
                   <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
-                    <span className="text-[10px] font-bold text-slate-400">Around Store Location:</span>
-                    {branchSectorForForm.neighborhoods.map((area) => (
+                    <span className="text-[10px] font-bold text-slate-400">Inside Delivery Region:</span>
+                    {regionAreas.length === 0 && (
+                      <span className="text-[10px] font-semibold text-amber-700">
+                        No area found inside this store's delivery region. Draw its delivery zone first.
+                      </span>
+                    )}
+                    {regionAreas.map((n) => (
                       <button
-                        key={area}
+                        key={n.id || n.name}
                         type="button"
                         onClick={() => setNewRiderForm((prev) => ({
                           ...prev,
-                          serviceArea: area,
-                          region: `${area} (${branchSectorForForm.shortName})`,
-                          zone: area
+                          serviceArea: n.name,
+                          region: `${n.name} (${branchSectorForForm.shortName})`,
+                          zone: n.name,
+                          latitude: String(n.coords.lat),
+                          longitude: String(n.coords.lng)
                         }))}
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
-                          newRiderForm.serviceArea === area
+                          newRiderForm.serviceArea === n.name
                             ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
                             : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
                         }`}
                       >
-                        +{area}
+                        +{n.name}
                       </button>
                     ))}
                   </div>

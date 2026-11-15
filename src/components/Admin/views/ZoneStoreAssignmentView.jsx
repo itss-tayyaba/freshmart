@@ -1076,11 +1076,19 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
         map.panTo(targetPoint, { animate: false });
       }
 
-      setTimeout(() => {
-        try {
-          map.invalidateSize({ debounceMoveEvents: true });
-        } catch (e) {}
-      }, 100);
+      [30, 100, 250, 500].forEach((ms) => {
+        setTimeout(() => {
+          try {
+            if (map && map._container) {
+              map.invalidateSize({ debounceMoveEvents: true });
+              const layer = tileLayerRef.current;
+              if (layer && !map.hasLayer(layer)) {
+                layer.addTo(map);
+              }
+            }
+          } catch (e) {}
+        }, ms);
+      });
     }
 
     if (addToast) {
@@ -1432,18 +1440,22 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
-    const timer = setTimeout(() => {
-      try {
-        map.invalidateSize({ debounceMoveEvents: true });
-        const layer = tileLayerRef.current;
-        if (!layer) {
-          switchMapTileLayer(map, tileLayerType || 'street', tileLayerRef);
-        } else if (!map.hasLayer(layer)) {
-          layer.addTo(map);
-        }
-      } catch (e) {}
-    }, 100);
-    return () => clearTimeout(timer);
+    const timers = [30, 100, 250, 600].map((ms) =>
+      setTimeout(() => {
+        try {
+          if (map && map._container) {
+            map.invalidateSize({ debounceMoveEvents: true });
+            const layer = tileLayerRef.current;
+            if (!layer) {
+              switchMapTileLayer(map, tileLayerType || 'street', tileLayerRef);
+            } else if (!map.hasLayer(layer)) {
+              layer.addTo(map);
+            }
+          }
+        } catch (e) {}
+      }, ms)
+    );
+    return () => timers.forEach(clearTimeout);
   }, [isDrawingPolygon, tileLayerType]);
 
   // Update Drawing Layer Preview whenever drawnPoints change
@@ -1601,11 +1613,19 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
           map.fitBounds(L.latLngBounds(polyPoints), { padding: [80, 80], maxZoom: 15, animate: false });
         } catch (e) {}
       }
-      setTimeout(() => {
-        try {
-          map.invalidateSize({ debounceMoveEvents: true });
-        } catch (e) {}
-      }, 100);
+      [30, 100, 250, 500].forEach((ms) => {
+        setTimeout(() => {
+          try {
+            if (map && map._container) {
+              map.invalidateSize({ debounceMoveEvents: true });
+              const layer = tileLayerRef.current;
+              if (layer && !map.hasLayer(layer)) {
+                layer.addTo(map);
+              }
+            }
+          } catch (e) {}
+        }, ms);
+      });
     }
     if (addToast) {
       addToast(
@@ -2533,8 +2553,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
 
               <div
                 ref={mapContainerRef}
-                className={`leaflet-container w-full z-10 bg-slate-900 ${isDrawingPolygon ? 'cursor-crosshair ring-2 ring-emerald-500 ring-inset' : ''}`}
-                style={{ height: '520px', minHeight: '520px', isolation: 'isolate' }}
+                className={`w-full z-10 bg-slate-100 dark:bg-slate-900 ${isDrawingPolygon ? 'cursor-crosshair ring-2 ring-emerald-500 ring-inset' : ''}`}
+                style={{ height: '520px', minHeight: '520px' }}
               />
 
               {/* Floating Helper Tip Pill over map (solid background to prevent GPU backdrop-filter compositing glitch) */}

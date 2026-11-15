@@ -517,6 +517,13 @@ html, body, header, nav, main, footer, div, section, article {
 /* Overrides Leaflet 1.9's 'mix-blend-mode: plus-lighter' which blows out    */
 /* tile colors to pure white against container backgrounds and SVG overlays. */
 /* ========================================================================= */
+.leaflet-container {
+  background: #f1f5f9 !important;
+}
+.dark .leaflet-container {
+  background: #0f172a !important;
+}
+
 img.leaflet-tile,
 .leaflet-tile,
 .leaflet-tile-pane img,
@@ -527,6 +534,8 @@ img.leaflet-tile,
   filter: none !important;
   opacity: 1 !important;
   visibility: visible !important;
+  display: block !important;
+  max-width: none !important;
 }
 
 .leaflet-tile-pane {

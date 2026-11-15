@@ -5,7 +5,22 @@ import { Product } from '../models/Product.js';
 import { User } from '../models/User.js';
 import { Order } from '../models/Order.js';
 import { Supplier, Promotion, Delivery, Rider, CustomerLocation } from '../models/ExtraModels.js';
-import { isSameTenant, resolveTenantId } from '../../src/data/companyHierarchyData.js';
+import { isSameTenant, resolveTenantId, BRANCHES } from '../../src/data/companyHierarchyData.js';
+import { Branch } from '../models/Branch.js';
+import { checkPointInBranchRegion } from '../utils/orderVisibility.js';
+
+/** Store (branch) record used to verify a rider's area against its delivery region. */
+const loadBranchForRegion = async (branchId) => {
+  const key = String(branchId || '').trim();
+  if (!key) return null;
+  if (isDbOnline()) {
+    try {
+      const b = await Branch.findOne({ $or: [{ _id: key }, { id: key }] }).lean();
+      if (b) return b;
+    } catch { /* fall through to static data */ }
+  }
+  return BRANCHES.find((b) => String(b.id || b._id) === key) || null;
+};
 import {
   ADMIN_STATS,
   ADMIN_TOP_PRODUCTS,
@@ -382,6 +397,22 @@ export const addRider = async (req, res) => {
     }
     const branchName = rawBranchName || (branchId === 'branch_um_fsd' ? 'Peoples Colony Dark Store' : 'Main Branch');
 
+    // The rider's area MUST be inside the delivery region of the store he is added to.
+    if (!isGlobal && branchId !== 'custom') {
+      const hasExplicitCoords =
+        (latitude !== undefined && latitude !== null && latitude !== '' && longitude !== undefined && longitude !== null && longitude !== '') ||
+        (coordinates?.lat !== undefined && coordinates?.lng !== undefined);
+      const regionBranch = await loadBranchForRegion(branchId);
+      const regionCheck = checkPointInBranchRegion(regionBranch, hasExplicitCoords ? lat : NaN, hasExplicitCoords ? lng : NaN);
+      if (!regionCheck.ok) {
+        return res.status(400).json({
+          success: false,
+          code: 'RIDER_OUTSIDE_DELIVERY_REGION',
+          message: `Rider not added: ${regionCheck.reason}`
+        });
+      }
+    }
+
     const newRider = {
       id: riderId,
       name,
@@ -458,6 +489,18 @@ export const updateRider = async (req, res) => {
         String(r.username || '').trim().toLowerCase() === cleanId ||
         (r.phone && updates.phone && String(r.phone).replace(/[^0-9]/g, '') === String(updates.phone).replace(/[^0-9]/g, ''))
     );
+
+    // When an admin moves a rider to a new location, it must stay inside the store's delivery region.
+    if (['admin', 'superadmin', 'store admin'].includes(req.user?.role) && updates.latitude !== undefined && updates.longitude !== undefined) {
+      const targetBranchId = updates.branchId || diskRiders[idx]?.branchId;
+      const isGlobalRider = (updates.isGlobal ?? diskRiders[idx]?.isGlobal) === true;
+      if (targetBranchId && targetBranchId !== 'custom' && !isGlobalRider) {
+        const regionCheck = checkPointInBranchRegion(await loadBranchForRegion(targetBranchId), updates.latitude, updates.longitude);
+        if (!regionCheck.ok) {
+          return res.status(400).json({ success: false, code: 'RIDER_OUTSIDE_DELIVERY_REGION', message: `Rider not updated: ${regionCheck.reason}` });
+        }
+      }
+    }
 
     let updatedRider = null;
     if (idx >= 0) {
