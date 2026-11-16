@@ -287,7 +287,7 @@ export const CustomerPortal = () => {
         {/* ========================================================= */}
         {/* LEFT COLUMN: Sidebar Navigation (3 Columns)               */}
         {/* ========================================================= */}
-        <aside className="lg:col-span-3 space-y-5">
+        <aside className="lg:col-span-3 space-y-5 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto no-scrollbar">
           
           {/* Profile Card in Store Themed Gradient */}
           <div
