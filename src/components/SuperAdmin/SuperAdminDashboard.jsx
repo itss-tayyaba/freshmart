@@ -19,6 +19,7 @@ import {
   ChevronRight,
   ChevronDown,
   ChevronUp,
+  Crown,
   ShieldCheck,
   Layers,
   MapPin,
@@ -183,6 +184,7 @@ export const SuperAdminDashboard = () => {
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [selectedOrderInvoice, setSelectedOrderInvoice] = useState(null);
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+  const [planBillingCycle, setPlanBillingCycle] = useState('monthly'); // 'monthly' | 'annual'
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -2269,63 +2271,349 @@ export const SuperAdminDashboard = () => {
           {/* ===================================================================== */}
           {/* SUB-DASHBOARD: 3. SUBSCRIPTION PLANS                                  */}
           {/* ===================================================================== */}
-          {activeNav === 'plans' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-purple-600" />
-                  <span>Supermarket Tenant Subscription Plans</span>
-                </h2>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Multi-tier service models for Pakistani supermarket partners with transparent fees & SLAs.
-                </p>
-              </div>
+          {activeNav === 'plans' && (() => {
+            const uniquePlans = Array.isArray(SUBSCRIPTION_PLANS)
+              ? SUBSCRIPTION_PLANS.slice(0, 3)
+              : [SUBSCRIPTION_PLANS.Starter, SUBSCRIPTION_PLANS.Professional, SUBSCRIPTION_PLANS.Enterprise];
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {Object.entries(SUBSCRIPTION_PLANS).map(([key, plan]) => (
-                  <div
-                    key={key}
-                    className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-2xs space-y-5 flex flex-col justify-between"
-                  >
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-black text-slate-900 text-lg">{plan.name} Tier</h3>
-                        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
-                          {plan.commissionRate}% Commission
-                        </span>
-                      </div>
+            const tenantList = Array.isArray(tenants) ? tenants : [];
+            let totalMRR = 0;
+            tenantList.forEach((t) => {
+              const pName = t.subscription?.plan || 'Professional';
+              const pObj = (uniquePlans || []).find((p) => p.name.toLowerCase() === pName.toLowerCase()) || uniquePlans[1];
+              totalMRR += Number(t.subscription?.price || pObj?.priceMonthly || 35000);
+            });
 
-                      <div>
-                        <span className="text-3xl font-black text-slate-900">
-                          PKR {plan.price.toLocaleString()}
-                        </span>
-                        <span className="text-xs text-slate-400 font-medium ml-1">/ month</span>
-                      </div>
+            const handleAssignStoreToPlan = (planName) => {
+              const target = selectedTenant || tenantList[0];
+              if (target) setSelectedTenant(target);
+              const price = planName === 'Enterprise' ? 75000 : planName === 'Professional' ? 35000 : 15000;
+              setEditPlanForm({
+                plan: planName,
+                billingCycle: planBillingCycle,
+                price: planBillingCycle === 'annual' ? (planName === 'Enterprise' ? 750000 : planName === 'Professional' ? 350000 : 150000) : price
+              });
+              setIsPlanModalOpen(true);
+            };
 
-                      <div className="pt-3 border-t border-slate-100 space-y-2 text-xs">
-                        <span className="font-bold text-slate-700 block text-[11px] uppercase tracking-wider">
-                          Features & Entitlements:
-                        </span>
-                        {(plan.features || []).map((feat, idx) => (
-                          <div key={idx} className="flex items-center gap-2 text-slate-600">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                            <span>{feat}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+            return (
+              <div className="space-y-6">
+                {/* Header & Billing Cycle Controls */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                      <Layers className="w-5 h-5 text-purple-600" />
+                      <span>Supermarket Tenant Subscription Plans</span>
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Multi-tier SaaS service models for Pakistani supermarket chains with transparent commission rates, dedicated rider fleets & SLAs.
+                    </p>
+                  </div>
 
+                  {/* Billing Toggle (Monthly vs Annual with discount) */}
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 self-start sm:self-auto">
                     <button
-                      onClick={() => addToast('Subscription Managed', `Super Admin viewing ${plan.name} tier configurations.`)}
-                      className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition cursor-pointer"
+                      type="button"
+                      onClick={() => setPlanBillingCycle('monthly')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        planBillingCycle === 'monthly'
+                          ? 'bg-white text-slate-900 shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
                     >
-                      Configure Tier
+                      Monthly Billing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPlanBillingCycle('annual')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                        planBillingCycle === 'annual'
+                          ? 'bg-purple-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>Annual Billing</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-black ${
+                        planBillingCycle === 'annual' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        Save 17%
+                      </span>
                     </button>
                   </div>
-                ))}
+                </div>
+
+                {/* KPI Overview Stat Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 shrink-0">
+                      <DollarSign className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Estimated Platform MRR</span>
+                      <span className="text-lg font-black text-slate-900">PKR {totalMRR.toLocaleString()}</span>
+                      <span className="text-[10px] text-slate-400 block font-medium">Monthly recurring from active supermarket chains</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                      <Building2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Active Supermarkets</span>
+                      <span className="text-lg font-black text-slate-900">{tenantList.length} Partner Chains</span>
+                      <span className="text-[10px] text-emerald-600 block font-bold">100% Active in Platform Registry</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Platform Take Rates</span>
+                      <span className="text-lg font-black text-slate-900">2.0% – 5.0%</span>
+                      <span className="text-[10px] text-blue-600 block font-bold">Zero hidden payment gateway surcharges</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3 Distinct Plan Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {uniquePlans.map((plan, index) => {
+                    const isPopular = plan.name === 'Professional';
+                    const isEnterprise = plan.name === 'Enterprise';
+                    const isAnnual = planBillingCycle === 'annual';
+
+                    const displayedPrice = isAnnual
+                      ? Math.round(plan.priceAnnual / 12)
+                      : plan.priceMonthly;
+
+                    const annualSavings = (plan.priceMonthly * 12) - plan.priceAnnual;
+
+                    const subscribed = tenantList.filter((t) => {
+                      const p = String(t.subscription?.plan || t.plan || '').toLowerCase();
+                      return p === plan.name.toLowerCase() || (plan.name === 'Professional' && p === 'pro');
+                    });
+
+                    return (
+                      <div
+                        key={plan.name || index}
+                        className={`rounded-3xl p-6 shadow-2xs space-y-5 flex flex-col justify-between transition-all relative ${
+                          isPopular
+                            ? 'bg-gradient-to-b from-purple-50/60 via-white to-white border-2 border-purple-400 shadow-md ring-4 ring-purple-100'
+                            : isEnterprise
+                            ? 'bg-gradient-to-b from-indigo-50/50 via-white to-white border border-indigo-200 shadow-sm'
+                            : 'bg-white border border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        {/* Popular / Enterprise Floating Header Badge */}
+                        {isPopular && (
+                          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[10px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full shadow-sm flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-amber-300" />
+                            <span>Recommended for Chains</span>
+                          </div>
+                        )}
+
+                        <div className="space-y-4">
+                          {/* Title & Badge */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                {isEnterprise && <Crown className="w-4 h-4 text-amber-500 fill-amber-400" />}
+                                <h3 className="font-black text-slate-900 text-xl">{plan.name} Tier</h3>
+                              </div>
+                              <span className="text-[11px] font-bold text-slate-500 mt-0.5 block">{plan.badge}</span>
+                            </div>
+                            <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full border ${
+                              isPopular
+                                ? 'bg-purple-100 text-purple-800 border-purple-200'
+                                : isEnterprise
+                                ? 'bg-indigo-100 text-indigo-800 border-indigo-200'
+                                : 'bg-slate-100 text-slate-700 border-slate-200'
+                            }`}>
+                              {plan.commissionRate}% Commission
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-slate-600 leading-relaxed">
+                            {plan.description}
+                          </p>
+
+                          {/* Pricing */}
+                          <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-100">
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                                PKR {displayedPrice.toLocaleString()}
+                              </span>
+                              <span className="text-xs text-slate-500 font-medium">/ month</span>
+                            </div>
+                            {isAnnual ? (
+                              <div className="mt-1 flex items-center justify-between text-[11px]">
+                                <span className="text-slate-500 font-medium">Billed PKR {plan.priceAnnual.toLocaleString()} / year</span>
+                                <span className="font-extrabold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">Save PKR {annualSavings.toLocaleString()}</span>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 font-medium mt-0.5 block">Billed monthly recurring, cancel anytime</span>
+                            )}
+                          </div>
+
+                          {/* 4 Core Quotas Grid */}
+                          <div className="grid grid-cols-2 gap-2 text-[11px]">
+                            <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200/80">
+                              <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">Store Hubs</span>
+                              <strong className="text-slate-800 font-black text-xs">{plan.maxHubs} {typeof plan.maxHubs === 'number' ? (plan.maxHubs === 1 ? 'Hub' : 'Hubs') : ''}</strong>
+                            </div>
+                            <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200/80">
+                              <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">Fleet Riders</span>
+                              <strong className="text-slate-800 font-black text-xs">{plan.maxRiders} {typeof plan.maxRiders === 'number' ? 'Riders' : ''}</strong>
+                            </div>
+                            <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200/80">
+                              <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">SLA Guarantee</span>
+                              <strong className="text-emerald-700 font-black text-xs">{plan.slaGuarantee} Uptime</strong>
+                            </div>
+                            <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200/80">
+                              <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">Take Rate</span>
+                              <strong className="text-purple-700 font-black text-xs">{plan.commissionRate}% per order</strong>
+                            </div>
+                          </div>
+
+                          {/* Subscribed Supermarket Tenants on this Tier */}
+                          <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                              Enrolled Supermarkets ({subscribed.length}):
+                            </span>
+                            {subscribed.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {subscribed.map((tenant) => (
+                                  <span
+                                    key={tenant.id}
+                                    className="text-[11px] font-bold bg-white text-slate-800 border border-slate-200 px-2 py-0.5 rounded-lg shadow-2xs flex items-center gap-1.5"
+                                  >
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                    <span>{tenant.name || tenant.fullName}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-[11px] text-slate-400 italic block">No supermarket chains on this tier yet.</span>
+                            )}
+                          </div>
+
+                          {/* Features & Entitlements List */}
+                          <div className="pt-2 border-t border-slate-100 space-y-2 text-xs">
+                            <span className="font-bold text-slate-700 block text-[11px] uppercase tracking-wider">
+                              Included Entitlements:
+                            </span>
+                            {(plan.features || []).map((feat, idx) => (
+                              <div key={idx} className="flex items-start gap-2 text-slate-600">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                                <span className="text-xs leading-tight">{feat}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Card Action Buttons */}
+                        <div className="pt-4 space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => handleAssignStoreToPlan(plan.name)}
+                            className={`w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs ${
+                              isPopular
+                                ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                                : isEnterprise
+                                ? 'bg-slate-900 hover:bg-slate-800 text-white'
+                                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                            }`}
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                            <span>Assign Supermarket to {plan.name}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => addToast('Plan Specifications', `${plan.name} tier offers ${plan.slaGuarantee} SLA with ${plan.commissionRate}% commission across ${plan.maxHubs} hubs.`)}
+                            className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-[11px] font-bold border border-slate-200 transition cursor-pointer"
+                          >
+                            View Tier Specifications
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Feature Comparison Matrix Table */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-4">
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-purple-600" />
+                      <span>Platform Capabilities & Tier Matrix</span>
+                    </h3>
+                    <p className="text-xs text-slate-500">Comprehensive side-by-side feature comparison for supermarket tenant provisioning.</p>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold text-slate-700">
+                          <th className="py-3 px-4 rounded-l-xl">Feature / Capability</th>
+                          <th className="py-3 px-4">Starter Plan</th>
+                          <th className="py-3 px-4 bg-purple-50/50 text-purple-900">Professional (Popular)</th>
+                          <th className="py-3 px-4 rounded-r-xl">Enterprise (Nationwide)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-600">
+                        <tr>
+                          <td className="py-3 px-4 font-bold text-slate-800">Monthly Order Volume</td>
+                          <td className="py-3 px-4">Up to 500 orders / mo</td>
+                          <td className="py-3 px-4 font-semibold text-purple-900 bg-purple-50/30">Up to 2,500 orders / mo</td>
+                          <td className="py-3 px-4 font-bold text-emerald-600">Unlimited orders</td>
+                        </tr>
+                        <tr>
+                          <td className="py-3 px-4 font-bold text-slate-800">Delivery Fleet & Couriers</td>
+                          <td className="py-3 px-4">5 Dedicated Couriers</td>
+                          <td className="py-3 px-4 font-semibold text-purple-900 bg-purple-50/30">20 Dedicated Couriers</td>
+                          <td className="py-3 px-4 font-bold text-emerald-600">Unlimited Fleet Scale</td>
+                        </tr>
+                        <tr>
+                          <td className="py-3 px-4 font-bold text-slate-800">Store Hubs & Delivery Polygons</td>
+                          <td className="py-3 px-4">1 Single Store Hub</td>
+                          <td className="py-3 px-4 font-semibold text-purple-900 bg-purple-50/30">Up to 5 Hubs & GIS Polygons</td>
+                          <td className="py-3 px-4 font-bold text-emerald-600">Unlimited Hubs & Nationwide Polygons</td>
+                        </tr>
+                        <tr>
+                          <td className="py-3 px-4 font-bold text-slate-800">Live InDrive GPS Radar & Route Tracking</td>
+                          <td className="py-3 px-4">Standard Distance Milestones</td>
+                          <td className="py-3 px-4 font-semibold text-purple-900 bg-purple-50/30">Live InDrive GPS Radar (3-sec Sync)</td>
+                          <td className="py-3 px-4 font-bold text-emerald-600">Real-Time Telemetry (1-sec Sync)</td>
+                        </tr>
+                        <tr>
+                          <td className="py-3 px-4 font-bold text-slate-800">Doorstep OTP Handover Verification</td>
+                          <td className="py-3 px-4 text-emerald-600 font-bold">✓ Included</td>
+                          <td className="py-3 px-4 text-emerald-600 font-bold bg-purple-50/30">✓ Included</td>
+                          <td className="py-3 px-4 text-emerald-600 font-bold">✓ Included</td>
+                        </tr>
+                        <tr>
+                          <td className="py-3 px-4 font-bold text-slate-800">Pakistani Payment Rails (JazzCash, EasyPaisa, SadaPay, COD)</td>
+                          <td className="py-3 px-4 text-emerald-600 font-bold">✓ All Supported</td>
+                          <td className="py-3 px-4 text-emerald-600 font-bold bg-purple-50/30">✓ All Supported</td>
+                          <td className="py-3 px-4 text-emerald-600 font-bold">✓ All Supported + ERP Direct Settlement</td>
+                        </tr>
+                        <tr>
+                          <td className="py-3 px-4 font-bold text-slate-800">Support & Dedicated Account Management</td>
+                          <td className="py-3 px-4">Standard Email & In-App</td>
+                          <td className="py-3 px-4 font-semibold text-purple-900 bg-purple-50/30">Priority Support (99.0% SLA)</td>
+                          <td className="py-3 px-4 font-bold text-emerald-600">Dedicated 24/7 SLA Account Manager (99.9%)</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ===================================================================== */}
           {/* SUB-DASHBOARD: 4. MART ADMINS MANAGEMENT                              */}
@@ -4422,6 +4710,24 @@ export const SuperAdminDashboard = () => {
             </div>
 
             <form onSubmit={handleSavePlan} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Supermarket Brand</label>
+                <select
+                  value={selectedTenant.id}
+                  onChange={(e) => {
+                    const found = (tenants || []).find((t) => t.id === e.target.value);
+                    if (found) setSelectedTenant(found);
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none"
+                >
+                  {(tenants || []).map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.fullName || t.name} ({t.city || 'Faisalabad'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Plan Tier</label>
                 <select
