@@ -3,7 +3,7 @@ import { Mail, Phone, MapPin, ArrowUp, Heart, ShieldCheck, Sparkles, Smartphone 
 import { useStore } from '../../context/StoreContext';
 
 export const Footer = () => {
-  const { setActiveCategory, navigateTo, currentTenant } = useStore();
+  const { setActiveCategory, navigateTo, currentTenant, setIsOrderTrackerOpen } = useStore();
   const isUnimaart = currentTenant?.id === 'tenant-freshmart';
   const isCaseValue = currentTenant?.id === 'tenant-chasevalue';
   const isAlFatah = currentTenant?.id === 'tenant-alfatah';
@@ -159,7 +159,7 @@ export const Footer = () => {
             </h4>
             <ul className="space-y-2 text-xs">
               <li><a href="#flash-deals-section" className={`transition-colors ${isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'}`}>Daily Deals & Coupons</a></li>
-              <li><a href="#" onClick={(e) => { e.preventDefault(); navigateTo('track-order'); }} className={`transition-colors ${isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'}`}>Order Tracking</a></li>
+              <li><a href="#" onClick={(e) => { e.preventDefault(); if (setIsOrderTrackerOpen) setIsOrderTrackerOpen(true); else navigateTo('delivery'); }} className={`transition-colors ${isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'}`}>Order Tracking</a></li>
               <li><a href="#" className={`transition-colors ${isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'}`}>FAQ & Support</a></li>
               <li><button type="button" onClick={() => navigateTo('login')} className={`transition-colors cursor-pointer text-left ${isUnimaart ? 'hover:text-sky-400' : 'hover:text-lime-400'}`}>Staff & Courier Console</button></li>
             </ul>

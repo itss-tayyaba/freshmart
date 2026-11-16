@@ -10,6 +10,7 @@ export const OrderTrackerModal = () => {
     setIsOrderTrackerOpen,
     customerOrders = [],
     adminOrders = [],
+    activeDeliveryOrder,
     navigateTo,
     trackOrderRemote,
     deliveryLocation,
@@ -32,19 +33,26 @@ export const OrderTrackerModal = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
 
-  // Deduplicate and unify customerOrders and adminOrders (plus localStorage snapshot)
+  const cleanId = (id) => String(id || '').replace(/^#/, '').toLowerCase().trim();
+
+  // Deduplicate and unify customerOrders, adminOrders, activeDeliveryOrder (plus localStorage snapshot)
   const allOrders = useMemo(() => {
     const map = new Map();
     let localCust = [];
     let localAdmin = [];
+    let localActive = null;
     try {
       const c = localStorage.getItem('freshmart_customer_orders');
       if (c) localCust = JSON.parse(c);
       const a = localStorage.getItem('freshmart_admin_orders');
       if (a) localAdmin = JSON.parse(a);
+      const act = localStorage.getItem('freshmart_active_delivery');
+      if (act) localActive = JSON.parse(act);
     } catch (e) {}
 
     const list = [
+      ...(activeDeliveryOrder ? [activeDeliveryOrder] : []),
+      ...(localActive ? [localActive] : []),
       ...(Array.isArray(customerOrders) ? customerOrders : []),
       ...(Array.isArray(adminOrders) ? adminOrders : []),
       ...(Array.isArray(localCust) ? localCust : []),
@@ -53,7 +61,7 @@ export const OrderTrackerModal = () => {
 
     list.forEach((ord) => {
       if (!ord) return;
-      const bare = String(ord.id || ord.orderId || ord._id || '').replace(/^#/, '').toLowerCase().trim();
+      const bare = cleanId(ord.orderId || ord.id || ord._id || '');
       if (!bare) return;
       const prev = map.get(bare);
       if (!prev) {
@@ -62,7 +70,12 @@ export const OrderTrackerModal = () => {
         const prevStage = Number(prev.fulfillmentStage || 0);
         const curStage = Number(ord.fulfillmentStage || 0);
         const curDelivered = ord.status === 'Delivered' || ord.isDelivered;
-        if (curDelivered || curStage >= prevStage || (ord.fulfillmentUpdatedAt && new Date(ord.fulfillmentUpdatedAt) >= new Date(prev.fulfillmentUpdatedAt || 0))) {
+        if (
+          curDelivered ||
+          curStage >= prevStage ||
+          (ord.fulfillmentUpdatedAt && new Date(ord.fulfillmentUpdatedAt) >= new Date(prev.fulfillmentUpdatedAt || 0)) ||
+          ord.assignedRider
+        ) {
           map.set(bare, { ...prev, ...ord });
         } else {
           map.set(bare, { ...ord, ...prev });
@@ -71,15 +84,22 @@ export const OrderTrackerModal = () => {
     });
 
     return Array.from(map.values());
-  }, [customerOrders, adminOrders]);
+  }, [customerOrders, adminOrders, activeDeliveryOrder]);
 
   const findMatchingOrder = (queryId) => {
     if (!queryId) return null;
-    const clean = String(queryId).replace(/^#/, '').toLowerCase().trim();
-    if (!clean) return null;
+    const q = cleanId(queryId);
+    if (!q) return null;
     return allOrders.find((o) => {
-      const oId = String(o.id || o.orderId || o._id || '').replace(/^#/, '').toLowerCase().trim();
-      return oId === clean;
+      const oId = cleanId(o.id);
+      const ordId = cleanId(o.orderId);
+      const mongoId = cleanId(o._id);
+      return (
+        oId === q ||
+        ordId === q ||
+        mongoId === q ||
+        (q.length >= 4 && (oId.includes(q) || ordId.includes(q) || mongoId.includes(q)))
+      );
     });
   };
 
@@ -90,9 +110,9 @@ export const OrderTrackerModal = () => {
     const status = (rawOrder.status || 'Pending').toLowerCase();
     const isDelivered = status === 'delivered' || status === 'completed' || rawOrder.isDelivered === true;
     const fulfillmentStage = Number(rawOrder.fulfillmentStage || 0);
-    const isDispatched = rawOrder.isDispatched === true || fulfillmentStage >= 5 || status.includes('dispatched');
-    const isOutForDelivery = fulfillmentStage >= 6 || status.includes('out for delivery') || status.includes('picked up') || status.includes('transit') || (isAssigned && !isDelivered);
-    const isPackingComplete = fulfillmentStage >= 4 || isDispatched || isOutForDelivery || isDelivered || status.includes('ready') || status.includes('packed') || status.includes('prepared');
+    const isDispatched = rawOrder.isDispatched === true || fulfillmentStage >= 5 || status.includes('dispatched') || status.includes('out for delivery') || status.includes('transit') || isDelivered;
+    const isOutForDelivery = fulfillmentStage >= 6 || status.includes('out for delivery') || status.includes('transit') || isDelivered;
+    const isPackingComplete = fulfillmentStage >= 4 || rawOrder.isPacked === true || isDispatched || isDelivered || status.includes('ready') || status.includes('packed');
     const isPreparing = status.includes('preparing') || status.includes('processing') || status.includes('picking') || status.includes('staff') || status.includes('received') || fulfillmentStage >= 2;
 
     const shipping = rawOrder.shippingAddress || {};
@@ -181,8 +201,8 @@ export const OrderTrackerModal = () => {
   const isOrderIdentical = (prev, nextRaw) => {
     if (!prev && !nextRaw) return true;
     if (!prev || !nextRaw) return false;
-    const nextId = String(nextRaw.id || nextRaw.orderId || nextRaw._id || '');
-    if (String(prev.orderId || '') !== nextId) return false;
+    const nextId = String(nextRaw.orderId || nextRaw.id || nextRaw._id || '');
+    if (cleanId(prev.orderId) !== cleanId(nextId)) return false;
     if (String(prev.status || '').toLowerCase() !== String(nextRaw.status || '').toLowerCase()) return false;
     if (Number(prev.fulfillmentStage || 0) !== Number(nextRaw.fulfillmentStage || 0)) return false;
     const isPrevDelivered = Boolean(prev.isDelivered);
@@ -205,25 +225,38 @@ export const OrderTrackerModal = () => {
       return;
     }
 
-    const matched = orderInput ? findMatchingOrder(orderInput) : null;
-    let chosen = matched;
-    if (!chosen) {
-      const tenantMatch = currentTenant?.id
-        ? allOrders.find((o) => isSameTenant(o.tenantId || o.companyId, currentTenant.id))
-        : null;
-      chosen = tenantMatch || allOrders[0];
+    const query = orderInput?.trim();
+    if (query) {
+      const matched = findMatchingOrder(query);
+      if (matched) {
+        setCurrentOrder((prev) => {
+          if (isOrderIdentical(prev, matched)) return prev;
+          return formatOrderForTracking(matched);
+        });
+      }
+      return;
     }
 
+    const tenantOrders = currentTenant?.id
+      ? allOrders.filter((o) => isSameTenant(o.tenantId || o.companyId, currentTenant.id))
+      : allOrders;
+
+    const chosen =
+      (activeDeliveryOrder && (!currentTenant?.id || isSameTenant(activeDeliveryOrder.tenantId || activeDeliveryOrder.companyId, currentTenant.id)) ? activeDeliveryOrder : null) ||
+      tenantOrders.find((o) => o.status !== 'Delivered' && !o.isDelivered) ||
+      tenantOrders[0] ||
+      activeDeliveryOrder ||
+      allOrders[0];
+
     if (chosen) {
-      if (!orderInput) {
-        setOrderInput(chosen.id || chosen.orderId || '');
-      }
+      const displayId = chosen.orderId || chosen.id || '';
+      setOrderInput(displayId);
       setCurrentOrder((prev) => {
         if (isOrderIdentical(prev, chosen)) return prev;
         return formatOrderForTracking(chosen);
       });
     }
-  }, [isOrderTrackerOpen, allOrders, currentTenant?.id]);
+  }, [isOrderTrackerOpen, allOrders, currentTenant?.id, activeDeliveryOrder]);
 
   // Real-time listener for status changes (cross-tab & in-memory)
   useEffect(() => {
@@ -254,11 +287,11 @@ export const OrderTrackerModal = () => {
   useEffect(() => {
     if (!isOrderTrackerOpen || !orderInput) return;
     const interval = setInterval(async () => {
-      const cleanId = orderInput.trim();
-      if (!cleanId) return;
+      const cleanQ = orderInput.trim();
+      if (!cleanQ) return;
 
       // 1. Keep in sync with local memory/storage
-      const local = findMatchingOrder(cleanId);
+      const local = findMatchingOrder(cleanQ);
       if (local) {
         setCurrentOrder((prev) => {
           if (isOrderIdentical(prev, local)) return prev;
@@ -268,7 +301,7 @@ export const OrderTrackerModal = () => {
 
       // 2. Poll remote backend API
       try {
-        const res = await apiService.trackOrder(cleanId);
+        const res = await apiService.trackOrder(cleanId(cleanQ));
         if (res && res.success && res.order) {
           setCurrentOrder((prev) => {
             if (isOrderIdentical(prev, res.order)) return prev;
@@ -285,14 +318,14 @@ export const OrderTrackerModal = () => {
   const handleSearch = async (e) => {
     if (e) e.preventDefault();
     setSearchError('');
-    const cleanId = (orderInput || '').trim();
-    if (!cleanId) {
+    const rawQuery = (orderInput || '').trim();
+    if (!rawQuery) {
       setSearchError('Please enter an Order ID to track.');
       return;
     }
 
-    // 1. Check in unified local orders first
-    const foundLocal = findMatchingOrder(cleanId);
+    // 1. Check in unified local orders first (matches with/without #, ID, orderId, or partial match)
+    const foundLocal = findMatchingOrder(rawQuery);
     if (foundLocal) {
       setCurrentOrder(formatOrderForTracking(foundLocal));
       return;
@@ -300,24 +333,31 @@ export const OrderTrackerModal = () => {
 
     // 2. Fetch live from MongoDB backend via API
     setIsSearching(true);
+    const cleanIdForApi = cleanId(rawQuery);
     try {
-      const res = await apiService.trackOrder(cleanId);
+      const res = await apiService.trackOrder(cleanIdForApi);
       if (res && res.success && res.order) {
         setCurrentOrder(formatOrderForTracking(res.order));
       } else {
-        setCurrentOrder(null);
-        setSearchError(res?.message || `Order "${cleanId}" not found in database. Please check your order reference number.`);
+        const res2 = cleanIdForApi !== rawQuery ? await apiService.trackOrder(rawQuery) : null;
+        if (res2 && res2.success && res2.order) {
+          setCurrentOrder(formatOrderForTracking(res2.order));
+        } else {
+          setCurrentOrder(null);
+          setSearchError(res?.message || `Order "${rawQuery}" not found. Please verify your order reference number.`);
+        }
       }
     } catch (err) {
       setCurrentOrder(null);
-      setSearchError(`Unable to track order "${cleanId}". Please verify the ID.`);
+      setSearchError(`Unable to track order "${rawQuery}". Please verify the ID.`);
     } finally {
       setIsSearching(false);
     }
   };
 
   const selectOrder = (ord) => {
-    setOrderInput(ord.id || ord.orderId || '');
+    const id = ord.orderId || ord.id || '';
+    setOrderInput(id);
     setSearchError('');
     setCurrentOrder(formatOrderForTracking(ord));
   };
@@ -425,7 +465,7 @@ export const OrderTrackerModal = () => {
           </div>
 
           {/* Current Order Summary Card */}
-          {currentOrder && (
+          {currentOrder ? (
             <div className="space-y-5">
               
               <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -639,6 +679,16 @@ export const OrderTrackerModal = () => {
                 </div>
               </div>
 
+            </div>
+          ) : !searchError && (
+            <div className="py-12 px-4 text-center space-y-3">
+              <div className="w-14 h-14 rounded-3xl bg-slate-100 flex items-center justify-center mx-auto text-2xl">
+                📦
+              </div>
+              <h3 className="font-black text-slate-800 text-sm sm:text-base">Track Any Delivery Order</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Enter your order ID above (e.g. #ORD-101 or CV-5784) to view live milestone progress, OTP verification PIN, and courier details.
+              </p>
             </div>
           )}
 

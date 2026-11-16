@@ -123,7 +123,7 @@ function FreshMartAppContent() {
         {currentPage === 'home' && <FreshMartHome />}
         {currentPage === 'shop' && <ShopPage />}
         {currentPage === 'deals' && <DealsPage />}
-        {currentPage === 'delivery' && <DeliveryPage />}
+        {(currentPage === 'delivery' || currentPage === 'track-order') && <DeliveryPage />}
         {currentPage === 'product-detail' && <ProductDetailPage />}
         {currentPage === 'checkout' && <CheckoutPage />}
         {currentPage === 'recipes' && <RecipesPage />}
