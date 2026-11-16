@@ -187,7 +187,6 @@ export const SuperAdminDashboard = () => {
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [tenantFilter, setTenantFilter] = useState('all');
-  const [tenantCityFilter, setTenantCityFilter] = useState('all');
   const [adminCityFilter, setAdminCityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [orderSupermarketFilter, setOrderSupermarketFilter] = useState('all');
@@ -2288,37 +2287,9 @@ export const SuperAdminDashboard = () => {
                 </button>
               </div>
 
-              {/* City Filter Pills */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-slate-500 mr-1">City Filter:</span>
-                {['all', 'faisalabad', 'lahore', 'islamabad', 'karachi'].map((cKey) => {
-                  const label = cKey === 'all' ? 'All Pakistani Cities' : `📍 ${cKey.charAt(0).toUpperCase() + cKey.slice(1)}`;
-                  const isSel = tenantCityFilter === cKey;
-                  return (
-                    <button
-                      key={cKey}
-                      type="button"
-                      onClick={() => setTenantCityFilter(cKey)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                        isSel
-                          ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-
               {/* Tenants Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                {displayStores
-                  .filter((store) => {
-                    if (tenantCityFilter === 'all') return true;
-                    return (store.city || store.location || 'Faisalabad').toLowerCase().includes(tenantCityFilter.toLowerCase());
-                  })
-                  .map((store) => (
+                {displayStores.map((store) => (
                   <div
                     key={store.id}
                     className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs space-y-4 flex flex-col justify-between"
