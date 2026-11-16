@@ -361,7 +361,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
   const storeMarkersGroupRef = useRef(null);
   const storeCoverageSectionRef = useRef(null);
   const [tileLayerType, setTileLayerType] = useState('street'); // 'street' | 'satellite'
-  const [showAllStorePolygons, setShowAllStorePolygons] = useState(false);
+  const [showAllStorePolygons, setShowAllStorePolygons] = useState(true);
 
   // Switch Map Tile Layer - Vibrant Street Map, High-Res Satellite, and Hybrid View
   const setTileLayer = (type) => {
@@ -2222,20 +2222,23 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     stores.forEach((store) => {
       const rawPoly = store.deliveryPolygon;
       if (Array.isArray(rawPoly) && rawPoly.length >= 3) {
-        const sId = store.storeId || store._id;
-        const isAssigned = assignedStores.some((as) => (as.storeId || as._id) === sId);
-        if (!showAllStorePolygons && !isAssigned && activeZone) return;
+        const cleanLatLngs = rawPoly
+          .map(normalizeLatLng)
+          .filter(Boolean)
+          .map((p) => [p.lat, p.lng]);
+
+        if (cleanLatLngs.length < 3) return;
 
         const retailer = CORE_RETAILERS.find((r) =>
           String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
         ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
 
-        const storePoly = L.polygon(rawPoly, {
+        const storePoly = L.polygon(cleanLatLngs, {
           color: retailer.color,
           weight: 2.5,
           dashArray: '6, 6',
           fillColor: retailer.color,
-          fillOpacity: 0.18,
+          fillOpacity: 0.22,
           interactive: true
         });
 
@@ -2254,7 +2257,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
             </div>
             <p style="color: #64748b; font-size: 10px; margin: 2px 0 6px 0;">${esc(store.address)}</p>
             <div style="font-size: 10px; color: #475569; margin-bottom: 8px;">
-              Delivery Boundary: <strong>Custom Polygon (${rawPoly.length} points)</strong>
+              Delivery Boundary: <strong>Custom Polygon (${cleanLatLngs.length} points)</strong>
             </div>
             <button
               onclick="window.__startDrawingForStore && window.__startDrawingForStore('${store.storeId || store._id}')"

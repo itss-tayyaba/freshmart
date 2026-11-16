@@ -246,9 +246,13 @@ export const getAllUnifiedStores = (apiStores = [], extraBranches = [], targetCi
         const id1 = String(item._id || '').toLowerCase().trim();
         const id2 = String(item.id || '').toLowerCase().trim();
         const id3 = String(item.storeId || '').toLowerCase().trim();
+        const name1 = String(item.name || '').toLowerCase().trim();
+        const name2 = String(item.branchName || '').toLowerCase().trim();
         if (id1) polygonLookup.set(id1, poly);
         if (id2) polygonLookup.set(id2, poly);
         if (id3) polygonLookup.set(id3, poly);
+        if (name1) polygonLookup.set(name1, poly);
+        if (name2) polygonLookup.set(name2, poly);
       }
     });
   };
@@ -267,7 +271,14 @@ export const getAllUnifiedStores = (apiStores = [], extraBranches = [], targetCi
     const sId1 = String(s.storeId || '').toLowerCase().trim();
     const sId2 = String(s._id || '').toLowerCase().trim();
     const sId3 = String(s.id || '').toLowerCase().trim();
-    const found = polygonLookup.get(sId1) || polygonLookup.get(sId2) || polygonLookup.get(sId3);
+    const sName1 = String(s.name || '').toLowerCase().trim();
+    const sName2 = String(s.branchName || '').toLowerCase().trim();
+    const found =
+      polygonLookup.get(sId1) ||
+      polygonLookup.get(sId2) ||
+      polygonLookup.get(sId3) ||
+      polygonLookup.get(sName1) ||
+      polygonLookup.get(sName2);
     if (found) {
       return { ...s, deliveryPolygon: found };
     }
