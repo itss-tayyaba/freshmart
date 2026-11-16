@@ -1340,12 +1340,12 @@ export const DeliveryPortal = () => {
             onClick={handleToggleOnlineStatus}
             className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer shadow-xs ${
               isRiderOnline
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                : 'bg-rose-50 text-rose-700 border border-rose-200'
             }`}
             title="Toggle On-Duty / Off-Duty"
           >
-            <span className={`w-1.5 h-1.5 rounded-full ${isRiderOnline ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></span>
+            <span className={`w-1.5 h-1.5 rounded-full ${isRiderOnline ? 'bg-emerald-600' : 'bg-rose-600'}`}></span>
             <span>{isRiderOnline ? 'Online' : 'Offline'}</span>
           </button>
 
@@ -1356,7 +1356,7 @@ export const DeliveryPortal = () => {
             className="p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition"
             title={notifPermission === 'granted' ? 'Push alerts active' : 'Enable push alerts'}
           >
-            {notifPermission === 'granted' ? <Bell className="w-4 h-4 text-emerald-400" /> : <BellOff className="w-4 h-4 text-slate-400" />}
+            {notifPermission === 'granted' ? <Bell className="w-4 h-4 text-emerald-300" /> : <BellOff className="w-4 h-4 text-slate-400" />}
           </button>
 
           {/* Change Password Shortcut */}
@@ -1433,7 +1433,7 @@ export const DeliveryPortal = () => {
                   {storeBrandName}
                 </h1>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
                   <p
                     className="text-[10px] font-bold uppercase tracking-wider truncate"
                     style={{ color: storeTheme.accentText }}
@@ -1621,7 +1621,7 @@ export const DeliveryPortal = () => {
                   </h2>
                   <span
                     className={`px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                      isRiderOnline ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                      isRiderOnline ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
                     }`}
                   >
                     {isRiderOnline ? 'On-Duty' : 'Off-Duty'}
@@ -1644,8 +1644,8 @@ export const DeliveryPortal = () => {
                 onClick={handleToggleOnlineStatus}
                 className={`flex-1 py-1 px-2 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition cursor-pointer ${
                   isRiderOnline
-                    ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-600/50'
-                    : 'bg-rose-600/30 text-rose-300 border border-rose-500/50 hover:bg-rose-600/50'
+                    ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800 hover:bg-emerald-900/60'
+                    : 'bg-rose-950/60 text-rose-300 border border-rose-800 hover:bg-rose-900/60'
                 }`}
                 title="Toggle Online/Offline Duty"
               >
@@ -1659,7 +1659,7 @@ export const DeliveryPortal = () => {
                   setShowPasswordModal(true);
                   setMobileSidebarOpen(false);
                 }}
-                className="py-1 px-2 rounded-lg text-[10px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 flex items-center gap-1 cursor-pointer transition"
+                className="py-1 px-2 rounded-lg text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 flex items-center gap-1 cursor-pointer transition"
                 title="Change Rider Password"
               >
                 <KeyRound className="w-3 h-3" />
@@ -1674,14 +1674,14 @@ export const DeliveryPortal = () => {
               href="/downloads/freshmart-staff.apk"
               download="freshmart-staff.apk"
               onClick={() => setMobileSidebarOpen(false)}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-600/40 text-emerald-300 hover:text-white"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700"
               title="Download FreshMart Staff Android App (APK)"
             >
               <span className="flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-emerald-400" />
+                <Smartphone className="w-4 h-4 text-emerald-700" />
                 <span>Download Staff App</span>
               </span>
-              <span className="text-[10px] bg-emerald-600/30 px-1.5 py-0.5 rounded text-emerald-200">APK</span>
+              <span className="text-[10px] bg-emerald-100 px-1.5 py-0.5 rounded text-emerald-700">APK</span>
             </a>
 
             <button
@@ -1734,7 +1734,7 @@ export const DeliveryPortal = () => {
         {/* Top Header: Courier Operations Console */}
         <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 flex items-center justify-center font-black text-2xl shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center font-black text-2xl shrink-0">
               🛵
             </div>
             <div>
@@ -1749,12 +1749,12 @@ export const DeliveryPortal = () => {
                   onClick={handleToggleOnlineStatus}
                   className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
                     isRiderOnline
-                      ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 hover:bg-emerald-200'
-                      : 'bg-rose-100 text-rose-900 border border-rose-300 hover:bg-rose-200'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                      : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
                   }`}
                   title="Click to switch On-Duty (Online) vs Off-Duty (Offline)"
                 >
-                  <span className={`w-2 h-2 rounded-full ${isRiderOnline ? 'bg-emerald-600 animate-pulse' : 'bg-rose-500'}`}></span>
+                  <span className={`w-2 h-2 rounded-full ${isRiderOnline ? 'bg-emerald-600' : 'bg-rose-600'}`}></span>
                   <span>{isRiderOnline ? 'Online (On-Duty)' : 'Offline (Off-Duty)'}</span>
                 </button>
               </div>
@@ -1777,12 +1777,12 @@ export const DeliveryPortal = () => {
             <div
               className={`px-3 py-1.5 rounded-2xl text-[11px] font-bold border flex items-center gap-1.5 shadow-2xs ${
                 gpsActive
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                   : 'bg-slate-50 text-slate-600 border-slate-200'
               }`}
               title="Real-time smartphone GPS telemetry sensor"
             >
-              <Radio className={`w-3.5 h-3.5 ${gpsActive ? 'text-emerald-600 animate-pulse' : 'text-slate-400'}`} />
+              <Radio className={`w-3.5 h-3.5 ${gpsActive ? 'text-emerald-700' : 'text-slate-400'}`} />
               <span>{gpsActive ? `🛰️ GPS Active ±${gpsAccuracy || 8}m (${gpsSpeed || 0} km/h)` : '🛰️ GPS Standby'}</span>
             </div>
 
@@ -1822,15 +1822,15 @@ export const DeliveryPortal = () => {
 
         {/* Offline Warning Banner */}
         {!isRiderOnline && (
-          <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border-2 border-amber-400/80 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-in fade-in">
+          <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-in fade-in">
             <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-amber-500/20 text-amber-900 border border-amber-500/40 flex items-center justify-center text-xl shrink-0">
+              <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-700 border border-amber-200 flex items-center justify-center text-xl shrink-0">
                 ⚠️
               </div>
               <div>
-                <h2 className="text-sm sm:text-base font-black text-amber-950 flex items-center gap-2">
+                <h2 className="text-sm sm:text-base font-black text-amber-800 flex items-center gap-2">
                   <span>You Are Currently Offline (Off-Duty)</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-200 text-amber-900">Off-Duty</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-700 border border-amber-200">Off-Duty</span>
                 </h2>
                 <p className="text-xs text-amber-800 mt-0.5">
                   You will not receive any new order assignments from store dispatch or pickup staff until you go back online.
@@ -1853,10 +1853,10 @@ export const DeliveryPortal = () => {
           <section className="space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <span className="w-3 h-3 rounded-full bg-amber-500 animate-ping"></span>
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-600"></span>
                 <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
                   <span>New Delivery Assignments</span>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-50 text-amber-700 border border-amber-200">
                     {pendingAcceptanceOrders.length} Awaiting Acceptance
                   </span>
                 </h2>
@@ -2019,13 +2019,13 @@ export const DeliveryPortal = () => {
             }}
             className={`rounded-3xl p-4 sm:p-5 border shadow-2xs relative overflow-hidden flex flex-col justify-between text-left transition cursor-pointer ${
               activeTab === 'out-for-delivery'
-                ? 'bg-emerald-500/10 border-emerald-400 ring-2 ring-emerald-400/40'
-                : 'bg-white border-slate-200/80 hover:border-slate-300'
+                ? 'bg-slate-50 border-slate-300'
+                : 'bg-white border-slate-200 hover:border-slate-300'
             }`}
           >
             <div className="flex items-center justify-between w-full">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Parcels</span>
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center" style={{ color: storeTheme.primary }}>
                 <Package className="w-4 h-4" />
               </div>
             </div>
@@ -2033,25 +2033,25 @@ export const DeliveryPortal = () => {
               <p className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
                 {activeOrdersCount}
               </p>
-              <span className="text-[11px] text-emerald-800 font-bold block mt-0.5">
+              <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
                 {outForDeliveryOrders.length} in transit • {headingToStoreOrders.length} at store • {pendingAcceptanceOrders.length} assigned
               </span>
             </div>
           </button>
 
           {/* Card 2: COD Cash to Collect */}
-          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-2xs relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">COD To Collect</span>
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center" style={{ color: storeTheme.primary }}>
                 <Wallet className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-2.5">
-              <p className="text-xl sm:text-2xl font-black text-emerald-800 font-mono">
+              <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono">
                 {formatPrice(totalCodAmount)}
               </p>
-              <span className="text-[11px] text-emerald-700 font-bold block mt-0.5">
+              <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
                 Cash on delivery settlement
               </span>
             </div>
@@ -2067,13 +2067,13 @@ export const DeliveryPortal = () => {
             }}
             className={`rounded-3xl p-4 sm:p-5 border shadow-2xs relative overflow-hidden flex flex-col justify-between text-left transition cursor-pointer ${
               activeTab === 'delivered-today'
-                ? 'bg-emerald-500/10 border-emerald-400 ring-2 ring-emerald-400/40'
-                : 'bg-white border-slate-200/80 hover:border-slate-300'
+                ? 'bg-slate-50 border-slate-300'
+                : 'bg-white border-slate-200 hover:border-slate-300'
             }`}
           >
             <div className="flex items-center justify-between w-full">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Delivered Today</span>
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center" style={{ color: storeTheme.primary }}>
                 <CheckCircle2 className="w-4 h-4" />
               </div>
             </div>
@@ -2081,17 +2081,17 @@ export const DeliveryPortal = () => {
               <p className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
                 {deliveredTodayOrders.length}
               </p>
-              <span className="text-[11px] text-emerald-700 font-bold block mt-0.5">
+              <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
                 Completed & verified
               </span>
             </div>
           </button>
 
           {/* Card 4: Dispatch SuperHub */}
-          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-2xs relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Delivery Hub</span>
-              <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-700 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center" style={{ color: storeTheme.primary }}>
                 <MapPin className="w-4 h-4" />
               </div>
             </div>
@@ -2116,7 +2116,7 @@ export const DeliveryPortal = () => {
             {/* Parcel Header Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-700 flex items-center justify-center font-bold">
+                <div className="w-10 h-10 rounded-2xl bg-sky-50 border border-sky-200 text-sky-700 flex items-center justify-center font-bold">
                   <Package className="w-5 h-5" />
                 </div>
                 <div>
@@ -2124,8 +2124,8 @@ export const DeliveryPortal = () => {
                     <h2 className="text-base sm:text-lg font-black text-slate-900 font-mono tracking-tight">
                       Parcel #{activeOrder.orderId}
                     </h2>
-                    <span className="px-2.5 py-0.5 bg-blue-100 text-blue-900 border border-blue-300 text-[10px] font-black rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-2xs">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                    <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-black rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-2xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
                       <span>Out for Delivery</span>
                     </span>
                   </div>
@@ -2142,7 +2142,7 @@ export const DeliveryPortal = () => {
                   onClick={toggleLiveLocationSharing}
                   className={`flex-1 sm:flex-none py-2 px-3.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-2xs ${
                     isSharingLocation
-                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20'
+                      ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
                       : 'bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800'
                   }`}
                   title={isSharingLocation ? 'GPS Broadcast Active' : 'Start Live GPS Broadcast'}
@@ -2210,7 +2210,7 @@ export const DeliveryPortal = () => {
 
                 {/* Overlay Badge at Bottom Left */}
                 <div className="absolute bottom-2.5 left-2.5 z-10 bg-white/95 backdrop-blur-md border border-slate-200 px-3 py-1.5 rounded-xl shadow-md text-[11px] font-bold text-slate-800 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
                   <span className="font-mono font-black">{activeOrder.orderId}</span>
                   <span className="text-slate-300">•</span>
                   <span>{activeOrder.distanceKm || '2.4'} km</span>
@@ -2317,7 +2317,7 @@ export const DeliveryPortal = () => {
                       placeholder="Customer 4-digit PIN"
                       value={otpInputs[activeOrder.id] || ''}
                       onChange={(e) => handleOtpInputChange(activeOrder.id, e.target.value)}
-                      className="flex-1 bg-white border border-emerald-300 rounded-xl px-4 py-3 sm:py-2 text-center sm:text-left text-sm font-mono font-black text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 tracking-wider"
+                      className="flex-1 bg-white border border-slate-300 rounded-xl px-4 py-3 sm:py-2 text-center sm:text-left text-sm font-mono font-black text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-400 tracking-wider"
                     />
                     <div className="flex items-center gap-2">
                       <button
@@ -2356,14 +2356,14 @@ export const DeliveryPortal = () => {
         {/* 1. PREPARING PARCELS BANNER (Track live prep time & dispatch status)   */}
         {/* ===================================================================== */}
         {preparingOrders.length > 0 && !activeOrder && (
-          <section className="bg-gradient-to-r from-amber-50/90 via-orange-50/60 to-amber-50/90 rounded-2xl border border-amber-200 p-4 sm:p-5 shadow-2xs space-y-3">
+          <section className="bg-amber-50 rounded-2xl border border-amber-200 p-4 sm:p-5 shadow-2xs space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-amber-200/70">
               <div className="flex items-center gap-2.5">
                 <span className="text-xl">🍳</span>
                 <div>
-                  <h3 className="text-sm font-bold text-amber-950 flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-amber-800 flex items-center gap-2">
                     <span>Parcels Preparing at Pickup Desk</span>
-                    <span className="bg-amber-200 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded-full">
+                    <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-200">
                       {preparingOrders.length} In Progress
                     </span>
                   </h3>
@@ -2372,8 +2372,8 @@ export const DeliveryPortal = () => {
                   </p>
                 </div>
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1.5 shadow-2xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1.5 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
                 <span>Dispatch: Preparing (Not Dispatched Yet)</span>
               </span>
             </div>
@@ -2415,14 +2415,14 @@ export const DeliveryPortal = () => {
 
                     <div className="flex flex-wrap sm:flex-col items-start sm:items-end gap-1.5 shrink-0">
                       {/* Live countdown timer badge */}
-                      <span className="px-3 py-1 rounded-xl text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1.5 shadow-2xs">
+                      <span className="px-3 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1.5 shadow-2xs">
                         <Clock className="w-3.5 h-3.5 text-amber-700" />
                         <span>Ready in: <b className="font-black font-mono">{prepInfo.formatted}</b></span>
                       </span>
 
                       {/* Dispatch Status */}
-                      <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                      <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
                         <span>Dispatch: Preparing (Not Dispatched Yet)</span>
                       </span>
                     </div>
@@ -2437,14 +2437,14 @@ export const DeliveryPortal = () => {
         {/* 2. READY FOR DISPATCH BANNER (Parcels packed by staff waiting for rider)  */}
         {/* ===================================================================== */}
         {readyForDispatchOrders.length > 0 && !activeOrder && (
-          <section className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200 p-4 sm:p-5 shadow-2xs space-y-3">
+          <section className="bg-emerald-50 rounded-2xl border border-emerald-200 p-4 sm:p-5 shadow-2xs space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-emerald-200/60">
               <div className="flex items-center gap-2">
                 <span className="text-lg">📦</span>
                 <div>
-                  <h3 className="text-sm font-bold text-emerald-950 flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-emerald-800 flex items-center gap-2">
                     <span>Parcels Dispatched & Ready for Pickup</span>
-                    <span className="bg-emerald-200 text-emerald-900 text-[10px] font-black px-2 py-0.5 rounded-full">
+                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-200">
                       {readyForDispatchOrders.length} Ready
                     </span>
                   </h3>
@@ -2453,7 +2453,7 @@ export const DeliveryPortal = () => {
                   </p>
                 </div>
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1 shadow-2xs">
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
                 <span>✓ Dispatch: Ready at Counter</span>
               </span>
             </div>
@@ -2513,19 +2513,19 @@ export const DeliveryPortal = () => {
         {/* ===================================================================== */}
         {!activeOrder && readyForDispatchOrders.length === 0 && preparingOrders.length === 0 && (
           !isRiderOnline ? (
-            <section className="bg-rose-50/80 rounded-2xl border-2 border-dashed border-rose-300 shadow-2xs p-6 text-center space-y-3">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 border border-rose-300 text-2xl shadow-2xs">
+            <section className="bg-rose-50 rounded-2xl border border-dashed border-rose-200 shadow-2xs p-6 text-center space-y-3">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-rose-50 text-rose-700 border border-rose-200 text-2xl shadow-2xs">
                 ⏸️
               </div>
               <div className="space-y-1">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 text-rose-800 text-xs font-black border border-rose-200">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">
                   <span className="w-2 h-2 rounded-full bg-rose-600"></span>
                   <span>YOU ARE CURRENTLY OFF-DUTY</span>
                 </div>
-                <h3 className="text-base font-black text-rose-950">
+                <h3 className="text-base font-black text-rose-800">
                   Off-Duty Mode Active
                 </h3>
-                <p className="text-xs text-rose-800 max-w-md mx-auto">
+                <p className="text-xs text-rose-700 max-w-md mx-auto">
                   Your store admin has been notified that you are now <b>Off-Duty</b>. You will not receive new order dispatches until you switch back to On-Duty.
                 </p>
               </div>
@@ -2545,8 +2545,8 @@ export const DeliveryPortal = () => {
                 🛵
               </div>
               <div className="space-y-1">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
                   <span>ON-DUTY & ONLINE</span>
                 </div>
                 <h3 className="text-base font-black text-slate-900">
@@ -2677,7 +2677,7 @@ export const DeliveryPortal = () => {
                           placeholder="Enter customer's 4-digit PIN"
                           value={otpInputs[order.id] || ''}
                           onChange={(e) => handleOtpInputChange(order.id, e.target.value)}
-                          className="flex-1 bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          className="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                         />
                         <button
                           type="button"
@@ -2726,7 +2726,7 @@ export const DeliveryPortal = () => {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-emerald-800 font-bold bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200 shadow-2xs flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
                 <span>{deliveredTodayOrders.length} Completed Handover{deliveredTodayOrders.length === 1 ? '' : 's'}</span>
               </span>
             </div>
@@ -2892,15 +2892,15 @@ export const DeliveryPortal = () => {
               <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-2xs relative overflow-hidden flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Today's Payout</span>
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center" style={{ color: storeTheme.primary }}>
                     <DollarSign className="w-4 h-4" />
                   </div>
                 </div>
                 <div className="mt-3">
-                  <p className="text-2xl sm:text-3xl font-black text-emerald-800 font-mono">
+                  <p className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
                     {formatPrice(totalRiderEarningsToday)}
                   </p>
-                  <span className="text-[11px] text-emerald-700 font-bold block mt-0.5">
+                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
                     {deliveredTodayOrders.length} trips × Rs. 150 {totalTipsToday > 0 ? `+ Rs. ${totalTipsToday} tips` : ''}
                   </span>
                 </div>
@@ -2908,12 +2908,12 @@ export const DeliveryPortal = () => {
 
               {/* Stat 2: Cash in Hand to Handover */}
               <div className={`rounded-3xl p-5 border shadow-2xs relative overflow-hidden flex flex-col justify-between ${
-                netCashInHand > 0 ? 'bg-amber-50/70 border-amber-300' : 'bg-white border-slate-200/90'
+                netCashInHand > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200/90'
               }`}>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Cash in Hand</span>
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                    netCashInHand > 0 ? 'bg-amber-500/20 text-amber-900' : 'bg-slate-100 text-slate-600'
+                    netCashInHand > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
                   }`}>
                     <Wallet className="w-4 h-4" />
                   </div>
@@ -2922,7 +2922,7 @@ export const DeliveryPortal = () => {
                   <p className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
                     {formatPrice(netCashInHand)}
                   </p>
-                  <span className="text-[11px] font-bold block mt-0.5 text-amber-900">
+                  <span className="text-[11px] font-bold block mt-0.5 text-amber-700">
                     {netCashInHand > 0 ? 'To handover to store cashier' : 'All collections settled ✓'}
                   </span>
                 </div>
@@ -2932,7 +2932,7 @@ export const DeliveryPortal = () => {
               <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-2xs relative overflow-hidden flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">COD Collected</span>
-                  <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-700 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center" style={{ color: storeTheme.primary }}>
                     <Receipt className="w-4 h-4" />
                   </div>
                 </div>
@@ -2950,15 +2950,15 @@ export const DeliveryPortal = () => {
               <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-2xs relative overflow-hidden flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Settled</span>
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center" style={{ color: storeTheme.primary }}>
                     <CheckCircle2 className="w-4 h-4" />
                   </div>
                 </div>
                 <div className="mt-3">
-                  <p className="text-2xl sm:text-3xl font-black text-emerald-800 font-mono">
+                  <p className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
                     {formatPrice(totalSettledWithCashier)}
                   </p>
-                  <span className="text-[11px] text-emerald-700 font-bold block mt-0.5">
+                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
                     {settlementRecords.length} cashier settlement{settlementRecords.length === 1 ? '' : 's'}
                   </span>
                 </div>
@@ -3288,13 +3288,13 @@ export const DeliveryPortal = () => {
             {/* Modal Header */}
             <div className="bg-[#0b132b] text-white p-5 flex items-center justify-between border-b border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center text-xl">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-950/60 text-emerald-300 border border-emerald-800 flex items-center justify-center text-xl">
                   🎉
                 </div>
                 <div>
                   <h3 id="whatsapp-notify-modal-title" className="text-base font-black text-white flex items-center gap-2">
                     <span>Delivery Confirmed!</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-950/60 text-emerald-300 border border-emerald-800">
                       Handover Complete
                     </span>
                   </h3>
@@ -3344,7 +3344,7 @@ export const DeliveryPortal = () => {
                   placeholder="e.g., Handed directly to customer / Left with security guard"
                   value={customWhatsAppNote}
                   onChange={(e) => setCustomWhatsAppNote(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-400"
                 />
               </div>
 
@@ -3389,7 +3389,7 @@ export const DeliveryPortal = () => {
                       localStorage.setItem('freshmart_rider_auto_whatsapp', checked ? 'true' : 'false');
                     } catch (err) {}
                   }}
-                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                  className="w-4 h-4 rounded text-emerald-600 focus:ring-slate-400 border-slate-300 cursor-pointer"
                 />
                 <span className="text-[11px] text-slate-600 font-medium">
                   Automatically launch WhatsApp after every verified delivery
@@ -3437,7 +3437,7 @@ export const DeliveryPortal = () => {
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden">
             <div className="bg-[#0b132b] text-white p-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center text-xl">
+                <div className="w-10 h-10 rounded-2xl bg-amber-950/60 text-amber-300 border border-amber-800 flex items-center justify-center text-xl">
                   🔐
                 </div>
                 <div>
@@ -3480,7 +3480,7 @@ export const DeliveryPortal = () => {
                   placeholder="Enter current password (default: rider123)"
                   value={oldPasswordInput}
                   onChange={(e) => setOldPasswordInput(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-400 text-slate-900"
                 />
               </div>
 
@@ -3491,7 +3491,7 @@ export const DeliveryPortal = () => {
                   placeholder="New password (min 4 characters)"
                   value={newPasswordInput}
                   onChange={(e) => setNewPasswordInput(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-400 text-slate-900"
                 />
               </div>
 
@@ -3502,7 +3502,7 @@ export const DeliveryPortal = () => {
                   placeholder="Confirm new password"
                   value={confirmPasswordInput}
                   onChange={(e) => setConfirmPasswordInput(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-400 text-slate-900"
                 />
               </div>
 
@@ -3539,7 +3539,7 @@ export const DeliveryPortal = () => {
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden">
             <div className="bg-rose-950 text-white p-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center justify-center text-xl">
+                <div className="w-10 h-10 rounded-2xl bg-rose-900/60 text-rose-200 border border-rose-800 flex items-center justify-center text-xl">
                   ✕
                 </div>
                 <div>
@@ -3566,7 +3566,7 @@ export const DeliveryPortal = () => {
                 <select
                   value={declineReason}
                   onChange={(e) => setDeclineReason(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500 text-slate-900"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-400 text-slate-900"
                 >
                   <option value="Courier busy / off route">Courier busy / off route</option>
                   <option value="Bike / vehicle issue">Bike / vehicle issue</option>
@@ -3608,7 +3608,7 @@ export const DeliveryPortal = () => {
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden">
             <div className="bg-[#0b132b] text-white p-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center justify-center text-xl">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-950/60 text-emerald-300 border border-emerald-800 flex items-center justify-center text-xl">
                   💵
                 </div>
                 <div>
@@ -3734,13 +3734,13 @@ export const DeliveryPortal = () => {
           type="button"
           onClick={handleToggleOnlineStatus}
           className={`flex flex-col items-center py-1 px-2.5 rounded-xl transition cursor-pointer ${
-            isRiderOnline ? 'text-emerald-600 font-bold' : 'text-rose-500 font-bold'
+            isRiderOnline ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'
           }`}
           title="Toggle Duty Status"
         >
           <Power className="w-4 h-4" />
           <span className="text-[10px] mt-0.5 flex items-center gap-1">
-            <span className={`w-1.5 h-1.5 rounded-full ${isRiderOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+            <span className={`w-1.5 h-1.5 rounded-full ${isRiderOnline ? 'bg-emerald-600' : 'bg-rose-600'}`}></span>
             <span>{isRiderOnline ? 'Online' : 'Offline'}</span>
           </span>
         </button>

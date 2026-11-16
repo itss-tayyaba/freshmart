@@ -449,7 +449,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
           >
             <Bell className="w-4 h-4" />
             {(kpiCounts.assigned + kpiCounts.ready) > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-black flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-100 text-rose-700 border border-rose-200 rounded-full text-[9px] font-black flex items-center justify-center">
                 {kpiCounts.assigned + kpiCounts.ready}
               </span>
             )}
@@ -577,7 +577,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                     <span>{item.label}</span>
                   </div>
                   {item.badge ? (
-                    <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0">
+                    <span className="bg-rose-100 text-rose-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0">
                       {item.badge}
                     </span>
                   ) : item.count !== undefined ? (
@@ -624,7 +624,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                 Pickup Staff · <span className="font-mono font-bold">{kpiCounts.assigned}/10 Parcels</span>
               </p>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
                 <span className="text-[10px] font-bold text-slate-400">Online</span>
               </div>
             </div>
@@ -667,14 +667,14 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               href="/downloads/freshmart-staff.apk"
               download="freshmart-staff.apk"
               onClick={() => setMobileSidebarOpen(false)}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-600/40 text-emerald-300 hover:text-white"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700"
               title="Download FreshMart Staff Android App (APK)"
             >
               <span className="flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-emerald-400" />
+                <Smartphone className="w-4 h-4 text-emerald-700" />
                 <span>Download Staff App</span>
               </span>
-              <span className="text-[10px] bg-emerald-600/30 px-1.5 py-0.5 rounded text-emerald-200">APK</span>
+              <span className="text-[10px] bg-emerald-100 px-1.5 py-0.5 rounded text-emerald-700">APK</span>
             </a>
 
             {onBackToAdmin && (
@@ -768,7 +768,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             >
               <Bell className="w-5 h-5" />
               {(kpiCounts.assigned + kpiCounts.ready > 0) && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white rounded-full text-[11px] font-bold flex items-center justify-center border-2 border-white dark:border-[#0f172a]">
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-100 text-rose-700 border border-rose-200 rounded-full text-[11px] font-bold flex items-center justify-center">
                   {kpiCounts.assigned + kpiCounts.ready}
                 </span>
               )}
@@ -829,10 +829,14 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             {/* Card 1: Assigned Orders */}
             <div
               onClick={() => setActiveNav('Assigned Orders')}
-              className="bg-[#ecfdf5] dark:bg-emerald-950/30 border border-[#a7f3d0] dark:border-emerald-800/60 rounded-xl p-3 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+              className={`rounded-xl p-3 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between ${
+                activeNav === 'Assigned Orders'
+                  ? 'bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700'
+                  : 'bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800'
+              }`}
             >
-              <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#062319] border border-emerald-200 dark:border-emerald-700 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-2xs">
-                <ClipboardList className="w-4 h-4 text-emerald-600" />
+              <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-2xs">
+                <ClipboardList className="w-4 h-4" style={{ color: storeTheme.primary }} />
               </div>
               <div className="mt-2">
                 <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono block">
@@ -847,10 +851,14 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             {/* Card 2: Packed Orders */}
             <div
               onClick={() => setActiveNav('Packed Orders')}
-              className="bg-[#eff6ff] dark:bg-blue-950/30 border border-[#bfdbfe] dark:border-blue-800/60 rounded-xl p-3 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+              className={`rounded-xl p-3 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between ${
+                activeNav === 'Packed Orders'
+                  ? 'bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700'
+                  : 'bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800'
+              }`}
             >
-              <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#0d2238] border border-blue-200 dark:border-blue-700 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-2xs">
-                <Package className="w-4 h-4 text-blue-600" />
+              <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-2xs">
+                <Package className="w-4 h-4" style={{ color: storeTheme.primary }} />
               </div>
               <div className="mt-2">
                 <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono block">
@@ -865,10 +873,14 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             {/* Card 3: Ready for Delivery */}
             <div
               onClick={() => setActiveNav('Ready for Delivery')}
-              className="bg-[#fffbeb] dark:bg-amber-950/30 border border-[#fde68a] dark:border-amber-800/60 rounded-xl p-3 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+              className={`rounded-xl p-3 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between ${
+                activeNav === 'Ready for Delivery'
+                  ? 'bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700'
+                  : 'bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800'
+              }`}
             >
-              <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#382805] border border-amber-200 dark:border-amber-700 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-2xs">
-                <CheckCircle2 className="w-4 h-4 text-amber-600" />
+              <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-2xs">
+                <CheckCircle2 className="w-4 h-4" style={{ color: storeTheme.primary }} />
               </div>
               <div className="mt-2">
                 <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono block">
@@ -883,10 +895,14 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
             {/* Card 4: Delayed Orders */}
             <div
               onClick={() => setActiveNav('All Orders')}
-              className="bg-[#faf5ff] dark:bg-purple-950/30 border border-[#e9d5ff] dark:border-purple-800/60 rounded-xl p-3 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+              className={`rounded-xl p-3 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between ${
+                activeNav === 'All Orders'
+                  ? 'bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700'
+                  : 'bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800'
+              }`}
             >
-              <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#28133d] border border-purple-200 dark:border-purple-700 flex items-center justify-center text-purple-600 dark:text-purple-400 shadow-2xs">
-                <Clock className="w-4 h-4 text-purple-600" />
+              <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-2xs">
+                <Clock className="w-4 h-4" style={{ color: storeTheme.primary }} />
               </div>
               <div className="mt-2">
                 <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono block">
@@ -916,7 +932,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               <button
                 type="button"
                 onClick={() => setActiveNav('Assigned Orders')}
-                className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition cursor-pointer"
+                className="text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 transition cursor-pointer"
               >
                 View All
               </button>
@@ -972,7 +988,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                               e.stopPropagation();
                               setSelectedOrderForPacking(ord);
                             }}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs cursor-pointer shrink-0"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-2xs cursor-pointer shrink-0"
                           >
                             <span>To Pack</span>
                             <ChevronRight className="w-3.5 h-3.5" />
@@ -1028,7 +1044,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                                   e.stopPropagation();
                                   setSelectedOrderForPacking(ord);
                                 }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 hover:bg-emerald-100 transition shadow-2xs cursor-pointer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition shadow-2xs cursor-pointer"
                               >
                                 <span>To Pack</span>
                               </button>
@@ -1267,7 +1283,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                                   <button
                                     type="button"
                                     onClick={() => setSelectedOrderForPacking(ord)}
-                                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs"
+                                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 cursor-pointer shadow-2xs"
                                   >
                                     To Pack
                                   </button>
@@ -1275,7 +1291,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                                   <button
                                     type="button"
                                     onClick={() => handleMarkReadyForDispatch(ord)}
-                                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs"
+                                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 cursor-pointer shadow-2xs"
                                   >
                                     Mark Ready
                                   </button>
@@ -1333,7 +1349,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                                     <button
                                       type="button"
                                       onClick={() => setSelectedOrderForPacking(ord)}
-                                      className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                                      className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 cursor-pointer"
                                     >
                                       To Pack
                                     </button>
@@ -1341,7 +1357,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                                     <button
                                       type="button"
                                       onClick={() => handleMarkReadyForDispatch(ord)}
-                                      className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                                      className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 cursor-pointer"
                                     >
                                       Mark Ready
                                     </button>
@@ -1376,7 +1392,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
               <button
                 type="button"
                 onClick={() => setActiveNav('Ready for Delivery')}
-                className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition cursor-pointer"
+                className="text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 transition cursor-pointer"
               >
                 View All
               </button>
@@ -1562,7 +1578,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
                     {selectedOrderForPacking.id || selectedOrderForPacking.orderId}
                   </span>
-                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                     {selectedOrderForPacking.status || 'To Pack'}
                   </span>
                 </div>
@@ -1612,7 +1628,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
                   </div>
                   <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-emerald-500 transition-all duration-200"
+                      className="h-full bg-emerald-600 transition-all duration-200"
                       style={{ width: `${pickPercent}%` }}
                     />
                   </div>
@@ -1869,7 +1885,7 @@ export const PickupStaffPortal = ({ onBackToAdmin }) => {
         >
           <CheckSquare className="w-4 h-4" />
           {kpiCounts.ready > 0 && (
-            <span className="absolute top-0 right-1 px-1 min-w-[14px] h-3.5 bg-amber-500 text-white rounded-full text-[9px] font-black flex items-center justify-center">
+            <span className="absolute top-0 right-1 px-1 min-w-[14px] h-3.5 bg-amber-100 text-amber-700 border border-amber-200 rounded-full text-[9px] font-black flex items-center justify-center">
               {kpiCounts.ready}
             </span>
           )}
