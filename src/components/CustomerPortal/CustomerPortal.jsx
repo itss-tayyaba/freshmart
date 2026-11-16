@@ -516,30 +516,6 @@ export const CustomerPortal = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab('payments')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
-                activeTab === 'payments'
-                  ? 'text-white font-black shadow-md scale-[1.02]'
-                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-              style={
-                activeTab === 'payments'
-                  ? {
-                      backgroundColor: storeTheme.activeBg,
-                      boxShadow: storeTheme.activeGlow
-                    }
-                  : {}
-              }
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${activeTab === 'payments' ? 'bg-white/20 text-white' : 'bg-purple-100 text-purple-700'}`}>
-                  <CreditCard className="w-3.5 h-3.5" />
-                </div>
-                <span>Wallet & Payments</span>
-              </div>
-            </button>
-
-            <button
               onClick={() => setActiveTab('settings')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
                 activeTab === 'settings'
@@ -589,30 +565,6 @@ export const CustomerPortal = () => {
               <span className="w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center font-black animate-pulse">
                 {customerNotifications.length}
               </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('support')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
-                activeTab === 'support'
-                  ? 'text-white font-black shadow-md scale-[1.02]'
-                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-              style={
-                activeTab === 'support'
-                  ? {
-                      backgroundColor: storeTheme.activeBg,
-                      boxShadow: storeTheme.activeGlow
-                    }
-                  : {}
-              }
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${activeTab === 'support' ? 'bg-white/20 text-white' : 'bg-cyan-100 text-cyan-700'}`}>
-                  <HelpCircle className="w-3.5 h-3.5" />
-                </div>
-                <span>24/7 Support</span>
-              </div>
             </button>
 
             {/* Logout Button */}
