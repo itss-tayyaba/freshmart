@@ -28,7 +28,7 @@ import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
 import { calculateDistanceKm, PAKISTAN_CITIES } from '../../../data/pakistanLocations';
 import { getAllUnifiedStores } from '../../../utils/storeHelper';
-import { isPointInPolygon } from '../../../utils/distanceCalculator';
+import { isPointInPolygon, normalizeLatLng } from '../../../utils/distanceCalculator';
 import { switchMapTileLayer } from '../../../utils/mapTiles';
 import {
   calculateDeliveryPolygonAreaKm2,
