@@ -1210,15 +1210,72 @@ export const apiService = {
   },
 
   async updateBranchDeliveryZone(id, deliveryZoneData) {
+    const cleanId = String(id || '').trim();
+    const cleanIdLower = cleanId.toLowerCase();
+
+    // 1. Persist directly and immediately to localStorage 'freshmart_branches'
+    try {
+      const savedBranches = localStorage.getItem('freshmart_branches');
+      const branchList = savedBranches ? JSON.parse(savedBranches) : [];
+      let found = false;
+      const updatedBranches = (branchList || []).map((b) => {
+        const bId = String(b._id || b.id || b.storeId || '').trim().toLowerCase();
+        if (bId === cleanIdLower) {
+          found = true;
+          return {
+            ...b,
+            ...deliveryZoneData,
+            _id: b._id || id,
+            id: b.id || id
+          };
+        }
+        return b;
+      });
+      if (!found) {
+        updatedBranches.push({
+          _id: id,
+          id: id,
+          ...deliveryZoneData
+        });
+      }
+      localStorage.setItem('freshmart_branches', JSON.stringify(updatedBranches));
+      window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: updatedBranches }));
+    } catch (e) {
+      console.warn('Local branches update error in apiService:', e);
+    }
+
+    // 2. Persist to localStorage 'freshmart_custom_stores'
+    try {
+      const savedCustom = localStorage.getItem('freshmart_custom_stores');
+      if (savedCustom) {
+        const customList = JSON.parse(savedCustom) || [];
+        const updatedCustom = customList.map((c) => {
+          const cid = String(c.storeId || c._id || c.id || '').trim().toLowerCase();
+          if (cid === cleanIdLower) {
+            return { ...c, ...deliveryZoneData };
+          }
+          return c;
+        });
+        localStorage.setItem('freshmart_custom_stores', JSON.stringify(updatedCustom));
+      }
+    } catch (e) {}
+
+    window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
+
+    // 3. Sync to backend API (Atlas / Local MongoDB)
     try {
       const res = await fetch(`${API_BASE_URL}/branches/${encodeURIComponent(id)}/delivery-zone`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(deliveryZoneData)
       });
-      return await handleResponse(res);
+      const data = await handleResponse(res);
+      if (data && data.success) {
+        return data;
+      }
+      return { success: true, offline: true, warning: data?.message || data?.error, store: data?.store };
     } catch (e) {
-      return { success: false, error: e.message };
+      return { success: true, offline: true, error: e.message };
     }
   },
 

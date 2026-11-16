@@ -222,7 +222,12 @@ export const getAllUnifiedStores = (apiStores = [], extraBranches = [], targetCi
         contactNumber: b.phone || '+92 300 0000000',
         openingHours: '08:00 AM',
         closingHours: '11:00 PM',
+        deliveryPolygon: Array.isArray(b.deliveryPolygon) && b.deliveryPolygon.length >= 3 ? b.deliveryPolygon : null,
         deliveryRadiusKm: Number(b.deliveryRadiusKm || b.deliveryRadius || 5),
+        deliveryRadius: Number(b.deliveryRadiusKm || b.deliveryRadius || 5),
+        deliveryStatus: b.deliveryStatus || 'active',
+        deliveryTiers: Array.isArray(b.deliveryTiers) ? b.deliveryTiers : [],
+        assignedZoneId: b.assignedZoneId || null,
         storeImage: b.banner || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
         status: b.status || 'active',
         isActive: String(b.status || 'active').toLowerCase() === 'active',
@@ -230,11 +235,50 @@ export const getAllUnifiedStores = (apiStores = [], extraBranches = [], targetCi
       }));
   }
 
+  // Create a polygon lookup map from all known branch and custom sources so drawn polygons are NEVER lost
+  const polygonLookup = new Map();
+  const enrichFromList = (list) => {
+    if (!Array.isArray(list)) return;
+    list.forEach((item) => {
+      if (!item) return;
+      const poly = item.deliveryPolygon;
+      if (Array.isArray(poly) && poly.length >= 3) {
+        const id1 = String(item._id || '').toLowerCase().trim();
+        const id2 = String(item.id || '').toLowerCase().trim();
+        const id3 = String(item.storeId || '').toLowerCase().trim();
+        if (id1) polygonLookup.set(id1, poly);
+        if (id2) polygonLookup.set(id2, poly);
+        if (id3) polygonLookup.set(id3, poly);
+      }
+    });
+  };
+
+  enrichFromList(extraBranches);
+  enrichFromList(localCustom);
+  try {
+    const diskBranches = localStorage.getItem('freshmart_branches');
+    if (diskBranches) enrichFromList(JSON.parse(diskBranches));
+  } catch (e) {}
+
+  // Helper to ensure a store keeps its saved delivery polygon
+  const attachPolygonIfKnown = (s) => {
+    if (!s) return s;
+    if (Array.isArray(s.deliveryPolygon) && s.deliveryPolygon.length >= 3) return s;
+    const sId1 = String(s.storeId || '').toLowerCase().trim();
+    const sId2 = String(s._id || '').toLowerCase().trim();
+    const sId3 = String(s.id || '').toLowerCase().trim();
+    const found = polygonLookup.get(sId1) || polygonLookup.get(sId2) || polygonLookup.get(sId3);
+    if (found) {
+      return { ...s, deliveryPolygon: found };
+    }
+    return s;
+  };
+
   // Stores are NOT created automatically!
   // Only stores created by user/admin (via API, local custom stores, or explicitly added branches) are loaded.
   const combined = [
-    ...validApi,
-    ...localCustom
+    ...validApi.map(attachPolygonIfKnown),
+    ...localCustom.map(attachPolygonIfKnown)
   ];
 
   if (combined.length === 0 && Array.isArray(extraBranches)) {
@@ -249,10 +293,10 @@ export const getAllUnifiedStores = (apiStores = [], extraBranches = [], targetCi
 
   // If still empty, supply the baseline 4 stores firmly located at D-Ground, Peoples Colony, Susan Road, and Samanabad
   if (combined.length === 0) {
-    combined.push(...BASELINE_FOUR_STORES);
+    combined.push(...BASELINE_FOUR_STORES.map(attachPolygonIfKnown));
   }
 
-  return deduplicateStores(combined);
+  return deduplicateStores(combined.map(attachPolygonIfKnown));
 };
 
 export const getRetailerSummarySubtitle = (stores = []) => {

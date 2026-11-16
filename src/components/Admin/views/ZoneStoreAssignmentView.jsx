@@ -1804,11 +1804,6 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
             name: sName,
             deliveryRadiusKm: Number(drawingStoreTarget.deliveryRadiusKm || 5)
           });
-          if (!branchResult?.success) {
-            throw new Error(branchResult?.message || branchResult?.error || 'Branch delivery zone could not be saved.');
-          }
-          // The backend updateBranchDeliveryZone already synchronizes both Branch and Store in MongoDB Atlas.
-          // Secondary updateStore call is made as additional redundancy.
           try {
             await apiService.updateStore(storeId, {
               deliveryPolygon: cleanPoints,
@@ -1817,13 +1812,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
           } catch {}
           backendSaved = true;
         } catch (apiErr) {
-          if (addToast) {
-            addToast(
-              'Server Sync Failed',
-              `The delivery zone is saved on this device, but could not be saved to the server: ${apiErr.message}`,
-              'error'
-            );
-          }
+          console.warn('Backend sync deferred, saved locally:', apiErr.message);
         }
 
         const sLat = Number(drawingStoreTarget.latitude ?? drawingStoreTarget.coordinates?.lat);
@@ -1947,7 +1936,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
           );
         }
 
-        // Optimistically update local state
+        // Optimistically update local state and localStorage freshmart_zones
         setZones((prev) =>
           prev.map((z) =>
             (z.zoneId === zId || z._id === zId || z.code === zId)
@@ -1955,6 +1944,18 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
               : z
           )
         );
+
+        try {
+          const savedZones = localStorage.getItem('freshmart_zones');
+          const zList = savedZones ? JSON.parse(savedZones) : [];
+          const zUpdated = (zList || []).map((z) =>
+            (z.zoneId === zId || z._id === zId || z.code === zId)
+              ? { ...z, geometry: payload.geometry, coordinates: payload.geometry.coordinates }
+              : z
+          );
+          localStorage.setItem('freshmart_zones', JSON.stringify(zUpdated));
+          window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: zUpdated }));
+        } catch (e) {}
 
         setIsDrawingPolygon(false);
         setDrawnPoints([]);

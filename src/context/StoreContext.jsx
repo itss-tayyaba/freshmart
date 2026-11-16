@@ -916,7 +916,15 @@ export const StoreProvider = ({ children }) => {
               const k = String(b._id || b.id || '').toLowerCase();
               if (k && !seen.has(k)) {
                 seen.add(k);
+                const prevBranch = (prev || []).find((p) => String(p._id || p.id || '').toLowerCase() === k);
+                const existingPoly = prevBranch && Array.isArray(prevBranch.deliveryPolygon) && prevBranch.deliveryPolygon.length >= 3
+                  ? prevBranch.deliveryPolygon
+                  : null;
                 const canonical = baseMap.get(k);
+                const finalPoly = (Array.isArray(b.deliveryPolygon) && b.deliveryPolygon.length >= 3)
+                  ? b.deliveryPolygon
+                  : (existingPoly || canonical?.deliveryPolygon || null);
+
                 if (canonical) {
                   const bLat = Number(b.latitude ?? b.coordinates?.lat);
                   const bLng = Number(b.longitude ?? b.coordinates?.lng);
@@ -928,14 +936,14 @@ export const StoreProvider = ({ children }) => {
                     longitude: (!isNaN(bLng) && bLng !== 0) ? bLng : canonical.longitude,
                     deliveryRadiusKm: (!isNaN(bRadius) && bRadius > 0) ? bRadius : (canonical.deliveryRadiusKm || 5),
                     deliveryRadius: (!isNaN(bRadius) && bRadius > 0) ? bRadius : (canonical.deliveryRadius || 5),
-                    deliveryPolygon: Array.isArray(b.deliveryPolygon) && b.deliveryPolygon.length >= 3 ? b.deliveryPolygon : (canonical.deliveryPolygon || null),
+                    deliveryPolygon: finalPoly,
                     deliveryStatus: b.deliveryStatus || canonical.deliveryStatus || 'active',
                     deliveryTiers: (Array.isArray(b.deliveryTiers) && b.deliveryTiers.length > 0) ? b.deliveryTiers : (canonical.deliveryTiers || [])
                   });
                 } else if (['branch_af_kohinoor', 'branch_cu_satiana', 'branch_cv_gmabad', 'branch_um_madina'].includes(k)) {
-                  merged.push({ ...b, deliveryStatus: 'inactive', status: 'inactive' });
+                  merged.push({ ...b, deliveryPolygon: finalPoly, deliveryStatus: 'inactive', status: 'inactive' });
                 } else {
-                  merged.push(b);
+                  merged.push({ ...b, deliveryPolygon: finalPoly });
                 }
               }
             });
@@ -1047,9 +1055,18 @@ export const StoreProvider = ({ children }) => {
   };
 
   const updateBranch = async (branchId, updatedData) => {
-    setAllBranches((prev) =>
-      prev.map((b) => (b._id === branchId || b.id === branchId ? { ...b, ...updatedData } : b))
-    );
+    const targetCleanId = String(branchId || '').toLowerCase().trim();
+    setAllBranches((prev) => {
+      const next = prev.map((b) =>
+        (String(b._id || b.id).toLowerCase().trim() === targetCleanId)
+          ? { ...b, ...updatedData }
+          : b
+      );
+      try {
+        localStorage.setItem('freshmart_branches', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
     addToast('Branch Updated', 'Branch settings updated on database.');
     try {
       await apiService.updateBranch(branchId, updatedData);

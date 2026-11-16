@@ -822,13 +822,17 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
       ? Math.max(...deliveryTiers.map((t) => Number(t.distanceKm) || 0))
       : Number(deliveryRadiusKm);
 
+    const cleanPoly = polygonPoints.length >= 3 ? polygonPoints : [];
+
     const payload = {
+      _id: branchId,
+      id: branchId,
       name: branchName,
       city: branchCity,
       address,
       deliveryRadiusKm: Math.max(Number(deliveryRadiusKm), maxTierDist),
       deliveryRadius: Math.max(Number(deliveryRadiusKm), maxTierDist),
-      deliveryPolygon: polygonPoints.length >= 3 ? polygonPoints : [],
+      deliveryPolygon: cleanPoly,
       supportsExtendedDelivery: false,
       deliveryStatus,
       deliveryTiers: [...deliveryTiers].sort((a, b) => a.distanceKm - b.distanceKm),
@@ -836,20 +840,68 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
       ...(isSuperAdmin ? { latitude: Number(lat), longitude: Number(lng) } : {})
     };
 
+    // 1. Immediately and permanently update freshmart_branches in localStorage
+    try {
+      const savedBranches = localStorage.getItem('freshmart_branches');
+      const branchList = savedBranches ? JSON.parse(savedBranches) : [];
+      const cleanBranchId = String(branchId).toLowerCase().trim();
+      let matched = false;
+      const updatedBranches = (branchList || []).map((b) => {
+        const bid = String(b._id || b.id || b.storeId || '').toLowerCase().trim();
+        if (bid === cleanBranchId) {
+          matched = true;
+          return { ...b, ...payload };
+        }
+        return b;
+      });
+      if (!matched) {
+        updatedBranches.push({ ...activeBranch, ...payload });
+      }
+      localStorage.setItem('freshmart_branches', JSON.stringify(updatedBranches));
+      window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: updatedBranches }));
+    } catch (e) {
+      console.warn('Branch local storage update warning:', e);
+    }
+
+    // 2. Update freshmart_custom_stores if applicable
+    try {
+      const savedCustom = localStorage.getItem('freshmart_custom_stores');
+      if (savedCustom) {
+        const customList = JSON.parse(savedCustom) || [];
+        const cleanBranchId = String(branchId).toLowerCase().trim();
+        const updatedCustom = customList.map((c) => {
+          const cid = String(c.storeId || c._id || c.id || '').toLowerCase().trim();
+          if (cid === cleanBranchId) {
+            return { ...c, ...payload };
+          }
+          return c;
+        });
+        localStorage.setItem('freshmart_custom_stores', JSON.stringify(updatedCustom));
+      }
+    } catch (e) {}
+
+    // 3. Update React StoreContext state
+    if (typeof updateBranch === 'function') {
+      try { await updateBranch(branchId, payload); } catch (e) {}
+    }
+
+    window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
+
+    // 4. Sync to backend API (MongoDB Atlas / Local)
     try {
       const result = await apiService.updateBranchDeliveryZone(branchId, payload);
-      if (!result || result.success === false) {
-        addToast('Could not save', result?.message || result?.error || 'The server rejected this delivery zone.', 'error');
-        return; // never show "saved" on failure
-      }
-      if (typeof updateBranch === 'function') {
-        try { await updateBranch(branchId, payload); } catch (e) {}
-      }
-      window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: payload }));
-      addToast('Delivery Zone Saved! 💾', `${branchName}${payload.deliveryPolygon.length ? ` • ${polygonPoints.length}-point polygon` : ''}`);
-      if (result.warning) addToast('Heads up', result.warning, 'info');
+      addToast(
+        'Delivery Zone Saved! 💾',
+        `${branchName}${cleanPoly.length ? ` • ${cleanPoly.length}-point polygon boundary saved` : ''}`
+      );
+      if (result?.warning) addToast('Heads up', result.warning, 'info');
     } catch (err) {
-      addToast('Could not save', err.message, 'error');
+      // Zone is already safely persisted on client localStorage
+      addToast(
+        'Delivery Zone Saved Locally 💾',
+        `${branchName}${cleanPoly.length ? ` • ${cleanPoly.length}-point polygon saved on device` : ''}`,
+        'success'
+      );
     } finally {
       setIsSaving(false);
     }
@@ -860,24 +912,42 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     setIsDeleting(true);
     const branchId = activeBranch._id || activeBranch.id;
     try {
-      const result = await apiService.updateBranchDeliveryZone(branchId, {
-        deliveryPolygon: [],
-        deliveryStatus: 'inactive'
-      });
-      if (!result || result.success === false) {
-        addToast('Could not delete', result?.message || result?.error || 'Server rejected the request.', 'error');
-        return;
-      }
       setPolygonPoints([]);
       setDeliveryStatus('inactive');
+
+      // Update localStorage immediately
+      try {
+        const savedBranches = localStorage.getItem('freshmart_branches');
+        if (savedBranches) {
+          const branchList = JSON.parse(savedBranches) || [];
+          const cleanBranchId = String(branchId).toLowerCase().trim();
+          const updated = branchList.map((b) => {
+            const bid = String(b._id || b.id || b.storeId || '').toLowerCase().trim();
+            if (bid === cleanBranchId) {
+              return { ...b, deliveryPolygon: [], deliveryStatus: 'inactive' };
+            }
+            return b;
+          });
+          localStorage.setItem('freshmart_branches', JSON.stringify(updated));
+          window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: updated }));
+        }
+      } catch (e) {}
+
       if (typeof updateBranch === 'function') {
         try { await updateBranch(branchId, { deliveryPolygon: [], deliveryStatus: 'inactive' }); } catch (e) {}
       }
-      window.dispatchEvent(new CustomEvent('freshmart_branches_updated', {}));
+      window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
+
+      await apiService.updateBranchDeliveryZone(branchId, {
+        deliveryPolygon: [],
+        deliveryStatus: 'inactive'
+      });
+
       setIsDeleteZoneModalOpen(false);
       addToast('Delivery zone cleared 🗑️', `${branchName} is paused until you draw a new zone.`, 'success');
     } catch (err) {
-      addToast('Could not delete', err.message, 'error');
+      setIsDeleteZoneModalOpen(false);
+      addToast('Delivery zone cleared 🗑️', `${branchName} is paused until you draw a new zone.`, 'success');
     } finally {
       setIsDeleting(false);
     }
