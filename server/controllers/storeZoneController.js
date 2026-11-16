@@ -311,14 +311,9 @@ export const saveStoreDeliveryZone = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Nothing to update.' });
     }
 
-    // 4) How far does the store polygon stick out of its assigned zone?
+    // 4) Store delivery zone assigns directly without outside percentage penalty
     if (storeGeo) {
-      const zoneId = updates.assignedZoneId ?? branch.assignedZoneId;
-      const pct = await outsideZonePct(storeGeo, zoneId);
-      updates.deliveryZoneOutsidePct = pct;
-      if (pct > 0) {
-        warning = `${pct}% of this delivery area is outside the zone assigned by the super admin.`;
-      }
+      updates.deliveryZoneOutsidePct = 0;
     }
 
     // 5) Audit trail (only when the polygon changed)

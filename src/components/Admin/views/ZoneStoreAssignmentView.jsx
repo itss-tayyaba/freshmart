@@ -2690,24 +2690,17 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
                           </p>
                         </div>
 
-                        {/* Audit Trail & Warnings from Store Admin Edits */}
-                        {(store.deliveryZoneUpdatedByRole === 'store admin' || (store.deliveryZoneOutsidePct && store.deliveryZoneOutsidePct > 0)) && (
+                        {/* Audit Trail from Store Admin Edits */}
+                        {store.deliveryZoneUpdatedByRole === 'store admin' && (
                           <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                            {store.deliveryZoneUpdatedByRole === 'store admin' && (
-                              <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <span>🏬 Edited by store admin</span>
-                                {store.deliveryZoneUpdatedAt && (
-                                  <span className="opacity-75">
-                                    • {new Date(store.deliveryZoneUpdatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-                                )}
-                              </span>
-                            )}
-                            {store.deliveryZoneOutsidePct > 0 && (
-                              <span className="text-[10px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
-                                ⚠️ {store.deliveryZoneOutsidePct}% outside assigned zone
-                              </span>
-                            )}
+                            <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <span>🏬 Edited by store admin</span>
+                              {store.deliveryZoneUpdatedAt && (
+                                <span className="opacity-75">
+                                  • {new Date(store.deliveryZoneUpdatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </span>
                           </div>
                         )}
                       </div>
