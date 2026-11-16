@@ -186,34 +186,35 @@ export const DeliveryView = () => {
   const isAdmin = adminRole === 'admin' || adminRole === 'superadmin';
 
   // Get only the real branch and areas that are actually added or configured for this store in Faisalabad (FSD only)
-  // Do NOT auto-inject fake/unreal mock branches or branches from other cities
+  // Strictly isolates branches to the active store/tenant so other stores never leak in
   const availableBranches = useMemo(() => {
     const activeTenantId = (user?.role !== 'superadmin' && user?.tenantId)
       ? user.tenantId
-      : (currentTenant?.id || user?.tenantId || 'tenant-chaseup');
+      : (currentTenant?.id || user?.tenantId || 'tenant-chasevalue');
     const canonicalTenantId = resolveTenantId ? resolveTenantId(activeTenantId) : activeTenantId;
 
     const isFsdCity = (cityStr = '') => {
       const lower = String(cityStr || '').toLowerCase().trim();
       if (!lower) return true;
       if (lower.includes('fsd') || lower.includes('faisalabad')) return true;
-      if (['lahore', 'karachi', 'islamabad', 'rawalpindi', 'multan', 'peshawar', 'sialkot', 'gujranwala'].includes(lower)) return false;
+      const nonFsd = ['lahore', 'karachi', 'islamabad', 'rawalpindi', 'multan', 'peshawar', 'sialkot', 'gujranwala', 'quetta', 'hyderabad'];
+      if (nonFsd.some((c) => lower.includes(c))) return false;
       return true;
     };
 
     const isFsdName = (nameStr = '') => {
       const lower = String(nameStr || '').toLowerCase();
-      if (lower.includes('lahore') || lower.includes('karachi') || lower.includes('islamabad') || lower.includes('multan') || lower.includes('rawalpindi')) return false;
+      const nonFsd = ['lahore', 'karachi', 'islamabad', 'multan', 'rawalpindi', 'peshawar', 'sialkot', 'gujranwala'];
+      if (nonFsd.some((c) => lower.includes(c))) return false;
       return true;
     };
 
-    // 1. Check branches explicitly added by user in allBranches for this store - FILTERED TO FAISALABAD ONLY!
-    const isSuperAdmin = user?.role === 'superadmin' || user?.isSuperAdmin || adminRole === 'superadmin';
+    // 1. Check branches explicitly added by user in allBranches for this store - FILTERED TO ACTIVE TENANT & FAISALABAD ONLY!
     const storeAddedBranches = (allBranches || []).filter(
       (b) =>
         b &&
         (b.status === 'active' || b.status === 'Active' || !b.status) &&
-        (isSuperAdmin || b.tenantId === canonicalTenantId || b.tenantId === activeTenantId || isSameTenant(b.tenantId, activeTenantId)) &&
+        (isSameTenant(b.tenantId, activeTenantId) || isSameTenant(b.companyId, activeTenantId) || b.tenantId === canonicalTenantId || b.tenantId === activeTenantId) &&
         isFsdCity(b.city) &&
         isFsdName(b.name)
     );
@@ -230,7 +231,7 @@ export const DeliveryView = () => {
           _id: `hub_${currentTenant.id || 'curr'}_${idx}`,
           id: `hub_${currentTenant.id || 'curr'}_${idx}`,
           name: hubName,
-          tenantId: currentTenant?.id || 'tenant-chaseup',
+          tenantId: currentTenant?.id || activeTenantId,
           city: 'Faisalabad',
           latitude: 31.4125,
           longitude: 73.0915,
@@ -240,14 +241,26 @@ export const DeliveryView = () => {
       }
     }
 
-    // 3. Fallback: single real primary branch for current store in Faisalabad
+    // 3. Fallback: Check branches for this store in Faisalabad
+    const predefinedTenantBranches = (branches || []).filter(
+      (b) =>
+        b &&
+        (isSameTenant(b.tenantId, activeTenantId) || isSameTenant(b.companyId, activeTenantId)) &&
+        isFsdCity(b.city) &&
+        isFsdName(b.name)
+    );
+    if (predefinedTenantBranches.length > 0) {
+      return predefinedTenantBranches;
+    }
+
+    // 4. Fallback: single real primary branch for current store in Faisalabad
     const realBranchName = `${currentTenant?.name || 'Store'} (Faisalabad Flagship Hub)`;
     return [
       {
         _id: `real_branch_${currentTenant?.id || 'main'}`,
         id: `real_branch_${currentTenant?.id || 'main'}`,
         name: realBranchName,
-        tenantId: currentTenant?.id || 'tenant-chaseup',
+        tenantId: currentTenant?.id || activeTenantId,
         city: 'Faisalabad',
         latitude: 31.4125,
         longitude: 73.0915,
@@ -255,7 +268,7 @@ export const DeliveryView = () => {
         status: 'active'
       }
     ];
-  }, [allBranches, currentTenant]);
+  }, [allBranches, branches, currentTenant, user?.tenantId, user?.role]);
 
   const [activeSubTab, setActiveSubTab] = useState('fleet'); // 'fleet' | 'queue' | 'delivered'
   const [searchRider, setSearchRider] = useState('');
@@ -282,7 +295,7 @@ export const DeliveryView = () => {
   const [customRegionName, setCustomRegionName] = useState('');
 
   const initialBranch = availableBranches[0] || {
-    name: 'Mall of Faisalabad Flagship (Faisalabad)',
+    name: `${currentTenant?.name || 'Store'} (Faisalabad Hub)`,
     city: 'Faisalabad',
     latitude: 31.4125,
     longitude: 73.0915,
@@ -308,7 +321,7 @@ export const DeliveryView = () => {
     cnic: '',
     username: '',
     password: 'rider123',
-    isGlobal: true
+    isGlobal: false
   });
 
   const selectedBranchForForm = useMemo(() => {
@@ -583,8 +596,10 @@ export const DeliveryView = () => {
   };
 
   const handleOpenAddRiderModal = () => {
-    if (availableBranches.length > 0 && !isCustomRegion) {
-      const activeBr = availableBranches.find((b) => isSameTenant(b.tenantId, currentTenant?.id)) || availableBranches[0];
+    const activeBr = (currentBranch && isSameTenant(currentBranch.tenantId, currentTenant?.id))
+      ? currentBranch
+      : (availableBranches.find((b) => isSameTenant(b.tenantId, currentTenant?.id)) || availableBranches[0]);
+    if (activeBr) {
       const sector = getSectorForBranch(activeBr);
       setNewRiderForm((prev) => ({
         ...prev,
@@ -609,16 +624,20 @@ export const DeliveryView = () => {
       return;
     }
 
+    const activeBr = (currentBranch && isSameTenant(currentBranch.tenantId, currentTenant?.id))
+      ? currentBranch
+      : (availableBranches.find((b) => isSameTenant(b.tenantId, currentTenant?.id)) || availableBranches[0]);
+
     const selectedBranch = availableBranches.find(
       (b) => (b.id || b._id || b.name) === newRiderForm.branchId || b.name === newRiderForm.branchName
-    ) || availableBranches[0];
+    ) || activeBr;
 
     const branchSector = getSectorForBranch(selectedBranch);
 
     // The rider's area must be one of the neighbourhoods inside THIS store's delivery region.
     // (The server checks the coordinates again, so this cannot be bypassed.)
     const pickedArea = regionAreas.find((n) => (n.name || n.area) === newRiderForm.serviceArea);
-    if (!isCustomRegion && !pickedArea) {
+    if (!isCustomRegion && !pickedArea && regionAreas.length > 0) {
       addToast(
         'Pick an area inside the delivery region',
         `Choose one of the areas shown under "Inside Delivery Region" for ${selectedBranch?.name || 'this store'}.`,
@@ -653,6 +672,13 @@ export const DeliveryView = () => {
     const riderCity = 'Faisalabad';
     const riderArea = newRiderForm.serviceArea?.trim() || branchSector.neighborhoods[0] || 'Peoples Colony';
 
+    const targetTenantId = (user?.role !== 'superadmin' && user?.tenantId)
+      ? user.tenantId
+      : (currentTenant?.id || selectedBranch?.tenantId || 'tenant-chasevalue');
+    const targetTenantName = (user?.role !== 'superadmin' && user?.tenantName)
+      ? user.tenantName
+      : (currentTenant?.name || selectedBranch?.tenantName || 'Chase Value');
+
     addRider({
       name: newRiderForm.name.trim(),
       phone: newRiderForm.phone.trim(),
@@ -672,12 +698,8 @@ export const DeliveryView = () => {
       coordinates: { lat, lng },
       coverageRadiusKm: Number(newRiderForm.coverageRadiusKm || selectedBranch?.deliveryRadius || 5),
       status: 'Active',
-      tenantId: (user?.role !== 'superadmin' && user?.tenantId)
-        ? user.tenantId
-        : (selectedBranch?.tenantId || currentTenant?.id || 'tenant-alfatah'),
-      tenantName: (user?.role !== 'superadmin' && user?.tenantName)
-        ? user.tenantName
-        : (selectedBranch?.tenantName || currentTenant?.name || 'Al-Fatah'),
+      tenantId: targetTenantId,
+      tenantName: targetTenantName,
       cnic: newRiderForm.cnic ? newRiderForm.cnic.trim() : '',
       username: generatedUsername,
       password: generatedPassword,
@@ -690,7 +712,9 @@ export const DeliveryView = () => {
     setIsCustomRegion(false);
     setCustomRegionName('');
 
-    const nextBr = availableBranches[0] || {};
+    const nextBr = (currentBranch && isSameTenant(currentBranch.tenantId, currentTenant?.id))
+      ? currentBranch
+      : (availableBranches.find((b) => isSameTenant(b.tenantId, currentTenant?.id)) || availableBranches[0] || {});
     const nextSector = getSectorForBranch(nextBr);
     setNewRiderForm({
       name: '',
@@ -711,7 +735,7 @@ export const DeliveryView = () => {
       cnic: '',
       username: '',
       password: 'rider123',
-      isGlobal: true
+      isGlobal: false
     });
   };
 
@@ -1890,46 +1914,18 @@ export const DeliveryView = () => {
                   </div>
                 </div>
 
-                {/* Row 3: Assigned Branch Hub & Base Address */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1 text-xs">
-                      Assigned Branch & Hub <span className="text-slate-400 font-normal">(Base Station)</span>
-                    </label>
-                    <select
-                      value={isCustomRegion ? 'custom' : (newRiderForm.branchId || newRiderForm.branchName || newRiderForm.region)}
-                      onChange={handleBranchSelectChange}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
-                    >
-                      <optgroup label="Available Faisalabad Store Branches (FSD Only)">
-                        {availableBranches.map((b) => {
-                          const branchKey = b.id || b._id || b.name;
-                          const tName = b.tenantName || (b.tenantId?.includes('alfatah') ? 'Al-Fatah' : b.tenantId?.includes('chasevalue') ? 'Chase Value' : b.tenantId?.includes('chaseup') ? 'Chase Up' : 'Unimaart');
-                          return (
-                            <option key={branchKey} value={branchKey}>
-                              🏪 {tName} — {b.name} (Faisalabad)
-                            </option>
-                          );
-                        })}
-                      </optgroup>
-                      <optgroup label="Custom Area">
-                        <option value="custom">📍 Custom Hub / Area</option>
-                      </optgroup>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="font-bold text-slate-700 block mb-1 text-xs">
-                      Base Address / Landmark <span className="text-slate-400 font-normal">(Optional)</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Near D-Ground Market"
-                      value={newRiderForm.address}
-                      onChange={(e) => setNewRiderForm({ ...newRiderForm, address: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    />
-                  </div>
+                {/* Row 3: Base Address / Landmark */}
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1 text-xs">
+                    Base Address / Landmark <span className="text-slate-400 font-normal">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Near D-Ground Market"
+                    value={newRiderForm.address}
+                    onChange={(e) => setNewRiderForm({ ...newRiderForm, address: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
                 </div>
 
                 {/* Delivery Region Indicator Banner */}

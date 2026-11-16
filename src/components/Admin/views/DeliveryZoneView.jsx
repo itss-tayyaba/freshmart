@@ -44,6 +44,22 @@ const esc = (s) =>
     "'": '&#39;'
   }[c]));
 
+// Filter helper: Only keep Faisalabad (FSD) hubs; exclude Lahore, Multan, Karachi, etc.
+const isFsdHub = (b) => {
+  if (!b) return false;
+  const city = String(b.city || '').toLowerCase().trim();
+  const name = String(b.name || '').toLowerCase().trim();
+  const address = String(b.address || '').toLowerCase().trim();
+  const nonFsd = ['lahore', 'karachi', 'islamabad', 'rawalpindi', 'multan', 'peshawar', 'sialkot', 'gujranwala', 'quetta', 'hyderabad'];
+  if (nonFsd.some((c) => city.includes(c) || name.includes(c) || address.includes(c))) {
+    return false;
+  }
+  if (city.includes('fsd') || city.includes('faisalabad') || name.includes('fsd') || name.includes('faisalabad')) {
+    return true;
+  }
+  return !city || city === 'hub' || city === 'fsd' || city === 'faisalabad';
+};
+
 // Custom SVG pin for Store Branch on Leaflet Map
 const createStoreBranchPin = (name, color = '#059669') =>
   L.divIcon({
@@ -133,13 +149,14 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
     return allRetailers.find((r) => isSameTenant(r.id, target)) || allRetailers[0];
   }, [allRetailers, selectedTenantId, isSuperAdmin, user?.tenantId]);
 
-  // Get branches belonging to selected retailer (restricted to own branch for store admins)
+  // Get branches belonging to selected retailer (restricted to own branch for store admins & strictly Faisalabad hubs)
   const tenantBranches = useMemo(() => {
     const list = (allBranches && allBranches.length > 0) ? allBranches : BRANCHES;
     let filtered = list.filter((b) => isSameTenant(b.tenantId, selectedTenantId) || isSameTenant(b.companyId, selectedTenantId));
     if (!isSuperAdmin && user?.branchId && user?.branchId !== 'all') {
       filtered = filtered.filter((b) => (b._id || b.id) === user.branchId);
     }
+    filtered = filtered.filter(isFsdHub);
     return filtered;
   }, [allBranches, BRANCHES, selectedTenantId, isSuperAdmin, user?.branchId]);
 
@@ -1000,7 +1017,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
             {allRetailers.map((ret) => {
               const isSelected = isSameTenant(ret.id, selectedTenantId);
-              const branchCount = (allBranches || BRANCHES).filter((b) => isSameTenant(b.tenantId, ret.id)).length;
+              const branchCount = (allBranches || BRANCHES).filter((b) => isSameTenant(b.tenantId, ret.id) && isFsdHub(b)).length;
               return (
                 <button
                   key={ret.id}
