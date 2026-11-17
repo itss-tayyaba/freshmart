@@ -904,19 +904,25 @@ export const FreshMartHome = () => {
 
                   {/* Quantity Adder or Add to Cart Button */}
                   {cartItem ? (
-                    <div className="flex items-center justify-between rounded-xl p-0.5 mt-2.5 bg-slate-50 border border-slate-200">
+                    <div className="inline-flex items-center justify-between gap-1.5 sm:gap-2 bg-[#D4A359] rounded-full p-1 shadow-[0_3px_12px_rgba(212,163,89,0.35)] transition-all mt-2.5 w-full">
                       <button
+                        type="button"
                         onClick={() => updateCartQuantity(product.id, -1)}
-                        className="w-6 h-6 rounded bg-white flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer text-slate-700 hover:bg-slate-100"
+                        className="w-6 h-6 rounded-full bg-black hover:bg-slate-900 text-white flex items-center justify-center font-black transition active:scale-90 cursor-pointer shadow-xs shrink-0"
+                        aria-label="Decrease quantity"
                       >
-                        <Minus className="w-3 h-3" />
+                        <Minus className="w-3 h-3 text-white stroke-[2.5]" />
                       </button>
-                      <span className="text-xs font-bold text-slate-800">{cartItem.quantity}</span>
+                      <span className="px-1 text-xs font-black text-slate-950 tracking-tight select-none whitespace-nowrap">
+                        {cartItem.quantity} selected
+                      </span>
                       <button
+                        type="button"
                         onClick={() => updateCartQuantity(product.id, 1)}
-                        className={`w-6 h-6 rounded text-white flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer ${tenantTheme.primaryBtn}`}
+                        className="w-6 h-6 rounded-full bg-black hover:bg-slate-900 text-white flex items-center justify-center font-black transition active:scale-90 cursor-pointer shadow-xs shrink-0"
+                        aria-label="Increase quantity"
                       >
-                        <Plus className="w-3 h-3" />
+                        <Plus className="w-3 h-3 text-white stroke-[2.5]" />
                       </button>
                     </div>
                   ) : (

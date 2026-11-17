@@ -152,19 +152,25 @@ export const CaseValueTopDeals = () => {
                     <span>Add to Cart</span>
                   </button>
                 ) : (
-                  <div className="flex items-center justify-between bg-[#f4ebe0] border border-[#ebdcc7] rounded-xl px-2 py-1">
+                  <div className="inline-flex items-center justify-between gap-1.5 sm:gap-2 bg-[#D4A359] rounded-full p-1 shadow-[0_3px_12px_rgba(212,163,89,0.35)] transition-all w-full">
                     <button
-                      onClick={() => updateCartQuantity(item.id, quantity - 1)}
-                      className="w-6 h-6 rounded-lg bg-white text-[#5c3417] hover:bg-[#eedec8] flex items-center justify-center text-xs font-bold transition cursor-pointer"
+                      type="button"
+                      onClick={() => updateCartQuantity(item.id, -1)}
+                      className="w-6 h-6 rounded-full bg-black hover:bg-slate-900 text-white flex items-center justify-center font-black transition active:scale-90 cursor-pointer shadow-xs shrink-0"
+                      aria-label="Decrease quantity"
                     >
-                      <Minus className="w-3 h-3" />
+                      <Minus className="w-3 h-3 text-white stroke-[2.5]" />
                     </button>
-                    <span className="text-xs font-black text-[#3d2314]">{quantity}</span>
+                    <span className="px-1 text-xs font-black text-slate-950 tracking-tight select-none whitespace-nowrap">
+                      {quantity} selected
+                    </span>
                     <button
-                      onClick={() => updateCartQuantity(item.id, quantity + 1)}
-                      className="w-6 h-6 rounded-lg bg-[#5c3417] text-white hover:bg-[#43230c] flex items-center justify-center text-xs font-bold transition cursor-pointer"
+                      type="button"
+                      onClick={() => updateCartQuantity(item.id, 1)}
+                      className="w-6 h-6 rounded-full bg-black hover:bg-slate-900 text-white flex items-center justify-center font-black transition active:scale-90 cursor-pointer shadow-xs shrink-0"
+                      aria-label="Increase quantity"
                     >
-                      <Plus className="w-3 h-3" />
+                      <Plus className="w-3.5 h-3.5 text-white stroke-[2.5]" />
                     </button>
                   </div>
                 )}

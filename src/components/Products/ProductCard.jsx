@@ -153,23 +153,25 @@ export const ProductCard = ({ product }) => {
               <span>Alternatives</span>
             </button>
           ) : cartItem ? (
-            <div className="flex items-center bg-emerald-50 border border-emerald-200 rounded-xl p-0.5">
+            <div className="inline-flex items-center justify-between gap-1.5 sm:gap-2 bg-[#D4A359] rounded-full p-1 shadow-[0_3px_12px_rgba(212,163,89,0.35)] transition-all animate-in fade-in zoom-in-95 duration-150">
               <button
+                type="button"
                 onClick={() => updateCartQuantity(prodId, -1)}
-                className="w-6 h-6 rounded-lg bg-white text-emerald-800 hover:bg-emerald-100 flex items-center justify-center font-bold text-xs shadow-2xs"
+                className="w-6 h-6 rounded-full bg-black hover:bg-slate-900 text-white flex items-center justify-center font-black transition active:scale-90 cursor-pointer shadow-xs shrink-0"
                 aria-label="Decrease quantity"
               >
-                <Minus className="w-3 h-3" />
+                <Minus className="w-3 h-3 text-white stroke-[2.5]" />
               </button>
-              <span className="w-6 text-center text-xs font-bold text-emerald-900">
-                {cartItem.quantity}
+              <span className="px-1 text-xs font-black text-slate-950 tracking-tight select-none whitespace-nowrap">
+                {cartItem.quantity} selected
               </span>
               <button
+                type="button"
                 onClick={() => updateCartQuantity(prodId, 1)}
-                className="w-6 h-6 rounded-lg bg-brand-green text-white hover:bg-emerald-800 flex items-center justify-center font-bold text-xs shadow-2xs"
+                className="w-6 h-6 rounded-full bg-black hover:bg-slate-900 text-white flex items-center justify-center font-black transition active:scale-90 cursor-pointer shadow-xs shrink-0"
                 aria-label="Increase quantity"
               >
-                <Plus className="w-3 h-3" />
+                <Plus className="w-3 h-3 text-white stroke-[2.5]" />
               </button>
             </div>
           ) : (

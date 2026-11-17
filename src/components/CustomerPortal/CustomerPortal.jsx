@@ -1023,12 +1023,42 @@ export const CustomerPortal = () => {
                         <span className="font-black text-emerald-700 font-mono">PKR {p.price}</span>
                         <span className="text-[10px] text-slate-400">{p.unit}</span>
                       </div>
-                      <button
-                        onClick={() => addToCart(p, 1)}
-                        className="w-full py-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs font-bold cursor-pointer transition-all shadow-2xs"
-                      >
-                        + Add to Basket
-                      </button>
+                      {(() => {
+                        const cItem = cart.find((it) => (it.product?.id || it.product?._id) === p.id);
+                        if (cItem) {
+                          return (
+                            <div className="inline-flex items-center justify-between gap-1.5 bg-[#D4A359] rounded-full p-1 shadow-[0_3px_12px_rgba(212,163,89,0.35)] transition-all w-full">
+                              <button
+                                type="button"
+                                onClick={() => updateCartQuantity(p.id, -1)}
+                                className="w-5 h-5 rounded-full bg-black hover:bg-slate-900 text-white flex items-center justify-center font-black transition active:scale-90 cursor-pointer shadow-xs shrink-0"
+                                aria-label="Decrease quantity"
+                              >
+                                <Minus className="w-2.5 h-2.5 text-white stroke-[2.5]" />
+                              </button>
+                              <span className="px-1 text-[11px] font-black text-slate-950 tracking-tight select-none whitespace-nowrap">
+                                {cItem.quantity} selected
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => updateCartQuantity(p.id, 1)}
+                                className="w-5 h-5 rounded-full bg-black hover:bg-slate-900 text-white flex items-center justify-center font-black transition active:scale-90 cursor-pointer shadow-xs shrink-0"
+                                aria-label="Increase quantity"
+                              >
+                                <Plus className="w-2.5 h-2.5 text-white stroke-[2.5]" />
+                              </button>
+                            </div>
+                          );
+                        }
+                        return (
+                          <button
+                            onClick={() => addToCart(p, 1)}
+                            className="w-full py-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs font-bold cursor-pointer transition-all shadow-2xs"
+                          >
+                            + Add to Basket
+                          </button>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>
@@ -1151,21 +1181,25 @@ export const CustomerPortal = () => {
                       </div>
 
                       {/* Quantity Modifier */}
-                      <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-0.5 shadow-2xs">
+                      <div className="inline-flex items-center gap-1 bg-[#D4A359] rounded-full p-1 shadow-[0_2px_8px_rgba(212,163,89,0.3)] shrink-0">
                         <button
+                          type="button"
                           onClick={() => updateCartQuantity(item.product.id || item.product._id || item.product, -1)}
-                          className="w-5 h-5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer"
+                          className="w-5 h-5 rounded-full bg-black text-white hover:bg-slate-900 flex items-center justify-center font-bold text-xs cursor-pointer transition active:scale-90 shadow-2xs"
+                          aria-label="Decrease quantity"
                         >
-                          -
+                          <Minus className="w-2.5 h-2.5 text-white stroke-[2.5]" />
                         </button>
-                        <span className="text-xs font-black text-slate-900 w-4 text-center">
-                          {item.quantity}
+                        <span className="text-[11px] font-black text-slate-950 px-1 whitespace-nowrap">
+                          {item.quantity} selected
                         </span>
                         <button
+                          type="button"
                           onClick={() => updateCartQuantity(item.product.id || item.product._id || item.product, 1)}
-                          className="w-5 h-5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center font-bold text-xs cursor-pointer shadow-2xs"
+                          className="w-5 h-5 rounded-full bg-black text-white hover:bg-slate-900 flex items-center justify-center font-bold text-xs cursor-pointer transition active:scale-90 shadow-2xs"
+                          aria-label="Increase quantity"
                         >
-                          +
+                          <Plus className="w-2.5 h-2.5 text-white stroke-[2.5]" />
                         </button>
                       </div>
 
