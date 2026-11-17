@@ -1,5 +1,6 @@
 // Unified Supermarket Stores & Retailers Single Source of Truth
 // Synchronizes baseline stores, custom stores, and API stores across all dashboards, sidebars, and GIS views
+import { TWELVE_PHYSICAL_STORES } from '../data/retailerZoneHierarchyData';
 
 export const CORE_RETAILERS = [
   { id: 'tenant-alfatah', name: 'Al-Fatah', color: '#991b1b', logo: '🏬' },
@@ -110,8 +111,6 @@ export const BASELINE_FOUR_STORES = [
     deliveryRadiusKm: 5
   }
 ];
-
-import { TWELVE_PHYSICAL_STORES } from '../data/retailerZoneHierarchyData';
 
 export const BASELINE_TWELVE_STORES = TWELVE_PHYSICAL_STORES;
 export const BASELINE_FIVE_STORES = TWELVE_PHYSICAL_STORES;

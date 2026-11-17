@@ -69,6 +69,9 @@ export class ErrorBoundary extends React.Component {
       localStorage.removeItem('freshmart_cart');
       localStorage.removeItem('freshmart_cart_v2');
       localStorage.removeItem('freshmart_customer_orders');
+      localStorage.removeItem('freshmart_retailer_stores');
+      localStorage.removeItem('freshmart_master_zones');
+      sessionStorage.clear();
     } catch (e) {}
     this.setState({ hasError: false, error: null });
     if (typeof window !== 'undefined') {
@@ -120,7 +123,9 @@ export class ErrorBoundary extends React.Component {
                     localStorage.removeItem('freshmart_cart');
                     localStorage.removeItem('freshmart_cart_v2');
                     localStorage.removeItem('freshmart_customer_orders');
-                    sessionStorage.removeItem('freshmart_session_location_confirmed');
+                    localStorage.removeItem('freshmart_retailer_stores');
+                    localStorage.removeItem('freshmart_master_zones');
+                    sessionStorage.clear();
                   } catch (e) {}
                   this.setState({ hasError: false, error: null });
                   if (typeof window !== 'undefined') {

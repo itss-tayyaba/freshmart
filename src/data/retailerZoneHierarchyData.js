@@ -468,7 +468,14 @@ export const loadRetailerStores = () => {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length >= 12) {
-        return parsed;
+        return parsed.map((s, idx) => {
+          const baseline = TWELVE_PHYSICAL_STORES[idx] || TWELVE_PHYSICAL_STORES[0];
+          return {
+            ...baseline,
+            ...s,
+            deliveryZoneId: s.deliveryZoneId || baseline.deliveryZoneId || 'zone_001'
+          };
+        });
       }
     }
   } catch (e) {}
@@ -490,7 +497,16 @@ export const loadMasterZones = () => {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length >= 1) {
-        return parsed;
+        return parsed.map((z, idx) => {
+          const baseline = FOUR_MASTER_DELIVERY_ZONES[idx] || FOUR_MASTER_DELIVERY_ZONES[0];
+          return {
+            ...baseline,
+            ...z,
+            polygon: (z.polygon && Array.isArray(z.polygon.coordinates) && z.polygon.coordinates.length >= 3)
+              ? z.polygon
+              : baseline.polygon
+          };
+        });
       }
     }
   } catch (e) {}
@@ -505,3 +521,10 @@ export const saveMasterZones = (zones) => {
     }
   } catch (e) {}
 };
+
+// Backward compatibility exports for legacy region & polygon helpers
+export const THREE_MASTER_REGIONS = FOUR_MASTER_DELIVERY_ZONES;
+export const isStoreAreaPolygon = (z) => Boolean(z?.isStoreAreaPolygon || z?.type === 'store_area_polygon');
+export const DEFAULT_DELIVERY_ZONES = FOUR_MASTER_DELIVERY_ZONES;
+export const detectRegionSector = () => FOUR_MASTER_DELIVERY_ZONES[0];
+

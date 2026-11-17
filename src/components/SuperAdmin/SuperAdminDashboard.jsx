@@ -62,7 +62,8 @@ import { apiService } from '../../services/api';
 import { DeliveryZoneView } from '../Admin/views/DeliveryZoneView';
 import { StoreManagementView } from '../Admin/views/StoreManagementView';
 import { ZoneManagementView } from '../Admin/views/ZoneManagementView';
-import { ZoneStoreAssignmentView, isStoreAreaPolygon } from '../Admin/views/ZoneStoreAssignmentView';
+import { ZoneStoreAssignmentView } from '../Admin/views/ZoneStoreAssignmentView';
+import { isStoreAreaPolygon } from '../../data/retailerZoneHierarchyData';
 import { DeliveryView } from '../Admin/views/DeliveryView';
 import { getAllUnifiedStores, BASELINE_FIVE_STORES, CORE_RETAILERS } from '../../utils/storeHelper';
 

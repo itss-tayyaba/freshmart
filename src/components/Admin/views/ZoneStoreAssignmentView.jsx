@@ -50,11 +50,13 @@ const esc = (s) =>
     "'": '&#39;'
   }[c]));
 
-// Backward compatibility exports
-export const THREE_MASTER_REGIONS = FOUR_MASTER_DELIVERY_ZONES;
-export const isStoreAreaPolygon = () => false;
-export const DEFAULT_DELIVERY_ZONES = FOUR_MASTER_DELIVERY_ZONES;
-export const detectRegionSector = () => FOUR_MASTER_DELIVERY_ZONES[0];
+// Backward compatibility re-exports
+export {
+  THREE_MASTER_REGIONS,
+  isStoreAreaPolygon,
+  DEFAULT_DELIVERY_ZONES,
+  detectRegionSector
+} from '../../../data/retailerZoneHierarchyData';
 
 // Preset Palette for Delivery Zone Colors
 const ZONE_PRESET_COLORS = [
@@ -615,8 +617,14 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       const lng = Number(store.longitude);
       if (isNaN(lat) || isNaN(lng)) return;
 
-      const assignedZone = masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId) || masterZones[0];
-      const parentRetailer = parentRetailers.find((r) => r.id === store.retailerId) || parentRetailers[0];
+      const assignedZone =
+        masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId) ||
+        masterZones[0] ||
+        FOUR_MASTER_DELIVERY_ZONES[0];
+      const parentRetailer =
+        parentRetailers.find((r) => r.id === store.retailerId) ||
+        parentRetailers[0] ||
+        FOUR_PARENT_RETAILERS[0];
       const zoneColor = assignedZone?.color || '#0284c7';
 
       const customIcon = L.divIcon({
@@ -1046,7 +1054,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                   {/* Child Physical Stores Grid */}
                   <div className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
                     {childStores.map((store) => {
-                      const assignedZone = masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId) || masterZones[0];
+                      const assignedZone =
+                        masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId) ||
+                        masterZones[0] ||
+                        FOUR_MASTER_DELIVERY_ZONES[0];
 
                       return (
                         <div
