@@ -54,6 +54,10 @@ export const CustomerPortal = () => {
     customerNotifications = [],
     navigateTo,
     currentTenant,
+    setCurrentTenant,
+    selectStoreAndBranch,
+    deliverableStores = [],
+    tenants = [],
     cart = [],
     updateCartQuantity,
     removeFromCart,
@@ -143,12 +147,42 @@ export const CustomerPortal = () => {
                 {currentTenant?.logo || '🛒'}
               </div>
               <div>
-                <h1 className="text-base font-black text-slate-900 leading-none flex items-center gap-1.5">
-                  <span>{currentTenant?.displayName || currentTenant?.name || storeTheme.name}</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {deliverableStores.length > 1 ? (
+                    <select
+                      value={currentTenant?.id || 'tenant-freshmart'}
+                      onChange={(e) => {
+                        const targetId = e.target.value;
+                        const matchStore = deliverableStores.find((s) => s.id === targetId || s.tenant?.id === targetId);
+                        if (matchStore && matchStore.tenant) {
+                          if (selectStoreAndBranch) {
+                            selectStoreAndBranch(matchStore.tenant, matchStore.nearestBranch);
+                          } else if (setCurrentTenant) {
+                            setCurrentTenant(matchStore.tenant);
+                          }
+                        } else {
+                          const fallback = (tenants || []).find((t) => t.id === targetId);
+                          if (fallback && setCurrentTenant) setCurrentTenant(fallback);
+                        }
+                      }}
+                      className="text-base font-black text-slate-900 bg-transparent focus:outline-none cursor-pointer border-b border-dashed border-slate-300 hover:border-emerald-500 py-0.5"
+                      title="Switch active supermarket in your area"
+                    >
+                      {deliverableStores.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.displayName || s.tenant?.displayName || s.tenant?.name || s.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <h1 className="text-base font-black text-slate-900 leading-none">
+                      {currentTenant?.displayName || currentTenant?.name || storeTheme.name}
+                    </h1>
+                  )}
                   <span className="text-[10px] bg-gradient-to-r from-amber-500 to-orange-500 text-white px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
                     PRO
                   </span>
-                </h1>
+                </div>
                 <span
                   className="text-[11px] font-bold tracking-wide block mt-0.5"
                   style={{ color: storeTheme.primary }}

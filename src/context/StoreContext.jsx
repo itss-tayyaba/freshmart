@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import {
   FRESHMART_PRODUCTS,
   FRESHMART_CATEGORIES,
@@ -1743,6 +1743,11 @@ export const StoreProvider = ({ children }) => {
       localStorage.setItem('freshmart_branch_filter', 'all');
     } catch (e) {}
 
+    // When switching store, ensure cart drawer and quick view modal close so previous store's item is not floating
+    setIsCartOpen(false);
+    setQuickViewProduct(null);
+    setAppliedCoupon(null);
+
     // Synchronize store admin session when switching stores so admin views immediately receive correct orders
     if (isAdminLoggedIn && adminRole === 'admin') {
       setUser((prevUser) => {
@@ -1872,38 +1877,86 @@ export const StoreProvider = ({ children }) => {
     }
   ]);
 
-  // Cart state (Starts strictly empty: zero automatic items)
-  const [cart, setCart] = useState(() => {
+  // Active tenant canonical identifier
+  const activeTenantId = useMemo(() => {
+    return resolveTenantId(currentTenant?.id || 'tenant-freshmart');
+  }, [currentTenant]);
+
+  // Multi-tenant Store-Isolated Cart State
+  // Each supermarket (Al-Fatah, Chase Value, Chase Up, FreshMart, etc.) maintains its own independent cart.
+  // Items chosen at one store NEVER bleed into another store's cart or dashboard.
+  const [cartsByStore, setCartsByStore] = useState(() => {
     try {
+      const savedStoreCarts = localStorage.getItem('freshmart_carts_by_store');
+      if (savedStoreCarts) {
+        const parsed = JSON.parse(savedStoreCarts);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+      // Migrate legacy single cart if present
       const saved = localStorage.getItem('freshmart_cart');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const normalized = parsed
-            .map((item) => {
-              if (!item) return null;
-              const prod = item.product || item;
-              if (!prod || typeof prod !== 'object') return null;
-              // Filter out default seeds
-              if (prod.id === 'p1' && prod.name === 'Fresh Organic Bananas') return null;
-              if (prod.id === 'p2' && prod.name === 'Whole Farm Fresh Milk') return null;
-              return {
-                product: prod,
-                quantity: Math.max(1, Number(item.quantity || 1)),
-                unit: item.unit || prod.unit || '1 unit',
-                selectedUnit: item.selectedUnit || item.unit || prod.unit || '1 unit'
-              };
-            })
-            .filter(Boolean);
-          if (normalized.length > 0) return normalized;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const partitioned = {};
+          parsed.forEach((item) => {
+            if (!item) return;
+            const prod = item.product || item;
+            if (!prod || typeof prod !== 'object') return;
+            if (prod.id === 'p1' || prod.id === 'p2') return;
+            const pId = String(prod.id || prod._id || '').toLowerCase();
+            const tId = resolveTenantId(
+              prod.tenantId || item.tenantId ||
+              (pId.startsWith('alfatah') || pId.startsWith('af-') ? 'tenant-alfatah' :
+               pId.startsWith('cv-') || pId.startsWith('chasevalue') ? 'tenant-chasevalue' :
+               pId.startsWith('cu-') || pId.startsWith('chaseup') ? 'tenant-chaseup' :
+               'tenant-freshmart')
+            );
+            if (!partitioned[tId]) partitioned[tId] = [];
+            partitioned[tId].push({
+              product: { ...prod, tenantId: tId },
+              tenantId: tId,
+              quantity: Math.max(1, Number(item.quantity || 1)),
+              unit: item.unit || prod.unit || '1 unit',
+              selectedUnit: item.selectedUnit || item.unit || prod.unit || '1 unit'
+            });
+          });
+          return partitioned;
         }
       }
     } catch (e) {
-      console.error(e);
+      console.error('Error loading carts by store:', e);
     }
-    // Strictly empty by default: never automatically add items
-    return [];
+    return {};
   });
+
+  // Current active store's isolated cart (Always strictly scoped to activeTenantId)
+  const cart = useMemo(() => {
+    const list = cartsByStore[activeTenantId];
+    return Array.isArray(list) ? list : [];
+  }, [cartsByStore, activeTenantId]);
+
+  // setCart updater wrapper targeting the active store's cart
+  const setCart = useCallback((updater) => {
+    setCartsByStore((prev) => {
+      const currentList = Array.isArray(prev[activeTenantId]) ? prev[activeTenantId] : [];
+      const nextList = typeof updater === 'function' ? updater(currentList) : updater;
+      const normalized = Array.isArray(nextList) ? nextList.map((item) => {
+        if (!item) return null;
+        const prod = item.product || item;
+        return {
+          ...item,
+          product: { ...prod, tenantId: activeTenantId },
+          tenantId: activeTenantId
+        };
+      }).filter(Boolean) : [];
+      return {
+        ...prev,
+        [activeTenantId]: normalized
+      };
+    });
+  }, [activeTenantId]);
 
 
   // Wishlist state (starts empty by default)
@@ -3218,12 +3271,13 @@ export const StoreProvider = ({ children }) => {
     ensureAdminToken();
   }, []);
 
-  // Save state to localStorage
+  // Save multi-tenant carts map and sync active store cart to localStorage
   useEffect(() => {
     try {
+      localStorage.setItem('freshmart_carts_by_store', JSON.stringify(cartsByStore));
       localStorage.setItem('freshmart_cart', JSON.stringify(cart));
     } catch (e) {}
-  }, [cart]);
+  }, [cartsByStore, cart]);
 
   useEffect(() => {
     try {
@@ -6287,27 +6341,46 @@ export const StoreProvider = ({ children }) => {
     const prodId = getProductId(product);
     const numQty = Math.max(1, Number(quantity || 1));
 
-    setCart((prev) => {
-      const idx = prev.findIndex((item) => getProductId(item.product) === prodId);
-      if (idx > -1) {
-        const updated = [...prev];
-        updated[idx] = { 
-          ...updated[idx], 
-          quantity: updated[idx].quantity + numQty,
-          unit: chosenUnit,
-          selectedUnit: chosenUnit
-        };
-        return updated;
+    // Resolve tenant for this product: if product explicitly belongs to a tenant or prefix, or default to current store
+    let targetTenantId = product.tenantId;
+    if (!targetTenantId) {
+      const pid = String(prodId || product.id || '').toLowerCase();
+      if (pid.startsWith('alfatah') || pid.startsWith('af-')) {
+        targetTenantId = 'tenant-alfatah';
+      } else if (pid.startsWith('cv-') || pid.startsWith('chasevalue')) {
+        targetTenantId = 'tenant-chasevalue';
+      } else if (pid.startsWith('cu-') || pid.startsWith('chaseup')) {
+        targetTenantId = 'tenant-chaseup';
+      } else {
+        targetTenantId = activeTenantId;
       }
-      return [
-        ...prev, 
-        { 
-          product: { ...product, id: prodId }, 
+    }
+    const resolvedTenant = resolveTenantId(targetTenantId || activeTenantId);
+
+    setCartsByStore((prev) => {
+      const storeItems = Array.isArray(prev[resolvedTenant]) ? [...prev[resolvedTenant]] : [];
+      const idx = storeItems.findIndex((item) => getProductId(item.product) === prodId);
+      if (idx > -1) {
+        storeItems[idx] = { 
+          ...storeItems[idx], 
+          quantity: storeItems[idx].quantity + numQty,
+          unit: chosenUnit,
+          selectedUnit: chosenUnit,
+          tenantId: resolvedTenant
+        };
+      } else {
+        storeItems.push({ 
+          product: { ...product, id: prodId, tenantId: resolvedTenant }, 
+          tenantId: resolvedTenant,
           quantity: numQty, 
           unit: chosenUnit, 
           selectedUnit: chosenUnit 
-        }
-      ];
+        });
+      }
+      return { 
+        ...prev, 
+        [resolvedTenant]: storeItems 
+      };
     });
     setIsCartOpen(true);
   };
@@ -6321,8 +6394,9 @@ export const StoreProvider = ({ children }) => {
       delta = Number(deltaOrUnit) || 1;
     }
 
-    setCart((prev) => {
-      return prev
+    setCartsByStore((prev) => {
+      const storeItems = Array.isArray(prev[activeTenantId]) ? prev[activeTenantId] : [];
+      const updated = storeItems
         .map((item) => {
           const itemId = getProductId(item.product);
           if (itemId === targetId) {
@@ -6332,6 +6406,11 @@ export const StoreProvider = ({ children }) => {
           return item;
         })
         .filter(Boolean);
+
+      return {
+        ...prev,
+        [activeTenantId]: updated
+      };
     });
     if (delta > 0) {
       setIsCartOpen(true);
@@ -6340,12 +6419,21 @@ export const StoreProvider = ({ children }) => {
 
   const removeFromCart = (productOrId) => {
     const targetId = getProductId(productOrId);
-    setCart((prev) => prev.filter((item) => getProductId(item.product) !== targetId));
+    setCartsByStore((prev) => {
+      const storeItems = Array.isArray(prev[activeTenantId]) ? prev[activeTenantId] : [];
+      return {
+        ...prev,
+        [activeTenantId]: storeItems.filter((item) => getProductId(item.product) !== targetId)
+      };
+    });
   };
 
-
-  const clearCart = () => {
-    setCart([]);
+  const clearCart = (targetTenant) => {
+    const tId = resolveTenantId(targetTenant || activeTenantId);
+    setCartsByStore((prev) => ({
+      ...prev,
+      [tId]: []
+    }));
   };
 
   const addRecipeIngredientsToCart = (productIds) => {
@@ -7430,6 +7518,9 @@ export const StoreProvider = ({ children }) => {
         deliverableStores,
         isOutsideDeliveryZone,
         cart,
+        setCart,
+        cartsByStore,
+        activeTenantId,
         addToCart,
         updateCartQuantity,
         removeFromCart,
