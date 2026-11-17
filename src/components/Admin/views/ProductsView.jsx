@@ -35,7 +35,9 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
     deleteProductFromStore,
     bulkUploadProducts,
     clearStoreProducts,
-    currentTenant
+    currentTenant,
+    currentBranch,
+    user
   } = useStore();
   const [activeFilterTab, setActiveFilterTab] = useState('All');
   const [search, setSearch] = useState('');
@@ -372,10 +374,19 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-xl font-black text-slate-900 tracking-tight">Products & Live Discounts</h2>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-              🏬 {currentTenant?.name || 'Store'}
+              🏬 {currentTenant?.name || user?.tenantName || 'Store'}
             </span>
+            {(user?.branchName || currentBranch?.name) && (
+              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                🏢 {user?.branchName || currentBranch?.name} ({user?.city || currentBranch?.city || 'Faisalabad'})
+              </span>
+            )}
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">Control pricing, landing page showcase badges, discounts and stock</p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {user?.branchName
+              ? `Dedicated branch menu for ${user.branchName}. Products added directly from this dashboard are isolated to this branch.`
+              : 'Control pricing, landing page showcase badges, discounts and stock'}
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
@@ -628,11 +639,11 @@ export const ProductsView = ({ onOpenAddProductModal }) => {
                 📦
               </div>
               <h3 className="font-bold text-slate-800 text-sm">
-                {products.length === 0 ? `No Products in ${currentTenant?.name || 'Store'} Catalog` : 'No matching products found'}
+                {products.length === 0 ? `No Products in ${user?.branchName || currentTenant?.name || 'Branch'} Menu` : 'No matching products found'}
               </h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
                 {products.length === 0
-                  ? `This supermarket catalog currently has 0 items. Upload a CSV file with your product names, prices, stock, and pictures to start selling immediately.`
+                  ? `This branch menu currently has 0 items. Click "+ Add Single Product" or "Upload Products CSV" to add products directly to this branch menu.`
                   : 'Try clearing your search keyword, adjusting your category, or selecting a different status filter.'}
               </p>
               {products.length === 0 && (

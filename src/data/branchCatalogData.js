@@ -1026,8 +1026,26 @@ const DEPT_LOOKUP_MAP = {
 const enrichProductWithDepartment = (p) => {
   const storeMap = DEPT_LOOKUP_MAP[p.tenantId] || DEPT_LOOKUP_MAP['tenant-freshmart'];
   const info = (storeMap && storeMap[p.category]) || { id: `dept-${p.category}`, code: 'DEPT-GEN', name: p.categoryLabel || 'General' };
+
+  // Explicitly assign each retailer's primary Faisalabad branch so menus remain distinct and isolated
+  let defaultBranchId = 'branch_um_fsd';
+  let defaultBranchName = 'Peoples Colony Dark Store';
+  if (p.tenantId === 'tenant-alfatah') {
+    defaultBranchId = 'branch_af_fsd';
+    defaultBranchName = 'Al-Fatah East Canal Road Flagship';
+  } else if (p.tenantId === 'tenant-chasevalue') {
+    defaultBranchId = 'branch_cv_fsd';
+    defaultBranchName = 'Chase Value Wholesale Express';
+  } else if (p.tenantId === 'tenant-chaseup') {
+    defaultBranchId = 'branch_006';
+    defaultBranchName = 'Chase Up Clock Tower Hub';
+  }
+
   return {
     ...p,
+    branchId: p.branchId || defaultBranchId,
+    branchName: p.branchName || defaultBranchName,
+    city: p.city || 'Faisalabad',
     customId: p.customId || p.id,
     departmentId: p.departmentId || info.id,
     departmentCode: p.departmentCode || info.code,

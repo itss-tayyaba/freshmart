@@ -565,6 +565,7 @@ export const StoreProvider = ({ children }) => {
       tenantName: 'Al-Fatah Supermarket (Faisalabad)',
       city: 'Faisalabad',
       branchId: 'branch_af_fsd',
+      branchName: 'Al-Fatah East Canal Road Flagship',
       role: 'admin',
       status: 'Active',
       location: 'East Canal Road Flagship Hub (Faisalabad)',
@@ -582,6 +583,7 @@ export const StoreProvider = ({ children }) => {
       tenantName: 'Al-Fatah Supermarket (Lahore)',
       city: 'Lahore',
       branchId: 'branch_001',
+      branchName: 'Al-Fatah DHA Phase 5 Mall Flagship',
       role: 'admin',
       status: 'Active',
       location: 'DHA Phase 5 Mall Flagship (Lahore)',
@@ -599,6 +601,7 @@ export const StoreProvider = ({ children }) => {
       tenantName: 'Al-Fatah Supermarket (Islamabad)',
       city: 'Islamabad',
       branchId: 'branch_003',
+      branchName: 'Al-Fatah Centaurus Mall Megastore',
       role: 'admin',
       status: 'Active',
       location: 'Centaurus Mall Megastore (Islamabad)',
@@ -618,6 +621,7 @@ export const StoreProvider = ({ children }) => {
       tenantName: 'Chase Up (Faisalabad)',
       city: 'Faisalabad',
       branchId: 'branch_006',
+      branchName: 'Chase Up Clock Tower Hub',
       role: 'admin',
       status: 'Active',
       location: 'Clock Tower Hub (Faisalabad)',
@@ -635,6 +639,7 @@ export const StoreProvider = ({ children }) => {
       tenantName: 'Chase Up (Karachi)',
       city: 'Karachi',
       branchId: 'branch_004',
+      branchName: 'Chase Up Clifton Marine Promenade',
       role: 'admin',
       status: 'Active',
       location: 'Clifton Marine Promenade (Karachi)',
@@ -654,6 +659,7 @@ export const StoreProvider = ({ children }) => {
       tenantName: 'Chase Value (Faisalabad)',
       city: 'Faisalabad',
       branchId: 'branch_cv_fsd',
+      branchName: 'Chase Value Wholesale Express',
       role: 'admin',
       status: 'Active',
       location: 'Wholesale Express Terminal (Faisalabad)',
@@ -671,6 +677,7 @@ export const StoreProvider = ({ children }) => {
       tenantName: 'Chase Value (Karachi)',
       city: 'Karachi',
       branchId: 'branch_007',
+      branchName: 'Chase Value Shaheed-e-Millat Main Hub',
       role: 'admin',
       status: 'Active',
       location: 'Shaheed-e-Millat Main Hub (Karachi)',
@@ -690,6 +697,7 @@ export const StoreProvider = ({ children }) => {
       tenantName: 'Unimaart (Faisalabad)',
       city: 'Faisalabad',
       branchId: 'branch_um_fsd',
+      branchName: 'Peoples Colony Dark Store',
       role: 'admin',
       status: 'Active',
       location: 'Peoples Colony Dark Store (Faisalabad)',
@@ -707,6 +715,7 @@ export const StoreProvider = ({ children }) => {
       tenantName: 'Unimaart (Lahore)',
       city: 'Lahore',
       branchId: 'branch_010',
+      branchName: 'Unimaart Gulberg Dark Store',
       role: 'admin',
       status: 'Active',
       location: 'Gulberg SuperHub (Lahore)',
@@ -722,10 +731,20 @@ export const StoreProvider = ({ children }) => {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const map = new Map(parsed.map((sa) => [String(sa.email || sa.id || '').toLowerCase(), sa]));
-          // Ensure all 4 core mart admins are present
+          // Ensure all core mart admins are present and have updated branchId and branchName
           DEFAULT_STORE_ADMINS.forEach((def) => {
-            if (!map.has(def.email.toLowerCase())) {
-              map.set(def.email.toLowerCase(), def);
+            const key = def.email.toLowerCase();
+            if (!map.has(key)) {
+              map.set(key, def);
+            } else {
+              const existing = map.get(key);
+              map.set(key, {
+                ...def,
+                ...existing,
+                branchId: existing.branchId || def.branchId,
+                branchName: existing.branchName || def.branchName,
+                city: existing.city || def.city || 'Faisalabad'
+              });
             }
           });
           return Array.from(map.values());
@@ -1489,7 +1508,7 @@ export const StoreProvider = ({ children }) => {
             if (keyName) savedMap.set(keyName, p);
           });
 
-          // Merge saved edits over base branch products, maintaining clean category taxonomy
+          // Merge saved edits over base branch products, maintaining clean category taxonomy and branch assignment
           const mergedBase = (ALL_BRANCH_PRODUCTS || []).map((baseP) => {
             const keyId = String(baseP.id || baseP.customId || '').toLowerCase().trim();
             const keyName = (baseP.name || '').toLowerCase().trim();
@@ -1499,6 +1518,11 @@ export const StoreProvider = ({ children }) => {
                 ...baseP,
                 ...update,
                 id: baseP.id,
+                branchId: update.branchId || baseP.branchId,
+                branchName: update.branchName || baseP.branchName,
+                city: update.city || baseP.city || 'Faisalabad',
+                tenantId: update.tenantId || baseP.tenantId,
+                tenantName: update.tenantName || baseP.tenantName,
                 category: baseP.category,
                 categoryLabel: baseP.categoryLabel
               };
@@ -1583,30 +1607,96 @@ export const StoreProvider = ({ children }) => {
     };
   }, []);
 
-  // Reactive products list strictly scoped to currentTenant with robust fallback
+  // Helper to determine if a product belongs to a specific branch/store without cross-branch menu bleed
+  const isProductInBranch = (p, targetBranchId, targetBranchName = null) => {
+    if (!p) return false;
+    const bId = String(targetBranchId || '').trim();
+    const bName = String(targetBranchName || '').trim().toLowerCase();
+    const pBId = String(p.branchId || p.storeId || '').trim();
+    const pBName = String(p.branchName || '').trim().toLowerCase();
+
+    // Direct ID match
+    if (bId && pBId && (pBId === bId || pBId.toLowerCase() === bId.toLowerCase())) return true;
+    // Direct branch name match
+    if (bName && pBName && (pBName === bName || pBName.includes(bName) || bName.includes(pBName))) return true;
+
+    // Canonical alias mappings for Faisalabad branches
+    if ((bId === 'branch_af_fsd' || bId === 'STR-AF-001') && (pBId === 'branch_af_fsd' || pBId === 'STR-AF-001' || (!pBId && isSameTenant(p.tenantId, 'tenant-alfatah')))) return true;
+    if ((bId === 'branch_cv_fsd' || bId === 'STR-CV-001') && (pBId === 'branch_cv_fsd' || pBId === 'STR-CV-001' || (!pBId && isSameTenant(p.tenantId, 'tenant-chasevalue')))) return true;
+    if ((bId === 'branch_006' || bId === 'STR-CU-001') && (pBId === 'branch_006' || pBId === 'STR-CU-001' || (!pBId && isSameTenant(p.tenantId, 'tenant-chaseup')))) return true;
+    if ((bId === 'branch_um_fsd' || bId === 'STR-UM-001') && (pBId === 'branch_um_fsd' || pBId === 'STR-UM-001' || (!pBId && isSameTenant(p.tenantId, 'tenant-freshmart')))) return true;
+
+    return false;
+  };
+
+  // Reactive products list strictly scoped to active branch menu without cross-branch mixing
   const products = useMemo(() => {
     const targetTenantId = currentTenant?.id || 'tenant-freshmart';
+
+    // 1. Store Admin Dashboard: Strictly scoped to the logged-in admin's assigned branch
+    if (user?.role === 'admin' && user?.branchId) {
+      const branchItems = (allProducts || []).filter((p) => {
+        const matchesTenant = isSameTenant(p.tenantId, targetTenantId) || (!p.tenantId && isSameTenant(targetTenantId, 'tenant-freshmart'));
+        if (!matchesTenant) return false;
+        return isProductInBranch(p, user.branchId, user.branchName);
+      });
+      return branchItems;
+    }
+
+    // 2. Super Admin or Store Filter: If branch filter is explicitly selected
+    if (currentBranchFilter && currentBranchFilter !== 'all') {
+      const branchItems = (allProducts || []).filter((p) => {
+        const matchesTenant = isSameTenant(p.tenantId, targetTenantId) || (!p.tenantId && isSameTenant(targetTenantId, 'tenant-freshmart'));
+        if (!matchesTenant) return false;
+        return isProductInBranch(p, currentBranchFilter);
+      });
+      if (branchItems.length > 0) return branchItems;
+    }
+
+    // 3. Customer Storefront or Global Retailer View:
+    // If currentBranch is active, prioritize products for currentBranch, or fall back to tenant products
     let filtered = (allProducts || []).filter(
       (p) => isSameTenant(p.tenantId, targetTenantId) || (!p.tenantId && isSameTenant(targetTenantId, 'tenant-freshmart'))
     );
+    if (currentBranch?._id || currentBranch?.id) {
+      const activeBId = String(currentBranch._id || currentBranch.id).trim();
+      const branchSpecific = filtered.filter((p) => isProductInBranch(p, activeBId, currentBranch.name));
+      if (branchSpecific.length > 0) {
+        return branchSpecific;
+      }
+    }
     if (!filtered || filtered.length === 0) {
       filtered = (ALL_BRANCH_PRODUCTS || []).filter(
         (p) => isSameTenant(p.tenantId, targetTenantId) || (!p.tenantId && isSameTenant(targetTenantId, 'tenant-freshmart'))
       );
     }
     return filtered;
-  }, [allProducts, currentTenant]);
+  }, [allProducts, currentTenant, user?.role, user?.branchId, user?.branchName, currentBranchFilter, currentBranch]);
 
   // Transparent setProducts wrapper to mutate current branch items within allProducts
   const setProducts = (updater) => {
     setAllProducts((prevMaster) => {
       const targetTenantId = currentTenant?.id || 'tenant-freshmart';
-      const branchItems = prevMaster.filter(
-        (p) => p.tenantId === targetTenantId || (!p.tenantId && targetTenantId === 'tenant-freshmart')
-      );
-      const otherItems = prevMaster.filter(
-        (p) => p.tenantId && p.tenantId !== targetTenantId && !(targetTenantId === 'tenant-freshmart' && !p.tenantId)
-      );
+      const isBranchAdmin = user?.role === 'admin' && user?.branchId;
+
+      const branchItems = prevMaster.filter((p) => {
+        const matchesTenant = isSameTenant(p.tenantId, targetTenantId) || (!p.tenantId && targetTenantId === 'tenant-freshmart');
+        if (!matchesTenant) return false;
+        if (isBranchAdmin) {
+          return isProductInBranch(p, user.branchId, user.branchName);
+        }
+        return true;
+      });
+
+      const otherItems = prevMaster.filter((p) => {
+        const matchesTenant = isSameTenant(p.tenantId, targetTenantId) || (!p.tenantId && targetTenantId === 'tenant-freshmart');
+        if (!matchesTenant) return true;
+        if (isBranchAdmin) {
+          return !isProductInBranch(p, user.branchId, user.branchName);
+        }
+        return false;
+      });
+
       const nextBranchItems = typeof updater === 'function' ? updater(branchItems) : updater;
       const combined = [...nextBranchItems, ...otherItems];
       try {
@@ -1616,15 +1706,18 @@ export const StoreProvider = ({ children }) => {
     });
   };
 
-  // Bulk upload products (CSV / Batch import) for the active store admin
+  // Bulk upload products (CSV / Batch import) for the active store admin bound to their branch
   const bulkUploadProducts = (newItems, replaceMode = false) => {
     if (!Array.isArray(newItems) || newItems.length === 0) {
       addToast('Upload Error ⚠️', 'No valid products found in import data.', 'error');
       return { success: false, error: 'No items provided' };
     }
 
-    const targetTenantId = currentTenant?.id || 'tenant-freshmart';
-    const targetTenantName = currentTenant?.name || 'Store';
+    const targetTenantId = user?.tenantId || currentTenant?.id || 'tenant-freshmart';
+    const targetTenantName = user?.tenantName || currentTenant?.name || 'Store';
+    const targetBranchId = user?.branchId || currentBranch?._id || currentBranch?.id || null;
+    const targetBranchName = user?.branchName || currentBranch?.name || null;
+    const targetCity = user?.city || currentBranch?.city || 'Faisalabad';
 
     const formattedItems = newItems.map((item, index) => {
       const id = item.id || `prod-${targetTenantId.replace('tenant-', '')}-${Date.now()}-${index}`;
@@ -1667,6 +1760,9 @@ export const StoreProvider = ({ children }) => {
         isBestSeller: Boolean(item.isBestSeller !== undefined ? item.isBestSeller : true),
         tenantId: targetTenantId,
         tenantName: targetTenantName,
+        branchId: targetBranchId,
+        branchName: targetBranchName,
+        city: targetCity,
         createdAt: new Date().toISOString()
       };
     });
@@ -1674,17 +1770,26 @@ export const StoreProvider = ({ children }) => {
     setAllProducts((prev) => {
       let combined;
       if (replaceMode) {
-        const otherItems = prev.filter(
-          (p) => p.tenantId !== targetTenantId && !(targetTenantId === 'tenant-freshmart' && !p.tenantId)
-        );
+        const otherItems = prev.filter((p) => {
+          if (!targetBranchId) {
+            return p.tenantId !== targetTenantId && !(targetTenantId === 'tenant-freshmart' && !p.tenantId);
+          }
+          return !isProductInBranch(p, targetBranchId, targetBranchName);
+        });
         combined = [...formattedItems, ...otherItems];
       } else {
-        const otherItems = prev.filter(
-          (p) => p.tenantId !== targetTenantId && !(targetTenantId === 'tenant-freshmart' && !p.tenantId)
-        );
-        const existingBranch = prev.filter(
-          (p) => p.tenantId === targetTenantId || (!p.tenantId && targetTenantId === 'tenant-freshmart')
-        );
+        const otherItems = prev.filter((p) => {
+          if (!targetBranchId) {
+            return p.tenantId !== targetTenantId && !(targetTenantId === 'tenant-freshmart' && !p.tenantId);
+          }
+          return !isProductInBranch(p, targetBranchId, targetBranchName);
+        });
+        const existingBranch = prev.filter((p) => {
+          if (!targetBranchId) {
+            return p.tenantId === targetTenantId || (!p.tenantId && targetTenantId === 'tenant-freshmart');
+          }
+          return isProductInBranch(p, targetBranchId, targetBranchName);
+        });
         combined = [...existingBranch, ...formattedItems, ...otherItems];
       }
       try {
@@ -1698,19 +1803,24 @@ export const StoreProvider = ({ children }) => {
       apiService.createProduct(prod).catch(() => {});
     });
 
-    addToast('CSV Import Successful! 📦', `Imported ${formattedItems.length} products for ${targetTenantName}`);
+    addToast('CSV Import Successful! 📦', `Imported ${formattedItems.length} products for ${targetBranchName || targetTenantName}`);
     return { success: true, count: formattedItems.length };
   };
 
-  // Clear all products for current store
+  // Clear products for active store branch without wiping other branch menus
   const clearStoreProducts = (scope = 'current') => {
-    const targetTenantId = currentTenant?.id || 'tenant-freshmart';
-    const targetTenantName = currentTenant?.name || 'Store';
+    const targetTenantId = user?.tenantId || currentTenant?.id || 'tenant-freshmart';
+    const targetTenantName = user?.tenantName || currentTenant?.name || 'Store';
+    const targetBranchId = user?.branchId || currentBranch?._id || currentBranch?.id || null;
+    const targetBranchName = user?.branchName || currentBranch?.name || null;
 
     setAllProducts((prev) => {
       let nextAll;
       if (scope === 'all') {
         nextAll = [];
+      } else if (targetBranchId) {
+        // Only clear products for this specific branch
+        nextAll = prev.filter((p) => !isProductInBranch(p, targetBranchId, targetBranchName));
       } else {
         nextAll = prev.filter(
           (p) => p.tenantId !== targetTenantId && !(targetTenantId === 'tenant-freshmart' && !p.tenantId)
@@ -1722,7 +1832,7 @@ export const StoreProvider = ({ children }) => {
       return nextAll;
     });
 
-    addToast('Catalog Cleared 🗑️', `All products removed for ${targetTenantName}. Ready for CSV upload.`);
+    addToast('Catalog Cleared 🗑️', `All products removed for ${targetBranchName || targetTenantName}. Ready for CSV upload.`);
     return { success: true };
   };
 
@@ -2361,10 +2471,36 @@ export const StoreProvider = ({ children }) => {
         sessionStorage.setItem('freshmart_tab_tenant_id', newUser.tenantId);
         localStorage.setItem('freshmart_current_tenant_id', newUser.tenantId);
       }
+      if (newUser?.branchId) {
+        sessionStorage.setItem('freshmart_current_branch_id', newUser.branchId);
+        localStorage.setItem('freshmart_current_branch_id', newUser.branchId);
+        sessionStorage.setItem('freshmart_branch_filter', newUser.branchId);
+        localStorage.setItem('freshmart_branch_filter', newUser.branchId);
+      }
     } catch (e) {}
     setIsAdminLoggedIn(true);
     setAdminRole(role);
     setUser(newUser);
+    if (newUser?.tenantId) {
+      const matchT = (tenants || []).find((t) => isSameTenant(t.id, newUser.tenantId)) ||
+                     INITIAL_TENANTS.find((t) => isSameTenant(t.id, newUser.tenantId));
+      if (matchT) setCurrentTenant(matchT);
+    }
+    if (newUser?.branchId) {
+      setCurrentBranchFilter(newUser.branchId);
+      const bObj = (allBranches || []).find((b) => b._id === newUser.branchId || b.id === newUser.branchId);
+      if (bObj) {
+        setCurrentBranch(bObj);
+      } else {
+        setCurrentBranch({
+          _id: newUser.branchId,
+          id: newUser.branchId,
+          name: newUser.branchName || 'Branch',
+          city: newUser.city || 'Faisalabad',
+          tenantId: newUser.tenantId
+        });
+      }
+    }
   };
 
   const adminLogin = async (username, password, role = 'admin', preferredTenantId = null, preferredBranchId = null) => {
@@ -6121,6 +6257,12 @@ export const StoreProvider = ({ children }) => {
         : priceNum
     );
 
+    const resolvedTenantId = newProduct.tenantId || user?.tenantId || currentTenant?.id || 'tenant-freshmart';
+    const resolvedTenantName = newProduct.tenantName || user?.tenantName || currentTenant?.name || 'FreshMart Direct';
+    const resolvedBranchId = newProduct.branchId || user?.branchId || currentBranch?._id || currentBranch?.id || null;
+    const resolvedBranchName = newProduct.branchName || user?.branchName || currentBranch?.name || null;
+    const resolvedCity = newProduct.city || user?.city || currentBranch?.city || 'Faisalabad';
+
     const fullProduct = {
       id: newProduct.id || `prod-${Date.now()}`,
       name: newProduct.name || 'New Product',
@@ -6140,8 +6282,11 @@ export const StoreProvider = ({ children }) => {
       reviewsCount: newProduct.reviewsCount || 12,
       isFlashDeal: Boolean(newProduct.isFlashDeal),
       isBestSeller: Boolean(newProduct.isBestSeller),
-      tenantId: newProduct.tenantId || currentTenant?.id || 'tenant-freshmart',
-      tenantName: newProduct.tenantName || currentTenant?.name || 'FreshMart Direct',
+      tenantId: resolvedTenantId,
+      tenantName: resolvedTenantName,
+      branchId: resolvedBranchId,
+      branchName: resolvedBranchName,
+      city: resolvedCity,
       ...newProduct
     };
 
@@ -6176,7 +6321,7 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {
       console.warn('Backend createProduct error:', e);
     }
-    addToast('Product Added 🛒', `"${fullProduct.name}" saved to database & ${fullProduct.tenantName} catalog.`);
+    addToast('Product Added 🛒', `"${fullProduct.name}" added directly to ${fullProduct.branchName || fullProduct.tenantName} catalog.`);
   };
 
   const updateProductInStore = async (updatedProduct) => {

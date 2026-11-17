@@ -94,7 +94,8 @@ const StoreAdminConsole = () => {
     tenants = [],
     allBranches = [],
     currentBranchFilter = 'all',
-    setCurrentBranchFilter
+    setCurrentBranchFilter,
+    currentBranch
   } = useStore();
 
   const allTenants = tenants;
@@ -518,7 +519,7 @@ const StoreAdminConsole = () => {
                     className="text-[10px] font-bold uppercase tracking-wider block truncate mt-0.5"
                     style={{ color: storeTheme.accentText }}
                   >
-                    {currentRoleInfo.title}
+                    {user?.branchName ? `🏢 ${user.branchName}` : currentRoleInfo.title}
                   </span>
                 </div>
               )}
@@ -682,11 +683,16 @@ const StoreAdminConsole = () => {
                 </select>
               </div>
             ) : (
-              <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
+              <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs flex-wrap">
                 <Store className="w-3.5 h-3.5 text-slate-600 shrink-0" />
                 <span className="text-xs font-bold text-slate-800">
                   {effectiveTenant?.logo || '🏬'} {effectiveTenant?.displayName || effectiveTenant?.name || user?.tenantName || 'Store'}
                 </span>
+                {(user?.branchName || currentBranch?.name) && (
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                    🏢 {user?.branchName || currentBranch?.name} ({user?.city || currentBranch?.city || 'Faisalabad'})
+                  </span>
+                )}
               </div>
             )}
 

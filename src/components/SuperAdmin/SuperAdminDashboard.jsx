@@ -3948,16 +3948,32 @@ export const SuperAdminDashboard = () => {
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:outline-none"
                 >
                   <option value="">-- Choose Branch to Allocate Admin --</option>
-                  {branchAllocationStatus.unallocated.map((b) => {
-                    const bId = b.storeId || b._id;
-                    const bName = b.branchName || b.name;
-                    const retailer = displayStores.find((s) => isSameTenant(s.id, b.tenantId)) || CORE_RETAILERS[0];
-                    return (
-                      <option key={bId} value={bId}>
-                        🏢 {retailer?.name || 'Store'} — {bName} ({b.city || 'Faisalabad'})
-                      </option>
-                    );
-                  })}
+                  {branchAllocationStatus.unallocated.length > 0 && (
+                    <optgroup label="⚠️ Unallocated Branches (Need Admin)">
+                      {branchAllocationStatus.unallocated.map((b) => {
+                        const bId = b.storeId || b._id;
+                        const bName = b.branchName || b.name;
+                        const retailer = displayStores.find((s) => isSameTenant(s.id, b.tenantId)) || CORE_RETAILERS[0];
+                        return (
+                          <option key={bId} value={bId}>
+                            ⭐ {retailer?.name || 'Store'} — {bName} ({b.city || 'Faisalabad'})
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+                  )}
+                  <optgroup label="🏢 All Store Branches">
+                    {liveStores.map((b) => {
+                      const bId = b.storeId || b._id;
+                      const bName = b.branchName || b.name;
+                      const retailer = displayStores.find((s) => isSameTenant(s.id, b.tenantId)) || CORE_RETAILERS[0];
+                      return (
+                        <option key={`all-${bId}`} value={bId}>
+                          🏢 {retailer?.name || 'Store'} — {bName} ({b.city || 'Faisalabad'})
+                        </option>
+                      );
+                    })}
+                  </optgroup>
                 </select>
                 {newAdminForm.branchName && (
                   <div className="mt-1.5 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 font-bold flex items-center justify-between">

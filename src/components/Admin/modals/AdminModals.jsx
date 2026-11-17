@@ -15,7 +15,7 @@ export const AdminModals = ({
   isCreatePromoOpen,
   setIsCreatePromoOpen
 }) => {
-  const { addToast, products, categories, addProductToStore, addCategoryToStore, addCustomer, addSupplier, currentTenant, currentBranch } = useStore();
+  const { addToast, products, categories, addProductToStore, addCategoryToStore, addCustomer, addSupplier, currentTenant, currentBranch, user } = useStore();
 
   // Add Product State
   const [productForm, setProductForm] = useState({
@@ -130,9 +130,11 @@ export const AdminModals = ({
       inStock: productForm.inStock,
       isFlashDeal: discountNum > 0,
       status: productForm.inStock ? 'Active' : 'Out of Stock',
-      tenantId: currentTenant?.id || 'tenant-freshmart',
-      tenantName: currentTenant?.name || 'FreshMart Direct',
-      branchId: currentBranch?._id || currentBranch?.id || 'branch_001'
+      tenantId: user?.tenantId || currentTenant?.id || 'tenant-freshmart',
+      tenantName: user?.tenantName || currentTenant?.name || 'FreshMart Direct',
+      branchId: user?.branchId || currentBranch?._id || currentBranch?.id || 'branch_001',
+      branchName: user?.branchName || currentBranch?.name || 'Main Branch',
+      city: user?.city || currentBranch?.city || 'Faisalabad'
     };
 
     await addProductToStore(newProductPayload);
@@ -223,7 +225,17 @@ export const AdminModals = ({
             
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-900 font-serif">Add Product</h2>
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 font-serif">Add Product</h2>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                    🏬 {currentTenant?.name || user?.tenantName || 'Store'}
+                  </span>
+                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                    🏢 Branch: {user?.branchName || currentBranch?.name || 'Faisalabad Branch'}
+                  </span>
+                </div>
+              </div>
               <button
                 onClick={() => setIsAddProductOpen(false)}
                 className="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors cursor-pointer"
