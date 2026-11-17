@@ -111,7 +111,11 @@ export const BASELINE_FOUR_STORES = [
   }
 ];
 
-export const BASELINE_FIVE_STORES = BASELINE_FOUR_STORES;
+import { TWELVE_PHYSICAL_STORES } from '../data/retailerZoneHierarchyData';
+
+export const BASELINE_TWELVE_STORES = TWELVE_PHYSICAL_STORES;
+export const BASELINE_FIVE_STORES = TWELVE_PHYSICAL_STORES;
+export { TWELVE_PHYSICAL_STORES };
 
 export const loadLocalCustomStores = () => {
   try {
@@ -302,9 +306,9 @@ export const getAllUnifiedStores = (apiStores = [], extraBranches = [], targetCi
     }
   }
 
-  // If still empty, supply the baseline 4 stores firmly located at D-Ground, Peoples Colony, Susan Road, and Samanabad
+  // If still empty, supply the baseline 12 physical stores across the 4 parent retailers
   if (combined.length === 0) {
-    combined.push(...BASELINE_FOUR_STORES.map(attachPolygonIfKnown));
+    combined.push(...TWELVE_PHYSICAL_STORES.map(attachPolygonIfKnown));
   }
 
   return deduplicateStores(combined.map(attachPolygonIfKnown));

@@ -1,12 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import L from 'leaflet';
 import {
-  Link2,
-  Unlink,
   Building2,
   MapPin,
   Check,
-  AlertTriangle,
   Search,
   Filter,
   RefreshCw,
@@ -18,25 +15,25 @@ import {
   X,
   Compass,
   Sparkles,
-  Plus,
-  Edit2,
-  Edit3,
+  ExternalLink,
+  ChevronRight,
+  Database,
+  Globe,
   Sliders,
-  Trash2
+  AlertCircle
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
-import { apiService } from '../../../services/api';
-import { calculateDistanceKm, PAKISTAN_CITIES } from '../../../data/pakistanLocations';
-import { getAllUnifiedStores } from '../../../utils/storeHelper';
-import { isPointInPolygon, normalizeLatLng } from '../../../utils/distanceCalculator';
 import { switchMapTileLayer } from '../../../utils/mapTiles';
 import {
-  calculateDeliveryPolygonAreaKm2,
-  calculateDeliveryZoneReachKm
-} from '../../../utils/deliveryZoneMetrics';
-import { useStoreZoneSync } from '../../../hooks/useStoreZoneSync';
+  FOUR_PARENT_RETAILERS,
+  FOUR_MASTER_DELIVERY_ZONES,
+  TWELVE_PHYSICAL_STORES,
+  loadRetailerStores,
+  saveRetailerStores,
+  loadMasterZones
+} from '../../../data/retailerZoneHierarchyData';
 
-// HTML escape helper to prevent Stored XSS in Leaflet HTML markers and popups
+// HTML escape helper for safe Leaflet popup injection
 const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({
     '&': '&amp;',
@@ -46,1355 +43,105 @@ const esc = (s) =>
     "'": '&#39;'
   }[c]));
 
-// 3 Master Regional Polygons covering all physical stores in the platform
-export const THREE_MASTER_REGIONS = [
-  {
-    id: 'ZONE-FSD-CENTRAL-BLUE',
-    name: 'Central Region (D-Ground & Peoples Colony)',
-    shortName: 'Central Sector',
-    color: '#2563eb',
-    badge: 'bg-blue-100 text-blue-800 border-blue-300',
-    center: [31.4125, 73.0950],
-    polygon: [
-      [31.432, 73.072],
-      [31.432, 73.1195],
-      [31.385, 73.1195],
-      [31.385, 73.072],
-      [31.432, 73.072]
-    ]
-  },
-  {
-    id: 'ZONE-FSD-NORTH-GREEN',
-    name: 'North-East Region (Susan Road & Canal Road)',
-    shortName: 'North-East Sector',
-    color: '#16a34a',
-    badge: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-    center: [31.4350, 73.1350],
-    polygon: [
-      [31.460, 73.110],
-      [31.460, 73.195],
-      [31.415, 73.195],
-      [31.400, 73.1195],
-      [31.432, 73.1195],
-      [31.460, 73.110]
-    ]
-  },
-  {
-    id: 'ZONE-FSD-WEST-ORANGE',
-    name: 'West-South Region (Samanabad & Clock Tower)',
-    shortName: 'West-South Sector',
-    color: '#ea580c',
-    badge: 'bg-amber-100 text-amber-800 border-amber-300',
-    center: [31.3980, 73.0550],
-    polygon: [
-      [31.450, 73.030],
-      [31.450, 73.072],
-      [31.370, 73.072],
-      [31.370, 73.030],
-      [31.450, 73.030]
-    ]
-  }
-];
+// Backward compatibility exports
+export const THREE_MASTER_REGIONS = FOUR_MASTER_DELIVERY_ZONES;
+export const isStoreAreaPolygon = () => false;
+export const DEFAULT_DELIVERY_ZONES = FOUR_MASTER_DELIVERY_ZONES;
+export const detectRegionSector = () => FOUR_MASTER_DELIVERY_ZONES[0];
 
-// Identify whether a zone is Concept 1 (Store Area Polygon) vs Concept 2 (Store Delivery Zone)
-export const isStoreAreaPolygon = (z) => {
-  if (!z) return false;
-  // Explicitly exclude store delivery zones (Concept 2)
-  if (z.isStoreAreaPolygon === false) return false;
-  if (z.assignedStoreId || z.type === 'delivery_zone' || z.isDeliveryZone === true) return false;
-  const name = String(z.name || '').toLowerCase();
-  if (
-    name.includes('delivery') ||
-    name.includes('hub') ||
-    name.includes('reach') ||
-    name.includes('express zone') ||
-    name.includes('radius')
-  ) return false;
+export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
+  const { addToast } = useStore();
 
-  if (z.isStoreAreaPolygon === true || z.type === 'store_area_polygon') return true;
-  const zid = String(z.zoneId || z._id || z.id || '').toUpperCase();
-  return (
-    zid.includes('FSD-CENTRAL-BLUE') ||
-    zid.includes('FSD-NORTH-GREEN') ||
-    zid.includes('FSD-WEST-ORANGE') ||
-    zid.includes('FSD-BLUE') ||
-    zid.includes('FSD-GREEN') ||
-    zid.includes('FSD-ORANGE') ||
-    zid.includes('SAP-') ||
-    name.includes('store area polygon') ||
-    name.includes('regional sector') ||
-    name.includes('central region') ||
-    name.includes('north-east region') ||
-    name.includes('west-south region')
-  );
-};
+  // Core state: 4 parent retailers, 4 master zones, and 12 child stores
+  const [parentRetailers] = useState(FOUR_PARENT_RETAILERS);
+  const [masterZones, setMasterZones] = useState(() => loadMasterZones());
+  const [stores, setStores] = useState(() => loadRetailerStores());
 
-export const DEFAULT_DELIVERY_ZONES = [
-  {
-    _id: 'ZONE-FSD-DGROUND',
-    zoneId: 'ZONE-FSD-DGROUND',
-    name: 'D-Ground Commercial & Peoples Colony Hub',
-    code: 'FSD-DGR',
-    city: 'Faisalabad',
-    area: 'D-Ground / Peoples Colony',
-    color: '#0284c7',
-    type: 'delivery_zone',
-    isDeliveryZone: true,
-    isStoreAreaPolygon: false,
-    deliveryCharge: 60,
-    minOrderAmount: 400,
-    freeDeliveryThreshold: 2000,
-    geometry: {
-      type: 'Polygon',
-      coordinates: [[
-        [73.0680, 31.4180],
-        [73.0920, 31.4230],
-        [73.0970, 31.4080],
-        [73.0890, 31.3950],
-        [73.0690, 31.3980],
-        [73.0640, 31.4090],
-        [73.0680, 31.4180]
-      ]]
-    }
-  },
-  {
-    _id: 'ZONE-FSD-CANAL',
-    zoneId: 'ZONE-FSD-CANAL',
-    name: 'Canal Road & Kohinoor Express Zone',
-    code: 'FSD-CNR',
-    city: 'Faisalabad',
-    area: 'East Canal Road / Kohinoor',
-    color: '#2563eb',
-    type: 'delivery_zone',
-    isDeliveryZone: true,
-    isStoreAreaPolygon: false,
-    deliveryCharge: 80,
-    minOrderAmount: 500,
-    freeDeliveryThreshold: 2500,
-    geometry: {
-      type: 'Polygon',
-      coordinates: [[
-        [73.0980, 31.4380],
-        [73.1240, 31.4420],
-        [73.1310, 31.4220],
-        [73.1190, 31.4060],
-        [73.0940, 31.4140],
-        [73.0980, 31.4380]
-      ]]
-    }
-  },
-  {
-    _id: 'ZONE-FSD-MADINA',
-    zoneId: 'ZONE-FSD-MADINA',
-    name: 'Madina Town & Susan Road Commercial Zone',
-    code: 'FSD-MDN',
-    city: 'Faisalabad',
-    area: 'Madina Town / Susan Road',
-    color: '#059669',
-    type: 'delivery_zone',
-    isDeliveryZone: true,
-    isStoreAreaPolygon: false,
-    deliveryCharge: 70,
-    minOrderAmount: 450,
-    freeDeliveryThreshold: 2200,
-    geometry: {
-      type: 'Polygon',
-      coordinates: [[
-        [73.1120, 31.4350],
-        [73.1480, 31.4480],
-        [73.1550, 31.4280],
-        [73.1280, 31.4150],
-        [73.1120, 31.4350]
-      ]]
-    }
-  },
-  {
-    _id: 'ZONE-FSD-CLOCKTOWER',
-    zoneId: 'ZONE-FSD-CLOCKTOWER',
-    name: 'Clock Tower & Eight Bazaars Central Zone',
-    code: 'FSD-CLK',
-    city: 'Faisalabad',
-    area: 'Clock Tower & Historic Bazaars',
-    color: '#d97706',
-    type: 'delivery_zone',
-    isDeliveryZone: true,
-    isStoreAreaPolygon: false,
-    deliveryCharge: 65,
-    minOrderAmount: 350,
-    freeDeliveryThreshold: 1800,
-    geometry: {
-      type: 'Polygon',
-      coordinates: [[
-        [73.0720, 31.4250],
-        [73.0910, 31.4250],
-        [73.0910, 31.4080],
-        [73.0720, 31.4080],
-        [73.0720, 31.4250]
-      ]]
-    }
-  }
-];
-
-export const detectRegionSector = (lat, lng) => {
-  for (const reg of THREE_MASTER_REGIONS) {
-    if (isPointInPolygon([lat, lng], reg.polygon)) {
-      return reg;
-    }
-  }
-  let closest = THREE_MASTER_REGIONS[0];
-  let minD = Infinity;
-  for (const reg of THREE_MASTER_REGIONS) {
-    const d = calculateDistanceKm(lat, lng, reg.center[0], reg.center[1]);
-    if (d < minD) {
-      minD = d;
-      closest = reg;
-    }
-  }
-  return closest;
-};
-
-export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateToZones = null }) => {
-  const { allBranches = [], addToast } = useStore();
-
-  const [zones, setZones] = useState([]);
-  const [stores, setStores] = useState(() => getAllUnifiedStores([], allBranches));
-  const [assignments, setAssignments] = useState([]);
-  const [selectedZoneId, setSelectedZoneId] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Edit Assignment Modal State
-  const [editingStore, setEditingStore] = useState(null);
-  const [editPriority, setEditPriority] = useState(1);
-  const [isSavingEdit, setIsSavingEdit] = useState(false);
-
-  // Edit & Delete Delivery Zone State
-  const [isEditZoneModalOpen, setIsEditZoneModalOpen] = useState(false);
-  const [isDeleteZoneModalOpen, setIsDeleteZoneModalOpen] = useState(false);
-  const [isDeletingZone, setIsDeletingZone] = useState(false);
-  const [isSavingZoneDetails, setIsSavingZoneDetails] = useState(false);
-  const [editZoneForm, setEditZoneForm] = useState({
-    name: '',
-    code: '',
-    city: 'Faisalabad',
-    area: '',
-    deliveryCharge: 60,
-    minOrderAmount: 400,
-    freeDeliveryThreshold: 2000,
-    estimatedDeliveryTime: '25-35 mins',
-    color: '#059669',
-    isActive: true
-  });
-
-  // In-Place Polygon Drawing Mode in Zone Assignments
-  const [isDrawingPolygon, setIsDrawingPolygon] = useState(false);
-  const isDrawingPolygonRef = useRef(false);
-  const [drawnPoints, setDrawnPoints] = useState([]);
-  const [drawingTool, setDrawingTool] = useState('polygon');
-  const drawingToolRef = useRef('polygon');
-  const [isSavingPolygon, setIsSavingPolygon] = useState(false);
-  const drawingLayerRef = useRef(null);
-  const [drawingStoreTarget, setDrawingStoreTarget] = useState(null); // Specific store being drawn for
-
-  useEffect(() => {
-    drawingToolRef.current = drawingTool;
-  }, [drawingTool]);
-
-  useEffect(() => {
-    isDrawingPolygonRef.current = isDrawingPolygon;
-  }, [isDrawingPolygon]);
-
-  // Quick Store Branch Modal
-  const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false);
-  const [quickBranchForm, setQuickBranchForm] = useState({
-    tenantId: 'tenant-alfatah',
-    branchName: '',
-    address: '',
-    city: 'Faisalabad',
-    regionSector: 'ZONE-FSD-CENTRAL-BLUE',
-    latitude: 31.4125,
-    longitude: 73.0950,
-    deliveryRadiusKm: 5
-  });
-  const modalMapContainerRef = useRef(null);
-  const modalMapInstanceRef = useRef(null);
-  const modalMarkerRef = useRef(null);
-
-  // Live polling for store delivery polygon updates made by store admins or super admin
-  useStoreZoneSync({
-    enabled: true,
-    intervalMs: 8000,
-    onChange: (changed) => {
-      setStores((prev) =>
-        prev.map((s) => {
-          const id = s.storeId || s._id || s.id;
-          const c = changed.find((x) => x.storeId === id);
-          if (!c) return s;
-          // Don't overwrite polygon if super admin is actively editing this store right now
-          const drawingId = drawingStoreTarget && (drawingStoreTarget.storeId || drawingStoreTarget._id || drawingStoreTarget.id);
-          if (isDrawingPolygonRef.current && drawingId === id) return s;
-          return {
-            ...s,
-            deliveryPolygon: c.deliveryPolygon,
-            assignedZoneId: c.assignedZoneId ?? s.assignedZoneId,
-            deliveryZoneUpdatedAt: c.deliveryZoneUpdatedAt,
-            deliveryZoneUpdatedBy: c.deliveryZoneUpdatedBy,
-            deliveryZoneUpdatedByRole: c.deliveryZoneUpdatedByRole,
-            deliveryZoneOutsidePct: c.deliveryZoneOutsidePct
-          };
-        })
-      );
-    }
-  });
-
-  // Store Filters
-  const [retailerFilter, setRetailerFilter] = useState('all');
+  // View & Filter states
+  const [activeTab, setActiveTab] = useState('retailers'); // 'retailers' | 'zones' | 'database'
+  const [selectedZoneFilter, setSelectedZoneFilter] = useState('all');
+  const [selectedRetailerFilter, setSelectedRetailerFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStoreIdsToAssign, setSelectedStoreIdsToAssign] = useState(new Set());
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAddDeliveryZoneModalOpen, setIsAddDeliveryZoneModalOpen] = useState(false);
+  const [tileLayerType, setTileLayerType] = useState('street');
 
-  // Leaflet Map Reference & Tile Layers
+  // Map references
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const tileLayerRef = useRef(null);
-  const polygonLayerRef = useRef(null);
+  const zonePolygonsGroupRef = useRef(null);
   const storeMarkersGroupRef = useRef(null);
-  const storeCoverageSectionRef = useRef(null);
-  const [tileLayerType, setTileLayerType] = useState('street'); // 'street' | 'satellite'
-  const [showAllStorePolygons, setShowAllStorePolygons] = useState(true);
 
-  // Switch Map Tile Layer - Vibrant Street Map, High-Res Satellite, and Hybrid View
-  const setTileLayer = (type) => {
-    setTileLayerType(type);
-    if (!mapInstanceRef.current) return;
-    switchMapTileLayer(mapInstanceRef.current, type, tileLayerRef);
-  };
-
-  // 4 Core Retailers
-  const CORE_RETAILERS = [
-    { id: 'tenant-alfatah', name: 'Al-Fatah', color: '#991b1b', logo: '🏬' },
-    { id: 'tenant-chasevalue', name: 'Chase Value', color: '#854d0e', logo: '🛒' },
-    { id: 'tenant-chaseup', name: 'Chase Up', color: '#6b21a8', logo: '🏪' },
-    { id: 'tenant-unimart', name: 'Unimart', color: '#0284c7', logo: '🥬' }
-  ];
-
-  // Deduplicate stores by storeId and tenant+branchName to avoid ghost duplicates
-  const deduplicateStores = (storesList = []) => {
-    const seenIds = new Set();
-    const seenTenantBranches = new Set();
-    const result = [];
-
-    for (const s of storesList) {
-      if (!s) continue;
-      const sId = String(s.storeId || s._id || '').trim();
-      // Exclude test artifacts in normal platform runtime
-      if (sId.endsWith('-TEST')) continue;
-
-      const tId = String(s.tenantId || '').toLowerCase();
-      const bName = String(s.branchName || s.name || '').toLowerCase().trim();
-      const key = `${tId}__${bName}`;
-
-      if (sId && seenIds.has(sId)) continue;
-      if (key && seenTenantBranches.has(key)) continue;
-
-      if (sId) seenIds.add(sId);
-      if (key) seenTenantBranches.add(key);
-      result.push(s);
-    }
-
-    return result;
-  };
-
-  // Fetch Data
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      const [zonesRes, storesRes, assignRes] = await Promise.all([
-        apiService.getZones(),
-        apiService.getStores(),
-        apiService.getAllAssignments()
-      ]);
-
-      if (zonesRes?.success && Array.isArray(zonesRes.zones)) {
-        setZones(zonesRes.zones);
-        const validDeliveryZones = zonesRes.zones.filter((z) => !isStoreAreaPolygon(z));
-        const initial = validDeliveryZones[0] || zonesRes.zones[0];
-        if (initial && (!selectedZoneId || isStoreAreaPolygon({ zoneId: selectedZoneId }))) {
-          setSelectedZoneId(initial.zoneId || initial._id);
-        }
+  // Synchronize stores state to localStorage and custom event
+  const updateStoreZone = (storeId, newZoneId) => {
+    const updated = stores.map((s) => {
+      const id = s.storeId || s._id;
+      if (id === storeId) {
+        return { ...s, deliveryZoneId: newZoneId };
       }
-
-      const unifiedStores = getAllUnifiedStores(storesRes?.stores, allBranches);
-      setStores(deduplicateStores(unifiedStores));
-
-      if (assignRes?.success && Array.isArray(assignRes.assignments)) {
-        setAssignments(assignRes.assignments);
-      }
-    } catch (err) {
-      console.warn('Assignments load error:', err.message);
-      setStores(getAllUnifiedStores([], allBranches));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [allBranches]);
-
-  useEffect(() => {
-    const handleSyncUpdate = () => {
-      loadData();
-    };
-    const handleAssignmentsUpdated = (e) => {
-      if (e?.detail && Array.isArray(e.detail)) {
-        setAssignments(e.detail);
-      } else {
-        loadData();
-      }
-    };
-    window.addEventListener('freshmart_stores_updated', handleSyncUpdate);
-    window.addEventListener('freshmart_branches_updated', handleSyncUpdate);
-    window.addEventListener('freshmart_zones_updated', handleSyncUpdate);
-    window.addEventListener('freshmart_assignments_updated', handleAssignmentsUpdated);
-    window.addEventListener('storage', handleSyncUpdate);
-    return () => {
-      window.removeEventListener('freshmart_stores_updated', handleSyncUpdate);
-      window.removeEventListener('freshmart_branches_updated', handleSyncUpdate);
-      window.removeEventListener('freshmart_zones_updated', handleSyncUpdate);
-      window.removeEventListener('freshmart_assignments_updated', handleAssignmentsUpdated);
-      window.removeEventListener('storage', handleSyncUpdate);
-    };
-  }, [allBranches]);
-
-  // Helper to extract polygon LatLng ring from any zone object
-  const getZonePolygonLatLngs = (zone) => {
-    if (!zone) return [];
-    const rawRing = zone.geometry?.coordinates?.[0] || zone.coordinates?.[0] || zone.coordinates;
-    if (!Array.isArray(rawRing) || rawRing.length < 3) return [];
-    return rawRing
-      .map(([lng, lat]) => [Number(lat), Number(lng)])
-      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
-  };
-
-  // Helper to find all stores physically lying inside a zone's polygon boundary
-  const getStoresInZonePoly = (zone, storeList = stores) => {
-    if (!zone || !Array.isArray(storeList)) return [];
-    const polyLatLngs = getZonePolygonLatLngs(zone);
-    if (polyLatLngs.length < 3) return [];
-
-    return storeList.filter((s) => {
-      const sLat = Number(s.latitude ?? s.coordinates?.lat);
-      const sLng = Number(s.longitude ?? s.coordinates?.lng);
-      return Number.isFinite(sLat) && Number.isFinite(sLng) && isPointInPolygon({ lat: sLat, lng: sLng }, polyLatLngs);
-    });
-  };
-
-  // Delivery Zones only (exclude Concept 1 Store Area Polygons from this view)
-  const deliveryZones = useMemo(() => {
-    const dz = (zones || []).filter((z) => !isStoreAreaPolygon(z));
-    return dz.length > 0 ? dz : DEFAULT_DELIVERY_ZONES;
-  }, [zones]);
-
-  // Currently selected Zone Object
-  const activeZone = useMemo(() => {
-    if (!selectedZoneId) return deliveryZones[0] || null;
-    const target = String(selectedZoneId).toLowerCase();
-    return (
-      deliveryZones.find(
-        (z) =>
-          String(z.zoneId || z._id || z.id || '').toLowerCase() === target ||
-          String(z.code || '').toLowerCase() === target
-      ) ||
-      deliveryZones[0] ||
-      null
-    );
-  }, [deliveryZones, selectedZoneId]);
-
-  // Stores currently assigned to the active zone (including stores physically inside its polygon)
-  const assignedStoreIdsSet = useMemo(() => {
-    if (!activeZone) return new Set();
-    const targetZoneId = String(activeZone.zoneId || activeZone._id || activeZone.id || '').toLowerCase();
-    const targetCode = String(activeZone.code || '').toLowerCase();
-
-    const set = new Set();
-    assignments.forEach((a) => {
-      const aZoneId = String(a.zoneId || a._id || '').toLowerCase();
-      if ((aZoneId === targetZoneId || aZoneId === targetCode) && a.isActive !== false) {
-        if (a.storeId) set.add(String(a.storeId).toLowerCase());
-        if (a._id) set.add(String(a._id).toLowerCase());
-      }
+      return s;
     });
 
-    if (activeZone.assignedStoreId) {
-      set.add(String(activeZone.assignedStoreId).toLowerCase());
-    }
+    setStores(updated);
+    saveRetailerStores(updated);
 
-    stores.forEach((s) => {
-      if (s.assignedZoneId) {
-        const sZone = String(s.assignedZoneId).toLowerCase();
-        if (sZone === targetZoneId || sZone === targetCode) {
-          if (s.storeId) set.add(String(s.storeId).toLowerCase());
-          if (s._id) set.add(String(s._id).toLowerCase());
-        }
-      }
-    });
-
-    // Also include stores that physically lie inside this active zone's polygon!
-    const insideStores = getStoresInZonePoly(activeZone, stores);
-    insideStores.forEach((s) => {
-      if (s.storeId) set.add(String(s.storeId).toLowerCase());
-      if (s._id) set.add(String(s._id).toLowerCase());
-    });
-
-    return set;
-  }, [assignments, activeZone, stores]);
-
-  const isStoreAssigned = (store) => {
-    if (!store || !activeZone) return false;
-    const sId = String(store.storeId || store._id || store.id || '').toLowerCase();
-    const directId = store._id ? String(store._id).toLowerCase() : null;
-    const directStoreId = store.storeId ? String(store.storeId).toLowerCase() : null;
-
-    if (
-      assignedStoreIdsSet.has(sId) ||
-      (directId && assignedStoreIdsSet.has(directId)) ||
-      (directStoreId && assignedStoreIdsSet.has(directStoreId))
-    ) {
-      return true;
-    }
-    if (store.assignedZoneId) {
-      const targetZoneId = String(activeZone.zoneId || activeZone._id || activeZone.id || '').toLowerCase();
-      const targetCode = String(activeZone.code || '').toLowerCase();
-      const sZone = String(store.assignedZoneId).toLowerCase();
-      if (sZone === targetZoneId || sZone === targetCode) return true;
-    }
-
-    // Check if store physically lies inside active zone's polygon
-    const polyLatLngs = getZonePolygonLatLngs(activeZone);
-    if (polyLatLngs.length >= 3) {
-      const sLat = Number(store.latitude ?? store.coordinates?.lat);
-      const sLng = Number(store.longitude ?? store.coordinates?.lng);
-      if (Number.isFinite(sLat) && Number.isFinite(sLng) && isPointInPolygon({ lat: sLat, lng: sLng }, polyLatLngs)) {
-        return true;
-      }
-    }
-
-    return false;
-  };
-
-  const assignedStores = useMemo(() => {
-    return stores.filter(isStoreAssigned);
-  }, [stores, assignedStoreIdsSet, activeZone]);
-
-  const unassignedStores = useMemo(() => {
-    return stores.filter((s) => !isStoreAssigned(s));
-  }, [stores, assignedStoreIdsSet, activeZone]);
-
-  // Automatically link stores whose GPS coordinates lie inside the active zone polygon
-  useEffect(() => {
-    if (!activeZone || !stores || stores.length === 0) return;
-    const polyLatLngs = getZonePolygonLatLngs(activeZone);
-    if (polyLatLngs.length < 3) return;
-
-    const zId = activeZone.zoneId || activeZone._id || activeZone.id || activeZone.code;
-    const insideStores = stores.filter((s) => {
-      const sLat = Number(s.latitude ?? s.coordinates?.lat);
-      const sLng = Number(s.longitude ?? s.coordinates?.lng);
-      return Number.isFinite(sLat) && Number.isFinite(sLng) && isPointInPolygon({ lat: sLat, lng: sLng }, polyLatLngs);
-    });
-
-    const unlinkedInsideIds = insideStores
-      .filter((s) => {
-        const sId = String(s.storeId || s._id || s.id || '').toLowerCase();
-        return !assignedStoreIdsSet.has(sId);
-      })
-      .map((s) => s.storeId || s._id)
-      .filter(Boolean);
-
-    if (unlinkedInsideIds.length > 0) {
-      applyAssignmentOptimistically(unlinkedInsideIds);
-      setStores((prev) =>
-        prev.map((s) =>
-          unlinkedInsideIds.includes(s.storeId) || unlinkedInsideIds.includes(s._id)
-            ? { ...s, assignedZoneId: zId }
-            : s
-        )
-      );
-      apiService.assignStoresToZone(zId, unlinkedInsideIds).catch(() => {});
-    }
-  }, [activeZone, stores, assignedStoreIdsSet]);
-
-  // Filtered Unassigned Stores available to assign
-  const filteredUnassignedStores = useMemo(() => {
-    return unassignedStores.filter((store) => {
-      // Retailer Filter
-      if (retailerFilter !== 'all') {
-        const canonical = String(store.tenantId || '').toLowerCase();
-        const target = retailerFilter.toLowerCase();
-        const matches =
-          canonical.includes(target.replace('tenant-', '')) ||
-          (target.includes('unimart') && (canonical.includes('freshmart') || canonical.includes('unimart')));
-        if (!matches) return false;
-      }
-
-      // Search Query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const name = String(store.name || '').toLowerCase();
-        const bName = String(store.branchName || '').toLowerCase();
-        const sId = String(store.storeId || store._id || '').toLowerCase();
-        if (!name.includes(q) && !bName.includes(q) && !sId.includes(q)) return false;
-      }
-
-      return true;
-    });
-  }, [unassignedStores, retailerFilter, searchQuery]);
-
-  // Zone Centroid
-  const zoneCentroid = useMemo(() => {
-    if (!activeZone?.geometry?.coordinates?.[0]) return { lat: 31.4125, lng: 73.0995 };
-    const coords = activeZone.geometry.coordinates[0];
-    let sumLat = 0;
-    let sumLng = 0;
-    coords.forEach(([lng, lat]) => {
-      sumLat += lat;
-      sumLng += lng;
-    });
-    return {
-      lat: sumLat / coords.length,
-      lng: sumLng / coords.length
-    };
-  }, [activeZone]);
-
-  // Proximity Calculation & Suggested Nearby Stores
-  const storesWithDistance = useMemo(() => {
-    return filteredUnassignedStores.map((store) => {
-      const sLat = Number(store.latitude);
-      const sLng = Number(store.longitude);
-      const dist = calculateDistanceKm(zoneCentroid.lat, zoneCentroid.lng, sLat, sLng);
-      return {
-        ...store,
-        distanceToZoneCentroidKm: Number(dist.toFixed(1)),
-        isNearby: dist <= 7.0,
-        isFarWarning: dist > 12.0
-      };
-    }).sort((a, b) => a.distanceToZoneCentroidKm - b.distanceToZoneCentroidKm);
-  }, [filteredUnassignedStores, zoneCentroid]);
-
-  // Coordinates of active zone polygon for in-polygon checks
-  const activeZonePolygonLatLngs = useMemo(() => {
-    const rawRing = activeZone?.geometry?.coordinates?.[0] || activeZone?.coordinates?.[0] || activeZone?.coordinates;
-    if (!Array.isArray(rawRing) || rawRing.length < 3) return [];
-    return rawRing
-      .map(([lng, lat]) => [Number(lat), Number(lng)])
-      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
-  }, [activeZone]);
-
-
-  const handleAutoLinkInside = async () => {
-    if (!activeZone || activeZonePolygonLatLngs.length < 3) {
-      if (addToast) addToast('No Polygon', 'Active zone does not have a polygon boundary yet.', 'info');
-      return;
-    }
-    const insideStores = getStoresInZonePoly(activeZone, stores);
-    const insideStoreIds = insideStores.map((s) => s.storeId || s._id);
-
-    if (insideStoreIds.length === 0) {
-      if (addToast) addToast('No Stores Inside', 'No stores were found physically inside this polygon.', 'info');
-      return;
-    }
-
-    const zId = activeZone.zoneId || activeZone._id || activeZone.id || activeZone.code;
-    applyAssignmentOptimistically(insideStoreIds);
-
-    // Update store state with assignedZoneId
-    setStores((prev) =>
-      prev.map((s) =>
-        insideStoreIds.includes(s.storeId) || insideStoreIds.includes(s._id)
-          ? { ...s, assignedZoneId: zId }
-          : s
-      )
-    );
-
-    // Update active zone in state with assignedStoreId
-    if (insideStoreIds.length > 0) {
-      setZones((prev) =>
-        prev.map((z) =>
-          (z.zoneId === zId || z._id === zId || z.code === zId) ? { ...z, assignedStoreId: insideStoreIds[0] } : z
-        )
-      );
-    }
-
-    if (addToast) addToast('Auto-Linked ✨', `Linked ${insideStoreIds.length} store(s) inside polygon to ${activeZone.name}!`, 'success');
-    try {
-      await apiService.assignStoresToZone(zId, insideStoreIds);
-      loadData();
-    } catch (err) {
-      console.warn('Auto-link sync:', err.message);
-    }
-  };
-
-  // Multi-Select Toggle
-  const toggleStoreSelect = (storeId) => {
-    setSelectedStoreIdsToAssign((prev) => {
-      const copy = new Set(prev);
-      if (copy.has(storeId)) copy.delete(storeId);
-      else copy.add(storeId);
-      return copy;
-    });
-  };
-
-  const selectAllFiltered = () => {
-    const allIds = storesWithDistance.map((s) => s.storeId || s._id);
-    setSelectedStoreIdsToAssign(new Set(allIds));
-  };
-
-  const clearSelection = () => {
-    setSelectedStoreIdsToAssign(new Set());
-  };
-
-  // Helper to apply optimistic assignment
-  const applyAssignmentOptimistically = (idsToAssign) => {
-    const ids = Array.isArray(idsToAssign) ? idsToAssign : [idsToAssign];
-    const zId = activeZone?.zoneId || activeZone?._id || activeZone?.id || activeZone?.code;
-    const newRecords = ids.map((id) => {
-      const st = stores.find((s) => (s.storeId || s._id) === id);
-      return {
-        zoneId: zId,
-        storeId: id,
-        tenantId: st?.tenantId || 'tenant-unimart',
-        isActive: true,
-        assignedAt: new Date().toISOString()
-      };
-    });
-
-    setAssignments((prev) => {
-      const remaining = prev.filter(
-        (a) => !((a.zoneId === zId || String(a.zoneId).toLowerCase() === String(zId).toLowerCase()) && ids.includes(a.storeId))
-      );
-      return [...remaining, ...newRecords];
-    });
-
-    setSelectedStoreIdsToAssign((prev) => {
-      const copy = new Set(prev);
-      ids.forEach((id) => copy.delete(id));
-      return copy;
-    });
-  };
-
-  // Helper to apply optimistic removal
-  const applyRemovalOptimistically = (storeId) => {
-    const zId = activeZone?.zoneId || activeZone?._id || activeZone?.id || activeZone?.code;
-    setAssignments((prev) =>
-      prev.filter(
-        (a) => !((a.zoneId === zId || String(a.zoneId).toLowerCase() === String(zId).toLowerCase()) && (a.storeId === storeId || String(a.storeId).toLowerCase() === String(storeId).toLowerCase()))
-      )
-    );
-  };
-
-  // Assign single store directly with 1 click (enforcing delivery reach)
-  const handleAssignSingle = async (storeId, e) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    if (!activeZone || !storeId) return;
-
-    // Check if store's delivery region reaches this zone
-    const targetStore = stores.find((s) => (s.storeId || s._id || s.id) === storeId);
-    if (targetStore) {
-      const sLat = Number(targetStore.latitude ?? targetStore.coordinates?.lat);
-      const sLng = Number(targetStore.longitude ?? targetStore.coordinates?.lng);
-      const storeRadius = Number(targetStore.deliveryRadiusKm || targetStore.deliveryRadius || 5);
-      const distToZone = calculateDistanceKm(zoneCentroid.lat, zoneCentroid.lng, sLat, sLng);
-      const isInside = activeZonePolygonLatLngs.length >= 3 &&
-        Number.isFinite(sLat) && Number.isFinite(sLng) &&
-        isPointInPolygon({ lat: sLat, lng: sLng }, activeZonePolygonLatLngs);
-
-      if (!isInside && distToZone > storeRadius) {
-        if (addToast) {
-          addToast(
-            'Cannot Assign Store ⛔',
-            `"${targetStore.name}" delivery radius is only ${storeRadius} km, but this delivery zone is ${distToZone.toFixed(1)} km away. The store admin must increase their delivery radius first in Delivery Zone settings!`,
-            'error'
-          );
-        }
-        return;
-      }
-    }
-
-    const zId = activeZone.zoneId || activeZone._id || activeZone.id || activeZone.code;
-    applyAssignmentOptimistically([storeId]);
-
-    // Update store state with assignedZoneId
-    setStores((prev) =>
-      prev.map((s) =>
-        (s.storeId === storeId || s._id === storeId) ? { ...s, assignedZoneId: zId } : s
-      )
-    );
-
-    // Update active zone in state with assignedStoreId
-    setZones((prev) =>
-      prev.map((z) =>
-        (z.zoneId === zId || z._id === zId || z.code === zId) ? { ...z, assignedStoreId: storeId } : z
-      )
-    );
-
-    // Propagate zone polygon boundary to assigned branch in localStorage so Store Admin has it
-    try {
-      const savedBranches = localStorage.getItem('freshmart_branches');
-      const branchList = savedBranches ? JSON.parse(savedBranches) : (allBranches || []);
-      const cleanStoreId = String(storeId).toLowerCase().trim();
-      let updatedBranches = false;
-      const updated = branchList.map((b) => {
-        const bId = String(b._id || b.id || '').toLowerCase().trim();
-        const bStoreId = String(b.storeId || '').toLowerCase().trim();
-        if (bId === cleanStoreId || bStoreId === cleanStoreId) {
-          updatedBranches = true;
-          return {
-            ...b,
-            assignedZoneId: zId,
-            ...(activeZonePolygonLatLngs.length >= 3 ? { deliveryPolygon: activeZonePolygonLatLngs } : {})
-          };
-        }
-        return b;
-      });
-      if (updatedBranches) {
-        localStorage.setItem('freshmart_branches', JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: updated }));
-        window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
-      }
-    } catch (err) {}
-
-    // Update freshmart_zones in localStorage
-    try {
-      const savedZones = localStorage.getItem('freshmart_zones');
-      const localZones = savedZones ? JSON.parse(savedZones) : [];
-      const updatedZ = localZones.map((z) =>
-        (z.zoneId === zId || z._id === zId || z.code === zId) ? { ...z, assignedStoreId: storeId } : z
-      );
-      localStorage.setItem('freshmart_zones', JSON.stringify(updatedZ));
-      window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: updatedZ }));
-    } catch (err) {}
-
-    if (addToast) {
-      addToast(`Assigned store to ${activeZone.name}!`, 'success');
-    }
-
-    try {
-      await apiService.assignStoresToZone(zId, [storeId]);
-      loadData();
-    } catch (err) {
-      console.warn('Background assignment sync:', err.message);
-    }
-  };
-
-  // Assign Selected Stores
-  const handleAssignSelected = async () => {
-    if (!activeZone || selectedStoreIdsToAssign.size === 0) return;
-
-    const zId = activeZone.zoneId || activeZone._id || activeZone.id || activeZone.code;
-    const ids = Array.from(selectedStoreIdsToAssign);
-    applyAssignmentOptimistically(ids);
-
-    setStores((prev) =>
-      prev.map((s) =>
-        ids.includes(s.storeId) || ids.includes(s._id) ? { ...s, assignedZoneId: zId } : s
-      )
-    );
-
-    if (addToast) {
-      addToast(`Successfully assigned ${ids.length} store(s) to ${activeZone.name}!`, 'success');
-    }
-
-    setIsSubmitting(true);
-    try {
-      const res = await apiService.assignStoresToZone(zId, ids);
-      if (res && res.warnings && res.warnings.length > 0 && addToast) {
-        addToast(`Note: ${res.warnings.length} store(s) are geographically far from zone boundary.`, 'info');
-      }
-      loadData();
-    } catch (err) {
-      console.warn('Background bulk assignment sync:', err.message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Remove Store from Zone
-  const handleRemoveStore = async (storeId) => {
-    if (!activeZone || !storeId) return;
-
-    const zId = activeZone.zoneId || activeZone._id || activeZone.id || activeZone.code;
-    applyRemovalOptimistically(storeId);
-
-    setStores((prev) =>
-      prev.map((s) =>
-        (s.storeId === storeId || s._id === storeId) ? { ...s, assignedZoneId: null } : s
-      )
-    );
-
-    setZones((prev) =>
-      prev.map((z) =>
-        (z.zoneId === zId || z._id === zId || z.code === zId) && z.assignedStoreId === storeId
-          ? { ...z, assignedStoreId: null }
-          : z
-      )
-    );
-
-    if (addToast) {
-      addToast(`Store unassigned from ${activeZone.name}.`, 'info');
-    }
-
-    try {
-      await apiService.removeStoreFromZone(zId, storeId);
-      loadData();
-    } catch (err) {
-      console.warn('Background removal sync:', err.message);
-    }
-  };
-
-  // Save Edited Assignment Priority
-  const handleSaveAssignmentEdit = async () => {
-    if (!editingStore || !activeZone) return;
-    const sId = editingStore.storeId || editingStore._id;
-    setIsSavingEdit(true);
-    try {
-      const res = await apiService.assignStoresToZone(activeZone.zoneId, [sId], editPriority);
-      if (res && res.success) {
-        if (addToast) addToast(`Updated fulfillment priority for ${editingStore.name} to Priority ${editPriority}!`, 'success');
-        setEditingStore(null);
-        loadData();
-      } else {
-        if (addToast) addToast(res?.message || 'Update failed', 'error');
-      }
-    } catch (e) {
-      if (addToast) addToast(e.message, 'error');
-    } finally {
-      setIsSavingEdit(false);
-    }
-  };
-
-  // Global window helpers for interactive Leaflet map popups
-  useEffect(() => {
-    window.__assignStoreFromMap = (sId) => {
-      handleAssignSingle(sId);
-    };
-    window.__removeStoreFromMap = (sId) => {
-      handleRemoveStore(sId);
-    };
-    window.__editStoreFromMap = (sId) => {
-      const found = stores.find((s) => (s.storeId || s._id) === sId);
-      if (found) {
-        setEditingStore(found);
-        const curr = assignments.find((a) => a.zoneId === activeZone?.zoneId && a.storeId === sId);
-        setEditPriority(curr?.priority || 1);
-      }
-    };
-    window.__editZoneFromMap = () => {
-      if (onNavigateToZones) onNavigateToZones();
-    };
-    window.__startDrawingFromMap = () => {
-      isDrawingPolygonRef.current = true;
-      setIsDrawingPolygon(true);
-      setDrawingTool('polygon');
-      setDrawnPoints([]);
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.closePopup();
-        mapInstanceRef.current.eachLayer((layer) => {
-          if (layer.closePopup) layer.closePopup();
-          if (layer.closeTooltip) layer.closeTooltip();
-        });
-      }
-    };
-    window.__startDrawingForStore = (sId) => {
-      const s = stores.find((st) => (st.storeId || st._id) === sId);
-      if (s) handleStartDrawingDeliveryZoneForStore(s, true);
-    };
-    window.__createBoxAroundStore = (sId) => {
-      const s = stores.find((st) => (st.storeId || st._id) === sId);
-      if (s) handleCreatePolygonAroundStore(s);
-    };
-    window.__createPolygonAroundStore = (sId) => {
-      const s = stores.find((st) => (st.storeId || st._id) === sId);
-      if (s) handleCreatePolygonAroundStore(s);
-    };
-    window.__selectZoneFromMap = (targetId) => {
-      if (targetId) setSelectedZoneId(targetId);
-    };
-    return () => {
-      delete window.__assignStoreFromMap;
-      delete window.__removeStoreFromMap;
-      delete window.__editStoreFromMap;
-      delete window.__editZoneFromMap;
-      delete window.__startDrawingFromMap;
-      delete window.__startDrawingForStore;
-      delete window.__createBoxAroundStore;
-      delete window.__createPolygonAroundStore;
-      delete window.__selectZoneFromMap;
-    };
-  }, [stores, assignments, activeZone, onNavigateToZones]);
-
-  // Start drawing or editing custom delivery zone polygon for a specific store
-  // Automatically preserves existing delivery polygon when editing so it remains visible on map!
-  const handleStartDrawingDeliveryZoneForStore = (store, keepExisting = true) => {
-    if (!store) return;
-    isDrawingPolygonRef.current = true;
-    setIsDrawingPolygon(true);
-    setDrawingTool('polygon');
-    setDrawingStoreTarget(store);
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.closePopup();
-      mapInstanceRef.current.eachLayer((layer) => {
-        if (layer.closePopup) layer.closePopup();
-        if (layer.closeTooltip) layer.closeTooltip();
-      });
-    }
-
-    const sLat = Number(store.latitude ?? store.coordinates?.lat);
-    const sLng = Number(store.longitude ?? store.coordinates?.lng);
-
-    const rawPoly = store.deliveryPolygon;
-    const hasValidPolygon = Array.isArray(rawPoly) && rawPoly.length >= 3;
-    if (keepExisting && hasValidPolygon) {
-      setDrawnPoints(rawPoly);
-    } else {
-      setDrawnPoints([]);
-    }
-
-    if (mapInstanceRef.current) {
-      const map = mapInstanceRef.current;
-      const currentBounds = map.getBounds();
-      const targetPoint = (hasValidPolygon && rawPoly[0])
-        ? L.latLng(rawPoly[0][0], rawPoly[0][1])
-        : (Number.isFinite(sLat) && Number.isFinite(sLng) ? L.latLng(sLat, sLng) : null);
-
-      // Keep map completely still if target is already in current view
-      const isVisible = targetPoint && currentBounds.isValid() && currentBounds.contains(targetPoint);
-      if (!isVisible && targetPoint) {
-        map.panTo(targetPoint, { animate: false });
-      }
-
-      [30, 100, 250, 500].forEach((ms) => {
-        setTimeout(() => {
-          try {
-            if (map && map._container) {
-              map.invalidateSize({ debounceMoveEvents: true });
-              const layer = tileLayerRef.current;
-              if (layer && !map.hasLayer(layer)) {
-                layer.addTo(map);
-              }
-            }
-          } catch (e) {}
-        }, ms);
-      });
-    }
+    const storeObj = stores.find((s) => (s.storeId || s._id) === storeId);
+    const zoneObj = masterZones.find((z) => (z.zoneId || z._id) === newZoneId);
 
     if (addToast) {
       addToast(
-        hasValidPolygon ? `Edit Delivery Zone: ${store.branchName || store.name}` : `Draw Delivery Zone: ${store.branchName || store.name}`,
-        hasValidPolygon
-          ? 'Drag the numbered corner handles on the map to reshape the delivery boundary, or click on the map to add more points.'
-          : 'Click on the map around the store to place delivery points (at least 3), or click "Polygon Around Store ⬡" to auto-place an initial boundary.',
-        'info'
-      );
-    }
-  };
-
-  // Remove / Reset Delivery Zone for a specific store
-  const handleRemoveDeliveryZoneForStore = async (store) => {
-    if (!store) return;
-    const storeId = store.storeId || store._id || store.id;
-    const sName = store.branchName || store.name || 'Store';
-
-    setStores((prev) =>
-      prev.map((s) => {
-        const sid = s.storeId || s._id || s.id;
-        return (sid === storeId || String(sid).toLowerCase() === String(storeId).toLowerCase())
-          ? { ...s, deliveryPolygon: [] }
-          : s;
-      })
-    );
-
-    try {
-      const savedBranches = localStorage.getItem('freshmart_branches');
-      if (savedBranches) {
-        const branchList = JSON.parse(savedBranches) || [];
-        const cleanStoreId = String(storeId).toLowerCase().trim();
-        const updated = branchList.map((b) => {
-          const bid = String(b._id || b.id || b.storeId || '').toLowerCase().trim();
-          return bid === cleanStoreId ? { ...b, deliveryPolygon: [] } : b;
-        });
-        localStorage.setItem('freshmart_branches', JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: updated }));
-      }
-    } catch (e) {}
-
-    try {
-      const savedCustom = localStorage.getItem('freshmart_custom_stores');
-      if (savedCustom) {
-        const customList = JSON.parse(savedCustom) || [];
-        const cleanStoreId = String(storeId).toLowerCase().trim();
-        const updated = customList.map((c) => {
-          const cid = String(c.storeId || c._id || c.id || '').toLowerCase().trim();
-          return cid === cleanStoreId ? { ...c, deliveryPolygon: [] } : c;
-        });
-        localStorage.setItem('freshmart_custom_stores', JSON.stringify(updated));
-      }
-    } catch (e) {}
-
-    window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
-
-    try {
-      await apiService.updateBranchDeliveryZone(storeId, { deliveryPolygon: [] });
-      await apiService.updateStore(storeId, { deliveryPolygon: [] });
-    } catch (e) {}
-
-    if (addToast) {
-      addToast('Delivery Zone Removed', `Delivery zone for "${sName}" was cleared.`, 'info');
-    }
-  };
-
-  const handleSelectRegionSector = (region) => {
-    setQuickBranchForm((prev) => ({
-      ...prev,
-      regionSector: region.id,
-      latitude: region.center[0],
-      longitude: region.center[1]
-    }));
-
-    if (modalMarkerRef.current) {
-      modalMarkerRef.current.setLatLng(region.center);
-    }
-    if (modalMapInstanceRef.current) {
-      modalMapInstanceRef.current.flyTo(region.center, 13, { duration: 0.5 });
-    }
-  };
-
-  const handleRetailerChange = (tenantId) => {
-    setQuickBranchForm((prev) => ({ ...prev, tenantId }));
-    const retailer = CORE_RETAILERS.find((r) => r.id === tenantId) || CORE_RETAILERS[0];
-    if (modalMarkerRef.current) {
-      const markerIcon = L.divIcon({
-        className: 'modal-store-pin',
-        html: `
-          <div style="background: white; border: 2.5px solid ${retailer.color || '#059669'}; border-radius: 9999px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.35); font-size: 16px; transform: translate(-18px, -18px); cursor: grab;">
-            ${retailer.logo}
-          </div>
-        `,
-        iconSize: [36, 36],
-        iconAnchor: [18, 18]
-      });
-      modalMarkerRef.current.setIcon(markerIcon);
-    }
-  };
-
-  // Modal Map for Quick Branch Creation (Interactive location picker with master region outlines)
-  useEffect(() => {
-    if (!isQuickAddModalOpen) {
-      if (modalMapInstanceRef.current) {
-        modalMapInstanceRef.current.remove();
-        modalMapInstanceRef.current = null;
-      }
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      if (!modalMapContainerRef.current) return;
-
-      if (modalMapInstanceRef.current) {
-        modalMapInstanceRef.current.remove();
-        modalMapInstanceRef.current = null;
-      }
-
-      const initialLat = Number(quickBranchForm.latitude) || 31.4125;
-      const initialLng = Number(quickBranchForm.longitude) || 73.0950;
-
-      const map = L.map(modalMapContainerRef.current, {
-        center: [initialLat, initialLng],
-        zoom: 13,
-        zoomControl: true,
-        attributionControl: false
-      });
-      modalMapInstanceRef.current = map;
-
-      switchMapTileLayer(map, 'street');
-
-      // Draw the 3 master regions lightly on the modal map
-      THREE_MASTER_REGIONS.forEach((reg) => {
-        L.polygon(reg.polygon, {
-          color: reg.color,
-          weight: 2,
-          opacity: 0.85,
-          fillColor: reg.color,
-          fillOpacity: 0.12,
-          dashArray: '4, 4'
-        })
-          .bindTooltip(reg.shortName || reg.name, { sticky: true, className: 'text-[10px] font-bold' })
-          .addTo(map);
-      });
-
-      // Draggable marker with retailer logo
-      const retailer = CORE_RETAILERS.find((r) => r.id === quickBranchForm.tenantId) || CORE_RETAILERS[0];
-      const markerIcon = L.divIcon({
-        className: 'modal-store-pin',
-        html: `
-          <div style="background: white; border: 2.5px solid ${retailer.color || '#059669'}; border-radius: 9999px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.35); font-size: 16px; transform: translate(-18px, -18px); cursor: grab;">
-            ${retailer.logo}
-          </div>
-        `,
-        iconSize: [36, 36],
-        iconAnchor: [18, 18]
-      });
-
-      const marker = L.marker([initialLat, initialLng], {
-        icon: markerIcon,
-        draggable: true
-      }).addTo(map);
-      modalMarkerRef.current = marker;
-
-      const syncLocation = (lat, lng) => {
-        const roundedLat = parseFloat(lat.toFixed(5));
-        const roundedLng = parseFloat(lng.toFixed(5));
-        const detected = detectRegionSector(roundedLat, roundedLng);
-        setQuickBranchForm((prev) => ({
-          ...prev,
-          latitude: roundedLat,
-          longitude: roundedLng,
-          regionSector: detected.id
-        }));
-      };
-
-      marker.on('dragend', (e) => {
-        const pos = e.target.getLatLng();
-        syncLocation(pos.lat, pos.lng);
-      });
-
-      map.on('click', (e) => {
-        marker.setLatLng(e.latlng);
-        syncLocation(e.latlng.lat, e.latlng.lng);
-      });
-
-      map.invalidateSize();
-    }, 150);
-
-    return () => {
-      clearTimeout(timer);
-      if (modalMapInstanceRef.current) {
-        modalMapInstanceRef.current.remove();
-        modalMapInstanceRef.current = null;
-      }
-    };
-  }, [isQuickAddModalOpen]);
-
-  const handleCreateQuickBranch = async (e) => {
-    if (e) e.preventDefault();
-    const retailer = CORE_RETAILERS.find((r) => r.id === quickBranchForm.tenantId) || CORE_RETAILERS[0];
-    const bName = (quickBranchForm.branchName || '').trim() || `Commercial Branch ${Date.now().toString().slice(-4)}`;
-    const sName = `${retailer.name} - ${bName}`;
-    const sId = `STR-${quickBranchForm.tenantId.replace('tenant-', '').substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`;
-
-    const lat = Number(quickBranchForm.latitude) || 31.4125;
-    const lng = Number(quickBranchForm.longitude) || 73.0950;
-    const activeRegion = detectRegionSector(lat, lng);
-
-    const newStore = {
-      _id: sId,
-      storeId: sId,
-      tenantId: quickBranchForm.tenantId,
-      tenantName: retailer.name,
-      name: sName,
-      branchName: bName,
-      address: (quickBranchForm.address || '').trim() || `Main Commercial Road, ${quickBranchForm.city || 'Faisalabad'}, Pakistan`,
-      city: quickBranchForm.city || 'Faisalabad',
-      latitude: lat,
-      longitude: lng,
-      deliveryRadiusKm: Number(quickBranchForm.deliveryRadiusKm) || 5,
-      status: 'active',
-      isActive: true,
-      operatingStatus: 'Open',
-      assignedZoneId: activeRegion.id,
-      regionSector: activeRegion.id,
-      regionName: activeRegion.name
-    };
-
-    try {
-      await apiService.createStore(newStore);
-      await apiService.createBranch({
-        _id: sId,
-        id: sId,
-        tenantId: quickBranchForm.tenantId,
-        code: `BR-${Date.now().toString().slice(-4)}`,
-        name: sName,
-        branchName: bName,
-        address: newStore.address,
-        city: newStore.city,
-        latitude: lat,
-        longitude: lng,
-        deliveryRadius: newStore.deliveryRadiusKm,
-        deliveryRadiusKm: newStore.deliveryRadiusKm,
-        status: 'active'
-      });
-      if (activeRegion && activeRegion.id) {
-        await apiService.assignStoresToZone(activeRegion.id, [sId]);
-      }
-    } catch (err) {
-      console.warn('Store creation sync warning:', err);
-    }
-
-    // Save to local storage (both custom stores and branches)
-    try {
-      const raw = localStorage.getItem('freshmart_custom_stores');
-      const existing = raw ? JSON.parse(raw) : [];
-      localStorage.setItem('freshmart_custom_stores', JSON.stringify([newStore, ...existing]));
-      window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
-
-      const rawB = localStorage.getItem('freshmart_branches');
-      const existingB = rawB ? JSON.parse(rawB) : [];
-      localStorage.setItem('freshmart_branches', JSON.stringify([newStore, ...existingB]));
-      window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: [newStore, ...existingB] }));
-    } catch {}
-
-    setStores((prev) => deduplicateStores([newStore, ...prev]));
-    setIsQuickAddModalOpen(false);
-    setQuickBranchForm({
-      tenantId: 'tenant-alfatah',
-      branchName: '',
-      address: '',
-      city: 'Faisalabad',
-      regionSector: 'ZONE-FSD-CENTRAL-BLUE',
-      latitude: 31.4125,
-      longitude: 73.0950,
-      deliveryRadiusKm: 5
-    });
-
-    // IMMEDIATELY activate drawing mode on the map for this new store!
-    handleStartDrawingDeliveryZoneForStore(newStore);
-
-    if (addToast) {
-      addToast(
-        'Store Branch Added 🎉',
-        `"${sName}" placed in ${activeRegion.name}! Now click on the map around it to outline its delivery zone.`,
+        'Delivery Zone Assigned 📍',
+        `${storeObj?.name || 'Store'} is now assigned to ${zoneObj?.name || newZoneId}.`,
         'success'
       );
     }
   };
 
-  // Dedicated helper to add a vertex point from any click source (map canvas, existing polygon, store marker)
-  const handleAddDrawPoint = (lat, lng) => {
-    const roundedLat = Number(Number(lat).toFixed(6));
-    const roundedLng = Number(Number(lng).toFixed(6));
-    if (isNaN(roundedLat) || isNaN(roundedLng)) return;
+  // Expose global callback for in-map Leaflet popup zone change
+  useEffect(() => {
+    window.__handlePopupZoneChange = (storeId, newZoneId) => {
+      updateStoreZone(storeId, newZoneId);
+    };
+    return () => {
+      delete window.__handlePopupZoneChange;
+    };
+  }, [stores, masterZones]);
 
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.closePopup();
-    }
+  // Filtered stores calculation
+  const filteredStores = useMemo(() => {
+    return stores.filter((s) => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        s.name.toLowerCase().includes(q) ||
+        s.branchName.toLowerCase().includes(q) ||
+        s.parentRetailerName.toLowerCase().includes(q) ||
+        s.address.toLowerCase().includes(q);
 
-    setDrawnPoints((prev) => [...prev, [roundedLat, roundedLng]]);
-  };
+      const matchesZone =
+        selectedZoneFilter === 'all' || s.deliveryZoneId === selectedZoneFilter;
 
-  // Leaflet Map Initialization
+      const matchesRetailer =
+        selectedRetailerFilter === 'all' || s.retailerId === selectedRetailerFilter;
+
+      return matchesSearch && matchesZone && matchesRetailer;
+    });
+  }, [stores, searchQuery, selectedZoneFilter, selectedRetailerFilter]);
+
+  // Statistics
+  const stats = useMemo(() => {
+    const totalStores = stores.length;
+    const assignedCount = stores.filter((s) => Boolean(s.deliveryZoneId)).length;
+    return {
+      parentRetailersCount: parentRetailers.length,
+      childStoresCount: totalStores,
+      masterZonesCount: masterZones.length,
+      assignedPercent: totalStores > 0 ? Math.round((assignedCount / totalStores) * 100) : 100
+    };
+  }, [parentRetailers, stores, masterZones]);
+
+  // ---------------------------------------------------------------------------
+  // MAP INITIALIZATION (Leaflet)
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -1403,32 +150,27 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       mapInstanceRef.current = null;
     }
 
+    // Faisalabad Center Coordinates
     const map = L.map(mapContainerRef.current, {
-      center: [zoneCentroid.lat || 31.4145, zoneCentroid.lng || 73.1095],
+      center: [31.4140, 73.0950],
       zoom: 13,
-      zoomControl: true
+      zoomControl: true,
+      attributionControl: false
     });
 
-    switchMapTileLayer(map, tileLayerType || 'street', tileLayerRef);
+    switchMapTileLayer(map, tileLayerType, tileLayerRef);
 
-    polygonLayerRef.current = L.layerGroup().addTo(map);
+    zonePolygonsGroupRef.current = L.layerGroup().addTo(map);
     storeMarkersGroupRef.current = L.layerGroup().addTo(map);
-    drawingLayerRef.current = L.layerGroup().addTo(map);
-
-    // Map click adds polygon vertices around stores
-    map.on('click', (e) => {
-      if (!isDrawingPolygonRef.current) return;
-      handleAddDrawPoint(e.latlng.lat, e.latlng.lng);
-    });
 
     mapInstanceRef.current = map;
 
-    const initTimer = setTimeout(() => {
-      map.invalidateSize({ debounceMoveEvents: true });
-    }, 150);
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
 
     return () => {
-      clearTimeout(initTimer);
+      clearTimeout(timer);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -1436,1985 +178,753 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
     };
   }, []);
 
-  // When drawing mode activates or finishes, guarantee tile layer is attached and sized quietly
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
-    const timers = [30, 100, 250, 600].map((ms) =>
-      setTimeout(() => {
-        try {
-          if (map && map._container) {
-            map.invalidateSize({ debounceMoveEvents: true });
-            const layer = tileLayerRef.current;
-            if (!layer) {
-              switchMapTileLayer(map, tileLayerType || 'street', tileLayerRef);
-            } else if (!map.hasLayer(layer)) {
-              layer.addTo(map);
-            }
-          }
-        } catch (e) {}
-      }, ms)
-    );
-    return () => timers.forEach(clearTimeout);
-  }, [isDrawingPolygon, tileLayerType]);
-
-  // Update Drawing Layer Preview whenever drawnPoints change
-  useEffect(() => {
-    if (!mapInstanceRef.current || !drawingLayerRef.current) return;
-    drawingLayerRef.current.clearLayers();
-
-    if (!isDrawingPolygon || drawnPoints.length === 0) return;
-
-    const retailer = drawingStoreTarget
-      ? CORE_RETAILERS.find((r) =>
-          String(drawingStoreTarget.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
-        )
-      : null;
-    const color = retailer?.color || activeZone?.color || '#10b981';
-
-    // 1. Draw each vertex point with corner / number badge
-    drawnPoints.forEach(([lat, lng], idx) => {
-      const isFirst = idx === 0;
-      const cornerLabel = `${idx + 1}`;
-
-      const vertexIcon = L.divIcon({
-        className: 'custom-drawing-vertex',
-        html: `
-          <div style="display: flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 4px; border-radius: 9999px; background: ${isFirst ? '#059669' : color}; color: #ffffff; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.35); font-size: 10px; font-weight: 900; font-family: monospace; cursor: grab;">
-            ${cornerLabel}
-          </div>
-        `,
-        iconSize: [26, 26],
-        iconAnchor: [13, 13]
-      });
-
-      const marker = L.marker([lat, lng], {
-        icon: vertexIcon,
-        draggable: true
-      });
-
-      marker.on('dragend', (e) => {
-        const newPos = e.target.getLatLng();
-        setDrawnPoints((prev) => {
-          const updated = [...prev];
-          updated[idx] = [Number(newPos.lat.toFixed(6)), Number(newPos.lng.toFixed(6))];
-          return updated;
-        });
-      });
-
-      drawingLayerRef.current.addLayer(marker);
-    });
-
-    // 2. Draw connecting shape preview (EXACTLY ONE SHAPE: polyline for 2 pts, polygon for >= 3 pts)
-    if (drawnPoints.length === 2) {
-      const line = L.polyline(drawnPoints, {
-        color: color,
-        weight: 3,
-        dashArray: '6, 6'
-      });
-      drawingLayerRef.current.addLayer(line);
-    } else if (drawnPoints.length >= 3) {
-      const previewPolygon = L.polygon(drawnPoints, {
-        color: color,
-        weight: 2.5,
-        fillColor: color,
-        fillOpacity: 0.2,
-        dashArray: '6, 6',
-        interactive: false
-      });
-      drawingLayerRef.current.addLayer(previewPolygon);
-    }
-  }, [drawnPoints, isDrawingPolygon, activeZone, drawingStoreTarget]);
-
-  // Helper to reorder points clockwise around their geometric centroid into a clean non-crossing perimeter
-  const untanglePoints = (pts) => {
-    if (!pts || pts.length < 3) return pts;
-    const cLat = pts.reduce((sum, p) => sum + p[0], 0) / pts.length;
-    const cLng = pts.reduce((sum, p) => sum + p[1], 0) / pts.length;
-    return [...pts].sort((a, b) => {
-      let angleA = Math.atan2(a[1] - cLng, a[0] - cLat);
-      let angleB = Math.atan2(b[1] - cLng, b[0] - cLat);
-      if (angleA < 0) angleA += 2 * Math.PI;
-      if (angleB < 0) angleB += 2 * Math.PI;
-      return angleA - angleB;
-    });
-  };
-
-  // Helper to detect if line segments cross each other
-  const hasCrossingSegments = (pts) => {
-    if (!pts || pts.length < 4) return false;
-    const n = pts.length;
-    const ccw = (a, b, c) => (c[0] - a[0]) * (b[1] - a[1]) > (b[0] - a[0]) * (c[1] - a[1]);
-    const intersect = (p1, p2, p3, p4) =>
-      ccw(p1, p3, p4) !== ccw(p2, p3, p4) && ccw(p1, p2, p3) !== ccw(p1, p2, p4);
-    for (let i = 0; i < n; i++) {
-      const p1 = pts[i];
-      const p2 = pts[(i + 1) % n];
-      for (let j = i + 2; j < n; j++) {
-        if (i === 0 && j === n - 1) continue;
-        const p3 = pts[j];
-        const p4 = pts[(j + 1) % n];
-        if (intersect(p1, p2, p3, p4)) return true;
-      }
-    }
-    return false;
-  };
-
-  const isTangled = useMemo(() => {
-    return hasCrossingSegments(drawnPoints);
-  }, [drawnPoints]);
-
-  const handleUntanglePoints = () => {
-    if (drawnPoints.length < 3) return;
-    const untangled = untanglePoints(drawnPoints);
-    setDrawnPoints(untangled);
-    if (addToast) {
-      addToast(
-        'Perimeter Untangled ✨',
-        'Boundary vertices reordered smoothly around the perimeter.',
-        'info'
-      );
-    }
-  };
-
-  // Helper to create an organic delivery polygon centered around any store
-  const handleCreatePolygonAroundStore = (store, radiusKm = 2.5) => {
-    let sLat = Number(store?.latitude);
-    let sLng = Number(store?.longitude);
-    if (isNaN(sLat) || isNaN(sLng) || !Number.isFinite(sLat) || !Number.isFinite(sLng)) {
-      sLat = 31.4125;
-      sLng = 73.0950;
-    }
-
-    const latDelta = radiusKm / 111.0;
-    const lngDelta = radiusKm / (111.0 * Math.cos((sLat * Math.PI) / 180));
-    const numPoints = 6;
-    const polyPoints = [];
-    for (let i = 0; i < numPoints; i++) {
-      const angle = (i * 2 * Math.PI) / numPoints;
-      const rFactor = i % 2 === 0 ? 1.05 : 0.95;
-      polyPoints.push([
-        Number((sLat + latDelta * Math.sin(angle) * rFactor).toFixed(6)),
-        Number((sLng + lngDelta * Math.cos(angle) * rFactor).toFixed(6))
-      ]);
-    }
-
-    isDrawingPolygonRef.current = true;
-    setIsDrawingPolygon(true);
-    setDrawingTool('polygon');
-    setDrawnPoints(polyPoints);
-
+  // Update Tile Layer when user toggles Street / Satellite / Hybrid
+  const handleTileChange = (type) => {
+    setTileLayerType(type);
     if (mapInstanceRef.current) {
-      const map = mapInstanceRef.current;
-      const currentBounds = map.getBounds();
-      const pt = L.latLng(sLat, sLng);
-      if (!currentBounds.isValid() || !currentBounds.contains(pt)) {
-        try {
-          map.fitBounds(L.latLngBounds(polyPoints), { padding: [80, 80], maxZoom: 15, animate: false });
-        } catch (e) {}
-      }
-      [30, 100, 250, 500].forEach((ms) => {
-        setTimeout(() => {
-          try {
-            if (map && map._container) {
-              map.invalidateSize({ debounceMoveEvents: true });
-              const layer = tileLayerRef.current;
-              if (layer && !map.hasLayer(layer)) {
-                layer.addTo(map);
-              }
-            }
-          } catch (e) {}
-        }, ms);
-      });
-    }
-    if (addToast) {
-      addToast(
-        'Delivery Polygon Created ⬡',
-        `A 6-vertex polygon placed around ${store?.name || store?.branchName || 'store'}. Drag numbered handles to reshape or click to add more vertices.`,
-        'success'
-      );
+      switchMapTileLayer(mapInstanceRef.current, type, tileLayerRef);
     }
   };
 
-  // Toggle In-Place Polygon Drawing Mode
-  const handleToggleDrawPolygon = () => {
-    if (isDrawingPolygon) {
-      handleCancelDrawing();
-      return;
-    }
-
-    isDrawingPolygonRef.current = true;
-    setIsDrawingPolygon(true);
-    setDrawingTool('polygon');
-
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.closePopup();
-    }
-
-    // 1. Check if activeZone already has polygon coordinates
-    const existingLatLngs = getZonePolygonLatLngs(activeZone);
-    if (existingLatLngs.length >= 3) {
-      setDrawnPoints(existingLatLngs);
-      if (mapInstanceRef.current) {
-        const map = mapInstanceRef.current;
-        const currentBounds = map.getBounds();
-        const firstPoint = L.latLng(existingLatLngs[0][0], existingLatLngs[0][1]);
-        if (!currentBounds.isValid() || !currentBounds.contains(firstPoint)) {
-          try {
-            map.fitBounds(L.latLngBounds(existingLatLngs), {
-              padding: [60, 60],
-              maxZoom: 15,
-              animate: false
-            });
-          } catch (e) {}
-        }
-        setTimeout(() => {
-          try {
-            map.invalidateSize({ debounceMoveEvents: true });
-          } catch (e) {}
-        }, 100);
-      }
-      if (addToast) {
-        addToast(
-          'Editing Polygon ✏️',
-          `Loaded ${existingLatLngs.length} existing boundary points for "${activeZone.name}". Drag the numbered points to shape your zone.`,
-          'info'
-        );
-      }
-    } else {
-      // Zone has no polygon yet. Blank canvas - user clicks to place points!
-      setDrawnPoints([]);
-      const sLat = Number(assignedStores[0]?.latitude || 31.4145);
-      const sLng = Number(assignedStores[0]?.longitude || 73.1095);
-      if (mapInstanceRef.current) {
-        const map = mapInstanceRef.current;
-        const currentBounds = map.getBounds();
-        const pt = L.latLng(sLat, sLng);
-        if (!currentBounds.isValid() || !currentBounds.contains(pt)) {
-          map.setView([sLat, sLng], 14, { animate: false });
-        }
-        setTimeout(() => {
-          try {
-            map.invalidateSize({ debounceMoveEvents: true });
-          } catch (e) {}
-        }, 100);
-      }
-      if (addToast) {
-        addToast(
-          'Draw Polygon ✏️',
-          'Click on the map to place boundary points (at least 3 points), then click "Save Polygon".',
-          'info'
-        );
-      }
-    }
-  };
-
-  // Polygon Drawing Handlers
-  const handleUndoPoint = () => {
-    setDrawnPoints((prev) => prev.slice(0, prev.length - 1));
-  };
-
-  const handleClearDrawing = () => {
-    setDrawnPoints([]);
-    if (drawingLayerRef.current) drawingLayerRef.current.clearLayers();
-  };
-
-  const handleCancelDrawing = () => {
-    setIsDrawingPolygon(false);
-    setDrawingStoreTarget(null);
-    setDrawnPoints([]);
-    if (drawingLayerRef.current) drawingLayerRef.current.clearLayers();
-  };
-
-  const handleSaveDrawnPolygon = async () => {
-    if (drawnPoints.length < 3) {
-      if (addToast) addToast('Missing Vertices', 'Please place at least 3 points on the map to form a valid polygon.', 'warning');
-      return;
-    }
-
-    setIsSavingPolygon(true);
-    try {
-      // Auto-untangle if vertices cross each other so geometry is guaranteed valid
-      const cleanPoints = hasCrossingSegments(drawnPoints) ? untanglePoints(drawnPoints) : drawnPoints;
-
-      // 1. If drawing specifically for a store's delivery zone:
-      if (drawingStoreTarget) {
-        const storeId = drawingStoreTarget.storeId || drawingStoreTarget._id || drawingStoreTarget.id;
-        const sName = drawingStoreTarget.branchName || drawingStoreTarget.name || 'Store';
-
-        // Update state stores
-        setStores((prev) =>
-          prev.map((s) => {
-            const sid = s.storeId || s._id || s.id;
-            return (sid === storeId || String(sid).toLowerCase() === String(storeId).toLowerCase())
-              ? { ...s, deliveryPolygon: cleanPoints }
-              : s;
-          })
-        );
-
-        // Persist to freshmart_branches in localStorage
-        try {
-          const savedBranches = localStorage.getItem('freshmart_branches');
-          const branchList = savedBranches ? JSON.parse(savedBranches) : [];
-          const cleanStoreId = String(storeId).toLowerCase().trim();
-          let matched = false;
-          const updatedBranches = branchList.map((b) => {
-            const bid = String(b._id || b.id || b.storeId || '').toLowerCase().trim();
-            if (bid === cleanStoreId) {
-              matched = true;
-              return { ...b, deliveryPolygon: cleanPoints };
-            }
-            return b;
-          });
-          if (!matched && drawingStoreTarget) {
-            updatedBranches.push({ ...drawingStoreTarget, deliveryPolygon: cleanPoints });
-          }
-          localStorage.setItem('freshmart_branches', JSON.stringify(updatedBranches));
-          window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: updatedBranches }));
-        } catch (e) {
-          console.warn('Branch update error:', e);
-        }
-
-        // Persist to freshmart_custom_stores in localStorage
-        try {
-          const savedCustom = localStorage.getItem('freshmart_custom_stores');
-          if (savedCustom) {
-            const customList = JSON.parse(savedCustom) || [];
-            const cleanStoreId = String(storeId).toLowerCase().trim();
-            const updatedCustom = customList.map((c) => {
-              const cid = String(c.storeId || c._id || c.id || '').toLowerCase().trim();
-              if (cid === cleanStoreId) {
-                return { ...c, deliveryPolygon: cleanPoints };
-              }
-              return c;
-            });
-            localStorage.setItem('freshmart_custom_stores', JSON.stringify(updatedCustom));
-          }
-        } catch (e) {
-          console.warn('Custom stores update error:', e);
-        }
-
-        window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
-
-        // Persist directly to backend database (MongoDB Branch, Store, and DeliveryZone)
-        let backendSaved = false;
-        try {
-          const branchResult = await apiService.updateBranchDeliveryZone(storeId, {
-            deliveryPolygon: cleanPoints,
-            name: sName,
-            deliveryRadiusKm: Number(drawingStoreTarget.deliveryRadiusKm || 5)
-          });
-          try {
-            await apiService.updateStore(storeId, {
-              deliveryPolygon: cleanPoints,
-              deliveryRadiusKm: Number(drawingStoreTarget.deliveryRadiusKm || 5)
-            });
-          } catch {}
-          backendSaved = true;
-        } catch (apiErr) {
-          console.warn('Backend sync deferred, saved locally:', apiErr.message);
-        }
-
-        const sLat = Number(drawingStoreTarget.latitude ?? drawingStoreTarget.coordinates?.lat);
-        const sLng = Number(drawingStoreTarget.longitude ?? drawingStoreTarget.coordinates?.lng);
-        const reachKm = calculateDeliveryZoneReachKm(cleanPoints, { lat: sLat, lng: sLng });
-        const distanceStr = reachKm != null ? `~${reachKm.toFixed(1)} km reach` : `${Number(drawingStoreTarget.deliveryRadiusKm || 5)} km radius`;
-
-        if (addToast) {
-          addToast(
-            'Store Delivery Zone Saved! ⬡',
-            `Delivery zone saved for "${sName}" (${distanceStr}, ${cleanPoints.length} vertices).`,
-            'success'
-          );
-        }
-
-        setIsDrawingPolygon(false);
-        setDrawingStoreTarget(null);
-        setDrawnPoints([]);
-        if (drawingLayerRef.current) drawingLayerRef.current.clearLayers();
-
-        setTimeout(() => {
-          storeCoverageSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 150);
-        return;
-      }
-
-      const ring = cleanPoints.map(([lat, lng]) => [
-        Number(Number(lng).toFixed(6)),
-        Number(Number(lat).toFixed(6))
-      ]);
-      // Ensure linear ring is closed (first coord matches last coord)
-      const first = ring[0];
-      const last = ring[ring.length - 1];
-      if (first[0] !== last[0] || first[1] !== last[1]) {
-        ring.push([first[0], first[1]]);
-      }
-
-      if (!activeZone) {
-        // Create brand new store delivery zone on demand
-        const newZonePayload = {
-          zoneId: `ZONE-FSD-DELIVERY-${Date.now().toString().slice(-4)}`,
-          name: 'Faisalabad Hub Delivery Zone',
-          code: `FSD-DEL-${Date.now().toString().slice(-3)}`,
-          city: 'Faisalabad',
-          area: 'Faisalabad Core Region',
-          description: 'Store Delivery Region covering partner supermarkets and riders.',
-          deliveryCharge: 80,
-          minOrderAmount: 400,
-          freeDeliveryThreshold: 2000,
-          color: '#10b981',
-          isActive: true,
-          status: 'active',
-          type: 'delivery_zone',
-          isDeliveryZone: true,
-          isStoreAreaPolygon: false,
-          geometry: {
-            type: 'Polygon',
-            coordinates: [ring]
-          }
-        };
-
-        const createRes = await apiService.createZone(newZonePayload);
-        if (createRes && createRes.success) {
-          const created = createRes.zone || newZonePayload;
-          if (addToast) addToast('Delivery Zone Created ✨', `Delivery zone "${created.name}" created and applied!`, 'success');
-          setZones((prev) => [created, ...(prev || [])]);
-          setSelectedZoneId(created.zoneId);
-          setIsDrawingPolygon(false);
-          setDrawnPoints([]);
-          if (drawingLayerRef.current) drawingLayerRef.current.clearLayers();
-          loadData();
-          return;
-        } else {
-          if (addToast) addToast('Creation Failed', createRes?.message || 'Failed to create new zone', 'error');
-          return;
-        }
-      }
-
-      const payload = {
-        ...activeZone,
-        geometry: {
-          type: 'Polygon',
-          coordinates: [ring]
-        }
-      };
-
-      const zId = activeZone.zoneId || activeZone._id || activeZone.id || activeZone.code;
-      const res = await apiService.updateZone(zId, payload);
-      if (res && res.success) {
-        // Automatically find and assign all stores physically lying inside the newly drawn polygon
-        const insideStores = stores.filter((s) => {
-          const sLat = Number(s.latitude ?? s.coordinates?.lat);
-          const sLng = Number(s.longitude ?? s.coordinates?.lng);
-          return Number.isFinite(sLat) && Number.isFinite(sLng) && isPointInPolygon({ lat: sLat, lng: sLng }, cleanPoints);
-        });
-        const insideStoreIds = insideStores.map((s) => s.storeId || s._id).filter(Boolean);
-
-        if (insideStoreIds.length > 0) {
-          applyAssignmentOptimistically(insideStoreIds);
-          setStores((prev) =>
-            prev.map((s) =>
-              insideStoreIds.includes(s.storeId) || insideStoreIds.includes(s._id)
-                ? { ...s, assignedZoneId: zId }
-                : s
-            )
-          );
-          try {
-            await apiService.assignStoresToZone(zId, insideStoreIds);
-          } catch (assignErr) {
-            console.warn('Auto-link inside stores warning:', assignErr.message);
-          }
-        }
-
-        if (addToast) {
-          addToast(
-            'Polygon Saved ✅',
-            insideStoreIds.length > 0
-              ? `Polygon saved! Automatically linked ${insideStoreIds.length} store(s) inside this boundary to "${activeZone.name}".`
-              : `Polygon boundary for "${activeZone.name}" saved successfully!`,
-            'success'
-          );
-        }
-
-        // Optimistically update local state and localStorage freshmart_zones
-        setZones((prev) =>
-          prev.map((z) =>
-            (z.zoneId === zId || z._id === zId || z.code === zId)
-              ? { ...z, geometry: payload.geometry, assignedStoreId: insideStoreIds[0] || z.assignedStoreId }
-              : z
-          )
-        );
-
-        try {
-          const savedZones = localStorage.getItem('freshmart_zones');
-          const zList = savedZones ? JSON.parse(savedZones) : [];
-          const zUpdated = (zList || []).map((z) =>
-            (z.zoneId === zId || z._id === zId || z.code === zId)
-              ? { ...z, geometry: payload.geometry, coordinates: payload.geometry.coordinates }
-              : z
-          );
-          localStorage.setItem('freshmart_zones', JSON.stringify(zUpdated));
-          window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: zUpdated }));
-        } catch (e) {}
-
-        setIsDrawingPolygon(false);
-        setDrawnPoints([]);
-        if (drawingLayerRef.current) drawingLayerRef.current.clearLayers();
-
-        // Refresh zone data in background
-        loadData();
-
-        // Propagate polygon boundary to assigned branches or branches inside this zone that lack custom polygons
-        try {
-          const savedBranches = localStorage.getItem('freshmart_branches');
-          const branchList = savedBranches ? JSON.parse(savedBranches) : (allBranches || []);
-          if (Array.isArray(branchList) && branchList.length > 0) {
-            let updatedAny = false;
-            const assignedIds = new Set(Array.from(assignedStoreIdsSet));
-            const updated = branchList.map((b) => {
-              const bId = String(b._id || b.id || '').toLowerCase();
-              const isAssigned = assignedIds.has(b._id) || assignedIds.has(b.id) || assignedIds.has(b.storeId);
-              const bLat = Number(b.latitude ?? b.coordinates?.lat);
-              const bLng = Number(b.longitude ?? b.coordinates?.lng);
-              const isInside = isPointInPolygon({ lat: bLat, lng: bLng }, cleanPoints);
-
-              if (isAssigned || isInside) {
-                updatedAny = true;
-                return {
-                  ...b,
-                  deliveryPolygon: cleanPoints,
-                  assignedZoneId: zId
-                };
-              }
-              return b;
-            });
-            if (updatedAny) {
-              localStorage.setItem('freshmart_branches', JSON.stringify(updated));
-              window.dispatchEvent(new CustomEvent('freshmart_branches_updated', { detail: updated }));
-              window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
-            }
-          }
-        } catch (e) {
-          console.warn('Failed to sync branches with master zone polygon:', e);
-        }
-      } else {
-        if (addToast) addToast('Save Failed', res?.message || 'Failed to save zone polygon', 'error');
-      }
-    } catch (err) {
-      if (addToast) addToast('Save Error', `Save polygon error: ${err.message}`, 'error');
-    } finally {
-      setIsSavingPolygon(false);
-    }
-  };
-
-  // Open Edit Zone Modal with Active Zone fields pre-filled
-  const handleOpenEditZoneModal = (zoneToEdit) => {
-    const target = zoneToEdit || activeZone;
-    if (!target) return;
-    setEditZoneForm({
-      name: target.name || '',
-      code: target.code || '',
-      city: target.city || 'Faisalabad',
-      area: target.area || target.description || '',
-      deliveryCharge: target.deliveryCharge ?? 60,
-      minOrderAmount: target.minOrderAmount ?? 400,
-      freeDeliveryThreshold: target.freeDeliveryThreshold ?? 2000,
-      estimatedDeliveryTime: target.estimatedDeliveryTime || '25-35 mins',
-      color: target.color || '#059669',
-      isActive: target.isActive !== false && target.status !== 'inactive'
-    });
-    setIsEditZoneModalOpen(true);
-  };
-
-  // Save changes to Active Zone
-  const handleSaveZoneDetails = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    if (!activeZone) return;
-    const zId = activeZone.zoneId || activeZone._id || activeZone.id || activeZone.code;
-    setIsSavingZoneDetails(true);
-
-    const updatedZoneData = {
-      ...activeZone,
-      ...editZoneForm,
-      deliveryCharge: Number(editZoneForm.deliveryCharge) || 0,
-      minOrderAmount: Number(editZoneForm.minOrderAmount) || 0,
-      freeDeliveryThreshold: Number(editZoneForm.freeDeliveryThreshold) || 0,
-      status: editZoneForm.isActive ? 'active' : 'inactive',
-      isActive: Boolean(editZoneForm.isActive)
-    };
-
-    try {
-      await apiService.updateZone(zId, updatedZoneData);
-
-      setZones((prev) =>
-        prev.map((z) => ((z.zoneId || z._id || z.id) === zId ? { ...z, ...updatedZoneData } : z))
-      );
-
-      const saved = localStorage.getItem('freshmart_zones');
-      const list = saved ? JSON.parse(saved) : [];
-      const updatedList = list.map((z) => ((z.zoneId || z._id) === zId ? { ...z, ...updatedZoneData } : z));
-      localStorage.setItem('freshmart_zones', JSON.stringify(updatedList));
-      window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: updatedList }));
-
-      setIsEditZoneModalOpen(false);
-      if (addToast) {
-        addToast('Zone Updated ✅', `Successfully updated settings for "${editZoneForm.name}".`, 'success');
-      }
-    } catch (err) {
-      if (addToast) addToast('Update Failed', err.message || 'Failed to update zone.', 'error');
-    } finally {
-      setIsSavingZoneDetails(false);
-    }
-  };
-
-  // Delete Active Zone permanently
-  const handleDeleteZoneConfirm = async () => {
-    if (!activeZone) return;
-    setIsDeletingZone(true);
-    const zId = activeZone.zoneId || activeZone._id || activeZone.id || activeZone.code;
-
-    try {
-      await apiService.deleteZone(zId);
-
-      // Track explicitly deleted zone IDs in localStorage
-      try {
-        const rawDeleted = localStorage.getItem('freshmart_deleted_zone_ids');
-        const deletedSet = new Set(rawDeleted ? JSON.parse(rawDeleted) : []);
-        deletedSet.add(zId);
-        if (activeZone.code) deletedSet.add(activeZone.code);
-        localStorage.setItem('freshmart_deleted_zone_ids', JSON.stringify(Array.from(deletedSet)));
-      } catch (e) {}
-
-      const remainingZones = zones.filter((z) => (z.zoneId || z._id || z.id) !== zId);
-      setZones(remainingZones);
-
-      const saved = localStorage.getItem('freshmart_zones');
-      if (saved) {
-        const list = JSON.parse(saved);
-        const filtered = list.filter((z) => (z.zoneId || z._id) !== zId);
-        localStorage.setItem('freshmart_zones', JSON.stringify(filtered));
-        window.dispatchEvent(new CustomEvent('freshmart_zones_updated', { detail: filtered }));
-      }
-
-      setStores((prev) =>
-        prev.map((s) => (s.assignedZoneId === zId ? { ...s, assignedZoneId: null } : s))
-      );
-      setAssignments((prev) => prev.filter((a) => a.zoneId !== zId));
-
-      const nextZone = remainingZones.find((z) => !isStoreAreaPolygon(z));
-      setSelectedZoneId(nextZone ? (nextZone.zoneId || nextZone._id) : '');
-
-      setIsDeleteZoneModalOpen(false);
-      if (addToast) {
-        addToast('Zone Deleted 🗑️', `Delivery Zone "${activeZone.name}" has been deleted.`, 'success');
-      }
-    } catch (err) {
-      if (addToast) addToast('Deletion Failed', err.message || 'Failed to delete zone.', 'error');
-    } finally {
-      setIsDeletingZone(false);
-    }
-  };
-
-  // Sync Map when activeZone or assigned stores change
+  // ---------------------------------------------------------------------------
+  // RENDER MASTER ZONE POLYGONS & STORE PINS ON MAP
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!mapInstanceRef.current || !polygonLayerRef.current || !storeMarkersGroupRef.current) return;
-    polygonLayerRef.current.clearLayers();
+    if (!mapInstanceRef.current || !zonePolygonsGroupRef.current || !storeMarkersGroupRef.current) return;
+
+    zonePolygonsGroupRef.current.clearLayers();
     storeMarkersGroupRef.current.clearLayers();
 
-    // In drawing mode: NEVER render any static background polygons!
-    // The drawingLayer exclusively renders the active drawn polygon and its vertices.
-    if (isDrawingPolygon) {
-      const targetStoreId = drawingStoreTarget
-        ? String(drawingStoreTarget.storeId || drawingStoreTarget._id || drawingStoreTarget.id || '').toLowerCase()
-        : null;
+    // 1. Draw 4 Master Delivery Zone Polygons
+    masterZones.forEach((zone) => {
+      if (!zone.polygon?.coordinates || zone.polygon.coordinates.length < 3) return;
 
-      stores.forEach((store) => {
-        const sLat = Number(store.latitude);
-        const sLng = Number(store.longitude);
-        if (isNaN(sLat) || isNaN(sLng) || !Number.isFinite(sLat) || !Number.isFinite(sLng)) return;
+      const isFiltered = selectedZoneFilter !== 'all' && selectedZoneFilter !== (zone.zoneId || zone._id);
+      const strokeOpacity = isFiltered ? 0.3 : 0.9;
+      const fillOpacity = isFiltered ? 0.05 : 0.22;
 
-        const sId = String(store.storeId || store._id || store.id || '').toLowerCase();
-        const isTarget = targetStoreId && sId === targetStoreId;
-        const retailer = CORE_RETAILERS.find((r) =>
-          String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
-        ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
-
-        const pinIcon = L.divIcon({
-          className: 'custom-drawing-store-pin',
-          html: `
-            <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer;">
-              <div style="width: ${isTarget ? '36px' : '28px'}; height: ${isTarget ? '36px' : '28px'}; border-radius: 10px; background: ${retailer.color}; border: ${isTarget ? '3px solid #10b981' : '2px solid #ffffff'}; box-shadow: 0 4px 10px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; color: white; font-size: ${isTarget ? '16px' : '12px'};">
-                ${retailer.logo}
-              </div>
-              <div style="margin-top: 2px; padding: 1px 6px; border-radius: 9999px; background: ${isTarget ? '#059669' : '#0f172a'}; color: white; font-size: 9px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-                ${store.branchName || store.name}
-              </div>
-            </div>
-          `,
-          iconSize: [36, 48],
-          iconAnchor: [18, 40]
-        });
-
-        const marker = L.marker([sLat, sLng], { icon: pinIcon, interactive: true });
-        marker.on('click', (e) => {
-          if (e.originalEvent) e.originalEvent.stopPropagation();
-          L.DomEvent.stopPropagation(e);
-          handleAddDrawPoint(e.latlng.lat, e.latlng.lng);
-        });
-        storeMarkersGroupRef.current.addLayer(marker);
-      });
-      return;
-    }
-
-    // 1. Render Store Markers with Popups in normal viewing mode
-    stores.forEach((store) => {
-      const sLat = Number(store.latitude);
-      const sLng = Number(store.longitude);
-      if (isNaN(sLat) || isNaN(sLng) || !Number.isFinite(sLat) || !Number.isFinite(sLng)) return;
-
-      const retailer = CORE_RETAILERS.find((r) =>
-        String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
-      ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
-
-      const sId = store.storeId || store._id;
-      const isAssigned = assignedStores.some((as) => (as.storeId || as._id) === sId);
-      const hasCustomPoly = Array.isArray(store.deliveryPolygon) && store.deliveryPolygon.length >= 3;
-
-      const pinIcon = L.divIcon({
-        className: 'custom-store-pin',
-        html: `
-          <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer;">
-            <div style="width: 32px; height: 32px; border-radius: 10px; background: ${retailer.color}; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">
-              ${retailer.logo}
-            </div>
-            <div style="margin-top: 2px; padding: 1px 6px; border-radius: 9999px; background: ${isAssigned ? '#059669' : '#0f172a'}; color: white; font-size: 9px; font-weight: 700; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-              ${isAssigned ? '✓ ' : ''}${esc(store.branchName || store.name)}
-            </div>
-          </div>
-        `,
-        iconSize: [32, 48],
-        iconAnchor: [16, 40]
+      const polygon = L.polygon(zone.polygon.coordinates, {
+        color: zone.color,
+        weight: isFiltered ? 1.5 : 3,
+        opacity: strokeOpacity,
+        fillColor: zone.color,
+        fillOpacity: fillOpacity,
+        dashArray: isFiltered ? '4, 4' : null
       });
 
-      const marker = L.marker([sLat, sLng], { icon: pinIcon, interactive: true });
-      marker.bindPopup(`
-        <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
-          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-            <span>${retailer.logo}</span>
-            <strong style="color: ${retailer.color}; font-size: 13px;">${esc(store.name)}</strong>
+      const storesInZone = stores.filter((s) => s.deliveryZoneId === (zone.zoneId || zone._id));
+
+      polygon.bindPopup(`
+        <div style="font-family: inherit; font-size: 12px; min-width: 190px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <strong style="color: ${zone.color}; font-size: 13px;">${esc(zone.name)}</strong>
+            <span style="font-size: 10px; background: ${zone.color}20; color: ${zone.color}; padding: 2px 6px; border-radius: 6px; font-weight: 800;">
+              Zone ${zone.zoneNumber}
+            </span>
           </div>
-          <p style="color: #64748b; font-size: 10px; margin: 2px 0 4px 0;">${esc(store.address)}</p>
-          <div style="font-size: 10px; color: #475569; margin-bottom: 6px;">
-            ${hasCustomPoly ? `Delivery Zone: <strong style="color: #059669;">Custom (${store.deliveryPolygon.length} pts)</strong>` : 'Delivery Zone: <span style="color: #94a3b8;">Not configured</span>'}
+          <div style="font-size: 11px; color: #475569; margin-bottom: 4px;">
+            Delivery Fee: <strong style="color: #0f172a;">Rs. ${zone.deliveryFee || 60}</strong>
           </div>
-          <button
-            onclick="window.__startDrawingForStore && window.__startDrawingForStore('${sId}')"
-            style="width: 100%; padding: 5px 8px; background: ${retailer.color}; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-          >
-            ✏️ ${hasCustomPoly ? 'Redraw Delivery Zone' : '+ Draw Delivery Zone'}
-          </button>
+          <div style="font-size: 11px; color: #475569; margin-bottom: 8px;">
+            Linked Physical Stores: <strong style="color: #0f172a;">${storesInZone.length} Stores</strong>
+          </div>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px; font-size: 10px;">
+            ${storesInZone.map((s) => `• <strong>${esc(s.name)}</strong> (${esc(s.parentRetailerName)})`).join('<br/>')}
+          </div>
         </div>
       `);
+
+      zonePolygonsGroupRef.current.addLayer(polygon);
+    });
+
+    // 2. Draw 12 Physical Child Store Markers
+    filteredStores.forEach((store) => {
+      const lat = Number(store.latitude);
+      const lng = Number(store.longitude);
+      if (isNaN(lat) || isNaN(lng)) return;
+
+      const assignedZone = masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId) || masterZones[0];
+      const parentRetailer = parentRetailers.find((r) => r.id === store.retailerId) || parentRetailers[0];
+      const zoneColor = assignedZone?.color || '#0284c7';
+
+      const customIcon = L.divIcon({
+        className: 'custom-store-marker',
+        html: `
+          <div style="
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            background: #ffffff;
+            border-radius: 12px;
+            border: 3px solid ${zoneColor};
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            font-size: 14px;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.15s ease;
+          ">
+            <span>${parentRetailer?.logo || '🏬'}</span>
+            <span style="
+              position: absolute;
+              bottom: -6px;
+              right: -6px;
+              background: ${zoneColor};
+              color: #ffffff;
+              font-size: 9px;
+              font-weight: 900;
+              border-radius: 9999px;
+              padding: 1px 4px;
+              border: 1.5px solid #ffffff;
+            ">${store.retailerNumber || '•'}</span>
+          </div>
+        `,
+        iconSize: [34, 34],
+        iconAnchor: [17, 17]
+      });
+
+      const marker = L.marker([lat, lng], { icon: customIcon });
+
+      const zoneOptionsHtml = masterZones
+        .map(
+          (z) =>
+            `<option value="${z.zoneId || z._id}" ${
+              store.deliveryZoneId === (z.zoneId || z._id) ? 'selected' : ''
+            }>${esc(z.name)}</option>`
+        )
+        .join('');
+
+      marker.bindPopup(`
+        <div style="font-family: inherit; font-size: 12px; min-width: 220px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <span style="font-size: 18px;">${parentRetailer?.logo || '🏬'}</span>
+            <div>
+              <strong style="color: #0f172a; font-size: 13px; display: block;">${esc(store.name)}</strong>
+              <span style="font-size: 10px; color: #64748b;">${esc(store.parentRetailerName)} • Physical Child Store</span>
+            </div>
+          </div>
+          <p style="font-size: 11px; color: #475569; margin: 4px 0 8px 0; line-height: 1.3;">
+            📍 ${esc(store.address)}
+          </p>
+          <div style="background: #f1f5f9; padding: 8px; border-radius: 8px; margin-bottom: 6px;">
+            <label style="font-size: 10px; font-weight: bold; color: #334155; display: block; margin-bottom: 3px;">
+              Assigned Master Delivery Zone:
+            </label>
+            <select
+              onchange="window.__handlePopupZoneChange && window.__handlePopupZoneChange('${store.storeId || store._id}', this.value)"
+              style="width: 100%; font-size: 11px; padding: 4px 6px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; font-weight: bold; color: ${zoneColor};"
+            >
+              ${zoneOptionsHtml}
+            </select>
+          </div>
+        </div>
+      `);
+
       storeMarkersGroupRef.current.addLayer(marker);
     });
-
-    // 2. Render Store Custom Delivery Polygons (EXACTLY ONE polygon per store)
-    stores.forEach((store) => {
-      const rawPoly = store.deliveryPolygon;
-      if (Array.isArray(rawPoly) && rawPoly.length >= 3) {
-        const cleanLatLngs = rawPoly
-          .map(normalizeLatLng)
-          .filter(Boolean)
-          .map((p) => [p.lat, p.lng]);
-
-        if (cleanLatLngs.length < 3) return;
-
-        const retailer = CORE_RETAILERS.find((r) =>
-          String(store.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
-        ) || { name: 'Retailer', color: '#059669', logo: '🏬' };
-
-        const storePoly = L.polygon(cleanLatLngs, {
-          color: retailer.color,
-          weight: 2.5,
-          dashArray: '6, 6',
-          fillColor: retailer.color,
-          fillOpacity: 0.22,
-          interactive: true
-        });
-
-        storePoly.bindTooltip(`
-          <div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
-            <span>${retailer.logo}</span>
-            <span style="color: ${retailer.color};">${esc(store.branchName || store.name)} Delivery Region</span>
-          </div>
-        `, { sticky: true });
-
-        storePoly.bindPopup(`
-          <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
-            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-              <span>${retailer.logo}</span>
-              <strong style="color: ${retailer.color}; font-size: 13px;">${esc(store.name)}</strong>
-            </div>
-            <p style="color: #64748b; font-size: 10px; margin: 2px 0 6px 0;">${esc(store.address)}</p>
-            <div style="font-size: 10px; color: #475569; margin-bottom: 8px;">
-              Delivery Boundary: <strong>Custom Polygon (${cleanLatLngs.length} points)</strong>
-            </div>
-            <button
-              onclick="window.__startDrawingForStore && window.__startDrawingForStore('${store.storeId || store._id}')"
-              style="width: 100%; padding: 5px 8px; background: ${retailer.color}; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-            >
-              ✏️ Redraw Delivery Zone
-            </button>
-          </div>
-        `);
-
-        polygonLayerRef.current.addLayer(storePoly);
-      }
-    });
-
-    // 3. ONLY render activeZone polygon if NONE of the stores assigned to this zone have a custom delivery polygon!
-    // This strictly avoids duplicate nested polygons (e.g. outer hexagon + inner triangle)
-    const hasAssignedCustomPoly = assignedStores.some(
-      (s) => Array.isArray(s.deliveryPolygon) && s.deliveryPolygon.length >= 3
-    );
-
-    if (activeZone && !hasAssignedCustomPoly) {
-      const activeLatLngs = getZonePolygonLatLngs(activeZone);
-      if (activeLatLngs.length >= 3) {
-        const activeColor = activeZone.color || '#10b981';
-        const activePolygon = L.polygon(activeLatLngs, {
-          color: activeColor,
-          weight: 2.5,
-          fillColor: activeColor,
-          fillOpacity: 0.12,
-          dashArray: '6, 6',
-          interactive: true
-        });
-
-        activePolygon.bindTooltip(`
-          <div style="font-family: inherit; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px;">
-            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${activeColor};"></span>
-            <span>Target Zone: ${esc(activeZone.name)}</span>
-          </div>
-        `, { sticky: true });
-
-        activePolygon.bindPopup(`
-          <div style="font-family: inherit; font-size: 12px; min-width: 180px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-              <strong style="color: #0f172a; font-size: 13px;">${esc(activeZone.name)}</strong>
-              <span style="font-size: 10px; background: ${activeColor}20; color: ${activeColor}; padding: 2px 6px; border-radius: 6px; font-weight: 800;">
-                ${esc(activeZone.code || '')}
-              </span>
-            </div>
-            <div style="font-size: 11px; color: #475569; margin: 3px 0;">
-              Delivery Fee: <strong style="color: #059669;">Rs. ${activeZone.deliveryCharge || 70}</strong>
-            </div>
-            <div style="font-size: 11px; color: #475569; margin-bottom: 8px;">
-              Free Delivery Over: <strong>Rs. ${activeZone.freeDeliveryThreshold || 2000}</strong>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <button
-                onclick="window.__startDrawingFromMap && window.__startDrawingFromMap()"
-                style="width: 100%; padding: 4px 8px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-              >
-                ✏️ Redraw Zone Polygon
-              </button>
-            </div>
-          </div>
-        `);
-
-        polygonLayerRef.current.addLayer(activePolygon);
-      }
-    }
-  }, [activeZone, assignedStores, isDrawingPolygon, stores, storesWithDistance, assignments, zones, drawingStoreTarget, showAllStorePolygons]);
+  }, [masterZones, stores, filteredStores, selectedZoneFilter, parentRetailers]);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* ===================================================================== */}
+      {/* 1. TOP HEADER & KPI METRICS BAR                                        */}
+      {/* ===================================================================== */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Compass className="w-6 h-6 text-emerald-600" />
-            <span>Store Delivery Regions & Customer Reach</span>
-          </h2>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Concept 2: The remaining polygons are for store delivery regions. Each supermarket has its own delivery region polygon where riders fulfill orders.
+          <div className="flex items-center gap-2">
+            <span className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
+              <Compass className="w-5 h-5" />
+            </span>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              Retailer Delivery Zone Assignment
+            </h2>
+          </div>
+          <p className="text-xs text-slate-500 font-medium mt-1">
+            4 Parent Retailers • 12 Physical Child Stores • 4 Master Geographic Delivery Zones
           </p>
         </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+
+        {/* View Toggle Tabs */}
+        <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 text-xs font-bold self-start md:self-auto">
           <button
-            type="button"
-            onClick={() => setIsAddDeliveryZoneModalOpen(true)}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+            onClick={() => setActiveTab('retailers')}
+            className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'retailers'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
           >
-            <Plus className="w-4 h-4" />
-            <span>+ Add Delivery Zone</span>
+            <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Parent Retailers & Child Stores</span>
           </button>
           <button
-            onClick={loadData}
-            className="px-3 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            onClick={() => setActiveTab('zones')}
+            className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'zones'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
+            <Layers className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Master Delivery Zones</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('database')}
+            className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'database'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5 text-amber-600" />
+            <span>MERN Schema</span>
           </button>
         </div>
       </div>
 
-      {/* Main Full-Width Interface: Leaflet Map, Zone Summary & Automatically Linked Stores */}
-      <div className="w-full space-y-4">
-        {/* Interactive Map */}
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden">
-            {/* Header: Non-colliding responsive flex container */}
-            <div className="p-3.5 sm:p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-white">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shrink-0">
-                  <MapPin className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <span className="font-bold text-slate-900 text-xs sm:text-sm block truncate">
-                    Delivery Coverage & Supermarkets Map
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-medium block">
-                    {isDrawingPolygon ? 'Drag numbered dots on map to shape boundary' : 'Supermarket delivery boundaries & coverage'}
-                  </span>
-                </div>
-              </div>
+      {/* KPI Cards Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
+          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Parent Retailers</span>
+          <div className="flex items-baseline gap-1.5 mt-1">
+            <span className="text-xl font-black text-slate-900">{stats.parentRetailersCount}</span>
+            <span className="text-[11px] text-slate-500 font-semibold">Supermarket Chains</span>
+          </div>
+        </div>
 
-              <div className="flex items-center gap-2 flex-wrap shrink-0">
-                {/* Tile Layer Switcher */}
-                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-[11px] font-medium border border-slate-200 dark:border-slate-700">
-                  <button
-                    type="button"
-                    onClick={() => setTileLayer('street')}
-                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
-                      tileLayerType === 'street' ? 'bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-white shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                    }`}
-                    title="Vibrant Street Map"
-                  >
-                    <span>🗺️</span>
-                    <span>Street</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTileLayer('satellite')}
-                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
-                      tileLayerType === 'satellite' ? 'bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-white shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                    }`}
-                    title="Satellite Imagery"
-                  >
-                    <span>🛰️</span>
-                    <span>Satellite</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTileLayer('hybrid')}
-                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
-                      tileLayerType === 'hybrid' ? 'bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-white shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                    }`}
-                    title="Satellite with Streets"
-                  >
-                    <span>🏙️</span>
-                    <span>Hybrid</span>
-                  </button>
-                </div>
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
+          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Physical Stores</span>
+          <div className="flex items-baseline gap-1.5 mt-1">
+            <span className="text-xl font-black text-emerald-600">{stats.childStoresCount}</span>
+            <span className="text-[11px] text-slate-500 font-semibold">Child Branches (3 Each)</span>
+          </div>
+        </div>
 
-                {/* All Polygons vs Active Zone Only Toggle */}
-                <button
-                  type="button"
-                  onClick={() => setShowAllStorePolygons((prev) => !prev)}
-                  className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center gap-1 ${
-                    showAllStorePolygons
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  }`}
-                  title={showAllStorePolygons ? 'Show active zone stores only' : 'Show all store delivery polygons'}
-                >
-                  <Layers className="w-3.5 h-3.5 text-slate-500" />
-                  <span>{showAllStorePolygons ? 'All Polygons Visible' : 'Active Zone Only'}</span>
-                </button>
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
+          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Master Delivery Zones</span>
+          <div className="flex items-baseline gap-1.5 mt-1">
+            <span className="text-xl font-black text-indigo-600">{stats.masterZonesCount}</span>
+            <span className="text-[11px] text-slate-500 font-semibold">Faisalabad Polygons</span>
+          </div>
+        </div>
 
-                <button
-                  type="button"
-                  onClick={handleToggleDrawPolygon}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border shadow-xs ${
-                    isDrawingPolygon
-                      ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600'
-                      : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700'
-                  }`}
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>{isDrawingPolygon ? 'Exit Polygon' : '✏️ Draw Polygon'}</span>
-                </button>
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
+          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Zone Assignment</span>
+          <div className="flex items-baseline gap-1.5 mt-1">
+            <span className="text-xl font-black text-emerald-600">{stats.assignedPercent}%</span>
+            <span className="text-[11px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+              ✓ All Stores Linked
+            </span>
+          </div>
+        </div>
+      </div>
 
-                {onNavigateToZones && (
-                  <button
-                    type="button"
-                    onClick={onNavigateToZones}
-                    className="px-2.5 py-1.5 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>Edit Rates</span>
-                  </button>
-                )}
-              </div>
+      {/* ===================================================================== */}
+      {/* 2. INTERACTIVE FAISALABAD MAP WITH 4 MASTER ZONES & 12 STORE PINS     */}
+      {/* ===================================================================== */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden">
+        {/* Map Controls Header */}
+        <div className="p-3.5 sm:p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-white">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+              <MapPin className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900 text-sm leading-tight">
+                Faisalabad Master Delivery Zones Map
+              </h3>
+              <p className="text-[11px] text-slate-500 font-medium">
+                Click any zone polygon or store pin to view and adjust live delivery zone associations
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Tile Layer Selector */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-[11px] font-medium border border-slate-200">
+              <button
+                type="button"
+                onClick={() => handleTileChange('street')}
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                  tileLayerType === 'street'
+                    ? 'bg-white font-bold text-slate-900 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                🗺️ Street
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTileChange('satellite')}
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                  tileLayerType === 'satellite'
+                    ? 'bg-white font-bold text-slate-900 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                🛰️ Satellite
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTileChange('hybrid')}
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                  tileLayerType === 'hybrid'
+                    ? 'bg-white font-bold text-slate-900 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                🏙️ Hybrid
+              </button>
             </div>
 
-            <div className="relative overflow-hidden">
-              {/* In-Map Drawing Controls Bar Overlay */}
-              {isDrawingPolygon && (
-                <div className="absolute top-3 left-3 right-3 z-[400] bg-slate-900 text-white p-3 sm:p-3.5 rounded-2xl shadow-2xl border border-slate-700/80 flex flex-wrap items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-white flex items-center gap-2 flex-wrap">
-                        <span className="truncate">
-                          {drawingStoreTarget
-                            ? `Drawing Delivery Zone: ${drawingStoreTarget.branchName || drawingStoreTarget.name}`
-                            : `Drawing: ${activeZone?.name || 'New Delivery Boundary'}`}
-                        </span>
-                        <span className="bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border border-emerald-500/40">
-                          {drawnPoints.length} Vertex{drawnPoints.length === 1 ? '' : 'es'}
-                        </span>
+            {/* Reset View */}
+            <button
+              onClick={() => {
+                if (mapInstanceRef.current) {
+                  mapInstanceRef.current.setView([31.4140, 73.0950], 13);
+                  setSelectedZoneFilter('all');
+                  setSelectedRetailerFilter('all');
+                }
+              }}
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Reset Map</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Leaflet Map Canvas */}
+        <div className="relative">
+          <div ref={mapContainerRef} className="w-full h-[400px] sm:h-[450px] z-10" />
+
+          {/* Map Overlay Zone Pill Legend */}
+          <div className="absolute bottom-3 left-3 right-3 z-20 flex items-center gap-2 overflow-x-auto p-2 bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-md">
+            <button
+              onClick={() => setSelectedZoneFilter('all')}
+              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold shrink-0 transition cursor-pointer ${
+                selectedZoneFilter === 'all'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              All Zones ({stores.length} Stores)
+            </button>
+            {masterZones.map((z) => {
+              const count = stores.filter((s) => s.deliveryZoneId === (z.zoneId || z._id)).length;
+              const isSelected = selectedZoneFilter === (z.zoneId || z._id);
+              return (
+                <button
+                  key={z.zoneId || z._id}
+                  onClick={() => {
+                    const zId = z.zoneId || z._id;
+                    setSelectedZoneFilter(isSelected ? 'all' : zId);
+                    if (mapInstanceRef.current && z.center) {
+                      mapInstanceRef.current.flyTo(z.center, 14, { duration: 0.8 });
+                    }
+                  }}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold shrink-0 transition cursor-pointer flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'text-white shadow-xs'
+                      : 'bg-white text-slate-800 hover:bg-slate-50 border border-slate-200'
+                  }`}
+                  style={{
+                    backgroundColor: isSelected ? z.color : undefined,
+                    borderColor: isSelected ? z.color : undefined
+                  }}
+                >
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: z.color }}
+                  />
+                  <span>{z.name}</span>
+                  <span
+                    className={`text-[9px] px-1.5 py-0.2 rounded-full font-black ${
+                      isSelected ? 'bg-white/30 text-white' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="relative flex-1 max-w-md">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search stores by branch name, address, or parent retailer..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Retailer Filter */}
+          <select
+            value={selectedRetailerFilter}
+            onChange={(e) => setSelectedRetailerFilter(e.target.value)}
+            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
+          >
+            <option value="all">🏢 All Parent Retailers (4)</option>
+            {parentRetailers.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.logo} {r.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Zone Filter */}
+          <select
+            value={selectedZoneFilter}
+            onChange={(e) => setSelectedZoneFilter(e.target.value)}
+            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
+          >
+            <option value="all">🗺️ All Master Delivery Zones (4)</option>
+            {masterZones.map((z) => (
+              <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
+                {z.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* ===================================================================== */}
+      {/* 3. TAB 1: PARENT RETAILER & CHILD STORES ASSIGNMENT INTERFACE        */}
+      {/* ===================================================================== */}
+      {activeTab === 'retailers' && (
+        <div className="space-y-6">
+          {parentRetailers
+            .filter((r) => selectedRetailerFilter === 'all' || r.id === selectedRetailerFilter)
+            .map((parentRetailer) => {
+              const childStores = filteredStores.filter((s) => s.retailerId === parentRetailer.id);
+              if (childStores.length === 0 && searchQuery) return null;
+
+              return (
+                <div
+                  key={parentRetailer.id}
+                  className="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden"
+                >
+                  {/* Parent Retailer Header */}
+                  <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/60">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-xs"
+                        style={{ backgroundColor: `${parentRetailer.color}15`, color: parentRetailer.color }}
+                      >
+                        {parentRetailer.logo}
                       </div>
-                      <div className="text-[11px] text-slate-300 mt-0.5">
-                        {drawnPoints.length === 0
-                          ? '👉 Click anywhere on the map around the store to place boundary points.'
-                          : 'Click to add more points • Drag numbered handles (1, 2, 3...) to reshape perimeter.'}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-black text-slate-900 text-base">
+                            {parentRetailer.name}
+                          </h3>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-900 text-white">
+                            Parent Retailer
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            ✓ {parentRetailer.status || 'Active'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                          {parentRetailer.fullName} • {childStores.length} Child Stores in Faisalabad
+                        </p>
                       </div>
+                    </div>
+
+                    <div className="text-right hidden sm:block">
+                      <span className="text-[11px] font-bold text-slate-500 block">Assigned Zones</span>
+                      <span className="text-xs font-mono font-bold text-slate-800">
+                        {Array.from(new Set(childStores.map((s) => s.deliveryZoneId))).length} / 4 Zones
+                      </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleUndoPoint}
-                      disabled={drawnPoints.length === 0}
-                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-xl text-xs font-semibold transition cursor-pointer border border-slate-700 shadow-xs"
-                    >
-                      Undo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleClearDrawing}
-                      disabled={drawnPoints.length === 0}
-                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 rounded-xl text-xs font-semibold transition cursor-pointer border border-slate-700 shadow-xs"
-                    >
-                      Clear
-                    </button>
-                    {drawnPoints.length >= 3 && (
-                      <button
-                        type="button"
-                        onClick={handleUntanglePoints}
-                        title="Untangle points into a smooth perimeter"
-                        className="px-3 py-1.5 bg-indigo-900/80 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/60 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-indigo-300" />
-                        <span>Untangle ✨</span>
-                      </button>
-                    )}
-                    {stores.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const targetStore = drawingStoreTarget || assignedStores[0] || storesWithDistance[0] || stores[0];
-                          if (targetStore) handleCreatePolygonAroundStore(targetStore, 2.5);
-                        }}
-                        title="Place authentic polygon around target store"
-                        className="px-3 py-1.5 bg-amber-900/80 hover:bg-amber-800 text-amber-200 border border-amber-700/60 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-                      >
-                        <Store className="w-3.5 h-3.5 text-amber-300" />
-                        <span>Polygon Around Store ⬡</span>
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleCancelDrawing}
-                      className="px-3 py-1.5 bg-rose-900/70 hover:bg-rose-800 text-rose-200 border border-rose-700/60 rounded-xl text-xs font-semibold transition cursor-pointer shadow-xs"
-                    >
-                      Cancel
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleSaveDrawnPolygon}
-                      disabled={drawnPoints.length < 3 || isSavingPolygon}
-                      className="px-4 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-40 text-slate-950 font-black rounded-xl text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer shrink-0 ml-1"
-                    >
-                      {isSavingPolygon ? (
-                        <>
-                          <div className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-                          <span>Saving...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Check className="w-4 h-4" />
-                          <span>{drawingStoreTarget ? 'Save Store Delivery Zone' : 'Save Polygon'}</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div
-                ref={mapContainerRef}
-                className={`w-full z-10 bg-slate-100 dark:bg-slate-900 ${isDrawingPolygon ? 'cursor-crosshair ring-2 ring-emerald-500 ring-inset' : ''}`}
-                style={{ height: '520px', minHeight: '520px' }}
-              />
-
-              {/* Floating Helper Tip Pill over map (solid background to prevent GPU backdrop-filter compositing glitch) */}
-              {isDrawingPolygon && (
-                <div className="absolute bottom-3 left-3 z-[400] bg-slate-900 text-white text-[11px] px-3 py-1.5 rounded-full shadow-lg border border-slate-700 flex items-center gap-2 pointer-events-none">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                  <span>💡 Drag numbered dots (1, 2, 3...) to fix points on map • Click to add vertices</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Per-store delivery zone setup and coverage summary */}
-          <section
-            ref={storeCoverageSectionRef}
-            className="bg-white rounded-3xl border border-slate-200 shadow-2xs p-5 space-y-4 scroll-mt-6"
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                  <span>Store Delivery Zones & Customer Coverage</span>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-black">
-                    {stores.filter((store) => Array.isArray(store.deliveryPolygon) && store.deliveryPolygon.length >= 3).length} of {stores.length} Configured
-                  </span>
-                </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Draw and save custom delivery polygons for each supermarket. Below shows how many kilometers around the store it reaches and which areas are covered.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddDeliveryZoneModalOpen(true)}
-                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs self-start sm:self-auto shrink-0"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Add Delivery Zone for Store</span>
-              </button>
-            </div>
-
-            {stores.length === 0 ? (
-              <div className="p-6 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center text-xs text-slate-500">
-                No stores are available to configure yet. Use <strong>+ Add Store</strong> to create one.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-                {stores.map((store, index) => {
-                  const storeId = store.storeId || store._id || store.id;
-                  const hasPolygon = Array.isArray(store.deliveryPolygon) && store.deliveryPolygon.length >= 3;
-                  const polygonAreaKm2 = hasPolygon
-                    ? calculateDeliveryPolygonAreaKm2(store.deliveryPolygon)
-                    : null;
-                  const storeLat = Number(store.latitude ?? store.coordinates?.lat);
-                  const storeLng = Number(store.longitude ?? store.coordinates?.lng);
-                  const polygonReachKm = hasPolygon
-                    ? calculateDeliveryZoneReachKm(store.deliveryPolygon, { lat: storeLat, lng: storeLng })
-                    : null;
-                  const storeCity = PAKISTAN_CITIES.find(({ city }) =>
-                    String(store.city || '').toLowerCase().includes(city.split(',')[0].toLowerCase())
-                  ) || PAKISTAN_CITIES[0];
-                  const coveredNeighborhoods = hasPolygon
-                    ? (storeCity?.neighborhoods || [])
-                      .filter((neighborhood) => isPointInPolygon(neighborhood.coords, store.deliveryPolygon))
-                      .map((neighborhood) => neighborhood.name || neighborhood.area)
-                    : [];
-                  const coverageArea = coveredNeighborhoods.length > 0
-                    ? coveredNeighborhoods.join(', ')
-                    : store.deliveryArea || store.coverageArea || store.area || store.address || store.city || 'Surrounding Commercial Area';
-                  const deliveryRadiusKm = Number(store.deliveryRadiusKm || store.deliveryRadius || 5);
-                  const distanceDisplay = polygonReachKm != null ? polygonReachKm.toFixed(1) : deliveryRadiusKm;
-                  const retailer = CORE_RETAILERS.find((item) =>
-                    String(store.tenantId || '').toLowerCase().includes(item.id.replace('tenant-', ''))
-                  ) || { name: 'Supermarket', color: '#059669', logo: '🏬' };
-
-                  return (
-                    <article
-                      key={storeId || `${store.name || 'store'}-${index}`}
-                      className="rounded-3xl border border-slate-200 bg-white hover:border-slate-300 p-4 space-y-3 shadow-2xs hover:shadow-xs transition"
-                    >
-                      <div className="flex items-start justify-between gap-2.5">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span
-                            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border text-sm font-bold shadow-2xs"
-                            style={{ backgroundColor: `${retailer.color}15`, borderColor: `${retailer.color}35`, color: retailer.color }}
-                          >
-                            {retailer.logo}
-                          </span>
-                          <div className="min-w-0">
-                            <strong className="block truncate text-xs font-bold text-slate-900">{store.name || store.branchName || retailer.name}</strong>
-                            <span className="block truncate text-[11px] text-slate-500 font-medium">{store.branchName || retailer.name} • {store.city || 'Faisalabad'}</span>
-                          </div>
-                        </div>
-                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black border ${
-                          hasPolygon
-                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                            : 'bg-amber-50 border-amber-200 text-amber-800'
-                        }`}>
-                          {hasPolygon ? '✓ Zone Active' : '⚠️ No Zone Set'}
-                        </span>
-                      </div>
-
-                      <div className="space-y-2 pt-1">
-                        {/* Delivery Reach in Kilometers */}
-                        <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 px-3 py-2 flex items-center justify-between">
-                          <div>
-                            <span className="block text-[10px] font-bold text-emerald-950">
-                              Delivery Zone Reach:
-                            </span>
-                            <span className="text-[9px] text-emerald-700">
-                              {hasPolygon ? 'Distance from store' : 'Standard fallback radius'}
-                            </span>
-                          </div>
-                          <div className="text-right">
-                            <strong className="text-xs font-black text-emerald-800">
-                              Around {distanceDisplay} km
-                            </strong>
-                            {polygonAreaKm2 != null && (
-                              <span className="block text-[9px] text-emerald-600 font-bold">
-                                {polygonAreaKm2.toFixed(1)} km² area
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Covered Areas in Delivery Zone */}
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 space-y-0.5">
-                          <span className="block text-[10px] font-bold text-slate-700 flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
-                            <span>Areas Covered in Delivery Zone:</span>
-                          </span>
-                          <p className="text-[11px] text-slate-800 font-semibold leading-tight line-clamp-2">
-                            {hasPolygon ? coverageArea : 'No custom delivery polygon drawn yet. Click "+ Add Delivery Zone" to draw perimeter.'}
-                          </p>
-                        </div>
-
-                        {/* Audit Trail from Store Admin Edits */}
-                        {store.deliveryZoneUpdatedByRole === 'store admin' && (
-                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                            <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <span>🏬 Edited by store admin</span>
-                              {store.deliveryZoneUpdatedAt && (
-                                <span className="opacity-75">
-                                  • {new Date(store.deliveryZoneUpdatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="pt-1 flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleStartDrawingDeliveryZoneForStore(store, hasPolygon)}
-                          className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border shadow-2xs ${
-                            hasPolygon
-                              ? 'bg-white hover:bg-emerald-50 text-emerald-800 border-emerald-300'
-                              : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700'
-                          }`}
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                          <span>{hasPolygon ? '✏️ Edit Delivery Zone' : '+ Add Delivery Zone'}</span>
-                        </button>
-                        {hasPolygon && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveDeliveryZoneForStore(store)}
-                            className="px-2.5 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition flex items-center justify-center cursor-pointer shadow-2xs"
-                            title="Remove delivery zone polygon"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-      </div>
-
-      {/* Edit Assignment Modal */}
-      {editingStore && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                  <Sliders className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Edit Store Assignment</h3>
-                  <p className="text-[11px] text-slate-400">Configure fulfillment parameters for this zone</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingStore(null)}
-                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center cursor-pointer transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4 text-xs">
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900 text-xs">{editingStore.name}</span>
-                  <span className="text-[10px] bg-white border border-slate-200 px-2 py-0.5 rounded-full font-bold text-slate-600">
-                    {editingStore.city}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500">{editingStore.address}</p>
-                <p className="text-[10px] text-emerald-700 font-semibold pt-1">
-                  Target Zone: {activeZone?.name} ({activeZone?.code})
-                </p>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1.5">
-                  Fulfillment Priority Level
-                </label>
-                <select
-                  value={editPriority}
-                  onChange={(e) => setEditPriority(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-hidden"
-                >
-                  <option value={1}>Priority 1 - Primary Store (Default dispatch choice for this zone)</option>
-                  <option value={2}>Priority 2 - Secondary Store (Alternate fulfillment when Primary is busy)</option>
-                  <option value={3}>Priority 3 - Backup Hub (Overflow dispatch only)</option>
-                </select>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Higher priority stores are selected first when customers order within this zone.
-                </p>
-              </div>
-
-              <div className="pt-2 flex items-center justify-between border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const sId = editingStore.storeId || editingStore._id;
-                    handleRemoveStore(sId);
-                    setEditingStore(null);
-                  }}
-                  className="px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-xl font-bold transition flex items-center gap-1 cursor-pointer text-xs"
-                >
-                  <Unlink className="w-3.5 h-3.5" />
-                  <span>Unlink Store</span>
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditingStore(null)}
-                    className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-bold transition cursor-pointer text-xs"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveAssignmentEdit}
-                    disabled={isSavingEdit}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition cursor-pointer text-xs shadow-md shadow-emerald-950/10 flex items-center gap-1.5 disabled:opacity-40"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>{isSavingEdit ? 'Saving...' : 'Save Changes'}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Add Store Branch Modal */}
-      {isQuickAddModalOpen && (() => {
-        const activeSector = THREE_MASTER_REGIONS.find((r) => r.id === quickBranchForm.regionSector) || THREE_MASTER_REGIONS[0];
-        return (
-          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-            <form
-              onSubmit={handleCreateQuickBranch}
-              className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto"
-            >
-              <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shadow-xs">
-                    <Store className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-sm">Add New Store Branch</h3>
-                    <p className="text-[11px] text-slate-500">
-                      Select regional sector and pin branch directly on map.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsQuickAddModalOpen(false)}
-                  className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600 transition cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="p-4 sm:p-5 space-y-3.5 text-xs overflow-y-auto">
-                {/* Retailer & Branch Name */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Supermarket Retailer *</label>
-                    <select
-                      value={quickBranchForm.tenantId}
-                      onChange={(e) => handleRetailerChange(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-hidden focus:border-emerald-500"
-                    >
-                      {CORE_RETAILERS.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.logo} {r.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Branch / Location Name *</label>
-                    <input
-                      type="text"
-                      value={quickBranchForm.branchName}
-                      onChange={(e) => setQuickBranchForm({ ...quickBranchForm, branchName: e.target.value })}
-                      placeholder="e.g. Susan Road Express Hub"
-                      required
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Street Address</label>
-                  <input
-                    type="text"
-                    value={quickBranchForm.address}
-                    onChange={(e) => setQuickBranchForm({ ...quickBranchForm, address: e.target.value })}
-                    placeholder="e.g. Main Commercial Avenue, Faisalabad"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500"
-                  />
-                </div>
-
-                {/* 1. SELECT REGION WHERE STORE EXISTS */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
-                      <span className="w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">1</span>
-                      <span>Select Region Where Store Exists *</span>
-                    </label>
-                    <span className="text-[10px] text-slate-400 font-medium">
-                      Snaps map view to selected master sector
+                  {/* Informational Callout for Branch-Specific Mapping */}
+                  <div className="px-5 py-2.5 bg-amber-50/70 border-b border-amber-100 text-amber-900 text-xs font-medium flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>
+                      <strong>Notice:</strong> All child branches belong to <strong>{parentRetailer.name}</strong>, but each physical branch is assigned its own independent delivery zone.
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {THREE_MASTER_REGIONS.map((reg) => {
-                      const isSelected = quickBranchForm.regionSector === reg.id;
+
+                  {/* Child Physical Stores Grid */}
+                  <div className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {childStores.map((store) => {
+                      const assignedZone = masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId) || masterZones[0];
+
                       return (
-                        <button
-                          key={reg.id}
-                          type="button"
-                          onClick={() => handleSelectRegionSector(reg)}
-                          className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
-                            isSelected
-                              ? 'border-2 shadow-xs bg-slate-50'
-                              : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
-                          }`}
-                          style={{
-                            borderColor: isSelected ? reg.color : undefined,
-                            boxShadow: isSelected ? `0 0 0 1px ${reg.color}33` : undefined
-                          }}
+                        <div
+                          key={store.storeId || store._id}
+                          className="bg-white rounded-2xl border border-slate-200 hover:border-slate-300 p-4 space-y-3.5 transition shadow-2xs hover:shadow-xs flex flex-col justify-between"
                         >
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <span
-                              className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
-                              style={{ background: reg.color }}
-                            />
-                            <span className="text-[11px] font-bold truncate text-slate-900">
-                              {reg.shortName}
-                            </span>
+                          {/* Store Details Header */}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                                Retailer #{store.retailerNumber || '•'}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                  Physical store
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                                  Child store
+                                </span>
+                              </div>
+                            </div>
+
+                            <h4 className="font-black text-slate-900 text-sm leading-tight">
+                              {store.name}
+                            </h4>
+
+                            <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
+                              📍 {store.address}
+                            </p>
+
+                            <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 pt-1">
+                              <span>GPS: {Number(store.latitude).toFixed(4)}, {Number(store.longitude).toFixed(4)}</span>
+                              <span>•</span>
+                              <span>{store.operatingStatus || 'Open'}</span>
+                            </div>
                           </div>
-                          <span className="text-[9px] text-slate-500 line-clamp-1 leading-tight">
-                            {reg.name.split('(')[1]?.replace(')', '') || reg.name}
-                          </span>
-                        </button>
+
+                          {/* Zone Assignment Dropdown Selector */}
+                          <div className="pt-2 border-t border-slate-100 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                                Assign Delivery Zone
+                              </label>
+                              <span
+                                className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                style={{
+                                  backgroundColor: `${assignedZone?.color}15`,
+                                  color: assignedZone?.color
+                                }}
+                              >
+                                ✓ {assignedZone?.shortName || 'Zone'}
+                              </span>
+                            </div>
+
+                            <select
+                              value={store.deliveryZoneId || ''}
+                              onChange={(e) => updateStoreZone(store.storeId || store._id, e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer transition"
+                              style={{ borderLeftWidth: '4px', borderLeftColor: assignedZone?.color }}
+                            >
+                              {masterZones.map((z) => (
+                                <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
+                                  {z.name} (Zone {z.zoneNumber})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
                 </div>
+              );
+            })}
+        </div>
+      )}
 
-                {/* 2. INTERACTIVE MAP PICKER */}
+      {/* ===================================================================== */}
+      {/* 4. TAB 2: MASTER DELIVERY ZONES & ASSOCIATIONS TABLE                  */}
+      {/* ===================================================================== */}
+      {activeTab === 'zones' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {masterZones.map((zone) => {
+            const zId = zone.zoneId || zone._id;
+            const linkedStores = stores.filter((s) => s.deliveryZoneId === zId);
+
+            return (
+              <div
+                key={zId}
+                className="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col justify-between"
+              >
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
-                      <span className="w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">2</span>
-                      <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Pin Exact Store Location on Map *</span>
-                    </label>
-                    <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                      👆 Click map or drag store pin
-                    </span>
-                  </div>
-
-                  {/* Interactive Leaflet Map Box */}
-                  <div className="relative rounded-2xl overflow-hidden border border-slate-700 shadow-inner bg-slate-900">
-                    <div ref={modalMapContainerRef} className="leaflet-container" style={{ height: '210px', width: '100%' }} />
-
-                    {/* Coordinates & Region Status Pill */}
-                    <div className="absolute bottom-2 left-2 right-2 z-1000 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200 shadow-md flex items-center justify-between text-[10px]">
-                      <div className="flex items-center gap-1 text-slate-700">
-                        <span className="font-bold text-slate-500">GPS:</span>
-                        <span className="font-mono font-semibold text-slate-900">
-                          {Number(quickBranchForm.latitude).toFixed(4)}, {Number(quickBranchForm.longitude).toFixed(4)}
-                        </span>
-                      </div>
-                      <span
-                        className="font-bold px-2 py-0.5 rounded-md text-[9px] border"
-                        style={{
-                          backgroundColor: `${activeSector.color}15`,
-                          borderColor: `${activeSector.color}40`,
-                          color: activeSector.color
-                        }}
+                  {/* Zone Header */}
+                  <div
+                    className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3"
+                    style={{ backgroundColor: `${zone.color}08` }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-2xl flex items-center justify-center text-white font-black text-sm shadow-xs"
+                        style={{ backgroundColor: zone.color }}
                       >
-                        Sector: {activeSector.shortName}
-                      </span>
+                        {zone.zoneNumber}
+                      </div>
+                      <div>
+                        <h3 className="font-black text-slate-900 text-base">{zone.name}</h3>
+                        <span className="text-xs text-slate-500 font-medium">
+                          Faisalabad Hub • Delivery Fee: Rs. {zone.deliveryFee || 60}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Store placed inside its master region. After saving, you will immediately outline its delivery zone polygon.
-                  </p>
-                </div>
-
-                {/* 3. COVERAGE RADIUS SLIDER */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-bold text-slate-700">
-                      Delivery Coverage Radius
-                    </label>
-                    <span className="font-bold text-emerald-700 font-mono text-[11px] bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
-                      {quickBranchForm.deliveryRadiusKm} km
+                    <span
+                      className="px-2.5 py-1 rounded-full text-xs font-black shadow-2xs"
+                      style={{ backgroundColor: `${zone.color}20`, color: zone.color }}
+                    >
+                      {linkedStores.length} Stores Linked
                     </span>
                   </div>
-                  <input
-                    type="range"
-                    min="1"
-                    max="20"
-                    step="0.5"
-                    value={quickBranchForm.deliveryRadiusKm}
-                    onChange={(e) => setQuickBranchForm({ ...quickBranchForm, deliveryRadiusKm: Number(e.target.value) })}
-                    className="w-full accent-emerald-600 cursor-pointer"
-                  />
-                  <div className="flex items-center justify-between text-[9px] text-slate-400 mt-0.5 font-medium">
-                    <span>1 km (Local)</span>
-                    <span>5 km (Standard Hub)</span>
-                    <span>10 km (Wide Reach)</span>
-                    <span>20 km (Regional)</span>
+
+                  {/* Associated Retailers List */}
+                  <div className="p-4 sm:p-5 space-y-2.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Associated Physical Stores:
+                    </span>
+                    <div className="space-y-2 text-xs">
+                      {linkedStores.map((store) => {
+                        const parent = parentRetailers.find((r) => r.id === store.retailerId);
+                        return (
+                          <div
+                            key={store.storeId || store._id}
+                            className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between gap-3"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-lg">{parent?.logo || '🏬'}</span>
+                              <div>
+                                <strong className="text-slate-900 block font-bold">
+                                  {store.name}
+                                </strong>
+                                <span className="text-[10px] text-slate-500">
+                                  Retailer #{store.retailerNumber} • Parent: {store.parentRetailerName}
+                                </span>
+                              </div>
+                            </div>
+
+                            <select
+                              value={store.deliveryZoneId}
+                              onChange={(e) => updateStoreZone(store.storeId || store._id, e.target.value)}
+                              className="text-[11px] font-bold bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-700 cursor-pointer"
+                            >
+                              {masterZones.map((z) => (
+                                <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
+                                  {z.shortName}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="p-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsQuickAddModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-xl font-bold transition text-xs cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition text-xs cursor-pointer shadow-sm flex items-center gap-1.5"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Add Branch to Map</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        );
-      })()}
-
-      {/* Edit Zone Details Modal */}
-      {isEditZoneModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                  <Edit2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Edit Delivery Zone Details</h3>
-                  <p className="text-[11px] text-slate-400">Configure parameters, pricing, and visual color</p>
+                <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500">
+                  <span>Min Order: Rs. {zone.minOrder || 400}</span>
+                  <button
+                    onClick={() => {
+                      if (mapInstanceRef.current && zone.center) {
+                        mapInstanceRef.current.flyTo(zone.center, 14, { duration: 0.8 });
+                      }
+                    }}
+                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Inspect on Map</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsEditZoneModalOpen(false)}
-                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center cursor-pointer transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveZoneDetails} className="p-5 space-y-4 text-xs max-h-[80vh] overflow-y-auto">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Zone Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editZoneForm.name}
-                    onChange={(e) => setEditZoneForm({ ...editZoneForm, name: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:bg-white focus:outline-hidden focus:border-emerald-500"
-                    placeholder="e.g. D-Ground Delivery Zone"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Zone Code *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editZoneForm.code}
-                    onChange={(e) => setEditZoneForm({ ...editZoneForm, code: e.target.value.toUpperCase() })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:bg-white focus:outline-hidden focus:border-emerald-500"
-                    placeholder="e.g. FSD-DGR"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">City</label>
-                  <input
-                    type="text"
-                    value={editZoneForm.city}
-                    onChange={(e) => setEditZoneForm({ ...editZoneForm, city: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:bg-white focus:outline-hidden focus:border-emerald-500"
-                    placeholder="Faisalabad"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Estimated Delivery Time</label>
-                  <input
-                    type="text"
-                    value={editZoneForm.estimatedDeliveryTime}
-                    onChange={(e) => setEditZoneForm({ ...editZoneForm, estimatedDeliveryTime: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:bg-white focus:outline-hidden focus:border-emerald-500"
-                    placeholder="25-35 mins"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Description / Area Covered</label>
-                <textarea
-                  rows={2}
-                  value={editZoneForm.area}
-                  onChange={(e) => setEditZoneForm({ ...editZoneForm, area: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:bg-white focus:outline-hidden focus:border-emerald-500 resize-none"
-                  placeholder="Peoples Colony, D-Ground Commercial Area"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-2.5">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Fee (Rs.)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editZoneForm.deliveryCharge}
-                    onChange={(e) => setEditZoneForm({ ...editZoneForm, deliveryCharge: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-emerald-700 focus:bg-white focus:outline-hidden focus:border-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Min Order</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editZoneForm.minOrderAmount}
-                    onChange={(e) => setEditZoneForm({ ...editZoneForm, minOrderAmount: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:bg-white focus:outline-hidden focus:border-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Free Over</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editZoneForm.freeDeliveryThreshold}
-                    onChange={(e) => setEditZoneForm({ ...editZoneForm, freeDeliveryThreshold: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:bg-white focus:outline-hidden focus:border-emerald-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1.5">Polygon Color Theme</label>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {[
-                    { color: '#10b981', label: 'Emerald' },
-                    { color: '#2563eb', label: 'Blue' },
-                    { color: '#dc2626', label: 'Red' },
-                    { color: '#d97706', label: 'Amber' },
-                    { color: '#7c3aed', label: 'Purple' },
-                    { color: '#0891b2', label: 'Cyan' },
-                    { color: '#475569', label: 'Slate' }
-                  ].map((p) => (
-                    <button
-                      key={p.color}
-                      type="button"
-                      onClick={() => setEditZoneForm({ ...editZoneForm, color: p.color })}
-                      className={`w-7 h-7 rounded-full flex items-center justify-center transition border-2 cursor-pointer ${
-                        editZoneForm.color === p.color ? 'border-slate-900 scale-110 shadow-sm' : 'border-transparent hover:scale-105'
-                      }`}
-                      style={{ backgroundColor: p.color }}
-                      title={p.label}
-                    >
-                      {editZoneForm.color === p.color && <Check className="w-3.5 h-3.5 text-white" />}
-                    </button>
-                  ))}
-                  <input
-                    type="color"
-                    value={editZoneForm.color}
-                    onChange={(e) => setEditZoneForm({ ...editZoneForm, color: e.target.value })}
-                    className="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 p-0.5 ml-1"
-                    title="Custom Color"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="zoneActiveCheckbox"
-                  checked={editZoneForm.isActive}
-                  onChange={(e) => setEditZoneForm({ ...editZoneForm, isActive: e.target.checked })}
-                  className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
-                />
-                <label htmlFor="zoneActiveCheckbox" className="font-bold text-slate-800 cursor-pointer text-xs">
-                  Zone is active and accepting grocery orders
-                </label>
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsEditZoneModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-bold transition text-xs cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingZoneDetails}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition text-xs cursor-pointer shadow-sm flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>{isSavingZoneDetails ? 'Saving...' : 'Save Zone Details'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
+            );
+          })}
         </div>
       )}
 
-      {/* Delete Delivery Zone Confirmation Modal */}
-      {isDeleteZoneModalOpen && activeZone && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-rose-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-5 border-b border-rose-100 bg-rose-50/50 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                <Trash2 className="w-5 h-5" />
+      {/* ===================================================================== */}
+      {/* 5. TAB 3: MERN DATABASE STRUCTURE & ARCHITECTURE GUIDE                */}
+      {/* ===================================================================== */}
+      {activeTab === 'database' && (
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-2xs">
+          <div>
+            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <Database className="w-5 h-5 text-indigo-600" />
+              <span>Correct MERN Architecture for Retailers & Delivery Zones</span>
+            </h3>
+            <p className="text-xs text-slate-500 font-medium mt-1">
+              Decoupled schema design storing the store-to-zone association directly on the physical store document.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+            {/* Collection 1: Retailers (Parent) */}
+            <div className="bg-slate-900 text-slate-100 p-4 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <span className="font-bold text-emerald-400">1. Retailers (Parent)</span>
+                <span className="text-[10px] text-slate-400">Collection</span>
               </div>
-              <div>
-                <h3 className="font-black text-slate-900 text-base">Delete Delivery Zone?</h3>
-                <p className="text-[11px] text-rose-600 font-medium">Permanent action for this polygon boundary</p>
-              </div>
+              <pre className="text-[11px] leading-relaxed overflow-x-auto text-emerald-300">
+{`{
+  _id: "tenant-alfatah",
+  name: "Al-Fateh",
+  type: "parent",
+  status: "active"
+}`}
+              </pre>
             </div>
 
-            <div className="p-5 space-y-3 text-xs text-slate-600">
-              <p>
-                Are you sure you want to permanently delete delivery zone <strong className="text-slate-900">{activeZone.name}</strong> ({activeZone.code})?
-              </p>
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1 text-[11px]">
-                <div className="flex justify-between">
-                  <span>Linked Stores:</span>
-                  <strong className="text-slate-900">{assignedStores.length} Store(s)</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Delivery Charge:</span>
-                  <strong className="text-emerald-700 font-bold">Rs. {activeZone.deliveryCharge}</strong>
-                </div>
+            {/* Collection 2: Stores (Child Branches) */}
+            <div className="bg-slate-900 text-slate-100 p-4 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <span className="font-bold text-indigo-400">2. Stores (Child)</span>
+                <span className="text-[10px] text-slate-400">Collection</span>
               </div>
-              <p className="text-[11px] text-rose-700 font-medium">
-                ⚠️ All linked supermarkets will be unassigned from this delivery zone and its polygon boundary will be erased.
-              </p>
+              <pre className="text-[11px] leading-relaxed overflow-x-auto text-indigo-300">
+{`{
+  _id: "STR-AF-001",
+  retailerId: "tenant-alfatah",
+  name: "Al-Fateh — Main Branch",
+  type: "child",
+  address: "Samanabad, Faisalabad",
+  location: {
+    type: "Point",
+    coordinates: [73.0600, 31.3960]
+  },
+  deliveryZoneId: "zone_001",
+  status: "active"
+}`}
+              </pre>
             </div>
 
-            <div className="p-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50">
-              <button
-                type="button"
-                onClick={() => setIsDeleteZoneModalOpen(false)}
-                className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-xl font-bold transition text-xs cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteZoneConfirm}
-                disabled={isDeletingZone}
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition text-xs cursor-pointer shadow-sm flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>{isDeletingZone ? 'Deleting...' : 'Delete Delivery Zone'}</span>
-              </button>
+            {/* Collection 3: DeliveryZones (Master) */}
+            <div className="bg-slate-900 text-slate-100 p-4 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <span className="font-bold text-amber-400">3. DeliveryZones</span>
+                <span className="text-[10px] text-slate-400">Collection</span>
+              </div>
+              <pre className="text-[11px] leading-relaxed overflow-x-auto text-amber-300">
+{`{
+  _id: "zone_001",
+  name: "Zone 1 — Samanabad",
+  polygon: {
+    type: "Polygon",
+    coordinates: [ ... ]
+  },
+  status: "active"
+}`}
+              </pre>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Add Delivery Zone for Store Modal */}
-      {isAddDeliveryZoneModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                  <Compass className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Add Delivery Zone for Store</h3>
-                  <p className="text-[11px] text-slate-400">Select a store to draw its delivery zone polygon on the map</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddDeliveryZoneModalOpen(false)}
-                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center cursor-pointer transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-5 max-h-[70vh] overflow-y-auto space-y-4">
-              {(() => {
-                const unzonedStores = stores.filter(
-                  (s) => !Array.isArray(s.deliveryPolygon) || s.deliveryPolygon.length < 3
-                );
-                const zonedStores = stores.filter(
-                  (s) => Array.isArray(s.deliveryPolygon) && s.deliveryPolygon.length >= 3
-                );
-
-                return (
-                  <>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-black uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
-                          <span>⚠️</span>
-                          <span>Stores Awaiting Delivery Zone ({unzonedStores.length})</span>
-                        </span>
-                      </div>
-                      {unzonedStores.length === 0 ? (
-                        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs text-center font-medium">
-                          ✓ All stores currently have a custom delivery zone configured!
-                        </div>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {unzonedStores.map((st) => {
-                            const ret = CORE_RETAILERS.find((r) =>
-                              String(st.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
-                            ) || { name: 'Store', color: '#059669', logo: '🏬' };
-                            return (
-                              <button
-                                key={st.storeId || st._id || st.id}
-                                type="button"
-                                onClick={() => {
-                                  setIsAddDeliveryZoneModalOpen(false);
-                                  handleStartDrawingDeliveryZoneForStore(st, false);
-                                }}
-                                className="w-full text-left p-3 rounded-2xl bg-amber-50/60 hover:bg-amber-100/70 border border-amber-200 transition flex items-center justify-between gap-3 group cursor-pointer"
-                              >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <span className="w-8 h-8 rounded-xl bg-white border border-amber-200 flex items-center justify-center shrink-0">
-                                    {ret.logo}
-                                  </span>
-                                  <div className="min-w-0">
-                                    <strong className="block truncate text-xs font-bold text-slate-900 group-hover:text-emerald-700">
-                                      {st.name || st.branchName}
-                                    </strong>
-                                    <span className="block truncate text-[11px] text-slate-500">
-                                      {st.branchName || ret.name} • {st.address || st.city}
-                                    </span>
-                                  </div>
-                                </div>
-                                <span className="px-2.5 py-1 rounded-xl bg-emerald-600 text-white text-[10px] font-bold shrink-0 shadow-xs">
-                                  + Draw Zone
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    {zonedStores.length > 0 && (
-                      <div className="space-y-2 pt-2 border-t border-slate-100">
-                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                          <span>✓</span>
-                          <span>Configured Stores (Click to Redraw / Edit) ({zonedStores.length})</span>
-                        </span>
-                        <div className="space-y-1.5">
-                          {zonedStores.map((st) => {
-                            const ret = CORE_RETAILERS.find((r) =>
-                              String(st.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', ''))
-                            ) || { name: 'Store', color: '#059669', logo: '🏬' };
-                            return (
-                              <button
-                                key={st.storeId || st._id || st.id}
-                                type="button"
-                                onClick={() => {
-                                  setIsAddDeliveryZoneModalOpen(false);
-                                  handleStartDrawingDeliveryZoneForStore(st, true);
-                                }}
-                                className="w-full text-left p-2.5 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition flex items-center justify-between gap-3 group cursor-pointer"
-                              >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <span className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0 text-xs">
-                                    {ret.logo}
-                                  </span>
-                                  <div className="min-w-0">
-                                    <strong className="block truncate text-xs font-bold text-slate-800">
-                                      {st.name || st.branchName}
-                                    </strong>
-                                    <span className="block truncate text-[10px] text-slate-400">
-                                      Custom Polygon ({st.deliveryPolygon.length} pts)
-                                    </span>
-                                  </div>
-                                </div>
-                                <span className="px-2 py-0.5 rounded-lg bg-slate-200 text-slate-700 text-[10px] font-bold shrink-0">
-                                  ✏️ Edit
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs text-slate-700 space-y-1">
+            <strong className="text-slate-900 block font-bold">Why this architecture works:</strong>
+            <p>
+              • <strong>Clean Decoupling:</strong> Each child physical store references its parent company via <code>retailerId</code> and its assigned delivery area via <code>deliveryZoneId</code>.
+            </p>
+            <p>
+              • <strong>Flexible Branch Scoping:</strong> Multiple branches of the same retailer (e.g. Al-Fateh Main vs Al-Fateh Branch 2) belong to the same parent company, but service completely different geographic zones.
+            </p>
           </div>
         </div>
       )}

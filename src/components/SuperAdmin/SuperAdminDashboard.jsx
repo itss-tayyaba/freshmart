@@ -1212,36 +1212,27 @@ export const SuperAdminDashboard = () => {
             </div>
           </div>
 
-          {/* 3. GIS & DELIVERY ZONE MANAGEMENT */}
+          {/* 3. RETAILER DELIVERY ZONES */}
           <div>
             <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-              GIS Delivery Polygons & Zones
+              Retailer Delivery Zones
             </div>
             <div className="space-y-1">
               <button
-                onClick={() => setActiveNav('zone-management')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('zone-management') || (activeNav === 'zones' ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/20' : '')}`}
-              >
-                <Layers className="w-4 h-4 text-emerald-400" />
-                <div className="text-left flex-1 min-w-0">
-                  <div className="text-xs font-bold truncate">1. Store Area Polygons</div>
-                  <div className="text-[10px] opacity-70 truncate">3 Main (Covers all stores)</div>
-                </div>
-                <span className="ml-auto text-[9px] bg-teal-900/60 text-teal-300 border border-teal-700/50 px-1.5 py-0.5 rounded font-bold">
-                  {gisStats.storeAreaPolygonCount}
-                </span>
-              </button>
-              <button
                 onClick={() => setActiveNav('zone-assignments')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${navBtnClass('zone-assignments')}`}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition ${
+                  activeNav === 'zone-assignments' || activeNav === 'zones' || activeNav === 'zone-management'
+                    ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/20'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                }`}
               >
-                <Compass className="w-4 h-4 text-indigo-400" />
+                <Compass className="w-4 h-4 text-emerald-400" />
                 <div className="text-left flex-1 min-w-0">
-                  <div className="text-xs font-bold truncate">2. Store Delivery Regions</div>
-                  <div className="text-[10px] opacity-70 truncate">Delivery region per store</div>
+                  <div className="text-xs font-bold truncate">Retailer Delivery Zones</div>
+                  <div className="text-[10px] opacity-70 truncate">4 Master Zones • 12 Physical Stores</div>
                 </div>
-                <span className="ml-auto text-[9px] bg-indigo-950/60 text-indigo-300 border border-indigo-700/50 px-1.5 py-0.5 rounded font-bold">
-                  {gisStats.deliveryZoneCount}
+                <span className="ml-auto text-[9px] bg-emerald-950/60 text-emerald-300 border border-emerald-700/50 px-1.5 py-0.5 rounded font-bold">
+                  4 Zones
                 </span>
               </button>
             </div>
@@ -1482,7 +1473,7 @@ export const SuperAdminDashboard = () => {
 
                 {/* 4. Active Zones */}
                 <div
-                  onClick={() => setActiveNav('zone-management')}
+                  onClick={() => setActiveNav('zone-assignments')}
                   className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition cursor-pointer flex flex-col justify-between"
                 >
                   <div className="flex items-start justify-between">
@@ -3267,14 +3258,9 @@ export const SuperAdminDashboard = () => {
             <StoreManagementView />
           )}
 
-          {(activeNav === 'zones' || activeNav === 'zone-management') && (
-            <ZoneManagementView />
-          )}
-
-          {activeNav === 'zone-assignments' && (
+          {(activeNav === 'zones' || activeNav === 'zone-management' || activeNav === 'zone-assignments') && (
             <ZoneStoreAssignmentView
               onNavigateToStores={() => setActiveNav('stores')}
-              onNavigateToZones={() => setActiveNav('zones')}
             />
           )}
 
