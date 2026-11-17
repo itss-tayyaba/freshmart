@@ -489,10 +489,19 @@ export const loadMasterZones = () => {
     const raw = localStorage.getItem('freshmart_master_zones');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length >= 4) {
+      if (Array.isArray(parsed) && parsed.length >= 1) {
         return parsed;
       }
     }
   } catch (e) {}
   return FOUR_MASTER_DELIVERY_ZONES;
+};
+
+export const saveMasterZones = (zones) => {
+  try {
+    localStorage.setItem('freshmart_master_zones', JSON.stringify(zones));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('freshmart_master_zones_updated', { detail: zones }));
+    }
+  } catch (e) {}
 };
