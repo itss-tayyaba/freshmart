@@ -238,6 +238,70 @@ export const isOrderAssignedToRider = (order, user) => {
 };
 
 /**
+ * Check if an order belongs to a specific branch or store.
+ * Handles unified store IDs (STR-AF-001, STR-CV-001, STR-CU-001, STR-UM-001),
+ * branch IDs (branch_af_fsd, branch_cv_fsd, branch_006, branch_um_fsd),
+ * and branch name substring matching.
+ */
+export const isOrderInBranch = (order, targetBranchId, targetBranchName = null) => {
+  if (!order || !targetBranchId || targetBranchId === 'all') return true;
+
+  const oBId = String(order.branchId || order.storeId || '').toLowerCase().trim();
+  const tBId = String(targetBranchId).toLowerCase().trim();
+
+  // 1. Direct ID match
+  if (oBId && tBId && oBId === tBId) return true;
+
+  // 2. Normalized known Faisalabad Store / Branch Aliases
+  const isTargetAF = tBId === 'str-af-001' || tBId === 'branch_af_fsd' || (targetBranchName && targetBranchName.toLowerCase().includes('people'));
+  const isOrderAF = oBId === 'str-af-001' || oBId === 'branch_af_fsd' || (order.branchName && order.branchName.toLowerCase().includes('people'));
+  if (isTargetAF && isOrderAF) return true;
+
+  const isTargetCV = tBId === 'str-cv-001' || tBId === 'branch_cv_fsd' || (targetBranchName && targetBranchName.toLowerCase().includes('susan'));
+  const isOrderCV = oBId === 'str-cv-001' || oBId === 'branch_cv_fsd' || (order.branchName && order.branchName.toLowerCase().includes('susan'));
+  if (isTargetCV && isOrderCV) return true;
+
+  const isTargetCU = tBId === 'str-cu-001' || tBId === 'branch_006' || (targetBranchName && targetBranchName.toLowerCase().includes('samanabad'));
+  const isOrderCU = oBId === 'str-cu-001' || oBId === 'branch_006' || (order.branchName && order.branchName.toLowerCase().includes('samanabad'));
+  if (isTargetCU && isOrderCU) return true;
+
+  const isTargetUM = tBId === 'str-um-001' || tBId === 'branch_um_fsd' || tBId === 'branch_007' || (targetBranchName && targetBranchName.toLowerCase().includes('d-ground'));
+  const isOrderUM = oBId === 'str-um-001' || oBId === 'branch_um_fsd' || oBId === 'branch_007' || (order.branchName && order.branchName.toLowerCase().includes('d-ground'));
+  if (isTargetUM && isOrderUM) return true;
+
+  // 3. Branch name matching (if both have branch name)
+  if (order.branchName && targetBranchName) {
+    const oName = order.branchName.toLowerCase().trim();
+    const tName = targetBranchName.toLowerCase().trim();
+    if (oName === tName || oName.includes(tName) || tName.includes(oName)) return true;
+  }
+
+  // 4. Check items inside order if order.branchId was not set at top level
+  if (!oBId && Array.isArray(order.items || order.rawItems || order.orderItems)) {
+    const items = order.items || order.rawItems || order.orderItems;
+    const itemMatch = items.some((it) => {
+      const itemBId = String(it.branchId || it.storeId || '').toLowerCase().trim();
+      if (!itemBId) return false;
+      if (itemBId === tBId) return true;
+      if (isTargetAF && (itemBId === 'str-af-001' || itemBId === 'branch_af_fsd')) return true;
+      if (isTargetCV && (itemBId === 'str-cv-001' || itemBId === 'branch_cv_fsd')) return true;
+      if (isTargetCU && (itemBId === 'str-cu-001' || itemBId === 'branch_006')) return true;
+      if (isTargetUM && (itemBId === 'str-um-001' || itemBId === 'branch_um_fsd' || itemBId === 'branch_007')) return true;
+      return false;
+    });
+    if (itemMatch) return true;
+  }
+
+  // 5. If order has an explicit different branch assigned, it does NOT belong to this branch
+  if (oBId && oBId !== tBId) return false;
+  if (order.branchName && targetBranchName && order.branchName.toLowerCase().trim() !== targetBranchName.toLowerCase().trim()) {
+    return false;
+  }
+
+  return false;
+};
+
+/**
  * Determine if an order is visible to a user based on role, store, and branch
  */
 export const isOrderVisibleToUser = (order, user, activeTenantId = null) => {
@@ -259,13 +323,13 @@ export const isOrderVisibleToUser = (order, user, activeTenantId = null) => {
     return true;
   }
 
-  // Store Admin: strictly scoped to their own tenant
+  // Store Admin: strictly scoped to their own tenant and branch
   if (role === 'admin' || role === 'store admin') {
     const adminTenant = resolveTenantId(user?.tenantId || targetTenant);
     if (!isSameTenant(orderTenant, adminTenant)) return false;
     // If admin is restricted to a specific branch
     if (user?.branchId && user.branchId !== 'all') {
-      return !order.branchId || order.branchId === user.branchId;
+      return isOrderInBranch(order, user.branchId, user.branchName);
     }
     return true;
   }

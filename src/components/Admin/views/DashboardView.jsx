@@ -23,6 +23,7 @@ import { useStore } from '../../../context/StoreContext';
 import { BRANCH_METRICS } from '../../../data/branchCatalogData';
 import { resolveTenantId, isSameTenant, BRANCHES } from '../../../data/companyHierarchyData';
 import { sanitizeOrder } from '../../../utils/orderSanitizer';
+import { isOrderInBranch } from '../../../utils/orderScope';
 
 export const DashboardView = ({ onNavigateModule }) => {
   const {
@@ -40,6 +41,7 @@ export const DashboardView = ({ onNavigateModule }) => {
     branchMetrics,
     getBranchMetrics,
     allBranches = [],
+    currentBranchFilter,
     user,
     adminRole
   } = useStore();
@@ -76,7 +78,7 @@ export const DashboardView = ({ onNavigateModule }) => {
       }
     });
     const all = Array.from(uniqueMap.values());
-    const list = !tenantKey ? all : all.filter((order) => {
+    let list = !tenantKey ? all : all.filter((order) => {
       const orderTenant =
         order.tenantId ||
         order.companyId ||
@@ -106,6 +108,17 @@ export const DashboardView = ({ onNavigateModule }) => {
       return false;
     });
 
+    // Branch scoping: Strictly isolate orders for the specific branch admin or current branch filter
+    const effectiveBranchId = (currentBranchFilter && currentBranchFilter !== 'all')
+      ? currentBranchFilter
+      : (user?.branchId && user.branchId !== 'all' ? user.branchId : null);
+
+    const effectiveBranchName = user?.branchName;
+
+    if (effectiveBranchId) {
+      list = list.filter((o) => isOrderInBranch(o, effectiveBranchId, effectiveBranchName));
+    }
+
     return list.sort((a, b) => {
       const isCompleteA = ['delivered', 'cancelled'].includes(String(a.status || '').toLowerCase()) || a.isDelivered;
       const isCompleteB = ['delivered', 'cancelled'].includes(String(b.status || '').toLowerCase()) || b.isDelivered;
@@ -122,7 +135,7 @@ export const DashboardView = ({ onNavigateModule }) => {
       const timeB = new Date(b.createdAt || b.fulfillmentUpdatedAt || b.time || 0).getTime();
       return timeB - timeA;
     });
-  }, [customerOrders, adminOrders, tenantKey]);
+  }, [customerOrders, adminOrders, tenantKey, currentBranchFilter, user?.branchId, user?.branchName]);
   const tenantCustomers = useMemo(
     () => (customers || []).filter((customer) => isSameTenant(customer.tenantId, tenantKey) || (!customer.tenantId && tenantKey === 'tenant-freshmart')),
     [customers, tenantKey]

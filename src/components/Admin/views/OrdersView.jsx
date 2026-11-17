@@ -36,7 +36,7 @@ import { useStore } from '../../../context/StoreContext';
 import { DeliverToStaffModal } from '../modals/DeliverToStaffModal';
 import { resolveTenantId, isSameTenant } from '../../../data/companyHierarchyData';
 import { sanitizeOrder } from '../../../utils/orderSanitizer';
-import { normalizeOrderTenantId, isOrderVisibleToUser } from '../../../utils/orderScope';
+import { normalizeOrderTenantId, isOrderVisibleToUser, isOrderInBranch } from '../../../utils/orderScope';
 import {
   getWhatsAppDeliveryLink,
   getWhatsAppOrderStatusLink
@@ -284,17 +284,15 @@ export const OrdersView = ({ orders: passedOrders, onNavigateToCustomers }) => {
       list = raw.filter((o) => isOrderVisibleToUser(o, user, activeTenant));
     }
 
-    // Branch scoping: Only filter if a valid branch belonging to this store is selected
-    const isValidBranch = currentBranchFilter && currentBranchFilter !== 'all' && tenantBranches.some((b) => b.id === currentBranchFilter || b._id === currentBranchFilter);
-    if (isValidBranch) {
-      list = list.filter((o) => {
-        // Active orders awaiting fulfillment or courier handover always stay visible to Store Admin
-        const isAwaitingDispatch = !o.status || ['pending', 'order placed', 'confirmed', 'prepared', 'ready', 'ready for dispatch'].includes(String(o.status).toLowerCase()) || o.isDispatchedByStaff;
-        if (isAwaitingDispatch) return true;
-        return o.branchId === currentBranchFilter;
-      });
-    } else if (user?.branchId && user.branchId !== 'all' && user?.role !== 'admin') {
-      list = list.filter((o) => !o.branchId || o.branchId === user.branchId);
+    // Branch scoping: Strictly isolate branch orders to avoid mixing orders across branches
+    const effectiveBranchId = (currentBranchFilter && currentBranchFilter !== 'all')
+      ? currentBranchFilter
+      : (user?.branchId && user.branchId !== 'all' ? user.branchId : null);
+
+    const effectiveBranchName = user?.branchName || (tenantBranches.find((b) => b.id === effectiveBranchId || b._id === effectiveBranchId)?.name);
+
+    if (effectiveBranchId) {
+      list = list.filter((o) => isOrderInBranch(o, effectiveBranchId, effectiveBranchName));
     }
 
     return list.sort((a, b) => {

@@ -2837,10 +2837,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null, onNavigateT
       {isQuickAddModalOpen && (() => {
         const activeSector = THREE_MASTER_REGIONS.find((r) => r.id === quickBranchForm.regionSector) || THREE_MASTER_REGIONS[0];
         return (
-          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
             <form
               onSubmit={handleCreateQuickBranch}
-              className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+              className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto"
             >
               <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
                 <div className="flex items-center gap-2.5">

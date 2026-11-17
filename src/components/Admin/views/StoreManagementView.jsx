@@ -26,6 +26,7 @@ import {
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
 import { switchMapTileLayer } from '../../../utils/mapTiles';
+import { isSameTenant } from '../../../data/companyHierarchyData';
 import {
   getAllUnifiedStores,
   saveLocalCustomStore,
@@ -40,7 +41,12 @@ export const StoreManagementView = () => {
     setAllBranches,
     tenants = [],
     storeAdmins = [],
-    addToast
+    addToast,
+    applyAuthSession,
+    navigateTo,
+    setCurrentTenant,
+    setCurrentBranch,
+    setCurrentBranchFilter
   } = useStore();
 
   const [stores, setStores] = useState(() => getAllUnifiedStores([], allBranches));
@@ -371,6 +377,56 @@ export const StoreManagementView = () => {
       assignedZoneId: ''
     });
     setIsAddModalOpen(true);
+  };
+
+  const handleLaunchStoreDashboard = (store) => {
+    if (!store) return;
+    const storeBranchId = store.storeId || store.id || store._id;
+    const storeTenantId = store.tenantId;
+
+    // 1. Find matching store admin if one exists for this branch/store
+    const matchedAdmin = (storeAdmins || []).find(
+      (a) =>
+        (a.branchId && (a.branchId === storeBranchId || a.branchId === store._id || a.branchId === store.id)) ||
+        (store.branchName && a.branchName && a.branchName.toLowerCase() === store.branchName.toLowerCase()) ||
+        (a.tenantId && isSameTenant(a.tenantId, storeTenantId))
+    ) || {
+      id: `admin_${storeBranchId}`,
+      name: `${store.branchName || store.name} Admin`,
+      email: store.ownerEmail || store.email || `admin.${(store.branchName || store.name || 'store').toLowerCase().replace(/[^a-z0-9]/g, '')}@freshmart.pk`,
+      role: 'admin',
+      tenantId: storeTenantId || 'tenant-unimart',
+      tenantName: store.tenantName || store.name || 'Supermarket',
+      city: store.city || 'Faisalabad',
+      branchId: storeBranchId,
+      branchName: store.branchName || store.name
+    };
+
+    // 2. Set current tenant, current branch, and branch filter
+    const matchedTenant = (tenants || []).find((t) => isSameTenant(t.id, storeTenantId)) || {
+      id: storeTenantId,
+      name: store.tenantName || store.name,
+      displayName: store.tenantName || store.name
+    };
+
+    if (setCurrentTenant) setCurrentTenant(matchedTenant);
+    if (setCurrentBranch) setCurrentBranch(store);
+    if (setCurrentBranchFilter) setCurrentBranchFilter(storeBranchId);
+
+    // 3. Switch auth session and navigate to mart admin dashboard
+    if (applyAuthSession) {
+      applyAuthSession('admin', matchedAdmin, 'superadmin_switch_token');
+    }
+    if (navigateTo) {
+      navigateTo('admin');
+    }
+    if (addToast) {
+      addToast(
+        'Opening Store Dashboard 🚀',
+        `Navigating to ${store.name || store.branchName} (${store.city || 'Faisalabad'}) management console.`,
+        'success'
+      );
+    }
   };
 
   const handleOpenEdit = (store) => {
@@ -867,12 +923,20 @@ export const StoreManagementView = () => {
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            onClick={() => handleLaunchStoreDashboard(store)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition cursor-pointer active:scale-95"
+                            title="Open Store Admin Dashboard"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Dashboard</span>
+                          </button>
+                          <button
                             onClick={() => {
                               setSelectedStore(store);
                               setIsViewModalOpen(true);
                             }}
                             className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition cursor-pointer"
-                            title="View Store"
+                            title="View Store Details"
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
@@ -1311,10 +1375,165 @@ export const StoreManagementView = () => {
         </div>
       )}
 
+      {/* View Store Details Modal */}
+      {isViewModalOpen && selectedStore && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto my-auto p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl font-bold border border-amber-200">
+                  {selectedStore.storeImage ? (
+                    <img src={selectedStore.storeImage} alt="" className="w-full h-full object-cover rounded-2xl" />
+                  ) : (
+                    <span>{CORE_RETAILERS.find(r => r.id === selectedStore.tenantId)?.logo || '🏬'}</span>
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-900 text-base">{selectedStore.name}</h3>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      (selectedStore.isActive ?? selectedStore.status === 'active')
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}>
+                      {(selectedStore.isActive ?? selectedStore.status === 'active') ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-mono mt-0.5">
+                    ID: {selectedStore.storeId || selectedStore._id} • {selectedStore.tenantName || 'Supermarket'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsViewModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick action hero banner */}
+            <div className="bg-linear-to-r from-amber-500 to-amber-600 p-4 rounded-2xl text-white shadow-md flex items-center justify-between">
+              <div>
+                <h4 className="font-black text-sm text-white">Store Admin Console</h4>
+                <p className="text-[11px] text-amber-100 mt-0.5">Access orders, products, and catalog for this branch</p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsViewModalOpen(false);
+                  handleLaunchStoreDashboard(selectedStore);
+                }}
+                className="px-4 py-2 bg-white hover:bg-amber-50 text-amber-800 font-bold text-xs rounded-xl transition shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-amber-600" />
+                <span>Open Dashboard</span>
+              </button>
+            </div>
+
+            {/* Details Grid */}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Retailer</span>
+                <span className="font-bold text-slate-800">
+                  {CORE_RETAILERS.find(r => r.id === selectedStore.tenantId)?.logo}{' '}
+                  {CORE_RETAILERS.find(r => r.id === selectedStore.tenantId)?.name || selectedStore.tenantName || 'Supermarket'}
+                </span>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Operating Status</span>
+                <span className="font-bold text-emerald-600 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>{selectedStore.operatingStatus || 'Open'}</span>
+                </span>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 col-span-2">
+                <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Store Address & Hub</span>
+                <span className="font-medium text-slate-700 block">{selectedStore.address}</span>
+                <span className="text-[11px] text-slate-500 block mt-0.5">
+                  📍 {selectedStore.city || 'Faisalabad'} • GPS: {Number(selectedStore.latitude || 0).toFixed(4)}, {Number(selectedStore.longitude || 0).toFixed(4)}
+                </span>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Operating Hours</span>
+                <span className="font-medium text-slate-800">
+                  {selectedStore.openingHours || '08:00 AM'} - {selectedStore.closingHours || '11:00 PM'}
+                </span>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Delivery Radius</span>
+                <span className="font-medium text-slate-800">{selectedStore.deliveryRadiusKm || 5} km radius</span>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 col-span-2">
+                <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Allocated Mart Admin</span>
+                {(() => {
+                  const sId = selectedStore.storeId || selectedStore._id;
+                  const admin = (storeAdmins || []).find(
+                    (a) =>
+                      (a.branchId && (a.branchId === sId || a.branchId === selectedStore._id)) ||
+                      (selectedStore.branchName && a.branchName && a.branchName.toLowerCase() === selectedStore.branchName.toLowerCase()) ||
+                      (a.tenantId && isSameTenant(a.tenantId, selectedStore.tenantId))
+                  );
+                  return admin ? (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <strong className="text-slate-900 block">{admin.name}</strong>
+                        <span className="text-slate-500 font-mono text-[11px]">{admin.email}</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        ✓ Allocated
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between text-amber-700">
+                      <span>⚠️ No dedicated admin allocated yet</span>
+                      <span className="text-[11px] text-slate-400">Uses default store admin</span>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsViewModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsViewModalOpen(false);
+                  handleOpenEdit(selectedStore);
+                }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs transition cursor-pointer flex items-center gap-1.5"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>Edit Store</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsViewModalOpen(false);
+                  handleLaunchStoreDashboard(selectedStore);
+                }}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Open Dashboard</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {storeToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 max-w-md w-full">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto my-auto">
             <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-4">
               <Trash2 className="w-6 h-6" />
             </div>
