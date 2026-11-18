@@ -467,9 +467,12 @@ export const loadRetailerStores = () => {
     const raw = localStorage.getItem('freshmart_retailer_stores');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length >= 12) {
-        return parsed.map((s, idx) => {
-          const baseline = TWELVE_PHYSICAL_STORES[idx] || TWELVE_PHYSICAL_STORES[0];
+      if (Array.isArray(parsed) && parsed.length >= 1) {
+        return parsed.map((s) => {
+          const sId = s.storeId || s._id;
+          const baseline = TWELVE_PHYSICAL_STORES.find(
+            (b) => (b.storeId || b._id) === sId
+          ) || TWELVE_PHYSICAL_STORES[0];
           return {
             ...baseline,
             ...s,
@@ -497,8 +500,11 @@ export const loadMasterZones = () => {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length >= 1) {
-        return parsed.map((z, idx) => {
-          const baseline = FOUR_MASTER_DELIVERY_ZONES[idx] || FOUR_MASTER_DELIVERY_ZONES[0];
+        return parsed.map((z) => {
+          const zId = z.zoneId || z._id;
+          const baseline = FOUR_MASTER_DELIVERY_ZONES.find(
+            (b) => (b.zoneId || b._id) === zId
+          ) || FOUR_MASTER_DELIVERY_ZONES[0];
           return {
             ...baseline,
             ...z,

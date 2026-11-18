@@ -26,10 +26,17 @@ import {
   Trash2,
   SlidersHorizontal,
   Clock,
-  Phone
+  Phone,
+  MousePointer,
+  Undo2,
+  Star,
+  Target,
+  Hand,
+  Move
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { switchMapTileLayer } from '../../../utils/mapTiles';
+import { apiService } from '../../../services/api';
 import {
   FOUR_PARENT_RETAILERS,
   FOUR_MASTER_DELIVERY_ZONES,
@@ -49,6 +56,26 @@ const esc = (s) =>
     '"': '&quot;',
     "'": '&#39;'
   }[c]));
+
+// Helper to untangle polygon vertices clockwise around centroid
+const untanglePolygonPoints = (pts) => {
+  if (!Array.isArray(pts) || pts.length < 3) return pts;
+  let cLat = 0, cLng = 0;
+  pts.forEach(([lat, lng]) => {
+    cLat += Number(lat);
+    cLng += Number(lng);
+  });
+  cLat /= pts.length;
+  cLng /= pts.length;
+
+  return [...pts].sort((a, b) => {
+    let angleA = Math.atan2(a[1] - cLng, a[0] - cLat);
+    let angleB = Math.atan2(b[1] - cLng, b[0] - cLat);
+    if (angleA < 0) angleA += 2 * Math.PI;
+    if (angleB < 0) angleB += 2 * Math.PI;
+    return angleA - angleB;
+  });
+};
 
 // Backward compatibility re-exports
 export {
@@ -127,12 +154,22 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     phone: '+92 300 1234567'
   });
 
+  // Interactive On-Map Polygon Editor State
+  const [editingPolygonZone, setEditingPolygonZone] = useState(null);
+  const [editingPolygonPoints, setEditingPolygonPoints] = useState([]);
+  const [polygonEditMode, setPolygonEditMode] = useState('drag'); // 'drag' | 'add' | 'redraw'
+  const [pointsHistory, setPointsHistory] = useState([]);
+  const [focusedStoreId, setFocusedStoreId] = useState(null);
+  const [associateStoreModalZone, setAssociateStoreModalZone] = useState(null);
+
   // Map references
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const tileLayerRef = useRef(null);
   const zonePolygonsGroupRef = useRef(null);
   const storeMarkersGroupRef = useRef(null);
+  const activeEditLayerGroupRef = useRef(null);
+  const connectionLineGroupRef = useRef(null);
 
   // ---------------------------------------------------------------------------
   // ZONE CHANGE HANDLER FOR STORES
@@ -161,7 +198,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     }
   };
 
-  // Expose global callback for in-map Leaflet popup zone change
+  // Expose global callbacks for in-map Leaflet popups
   useEffect(() => {
     window.__handlePopupZoneChange = (storeId, newZoneId) => {
       updateStoreZone(storeId, newZoneId);
@@ -170,11 +207,184 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       const target = masterZones.find((z) => (z.zoneId || z._id) === zoneId);
       if (target) handleOpenEditZone(target);
     };
+    window.__handlePopupEditPolygon = (zoneId) => {
+      const target = masterZones.find((z) => (z.zoneId || z._id) === zoneId);
+      if (target) handleStartEditPolygon(target);
+    };
+    window.__handlePopupAssociateStore = (zoneId) => {
+      const target = masterZones.find((z) => (z.zoneId || z._id) === zoneId);
+      if (target) setAssociateStoreModalZone(target);
+    };
+    window.__handleHighlightStorePolygon = (storeId) => {
+      const target = stores.find((s) => (s.storeId || s._id) === storeId);
+      if (target) handleHighlightStorePolygon(target);
+    };
     return () => {
       delete window.__handlePopupZoneChange;
       delete window.__handlePopupEditZone;
+      delete window.__handlePopupEditPolygon;
+      delete window.__handlePopupAssociateStore;
+      delete window.__handleHighlightStorePolygon;
     };
   }, [stores, masterZones]);
+
+  // ---------------------------------------------------------------------------
+  // INTERACTIVE POLYGON EDITING HANDLERS
+  // ---------------------------------------------------------------------------
+  const handleStartEditPolygon = (zone) => {
+    let coords = [];
+    if (zone?.polygon?.coordinates && Array.isArray(zone.polygon.coordinates) && zone.polygon.coordinates.length >= 3) {
+      coords = zone.polygon.coordinates.map((pt) => [Number(pt[0]), Number(pt[1])]);
+    } else {
+      const cLat = zone.center?.[0] || 31.4140;
+      const cLng = zone.center?.[1] || 73.0950;
+      coords = [
+        [Number((cLat + 0.015).toFixed(4)), Number((cLng - 0.015).toFixed(4))],
+        [Number((cLat + 0.015).toFixed(4)), Number((cLng + 0.015).toFixed(4))],
+        [Number((cLat - 0.015).toFixed(4)), Number((cLng + 0.015).toFixed(4))],
+        [Number((cLat - 0.015).toFixed(4)), Number((cLng - 0.015).toFixed(4))]
+      ];
+    }
+
+    setEditingPolygonZone(zone);
+    setEditingPolygonPoints(coords);
+    setPointsHistory([coords]);
+    setPolygonEditMode('drag');
+    setIsEditZoneModalOpen(false);
+
+    if (mapContainerRef.current) {
+      mapContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    if (mapInstanceRef.current && zone.center) {
+      mapInstanceRef.current.flyTo(zone.center, 14, { duration: 0.8 });
+    }
+
+    if (addToast) {
+      addToast(
+        'Interactive Polygon Editing Active ✏️',
+        `Reshaping ${zone.name}. Drag the corners on the map or click "+ Add Points" to add boundaries.`,
+        'info'
+      );
+    }
+  };
+
+  const handleCancelEditPolygon = () => {
+    setEditingPolygonZone(null);
+    setEditingPolygonPoints([]);
+    setPointsHistory([]);
+    if (addToast) {
+      addToast('Polygon Editing Cancelled', 'No boundary changes were saved.', 'info');
+    }
+  };
+
+  const handleSavePolygonChanges = () => {
+    if (!editingPolygonZone) return;
+    if (editingPolygonPoints.length < 3) {
+      if (addToast) addToast('Invalid Polygon', 'At least 3 corners are required for a delivery polygon boundary.', 'error');
+      return;
+    }
+
+    const cleanPoints = untanglePolygonPoints(editingPolygonPoints);
+    const zId = editingPolygonZone.zoneId || editingPolygonZone._id;
+
+    let sumLat = 0;
+    let sumLng = 0;
+    cleanPoints.forEach(([lat, lng]) => {
+      sumLat += lat;
+      sumLng += lng;
+    });
+    const newCenter = [
+      Number((sumLat / cleanPoints.length).toFixed(4)),
+      Number((sumLng / cleanPoints.length).toFixed(4))
+    ];
+
+    const updatedZones = masterZones.map((z) => {
+      const currentId = z.zoneId || z._id;
+      if (currentId === zId) {
+        return {
+          ...z,
+          center: newCenter,
+          polygon: {
+            type: 'Polygon',
+            coordinates: cleanPoints
+          }
+        };
+      }
+      return z;
+    });
+
+    setMasterZones(updatedZones);
+    saveMasterZones(updatedZones);
+
+    try {
+      apiService.updateZone(zId, {
+        center: newCenter,
+        polygon: { type: 'Polygon', coordinates: cleanPoints }
+      }).catch(() => {});
+    } catch (e) {}
+
+    const zoneName = editingPolygonZone.name;
+    setEditingPolygonZone(null);
+    setEditingPolygonPoints([]);
+    setPointsHistory([]);
+
+    if (addToast) {
+      addToast(
+        'Delivery Polygon Saved 🗺️',
+        `Custom geofence for "${zoneName}" (${cleanPoints.length} vertices) updated and saved successfully.`,
+        'success'
+      );
+    }
+  };
+
+  const handleUndoPoint = () => {
+    if (pointsHistory.length <= 1) return;
+    const newHistory = pointsHistory.slice(0, -1);
+    const prevPoints = newHistory[newHistory.length - 1];
+    setPointsHistory(newHistory);
+    setEditingPolygonPoints(prevPoints);
+  };
+
+  const handleUntanglePoints = () => {
+    if (editingPolygonPoints.length < 3) return;
+    const clean = untanglePolygonPoints(editingPolygonPoints);
+    setEditingPolygonPoints(clean);
+    setPointsHistory((prev) => [...prev, clean]);
+    if (addToast) {
+      addToast('Polygon Untangled ✨', 'Boundary lines aligned clockwise around centroid.', 'success');
+    }
+  };
+
+  const handleClearForRedraw = () => {
+    setEditingPolygonPoints([]);
+    setPolygonEditMode('redraw');
+    if (addToast) {
+      addToast('Redraw Mode Activated 📍', 'Click anywhere on the map to define new polygon boundary corners.', 'info');
+    }
+  };
+
+  const handleHighlightStorePolygon = (store) => {
+    const assignedZone = masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId);
+    if (!assignedZone) return;
+
+    setFocusedStoreId(store.storeId || store._id);
+    setSelectedZoneFilter(assignedZone.zoneId || assignedZone._id);
+
+    if (mapInstanceRef.current) {
+      if (mapContainerRef.current) {
+        mapContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      mapInstanceRef.current.flyTo([Number(store.latitude), Number(store.longitude)], 14, { duration: 0.8 });
+    }
+
+    if (addToast) {
+      addToast(
+        'Store & Delivery Polygon 📍',
+        `${store.name} delivers within ${assignedZone.name}. Showing its geographic polygon.`,
+        'info'
+      );
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // ADD & EDIT MASTER ZONE HANDLERS
@@ -530,6 +740,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
     zonePolygonsGroupRef.current = L.layerGroup().addTo(map);
     storeMarkersGroupRef.current = L.layerGroup().addTo(map);
+    activeEditLayerGroupRef.current = L.layerGroup().addTo(map);
+    connectionLineGroupRef.current = L.layerGroup().addTo(map);
 
     mapInstanceRef.current = map;
 
@@ -561,29 +773,38 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
     zonePolygonsGroupRef.current.clearLayers();
     storeMarkersGroupRef.current.clearLayers();
+    if (connectionLineGroupRef.current) connectionLineGroupRef.current.clearLayers();
 
     // 1. Draw Master Delivery Zone Polygons
     masterZones.forEach((zone) => {
       if (!zone.polygon?.coordinates || zone.polygon.coordinates.length < 3) return;
 
       const zId = zone.zoneId || zone._id;
+
+      // If this zone is being interactively edited on map, skip static polygon (active editor renders it)
+      if (editingPolygonZone && (editingPolygonZone.zoneId || editingPolygonZone._id) === zId) {
+        return;
+      }
+
       const isFiltered = selectedZoneFilter !== 'all' && selectedZoneFilter !== zId;
-      const strokeOpacity = isFiltered ? 0.3 : 0.9;
-      const fillOpacity = isFiltered ? 0.05 : 0.22;
+      const storesInZone = stores.filter((s) => s.deliveryZoneId === zId);
+      const isFocused = focusedStoreId && storesInZone.some((s) => (s.storeId || s._id) === focusedStoreId);
+
+      const strokeOpacity = isFiltered ? 0.25 : (isFocused ? 1 : 0.9);
+      const strokeWeight = isFocused ? 4 : (isFiltered ? 1.5 : 3);
+      const fillOpacity = isFiltered ? 0.04 : (isFocused ? 0.32 : 0.22);
 
       const polygon = L.polygon(zone.polygon.coordinates, {
         color: zone.color,
-        weight: isFiltered ? 1.5 : 3,
+        weight: strokeWeight,
         opacity: strokeOpacity,
         fillColor: zone.color,
         fillOpacity: fillOpacity,
-        dashArray: isFiltered ? '4, 4' : null
+        dashArray: isFiltered ? '4, 4' : (isFocused ? '6, 6' : null)
       });
 
-      const storesInZone = stores.filter((s) => s.deliveryZoneId === zId);
-
       polygon.bindPopup(`
-        <div style="font-family: inherit; font-size: 12px; min-width: 200px;">
+        <div style="font-family: inherit; font-size: 12px; min-width: 220px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
             <strong style="color: ${zone.color}; font-size: 13px;">${esc(zone.name)}</strong>
             <span style="font-size: 10px; background: ${zone.color}20; color: ${zone.color}; padding: 2px 6px; border-radius: 6px; font-weight: 800;">
@@ -596,19 +817,55 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
           <div style="font-size: 11px; color: #475569; margin-bottom: 8px;">
             Linked Physical Stores: <strong style="color: #0f172a;">${storesInZone.length} Stores</strong>
           </div>
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px; font-size: 10px; margin-bottom: 8px;">
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px; font-size: 10px; margin-bottom: 8px; max-height: 90px; overflow-y: auto;">
             ${storesInZone.length > 0 ? storesInZone.map((s) => `• <strong>${esc(s.name)}</strong> (${esc(s.parentRetailerName)})`).join('<br/>') : '<em>No stores currently linked</em>'}
           </div>
-          <button
-            onclick="window.__handlePopupEditZone && window.__handlePopupEditZone('${zId}')"
-            style="width: 100%; padding: 4px 8px; background: #0f172a; color: #ffffff; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-          >
-            ✏️ Edit Zone Details & Fee
-          </button>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <button
+              onclick="window.__handlePopupEditPolygon && window.__handlePopupEditPolygon('${zId}')"
+              style="width: 100%; padding: 5px 8px; background: #0284c7; color: #ffffff; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+            >
+              ✏️ Reshape Polygon Boundary on Map
+            </button>
+            <div style="display: flex; gap: 4px;">
+              <button
+                onclick="window.__handlePopupAssociateStore && window.__handlePopupAssociateStore('${zId}')"
+                style="flex: 1; padding: 4px 6px; background: #059669; color: #ffffff; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+              >
+                ➕ Link Store
+              </button>
+              <button
+                onclick="window.__handlePopupEditZone && window.__handlePopupEditZone('${zId}')"
+                style="flex: 1; padding: 4px 6px; background: #0f172a; color: #ffffff; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+              >
+                ⚙️ Fee & Details
+              </button>
+            </div>
+          </div>
         </div>
       `);
 
       zonePolygonsGroupRef.current.addLayer(polygon);
+
+      // If store is focused, draw dashed connection line from store pin to zone center
+      if (isFocused && connectionLineGroupRef.current && zone.center) {
+        const storeObj = stores.find((s) => (s.storeId || s._id) === focusedStoreId);
+        if (storeObj && storeObj.latitude && storeObj.longitude) {
+          const line = L.polyline(
+            [
+              [Number(storeObj.latitude), Number(storeObj.longitude)],
+              [Number(zone.center[0]), Number(zone.center[1])]
+            ],
+            {
+              color: zone.color,
+              weight: 2.5,
+              dashArray: '5, 8',
+              opacity: 0.9
+            }
+          );
+          connectionLineGroupRef.current.addLayer(line);
+        }
+      }
     });
 
     // 2. Draw Physical Child Store Markers
@@ -626,6 +883,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
         parentRetailers[0] ||
         FOUR_PARENT_RETAILERS[0];
       const zoneColor = assignedZone?.color || '#0284c7';
+      const isFocused = focusedStoreId === (store.storeId || store._id);
+      const isMainBranch = store.name.toLowerCase().includes('main') || store.branchName.toLowerCase().includes('main');
 
       const customIcon = L.divIcon({
         className: 'custom-store-marker',
@@ -634,16 +893,16 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 34px;
-            height: 34px;
+            width: ${isFocused ? '40px' : '34px'};
+            height: ${isFocused ? '40px' : '34px'};
             background: #ffffff;
             border-radius: 12px;
-            border: 3px solid ${zoneColor};
-            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-            font-size: 14px;
+            border: ${isFocused ? '3.5px solid #0f172a' : `3px solid ${zoneColor}`};
+            box-shadow: ${isFocused ? '0 0 0 4px ' + zoneColor + '88, 0 8px 16px rgba(0,0,0,0.35)' : '0 4px 12px rgba(0,0,0,0.25)'};
+            font-size: ${isFocused ? '18px' : '14px'};
             cursor: pointer;
             position: relative;
-            transition: transform 0.15s ease;
+            transition: all 0.2s ease;
           ">
             <span>${parentRetailer?.logo || '🏬'}</span>
             <span style="
@@ -660,8 +919,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
             ">${store.retailerNumber || '•'}</span>
           </div>
         `,
-        iconSize: [34, 34],
-        iconAnchor: [17, 17]
+        iconSize: [isFocused ? 40 : 34, isFocused ? 40 : 34],
+        iconAnchor: [isFocused ? 20 : 17, isFocused ? 20 : 17]
       });
 
       const marker = L.marker([lat, lng], { icon: customIcon });
@@ -676,12 +935,14 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
         .join('');
 
       marker.bindPopup(`
-        <div style="font-family: inherit; font-size: 12px; min-width: 220px;">
+        <div style="font-family: inherit; font-size: 12px; min-width: 230px;">
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-            <span style="font-size: 18px;">${parentRetailer?.logo || '🏬'}</span>
+            <span style="font-size: 20px;">${parentRetailer?.logo || '🏬'}</span>
             <div>
-              <strong style="color: #0f172a; font-size: 13px; display: block;">${esc(store.name)}</strong>
-              <span style="font-size: 10px; color: #64748b;">${esc(store.parentRetailerName)} • Child Store #${store.retailerNumber || '•'}</span>
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <strong style="color: #0f172a; font-size: 13px;">${esc(store.name)}</strong>
+              </div>
+              <span style="font-size: 10px; color: #64748b;">${esc(store.parentRetailerName)} • ${isMainBranch ? '⭐ Main Branch' : `Child Store #${store.retailerNumber || '•'}`}</span>
             </div>
           </div>
           <p style="font-size: 11px; color: #475569; margin: 4px 0 8px 0; line-height: 1.3;">
@@ -693,17 +954,137 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
             </label>
             <select
               onchange="window.__handlePopupZoneChange && window.__handlePopupZoneChange('${store.storeId || store._id}', this.value)"
-              style="width: 100%; font-size: 11px; padding: 4px 6px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; font-weight: bold; color: ${zoneColor};"
+              style="width: 100%; font-size: 11px; padding: 4px 6px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; font-weight: bold; color: ${zoneColor}; cursor: pointer;"
             >
               ${zoneOptionsHtml}
             </select>
           </div>
+          <button
+            onclick="window.__handleHighlightStorePolygon && window.__handleHighlightStorePolygon('${store.storeId || store._id}')"
+            style="width: 100%; padding: 5px 8px; background: #0f172a; color: #ffffff; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+          >
+            🗺️ Highlight Store Delivery Polygon
+          </button>
         </div>
       `);
 
       storeMarkersGroupRef.current.addLayer(marker);
     });
-  }, [masterZones, stores, filteredStores, selectedZoneFilter, parentRetailers]);
+  }, [masterZones, stores, filteredStores, selectedZoneFilter, parentRetailers, editingPolygonZone, focusedStoreId]);
+
+  // ---------------------------------------------------------------------------
+  // INTERACTIVE EDITABLE POLYGON & DRAGGABLE VERTEX HANDLERS ON MAP
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!mapInstanceRef.current || !activeEditLayerGroupRef.current) return;
+    activeEditLayerGroupRef.current.clearLayers();
+
+    if (!editingPolygonZone || !Array.isArray(editingPolygonPoints) || editingPolygonPoints.length === 0) return;
+
+    const zoneColor = editingPolygonZone.color || '#ea580c';
+
+    // 1. Draw live active polygon boundary
+    if (editingPolygonPoints.length >= 2) {
+      const activePolygon = L.polygon(editingPolygonPoints, {
+        color: zoneColor,
+        weight: 3.5,
+        dashArray: '6, 6',
+        fillColor: zoneColor,
+        fillOpacity: 0.32
+      });
+      activeEditLayerGroupRef.current.addLayer(activePolygon);
+    }
+
+    // 2. Draw draggable vertex handles for each polygon corner
+    editingPolygonPoints.forEach((point, idx) => {
+      const vertexIcon = L.divIcon({
+        className: 'custom-polygon-vertex',
+        html: `
+          <div style="
+            width: 26px;
+            height: 26px;
+            border-radius: 9999px;
+            background: #ffffff;
+            border: 3px solid ${zoneColor};
+            box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 900;
+            color: #0f172a;
+            cursor: grab;
+            user-select: none;
+            transition: transform 0.1s ease;
+          ">
+            ${idx + 1}
+          </div>
+        `,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13]
+      });
+
+      const marker = L.marker(point, {
+        icon: vertexIcon,
+        draggable: true,
+        zIndexOffset: 1000
+      });
+
+      marker.on('drag', (e) => {
+        const { lat, lng } = e.target.getLatLng();
+        setEditingPolygonPoints((prev) => {
+          const next = [...prev];
+          next[idx] = [Number(lat.toFixed(5)), Number(lng.toFixed(5))];
+          return next;
+        });
+      });
+
+      marker.on('dragend', () => {
+        setPointsHistory((prev) => [...prev, editingPolygonPoints]);
+      });
+
+      marker.bindTooltip(`Corner #${idx + 1}<br/><span style="font-size: 9px; color: #64748b;">Drag to move • Click to delete</span>`, {
+        direction: 'top',
+        offset: [0, -10]
+      });
+
+      marker.on('click', () => {
+        if (editingPolygonPoints.length > 3) {
+          setEditingPolygonPoints((prev) => prev.filter((_, i) => i !== idx));
+          if (addToast) addToast('Corner Removed', `Deleted corner #${idx + 1}`, 'info');
+        } else {
+          if (addToast) addToast('Cannot Remove', 'Polygon requires at least 3 points.', 'error');
+        }
+      });
+
+      activeEditLayerGroupRef.current.addLayer(marker);
+    });
+  }, [editingPolygonZone, editingPolygonPoints, addToast]);
+
+  // ---------------------------------------------------------------------------
+  // MAP CLICK LISTENER FOR ADDING / REDRAWING POLYGON POINTS
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    const onMapClick = (e) => {
+      if (!editingPolygonZone) return;
+      if (polygonEditMode === 'add' || polygonEditMode === 'redraw') {
+        const newPoint = [Number(e.latlng.lat.toFixed(5)), Number(e.latlng.lng.toFixed(5))];
+        setEditingPolygonPoints((prev) => {
+          const next = [...prev, newPoint];
+          setPointsHistory((h) => [...h, next]);
+          return next;
+        });
+      }
+    };
+
+    map.on('click', onMapClick);
+    return () => {
+      map.off('click', onMapClick);
+    };
+  }, [editingPolygonZone, polygonEditMode]);
 
   return (
     <div className="space-y-6">
@@ -869,6 +1250,28 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
               </button>
             </div>
 
+            {/* Quick Edit Polygon Dropdown */}
+            {!editingPolygonZone && (
+              <div className="flex items-center gap-1">
+                <select
+                  onChange={(e) => {
+                    const z = masterZones.find((zone) => (zone.zoneId || zone._id) === e.target.value);
+                    if (z) handleStartEditPolygon(z);
+                    e.target.value = '';
+                  }}
+                  defaultValue=""
+                  className="bg-sky-50 border border-sky-200 text-sky-800 font-bold text-xs rounded-xl px-2.5 py-1.5 cursor-pointer hover:bg-sky-100 transition shadow-2xs"
+                >
+                  <option value="" disabled>✏️ Reshape a Zone Polygon...</option>
+                  {masterZones.map((z) => (
+                    <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
+                      Reshape: {z.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Reset View */}
             <button
               onClick={() => {
@@ -876,6 +1279,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                   mapInstanceRef.current.setView([31.4140, 73.0950], 13);
                   setSelectedZoneFilter('all');
                   setSelectedRetailerFilter('all');
+                  setFocusedStoreId(null);
                 }
               }}
               className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1"
@@ -885,6 +1289,100 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
             </button>
           </div>
         </div>
+
+        {/* Floating Active Polygon Editor Toolbar */}
+        {editingPolygonZone && (
+          <div className="p-3 sm:p-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white border-b border-slate-700 flex flex-col lg:flex-row lg:items-center justify-between gap-3 animate-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-white shrink-0 shadow-md"
+                style={{ backgroundColor: editingPolygonZone.color || '#ea580c' }}
+              >
+                {editingPolygonZone.zoneNumber}
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-black text-sm text-white">
+                    Editing Polygon: {editingPolygonZone.name}
+                  </span>
+                  <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Target className="w-3 h-3" />
+                    <span>{editingPolygonPoints.length} Corners</span>
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  {polygonEditMode === 'drag'
+                    ? '🖐️ Drag numbered circles to reshape polygon boundary corners.'
+                    : '➕ Click anywhere on the map to add new boundary corners.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setPolygonEditMode(polygonEditMode === 'drag' ? 'add' : 'drag')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  polygonEditMode === 'add'
+                    ? 'bg-amber-400 text-slate-950 font-black shadow-md ring-2 ring-amber-300'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                }`}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{polygonEditMode === 'add' ? '✓ Click Map to Add' : '+ Add Points'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleUndoPoint}
+                disabled={pointsHistory.length <= 1}
+                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                title="Undo last point modification"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+                <span>Undo</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleUntanglePoints}
+                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                title="Untangle overlapping polygon lines clockwise"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>Untangle</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleClearForRedraw}
+                className="px-2.5 py-1.5 bg-slate-800 hover:bg-rose-950 text-rose-300 border border-slate-700 hover:border-rose-800 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                title="Clear boundary and redraw by clicking on map"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Redraw</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSavePolygonChanges}
+                className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer"
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>Save Polygon</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCancelEditPolygon}
+                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition cursor-pointer"
+                title="Cancel without saving"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Leaflet Map Canvas */}
         <div className="relative">
@@ -1058,11 +1556,23 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                         masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId) ||
                         masterZones[0] ||
                         FOUR_MASTER_DELIVERY_ZONES[0];
+                      const isMainBranch =
+                        store.name.toLowerCase().includes('main') ||
+                        store.branchName.toLowerCase().includes('main') ||
+                        store.retailerNumber === 1 ||
+                        store.retailerNumber === 2 ||
+                        store.retailerNumber === 7 ||
+                        store.retailerNumber === 10;
+                      const isFocused = focusedStoreId === (store.storeId || store._id);
 
                       return (
                         <div
                           key={store.storeId || store._id}
-                          className="bg-white rounded-2xl border border-slate-200 hover:border-slate-300 p-4 space-y-3.5 transition shadow-2xs hover:shadow-xs flex flex-col justify-between"
+                          className={`bg-white rounded-2xl border p-4 space-y-3.5 transition shadow-2xs hover:shadow-xs flex flex-col justify-between ${
+                            isFocused
+                              ? 'border-slate-900 ring-2 ring-emerald-500/30'
+                              : 'border-slate-200 hover:border-slate-300'
+                          }`}
                         >
                           {/* Store Details Header */}
                           <div className="space-y-1.5">
@@ -1070,10 +1580,17 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                               <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
                                 Retailer #{store.retailerNumber || '•'}
                               </span>
-                              <div className="flex items-center gap-1">
-                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                                  Physical store
-                                </span>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {isMainBranch ? (
+                                  <span className="text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs">
+                                    <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                                    <span>Main Branch</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                    Physical store
+                                  </span>
+                                )}
                                 <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
                                   Child store
                                 </span>
@@ -1103,11 +1620,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                             </div>
                           </div>
 
-                          {/* Zone Assignment Dropdown Selector */}
+                          {/* Zone Assignment Dropdown Selector & Polygon Preview */}
                           <div className="pt-2 border-t border-slate-100 space-y-2">
                             <div className="flex items-center justify-between">
                               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                                Assign Delivery Zone
+                                Assigned Delivery Zone
                               </label>
                               <span
                                 className="text-[10px] font-bold px-2 py-0.5 rounded-full"
@@ -1132,6 +1649,21 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                                 </option>
                               ))}
                             </select>
+
+                            {/* Live Delivery Zone Coverage Info */}
+                            <div className="p-2 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between gap-2 text-[10px]">
+                              <span className="text-slate-500 font-medium truncate">
+                                Fulfills orders in: <strong style={{ color: assignedZone?.color }}>{assignedZone?.shortName} Polygon</strong>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleHighlightStorePolygon(store)}
+                                className="font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 shrink-0 cursor-pointer"
+                              >
+                                <span>View on Map</span>
+                                <ArrowRight className="w-3 h-3" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -1196,6 +1728,15 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
+                          onClick={() => handleStartEditPolygon(zone)}
+                          className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 rounded-xl text-sky-700 border border-sky-200 shadow-2xs transition cursor-pointer flex items-center gap-1 text-[11px] font-bold"
+                          title="Reshape Polygon on Map"
+                        >
+                          <Compass className="w-3.5 h-3.5 text-sky-600" />
+                          <span>Reshape Polygon</span>
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleOpenEditZone(zone)}
                           className="p-1.5 hover:bg-white rounded-xl text-slate-600 border border-slate-200 shadow-2xs transition cursor-pointer"
                           title="Edit Zone Details"
@@ -1219,12 +1760,22 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                           Associated Physical Stores:
                         </span>
-                        <span
-                          className="px-2 py-0.5 rounded-full text-[10px] font-black"
-                          style={{ backgroundColor: `${zone.color}20`, color: zone.color }}
-                        >
-                          {linkedStores.length} Stores Linked
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setAssociateStoreModalZone(zone)}
+                            className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition shadow-2xs"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Associate Store</span>
+                          </button>
+                          <span
+                            className="px-2 py-0.5 rounded-full text-[10px] font-black"
+                            style={{ backgroundColor: `${zone.color}20`, color: zone.color }}
+                          >
+                            {linkedStores.length} Linked
+                          </span>
+                        </div>
                       </div>
 
                       <div className="space-y-2 text-xs">
@@ -1652,6 +2203,31 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                 </div>
               </div>
 
+              {/* Interactive On-Map Polygon Editor Launch Button */}
+              <div className="p-3 bg-sky-50 rounded-2xl border border-sky-100 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 bg-sky-100 text-sky-700 rounded-xl">
+                    <Compass className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <strong className="text-slate-900 block font-bold">Polygon Boundary Geofence</strong>
+                    <span className="text-[10px] text-slate-500">
+                      {(selectedZoneToEdit?.polygon?.coordinates || []).length} Boundary Vertices defined on map
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleStartEditPolygon(selectedZoneToEdit);
+                  }}
+                  className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <Edit2 className="w-3 h-3" />
+                  <span>Reshape on Map</span>
+                </button>
+              </div>
+
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                 <button
                   type="button"
@@ -1970,6 +2546,119 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition cursor-pointer"
               >
                 Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL: ASSOCIATE PHYSICAL STORES WITH ZONE                             */}
+      {/* ===================================================================== */}
+      {associateStoreModalZone && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 space-y-5 shadow-2xl border border-slate-100 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="w-10 h-10 rounded-2xl flex items-center justify-center text-white font-black text-sm shadow-xs"
+                  style={{ backgroundColor: associateStoreModalZone.color }}
+                >
+                  {associateStoreModalZone.zoneNumber}
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">
+                    Associate Physical Stores
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Link stores to {associateStoreModalZone.name} for delivery fulfillment
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAssociateStoreModalZone(null)}
+                className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-xl transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto space-y-2.5 pr-1 flex-1 max-h-[60vh]">
+              {stores.map((store) => {
+                const zId = associateStoreModalZone.zoneId || associateStoreModalZone._id;
+                const isLinked = store.deliveryZoneId === zId;
+                const currentZone = masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId);
+                const parent = parentRetailers.find((r) => r.id === store.retailerId);
+                const isMainBranch =
+                  store.name.toLowerCase().includes('main') ||
+                  store.branchName.toLowerCase().includes('main') ||
+                  store.retailerNumber === 1 ||
+                  store.retailerNumber === 2 ||
+                  store.retailerNumber === 7 ||
+                  store.retailerNumber === 10;
+
+                return (
+                  <div
+                    key={store.storeId || store._id}
+                    className={`p-3 rounded-2xl border transition flex items-center justify-between gap-3 ${
+                      isLinked
+                        ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs'
+                        : 'bg-slate-50 border-slate-200 hover:bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{parent?.logo || '🏬'}</span>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <strong className="text-xs font-black text-slate-900">{store.name}</strong>
+                          {isMainBranch && (
+                            <span className="text-[9px] font-black text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded">
+                              ⭐ Main Branch
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-500 block mt-0.5">
+                          {store.parentRetailerName} • Current Zone: <strong style={{ color: currentZone?.color }}>{currentZone?.shortName || 'None'}</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      {isLinked ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-2xs">
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            <span>Linked</span>
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateStoreZone(store.storeId || store._id, zId);
+                          }}
+                          className="px-3 py-1.5 bg-white hover:bg-emerald-600 hover:text-white text-slate-700 border border-slate-300 hover:border-emerald-600 rounded-xl text-xs font-bold transition cursor-pointer shadow-2xs active:scale-95"
+                        >
+                          + Link to this Zone
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-xs text-slate-500 font-medium">
+                {stores.filter((s) => s.deliveryZoneId === (associateStoreModalZone.zoneId || associateStoreModalZone._id)).length} stores currently associated
+              </span>
+              <button
+                type="button"
+                onClick={() => setAssociateStoreModalZone(null)}
+                className="px-5 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition cursor-pointer shadow-2xs"
+              >
+                Done
               </button>
             </div>
           </div>
