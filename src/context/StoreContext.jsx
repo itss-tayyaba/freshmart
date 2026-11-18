@@ -385,6 +385,42 @@ export const StoreProvider = ({ children }) => {
     }
   });
 
+  // Admin Profile & Authentication (Gated by strict authentication, isolated per browser tab)
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
+    try {
+      if (initialRoute?.page === 'login') {
+        return false;
+      }
+      const tabSession = sessionStorage.getItem('freshmart_tab_session');
+      const tabToken = sessionStorage.getItem('freshmart_admin_token') || localStorage.getItem('freshmart_admin_token');
+      if (tabSession === 'true' && tabToken) return true;
+      const isSession = localStorage.getItem('freshmart_admin_session') === 'true';
+      const hasToken = Boolean(localStorage.getItem('freshmart_admin_token'));
+      if (isSession && hasToken) return true;
+      const savedUserStr = sessionStorage.getItem('freshmart_tab_user') || localStorage.getItem('freshmart_admin_user');
+      if (savedUserStr) {
+        const u = JSON.parse(savedUserStr);
+        if (u && (u.role || u.id)) return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const [user, setUser] = useState(() => {
+    try {
+      if (initialRoute?.page === 'login') {
+        return null;
+      }
+      const tabUser = sessionStorage.getItem('freshmart_tab_user');
+      if (tabUser) return JSON.parse(tabUser);
+      const savedUser = localStorage.getItem('freshmart_admin_user');
+      if (savedUser) return JSON.parse(savedUser);
+    } catch (e) {}
+    return null;
+  });
+
   // Current active page view (persists active portal across refreshes)
   const [currentPage, setCurrentPage] = useState(() => {
     // 1. If explicit page is present in URL (e.g. /delivery-portal, /admin, /pickup-staff, /shop, etc.)
@@ -2271,43 +2307,6 @@ export const StoreProvider = ({ children }) => {
       await apiService.togglePromotionStatus(id);
     } catch (e) {}
   };
-
-
-  // Admin Profile & Authentication (Gated by strict authentication, isolated per browser tab)
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
-    try {
-      if (initialRoute?.page === 'login') {
-        return false;
-      }
-      const tabSession = sessionStorage.getItem('freshmart_tab_session');
-      const tabToken = sessionStorage.getItem('freshmart_admin_token') || localStorage.getItem('freshmart_admin_token');
-      if (tabSession === 'true' && tabToken) return true;
-      const isSession = localStorage.getItem('freshmart_admin_session') === 'true';
-      const hasToken = Boolean(localStorage.getItem('freshmart_admin_token'));
-      if (isSession && hasToken) return true;
-      const savedUserStr = sessionStorage.getItem('freshmart_tab_user') || localStorage.getItem('freshmart_admin_user');
-      if (savedUserStr) {
-        const u = JSON.parse(savedUserStr);
-        if (u && (u.role || u.id)) return true;
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
-  });
-
-  const [user, setUser] = useState(() => {
-    try {
-      if (initialRoute?.page === 'login') {
-        return null;
-      }
-      const tabUser = sessionStorage.getItem('freshmart_tab_user');
-      if (tabUser) return JSON.parse(tabUser);
-      const savedUser = localStorage.getItem('freshmart_admin_user');
-      if (savedUser) return JSON.parse(savedUser);
-    } catch (e) {}
-    return null;
-  });
 
   // Orders are shared through the API so staff updates appear in the admin
   // dashboard even when they are using different browsers or devices.
