@@ -1,11 +1,395 @@
 [
   {
+    "_id": "STR-AF-001",
+    "storeId": "STR-AF-001",
+    "retailerId": "tenant-alfatah",
+    "tenantId": "tenant-alfatah",
+    "parentRetailerName": "Al-Fateh",
+    "retailerNumber": 1,
+    "name": "Store B – People's Colony Branch",
+    "branchName": "People's Colony Branch",
+    "type": "child",
+    "address": "Main Commercial Avenue, People's Colony, Faisalabad",
+    "city": "Faisalabad",
+    "latitude": 31.415,
+    "longitude": 73.0995,
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        73.0995,
+        31.415
+      ]
+    },
+    "deliveryZoneId": "zone_001",
+    "status": "active",
+    "isActive": true,
+    "operatingStatus": "Open",
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "phone": "+92 300 8441111",
+    "deliveryRadiusKm": 5,
+    "deliveryRadius": 5,
+    "operatingHours": "08:00 AM - 11:00 PM",
+    "storeImage": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80",
+    "assignedZoneId": "ZONE-FSD-CANAL",
+    "tenantName": "Al-Fatah",
+    "contactNumber": "+92 300 8442233",
+    "manager": "Al-Fatah Store Manager",
+    "deliveryPolygon": [
+      [
+        31.435,
+        73.09
+      ],
+      [
+        31.435,
+        73.125
+      ],
+      [
+        31.405,
+        73.125
+      ],
+      [
+        31.405,
+        73.09
+      ],
+      [
+        31.435,
+        73.09
+      ]
+    ]
+  },
+  {
+    "_id": "STR-AF-002",
+    "storeId": "STR-AF-002",
+    "retailerId": "tenant-alfatah",
+    "tenantId": "tenant-alfatah",
+    "parentRetailerName": "Al-Fateh",
+    "retailerNumber": 3,
+    "name": "Al-Fateh — Branch 2",
+    "branchName": "Branch 2 (Madina Town)",
+    "type": "child",
+    "address": "Susan Road, Madina Town Sector B, Faisalabad",
+    "city": "Faisalabad",
+    "latitude": 31.432,
+    "longitude": 73.13,
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        73.13,
+        31.432
+      ]
+    },
+    "deliveryZoneId": "zone_002",
+    "status": "active",
+    "isActive": true,
+    "operatingStatus": "Open",
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "phone": "+92 300 8441112",
+    "deliveryRadiusKm": 5,
+    "deliveryRadius": 5,
+    "operatingHours": "08:00 AM - 11:00 PM",
+    "storeImage": "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80",
+    "assignedZoneId": "zone_002"
+  },
+  {
+    "_id": "STR-AF-003",
+    "storeId": "STR-AF-003",
+    "retailerId": "tenant-alfatah",
+    "tenantId": "tenant-alfatah",
+    "parentRetailerName": "Al-Fateh",
+    "retailerNumber": 5,
+    "name": "Al-Fateh — Branch 3",
+    "branchName": "Branch 3 (D-Ground)",
+    "type": "child",
+    "address": "Peoples Colony No 1, Near D-Ground Circle, Faisalabad",
+    "city": "Faisalabad",
+    "latitude": 31.412,
+    "longitude": 73.085,
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        73.085,
+        31.412
+      ]
+    },
+    "deliveryZoneId": "zone_003",
+    "status": "active",
+    "isActive": true,
+    "operatingStatus": "Open",
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "phone": "+92 300 8441113",
+    "deliveryRadiusKm": 5,
+    "deliveryRadius": 5,
+    "operatingHours": "08:00 AM - 11:00 PM",
+    "storeImage": "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80",
+    "assignedZoneId": "zone_003"
+  },
+  {
+    "_id": "STR-CU-001",
+    "storeId": "STR-CU-001",
+    "retailerId": "tenant-chaseup",
+    "tenantId": "tenant-chaseup",
+    "parentRetailerName": "Chase Up",
+    "retailerNumber": 2,
+    "name": "Store D – Samanabad Branch",
+    "branchName": "Samanabad Branch",
+    "type": "child",
+    "address": "Main Samanabad Road, Near Roundabout, Faisalabad",
+    "city": "Faisalabad",
+    "latitude": 31.392,
+    "longitude": 73.065,
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        73.065,
+        31.392
+      ]
+    },
+    "deliveryZoneId": "zone_001",
+    "status": "active",
+    "isActive": true,
+    "operatingStatus": "Open",
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "phone": "+92 300 8442221",
+    "deliveryRadiusKm": 5,
+    "deliveryRadius": 5,
+    "operatingHours": "08:00 AM - 11:00 PM",
+    "storeImage": "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=1200&q=80",
+    "assignedZoneId": "ZONE-FSD-CLOCKTOWER",
+    "tenantName": "Chase Up",
+    "contactNumber": "+92 300 8444455",
+    "manager": "Chase Up Store Manager",
+    "deliveryPolygon": [
+      [
+        31.42,
+        73.05
+      ],
+      [
+        31.42,
+        73.08
+      ],
+      [
+        31.39,
+        73.08
+      ],
+      [
+        31.39,
+        73.05
+      ],
+      [
+        31.42,
+        73.05
+      ]
+    ]
+  },
+  {
+    "_id": "STR-CU-002",
+    "storeId": "STR-CU-002",
+    "retailerId": "tenant-chaseup",
+    "tenantId": "tenant-chaseup",
+    "parentRetailerName": "Chase Up",
+    "retailerNumber": 4,
+    "name": "Chase Up — Branch 2",
+    "branchName": "Branch 2 (Madina Town)",
+    "type": "child",
+    "address": "Main Boulevard, Madina Town, Faisalabad",
+    "city": "Faisalabad",
+    "latitude": 31.436,
+    "longitude": 73.138,
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        73.138,
+        31.436
+      ]
+    },
+    "deliveryZoneId": "zone_002",
+    "status": "active",
+    "isActive": true,
+    "operatingStatus": "Open",
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "phone": "+92 300 8442222",
+    "deliveryRadiusKm": 5,
+    "deliveryRadius": 5,
+    "operatingHours": "08:00 AM - 11:00 PM",
+    "storeImage": "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80",
+    "assignedZoneId": "zone_002"
+  },
+  {
+    "_id": "STR-CU-003",
+    "storeId": "STR-CU-003",
+    "retailerId": "tenant-chaseup",
+    "tenantId": "tenant-chaseup",
+    "parentRetailerName": "Chase Up",
+    "retailerNumber": 6,
+    "name": "Chase Up — Branch 3",
+    "branchName": "Branch 3 (D-Ground)",
+    "type": "child",
+    "address": "Gulberg Road, Near D-Ground Commercial, Faisalabad",
+    "city": "Faisalabad",
+    "latitude": 31.416,
+    "longitude": 73.088,
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        73.088,
+        31.416
+      ]
+    },
+    "deliveryZoneId": "zone_003",
+    "status": "active",
+    "isActive": true,
+    "operatingStatus": "Open",
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "phone": "+92 300 8442223",
+    "deliveryRadiusKm": 5,
+    "deliveryRadius": 5,
+    "operatingHours": "08:00 AM - 11:00 PM",
+    "storeImage": "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80",
+    "assignedZoneId": "zone_003"
+  },
+  {
+    "_id": "STR-CV-001",
+    "storeId": "STR-CV-001",
+    "retailerId": "tenant-chasevalue",
+    "tenantId": "tenant-chasevalue",
+    "parentRetailerName": "Chase Value",
+    "retailerNumber": 7,
+    "name": "Store C – Susan Road Branch",
+    "branchName": "Susan Road Branch",
+    "type": "child",
+    "address": "Susan Road, Madina Town, Faisalabad",
+    "city": "Faisalabad",
+    "latitude": 31.428,
+    "longitude": 73.12,
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        73.12,
+        31.428
+      ]
+    },
+    "deliveryZoneId": "zone_003",
+    "status": "active",
+    "isActive": true,
+    "operatingStatus": "Open",
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "phone": "+92 300 8443331",
+    "deliveryRadiusKm": 5,
+    "deliveryRadius": 5,
+    "operatingHours": "08:00 AM - 11:00 PM",
+    "storeImage": "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80",
+    "assignedZoneId": "ZONE-FSD-MADINA",
+    "tenantName": "Chase Value",
+    "contactNumber": "+92 300 8443344",
+    "manager": "Chase Value Store Manager",
+    "deliveryPolygon": [
+      [
+        31.445,
+        73.095
+      ],
+      [
+        31.445,
+        73.13
+      ],
+      [
+        31.415,
+        73.13
+      ],
+      [
+        31.415,
+        73.095
+      ],
+      [
+        31.445,
+        73.095
+      ]
+    ]
+  },
+  {
+    "_id": "STR-CV-002",
+    "storeId": "STR-CV-002",
+    "retailerId": "tenant-chasevalue",
+    "tenantId": "tenant-chasevalue",
+    "parentRetailerName": "Chase Value",
+    "retailerNumber": 8,
+    "name": "Chase Value — People's Colony Branch",
+    "branchName": "Branch 2 (People's Colony)",
+    "type": "child",
+    "address": "Commercial Market, People's Colony 1, Faisalabad",
+    "city": "Faisalabad",
+    "latitude": 31.415,
+    "longitude": 73.105,
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        73.105,
+        31.415
+      ]
+    },
+    "deliveryZoneId": "zone_004",
+    "status": "active",
+    "isActive": true,
+    "operatingStatus": "Open",
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "phone": "+92 300 8443332",
+    "deliveryRadiusKm": 5,
+    "deliveryRadius": 5,
+    "operatingHours": "08:00 AM - 11:00 PM",
+    "storeImage": "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80",
+    "assignedZoneId": "zone_004"
+  },
+  {
+    "_id": "STR-CV-003",
+    "storeId": "STR-CV-003",
+    "retailerId": "tenant-chasevalue",
+    "tenantId": "tenant-chasevalue",
+    "parentRetailerName": "Chase Value",
+    "retailerNumber": 9,
+    "name": "Chase Value — Main Mall Branch",
+    "branchName": "Branch 3 (Main Mall)",
+    "type": "child",
+    "address": "East Canal Expressway & People's Colony Junction, Faisalabad",
+    "city": "Faisalabad",
+    "latitude": 31.421,
+    "longitude": 73.112,
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        73.112,
+        31.421
+      ]
+    },
+    "deliveryZoneId": "zone_004",
+    "status": "active",
+    "isActive": true,
+    "operatingStatus": "Open",
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "phone": "+92 300 8443333",
+    "deliveryRadiusKm": 5,
+    "deliveryRadius": 5,
+    "operatingHours": "08:00 AM - 11:00 PM",
+    "storeImage": "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80",
+    "assignedZoneId": "zone_004"
+  },
+  {
     "_id": "STR-UM-001",
     "storeId": "STR-UM-001",
+    "retailerId": "tenant-unimart",
     "tenantId": "tenant-unimart",
-    "tenantName": "Unimart",
+    "parentRetailerName": "Unimart",
+    "retailerNumber": 10,
     "name": "Store A – D-Ground Branch",
     "branchName": "D-Ground Branch",
+    "type": "child",
     "address": "D-Ground Commercial Area, Peoples Colony 1, Faisalabad",
     "city": "Faisalabad",
     "latitude": 31.4125,
@@ -17,16 +401,21 @@
         31.4125
       ]
     },
-    "contactNumber": "+92 300 8441122",
-    "openingHours": "08:00 AM",
-    "closingHours": "11:00 PM",
-    "storeImage": "https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=1200&q=80",
+    "deliveryZoneId": "zone_001",
     "status": "active",
     "isActive": true,
     "operatingStatus": "Open",
-    "manager": "",
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "phone": "",
     "deliveryRadiusKm": 5,
+    "deliveryRadius": 5,
+    "operatingHours": "08:00 AM - 11:00 PM",
+    "storeImage": "https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=1200&q=80",
     "assignedZoneId": null,
+    "tenantName": "Unimart",
+    "contactNumber": "+92 300 8441122",
+    "manager": "",
     "deliveryPolygon": [
       [
         31.411,
@@ -49,7 +438,6 @@
     "code": "",
     "companyId": "",
     "createdAt": "2026-11-15T15:48:07.575Z",
-    "deliveryRadius": 5,
     "deliveryStatus": "active",
     "deliveryTiers": [
       {
@@ -75,162 +463,75 @@
     "deliveryZoneUpdatedByRole": "superadmin",
     "deliveryZoneVersion": 0,
     "id": "STR-UM-001",
-    "operatingHours": "08:00 AM - 11:00 PM",
-    "phone": "",
     "supportsExtendedDelivery": false,
     "updatedAt": "2026-11-15T15:49:52.776Z"
   },
   {
-    "_id": "STR-AF-001",
-    "storeId": "STR-AF-001",
-    "tenantId": "tenant-alfatah",
-    "tenantName": "Al-Fatah",
-    "name": "Store B – People's Colony Branch",
-    "branchName": "People's Colony Branch",
-    "address": "Main Commercial Avenue, People's Colony, Faisalabad",
+    "_id": "STR-UM-002",
+    "storeId": "STR-UM-002",
+    "retailerId": "tenant-unimart",
+    "tenantId": "tenant-unimart",
+    "parentRetailerName": "Unimart",
+    "retailerNumber": 11,
+    "name": "Unimart — Madina Town Branch",
+    "branchName": "Branch 2 (Madina Town)",
+    "type": "child",
+    "address": "Officers Colony, Madina Town, Faisalabad",
     "city": "Faisalabad",
-    "latitude": 31.415,
-    "longitude": 73.0995,
+    "latitude": 31.439,
+    "longitude": 73.134,
     "location": {
       "type": "Point",
       "coordinates": [
-        73.0995,
-        31.415
+        73.134,
+        31.439
       ]
     },
-    "contactNumber": "+92 300 8442233",
-    "openingHours": "08:00 AM",
-    "closingHours": "11:00 PM",
-    "storeImage": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80",
+    "deliveryZoneId": "zone_002",
     "status": "active",
     "isActive": true,
     "operatingStatus": "Open",
-    "manager": "Al-Fatah Store Manager",
-    "deliveryRadiusKm": 5,
-    "assignedZoneId": "ZONE-FSD-CANAL",
-    "deliveryPolygon": [
-      [
-        31.435,
-        73.09
-      ],
-      [
-        31.435,
-        73.125
-      ],
-      [
-        31.405,
-        73.125
-      ],
-      [
-        31.405,
-        73.09
-      ],
-      [
-        31.435,
-        73.09
-      ]
-    ]
-  },
-  {
-    "_id": "STR-CV-001",
-    "storeId": "STR-CV-001",
-    "tenantId": "tenant-chasevalue",
-    "tenantName": "Chase Value",
-    "name": "Store C – Susan Road Branch",
-    "branchName": "Susan Road Branch",
-    "address": "Susan Road, Madina Town, Faisalabad",
-    "city": "Faisalabad",
-    "latitude": 31.428,
-    "longitude": 73.12,
-    "location": {
-      "type": "Point",
-      "coordinates": [
-        73.12,
-        31.428
-      ]
-    },
-    "contactNumber": "+92 300 8443344",
     "openingHours": "08:00 AM",
     "closingHours": "11:00 PM",
+    "phone": "+92 300 8444442",
+    "deliveryRadiusKm": 5,
+    "deliveryRadius": 5,
+    "operatingHours": "08:00 AM - 11:00 PM",
     "storeImage": "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80",
-    "status": "active",
-    "isActive": true,
-    "operatingStatus": "Open",
-    "manager": "Chase Value Store Manager",
-    "deliveryRadiusKm": 5,
-    "assignedZoneId": "ZONE-FSD-MADINA",
-    "deliveryPolygon": [
-      [
-        31.445,
-        73.095
-      ],
-      [
-        31.445,
-        73.13
-      ],
-      [
-        31.415,
-        73.13
-      ],
-      [
-        31.415,
-        73.095
-      ],
-      [
-        31.445,
-        73.095
-      ]
-    ]
+    "assignedZoneId": "zone_002"
   },
   {
-    "_id": "STR-CU-001",
-    "storeId": "STR-CU-001",
-    "tenantId": "tenant-chaseup",
-    "tenantName": "Chase Up",
-    "name": "Store D – Samanabad Branch",
-    "branchName": "Samanabad Branch",
-    "address": "Main Samanabad Road, Near Roundabout, Faisalabad",
+    "_id": "STR-UM-003",
+    "storeId": "STR-UM-003",
+    "retailerId": "tenant-unimart",
+    "tenantId": "tenant-unimart",
+    "parentRetailerName": "Unimart",
+    "retailerNumber": 12,
+    "name": "Unimart — People's Colony Branch",
+    "branchName": "Branch 3 (People's Colony)",
+    "type": "child",
+    "address": "Chenab Market, People's Colony 2, Faisalabad",
     "city": "Faisalabad",
-    "latitude": 31.392,
-    "longitude": 73.065,
+    "latitude": 31.411,
+    "longitude": 73.109,
     "location": {
       "type": "Point",
       "coordinates": [
-        73.065,
-        31.392
+        73.109,
+        31.411
       ]
     },
-    "contactNumber": "+92 300 8444455",
-    "openingHours": "08:00 AM",
-    "closingHours": "11:00 PM",
-    "storeImage": "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=1200&q=80",
+    "deliveryZoneId": "zone_004",
     "status": "active",
     "isActive": true,
     "operatingStatus": "Open",
-    "manager": "Chase Up Store Manager",
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "phone": "+92 300 8444443",
     "deliveryRadiusKm": 5,
-    "assignedZoneId": "ZONE-FSD-CLOCKTOWER",
-    "deliveryPolygon": [
-      [
-        31.42,
-        73.05
-      ],
-      [
-        31.42,
-        73.08
-      ],
-      [
-        31.39,
-        73.08
-      ],
-      [
-        31.39,
-        73.05
-      ],
-      [
-        31.42,
-        73.05
-      ]
-    ]
+    "deliveryRadius": 5,
+    "operatingHours": "08:00 AM - 11:00 PM",
+    "storeImage": "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80",
+    "assignedZoneId": "zone_004"
   }
 ]

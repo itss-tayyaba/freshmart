@@ -1,6 +1,6 @@
 // Unified Supermarket Stores & Retailers Single Source of Truth
 // Synchronizes baseline stores, custom stores, and API stores across all dashboards, sidebars, and GIS views
-import { TWELVE_PHYSICAL_STORES } from '../data/retailerZoneHierarchyData';
+import { TWELVE_PHYSICAL_STORES, loadRetailerStores } from '../data/retailerZoneHierarchyData';
 
 export const CORE_RETAILERS = [
   { id: 'tenant-alfatah', name: 'Al-Fatah', color: '#991b1b', logo: '🏬' },
@@ -288,26 +288,26 @@ export const getAllUnifiedStores = (apiStores = [], extraBranches = [], targetCi
     return s;
   };
 
-  // Stores are NOT created automatically!
-  // Only stores created by user/admin (via API, local custom stores, or explicitly added branches) are loaded.
+  // Ensure all 12 physical stores across the 4 parent retailers are always present and up-to-date
+  let rStores = [];
+  try {
+    rStores = loadRetailerStores();
+  } catch (e) {}
+  const canonicalStores = Array.isArray(rStores) && rStores.length > 0 ? rStores : TWELVE_PHYSICAL_STORES;
+
   const combined = [
     ...validApi.map(attachPolygonIfKnown),
-    ...localCustom.map(attachPolygonIfKnown)
+    ...localCustom.map(attachPolygonIfKnown),
+    ...canonicalStores.map(attachPolygonIfKnown)
   ];
 
-  if (combined.length === 0 && Array.isArray(extraBranches)) {
-    // Only include user-created branches if no api/localCustom stores exist
+  if (Array.isArray(extraBranches) && extraBranches.length > 0) {
     const userBranches = extraBranches.filter(
       (b) => b && (b.isUserCreated || b.isCustom || String(b._id || b.id || '').startsWith('STR-'))
     );
     if (userBranches.length > 0) {
       combined.push(...mappedBranches.filter((mb) => userBranches.some((ub) => (ub._id || ub.id) === mb.storeId)));
     }
-  }
-
-  // If still empty, supply the baseline 12 physical stores across the 4 parent retailers
-  if (combined.length === 0) {
-    combined.push(...TWELVE_PHYSICAL_STORES.map(attachPolygonIfKnown));
   }
 
   return deduplicateStores(combined.map(attachPolygonIfKnown));

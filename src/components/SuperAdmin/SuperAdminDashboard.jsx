@@ -63,7 +63,14 @@ import { DeliveryZoneView } from '../Admin/views/DeliveryZoneView';
 import { StoreManagementView } from '../Admin/views/StoreManagementView';
 import { ZoneManagementView } from '../Admin/views/ZoneManagementView';
 import { ZoneStoreAssignmentView } from '../Admin/views/ZoneStoreAssignmentView';
-import { isStoreAreaPolygon } from '../../data/retailerZoneHierarchyData';
+import {
+  FOUR_PARENT_RETAILERS,
+  FOUR_MASTER_DELIVERY_ZONES,
+  TWELVE_PHYSICAL_STORES,
+  loadRetailerStores,
+  loadMasterZones,
+  isStoreAreaPolygon
+} from '../../data/retailerZoneHierarchyData';
 import { DeliveryView } from '../Admin/views/DeliveryView';
 import { getAllUnifiedStores, BASELINE_FIVE_STORES, CORE_RETAILERS } from '../../utils/storeHelper';
 
@@ -113,9 +120,9 @@ export const SuperAdminDashboard = () => {
   // Active Navigation in Sidebar
   const [activeNav, setActiveNav] = useState('dashboard');
 
-  // Live GIS & Multi-Store Data State
-  const [liveZones, setLiveZones] = useState([]);
-  const [liveStores, setLiveStores] = useState(() => getAllUnifiedStores([], allBranches));
+  // Live GIS & Multi-Store Data State (Synchronized with 4 Master Zones & 12 Physical Stores)
+  const [liveZones, setLiveZones] = useState(() => loadMasterZones());
+  const [liveStores, setLiveStores] = useState(() => loadRetailerStores());
   const [liveAssignments, setLiveAssignments] = useState([]);
 
   useEffect(() => {
@@ -126,24 +133,46 @@ export const SuperAdminDashboard = () => {
           apiService.getStores(),
           apiService.getAllAssignments()
         ]);
-        if (zRes?.success && Array.isArray(zRes.zones)) setLiveZones(zRes.zones);
-        const cleanStores = getAllUnifiedStores(sRes?.stores, allBranches);
-        setLiveStores(cleanStores);
+        const rStores = loadRetailerStores();
+        if (Array.isArray(rStores) && rStores.length > 0) {
+          setLiveStores(rStores);
+        } else {
+          const cleanStores = getAllUnifiedStores(sRes?.stores, allBranches);
+          setLiveStores(cleanStores);
+        }
+
+        const mZones = loadMasterZones();
+        if (Array.isArray(mZones) && mZones.length > 0) {
+          setLiveZones(mZones);
+        } else if (zRes?.success && Array.isArray(zRes.zones)) {
+          setLiveZones(zRes.zones);
+        }
+
         if (aRes?.success && Array.isArray(aRes.assignments)) setLiveAssignments(aRes.assignments);
       } catch (e) {
-        setLiveStores(getAllUnifiedStores([], allBranches));
+        setLiveStores(loadRetailerStores());
+        setLiveZones(loadMasterZones());
       }
     };
     fetchPlatformGisData();
   }, [activeNav, allBranches]);
 
-  // Real-time synchronization when a store is added or removed across the application
+  // Real-time synchronization when a store or zone is added, edited, or reallocated across the platform
   useEffect(() => {
     const handleStoresUpdated = () => {
-      setLiveStores(getAllUnifiedStores([], allBranches));
+      setLiveStores(loadRetailerStores());
+    };
+    const handleZonesUpdated = () => {
+      setLiveZones(loadMasterZones());
     };
     window.addEventListener('freshmart_stores_updated', handleStoresUpdated);
-    return () => window.removeEventListener('freshmart_stores_updated', handleStoresUpdated);
+    window.addEventListener('freshmart_retailer_stores_updated', handleStoresUpdated);
+    window.addEventListener('freshmart_master_zones_updated', handleZonesUpdated);
+    return () => {
+      window.removeEventListener('freshmart_stores_updated', handleStoresUpdated);
+      window.removeEventListener('freshmart_retailer_stores_updated', handleStoresUpdated);
+      window.removeEventListener('freshmart_master_zones_updated', handleZonesUpdated);
+    };
   }, [allBranches]);
 
   // Modals visibility
@@ -401,18 +430,17 @@ export const SuperAdminDashboard = () => {
   // SUPER ADMIN GIS & MULTI-STORE STATISTICS (MODULE 1 REQUIREMENTS)
   // =========================================================================
   const gisStats = useMemo(() => {
-    const totalStores = liveStores.length;
+    const storesList = Array.isArray(liveStores) && liveStores.length > 0 ? liveStores : loadRetailerStores();
+    const zonesList = Array.isArray(liveZones) && liveZones.length > 0 ? liveZones : loadMasterZones();
+
+    const totalStores = storesList.length;
     const totalRetailers = Math.max(CORE_RETAILERS?.length || 4, (tenants || []).length);
-    const storeAreaPolygonCount = 3; // The 3 Master Regional Polygons covering all physical stores
-    const deliveryZoneCount = (liveZones && Array.isArray(liveZones))
-      ? liveZones.filter((z) => !isStoreAreaPolygon(z)).length
-      : 4;
+    const storeAreaPolygonCount = 0;
+    const deliveryZoneCount = zonesList.length;
     const totalZones = deliveryZoneCount;
-    const activeZones = (liveZones && Array.isArray(liveZones))
-      ? liveZones.filter((z) => !isStoreAreaPolygon(z) && z.isActive !== false && String(z.status).toLowerCase() !== 'inactive').length
-      : deliveryZoneCount;
+    const activeZones = zonesList.filter((z) => z.isActive !== false && String(z.status).toLowerCase() !== 'inactive').length;
     const assignedStoreIds = new Set(liveAssignments.filter((a) => a.isActive !== false).map((a) => a.storeId));
-    const unassignedStores = Math.max(0, totalStores - assignedStoreIds.size);
+    const unassignedStores = storesList.filter((s) => !s.deliveryZoneId && !s.assignedZoneId && !assignedStoreIds.has(s.storeId || s._id)).length;
     const todayStr = new Date().toISOString().split('T')[0];
     const ordersToday = (allCrossStoreOrders || []).filter((o) => (o.createdAt || o.date || '').startsWith(todayStr)).length;
 
@@ -426,7 +454,7 @@ export const SuperAdminDashboard = () => {
       unassignedStores,
       ordersToday
     };
-  }, [displayStores, liveStores, liveZones, liveAssignments, allCrossStoreOrders]);
+  }, [displayStores, liveStores, liveZones, liveAssignments, allCrossStoreOrders, tenants]);
 
   // 🏢 Track Branch Admin allocation across all unique store branches
   const branchAllocationStatus = useMemo(() => {
@@ -1454,7 +1482,7 @@ export const SuperAdminDashboard = () => {
 
                 {/* 3. Total Zones */}
                 <div
-                  onClick={() => setActiveNav('zone-management')}
+                  onClick={() => setActiveNav('zone-assignments')}
                   className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition cursor-pointer flex flex-col justify-between"
                 >
                   <div className="flex items-start justify-between">
@@ -1500,15 +1528,17 @@ export const SuperAdminDashboard = () => {
                   <div className="flex items-start justify-between">
                     <div>
                       <span className="text-[11px] font-bold text-slate-500 block uppercase tracking-wider">Unassigned Stores</span>
-                      <span className="text-2xl font-black text-amber-600 mt-1 block">{gisStats.unassignedStores}</span>
+                      <span className={`text-2xl font-black mt-1 block ${gisStats.unassignedStores === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {gisStats.unassignedStores}
+                      </span>
                     </div>
-                    <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold ${gisStats.unassignedStores === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
                       <Link2 className="w-4 h-4" />
                     </div>
                   </div>
-                  <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-amber-700">
-                    <span>Requires Zone Link</span>
-                    <span>→</span>
+                  <div className={`mt-3 flex items-center justify-between text-[11px] font-semibold ${gisStats.unassignedStores === 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                    <span>{gisStats.unassignedStores === 0 ? 'All 12 Stores Linked' : 'Requires Zone Link'}</span>
+                    <span>{gisStats.unassignedStores === 0 ? '✓ 100%' : '→'}</span>
                   </div>
                 </div>
 

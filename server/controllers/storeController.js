@@ -7,113 +7,14 @@ import { isDbOnline } from '../config/db.js';
 import { BRANCHES } from '../../src/data/companyHierarchyData.js';
 import { resolveRetailerId, getRetailerDetails } from '../utils/retailerHelper.js';
 import { loadDiskAssignments, saveDiskAssignments } from './assignmentController.js';
+import { TWELVE_PHYSICAL_STORES } from '../../src/data/retailerZoneHierarchyData.js';
 
 const STORES_FILE_PATH = path.resolve(process.cwd(), 'server/data/stores_db.json');
 const BRANCHES_FILE_PATH = path.resolve(process.cwd(), 'server/data/branches_db.json');
 
-// The 4 Core Supermarket Stores located at D-Ground, Peoples Colony, Susan Road, and Samanabad
-export const FOUR_CORE_STORES = [
-  {
-    _id: 'STR-UM-001',
-    storeId: 'STR-UM-001',
-    tenantId: 'tenant-unimart',
-    tenantName: 'Unimart',
-    name: 'Store A – D-Ground Branch',
-    branchName: 'D-Ground Branch',
-    address: 'D-Ground Commercial Area, Peoples Colony 1, Faisalabad',
-    city: 'Faisalabad',
-    latitude: 31.4125,
-    longitude: 73.0830,
-    location: {
-      type: 'Point',
-      coordinates: [73.0830, 31.4125]
-    },
-    contactNumber: '+92 300 8441122',
-    openingHours: '08:00 AM',
-    closingHours: '11:00 PM',
-    storeImage: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=1200&q=80',
-    status: 'active',
-    isActive: true,
-    operatingStatus: 'Open',
-    manager: 'Unimart Store Manager',
-    deliveryRadiusKm: 5
-  },
-  {
-    _id: 'STR-AF-001',
-    storeId: 'STR-AF-001',
-    tenantId: 'tenant-alfatah',
-    tenantName: 'Al-Fatah',
-    name: 'Store B – People\'s Colony Branch',
-    branchName: 'People\'s Colony Branch',
-    address: 'Main Commercial Avenue, People\'s Colony, Faisalabad',
-    city: 'Faisalabad',
-    latitude: 31.4150,
-    longitude: 73.0995,
-    location: {
-      type: 'Point',
-      coordinates: [73.0995, 31.4150]
-    },
-    contactNumber: '+92 300 8442233',
-    openingHours: '08:00 AM',
-    closingHours: '11:00 PM',
-    storeImage: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
-    status: 'active',
-    isActive: true,
-    operatingStatus: 'Open',
-    manager: 'Al-Fatah Store Manager',
-    deliveryRadiusKm: 5
-  },
-  {
-    _id: 'STR-CV-001',
-    storeId: 'STR-CV-001',
-    tenantId: 'tenant-chasevalue',
-    tenantName: 'Chase Value',
-    name: 'Store C – Susan Road Branch',
-    branchName: 'Susan Road Branch',
-    address: 'Susan Road, Madina Town, Faisalabad',
-    city: 'Faisalabad',
-    latitude: 31.4280,
-    longitude: 73.1200,
-    location: {
-      type: 'Point',
-      coordinates: [73.1200, 31.4280]
-    },
-    contactNumber: '+92 300 8443344',
-    openingHours: '08:00 AM',
-    closingHours: '11:00 PM',
-    storeImage: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&q=80',
-    status: 'active',
-    isActive: true,
-    operatingStatus: 'Open',
-    manager: 'Chase Value Store Manager',
-    deliveryRadiusKm: 5
-  },
-  {
-    _id: 'STR-CU-001',
-    storeId: 'STR-CU-001',
-    tenantId: 'tenant-chaseup',
-    tenantName: 'Chase Up',
-    name: 'Store D – Samanabad Branch',
-    branchName: 'Samanabad Branch',
-    address: 'Main Samanabad Road, Near Roundabout, Faisalabad',
-    city: 'Faisalabad',
-    latitude: 31.3920,
-    longitude: 73.0650,
-    location: {
-      type: 'Point',
-      coordinates: [73.0650, 31.3920]
-    },
-    contactNumber: '+92 300 8444455',
-    openingHours: '08:00 AM',
-    closingHours: '11:00 PM',
-    storeImage: 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=1200&q=80',
-    status: 'active',
-    isActive: true,
-    operatingStatus: 'Open',
-    manager: 'Chase Up Store Manager',
-    deliveryRadiusKm: 5
-  }
-];
+// Canonical 12 Physical Supermarket Stores across 4 Parent Retailers
+export const FOUR_CORE_STORES = TWELVE_PHYSICAL_STORES;
+export { TWELVE_PHYSICAL_STORES };
 
 // Deduplicate stores by storeId and tenant+branchName to avoid ghost duplicates
 export const deduplicateStores = (storesList = []) => {
@@ -149,13 +50,21 @@ export const loadDiskStores = () => {
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed) && parsed.length > 0) {
         if (process.env.NODE_ENV !== 'test') {
-          return deduplicateStores(parsed);
+          const diskMap = new Map();
+          parsed.forEach((s) => diskMap.set(s.storeId || s._id, s));
+          TWELVE_PHYSICAL_STORES.forEach((s) => {
+            const key = s.storeId || s._id;
+            if (!diskMap.has(key)) {
+              diskMap.set(key, s);
+            }
+          });
+          return deduplicateStores(Array.from(diskMap.values()));
         }
         return parsed;
       }
     }
   } catch (e) {}
-  return FOUR_CORE_STORES;
+  return TWELVE_PHYSICAL_STORES;
 };
 
 export const saveDiskStores = (stores) => {
