@@ -121,7 +121,7 @@ export const AdminLogin = () => {
 
     setIsLoading(true);
     try {
-      const result = await adminLogin(cleanUser, cleanPass, selectedRole, selectedBranchId);
+      const result = await adminLogin(cleanUser, cleanPass, selectedRole, null, selectedBranchId);
       if (!result || !result.success) {
         setErrorMessage(result?.error || 'Invalid credentials. Please verify your login details.');
       }

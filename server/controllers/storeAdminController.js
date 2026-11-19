@@ -30,14 +30,19 @@ const slugOf = (id) => String(id).replace(/^(branch_|STR-)/i, '').toLowerCase().
 // Returns null when the input is not an Admin account (so normal login continues).
 export const tryBranchAdminLogin = async (loginInput, password, requestedBranchId) => {
   const clean = String(loginInput || '').toLowerCase().trim();
-  const account = await Admin.findOne({
-    $or: [
-      { username: clean },
-      { email: clean },
-      { id: clean.toUpperCase() },
-      { adminId: clean.toUpperCase() }
-    ]
-  });
+  let account = null;
+  try {
+    account = await Admin.findOne({
+      $or: [
+        { username: clean },
+        { email: clean },
+        { id: clean.toUpperCase() },
+        { adminId: clean.toUpperCase() }
+      ]
+    });
+  } catch (err) {
+    console.warn('Admin findOne fallback/offline:', err.message);
+  }
   if (!account) return null;
 
   const fail = { status: 401, body: { success: false, message: 'Invalid branch, username or password' } };
@@ -58,7 +63,10 @@ export const tryBranchAdminLogin = async (loginInput, password, requestedBranchI
     }
   }
 
-  const user = await User.findOne({ email: account.email });
+  let user = null;
+  try {
+    user = await User.findOne({ email: account.email });
+  } catch (err) {}
   return {
     status: 200,
     admin: account,

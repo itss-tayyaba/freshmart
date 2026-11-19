@@ -180,6 +180,19 @@ export const createRiderSchema = z
   })
   .passthrough();
 
+// --- PICKUP STAFF VALIDATION SCHEMAS ---
+export const createPickupStaffSchema = z
+  .object({
+    id: z.string().optional(),
+    name: z.string().min(2, 'Staff name is required'),
+    phone: z.string().optional(),
+    username: z.string().optional(),
+    password: z.string().optional(),
+    branchId: z.string().optional(),
+    tenantId: z.string().optional()
+  })
+  .passthrough();
+
 // --- COUPON VALIDATION SCHEMAS ---
 export const validateCouponSchema = z
   .object({

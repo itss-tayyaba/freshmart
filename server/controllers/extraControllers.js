@@ -1099,6 +1099,7 @@ export const saveCustomerLocation = async (req, res) => {
   }
 };
 
+
 // @desc    Get last saved customer delivery location
 // @route   GET /api/customer/location
 export const getCustomerLocation = async (req, res) => {
@@ -1134,6 +1135,7 @@ export const getCustomerLocation = async (req, res) => {
   }
 };
 
+
 // @desc    Upload product or promotion image
 // @route   POST /api/upload
 export const uploadImage = async (req, res) => {
@@ -1152,3 +1154,6 @@ export const uploadImage = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+
+export { updateMyRiderLocation as updateRiderOwnLocation } from './orderController.js';

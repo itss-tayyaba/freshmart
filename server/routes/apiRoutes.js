@@ -2,7 +2,9 @@ import express from 'express';
 import {
   registerUser,
   loginUser,
-  getUserProfile
+  getUserProfile,
+  createPickupStaff,
+  getPickupStaff
 } from '../controllers/authController.js';
 import {
   getProducts,
@@ -91,7 +93,6 @@ import {
   getPlatformOverview
 } from '../controllers/tenantController.js';
 import { protect, adminOnly, branchAdminOnly, superAdminOnly, riderOnly, pickupStaffOnly, protectVendor } from '../middleware/authMiddleware.js';
-import { createPickupStaff, getPickupStaff } from '../controllers/pickupStaffController.js';
 import { authLimiter } from '../middleware/rateLimitMiddleware.js';
 import { listStoreAdmins, createStoreAdmin, resetStoreAdminPassword, suggestZone } from '../controllers/storeAdminController.js';
 import {

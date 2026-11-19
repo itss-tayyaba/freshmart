@@ -80,10 +80,11 @@ const handleResponse = async (res) => {
 
 export const apiService = {
   // Auth API
-  async login(email, password, tenantId = null) {
+  async login(email, password, tenantId = null, branchId = null) {
     try {
       const payload = { email, password };
       if (tenantId) payload.tenantId = tenantId;
+      if (branchId) payload.branchId = branchId;
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -533,6 +533,7 @@ export const createOrder = async (req, res) => {
   }
 };
 
+
 // @desc    Get all orders (Admin)
 // @route   GET /api/orders
 export const getOrders = async (req, res) => {
@@ -810,6 +811,7 @@ export const trackOrder = async (req, res) => {
   }
 };
 
+
 // @desc    Assign rider to order (Strict Admin Authority)
 // @route   PUT /api/orders/:id/assign-rider
 export const assignRiderToOrder = async (req, res) => {
@@ -1027,6 +1029,7 @@ export const assignRiderToOrder = async (req, res) => {
   }
 };
 
+
 // @desc    Update live rider GPS coordinates for active order
 // @route   PUT /api/orders/:id/rider-location
 export const updateRiderLocation = async (req, res) => {
@@ -1120,6 +1123,7 @@ export const updateRiderLocation = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 // @desc    Update order status
 // @route   PUT /api/orders/:id/status
@@ -1413,6 +1417,7 @@ export const verifyDeliveryOtp = async (req, res) => {
   }
 };
 
+
 // @desc    Get customer's own order history
 // @route   GET /api/orders/mine
 export const getMyOrders = async (req, res) => {
@@ -1695,6 +1700,7 @@ export const updateOrderPickupStatus = async (req, res) => {
   }
 };
 
+
 // @desc    Update current logged-in rider GPS location and synchronize active orders
 // @route   PUT /api/riders/me/location
 export const updateMyRiderLocation = async (req, res) => {
@@ -1800,6 +1806,7 @@ export const updateMyRiderLocation = async (req, res) => {
   }
 };
 
+
 // @desc    Delete order by ID (from MongoDB, disk, and cache)
 // @route   DELETE /api/orders/:id or DELETE /api/admin/orders/:id
 export const deleteOrder = async (req, res) => {
@@ -1854,6 +1861,7 @@ export const deleteOrder = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 // @desc    Admin assigns an order to a pickup staff member. Until this happens the order is
 //          invisible to every pickup staff account.
@@ -1940,3 +1948,10 @@ export const assignPickupStaff = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+
+export const assignPickupStaffToOrder = assignPickupStaff;
+export const getPickupStaffOrders = getPickupAssignedOrders;
+export const updatePickupStaffOrderStatus = updateOrderPickupStatus;
+export const getRiderOrders = getAssignedRiderOrders;
+
