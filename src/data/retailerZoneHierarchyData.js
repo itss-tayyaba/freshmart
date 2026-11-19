@@ -1,5 +1,6 @@
 // Single Source of Truth for Business Hierarchy:
 // 4 Parent Retailers • 12 Physical Child Stores • 4 Master Delivery Zones
+import { LEGACY_STORE_ID_MAP } from './storeRegistry.js';
 
 export const PAKISTAN_CITIES = [
   { name: 'Faisalabad', lat: 31.4187, lng: 73.0791, zoom: 13, label: 'Faisalabad (Primary Hub)' },
@@ -480,7 +481,20 @@ export const loadRetailerStores = () => {
   let deletedIds = new Set();
   try {
     const dRaw = localStorage.getItem('freshmart_deleted_store_ids');
-    if (dRaw) deletedIds = new Set(JSON.parse(dRaw));
+    if (dRaw) {
+      const parsed = JSON.parse(dRaw);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((id) => {
+          deletedIds.add(id);
+          if (LEGACY_STORE_ID_MAP && LEGACY_STORE_ID_MAP[id]) deletedIds.add(LEGACY_STORE_ID_MAP[id]);
+          if (LEGACY_STORE_ID_MAP) {
+            for (const [legacyId, canonId] of Object.entries(LEGACY_STORE_ID_MAP)) {
+              if (canonId === id) deletedIds.add(legacyId);
+            }
+          }
+        });
+      }
+    }
   } catch (e) {}
 
   try {
@@ -520,18 +534,70 @@ export const saveRetailerStores = (stores) => {
 };
 
 export const deleteRetailerStore = (storeId) => {
+  const sId = String(storeId || '').trim();
+  if (!sId) return loadRetailerStores();
+
+  const allIdsToDelete = new Set([sId]);
+  if (LEGACY_STORE_ID_MAP && LEGACY_STORE_ID_MAP[sId]) {
+    allIdsToDelete.add(LEGACY_STORE_ID_MAP[sId]);
+  }
+  if (LEGACY_STORE_ID_MAP) {
+    for (const [legacyId, canonId] of Object.entries(LEGACY_STORE_ID_MAP)) {
+      if (canonId === sId || legacyId === sId) {
+        if (canonId) allIdsToDelete.add(canonId);
+        if (legacyId) allIdsToDelete.add(legacyId);
+      }
+    }
+  }
+
   try {
     const dRaw = localStorage.getItem('freshmart_deleted_store_ids');
     const dList = dRaw ? JSON.parse(dRaw) : [];
-    if (!dList.includes(storeId)) {
-      localStorage.setItem('freshmart_deleted_store_ids', JSON.stringify([...dList, storeId]));
-    }
+    const updated = Array.from(new Set([...dList, ...allIdsToDelete]));
+    localStorage.setItem('freshmart_deleted_store_ids', JSON.stringify(updated));
   } catch (e) {}
 
   const current = loadRetailerStores();
-  const updated = current.filter((s) => (s.storeId || s._id) !== storeId && s.storeCode !== storeId);
-  saveRetailerStores(updated);
-  return updated;
+  const updatedStores = current.filter((s) => {
+    const id = s.storeId || s._id;
+    return !allIdsToDelete.has(id) && !allIdsToDelete.has(s.storeCode);
+  });
+  saveRetailerStores(updatedStores);
+
+  // Also remove from any master delivery zones' assigned stores list if present
+  try {
+    const zones = loadMasterZones();
+    let zonesModified = false;
+    const cleanZones = zones.map((z) => {
+      let modified = false;
+      const updatedZ = { ...z };
+      if (allIdsToDelete.has(updatedZ.assignedStoreId)) {
+        updatedZ.assignedStoreId = null;
+        modified = true;
+      }
+      if (Array.isArray(updatedZ.stores)) {
+        const filtered = updatedZ.stores.filter((s) => !allIdsToDelete.has(s.storeId || s._id || s.id));
+        if (filtered.length !== updatedZ.stores.length) {
+          updatedZ.stores = filtered;
+          modified = true;
+        }
+      }
+      if (Array.isArray(updatedZ.assignedStoreIds)) {
+        const filtered = updatedZ.assignedStoreIds.filter((id) => !allIdsToDelete.has(id));
+        if (filtered.length !== updatedZ.assignedStoreIds.length) {
+          updatedZ.assignedStoreIds = filtered;
+          modified = true;
+        }
+      }
+      if (modified) zonesModified = true;
+      return updatedZ;
+    });
+    if (zonesModified) {
+      saveMasterZones(cleanZones);
+    }
+  } catch (e) {}
+
+  return updatedStores;
 };
 
 export const loadMasterZones = () => {

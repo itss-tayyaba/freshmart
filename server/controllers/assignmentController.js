@@ -5,7 +5,7 @@ import { Store } from '../models/Store.js';
 import { Branch } from '../models/Branch.js';
 import { DeliveryZone } from '../models/DeliveryZone.js';
 import { isDbOnline } from '../config/db.js';
-import { loadDiskStores, saveDiskStores } from './storeController.js';
+import { loadDiskStores, saveDiskStores, loadDeletedStoreIds } from './storeController.js';
 import { loadDiskZones, saveDiskZones } from './zoneController.js';
 import { loadDiskBranches, saveDiskBranch } from './companyBranchController.js';
 import { calculateDistanceToZoneKm } from '../utils/gisValidator.js';
@@ -62,20 +62,27 @@ export const getAllAssignmentsMerged = async () => {
   }
 
   const disk = loadDiskAssignments();
+  const deletedIds = new Set(loadDeletedStoreIds ? loadDeletedStoreIds() : []);
   const map = new Map();
 
   // Only fallback to default assignments during automated tests if disk and db are empty
   if (process.env.NODE_ENV === 'test' && disk.length === 0 && dbAssignments.length === 0) {
     DEFAULT_ASSIGNMENTS.forEach((a) => {
-      map.set(`${a.zoneId}__${a.storeId}`, a);
+      if (!deletedIds.has(a.storeId)) {
+        map.set(`${a.zoneId}__${a.storeId}`, a);
+      }
     });
   }
 
   disk.forEach((a) => {
-    map.set(`${a.zoneId}__${a.storeId}`, a);
+    if (!deletedIds.has(a.storeId)) {
+      map.set(`${a.zoneId}__${a.storeId}`, a);
+    }
   });
   dbAssignments.forEach((a) => {
-    map.set(`${a.zoneId}__${a.storeId}`, a);
+    if (!deletedIds.has(a.storeId)) {
+      map.set(`${a.zoneId}__${a.storeId}`, a);
+    }
   });
 
   return Array.from(map.values()).filter((a) => a.isActive !== false);
@@ -101,8 +108,9 @@ export const getAllAssignments = async (req, res) => {
 export const getZoneStores = async (req, res) => {
   try {
     const { id } = req.params;
+    const deletedIds = new Set(loadDeletedStoreIds ? loadDeletedStoreIds() : []);
     const allAssignments = await getAllAssignmentsMerged();
-    const zoneAssignments = allAssignments.filter((a) => a.zoneId === id && a.isActive !== false);
+    const zoneAssignments = allAssignments.filter((a) => a.zoneId === id && a.isActive !== false && !deletedIds.has(a.storeId));
 
     // Retrieve full store details
     const diskStores = loadDiskStores();

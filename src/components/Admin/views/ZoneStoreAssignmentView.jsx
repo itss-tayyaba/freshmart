@@ -268,6 +268,26 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     updateStoreZone(sId, null);
   };
 
+  // Synchronize store and polygon state in real time when stores are deleted or modified anywhere
+  useEffect(() => {
+    const handleStoreSync = () => {
+      const refreshedStores = loadRetailerStores();
+      setStores(refreshedStores);
+      setMasterZones(loadMasterZones());
+      if (storeMarkerGroupRef.current) {
+        storeMarkerGroupRef.current.clearLayers();
+      }
+    };
+    window.addEventListener('freshmart_stores_updated', handleStoreSync);
+    window.addEventListener('freshmart_retailer_stores_updated', handleStoreSync);
+    window.addEventListener('freshmart_store_deleted', handleStoreSync);
+    return () => {
+      window.removeEventListener('freshmart_stores_updated', handleStoreSync);
+      window.removeEventListener('freshmart_retailer_stores_updated', handleStoreSync);
+      window.removeEventListener('freshmart_store_deleted', handleStoreSync);
+    };
+  }, []);
+
   // Expose global callbacks for in-map Leaflet popups
   useEffect(() => {
     window.__handlePopupZoneChange = (storeId, newZoneId) => {
@@ -795,13 +815,16 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     }
 
     setStores(updated);
+    if (storeMarkerGroupRef.current) {
+      storeMarkerGroupRef.current.clearLayers();
+    }
     if (setAllBranches) {
       setAllBranches((prev) => prev.filter((b) => (b.id || b._id) !== sId && b.storeId !== sId));
     }
     setStoreToDelete(null);
 
     if (addToast) {
-      addToast('Store Removed 🗑️', `${store.name} was permanently deleted from the directory.`, 'info');
+      addToast('Store Removed From Polygon 🗑️', `${store.name} was permanently deleted and removed from the delivery polygon.`, 'info');
     }
   };
 

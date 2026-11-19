@@ -464,6 +464,10 @@ describe('Multi-Store GIS Delivery Zone Management Suite', () => {
     // 3. Confirm store is removed from disk stores
     const updatedDisk = loadDiskStores();
     assert.ok(!updatedDisk.some((s) => s.storeId === 'STR-TEST-TO-DELETE'));
+
+    // 4. Confirm store is unlinked from delivery polygons and assignments
+    const diskAssignments = loadDiskAssignments();
+    assert.ok(!diskAssignments.some((a) => a.storeId === 'STR-TEST-TO-DELETE'));
   });
 
   after(() => {

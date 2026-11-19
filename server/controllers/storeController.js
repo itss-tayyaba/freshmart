@@ -7,7 +7,7 @@ import { ZoneStore } from '../models/ZoneStore.js';
 import { isDbOnline } from '../config/db.js';
 import { BRANCHES } from '../../src/data/companyHierarchyData.js';
 import { resolveRetailerId, getRetailerDetails } from '../utils/retailerHelper.js';
-import { STORE_REGISTRY, toStoreRecord } from '../../src/data/storeRegistry.js';
+import { STORE_REGISTRY, toStoreRecord, LEGACY_STORE_ID_MAP } from '../../src/data/storeRegistry.js';
 import { suggestZonesForPoint, zoneContainsPoint } from '../utils/zoneMatch.js';
 import { loadDiskAssignments, saveDiskAssignments } from './assignmentController.js';
 
@@ -30,9 +30,26 @@ export const recordDeletedStoreId = (id) => {
   try {
     const list = loadDeletedStoreIds();
     const strId = String(id || '').trim();
-    if (strId && !list.includes(strId)) {
-      list.push(strId);
-      fs.writeFileSync(DELETED_STORES_FILE_PATH, JSON.stringify(list, null, 2), 'utf-8');
+    if (strId) {
+      const toAdd = new Set([strId]);
+      if (LEGACY_STORE_ID_MAP && LEGACY_STORE_ID_MAP[strId]) {
+        toAdd.add(LEGACY_STORE_ID_MAP[strId]);
+      }
+      if (LEGACY_STORE_ID_MAP) {
+        for (const [legacyId, canonId] of Object.entries(LEGACY_STORE_ID_MAP)) {
+          if (canonId === strId) toAdd.add(legacyId);
+        }
+      }
+      let modified = false;
+      toAdd.forEach((item) => {
+        if (!list.includes(item)) {
+          list.push(item);
+          modified = true;
+        }
+      });
+      if (modified) {
+        fs.writeFileSync(DELETED_STORES_FILE_PATH, JSON.stringify(list, null, 2), 'utf-8');
+      }
     }
   } catch (e) {}
 };
@@ -517,13 +534,22 @@ export const deleteStore = async (req, res) => {
     }
 
     let deletedStoreData = null;
+    const aliasIds = [storeId];
+    if (LEGACY_STORE_ID_MAP && LEGACY_STORE_ID_MAP[storeId]) {
+      aliasIds.push(LEGACY_STORE_ID_MAP[storeId]);
+    }
+    if (LEGACY_STORE_ID_MAP) {
+      for (const [legacyId, canonId] of Object.entries(LEGACY_STORE_ID_MAP)) {
+        if (canonId === storeId) aliasIds.push(legacyId);
+      }
+    }
 
     if (isDbOnline()) {
       try {
         const isMongoId = mongoose.Types.ObjectId.isValid(storeId);
         const query = isMongoId
-          ? { $or: [{ _id: storeId }, { storeId: storeId }] }
-          : { $or: [{ storeId: storeId }, { _id: storeId }, { code: storeId }] };
+          ? { $or: [{ _id: storeId }, { storeId: { $in: aliasIds } }] }
+          : { $or: [{ storeId: { $in: aliasIds } }, { _id: { $in: aliasIds } }, { code: { $in: aliasIds } }] };
 
         const store = await Store.findOne(query);
         if (store) {
@@ -534,14 +560,18 @@ export const deleteStore = async (req, res) => {
             deliveryZoneId: store.deliveryZoneId || null,
           };
           await Store.findByIdAndDelete(store._id);
-        } else {
-          await Store.deleteMany(query);
         }
+        await Store.deleteMany(query);
 
-        await Branch.deleteMany({ $or: [{ id: storeId }, { _id: storeId }] });
-        await ZoneStore.deleteMany({ storeId });
+        await Branch.deleteMany({ $or: [{ id: { $in: aliasIds } }, { _id: { $in: aliasIds } }] });
+        await ZoneStore.deleteMany({ storeId: { $in: aliasIds } });
+
+        // Unlink store from delivery polygon (DeliveryZone), clearing assignedStoreId
         const { DeliveryZone } = await import('../models/DeliveryZone.js');
-        await DeliveryZone.findOneAndDelete({ assignedStoreId: storeId });
+        await DeliveryZone.updateMany(
+          { assignedStoreId: { $in: aliasIds } },
+          { $set: { assignedStoreId: null } }
+        );
       } catch (err) {
         console.error('DB Store Delete Error:', err);
       }
@@ -556,7 +586,7 @@ export const deleteStore = async (req, res) => {
     } catch (e) {}
 
     const existing = Array.isArray(diskRaw)
-      ? diskRaw.find((s) => s.storeId === storeId || s._id === storeId || s.storeCode === storeId)
+      ? diskRaw.find((s) => aliasIds.includes(s.storeId) || aliasIds.includes(s._id) || aliasIds.includes(s.storeCode))
       : null;
 
     if (existing && !deletedStoreData) {
@@ -568,10 +598,10 @@ export const deleteStore = async (req, res) => {
       };
     }
 
-    recordDeletedStoreId(storeId);
+    aliasIds.forEach((aid) => recordDeletedStoreId(aid));
 
     const disk = loadDiskStores();
-    const filtered = disk.filter((s) => s.storeId !== storeId && s._id !== storeId);
+    const filtered = disk.filter((s) => !aliasIds.includes(s.storeId) && !aliasIds.includes(s._id));
     saveDiskStores(filtered);
 
     // Also remove from branches
@@ -582,18 +612,40 @@ export const deleteStore = async (req, res) => {
         const bList = JSON.parse(raw);
         if (Array.isArray(bList)) {
           const filteredBranches = bList.filter(
-            (b) => String(b._id || b.id || '').toLowerCase() !== String(storeId).toLowerCase()
+            (b) => !aliasIds.some((aid) => String(b._id || b.id || '').toLowerCase() === aid.toLowerCase())
           );
           fs.writeFileSync(branchesPath, JSON.stringify(filteredBranches, null, 2), 'utf-8');
         }
       }
     } catch (e) {}
 
-    // Also remove from assignments
+    // Also remove from assignments (unlink from polygons)
     try {
       const diskAssignments = loadDiskAssignments();
-      const filteredAssignments = diskAssignments.filter((a) => a.storeId !== storeId);
+      const filteredAssignments = diskAssignments.filter((a) => !aliasIds.includes(a.storeId));
       saveDiskAssignments(filteredAssignments);
+    } catch (e) {}
+
+    // Also unlink from disk delivery zones
+    try {
+      const zonesPath = path.resolve(process.cwd(), 'server/data/zones_db.json');
+      if (fs.existsSync(zonesPath)) {
+        const raw = fs.readFileSync(zonesPath, 'utf-8');
+        const zList = JSON.parse(raw);
+        if (Array.isArray(zList)) {
+          let modified = false;
+          const updatedZones = zList.map((z) => {
+            if (aliasIds.includes(z.assignedStoreId)) {
+              modified = true;
+              return { ...z, assignedStoreId: null };
+            }
+            return z;
+          });
+          if (modified) {
+            fs.writeFileSync(zonesPath, JSON.stringify(updatedZones, null, 2), 'utf-8');
+          }
+        }
+      }
     } catch (e) {}
 
     // Return exact response matching user specification

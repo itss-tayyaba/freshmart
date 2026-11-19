@@ -145,7 +145,17 @@ export const saveLocalCustomStore = (newStore) => {
 export const getDeletedStoreIds = () => {
   try {
     const raw = localStorage.getItem('freshmart_deleted_store_ids');
-    return raw ? JSON.parse(raw) : [];
+    const base = raw ? JSON.parse(raw) : [];
+    const expanded = new Set(Array.isArray(base) ? base : []);
+    base.forEach((id) => {
+      if (LEGACY_STORE_ID_MAP && LEGACY_STORE_ID_MAP[id]) expanded.add(LEGACY_STORE_ID_MAP[id]);
+      if (LEGACY_STORE_ID_MAP) {
+        for (const [legacyId, canonId] of Object.entries(LEGACY_STORE_ID_MAP)) {
+          if (canonId === id) expanded.add(legacyId);
+        }
+      }
+    });
+    return Array.from(expanded);
   } catch (e) {
     return [];
   }
@@ -156,11 +166,19 @@ export const markStoreDeleted = (rawId) => {
     const id = String(rawId || '').trim();
     if (!id) return;
     const current = getDeletedStoreIds();
-    if (!current.includes(id)) {
-      localStorage.setItem('freshmart_deleted_store_ids', JSON.stringify([...current, id]));
+    const toAdd = new Set([id]);
+    if (LEGACY_STORE_ID_MAP && LEGACY_STORE_ID_MAP[id]) toAdd.add(LEGACY_STORE_ID_MAP[id]);
+    if (LEGACY_STORE_ID_MAP) {
+      for (const [legacyId, canonId] of Object.entries(LEGACY_STORE_ID_MAP)) {
+        if (canonId === id) toAdd.add(legacyId);
+      }
     }
+    const updated = Array.from(new Set([...current, ...toAdd]));
+    localStorage.setItem('freshmart_deleted_store_ids', JSON.stringify(updated));
+
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('freshmart_store_deleted', { detail: { storeId: id } }));
+      window.dispatchEvent(new CustomEvent('freshmart_store_deleted', { detail: { storeId: id, allDeletedIds: updated } }));
+      window.dispatchEvent(new CustomEvent('freshmart_stores_updated', { detail: { storeId: id, deleted: true } }));
     }
   } catch (e) {}
 };

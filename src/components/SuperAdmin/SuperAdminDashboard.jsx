@@ -194,10 +194,12 @@ export const SuperAdminDashboard = () => {
       setLiveZones(loadMasterZones());
     };
     window.addEventListener('freshmart_stores_updated', handleStoresUpdated);
+    window.addEventListener('freshmart_store_deleted', handleStoresUpdated);
     window.addEventListener('freshmart_retailer_stores_updated', handleStoresUpdated);
     window.addEventListener('freshmart_master_zones_updated', handleZonesUpdated);
     return () => {
       window.removeEventListener('freshmart_stores_updated', handleStoresUpdated);
+      window.removeEventListener('freshmart_store_deleted', handleStoresUpdated);
       window.removeEventListener('freshmart_retailer_stores_updated', handleStoresUpdated);
       window.removeEventListener('freshmart_master_zones_updated', handleZonesUpdated);
     };
