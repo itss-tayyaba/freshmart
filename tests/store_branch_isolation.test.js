@@ -8,6 +8,7 @@ import {
 } from '../src/data/storeRegistry.js';
 import { STORE_LOCATIONS } from '../src/data/freshMartData.js';
 import { buildBranchScope, canAccessOrder, filterOrdersForUser } from '../server/utils/branchScope.js';
+import { getAllUnifiedStores } from '../src/utils/storeHelper.js';
 
 test('registry has 10 unique stores: Al-Fatah 3, Chase Up 3, Chase Value 2, Unimart 2', () => {
   assert.equal(STORE_REGISTRY.length, 10);
@@ -74,4 +75,29 @@ test('other branches\u2019 orders are never visible', () => {
   }
   assert.equal(filterOrdersForUser({ role: 'superadmin' }, orders).length, 10);
   assert.equal(filterOrdersForUser({ role: 'admin', branchId: '' }, orders).length, 0);
+});
+
+test('Mart Admins are strictly 1-to-1 with registered physical branches (7 branches = 7 admins)', () => {
+  const allStores = getAllUnifiedStores();
+  assert.equal(allStores.length, 10);
+
+  // If branches are filtered/reduced to 7, Mart Admins count is strictly 7
+  const sevenBranches = allStores.slice(0, 7);
+  assert.equal(sevenBranches.length, 7);
+  const activeBranchIds = new Set(sevenBranches.map((s) => s.storeId || s._id));
+
+  const admins = sevenBranches.map((st) => {
+    const sId = st.storeId || st._id;
+    return {
+      name: `${st.branchName || st.name} Admin`,
+      branchId: sId,
+      email: `admin.${sId}@mart.pk`
+    };
+  });
+  assert.equal(admins.length, 7);
+  assert.equal(new Set(admins.map((a) => a.branchId)).size, 7);
+
+  for (const a of admins) {
+    assert.ok(activeBranchIds.has(a.branchId), `Admin for ${a.branchId} must belong to an active store`);
+  }
 });

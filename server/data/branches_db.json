@@ -266,44 +266,6 @@
     "status": "active"
   },
   {
-    "_id": "branch_cv_gmabad",
-    "id": "branch_cv_gmabad",
-    "tenantId": "tenant-chasevalue",
-    "companyId": "company_003",
-    "code": "CV-FSD-08",
-    "name": "Chase Value - Ghulam Muhammad Abad Hub",
-    "city": "Faisalabad",
-    "address": "Ghulam Muhammad Abad, Faisalabad",
-    "manager": "Chase Value Store Manager",
-    "phone": "+92 41 8729911",
-    "latitude": 31.429,
-    "longitude": 73.112,
-    "deliveryRadiusKm": 5,
-    "deliveryRadius": 5,
-    "deliveryStatus": "active",
-    "assignedZoneId": "ZONE-FSD-CANAL",
-    "deliveryTiers": [
-      {
-        "distanceKm": 1,
-        "fee": 0
-      },
-      {
-        "distanceKm": 2,
-        "fee": 50
-      },
-      {
-        "distanceKm": 3,
-        "fee": 100
-      },
-      {
-        "distanceKm": 5,
-        "fee": 150
-      }
-    ],
-    "operatingHours": "09:00 AM - 11:30 PM",
-    "status": "active"
-  },
-  {
     "_id": "branch_um_fsd",
     "id": "branch_um_fsd",
     "tenantId": "tenant-unimart",

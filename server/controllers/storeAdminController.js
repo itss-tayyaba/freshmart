@@ -4,20 +4,28 @@ import { isDbOnline } from '../config/db.js';
 import { Admin } from '../models/Admin.js';
 import { User } from '../models/User.js';
 import { STORE_REGISTRY, RETAILERS, LEGACY_STORE_ID_MAP } from '../../src/data/storeRegistry.js';
-import { loadDiskStores } from './storeController.js';
+import { loadDiskStores, loadDeletedStoreIds } from './storeController.js';
 import { getAllZonesMerged } from './zoneController.js';
 import { suggestZonesForPoint } from '../utils/zoneMatch.js';
 
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const newPassword = () => crypto.randomBytes(9).toString('base64url');
 
-// Stores = registry + any store the super admin created later (disk / DB).
+// Stores = registry + any store the super admin created later (disk / DB), excluding deleted stores.
 const getAllStores = () => {
+  const deletedIds = new Set(loadDeletedStoreIds());
   const map = new Map();
-  STORE_REGISTRY.forEach((s) => map.set(s.storeId, s));
+  STORE_REGISTRY.forEach((s) => {
+    const id = LEGACY_STORE_ID_MAP[s.storeId] ?? s.storeId;
+    if (!deletedIds.has(s.storeId) && !deletedIds.has(id) && !deletedIds.has(s.branchId)) {
+      map.set(id, { ...s, storeId: id, branchId: id });
+    }
+  });
   loadDiskStores().forEach((s) => {
     const id = LEGACY_STORE_ID_MAP[s.storeId] ?? s.storeId;
-    if (id && !map.has(id)) map.set(id, { ...s, storeId: id, branchId: id });
+    if (id && !deletedIds.has(id) && !deletedIds.has(s.storeId) && !map.has(id)) {
+      map.set(id, { ...s, storeId: id, branchId: id });
+    }
   });
   return Array.from(map.values());
 };
@@ -85,6 +93,7 @@ export const listStoreAdmins = async (req, res) => {
       admins = SEED_ADMINS.filter((a) => a.role !== 'superadmin');
     }
     const allStoresList = getAllStores();
+    const activeStoreIds = new Set(allStoresList.map((s) => s.storeId));
     const stores = allStoresList.map((s) => {
       const a = admins.find((x) => x.branchId === s.storeId || x.branchId === s.branchId);
       return {
@@ -106,21 +115,23 @@ export const listStoreAdmins = async (req, res) => {
       };
     });
 
-    const formattedAdmins = admins.map((a) => ({
-      id: a.id || a.adminId || a._id,
-      name: a.name,
-      username: a.username,
-      email: a.email,
-      phone: a.phone || '',
-      city: a.city || 'Faisalabad',
-      tenantId: a.tenantId,
-      tenantName: a.tenantName,
-      branchId: a.branchId,
-      branchName: a.branchName,
-      status: a.status || 'Active',
-      role: a.role || 'admin',
-      password: a.plainPassword || (process.env.ALLOW_DEMO_AUTH === 'true' ? 'admin123' : '••••••••')
-    }));
+    const formattedAdmins = admins
+      .filter((a) => activeStoreIds.has(a.branchId))
+      .map((a) => ({
+        id: a.id || a.adminId || a._id,
+        name: a.name,
+        username: a.username,
+        email: a.email,
+        phone: a.phone || '',
+        city: a.city || 'Faisalabad',
+        tenantId: a.tenantId,
+        tenantName: a.tenantName,
+        branchId: a.branchId,
+        branchName: a.branchName,
+        status: a.status || 'Active',
+        role: a.role || 'admin',
+        password: a.plainPassword || (process.env.ALLOW_DEMO_AUTH === 'true' ? 'admin123' : '••••••••')
+      }));
 
     res.json({
       success: true,

@@ -109,8 +109,16 @@ export const toStoreRecord = (s) => {
 // Old pre-registry store ids -> the registry id of the same physical store (null = junk, drop it).
 export const LEGACY_STORE_ID_MAP = {
   'STR-UM-001': 'branch_um_fsd',
+  'STR-UM-002': 'branch_um_madina',
+  'STR-UM-003': 'branch_um_fsd',
   'STR-AF-001': 'branch_af_fsd',
+  'STR-AF-002': 'branch_af_kohinoor',
+  'STR-AF-003': 'branch_af_canal',
   'STR-CV-001': 'branch_cv_fsd',
+  'STR-CV-002': 'branch_cv_gmabad',
+  'STR-CV-003': 'branch_cv_fsd',
   'STR-CU-001': 'branch_cu_samanabad',
+  'STR-CU-002': 'branch_cu_satiana',
+  'STR-CU-003': 'branch_006',
   'STR-CHA-3330': null
 };

@@ -176,6 +176,20 @@ export const markStoreDeleted = (rawId) => {
     const updated = Array.from(new Set([...current, ...toAdd]));
     localStorage.setItem('freshmart_deleted_store_ids', JSON.stringify(updated));
 
+    // Also clean up associated Mart Admin from local storage
+    try {
+      const savedAdmins = localStorage.getItem('freshmart_store_admins');
+      if (savedAdmins) {
+        const parsed = JSON.parse(savedAdmins);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter(
+            (sa) => !toAdd.has(sa.branchId) && !toAdd.has(sa.storeId)
+          );
+          localStorage.setItem('freshmart_store_admins', JSON.stringify(filtered));
+        }
+      }
+    } catch {}
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('freshmart_store_deleted', { detail: { storeId: id, allDeletedIds: updated } }));
       window.dispatchEvent(new CustomEvent('freshmart_stores_updated', { detail: { storeId: id, deleted: true } }));

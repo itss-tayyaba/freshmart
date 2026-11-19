@@ -555,6 +555,18 @@ export const deleteRetailerStore = (storeId) => {
     const dList = dRaw ? JSON.parse(dRaw) : [];
     const updated = Array.from(new Set([...dList, ...allIdsToDelete]));
     localStorage.setItem('freshmart_deleted_store_ids', JSON.stringify(updated));
+
+    // Also remove from freshmart_store_admins
+    const saRaw = localStorage.getItem('freshmart_store_admins');
+    if (saRaw) {
+      const saList = JSON.parse(saRaw);
+      if (Array.isArray(saList)) {
+        const filteredSA = saList.filter(
+          (sa) => !allIdsToDelete.has(sa.branchId) && !allIdsToDelete.has(sa.storeId)
+        );
+        localStorage.setItem('freshmart_store_admins', JSON.stringify(filteredSA));
+      }
+    }
   } catch (e) {}
 
   const current = loadRetailerStores();

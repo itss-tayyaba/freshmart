@@ -572,6 +572,17 @@ export const deleteStore = async (req, res) => {
           { assignedStoreId: { $in: aliasIds } },
           { $set: { assignedStoreId: null } }
         );
+
+        // Permanently delete associated store admin(s) from database
+        const { Admin } = await import('../models/Admin.js');
+        const { User } = await import('../models/User.js');
+        const adminQuery = { $or: [{ branchId: { $in: aliasIds } }, { storeId: { $in: aliasIds } }] };
+        const associatedAdmins = await Admin.find(adminQuery).lean();
+        const adminEmails = associatedAdmins.map((a) => a.email || a.username).filter(Boolean);
+        await Admin.deleteMany(adminQuery);
+        if (adminEmails.length > 0) {
+          await User.deleteMany({ email: { $in: adminEmails } });
+        }
       } catch (err) {
         console.error('DB Store Delete Error:', err);
       }

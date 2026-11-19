@@ -523,27 +523,33 @@ export const SuperAdminDashboard = () => {
     return { unallocated, allocated };
   }, [liveStores, storeAdmins, backendStoreAdmins]);
 
-  // 🏢 Unified list of Mart / Branch Admins fed from backend / store registry
+  // 🏢 Dedicated Mart / Branch Admins: exactly 1 dedicated admin per active physical branch
   const displayStoreAdmins = useMemo(() => {
-    const list = [];
-    const seenEmails = new Set();
-    const seenBranchIds = new Set();
-
     const unifiedStores = getAllUnifiedStores(liveStores);
-    unifiedStores.forEach((st) => {
-      const sId = st.storeId || st._id;
-      const bEntry = (backendStoreAdmins || []).find((b) => b.storeId === sId);
-      const bAdm = bEntry?.admin;
-      const localAdm = (storeAdmins || []).find(
-        (a) => (a.branchId && (a.branchId === sId || a.branchId === st.branchId)) || (a.email && (a.email === bAdm?.email || a.email === bAdm?.username))
-      );
+    const deletedIds = new Set(getDeletedStoreIds());
 
-      if (bAdm || localAdm) {
-        const email = bAdm?.email || bAdm?.username || localAdm?.email || `admin.${sId}@mart.pk`;
-        seenEmails.add(email.toLowerCase());
-        seenBranchIds.add(sId);
-        list.push({
-          id: localAdm?.id || `adm-${sId}`,
+    return unifiedStores
+      .filter((st) => {
+        const sId = st.storeId || st._id;
+        return sId && !deletedIds.has(sId);
+      })
+      .map((st) => {
+        const sId = st.storeId || st._id;
+        const bEntry = (backendStoreAdmins || []).find((b) => b.storeId === sId || b.branchId === sId);
+        const bAdm = bEntry?.admin;
+        const localAdm = (storeAdmins || []).find(
+          (a) =>
+            (a.branchId && (a.branchId === sId || a.branchId === st.branchId)) ||
+            (a.email && bAdm && (a.email.toLowerCase() === bAdm.email?.toLowerCase() || a.email.toLowerCase() === bAdm.username?.toLowerCase()))
+        );
+
+        const domain = st.tenantId ? (CORE_RETAILERS.find((r) => r.id === st.tenantId)?.name?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'mart') : 'mart';
+        const cleanSlug = String(sId).replace(/^(branch_|STR-)/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        const defaultEmail = `admin.${cleanSlug}@${domain}.pk`;
+        const email = bAdm?.email || bAdm?.username || localAdm?.email || localAdm?.username || defaultEmail;
+
+        return {
+          id: bAdm?.id || localAdm?.id || `adm-${sId}`,
           name: bAdm?.name || localAdm?.name || `${st.branchName || st.name} Admin`,
           email,
           username: bAdm?.username || localAdm?.username || email,
@@ -555,24 +561,10 @@ export const SuperAdminDashboard = () => {
           branchName: st.branchName || st.name,
           status: bAdm?.status || localAdm?.status || 'Active',
           role: 'admin',
-          password: localAdm?.password || 'admin123',
+          password: localAdm?.password || bAdm?.plainPassword || 'admin123',
           isStoreLinked: true
-        });
-      }
-    });
-
-    (storeAdmins || []).forEach((sa) => {
-      const email = String(sa.email || sa.username || '').toLowerCase();
-      if (!seenEmails.has(email) && sa.branchId && !seenBranchIds.has(sa.branchId)) {
-        seenEmails.add(email);
-        list.push(sa);
-      } else if (!seenEmails.has(email) && !sa.branchId) {
-        seenEmails.add(email);
-        list.push(sa);
-      }
-    });
-
-    return list;
+        };
+      });
   }, [liveStores, backendStoreAdmins, storeAdmins]);
 
   // Helper to calculate active in-progress deliveries for any rider
@@ -2764,7 +2756,7 @@ export const SuperAdminDashboard = () => {
               {/* City Filter Pills */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold text-slate-500 mr-1">City Filter:</span>
-                {['all', 'faisalabad', 'lahore', 'islamabad', 'karachi'].map((cKey) => {
+                {['all', ...Array.from(new Set(displayStoreAdmins.map((a) => (a.city || 'Faisalabad').toLowerCase())))].map((cKey) => {
                   const label = cKey === 'all' ? 'All Pakistani Cities' : `📍 ${cKey.charAt(0).toUpperCase() + cKey.slice(1)}`;
                   const isSel = adminCityFilter === cKey;
                   return (

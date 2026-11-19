@@ -589,75 +589,75 @@ export const StoreProvider = ({ children }) => {
 
   // --- 🛡️ Multi-Tenant Mart Admins State (Each Mart has its own Admin & Password assigned by Super Admin) ---
   const DEFAULT_STORE_ADMINS = [
-    // --- Al-Fatah City Admins ---
+    // --- Al-Fatah Admins (3 Branches) ---
     {
       id: 'admin_alfatah',
-      name: 'Sheikh Tariq Al-Fatah',
+      name: 'Al-Fatah Store Admin',
       email: 'admin@alfatah.pk',
       username: 'admin@alfatah.pk',
       password: 'admin123',
-      phone: '+92 300 8441122',
+      phone: '+92 41 8541122',
       tenantId: 'tenant-alfatah',
-      tenantName: 'Al-Fatah Supermarket (Faisalabad)',
+      tenantName: 'Al-Fatah Supermarket',
       city: 'Faisalabad',
       branchId: 'branch_af_fsd',
-      branchName: 'Al-Fatah East Canal Road Flagship',
+      branchName: 'D-Ground Flagship Hub',
       role: 'admin',
       status: 'Active',
-      location: 'East Canal Road Flagship Hub (Faisalabad)',
+      location: 'D-Ground Flagship Hub (Faisalabad)',
       createdAt: '2026-08-01T10:00:00.000Z',
       lastLogin: 'Today'
     },
     {
-      id: 'admin_alfatah_lhr',
-      name: 'Mian Bilal Al-Fatah',
-      email: 'admin.lhr@alfatah.pk',
-      username: 'admin.lhr@alfatah.pk',
+      id: 'admin_af_kohinoor',
+      name: 'Kohinoor City Hub Admin',
+      email: 'admin.af_kohinoor@alfatah.pk',
+      username: 'admin.af_kohinoor@alfatah.pk',
       password: 'admin123',
-      phone: '+92 300 8443355',
+      phone: '+92 41 8541133',
       tenantId: 'tenant-alfatah',
-      tenantName: 'Al-Fatah Supermarket (Lahore)',
-      city: 'Lahore',
-      branchId: 'branch_001',
-      branchName: 'Al-Fatah DHA Phase 5 Mall Flagship',
+      tenantName: 'Al-Fatah Supermarket',
+      city: 'Faisalabad',
+      branchId: 'branch_af_kohinoor',
+      branchName: 'Kohinoor City Hub',
       role: 'admin',
       status: 'Active',
-      location: 'DHA Phase 5 Mall Flagship (Lahore)',
+      location: 'Kohinoor City Hub (Faisalabad)',
       createdAt: '2026-08-01T10:00:00.000Z',
       lastLogin: 'Today'
     },
     {
-      id: 'admin_alfatah_isb',
-      name: 'Raja Kamran Al-Fatah',
-      email: 'admin.isb@alfatah.pk',
-      username: 'admin.isb@alfatah.pk',
+      id: 'admin_af_canal',
+      name: 'Canal Road Hub Admin',
+      email: 'admin.af_canal@alfatah.pk',
+      username: 'admin.af_canal@alfatah.pk',
       password: 'admin123',
-      phone: '+92 300 8446677',
+      phone: '+92 41 8541144',
       tenantId: 'tenant-alfatah',
-      tenantName: 'Al-Fatah Supermarket (Islamabad)',
-      city: 'Islamabad',
-      branchId: 'branch_003',
-      branchName: 'Al-Fatah Centaurus Mall Megastore',
+      tenantName: 'Al-Fatah Supermarket',
+      city: 'Faisalabad',
+      branchId: 'branch_af_canal',
+      branchName: 'Canal Road Hub',
       role: 'admin',
       status: 'Active',
-      location: 'Centaurus Mall Megastore (Islamabad)',
+      location: 'East Canal Road Hub (Faisalabad)',
       createdAt: '2026-08-01T10:00:00.000Z',
       lastLogin: 'Today'
     },
 
-    // --- Chase Up City Admins ---
+    // --- Chase Up Admins (3 Branches) ---
     {
       id: 'admin_chaseup',
-      name: 'Muhammad Salman Chase',
+      name: 'Chase Up Store Admin',
       email: 'admin@chaseup.pk',
       username: 'admin@chaseup.pk',
       password: 'admin123',
-      phone: '+92 300 7654321',
+      phone: '+92 41 2623344',
       tenantId: 'tenant-chaseup',
-      tenantName: 'Chase Up (Faisalabad)',
+      tenantName: 'Chase Up',
       city: 'Faisalabad',
       branchId: 'branch_006',
-      branchName: 'Chase Up Clock Tower Hub',
+      branchName: 'Clock Tower Hub',
       role: 'admin',
       status: 'Active',
       location: 'Clock Tower Hub (Faisalabad)',
@@ -665,37 +665,55 @@ export const StoreProvider = ({ children }) => {
       lastLogin: 'Today'
     },
     {
-      id: 'admin_chaseup_khi',
-      name: 'Zubair Chase Karachi',
-      email: 'admin.khi@chaseup.pk',
-      username: 'admin.khi@chaseup.pk',
+      id: 'admin_cu_satiana',
+      name: 'Satiana Road Hub Admin',
+      email: 'admin.cu_satiana@chaseup.pk',
+      username: 'admin.cu_satiana@chaseup.pk',
       password: 'admin123',
-      phone: '+92 321 3456789',
+      phone: '+92 41 2623355',
       tenantId: 'tenant-chaseup',
-      tenantName: 'Chase Up (Karachi)',
-      city: 'Karachi',
-      branchId: 'branch_004',
-      branchName: 'Chase Up Clifton Marine Promenade',
+      tenantName: 'Chase Up',
+      city: 'Faisalabad',
+      branchId: 'branch_cu_satiana',
+      branchName: 'Satiana Road Hub',
       role: 'admin',
       status: 'Active',
-      location: 'Clifton Marine Promenade (Karachi)',
+      location: 'Satiana Road Hub (Faisalabad)',
+      createdAt: '2026-08-05T10:00:00.000Z',
+      lastLogin: 'Today'
+    },
+    {
+      id: 'admin_cu_samanabad',
+      name: 'Samanabad Hub Admin',
+      email: 'admin.cu_samanabad@chaseup.pk',
+      username: 'admin.cu_samanabad@chaseup.pk',
+      password: 'admin123',
+      phone: '+92 41 2623366',
+      tenantId: 'tenant-chaseup',
+      tenantName: 'Chase Up',
+      city: 'Faisalabad',
+      branchId: 'branch_cu_samanabad',
+      branchName: 'Samanabad Hub',
+      role: 'admin',
+      status: 'Active',
+      location: 'Samanabad Hub (Faisalabad)',
       createdAt: '2026-08-05T10:00:00.000Z',
       lastLogin: 'Today'
     },
 
-    // --- Chase Value City Admins ---
+    // --- Chase Value Admins (2 Branches) ---
     {
       id: 'admin_chasevalue',
-      name: 'Farhan Case Value',
+      name: 'Chase Value Store Admin',
       email: 'admin@chasevalue.pk',
       username: 'admin@chasevalue.pk',
       password: 'admin123',
-      phone: '+92 321 9876543',
+      phone: '+92 41 8729900',
       tenantId: 'tenant-chasevalue',
-      tenantName: 'Chase Value (Faisalabad)',
+      tenantName: 'Chase Value',
       city: 'Faisalabad',
       branchId: 'branch_cv_fsd',
-      branchName: 'Chase Value Wholesale Express',
+      branchName: 'Wholesale Express Hub',
       role: 'admin',
       status: 'Active',
       location: 'Wholesale Express Terminal (Faisalabad)',
@@ -703,34 +721,34 @@ export const StoreProvider = ({ children }) => {
       lastLogin: 'Today'
     },
     {
-      id: 'admin_chasevalue_khi',
-      name: 'Tariq Case Value Karachi',
-      email: 'admin.khi@chasevalue.pk',
-      username: 'admin.khi@chasevalue.pk',
+      id: 'admin_cv_gmabad',
+      name: 'Ghulam Muhammad Abad Hub Admin',
+      email: 'admin.cv_gmabad@chasevalue.pk',
+      username: 'admin.cv_gmabad@chasevalue.pk',
       password: 'admin123',
-      phone: '+92 321 8765432',
+      phone: '+92 41 8729911',
       tenantId: 'tenant-chasevalue',
-      tenantName: 'Chase Value (Karachi)',
-      city: 'Karachi',
-      branchId: 'branch_007',
-      branchName: 'Chase Value Shaheed-e-Millat Main Hub',
+      tenantName: 'Chase Value',
+      city: 'Faisalabad',
+      branchId: 'branch_cv_gmabad',
+      branchName: 'Ghulam Muhammad Abad Hub',
       role: 'admin',
       status: 'Active',
-      location: 'Shaheed-e-Millat Main Hub (Karachi)',
+      location: 'Ghulam Muhammad Abad Hub (Faisalabad)',
       createdAt: '2026-08-10T10:00:00.000Z',
       lastLogin: 'Today'
     },
 
-    // --- Unimaart / FreshMart City Admins ---
+    // --- Unimaart Admins (2 Branches) ---
     {
       id: 'admin_unimart',
-      name: 'Aimen Yasin',
+      name: 'Unimaart Store Admin',
       email: 'admin@unimart.pk',
       username: 'admin@unimart.pk',
       password: 'admin123',
-      phone: '+92 300 1234567',
+      phone: '+92 300 8441122',
       tenantId: 'tenant-freshmart',
-      tenantName: 'Unimaart (Faisalabad)',
+      tenantName: 'Unimaart (Market Store)',
       city: 'Faisalabad',
       branchId: 'branch_um_fsd',
       branchName: 'Peoples Colony Dark Store',
@@ -741,34 +759,40 @@ export const StoreProvider = ({ children }) => {
       lastLogin: 'Today'
     },
     {
-      id: 'admin_unimart_lhr',
-      name: 'Usman Ghani Unimaart',
-      email: 'admin.lhr@unimart.pk',
-      username: 'admin.lhr@unimart.pk',
+      id: 'admin_um_madina',
+      name: 'Madina Town Hub Admin',
+      email: 'admin.um_madina@unimart.pk',
+      username: 'admin.um_madina@unimart.pk',
       password: 'admin123',
-      phone: '+92 300 2345678',
+      phone: '+92 300 8441133',
       tenantId: 'tenant-freshmart',
-      tenantName: 'Unimaart (Lahore)',
-      city: 'Lahore',
-      branchId: 'branch_010',
-      branchName: 'Unimaart Gulberg Dark Store',
+      tenantName: 'Unimaart (Market Store)',
+      city: 'Faisalabad',
+      branchId: 'branch_um_madina',
+      branchName: 'Madina Town Hub',
       role: 'admin',
       status: 'Active',
-      location: 'Gulberg SuperHub (Lahore)',
+      location: 'Madina Town Hub (Faisalabad)',
       createdAt: '2026-08-12T10:00:00.000Z',
       lastLogin: 'Today'
     }
   ];
 
   const [storeAdmins, setStoreAdmins] = useState(() => {
+    const deletedIds = new Set(getDeletedStoreIds());
     try {
       const saved = localStorage.getItem('freshmart_store_admins');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const map = new Map(parsed.map((sa) => [String(sa.email || sa.id || '').toLowerCase(), sa]));
+          const map = new Map();
+          parsed
+            .filter((sa) => !deletedIds.has(sa.branchId) && !deletedIds.has(sa.storeId))
+            .forEach((sa) => map.set(String(sa.email || sa.id || '').toLowerCase(), sa));
+
           // Ensure all core mart admins are present and have updated branchId and branchName
           DEFAULT_STORE_ADMINS.forEach((def) => {
+            if (deletedIds.has(def.branchId)) return;
             const key = def.email.toLowerCase();
             if (!map.has(key)) {
               map.set(key, def);
@@ -783,11 +807,11 @@ export const StoreProvider = ({ children }) => {
               });
             }
           });
-          return Array.from(map.values());
+          return Array.from(map.values()).filter((sa) => !deletedIds.has(sa.branchId));
         }
       }
     } catch (e) {}
-    return DEFAULT_STORE_ADMINS;
+    return DEFAULT_STORE_ADMINS.filter((sa) => !deletedIds.has(sa.branchId));
   });
 
   useEffect(() => {
@@ -795,6 +819,20 @@ export const StoreProvider = ({ children }) => {
       localStorage.setItem('freshmart_store_admins', JSON.stringify(storeAdmins));
     } catch (e) {}
   }, [storeAdmins]);
+
+  useEffect(() => {
+    const handleStoreDeleted = (e) => {
+      const deletedId = e.detail?.storeId;
+      const allDeleted = new Set(e.detail?.allDeletedIds || (deletedId ? [deletedId] : []));
+      setStoreAdmins((prev) =>
+        prev.filter((sa) => !allDeleted.has(sa.branchId) && !allDeleted.has(sa.storeId))
+      );
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('freshmart_store_deleted', handleStoreDeleted);
+      return () => window.removeEventListener('freshmart_store_deleted', handleStoreDeleted);
+    }
+  }, []);
 
   // --- ⚙️ Platform Global Settings State ---
   const DEFAULT_PLATFORM_SETTINGS = {
@@ -2927,7 +2965,7 @@ export const StoreProvider = ({ children }) => {
 
     // 3. Super Admin Authentication (Platform Owner)
     if (targetRole === 'superadmin') {
-      const isSuperUser = cleanUser === 'superadmin' || cleanUser === 'admin@supergrocery.pk' || cleanUser === 'superadmin@supergrocery.pk';
+      const isSuperUser = cleanUser === 'superadmin' || cleanUser === 'admin@supergrocery.pk' || cleanUser === 'superadmin@supergrocery.pk' || cleanUser === 'superadmin@freshmart.pk';
       if (!isSuperUser) {
         addToast('Access Denied ❌', 'Store Admin cannot enter from the Super Admin portal. Please switch to the Store Admin tab.', 'error');
         return { success: false, error: 'Store Admin cannot enter from the Super Admin portal. Please switch to the Store Admin tab to log in.' };
@@ -4092,10 +4130,11 @@ export const StoreProvider = ({ children }) => {
       try {
         const res = await apiService.getStoreAdmins();
         if (res && res.success && Array.isArray(res.admins) && res.admins.length > 0) {
+          const deletedIds = new Set(getDeletedStoreIds());
           setStoreAdmins((prev) => {
             const combinedMap = new Map();
-            prev.forEach((sa) => combinedMap.set(sa.email, sa));
-            res.admins.forEach((sa) => combinedMap.set(sa.email, { ...combinedMap.get(sa.email), ...sa }));
+            prev.filter((sa) => !deletedIds.has(sa.branchId)).forEach((sa) => combinedMap.set(sa.email, sa));
+            res.admins.filter((sa) => !deletedIds.has(sa.branchId)).forEach((sa) => combinedMap.set(sa.email, { ...combinedMap.get(sa.email), ...sa }));
             const merged = Array.from(combinedMap.values());
             try {
               localStorage.setItem('freshmart_store_admins', JSON.stringify(merged));

@@ -18,23 +18,26 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { STORE_LOCATIONS } from '../../data/freshMartData';
+import { getAllUnifiedStores } from '../../utils/storeHelper';
 
 export const AdminLogin = () => {
-  const { adminLogin, navigateTo } = useStore();
+  const { adminLogin, navigateTo, storeAdmins, allBranches } = useStore();
+  const activeStores = React.useMemo(() => {
+    const list = getAllUnifiedStores(allBranches);
+    return list.length > 0 ? list : STORE_LOCATIONS;
+  }, [allBranches]);
+
   const getInitialBranchId = () => {
     try {
-      const deliveryLocation = JSON.parse(localStorage.getItem('freshmart_delivery_location') || '{}');
-      if (STORE_LOCATIONS.some((store) => store.id === deliveryLocation.storeId)) {
-        return deliveryLocation.storeId;
-      }
+      const stores = getAllUnifiedStores();
       const lastAdminBranchId = localStorage.getItem('freshmart_admin_branch_id');
-      if (STORE_LOCATIONS.some((store) => store.id === lastAdminBranchId)) {
+      if (stores.some((s) => (s.storeId || s._id) === lastAdminBranchId)) {
         return lastAdminBranchId;
       }
-    } catch (error) {
-      console.warn('Could not restore the previous branch selection:', error.message);
+      return stores[0]?.storeId || stores[0]?._id || STORE_LOCATIONS[0]?.id || '';
+    } catch {
+      return STORE_LOCATIONS[0]?.id || '';
     }
-    return STORE_LOCATIONS[0]?.id || '';
   };
   const [selectedRole, setSelectedRole] = useState('superadmin'); // Default to Super Admin as requested
   const [username, setUsername] = useState('');
@@ -203,13 +206,27 @@ export const AdminLogin = () => {
               <label className="block text-xs font-semibold text-[#12172b] mb-1.5">Store Branch</label>
               <select
                 value={selectedBranchId}
-                onChange={(e) => setSelectedBranchId(e.target.value)}
+                onChange={(e) => {
+                  const bId = e.target.value;
+                  setSelectedBranchId(bId);
+                  const matched = (storeAdmins || []).find((a) => a.branchId === bId);
+                  if (matched) {
+                    setUsername(matched.email || matched.username || '');
+                  }
+                }}
                 className="w-full bg-white border border-[#e6e8ef] rounded-lg px-3.5 py-2.5 font-medium text-xs text-[#12172b] focus:border-[#0e7c66] focus:ring-1 focus:ring-[#0e7c66] focus:outline-none"
                 required
               >
-                {STORE_LOCATIONS.map((store) => (
-                  <option key={store.id} value={store.id}>{store.name} ({store.id})</option>
-                ))}
+                {activeStores.map((store) => {
+                  const sId = store.storeId || store._id || store.id;
+                  const sName = store.branchName || store.name;
+                  const tName = store.tenantName || store.retailerName || '';
+                  return (
+                    <option key={sId} value={sId}>
+                      {tName ? `${tName} - ` : ''}{sName} ({sId})
+                    </option>
+                  );
+                })}
               </select>
               <p className="text-[10px] text-[#6e7489] mt-1">
                 This admin session will only see orders for the selected branch.
@@ -227,8 +244,18 @@ export const AdminLogin = () => {
                 required
                 value={username}
                 onChange={(e) => {
-                  setUsername(e.target.value);
+                  const val = e.target.value;
+                  setUsername(val);
                   if (errorMessage) setErrorMessage('');
+                  if (selectedRole === 'admin') {
+                    const clean = val.trim().toLowerCase();
+                    const matched = (storeAdmins || []).find(
+                      (a) => (a.email && a.email.toLowerCase() === clean) || (a.username && a.username.toLowerCase() === clean)
+                    );
+                    if (matched && matched.branchId) {
+                      setSelectedBranchId(matched.branchId);
+                    }
+                  }
                 }}
                 placeholder={currentRoleConfig.userPlaceholder}
                 className="w-full bg-white border border-[#e6e8ef] rounded-lg pl-9 pr-3.5 py-2.5 font-medium text-xs text-[#12172b] focus:border-[#0e7c66] focus:ring-1 focus:ring-[#0e7c66] focus:outline-none transition-all placeholder:text-[#9297a8]"
