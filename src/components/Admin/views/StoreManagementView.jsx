@@ -34,7 +34,11 @@ import {
   CORE_RETAILERS,
   BASELINE_FIVE_STORES
 } from '../../../utils/storeHelper';
-import { PAKISTAN_CITIES } from '../../../data/retailerZoneHierarchyData';
+import {
+  PAKISTAN_CITIES,
+  loadRetailerStores,
+  saveRetailerStores
+} from '../../../data/retailerZoneHierarchyData';
 
 export const StoreManagementView = () => {
   const {
@@ -472,12 +476,6 @@ export const StoreManagementView = () => {
     const addressVal = String(formData.address || '').trim() || `Main Commercial Avenue, ${formData.city || 'Faisalabad'}, Pakistan`;
     const cityVal = String(formData.city || '').trim() || 'Faisalabad';
 
-    // A new store must be linked to a delivery polygon by the super admin.
-    if (!isEditModalOpen && !formData.assignedZoneId) {
-      setFormError('Choose the delivery polygon for this store (Assign Delivery Area) before saving.');
-      return;
-    }
-
     const latVal = (Number.isFinite(Number(formData.latitude)) && !isNaN(Number(formData.latitude))) ? Number(formData.latitude) : 31.4125;
     const lngVal = (Number.isFinite(Number(formData.longitude)) && !isNaN(Number(formData.longitude))) ? Number(formData.longitude) : 73.0995;
 
@@ -533,6 +531,20 @@ export const StoreManagementView = () => {
         }
 
         saveLocalCustomStore({ ...storeRecord, storeId: id, _id: id });
+        try {
+          const currentRetailerStores = loadRetailerStores();
+          const mergedStores = currentRetailerStores.map((s) =>
+            (s.storeId || s._id) === id
+              ? {
+                  ...s,
+                  ...storeRecord,
+                  deliveryZoneId: storeRecord.deliveryZoneId || storeRecord.assignedZoneId || null,
+                  assignmentStatus: (storeRecord.deliveryZoneId || storeRecord.assignedZoneId) ? 'active' : 'unassigned'
+                }
+              : s
+          );
+          saveRetailerStores(mergedStores);
+        } catch (e) {}
         setStores((prev) =>
           prev.map((s) => ((s.storeId || s._id) === id ? { ...s, ...storeRecord } : s))
         );
@@ -575,6 +587,19 @@ export const StoreManagementView = () => {
 
         const finalStore = serverCreated || storeRecord;
         saveLocalCustomStore(finalStore);
+        try {
+          const currentRetailerStores = loadRetailerStores();
+          const sId = finalStore.storeId || finalStore._id;
+          const mergedStores = [
+            ...currentRetailerStores.filter((s) => (s.storeId || s._id) !== sId),
+            {
+              ...finalStore,
+              deliveryZoneId: finalStore.deliveryZoneId || finalStore.assignedZoneId || null,
+              assignmentStatus: (finalStore.deliveryZoneId || finalStore.assignedZoneId) ? 'active' : 'unassigned'
+            }
+          ];
+          saveRetailerStores(mergedStores);
+        } catch (e) {}
 
         setStores((prev) => {
           const copy = Array.isArray(prev) ? [...prev] : [];

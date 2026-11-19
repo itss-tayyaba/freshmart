@@ -239,27 +239,20 @@ export const createStore = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Coordinates out of valid geographical bounds.' });
     }
 
-    // The super admin must pick the delivery polygon for a new store (we only SUGGEST one).
-    const requestedZoneId = req.body.assignedZoneId || req.body.zoneId;
+    // Super admin registers branch location freely (does not have to lie on any polygon)
+    const requestedZoneId = req.body.assignedZoneId || req.body.zoneId || null;
     let chosenZone = null;
     let insidePolygon = true;
 
     if (requestedZoneId) {
-      const { getAllZonesMerged } = await import('./zoneController.js');
-      const allZones = await getAllZonesMerged();
-      chosenZone = allZones.find((z) => z.zoneId === requestedZoneId);
-      if (!chosenZone) {
-        return res.status(400).json({ success: false, message: 'The selected polygon does not exist.' });
-      }
-      insidePolygon = zoneContainsPoint(chosenZone, lat, lng);
-    } else if (process.env.NODE_ENV !== 'test') {
-      const { getAllZonesMerged } = await import('./zoneController.js');
-      const allZones = await getAllZonesMerged();
-      return res.status(400).json({
-        success: false,
-        message: 'Choose the delivery polygon for this store before saving.',
-        suggestions: suggestZonesForPoint(allZones, lat, lng)
-      });
+      try {
+        const { getAllZonesMerged } = await import('./zoneController.js');
+        const allZones = await getAllZonesMerged();
+        chosenZone = allZones.find((z) => z.zoneId === requestedZoneId);
+        if (chosenZone) {
+          insidePolygon = zoneContainsPoint(chosenZone, lat, lng);
+        }
+      } catch (e) {}
     }
 
     const canonicalTenant = resolveRetailerId(tenantId || 'tenant-unimart');

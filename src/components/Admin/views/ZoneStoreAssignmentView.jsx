@@ -268,6 +268,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     window.__handlePopupZoneChange = (storeId, newZoneId) => {
       updateStoreZone(storeId, newZoneId);
     };
+    window.__handlePopupAssociateStoreWithZone = (storeId) => {
+      const target = stores.find((s) => (s.storeId || s._id) === storeId);
+      if (target) handleOpenAssignModal(target);
+    };
     window.__handlePopupEditZone = (zoneId) => {
       const target = masterZones.find((z) => (z.zoneId || z._id) === zoneId);
       if (target) handleOpenEditZone(target);
@@ -286,6 +290,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     };
     return () => {
       delete window.__handlePopupZoneChange;
+      delete window.__handlePopupAssociateStoreWithZone;
       delete window.__handlePopupEditZone;
       delete window.__handlePopupEditPolygon;
       delete window.__handlePopupAssociateStore;
@@ -783,6 +788,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     }
   };
 
+  // Unassigned stores that are left to associate with a delivery polygon
+  const unassignedStores = useMemo(() => {
+    return stores.filter((s) => !s.deliveryZoneId);
+  }, [stores]);
+
   // Filtered stores calculation
   const filteredStores = useMemo(() => {
     return stores.filter((s) => {
@@ -792,10 +802,15 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
         s.name.toLowerCase().includes(q) ||
         s.branchName.toLowerCase().includes(q) ||
         s.parentRetailerName.toLowerCase().includes(q) ||
+        (s.storeCode && s.storeCode.toLowerCase().includes(q)) ||
         s.address.toLowerCase().includes(q);
 
       const matchesZone =
-        selectedZoneFilter === 'all' || s.deliveryZoneId === selectedZoneFilter;
+        selectedZoneFilter === 'all'
+          ? true
+          : selectedZoneFilter === 'unassigned'
+          ? !s.deliveryZoneId
+          : s.deliveryZoneId === selectedZoneFilter;
 
       const matchesRetailer =
         selectedRetailerFilter === 'all' || s.retailerId === selectedRetailerFilter;
@@ -807,11 +822,13 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   // Statistics
   const stats = useMemo(() => {
     const totalStores = stores.length;
-    const assignedCount = stores.filter((s) => Boolean(s.deliveryZoneId)).length;
+    const unassignedCount = stores.filter((s) => !s.deliveryZoneId).length;
+    const assignedCount = totalStores - unassignedCount;
     return {
       parentRetailersCount: parentRetailers.length,
       childStoresCount: totalStores,
       masterZonesCount: masterZones.length,
+      unassignedCount,
       assignedPercent: totalStores > 0 ? Math.round((assignedCount / totalStores) * 100) : 100
     };
   }, [parentRetailers, stores, masterZones]);
@@ -972,15 +989,15 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       const lng = Number(store.longitude);
       if (isNaN(lat) || isNaN(lng)) return;
 
-      const assignedZone =
-        masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId) ||
-        masterZones[0] ||
-        FOUR_MASTER_DELIVERY_ZONES[0];
+      const isUnassigned = !store.deliveryZoneId;
+      const assignedZone = isUnassigned
+        ? null
+        : masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId) || masterZones[0];
       const parentRetailer =
         parentRetailers.find((r) => r.id === store.retailerId) ||
         parentRetailers[0] ||
         FOUR_PARENT_RETAILERS[0];
-      const zoneColor = assignedZone?.color || '#0284c7';
+      const zoneColor = isUnassigned ? '#f59e0b' : (assignedZone?.color || '#0284c7');
       const isFocused = focusedStoreId === (store.storeId || store._id);
       const isMainBranch = store.name.toLowerCase().includes('main') || store.branchName.toLowerCase().includes('main');
 
@@ -995,8 +1012,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
             height: ${isFocused ? '40px' : '34px'};
             background: #ffffff;
             border-radius: 12px;
-            border: ${isFocused ? '3.5px solid #0f172a' : `3px solid ${zoneColor}`};
-            box-shadow: ${isFocused ? '0 0 0 4px ' + zoneColor + '88, 0 8px 16px rgba(0,0,0,0.35)' : '0 4px 12px rgba(0,0,0,0.25)'};
+            border: ${isFocused ? '3.5px solid #0f172a' : isUnassigned ? '3px dashed #f59e0b' : `3px solid ${zoneColor}`};
+            box-shadow: ${isFocused ? '0 0 0 4px ' + zoneColor + '88, 0 8px 16px rgba(0,0,0,0.35)' : isUnassigned ? '0 0 0 3px #fef3c7, 0 4px 12px rgba(245,158,11,0.35)' : '0 4px 12px rgba(0,0,0,0.25)'};
             font-size: ${isFocused ? '18px' : '14px'};
             cursor: pointer;
             position: relative;
@@ -1007,14 +1024,14 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
               position: absolute;
               bottom: -6px;
               right: -6px;
-              background: ${zoneColor};
+              background: ${isUnassigned ? '#f59e0b' : zoneColor};
               color: #ffffff;
               font-size: 9px;
               font-weight: 900;
               border-radius: 9999px;
               padding: 1px 4px;
               border: 1.5px solid #ffffff;
-            ">${store.retailerNumber || '•'}</span>
+            ">${isUnassigned ? '⚠️' : (store.retailerNumber || '•')}</span>
           </div>
         `,
         iconSize: [isFocused ? 40 : 34, isFocused ? 40 : 34],
@@ -1046,23 +1063,44 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
           <p style="font-size: 11px; color: #475569; margin: 4px 0 8px 0; line-height: 1.3;">
             📍 ${esc(store.address)}
           </p>
-          <div style="background: #f1f5f9; padding: 8px; border-radius: 8px; margin-bottom: 6px;">
-            <label style="font-size: 10px; font-weight: bold; color: #334155; display: block; margin-bottom: 3px;">
-              Change Delivery Zone:
-            </label>
-            <select
-              onchange="window.__handlePopupZoneChange && window.__handlePopupZoneChange('${store.storeId || store._id}', this.value)"
-              style="width: 100%; font-size: 11px; padding: 4px 6px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; font-weight: bold; color: ${zoneColor}; cursor: pointer;"
-            >
-              ${zoneOptionsHtml}
-            </select>
-          </div>
-          <button
-            onclick="window.__handleHighlightStorePolygon && window.__handleHighlightStorePolygon('${store.storeId || store._id}')"
-            style="width: 100%; padding: 5px 8px; background: #0f172a; color: #ffffff; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
-          >
-            🗺️ Highlight Store Delivery Polygon
-          </button>
+          ${
+            isUnassigned
+              ? `
+              <div style="background: #fef3c7; border: 1px solid #fde68a; padding: 8px; border-radius: 8px; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 4px; color: #b45309; font-weight: 800; font-size: 11px;">
+                  ⚠️ Store Left to Associate
+                </div>
+                <div style="font-size: 10px; color: #78350f; margin-top: 2px;">
+                  This branch is registered and awaits zone assignment.
+                </div>
+              </div>
+              <button
+                onclick="window.__handlePopupAssociateStoreWithZone && window.__handlePopupAssociateStoreWithZone('${store.storeId || store._id}')"
+                style="width: 100%; padding: 7px 10px; background: #059669; color: #ffffff; border: none; border-radius: 8px; font-size: 11px; font-weight: 800; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
+              >
+                🔗 + Associate with Delivery Polygon
+              </button>
+              `
+              : `
+              <div style="background: #f1f5f9; padding: 8px; border-radius: 8px; margin-bottom: 6px;">
+                <label style="font-size: 10px; font-weight: bold; color: #334155; display: block; margin-bottom: 3px;">
+                  Change Delivery Zone:
+                </label>
+                <select
+                  onchange="window.__handlePopupZoneChange && window.__handlePopupZoneChange('${store.storeId || store._id}', this.value)"
+                  style="width: 100%; font-size: 11px; padding: 4px 6px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; font-weight: bold; color: ${zoneColor}; cursor: pointer;"
+                >
+                  ${zoneOptionsHtml}
+                </select>
+              </div>
+              <button
+                onclick="window.__handleHighlightStorePolygon && window.__handleHighlightStorePolygon('${store.storeId || store._id}')"
+                style="width: 100%; padding: 5px 8px; background: #0f172a; color: #ffffff; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;"
+              >
+                🗺️ Highlight Store Delivery Polygon
+              </button>
+              `
+          }
         </div>
       `);
 
@@ -1264,31 +1302,177 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
         </div>
 
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Physical Stores</span>
+          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Registered Stores</span>
           <div className="flex items-baseline gap-1.5 mt-1">
             <span className="text-xl font-black text-emerald-600">{stats.childStoresCount}</span>
-            <span className="text-[11px] text-slate-500 font-semibold">Child Branches</span>
+            <span className="text-[11px] text-slate-500 font-semibold">Physical Child Branches</span>
           </div>
         </div>
 
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Master Delivery Zones</span>
+          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Delivery Zones</span>
           <div className="flex items-baseline gap-1.5 mt-1">
             <span className="text-xl font-black text-indigo-600">{stats.masterZonesCount}</span>
-            <span className="text-[11px] text-slate-500 font-semibold">Faisalabad Polygons</span>
+            <span className="text-[11px] text-slate-500 font-semibold">Master Delivery Polygons</span>
           </div>
         </div>
 
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Zone Assignment</span>
+          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Unassigned Stores</span>
           <div className="flex items-baseline gap-1.5 mt-1">
-            <span className="text-xl font-black text-emerald-600">{stats.assignedPercent}%</span>
-            <span className="text-[11px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-              ✓ All Stores Linked
+            <span className={`text-xl font-black ${stats.unassignedCount > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+              {stats.unassignedCount}
+            </span>
+            <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded border ${
+              stats.unassignedCount > 0
+                ? 'text-amber-700 bg-amber-50 border-amber-200'
+                : 'text-emerald-700 bg-emerald-50 border-emerald-200'
+            }`}>
+              {stats.unassignedCount > 0 ? 'Requires Zone Link' : '✓ 100% Assigned'}
             </span>
           </div>
         </div>
       </div>
+
+      {/* ===================================================================== */}
+      {/* 1.5 PROMINENT UNASSIGNED STORES SECTION / WORKFLOW                    */}
+      {/* ===================================================================== */}
+      {unassignedStores.length > 0 ? (
+        <div className="bg-amber-50/90 border-2 border-amber-300 rounded-3xl p-5 shadow-sm space-y-4 animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black text-slate-900">
+                    Stores Awaiting Zone Assignment
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-950 border border-amber-300">
+                    {unassignedStores.length} {unassignedStores.length === 1 ? 'Store' : 'Stores'} Left
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 font-medium mt-0.5">
+                  These child branches are registered with physical locations on the map, but not yet linked to any delivery polygon. Select an existing zone below:
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSelectedZoneFilter(selectedZoneFilter === 'unassigned' ? 'all' : 'unassigned')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 self-start sm:self-auto ${
+                selectedZoneFilter === 'unassigned'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-white hover:bg-amber-100 text-amber-900 border border-amber-300'
+              }`}
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              <span>{selectedZoneFilter === 'unassigned' ? 'Show All Stores on Map' : 'Filter Unassigned on Map'}</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {unassignedStores.map((store) => {
+              const parentRetailer =
+                parentRetailers.find((r) => r.id === store.retailerId) ||
+                parentRetailers[0];
+
+              return (
+                <div
+                  key={store.storeId || store._id}
+                  className="bg-white rounded-2xl border border-amber-200/90 p-4 shadow-2xs space-y-3 flex flex-col justify-between hover:border-amber-400 hover:shadow-xs transition"
+                >
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700">
+                        {store.storeCode || store.storeId}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3 text-amber-600" />
+                        <span>Unassigned</span>
+                      </span>
+                    </div>
+
+                    <h4 className="font-black text-slate-900 text-sm leading-tight">
+                      {store.name}
+                    </h4>
+
+                    <div className="text-xs text-slate-600 flex items-center gap-2 font-medium">
+                      <span><strong>Parent:</strong> {store.parentRetailerName || parentRetailer?.name || 'Retailer'}</span>
+                      <span>•</span>
+                      <span className="text-[11px] text-slate-500">Child Store</span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
+                      📍 {store.address}
+                    </p>
+
+                    <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2">
+                      <span>GPS: {Number(store.latitude).toFixed(4)}, {Number(store.longitude).toFixed(4)}</span>
+                      <span>•</span>
+                      <span>{store.city || 'Faisalabad'}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 space-y-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Assign to Existing Polygon:
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <select
+                        defaultValue=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            updateStoreZone(store.storeId || store._id, e.target.value);
+                          }
+                        }}
+                        className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none cursor-pointer"
+                      >
+                        <option value="" disabled>Select delivery zone...</option>
+                        {masterZones.map((z) => (
+                          <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
+                            {z.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAssignModal(store)}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer shrink-0 flex items-center gap-1 active:scale-95"
+                      >
+                        <span>Assign</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="p-3 bg-emerald-50/60 rounded-2xl border border-emerald-200/80 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-bold text-emerald-900">
+              All {stores.length} Registered Stores are Associated with Delivery Polygons.
+            </span>
+            <span className="text-[11px] text-emerald-700 font-medium hidden sm:inline">
+              When a new physical branch is registered with its map location, it will automatically appear here awaiting zone assignment.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleOpenAddStore(parentRetailers[0])}
+            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-2xs flex items-center gap-1 cursor-pointer shrink-0"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Register Branch</span>
+          </button>
+        </div>
+      )}
 
       {/* ===================================================================== */}
       {/* 2. INTERACTIVE FAISALABAD MAP WITH MASTER ZONES & STORE PINS          */}
@@ -1559,6 +1743,21 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                 </button>
               );
             })}
+
+            {unassignedStores.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedZoneFilter(selectedZoneFilter === 'unassigned' ? 'all' : 'unassigned')}
+                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold shrink-0 transition cursor-pointer flex items-center gap-1.5 ${
+                  selectedZoneFilter === 'unassigned'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-300'
+                }`}
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0 animate-pulse" />
+                <span>⚠️ Left to Associate ({unassignedStores.length})</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1747,23 +1946,34 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                                 Assigned Delivery Zone
                               </label>
-                              <span
-                                className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                                style={{
-                                  backgroundColor: `${assignedZone?.color}15`,
-                                  color: assignedZone?.color
-                                }}
-                              >
-                                ✓ {assignedZone?.shortName || 'Zone'}
-                              </span>
+                              {store.deliveryZoneId ? (
+                                <span
+                                  className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                  style={{
+                                    backgroundColor: `${assignedZone?.color}15`,
+                                    color: assignedZone?.color
+                                  }}
+                                >
+                                  ✓ {assignedZone?.shortName || 'Zone'}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                                  ⚠️ Unassigned
+                                </span>
+                              )}
                             </div>
 
                             <select
                               value={store.deliveryZoneId || ''}
                               onChange={(e) => updateStoreZone(store.storeId || store._id, e.target.value)}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer transition"
-                              style={{ borderLeftWidth: '4px', borderLeftColor: assignedZone?.color }}
+                              className={`w-full rounded-xl px-3 py-2 text-xs font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer transition ${
+                                !store.deliveryZoneId
+                                  ? 'bg-amber-50 border-2 border-amber-300 text-amber-900'
+                                  : 'bg-slate-50 border border-slate-200 text-slate-800'
+                              }`}
+                              style={{ borderLeftWidth: '4px', borderLeftColor: store.deliveryZoneId ? assignedZone?.color : '#f59e0b' }}
                             >
+                              <option value="" disabled>-- Select Existing Delivery Polygon --</option>
                               {masterZones.map((z) => (
                                 <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
                                   {z.name}
@@ -1772,19 +1982,34 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                             </select>
 
                             {/* Live Delivery Zone Coverage Info */}
-                            <div className="p-2 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between gap-2 text-[10px]">
-                              <span className="text-slate-500 font-medium truncate">
-                                Fulfills orders in: <strong style={{ color: assignedZone?.color }}>{assignedZone?.shortName} Polygon</strong>
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleHighlightStorePolygon(store)}
-                                className="font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 shrink-0 cursor-pointer"
-                              >
-                                <span>View on Map</span>
-                                <ArrowRight className="w-3 h-3" />
-                              </button>
-                            </div>
+                            {store.deliveryZoneId ? (
+                              <div className="p-2 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between gap-2 text-[10px]">
+                                <span className="text-slate-500 font-medium truncate">
+                                  Fulfills orders in: <strong style={{ color: assignedZone?.color }}>{assignedZone?.shortName} Polygon</strong>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleHighlightStorePolygon(store)}
+                                  className="font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 shrink-0 cursor-pointer"
+                                >
+                                  <span>View on Map</span>
+                                  <ArrowRight className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="p-2 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between gap-2 text-[10px]">
+                                <span className="text-amber-800 font-bold truncate">
+                                  ⚠️ Awaiting Zone Association
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenAssignModal(store)}
+                                  className="font-bold text-emerald-700 bg-white hover:bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded cursor-pointer"
+                                >
+                                  + Link Zone
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
