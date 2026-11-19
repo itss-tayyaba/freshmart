@@ -2,14 +2,7 @@ import express from 'express';
 import {
   registerUser,
   loginUser,
-  getUserProfile,
-  createPickupStaff,
-  getPickupStaff,
-  updatePickupStaff,
-  deletePickupStaff,
-  saveStoreAdmin,
-  getStoreAdmins,
-  deleteStoreAdmin
+  getUserProfile
 } from '../controllers/authController.js';
 import {
   getProducts,
@@ -27,15 +20,12 @@ import {
 import {
   createOrder,
   getOrders,
-  getMyOrders,
-  getAssignedRiderOrders,
-  getPickupAssignedOrders,
-  assignPickupStaff,
-  updateOrderPickupStatus,
-  updateMyRiderLocation,
+  getRiderOrders,
+  getPickupStaffOrders,
   trackOrder,
   updateOrderStatus,
-  deleteOrder,
+  updatePickupStaffOrderStatus,
+  assignPickupStaffToOrder,
   assignRiderToOrder,
   updateRiderLocation,
   verifyDeliveryOtp
@@ -45,13 +35,12 @@ import {
   restockProduct,
   getCustomers,
   addCustomer,
-  deleteCustomer,
   getSuppliers,
   addSupplier,
   deleteSupplier,
   getRiders,
+  updateRiderOwnLocation,
   addRider,
-  updateRider,
   deleteRider,
   clearAllRiders,
   getPromotions,
@@ -62,9 +51,7 @@ import {
   validateCoupon,
   getDeliveries,
   getAnalyticsDashboard,
-  uploadImage,
-  saveCustomerLocation,
-  getCustomerLocation
+  uploadImage
 } from '../controllers/extraControllers.js';
 import {
   registerVendor,
@@ -99,18 +86,14 @@ import {
   activateTenant,
   deleteTenant,
   updateSubscription,
-  updateTenant,
   getTenantOrders,
   getTenantPerformance,
   getPlatformOverview
 } from '../controllers/tenantController.js';
-import { protect, adminOnly, protectVendor, superAdminOnly, staffOrAdmin, requireRoles, adminOrRiderSelf } from '../middleware/authMiddleware.js';
-import {
-  saveStoreDeliveryZone,
-  getStoreDeliveryZone,
-  listStoreZones
-} from '../controllers/storeZoneController.js';
+import { protect, adminOnly, branchAdminOnly, superAdminOnly, riderOnly, pickupStaffOnly, protectVendor } from '../middleware/authMiddleware.js';
+import { createPickupStaff, getPickupStaff } from '../controllers/pickupStaffController.js';
 import { authLimiter } from '../middleware/rateLimitMiddleware.js';
+import { listStoreAdmins, createStoreAdmin, resetStoreAdminPassword, suggestZone } from '../controllers/storeAdminController.js';
 import {
   validate,
   registerSchema,
@@ -124,6 +107,7 @@ import {
   restockSchema,
   createSupplierSchema,
   createRiderSchema,
+  createPickupStaffSchema,
   validateCouponSchema
 } from '../middleware/validationMiddleware.js';
 
@@ -132,13 +116,12 @@ const router = express.Router();
 // --- Auth Routes (Rate Limited & Validated) ---
 router.post('/auth/register', authLimiter, validate(registerSchema), registerUser);
 router.post('/auth/login', authLimiter, validate(loginSchema), loginUser);
-router.post('/auth/pickup-staff', protect, adminOnly, createPickupStaff);
-router.get('/auth/pickup-staff', protect, adminOnly, getPickupStaff);
-router.put('/auth/pickup-staff/:id', protect, adminOnly, updatePickupStaff);
-router.delete('/auth/pickup-staff/:id', protect, adminOnly, deletePickupStaff);
-router.post('/auth/store-admin', protect, superAdminOnly, saveStoreAdmin);
-router.get('/auth/store-admins', protect, superAdminOnly, getStoreAdmins);
-router.delete('/auth/store-admin/:id', protect, superAdminOnly, deleteStoreAdmin);
+// Super admin: one admin per store, and polygon suggestion for new stores
+router.get('/admin/store-admins', protect, superAdminOnly, listStoreAdmins);
+router.post('/admin/stores/:storeId/admin', protect, superAdminOnly, createStoreAdmin);
+router.post('/admin/stores/:storeId/admin/reset-password', protect, superAdminOnly, resetStoreAdminPassword);
+router.get('/admin/suggest-zone', protect, superAdminOnly, suggestZone);
+
 router.get('/auth/profile', protect, getUserProfile);
 
 // --- Products Routes ---
@@ -161,20 +144,21 @@ router.delete('/categories/:id', protect, adminOnly, deleteCategory);
 // --- Orders Routes ---
 // Public: Shoppers place orders (validated) and track delivery status
 router.post('/orders', validate(createOrderSchema), createOrder);
-router.get('/orders/mine', protect, getMyOrders);
-router.get('/orders/assigned-to-me', protect, getAssignedRiderOrders);
-router.get('/orders/pickup-assigned-to-me', protect, getPickupAssignedOrders);
 router.get('/orders/track/:orderId', trackOrder);
-// Admin & Staff Operations
-router.put('/orders/:id/assign-rider', protect, adminOnly, assignRiderToOrder);
-router.put('/orders/:id/assign-pickup', protect, adminOnly, assignPickupStaff);
-router.put('/orders/:id/rider-location', protect, updateRiderLocation);
-router.put('/orders/:id/pickup-status', protect, requireRoles('pickup_staff', 'staff', 'admin', 'superadmin', 'store admin'), updateOrderPickupStatus);
-router.post('/orders/:id/verify-delivery-otp', verifyDeliveryOtp);
-router.get('/orders', protect, getOrders);
-router.delete('/orders/:id', protect, adminOnly, deleteOrder);
-router.put('/orders/:id/status', protect, requireRoles('admin', 'superadmin', 'store admin', 'pickup_staff', 'staff', 'rider'), validate(updateOrderStatusSchema), updateOrderStatus);
-router.put('/orders/:id/fulfillment', protect, staffOrAdmin, updateOrderStatus);
+router.get('/orders/assigned-to-me', protect, riderOnly, getRiderOrders);
+router.get('/orders/pickup-assigned-to-me', protect, pickupStaffOnly, getPickupStaffOrders);
+router.put('/orders/:id/pickup-status', protect, pickupStaffOnly, validate(updateOrderStatusSchema), updatePickupStaffOrderStatus);
+// Admin & Fleet: Assign rider, update live GPS location, verify delivery OTP, and update order status
+router.put('/orders/:id/assign-pickup-staff', protect, branchAdminOnly, assignPickupStaffToOrder);
+router.put('/orders/:id/assign-rider', protect, branchAdminOnly, assignRiderToOrder);
+router.put('/orders/:id/rider-location', protect, riderOnly, updateRiderLocation);
+router.post('/orders/:id/verify-delivery-otp', protect, riderOnly, verifyDeliveryOtp);
+router.get('/orders', protect, branchAdminOnly, getOrders);
+router.put('/orders/:id/status', protect, branchAdminOnly, validate(updateOrderStatusSchema), updateOrderStatus);
+
+// --- Branch Pickup Staff Routes ---
+router.get('/pickup-staff', protect, branchAdminOnly, getPickupStaff);
+router.post('/pickup-staff', protect, branchAdminOnly, validate(createPickupStaffSchema), createPickupStaff);
 
 // --- Inventory Routes ---
 // Admin Locked & Validated: Viewing warehouse stocks and restocking items
@@ -182,13 +166,10 @@ router.get('/inventory', protect, adminOnly, getInventory);
 router.post('/inventory/:id/restock', protect, adminOnly, validate(restockSchema), restockProduct);
 
 // --- Customers Routes ---
-// Admin Locked: Viewing and managing customer registry
+// Admin Locked: Viewing customer registry
 router.get('/customers', protect, adminOnly, getCustomers);
-router.post('/customers', protect, adminOnly, addCustomer);
-router.delete('/customers/:id', protect, adminOnly, deleteCustomer);
-// Delivery Location Persistence (Stores to Database & Session - Rate Limited)
-router.post('/customer/location', authLimiter, saveCustomerLocation);
-router.get('/customer/location', authLimiter, getCustomerLocation);
+// Public: Customer enrollment
+router.post('/customers', addCustomer);
 
 // --- Suppliers Routes ---
 // Admin Locked & Validated: Supplier database and partner operations
@@ -197,13 +178,12 @@ router.post('/suppliers', protect, adminOnly, validate(createSupplierSchema), ad
 router.delete('/suppliers/:id', protect, adminOnly, deleteSupplier);
 
 // --- Riders Routes ---
-// Fleet location telemetry and courier management
-router.put('/riders/me/location', protect, updateMyRiderLocation);
-router.get('/riders', protect, adminOnly, getRiders);
-router.post('/riders', protect, adminOnly, validate(createRiderSchema), addRider);
-router.put('/riders/:id', protect, adminOrRiderSelf, updateRider);
-router.delete('/riders/:id', protect, adminOnly, deleteRider);
-router.delete('/riders', protect, adminOnly, clearAllRiders);
+// Admin Locked & Validated: Delivery fleet management
+router.get('/riders', protect, branchAdminOnly, getRiders);
+router.put('/riders/me/location', protect, riderOnly, updateRiderOwnLocation);
+router.post('/riders', protect, branchAdminOnly, validate(createRiderSchema), addRider);
+router.delete('/riders/:id', protect, branchAdminOnly, deleteRider);
+router.delete('/riders', protect, branchAdminOnly, clearAllRiders);
 
 // --- Promotions & Coupons Routes ---
 // Public: Active coupons and checkout promo validation
@@ -270,144 +250,16 @@ router.put('/admin/vendors/:id/payouts/:payoutId', protect, adminOnly, adminProc
 
 // --- Super Grocery Platform: Multi-Tenant Architecture Routes ---
 router.get('/tenants', getTenants);
-router.post('/tenants', protect, superAdminOnly, createTenant);
-router.post('/tenants/invite', protect, superAdminOnly, inviteTenant);
-router.get('/tenants/platform/overview', protect, superAdminOnly, getPlatformOverview);
+router.post('/tenants', createTenant);
+router.post('/tenants/invite', inviteTenant);
+router.get('/tenants/platform/overview', getPlatformOverview);
 router.get('/tenants/:id', getTenantById);
-router.post('/tenants/:id/approve', protect, superAdminOnly, approveTenant);
-router.post('/tenants/:id/suspend', protect, superAdminOnly, suspendTenant);
-router.post('/tenants/:id/activate', protect, superAdminOnly, activateTenant);
-router.delete('/tenants/:id', protect, superAdminOnly, deleteTenant);
-router.put('/tenants/:id', protect, superAdminOnly, updateTenant);
-router.put('/tenants/:id/subscription', protect, superAdminOnly, updateSubscription);
-router.get('/tenants/:id/orders', protect, adminOnly, getTenantOrders);
-router.get('/tenants/:id/performance', protect, adminOnly, getTenantPerformance);
-
-// --- 🏬 Multi-Company & Branch Architecture Routes (User → Tenant → Branch → Data) ---
-import {
-  getCompanies,
-  getAllBranches,
-  createBranch,
-  updateBranch,
-  deleteBranch,
-  getCompanyBranches,
-  getBranchInventory,
-  updateBranchInventory,
-  getBranchOrders,
-  createBranchOrder,
-  findAvailableRetailersController,
-  updateBranchDeliveryZone
-} from '../controllers/companyBranchController.js';
-import { enforceTenantBranchScope } from '../middleware/tenantBranchMiddleware.js';
-
-router.get('/companies', getCompanies);
-router.get('/branches', getAllBranches);
-router.post('/branches', protect, superAdminOnly, createBranch);
-router.put('/branches/:id', protect, adminOnly, updateBranch);
-router.delete('/branches/:id', protect, adminOnly, deleteBranch);
-router.get('/companies/:tenantId/branches', getCompanyBranches);
-router.get('/branches/:branchId/inventory', getBranchInventory);
-router.put('/branches/:branchId/inventory/:productId', protect, adminOnly, updateBranchInventory);
-router.get('/branches/:branchId/orders', protect, staffOrAdmin, getBranchOrders);
-router.post('/branches/:branchId/orders', protect, staffOrAdmin, createBranchOrder);
-
-// Multi-Retailer Delivery Zones (Faisalabad Dynamic Discovery)
-router.post('/retailers/find-available', findAvailableRetailersController);
-router.get('/retailers/find-available', findAvailableRetailersController);
-router.get('/branches/available', findAvailableRetailersController);
-router.put('/branches/:id/delivery-zone', protect, requireRoles('superadmin', 'admin', 'store admin'), saveStoreDeliveryZone);
-router.get('/branches/:id/delivery-zone', protect, requireRoles('superadmin', 'admin', 'store admin'), getStoreDeliveryZone);
-router.get('/admin/store-zones', protect, superAdminOnly, listStoreZones);
-
-// ============================================================
-// 📍 MULTI-STORE GIS DELIVERY PLATFORM APIS (MODULES 1 - 10)
-// ============================================================
-import {
-  getRetailers,
-  createRetailer,
-  updateRetailer,
-  toggleRetailerStatus
-} from '../controllers/retailerController.js';
-import {
-  getStores,
-  getStoreById,
-  createStore,
-  updateStore,
-  deleteStore,
-  toggleStoreStatus,
-  getRetailerStores
-} from '../controllers/storeController.js';
-import {
-  getZones,
-  getZoneById,
-  createZone,
-  updateZone,
-  deleteZone,
-  toggleZoneStatus
-} from '../controllers/zoneController.js';
-import {
-  getAllAssignments,
-  getZoneStores,
-  assignStoresToZone,
-  removeStoreFromZone
-} from '../controllers/assignmentController.js';
-import {
-  checkDeliveryAvailability,
-  getEligibleStores,
-  calculateFee
-} from '../controllers/deliveryEligibilityController.js';
-
-// --- Retailers Management ---
-router.get('/admin/retailers', getRetailers);
-router.post('/admin/retailers', protect, superAdminOnly, createRetailer);
-router.put('/admin/retailers/:id', protect, superAdminOnly, updateRetailer);
-router.patch('/admin/retailers/:id/status', protect, superAdminOnly, toggleRetailerStatus);
-
-// --- Stores Management ---
-router.get('/admin/stores', getStores);
-router.post('/admin/stores', protect, adminOnly, createStore);
-router.get('/admin/stores/:id', getStoreById);
-router.put('/admin/stores/:id', protect, adminOnly, updateStore);
-router.delete('/admin/stores/:id', protect, adminOnly, deleteStore);
-router.patch('/admin/stores/:id/status', protect, adminOnly, toggleStoreStatus);
-router.get('/retailer/stores', protect, getRetailerStores);
-
-// --- Delivery Zones Management (Super Admin Exclusive) ---
-router.get('/admin/zones', getZones);
-router.post('/admin/zones', protect, superAdminOnly, createZone);
-router.get('/admin/zones/:id', getZoneById);
-router.put('/admin/zones/:id', protect, superAdminOnly, updateZone);
-router.delete('/admin/zones/:id', protect, superAdminOnly, deleteZone);
-router.patch('/admin/zones/:id/status', protect, superAdminOnly, toggleZoneStatus);
-
-// Delivery Zones Public & Mobile Aliases
-router.get('/zones', getZones);
-router.post('/zones', protect, superAdminOnly, createZone);
-router.get('/zones/:id', getZoneById);
-router.put('/zones/:id', protect, superAdminOnly, updateZone);
-router.delete('/zones/:id', protect, superAdminOnly, deleteZone);
-router.patch('/zones/:id/status', protect, superAdminOnly, toggleZoneStatus);
-
-// Stores Aliases
-router.get('/stores', getStores);
-router.get('/stores/:id', getStoreById);
-router.put('/stores/:id', protect, adminOnly, updateStore);
-router.delete('/stores/:id', protect, adminOnly, deleteStore);
-
-// --- Zone-Store Assignments ---
-router.get('/admin/assignments', getAllAssignments);
-router.get('/admin/zones/:id/stores', getZoneStores);
-router.post('/admin/zones/:id/stores', protect, superAdminOnly, assignStoresToZone);
-router.delete('/admin/zones/:id/stores/:storeId', protect, superAdminOnly, removeStoreFromZone);
-
-// --- Customer Delivery Geovalidation & Calculation ---
-router.post('/delivery/check-availability', authLimiter, checkDeliveryAvailability);
-router.post('/delivery/eligible-stores', authLimiter, getEligibleStores);
-router.post('/delivery/calculate-fee', authLimiter, calculateFee);
-
-// --- Orders Aliases for Admin & Retailer ---
-router.get('/admin/orders', protect, adminOnly, getOrders);
-router.delete('/admin/orders/:id', protect, adminOnly, deleteOrder);
-router.get('/retailer/orders', protect, getOrders);
+router.post('/tenants/:id/approve', approveTenant);
+router.post('/tenants/:id/suspend', suspendTenant);
+router.post('/tenants/:id/activate', activateTenant);
+router.delete('/tenants/:id', deleteTenant);
+router.put('/tenants/:id/subscription', updateSubscription);
+router.get('/tenants/:id/orders', getTenantOrders);
+router.get('/tenants/:id/performance', getTenantPerformance);
 
 export default router;

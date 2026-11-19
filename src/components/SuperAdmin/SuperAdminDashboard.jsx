@@ -73,6 +73,8 @@ import {
 } from '../../data/retailerZoneHierarchyData';
 import { DeliveryView } from '../Admin/views/DeliveryView';
 import { getAllUnifiedStores, BASELINE_FIVE_STORES, CORE_RETAILERS } from '../../utils/storeHelper';
+import { storeAdminApi } from '../../services/storeAdminApi';
+import { STORE_REGISTRY } from '../../data/storeRegistry';
 
 export const SuperAdminDashboard = () => {
   const {
@@ -120,26 +122,25 @@ export const SuperAdminDashboard = () => {
   // Active Navigation in Sidebar
   const [activeNav, setActiveNav] = useState('dashboard');
 
-  // Live GIS & Multi-Store Data State (Synchronized with 4 Master Zones & 12 Physical Stores)
+  // Live GIS & Multi-Store Data State (Synchronized with 4 Master Zones & 10 Physical Stores)
   const [liveZones, setLiveZones] = useState(() => loadMasterZones());
-  const [liveStores, setLiveStores] = useState(() => loadRetailerStores());
+  const [liveStores, setLiveStores] = useState(() => getAllUnifiedStores());
   const [liveAssignments, setLiveAssignments] = useState([]);
+  const [backendStoreAdmins, setBackendStoreAdmins] = useState([]);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchPlatformGisData = async () => {
       try {
-        const [zRes, sRes, aRes] = await Promise.all([
-          apiService.getZones(),
-          apiService.getStores(),
-          apiService.getAllAssignments()
+        const [zRes, sRes, aRes, admRes] = await Promise.all([
+          apiService.getZones().catch(() => null),
+          apiService.getStores().catch(() => null),
+          apiService.getAllAssignments().catch(() => null),
+          storeAdminApi.list().catch(() => null)
         ]);
-        const rStores = loadRetailerStores();
-        if (Array.isArray(rStores) && rStores.length > 0) {
-          setLiveStores(rStores);
-        } else {
-          const cleanStores = getAllUnifiedStores(sRes?.stores, allBranches);
-          setLiveStores(cleanStores);
-        }
+        if (cancelled) return;
+        const cleanStores = getAllUnifiedStores(sRes?.stores || sRes?.data || []);
+        setLiveStores(cleanStores);
 
         const mZones = loadMasterZones();
         if (Array.isArray(mZones) && mZones.length > 0) {
@@ -149,18 +150,45 @@ export const SuperAdminDashboard = () => {
         }
 
         if (aRes?.success && Array.isArray(aRes.assignments)) setLiveAssignments(aRes.assignments);
+
+        if (admRes?.success) {
+          if (Array.isArray(admRes.stores)) {
+            setBackendStoreAdmins(admRes.stores);
+          }
+          if (Array.isArray(admRes.admins) && admRes.admins.length > 0) {
+            setStoreAdmins((prev) => {
+              const combinedMap = new Map();
+              (prev || []).forEach((sa) => combinedMap.set(String(sa.email || sa.username || sa.id).toLowerCase(), sa));
+              admRes.admins.forEach((sa) => {
+                const key = String(sa.email || sa.username || sa.id).toLowerCase();
+                combinedMap.set(key, { ...combinedMap.get(key), ...sa });
+              });
+              return Array.from(combinedMap.values());
+            });
+          }
+        }
       } catch (e) {
-        setLiveStores(loadRetailerStores());
-        setLiveZones(loadMasterZones());
+        if (!cancelled) {
+          setLiveStores(getAllUnifiedStores());
+          setLiveZones(loadMasterZones());
+        }
       }
     };
     fetchPlatformGisData();
+    return () => {
+      cancelled = true;
+    };
   }, [activeNav, allBranches]);
 
   // Real-time synchronization when a store or zone is added, edited, or reallocated across the platform
   useEffect(() => {
-    const handleStoresUpdated = () => {
-      setLiveStores(loadRetailerStores());
+    const handleStoresUpdated = async () => {
+      try {
+        const sRes = await apiService.getStores();
+        setLiveStores(getAllUnifiedStores(sRes?.stores || []));
+      } catch {
+        setLiveStores(getAllUnifiedStores());
+      }
     };
     const handleZonesUpdated = () => {
       setLiveZones(loadMasterZones());
@@ -430,7 +458,7 @@ export const SuperAdminDashboard = () => {
   // SUPER ADMIN GIS & MULTI-STORE STATISTICS (MODULE 1 REQUIREMENTS)
   // =========================================================================
   const gisStats = useMemo(() => {
-    const storesList = Array.isArray(liveStores) && liveStores.length > 0 ? liveStores : loadRetailerStores();
+    const storesList = getAllUnifiedStores(liveStores);
     const zonesList = Array.isArray(liveZones) && liveZones.length > 0 ? liveZones : loadMasterZones();
 
     const totalStores = storesList.length;
@@ -460,12 +488,16 @@ export const SuperAdminDashboard = () => {
   const branchAllocationStatus = useMemo(() => {
     const unallocated = [];
     const allocated = [];
+    const storesList = getAllUnifiedStores(liveStores);
 
-    (liveStores || []).forEach((store) => {
+    (storesList || []).forEach((store) => {
       const sId = String(store.storeId || store._id || '');
       const storeBName = String(store.branchName || store.name || '').trim().toLowerCase();
 
-      const matchedAdmin = (storeAdmins || []).find((adm) => {
+      const backendEntry = (backendStoreAdmins || []).find((b) => b.storeId === sId);
+      const backendAdm = backendEntry?.admin ? { ...backendEntry.admin, branchId: sId, branchName: store.branchName || store.name, tenantId: store.tenantId } : null;
+
+      const matchedAdmin = backendAdm || (storeAdmins || []).find((adm) => {
         if (adm.branchId && (String(adm.branchId) === sId || (store._id && String(adm.branchId) === String(store._id)))) {
           return true;
         }
@@ -487,7 +519,59 @@ export const SuperAdminDashboard = () => {
     });
 
     return { unallocated, allocated };
-  }, [liveStores, storeAdmins]);
+  }, [liveStores, storeAdmins, backendStoreAdmins]);
+
+  // 🏢 Unified list of Mart / Branch Admins fed from backend / store registry
+  const displayStoreAdmins = useMemo(() => {
+    const list = [];
+    const seenEmails = new Set();
+    const seenBranchIds = new Set();
+
+    const unifiedStores = getAllUnifiedStores(liveStores);
+    unifiedStores.forEach((st) => {
+      const sId = st.storeId || st._id;
+      const bEntry = (backendStoreAdmins || []).find((b) => b.storeId === sId);
+      const bAdm = bEntry?.admin;
+      const localAdm = (storeAdmins || []).find(
+        (a) => (a.branchId && (a.branchId === sId || a.branchId === st.branchId)) || (a.email && (a.email === bAdm?.email || a.email === bAdm?.username))
+      );
+
+      if (bAdm || localAdm) {
+        const email = bAdm?.email || bAdm?.username || localAdm?.email || `admin.${sId}@mart.pk`;
+        seenEmails.add(email.toLowerCase());
+        seenBranchIds.add(sId);
+        list.push({
+          id: localAdm?.id || `adm-${sId}`,
+          name: bAdm?.name || localAdm?.name || `${st.branchName || st.name} Admin`,
+          email,
+          username: bAdm?.username || localAdm?.username || email,
+          phone: localAdm?.phone || st.contactNumber || '',
+          city: st.city || localAdm?.city || 'Faisalabad',
+          tenantId: st.tenantId,
+          tenantName: st.tenantName || localAdm?.tenantName || CORE_RETAILERS.find((r) => r.id === st.tenantId)?.name || 'Retailer',
+          branchId: sId,
+          branchName: st.branchName || st.name,
+          status: bAdm?.status || localAdm?.status || 'Active',
+          role: 'admin',
+          password: localAdm?.password || 'admin123',
+          isStoreLinked: true
+        });
+      }
+    });
+
+    (storeAdmins || []).forEach((sa) => {
+      const email = String(sa.email || sa.username || '').toLowerCase();
+      if (!seenEmails.has(email) && sa.branchId && !seenBranchIds.has(sa.branchId)) {
+        seenEmails.add(email);
+        list.push(sa);
+      } else if (!seenEmails.has(email) && !sa.branchId) {
+        seenEmails.add(email);
+        list.push(sa);
+      }
+    });
+
+    return list;
+  }, [liveStores, backendStoreAdmins, storeAdmins]);
 
   // Helper to calculate active in-progress deliveries for any rider
   const getRiderActiveOrderCount = (rider) => {
@@ -1218,7 +1302,7 @@ export const SuperAdminDashboard = () => {
                 <Building2 className="w-4 h-4 text-teal-400" />
                 <span>Stores</span>
                 <span className="ml-auto text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">
-                  {gisStats.totalStores}
+                  {getAllUnifiedStores(liveStores).length}
                 </span>
               </button>
               <button
@@ -1468,7 +1552,7 @@ export const SuperAdminDashboard = () => {
                   <div className="flex items-start justify-between">
                     <div>
                       <span className="text-[11px] font-bold text-slate-500 block uppercase tracking-wider">Total Stores</span>
-                      <span className="text-2xl font-black text-teal-600 mt-1 block">{gisStats.totalStores}</span>
+                      <span className="text-2xl font-black text-teal-600 mt-1 block">{getAllUnifiedStores(liveStores).length}</span>
                     </div>
                     <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold">
                       <Building2 className="w-4 h-4" />
@@ -2702,7 +2786,7 @@ export const SuperAdminDashboard = () => {
               <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
                 <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
                   <span className="text-xs font-bold text-slate-700">
-                    {(storeAdmins || []).filter((a) => adminCityFilter === 'all' || (a.city || 'Faisalabad').toLowerCase() === adminCityFilter.toLowerCase()).length} Registered Mart Admins
+                    {(displayStoreAdmins || []).filter((a) => adminCityFilter === 'all' || (a.city || 'Faisalabad').toLowerCase() === adminCityFilter.toLowerCase()).length} Registered Mart Admins
                   </span>
                   <button
                     onClick={() => {
@@ -2726,7 +2810,7 @@ export const SuperAdminDashboard = () => {
                 </div>
 
                 <div className="divide-y divide-slate-100">
-                  {(storeAdmins || [])
+                  {(displayStoreAdmins || [])
                     .filter((a) => adminCityFilter === 'all' || (a.city || 'Faisalabad').toLowerCase() === adminCityFilter.toLowerCase())
                     .map((admin) => {
                     const isPasswordShown = !!showPasswordMap[admin.id];
@@ -2819,7 +2903,17 @@ export const SuperAdminDashboard = () => {
 
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={async () => {
+                              if (admin.branchId) {
+                                try {
+                                  const res = await storeAdminApi.resetPassword(admin.branchId);
+                                  if (res?.success && res.password) {
+                                    updateStoreAdmin(admin.id, { password: res.password });
+                                    addToast('Password Reset 🔑', `New generated password for ${admin.name}: ${res.password}`);
+                                    return;
+                                  }
+                                } catch (e) {}
+                              }
                               const newPass = prompt(`Set new password for ${admin.name} (${admin.tenantName}):`, admin.password);
                               if (newPass && newPass.trim()) {
                                 updateStoreAdmin(admin.id, { password: newPass.trim() });

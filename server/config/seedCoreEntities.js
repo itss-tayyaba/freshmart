@@ -3,6 +3,9 @@ import { PickupStaff } from '../models/PickupStaff.js';
 import { Rider } from '../models/ExtraModels.js';
 import { User } from '../models/User.js';
 import { isDbOnline } from './db.js';
+import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
+import { STORE_REGISTRY, RETAILERS } from '../../src/data/storeRegistry.js';
 
 export const SEED_ADMINS = [
   {
@@ -458,84 +461,178 @@ export const SEED_RIDERS = [
   }
 ];
 
+// -----------------------------------------------------------------------------
+// Auto-generated accounts: every store flagged `isNew` in the registry gets its OWN
+// store admin, pickup-staff login and rider, all locked to that store's branchId.
+// Passwords are random (or STORE_INITIAL_PASSWORD from .env) and stored HASHED only.
+// They are printed ONCE, the first time an account is created.
+// -----------------------------------------------------------------------------
+const slugOf = (branchId) => branchId.replace(/^branch_/, '');
+const randomPassword = () => process.env.STORE_INITIAL_PASSWORD || crypto.randomBytes(9).toString('base64url');
+
+const makeStoreAccounts = (st) => {
+  const slug = slugOf(st.branchId);
+  const domain = RETAILERS[st.tenantId].domain;
+  const base = {
+    tenantId: st.tenantId,
+    tenantName: st.tenantName,
+    branchId: st.branchId,
+    branchName: st.branchName,
+    city: st.city,
+    address: st.address,
+    coordinates: st.coords,
+    status: 'Active',
+    generated: true
+  };
+  return {
+    admin: {
+      ...base,
+      id: `ADM-${slug.toUpperCase()}`,
+      adminId: `ADM-${slug.toUpperCase()}`,
+      name: `${st.branchName} Admin`,
+      username: `admin.${slug}@${domain}`,
+      email: `admin.${slug}@${domain}`,
+      phone: st.contactNumber,
+      role: 'admin',
+      initialPassword: randomPassword(),
+      permissions: ['manage_products', 'manage_orders', 'manage_staff', 'manage_riders']
+    },
+    staff: {
+      ...base,
+      id: `PCK-${slug.toUpperCase()}`,
+      staffId: `PCK-${slug.toUpperCase()}`,
+      name: `${st.branchName} Packing Desk`,
+      username: `staff.${slug}`,
+      email: `staff.${slug}@${domain}`,
+      phone: st.contactNumber,
+      role: 'pickup_staff',
+      initialPassword: randomPassword()
+    },
+    rider: {
+      ...base,
+      id: `RDR-${slug.toUpperCase()}`,
+      riderId: `RDR-${slug.toUpperCase()}`,
+      name: `${st.branchName} Rider`,
+      username: `rider.${slug}`,
+      phone: st.contactNumber,
+      region: st.branchName,
+      zone: `${st.branchName} (${st.city})`,
+      vehicleType: '🏍️ Honda 125',
+      vehicleNumber: `FSD-${slug.toUpperCase().slice(0, 6)}`,
+      coverageRadiusKm: 10,
+      status: 'On-Duty',
+      rating: 5.0,
+      deliveriesCount: 0,
+      isGlobal: false,
+      initialPassword: randomPassword()
+    }
+  };
+};
+
+STORE_REGISTRY.filter((st) => st.isNew).forEach((st) => {
+  const a = makeStoreAccounts(st);
+  SEED_ADMINS.push(a.admin);
+  SEED_PICKUP_STAFF.push(a.staff);
+  SEED_RIDERS.push(a.rider);
+});
+
+// Upsert one account. Legacy demo accounts get their password hashed (previously
+// findOneAndUpdate bypassed the bcrypt hook and stored plain text). Generated accounts
+// only get a password on first creation, so re-running the seed never rotates it.
+const upsertAccount = async (Model, filter, rawDoc, created) => {
+  const { generated, initialPassword, password, ...doc } = rawDoc;
+  if (generated) {
+    const exists = await Model.findOne(filter).lean();
+    if (!exists) {
+      const hashed = await bcrypt.hash(initialPassword, 10);
+      created.push({ type: Model.modelName, username: doc.username, branchId: doc.branchId, password: initialPassword });
+      return Model.findOneAndUpdate(
+        filter,
+        { $set: doc, $setOnInsert: { password: hashed } },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+    }
+    return Model.findOneAndUpdate(filter, { $set: doc }, { new: true });
+  }
+  const set = password ? { ...doc, password: await bcrypt.hash(String(password), 10) } : doc;
+  delete set.plainPassword; // never store a plain-text copy
+  return Model.findOneAndUpdate(filter, { $set: set }, { upsert: true, new: true, setDefaultsOnInsert: true });
+};
+
+const userRecord = async (acc, role) => ({
+  name: acc.name,
+  email: acc.email,
+  phone: acc.phone,
+  role,
+  tenantId: acc.tenantId,
+  branchId: acc.branchId,
+  branchName: acc.branchName,
+  ...(acc.staffId ? { staffId: acc.staffId } : {})
+});
+
 export const seedCoreEntities = async () => {
   if (!isDbOnline()) {
     console.log('ℹ️ DB offline; skipping MongoDB core entities sync.');
     return { success: false, reason: 'offline' };
   }
-
+  const created = [];
   try {
     console.log('🔄 Syncing Admins, Pickup Staff, and Riders into MongoDB...');
 
-    // 1. Sync Admins into 'admins' collection
     for (const adm of SEED_ADMINS) {
-      await Admin.findOneAndUpdate(
-        { username: adm.username },
-        { $set: adm },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      );
-      // Also ensure Admin exists in User collection for universal auth compatibility
-      await User.findOneAndUpdate(
-        { email: adm.email },
-        {
-          $set: {
-            name: adm.name,
-            email: adm.email,
-            password: adm.password,
-            phone: adm.phone,
-            role: adm.role,
-            tenantId: adm.tenantId,
-            branchId: adm.branchId,
-            branchName: adm.branchName
-          }
-        },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      );
+      await upsertAccount(Admin, { username: adm.username }, adm, created);
+      const userDoc = await userRecord(adm, adm.role);
+      if (adm.generated) {
+        const exists = await User.findOne({ email: adm.email }).lean();
+        await User.findOneAndUpdate(
+          { email: adm.email },
+          { $set: userDoc, ...(exists ? {} : { $setOnInsert: { password: await bcrypt.hash(adm.initialPassword, 10) } }) },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      } else {
+        await User.findOneAndUpdate(
+          { email: adm.email },
+          { $set: { ...userDoc, password: await bcrypt.hash(String(adm.password), 10) } },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      }
     }
-    console.log(`✅ ${SEED_ADMINS.length} Store Admins synced in 'admins' collection.`);
+    console.log(`✅ ${SEED_ADMINS.length} Store Admins synced.`);
 
-    // 2. Sync Pickup Staff into 'pickup_staff' collection
     for (const stf of SEED_PICKUP_STAFF) {
-      await PickupStaff.findOneAndUpdate(
-        { username: stf.username },
-        { $set: stf },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      );
-      // Also ensure staff exists in User collection
-      await User.findOneAndUpdate(
-        { $or: [{ email: stf.email }, { staffId: stf.staffId }] },
-        {
-          $set: {
-            name: stf.name,
-            email: stf.email,
-            password: stf.password,
-            phone: stf.phone,
-            role: 'pickup_staff',
-            staffId: stf.staffId,
-            tenantId: stf.tenantId,
-            branchId: stf.branchId,
-            branchName: stf.branchName
-          }
-        },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      );
+      await upsertAccount(PickupStaff, { username: stf.username }, stf, created);
+      // NOTE: the User collection and the auth guards use the role 'pickupstaff' (no underscore).
+      const userDoc = await userRecord(stf, 'pickupstaff');
+      const filter = { $or: [{ email: stf.email }, { staffId: stf.staffId }] };
+      if (stf.generated) {
+        const exists = await User.findOne(filter).lean();
+        await User.findOneAndUpdate(
+          filter,
+          { $set: userDoc, ...(exists ? {} : { $setOnInsert: { password: await bcrypt.hash(stf.initialPassword, 10) } }) },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      } else {
+        await User.findOneAndUpdate(
+          filter,
+          { $set: { ...userDoc, password: await bcrypt.hash(String(stf.password), 10) } },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      }
     }
-    console.log(`✅ ${SEED_PICKUP_STAFF.length} Pickup Staff synced in 'pickup_staff' collection.`);
+    console.log(`✅ ${SEED_PICKUP_STAFF.length} Pickup Staff synced.`);
 
-    // 3. Sync Riders into 'riders' collection with clean branch, location, and matching region
     for (const rdr of SEED_RIDERS) {
-      await Rider.findOneAndUpdate(
-        { $or: [{ id: rdr.id }, { username: rdr.username }] },
-        { $set: rdr },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      );
+      await upsertAccount(Rider, { $or: [{ id: rdr.id }, { username: rdr.username }] }, rdr, created);
     }
-    console.log(`✅ ${SEED_RIDERS.length} Dedicated Fleet Riders synced in 'riders' collection.`);
+    console.log(`✅ ${SEED_RIDERS.length} Riders synced.`);
 
-    return { success: true };
+    if (created.length) {
+      console.log('\n🔑 NEW ACCOUNTS CREATED. Save these now, they are shown only once:');
+      console.table(created);
+    }
+    return { success: true, created: created.length };
   } catch (err) {
     console.error('Core entities seed error:', err.message);
     return { success: false, error: err.message };
   }
 };
-

@@ -1,4 +1,5 @@
 // FreshMart - Complete Multi-View Data Store & Product Catalog
+import { STORE_REGISTRY } from './storeRegistry.js';
 
 export const FRESHMART_CATEGORIES = [
   {
@@ -2423,9 +2424,15 @@ export const RECIPES_DATA = [
   }
 ];
 
-export const STORE_LOCATIONS = [
-  { id: 'store-fsd-1', name: 'FreshMart Flagship Hub - D-Ground, Peoples Colony 1, Faisalabad', city: 'Faisalabad', deliveryTime: 'Express Delivery (10-15 Mins)' }
-];
+export const STORE_LOCATIONS = STORE_REGISTRY.map((store) => ({
+  id: store.storeId,
+  name: store.name,
+  city: 'Faisalabad, Pakistan',
+  coords: store.coords,
+  tenantId: store.tenantId,
+  tenantName: store.tenantName,
+  deliveryTime: 'Express Delivery'
+}));
 
 
 

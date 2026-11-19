@@ -355,3 +355,21 @@ export const protectVendor = (req, res, next) => {
   req.user.vendorId = userVendorId;
   return next();
 };
+
+export const branchAdminOnly = (req, res, next) => {
+  if (req.user?.role === 'superadmin' || req.user?.isSuperAdmin) return next();
+  if (req.user?.role === 'admin' && req.user.branchId) return next();
+  return res.status(403).json({ success: false, message: 'A branch-assigned admin account is required' });
+};
+
+export const riderOnly = (req, res, next) => {
+  if (req.user?.role === 'rider' && (req.user.riderId || req.user.id)) return next();
+  return res.status(403).json({ success: false, message: 'Rider account required' });
+};
+
+export const pickupStaffOnly = (req, res, next) => {
+  const role = (req.user?.role || '').toLowerCase();
+  if (['pickup_staff', 'pickupstaff'].includes(role) && (req.user.id || req.user.staffId) && req.user.branchId) return next();
+  return res.status(403).json({ success: false, message: 'Active branch pickup staff account required' });
+};
+

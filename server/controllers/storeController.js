@@ -6,15 +6,17 @@ import { ZoneStore } from '../models/ZoneStore.js';
 import { isDbOnline } from '../config/db.js';
 import { BRANCHES } from '../../src/data/companyHierarchyData.js';
 import { resolveRetailerId, getRetailerDetails } from '../utils/retailerHelper.js';
+import { STORE_REGISTRY, toStoreRecord } from '../../src/data/storeRegistry.js';
+import { suggestZonesForPoint, zoneContainsPoint } from '../utils/zoneMatch.js';
 import { loadDiskAssignments, saveDiskAssignments } from './assignmentController.js';
-import { TWELVE_PHYSICAL_STORES } from '../../src/data/retailerZoneHierarchyData.js';
 
 const STORES_FILE_PATH = path.resolve(process.cwd(), 'server/data/stores_db.json');
 const BRANCHES_FILE_PATH = path.resolve(process.cwd(), 'server/data/branches_db.json');
 
-// Canonical 12 Physical Supermarket Stores across 4 Parent Retailers
-export const FOUR_CORE_STORES = TWELVE_PHYSICAL_STORES;
-export { TWELVE_PHYSICAL_STORES };
+// The 4 Core Supermarket Stores located at D-Ground, Peoples Colony, Susan Road, and Samanabad
+// All platform stores come from the shared registry (src/data/storeRegistry.js).
+export const CORE_STORES = STORE_REGISTRY.map(toStoreRecord);
+export const FOUR_CORE_STORES = CORE_STORES; // legacy alias
 
 // Deduplicate stores by storeId and tenant+branchName to avoid ghost duplicates
 export const deduplicateStores = (storesList = []) => {
@@ -50,21 +52,13 @@ export const loadDiskStores = () => {
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed) && parsed.length > 0) {
         if (process.env.NODE_ENV !== 'test') {
-          const diskMap = new Map();
-          parsed.forEach((s) => diskMap.set(s.storeId || s._id, s));
-          TWELVE_PHYSICAL_STORES.forEach((s) => {
-            const key = s.storeId || s._id;
-            if (!diskMap.has(key)) {
-              diskMap.set(key, s);
-            }
-          });
-          return deduplicateStores(Array.from(diskMap.values()));
+          return deduplicateStores(parsed);
         }
         return parsed;
       }
     }
   } catch (e) {}
-  return TWELVE_PHYSICAL_STORES;
+  return FOUR_CORE_STORES;
 };
 
 export const saveDiskStores = (stores) => {
@@ -111,6 +105,9 @@ export const getStores = async (req, res) => {
     if (storeMap.size === 0 && process.env.NODE_ENV !== 'test') {
       FOUR_CORE_STORES.forEach((s) => storeMap.set(s.storeId || s._id, s));
     }
+
+    // Old duplicate records of the same physical stores (pre-registry ids) are dropped so counts match everywhere.
+    ['STR-UM-001', 'STR-AF-001', 'STR-CV-001', 'STR-CU-001', 'STR-CHA-3330'].forEach((id) => storeMap.delete(id));
 
     let stores = deduplicateStores(Array.from(storeMap.values()));
 
@@ -221,6 +218,29 @@ export const createStore = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Coordinates out of valid geographical bounds.' });
     }
 
+    // The super admin must pick the delivery polygon for a new store (we only SUGGEST one).
+    const requestedZoneId = req.body.assignedZoneId || req.body.zoneId;
+    let chosenZone = null;
+    let insidePolygon = true;
+
+    if (requestedZoneId) {
+      const { getAllZonesMerged } = await import('./zoneController.js');
+      const allZones = await getAllZonesMerged();
+      chosenZone = allZones.find((z) => z.zoneId === requestedZoneId);
+      if (!chosenZone) {
+        return res.status(400).json({ success: false, message: 'The selected polygon does not exist.' });
+      }
+      insidePolygon = zoneContainsPoint(chosenZone, lat, lng);
+    } else if (process.env.NODE_ENV !== 'test') {
+      const { getAllZonesMerged } = await import('./zoneController.js');
+      const allZones = await getAllZonesMerged();
+      return res.status(400).json({
+        success: false,
+        message: 'Choose the delivery polygon for this store before saving.',
+        suggestions: suggestZonesForPoint(allZones, lat, lng)
+      });
+    }
+
     const canonicalTenant = resolveRetailerId(tenantId || 'tenant-unimart');
     const retailer = getRetailerDetails(canonicalTenant);
 
@@ -319,6 +339,8 @@ export const createStore = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: 'Store created successfully with authentic coordinates.',
+      insidePolygon,
+      ...(insidePolygon ? {} : { warning: `The store pin is outside "${chosenZone?.name || 'the delivery zone'}". Orders are matched by polygon, so check the location.` }),
       store: newStoreData
     });
   } catch (error) {

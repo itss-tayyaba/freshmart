@@ -9,6 +9,7 @@ import { Supplier, Rider } from '../models/ExtraModels.js';
 import { isDbOnline } from '../config/db.js';
 import { loadDiskRiders } from './extraControllers.js';
 import { escapeRegex, getJwtSecret, signJwtToken } from '../utils/jwtHelper.js';
+import { tryBranchAdminLogin } from './storeAdminController.js';
 
 const allowDemoAuth = () => {
   if (process.env.NODE_ENV === 'production') {
@@ -115,51 +116,30 @@ export const loginUser = async (req, res) => {
     const safeDigits = escapeRegex(cleanDigits);
 
     if (isDbOnline()) {
-      // 0. Check dedicated Admin model
-      const adminDoc = await Admin.findOne({
-        $or: [
-          { email: cleanInput },
-          { username: cleanInput },
-          { id: cleanInput.toUpperCase() },
-          { name: new RegExp(`^${safeRegexInput}$`, 'i') },
-          ...(cleanDigits.length >= 7 ? [{ phone: new RegExp(safeDigits) }] : [])
-        ]
-      });
-
-      if (adminDoc) {
-        const isMatch = await adminDoc.matchPassword(password);
-        const isDemo = allowDemoAuth();
-        const isAdminFallback = isDemo && (password === 'admin123' || password === 'superadmin123' || password === adminDoc.plainPassword);
-
-        if (isMatch || isAdminFallback) {
-          let resolvedTenantId = req.body.tenantId || adminDoc.tenantId;
-          if (!resolvedTenantId || resolvedTenantId === 'all') {
-            resolvedTenantId = adminDoc.tenantId || 'all';
-          }
-          const resolvedBranchId = req.body.branchId || adminDoc.branchId || 'all';
-          const resolvedBranchName = adminDoc.branchName || 'All Branches';
-
-          return res.json({
-            success: true,
-            _id: adminDoc._id,
-            id: adminDoc.id || adminDoc.adminId || adminDoc._id,
-            name: adminDoc.name,
-            email: adminDoc.email,
-            role: adminDoc.role,
-            phone: adminDoc.phone,
-            tenantId: resolvedTenantId,
-            tenantName: adminDoc.tenantName,
-            branchId: resolvedBranchId,
-            branchName: resolvedBranchName,
-            city: adminDoc.city,
-            location: adminDoc.location,
-            token: generateToken(adminDoc.id || adminDoc._id, adminDoc.role, adminDoc.email, adminDoc.name, undefined, {
-              tenantId: resolvedTenantId,
-              branchId: resolvedBranchId,
-              branchName: resolvedBranchName
-            })
-          });
-        }
+      // 0. Store admins / super admin: password (bcrypt) + the branch picked on the form must match the account's branch.
+      const adminLogin = await tryBranchAdminLogin(cleanInput, password, req.body.branchId);
+      if (adminLogin) {
+        if (adminLogin.status !== 200) return res.status(adminLogin.status).json(adminLogin.body);
+        const a = adminLogin.admin;
+        return res.json({
+          success: true,
+          _id: adminLogin.userId,
+          id: a.id || a.adminId || adminLogin.userId,
+          name: a.name,
+          email: a.email,
+          role: adminLogin.isSuper ? 'superadmin' : 'admin',
+          isSuperAdmin: Boolean(adminLogin.isSuper),
+          tenantId: a.tenantId,
+          tenantName: a.tenantName,
+          branchId: adminLogin.isSuper ? '' : a.branchId,
+          branchName: a.branchName,
+          city: a.city,
+          token: generateToken(adminLogin.userId, adminLogin.isSuper ? 'superadmin' : 'admin', a.email, a.name, undefined, {
+            tenantId: a.tenantId,
+            branchId: adminLogin.isSuper ? '' : a.branchId,
+            branchName: a.branchName
+          })
+        });
       }
 
       // 0.1 Check dedicated PickupStaff model

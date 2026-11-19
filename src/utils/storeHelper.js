@@ -1,6 +1,7 @@
+import { STORE_REGISTRY, toStoreRecord, LEGACY_STORE_ID_MAP } from '../data/storeRegistry.js';
+
 // Unified Supermarket Stores & Retailers Single Source of Truth
 // Synchronizes baseline stores, custom stores, and API stores across all dashboards, sidebars, and GIS views
-import { TWELVE_PHYSICAL_STORES, loadRetailerStores } from '../data/retailerZoneHierarchyData';
 
 export const CORE_RETAILERS = [
   { id: 'tenant-alfatah', name: 'Al-Fatah', color: '#991b1b', logo: '🏬' },
@@ -112,9 +113,7 @@ export const BASELINE_FOUR_STORES = [
   }
 ];
 
-export const BASELINE_TWELVE_STORES = TWELVE_PHYSICAL_STORES;
-export const BASELINE_FIVE_STORES = TWELVE_PHYSICAL_STORES;
-export { TWELVE_PHYSICAL_STORES };
+export const BASELINE_FIVE_STORES = BASELINE_FOUR_STORES;
 
 export const loadLocalCustomStores = () => {
   try {
@@ -194,123 +193,30 @@ export const deduplicateStores = (storesList = []) => {
   return result;
 };
 
-export const getAllUnifiedStores = (apiStores = [], extraBranches = [], targetCity = null) => {
-  const localCustom = loadLocalCustomStores();
-  const validApi = Array.isArray(apiStores) && apiStores.length > 0 ? apiStores : [];
-
-  let mappedBranches = [];
-  if (Array.isArray(extraBranches) && extraBranches.length > 0) {
-    mappedBranches = extraBranches
-      .filter((b) => {
-        // Exclude test branches
-        const bId = String(b._id || b.id || '');
-        if (bId.endsWith('-TEST') || bId.includes('CHA-3330')) return false;
-        // If targetCity is given, filter to that city
-        const bCity = String(b.city || '').toLowerCase();
-        if (targetCity) return bCity.includes(targetCity.toLowerCase());
-        // Default: only include Faisalabad branches or branches without explicit cross-country city
-        return !bCity || bCity.includes('faisalabad');
-      })
-      .map((b) => ({
-        storeId: b._id || b.id,
-        _id: b._id || b.id,
-        tenantId: b.tenantId,
-        tenantName: b.tenantName || b.name,
-        name: b.name,
-        branchName: b.name,
-        address: b.address || `${b.city || 'Faisalabad'}, Pakistan`,
-        city: b.city || 'Faisalabad',
-        latitude: Number(b.latitude || 31.4125),
-        longitude: Number(b.longitude || 73.0995),
-        contactNumber: b.phone || '+92 300 0000000',
-        openingHours: '08:00 AM',
-        closingHours: '11:00 PM',
-        deliveryPolygon: Array.isArray(b.deliveryPolygon) && b.deliveryPolygon.length >= 3 ? b.deliveryPolygon : null,
-        deliveryRadiusKm: Number(b.deliveryRadiusKm || b.deliveryRadius || 5),
-        deliveryRadius: Number(b.deliveryRadiusKm || b.deliveryRadius || 5),
-        deliveryStatus: b.deliveryStatus || 'active',
-        deliveryTiers: Array.isArray(b.deliveryTiers) ? b.deliveryTiers : [],
-        assignedZoneId: b.assignedZoneId || null,
-        storeImage: b.banner || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
-        status: b.status || 'active',
-        isActive: String(b.status || 'active').toLowerCase() === 'active',
-        operatingStatus: 'Open'
-      }));
-  }
-
-  // Create a polygon lookup map from all known branch and custom sources so drawn polygons are NEVER lost
-  const polygonLookup = new Map();
-  const enrichFromList = (list) => {
-    if (!Array.isArray(list)) return;
-    list.forEach((item) => {
-      if (!item) return;
-      const poly = item.deliveryPolygon;
-      if (Array.isArray(poly) && poly.length >= 3) {
-        const id1 = String(item._id || '').toLowerCase().trim();
-        const id2 = String(item.id || '').toLowerCase().trim();
-        const id3 = String(item.storeId || '').toLowerCase().trim();
-        const name1 = String(item.name || '').toLowerCase().trim();
-        const name2 = String(item.branchName || '').toLowerCase().trim();
-        if (id1) polygonLookup.set(id1, poly);
-        if (id2) polygonLookup.set(id2, poly);
-        if (id3) polygonLookup.set(id3, poly);
-        if (name1) polygonLookup.set(name1, poly);
-        if (name2) polygonLookup.set(name2, poly);
-      }
-    });
+// ONE list for every screen (sidebar badge, dashboard card, Store Management, zones).
+// Identity is the storeId only. Order of merging: registry -> browser-saved custom stores -> API (API wins).
+// Old duplicate ids (STR-AF-001 etc.) are mapped to the registry id so a store is never counted twice.
+export const getAllUnifiedStores = (apiStores = [], _extraBranches = [], targetCity = null) => {
+  const byId = new Map();
+  const canon = (rawId) => (Object.prototype.hasOwnProperty.call(LEGACY_STORE_ID_MAP, rawId) ? LEGACY_STORE_ID_MAP[rawId] : rawId);
+  const add = (store) => {
+    if (!store) return;
+    const rawId = String(store.storeId || store._id || '').trim();
+    if (!rawId || rawId.endsWith('-TEST')) return;
+    const id = canon(rawId);
+    if (!id) return;
+    const tenantId = store.tenantId ? deduplicateStores([{ ...store, storeId: id }])[0]?.tenantId : store.tenantId;
+    byId.set(id, { ...(byId.get(id) || {}), ...store, storeId: id, _id: id, tenantId });
   };
 
-  enrichFromList(extraBranches);
-  enrichFromList(localCustom);
-  try {
-    const diskBranches = localStorage.getItem('freshmart_branches');
-    if (diskBranches) enrichFromList(JSON.parse(diskBranches));
-  } catch (e) {}
+  STORE_REGISTRY.map(toStoreRecord).forEach(add);
+  loadLocalCustomStores().forEach(add);
+  (Array.isArray(apiStores) ? apiStores : []).forEach(add);
 
-  // Helper to ensure a store keeps its saved delivery polygon
-  const attachPolygonIfKnown = (s) => {
-    if (!s) return s;
-    if (Array.isArray(s.deliveryPolygon) && s.deliveryPolygon.length >= 3) return s;
-    const sId1 = String(s.storeId || '').toLowerCase().trim();
-    const sId2 = String(s._id || '').toLowerCase().trim();
-    const sId3 = String(s.id || '').toLowerCase().trim();
-    const sName1 = String(s.name || '').toLowerCase().trim();
-    const sName2 = String(s.branchName || '').toLowerCase().trim();
-    const found =
-      polygonLookup.get(sId1) ||
-      polygonLookup.get(sId2) ||
-      polygonLookup.get(sId3) ||
-      polygonLookup.get(sName1) ||
-      polygonLookup.get(sName2);
-    if (found) {
-      return { ...s, deliveryPolygon: found };
-    }
-    return s;
-  };
-
-  // Ensure all 12 physical stores across the 4 parent retailers are always present and up-to-date
-  let rStores = [];
-  try {
-    rStores = loadRetailerStores();
-  } catch (e) {}
-  const canonicalStores = Array.isArray(rStores) && rStores.length > 0 ? rStores : TWELVE_PHYSICAL_STORES;
-
-  const combined = [
-    ...validApi.map(attachPolygonIfKnown),
-    ...localCustom.map(attachPolygonIfKnown),
-    ...canonicalStores.map(attachPolygonIfKnown)
-  ];
-
-  if (Array.isArray(extraBranches) && extraBranches.length > 0) {
-    const userBranches = extraBranches.filter(
-      (b) => b && (b.isUserCreated || b.isCustom || String(b._id || b.id || '').startsWith('STR-'))
-    );
-    if (userBranches.length > 0) {
-      combined.push(...mappedBranches.filter((mb) => userBranches.some((ub) => (ub._id || ub.id) === mb.storeId)));
-    }
-  }
-
-  return deduplicateStores(combined.map(attachPolygonIfKnown));
+  const all = Array.from(byId.values());
+  return targetCity
+    ? all.filter((s) => String(s.city || '').toLowerCase().includes(String(targetCity).toLowerCase()))
+    : all;
 };
 
 export const getRetailerSummarySubtitle = (stores = []) => {

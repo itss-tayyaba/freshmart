@@ -44,12 +44,10 @@ adminSchema.pre('save', async function (next) {
 // Compare password
 adminSchema.methods.matchPassword = async function (enteredPassword) {
   if (!this.password || !enteredPassword) return false;
-  if (this.plainPassword && this.plainPassword === enteredPassword) return true;
-  if (this.password === enteredPassword) return true;
   try {
     return await bcrypt.compare(enteredPassword, this.password);
   } catch (e) {
-    return this.password === enteredPassword;
+    return false;
   }
 };
 
