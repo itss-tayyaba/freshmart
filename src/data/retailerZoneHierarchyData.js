@@ -1,6 +1,20 @@
 // Single Source of Truth for Business Hierarchy:
 // 4 Parent Retailers • 12 Physical Child Stores • 4 Master Delivery Zones
 
+export const PAKISTAN_CITIES = [
+  { name: 'Faisalabad', lat: 31.4187, lng: 73.0791, zoom: 13, label: 'Faisalabad (Primary Hub)' },
+  { name: 'Lahore', lat: 31.5204, lng: 74.3587, zoom: 12, label: 'Lahore (Punjab Hub)' },
+  { name: 'Karachi', lat: 24.8607, lng: 67.0011, zoom: 12, label: 'Karachi (Sindh Hub)' },
+  { name: 'Islamabad', lat: 33.6844, lng: 73.0479, zoom: 12, label: 'Islamabad (Federal Capital)' },
+  { name: 'Rawalpindi', lat: 33.5651, lng: 73.0169, zoom: 12, label: 'Rawalpindi (Twin City)' },
+  { name: 'Multan', lat: 30.1575, lng: 71.5249, zoom: 12, label: 'Multan (South Punjab)' },
+  { name: 'Peshawar', lat: 34.0151, lng: 71.5249, zoom: 12, label: 'Peshawar (KPK Hub)' },
+  { name: 'Gujranwala', lat: 32.1877, lng: 74.1945, zoom: 12, label: 'Gujranwala' },
+  { name: 'Sialkot', lat: 32.4945, lng: 74.5229, zoom: 12, label: 'Sialkot' },
+  { name: 'Quetta', lat: 30.1798, lng: 66.9750, zoom: 12, label: 'Quetta (Balochistan Hub)' }
+];
+
+
 export const FOUR_PARENT_RETAILERS = [
   {
     _id: 'tenant-alfatah',

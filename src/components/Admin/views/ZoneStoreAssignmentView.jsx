@@ -41,6 +41,7 @@ import {
   FOUR_PARENT_RETAILERS,
   FOUR_MASTER_DELIVERY_ZONES,
   TWELVE_PHYSICAL_STORES,
+  PAKISTAN_CITIES,
   loadRetailerStores,
   saveRetailerStores,
   loadMasterZones,
@@ -109,8 +110,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   const [activeTab, setActiveTab] = useState('retailers'); // 'retailers' | 'zones' | 'database'
   const [selectedZoneFilter, setSelectedZoneFilter] = useState('all');
   const [selectedRetailerFilter, setSelectedRetailerFilter] = useState('all');
+  const [assignedStatusFilter, setAssignedStatusFilter] = useState('all'); // 'all' | 'assigned' | 'unassigned'
   const [searchQuery, setSearchQuery] = useState('');
   const [tileLayerType, setTileLayerType] = useState('street');
+  const [selectedCity, setSelectedCity] = useState('Faisalabad');
 
   // Modals state: Add & Edit Zone
   const [isAddZoneModalOpen, setIsAddZoneModalOpen] = useState(false);
@@ -124,6 +127,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   const [selectedStoreToEdit, setSelectedStoreToEdit] = useState(null);
   const [targetParentRetailer, setTargetParentRetailer] = useState(null);
   const [storeToDelete, setStoreToDelete] = useState(null);
+
+  // Modals state: Retailer Delivery Zone Assignment Modal
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [selectedStoreForAssign, setSelectedStoreForAssign] = useState(null);
+  const [assignmentZoneId, setAssignmentZoneId] = useState('zone_001');
 
   // Zone Form State
   const [zoneForm, setZoneForm] = useState({
@@ -139,19 +147,26 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     status: 'active'
   });
 
-  // Store Form State
+  // Store Form State (Child Branch)
   const [storeForm, setStoreForm] = useState({
+    storeCode: '',
     name: '',
     branchName: '',
     retailerId: 'tenant-alfatah',
     parentRetailerName: 'Al-Fateh',
+    branchManager: '',
+    phone: '+92 300 1234567',
+    email: '',
     address: '',
     city: 'Faisalabad',
     latitude: 31.4125,
     longitude: 73.0830,
-    deliveryZoneId: 'zone_001',
+    deliveryZoneId: '',
     operatingStatus: 'Open',
-    phone: '+92 300 1234567'
+    openingHours: '08:00 AM',
+    closingHours: '11:00 PM',
+    status: 'active',
+    notes: ''
   });
 
   // Interactive On-Map Polygon Editor State
@@ -172,13 +187,35 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   const connectionLineGroupRef = useRef(null);
 
   // ---------------------------------------------------------------------------
-  // ZONE CHANGE HANDLER FOR STORES
+  // INTERACTIVE CITY SELECTOR ON MAP (Real-time Pan & Zoom)
+  // ---------------------------------------------------------------------------
+  const handleCitySelect = (cityName) => {
+    setSelectedCity(cityName);
+    const city = PAKISTAN_CITIES.find((c) => c.name.toLowerCase() === cityName.toLowerCase());
+    if (city && mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([city.lat, city.lng], city.zoom || 13, {
+        duration: 1.2
+      });
+      if (addToast) {
+        addToast('Map Centered 📍', `Navigated map to ${city.name} (${city.label || city.name}).`, 'info');
+      }
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // ZONE CHANGE HANDLER FOR STORES & UNASSIGN LOGIC
   // ---------------------------------------------------------------------------
   const updateStoreZone = (storeId, newZoneId) => {
     const updated = stores.map((s) => {
       const id = s.storeId || s._id;
       if (id === storeId) {
-        return { ...s, deliveryZoneId: newZoneId };
+        return {
+          ...s,
+          deliveryZoneId: newZoneId,
+          assignedAt: new Date().toISOString(),
+          assignedBy: 'Super Admin',
+          assignmentStatus: newZoneId ? 'active' : 'unassigned'
+        };
       }
       return s;
     });
@@ -190,12 +227,40 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     const zoneObj = masterZones.find((z) => (z.zoneId || z._id) === newZoneId);
 
     if (addToast) {
-      addToast(
-        'Delivery Zone Assigned 📍',
-        `${storeObj?.name || 'Store'} is now assigned to ${zoneObj?.name || newZoneId}.`,
-        'success'
-      );
+      if (newZoneId) {
+        addToast(
+          'Delivery Zone Assigned 📍',
+          `${storeObj?.name || 'Store'} is now assigned to ${zoneObj?.name || newZoneId}.`,
+          'success'
+        );
+      } else {
+        addToast(
+          'Store Unassigned ⚠️',
+          `${storeObj?.name || 'Store'} has been detached from its delivery zone.`,
+          'info'
+        );
+      }
     }
+  };
+
+  const handleOpenAssignModal = (store = null) => {
+    const target = store || stores[0];
+    setSelectedStoreForAssign(target);
+    setAssignmentZoneId(target?.deliveryZoneId || masterZones[0]?.zoneId || masterZones[0]?._id || 'zone_001');
+    setIsAssignModalOpen(true);
+  };
+
+  const handleSaveStoreAssignment = (e) => {
+    e.preventDefault();
+    if (!selectedStoreForAssign) return;
+    const sId = selectedStoreForAssign.storeId || selectedStoreForAssign._id;
+    updateStoreZone(sId, assignmentZoneId);
+    setIsAssignModalOpen(false);
+  };
+
+  const handleUnassignStore = (store) => {
+    const sId = store.storeId || store._id;
+    updateStoreZone(sId, null);
   };
 
   // Expose global callbacks for in-map Leaflet popups
@@ -553,18 +618,29 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   const handleOpenAddStore = (parentRetailer) => {
     setTargetParentRetailer(parentRetailer);
     const existingCount = stores.filter((s) => s.retailerId === parentRetailer.id).length;
+    const retPrefix = parentRetailer.retailerCode || parentRetailer.name.substring(0, 3).toUpperCase();
+    const branchCode = `${retPrefix}-BR-${String(existingCount + 1).padStart(3, '0')}`;
+
     setStoreForm({
+      storeCode: branchCode,
       name: `${parentRetailer.name} — Branch ${existingCount + 1}`,
       branchName: `Branch ${existingCount + 1}`,
       retailerId: parentRetailer.id,
+      parentRetailerId: parentRetailer.id,
       parentRetailerName: parentRetailer.name,
-      address: `Main Avenue, People's Colony Sector ${existingCount + 1}, Faisalabad`,
+      branchManager: `${parentRetailer.name} Branch Manager`,
+      phone: '+92 300 8441199',
+      email: `manager.${parentRetailer.slug || 'store'}@freshmart.pk`,
+      address: `Main Commercial Avenue, Sector ${existingCount + 1}, Faisalabad`,
       city: 'Faisalabad',
       latitude: Number((31.4120 + existingCount * 0.008).toFixed(4)),
       longitude: Number((73.0850 + existingCount * 0.009).toFixed(4)),
-      deliveryZoneId: masterZones[0]?.zoneId || masterZones[0]?._id || 'zone_001',
+      deliveryZoneId: '', // initially empty/unassigned as required: newly registered store initially shows Unassigned Zone
       operatingStatus: 'Open',
-      phone: '+92 300 8441199'
+      openingHours: '08:00 AM',
+      closingHours: '11:00 PM',
+      status: 'active',
+      notes: ''
     });
     setIsAddStoreModalOpen(true);
   };
@@ -572,33 +648,55 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   const handleSaveAddStore = (e) => {
     e.preventDefault();
     if (!storeForm.name.trim()) return;
+    if (!storeForm.retailerId && !targetParentRetailer) {
+      if (addToast) addToast('Validation Error ⚠️', 'A store cannot be registered without a parent retailer.', 'error');
+      return;
+    }
 
-    const newStoreId = `STR-${storeForm.retailerId.replace('tenant-', '').slice(0, 2).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+    const assignedParentId = storeForm.retailerId || targetParentRetailer?.id;
+    const assignedParentName = storeForm.parentRetailerName || targetParentRetailer?.name || 'Retailer';
+    const storeCodeVal = (storeForm.storeCode || '').trim() || `STR-${assignedParentId.replace('tenant-', '').slice(0, 2).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+
+    // Unique store code validation
+    const isCodeTaken = stores.some((s) => (s.storeCode || s.storeId || '').toLowerCase() === storeCodeVal.toLowerCase());
+    if (isCodeTaken) {
+      if (addToast) addToast('Duplicate Store Code ⚠️', `Store code ${storeCodeVal} is already in use. Please choose a unique code.`, 'error');
+      return;
+    }
+
+    const newStoreId = storeCodeVal;
     const newStore = {
       _id: newStoreId,
       storeId: newStoreId,
-      retailerId: storeForm.retailerId,
-      tenantId: storeForm.retailerId,
-      parentRetailerName: storeForm.parentRetailerName,
+      storeCode: storeCodeVal,
+      retailerId: assignedParentId,
+      parentRetailerId: assignedParentId,
+      tenantId: assignedParentId,
+      parentRetailerName: assignedParentName,
       retailerNumber: stores.length + 1,
       name: storeForm.name.trim(),
       branchName: storeForm.branchName.trim() || storeForm.name.trim(),
+      branchManager: storeForm.branchManager || 'Branch Manager',
       type: 'child',
-      address: storeForm.address.trim() || 'Faisalabad, Pakistan',
-      city: 'Faisalabad',
+      address: storeForm.address.trim() || `${storeForm.city}, Pakistan`,
+      city: storeForm.city || 'Faisalabad',
       latitude: Number(storeForm.latitude) || 31.4125,
       longitude: Number(storeForm.longitude) || 73.0830,
       location: {
         type: 'Point',
         coordinates: [Number(storeForm.longitude) || 73.0830, Number(storeForm.latitude) || 31.4125]
       },
-      deliveryZoneId: storeForm.deliveryZoneId,
-      status: 'active',
-      isActive: true,
+      deliveryZoneId: storeForm.deliveryZoneId || null,
+      assignedAt: storeForm.deliveryZoneId ? new Date().toISOString() : null,
+      assignedBy: storeForm.deliveryZoneId ? 'Super Admin' : null,
+      status: storeForm.status || 'active',
+      isActive: String(storeForm.status || 'active').toLowerCase() === 'active',
       operatingStatus: storeForm.operatingStatus || 'Open',
-      openingHours: '08:00 AM',
-      closingHours: '11:00 PM',
-      phone: storeForm.phone || '+92 300 1234567'
+      openingHours: storeForm.openingHours || '08:00 AM',
+      closingHours: storeForm.closingHours || '11:00 PM',
+      phone: storeForm.phone || '+92 300 1234567',
+      email: storeForm.email || '',
+      notes: storeForm.notes || ''
     };
 
     const updated = [...stores, newStore];
@@ -608,8 +706,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
     if (addToast) {
       addToast(
-        'Store Branch Created 🏢',
-        `${newStore.name} added under ${newStore.parentRetailerName}.`,
+        'Child Store Branch Created 🏢',
+        `${newStore.name} (${newStore.storeCode}) registered under ${newStore.parentRetailerName}. ${newStore.deliveryZoneId ? 'Assigned to zone.' : 'Initial status: Unassigned Zone.'}`,
         'success'
       );
     }
@@ -1149,7 +1247,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
               }`}
             >
               <Database className="w-3.5 h-3.5 text-amber-600" />
-              <span>MERN Schema</span>
+              <span>Retailer Delivery Zone Assignment</span>
             </button>
           </div>
         </div>
@@ -1203,16 +1301,39 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
               <MapPin className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-sm leading-tight">
-                Faisalabad Master Delivery Zones Map
+              <h3 className="font-bold text-slate-900 text-sm leading-tight flex items-center gap-2">
+                <span>{selectedCity} Master Delivery Zones & Store Map</span>
+                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                  Live View
+                </span>
               </h3>
               <p className="text-[11px] text-slate-500 font-medium">
-                Click any zone polygon or store pin to view, reassign, or edit delivery zones live
+                Switch cities, view polygons, or click store pins to link branches to zones
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Interactive City Selector with Real-Time Map Pan & Zoom */}
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200 shadow-2xs">
+              <span className="text-[11px] text-slate-600 pl-1.5 flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                <span>City:</span>
+              </span>
+              <select
+                value={selectedCity}
+                onChange={(e) => handleCitySelect(e.target.value)}
+                className="bg-white border-0 text-slate-900 text-xs font-bold rounded-lg px-2.5 py-1 cursor-pointer shadow-xs focus:outline-none hover:bg-slate-50 transition"
+                title="Select city to navigate map"
+              >
+                {PAKISTAN_CITIES.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    📍 {c.name} {c.name === 'Faisalabad' ? '(Hub)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Tile Layer Selector */}
             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-[11px] font-medium border border-slate-200">
               <button
@@ -1848,77 +1969,388 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       )}
 
       {/* ===================================================================== */}
-      {/* 5. TAB 3: MERN DATABASE STRUCTURE & ARCHITECTURE GUIDE                */}
+      {/* 5. TAB 3: RETAILER DELIVERY ZONE ASSIGNMENT DASHBOARD & MERN ARCH      */}
       {/* ===================================================================== */}
       {activeTab === 'database' && (
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-2xs">
-          <div>
-            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-              <Database className="w-5 h-5 text-indigo-600" />
-              <span>MERN Schema: Decoupled Stores & Delivery Zones</span>
-            </h3>
-            <p className="text-xs text-slate-500 font-medium mt-1">
-              Store document holds <code>retailerId</code> and <code>deliveryZoneId</code>, allowing multiple branches of one retailer to serve distinct delivery zones.
-            </p>
+        <div className="space-y-6">
+          {/* Header Bar */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold">
+                  <Database className="w-5 h-5" />
+                </div>
+                <h3 className="text-lg font-black text-slate-900 leading-tight">
+                  Retailer Delivery Zone Assignment
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                Notice: All branches belong to a parent retailer, but each branch can have a different delivery zone.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleOpenAssignModal(null)}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Assign Store to Zone</span>
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
-            {/* Collection 1: Retailers (Parent) */}
-            <div className="bg-slate-900 text-slate-100 p-4 rounded-2xl space-y-2">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="font-bold text-emerald-400">1. Retailers (Parent)</span>
-                <span className="text-[10px] text-slate-400">Collection</span>
-              </div>
-              <pre className="text-[11px] leading-relaxed overflow-x-auto text-emerald-300">
+          {/* Filters Bar: Parent Retailer, Child Store, Delivery Zone, Status */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search by branch name, store code, parent retailer, or address..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-slate-800 focus:bg-white focus:outline-none font-medium"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Parent Retailer Filter */}
+              <select
+                value={selectedRetailerFilter}
+                onChange={(e) => setSelectedRetailerFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
+              >
+                <option value="all">🏢 All Parent Retailers ({parentRetailers.length})</option>
+                {parentRetailers.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.logo} {r.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Master Delivery Zone Filter */}
+              <select
+                value={selectedZoneFilter}
+                onChange={(e) => setSelectedZoneFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
+              >
+                <option value="all">🗺️ All Delivery Zones ({masterZones.length})</option>
+                {masterZones.map((z) => (
+                  <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
+                    {z.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Assigned / Unassigned Status Filter */}
+              <select
+                value={assignedStatusFilter}
+                onChange={(e) => setAssignedStatusFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
+              >
+                <option value="all">⚡ All Statuses</option>
+                <option value="assigned">✓ Assigned ({stores.filter((s) => Boolean(s.deliveryZoneId)).length})</option>
+                <option value="unassigned">⚠️ Unassigned ({stores.filter((s) => !s.deliveryZoneId).length})</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Retailer Delivery Zone Association Table */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-black uppercase text-[10px] tracking-wider">
+                    <th className="py-3 px-4">Parent Retailer</th>
+                    <th className="py-3 px-4">Child Store (Physical Branch)</th>
+                    <th className="py-3 px-4">Zone Status</th>
+                    <th className="py-3 px-4">Assigned Delivery Zone</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {stores
+                    .filter((store) => {
+                      // Filter by search
+                      if (searchQuery.trim()) {
+                        const q = searchQuery.toLowerCase().trim();
+                        const n = String(store.name || '').toLowerCase();
+                        const b = String(store.branchName || '').toLowerCase();
+                        const p = String(store.parentRetailerName || '').toLowerCase();
+                        const c = String(store.storeCode || store.storeId || '').toLowerCase();
+                        const a = String(store.address || '').toLowerCase();
+                        if (!n.includes(q) && !b.includes(q) && !p.includes(q) && !c.includes(q) && !a.includes(q)) {
+                          return false;
+                        }
+                      }
+                      // Filter by retailer
+                      if (selectedRetailerFilter !== 'all' && store.retailerId !== selectedRetailerFilter) {
+                        return false;
+                      }
+                      // Filter by zone
+                      if (selectedZoneFilter !== 'all' && store.deliveryZoneId !== selectedZoneFilter) {
+                        return false;
+                      }
+                      // Filter by assigned status
+                      if (assignedStatusFilter === 'assigned' && !store.deliveryZoneId) {
+                        return false;
+                      }
+                      if (assignedStatusFilter === 'unassigned' && Boolean(store.deliveryZoneId)) {
+                        return false;
+                      }
+                      return true;
+                    })
+                    .map((store) => {
+                      const parentRetailer = parentRetailers.find((r) => r.id === store.retailerId) || {
+                        name: store.parentRetailerName || 'Retailer',
+                        logo: '🏬',
+                        color: '#0e7c66'
+                      };
+                      const isAssigned = Boolean(store.deliveryZoneId);
+                      const assignedZone = masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId);
+
+                      return (
+                        <tr key={store.storeId || store._id} className="hover:bg-slate-50/70 transition">
+                          {/* Parent Retailer Column */}
+                          <td className="py-3.5 px-4 align-top">
+                            <div className="space-y-1">
+                              <span
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border"
+                                style={{
+                                  backgroundColor: `${parentRetailer.color || '#0e7c66'}10`,
+                                  borderColor: `${parentRetailer.color || '#0e7c66'}30`,
+                                  color: parentRetailer.color || '#0e7c66'
+                                }}
+                              >
+                                <span>{parentRetailer.logo || '🏬'}</span>
+                                <span>{parentRetailer.name}</span>
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-black uppercase tracking-wider bg-slate-900 text-white px-2 py-0.5 rounded-full">
+                                  Parent Retailer
+                                </span>
+                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
+                                  ✓ Active
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Child Store Column */}
+                          <td className="py-3.5 px-4 align-top">
+                            <div className="space-y-1">
+                              <p className="font-bold text-slate-900 text-xs">
+                                {store.name}
+                              </p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
+                                  {store.storeCode || store.storeId} · Child Store
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-medium">
+                                  {store.branchManager ? `Manager: ${store.branchManager}` : ''}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
+                                <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span>{store.address}</span>
+                              </p>
+                            </div>
+                          </td>
+
+                          {/* Zone Assignment Status Badge */}
+                          <td className="py-3.5 px-4 align-top">
+                            {isAssigned ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Assigned</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                                <span>Unassigned Zone</span>
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Assigned Delivery Zone Info */}
+                          <td className="py-3.5 px-4 align-top">
+                            {isAssigned && assignedZone ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                                    style={{ backgroundColor: assignedZone.color || '#ea580c' }}
+                                  />
+                                  <span className="font-black text-slate-900 text-xs">
+                                    {assignedZone.name}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 font-medium">
+                                  Inherited from the existing master zone
+                                </p>
+                                <span className="inline-block text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md">
+                                  Polygon configured • Store associated with zone
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="space-y-1">
+                                <span className="text-slate-400 text-xs font-medium">
+                                  No delivery zone assigned yet.
+                                </span>
+                                <p className="text-[10px] text-amber-600 font-bold">
+                                  Click Assign to link with an existing zone
+                                </p>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Actions Column */}
+                          <td className="py-3.5 px-4 align-top text-right">
+                            <div className="flex items-center justify-end gap-2 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenAssignModal(store)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                                  isAssigned
+                                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-800'
+                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                                }`}
+                              >
+                                <Edit2 className="w-3 h-3" />
+                                <span>{isAssigned ? 'Edit Assignment' : 'Assign Store to Zone'}</span>
+                              </button>
+
+                              {isAssigned && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUnassignStore(store)}
+                                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                                  title="Detach store from current delivery zone"
+                                >
+                                  <X className="w-3 h-3" />
+                                  <span>Unassign</span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* MERN Database Structure & Architecture Guide */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-2xs">
+            <div>
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <Database className="w-5 h-5 text-indigo-600" />
+                <span>MERN Schema: Decoupled Stores & Delivery Zones</span>
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                Notice: The <code>RetailerDeliveryZone</code> association collection contains no polygon. It connects a registered child branch with an existing delivery zone.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-mono">
+              {/* Collection 1: Retailers (Parent) */}
+              <div className="bg-slate-900 text-slate-100 p-4 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="font-bold text-emerald-400">1. Retailers (Parent)</span>
+                  <span className="text-[10px] text-slate-400">Company</span>
+                </div>
+                <pre className="text-[11px] leading-relaxed overflow-x-auto text-emerald-300">
 {`{
-  _id: "tenant-alfatah",
+  _id: ObjectId,
   name: "Al-Fateh",
+  retailerCode: "RET-001",
+  logo: "🏬",
+  contactPerson: "Owner / Manager",
+  phone: "+92 300 8441111",
+  email: "info@alfatah.pk",
+  headOfficeAddress: "Main Hub, FSD",
+  city: "Faisalabad",
   type: "parent",
   status: "active"
 }`}
-              </pre>
-            </div>
-
-            {/* Collection 2: Stores (Child Branches) */}
-            <div className="bg-slate-900 text-slate-100 p-4 rounded-2xl space-y-2">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="font-bold text-indigo-400">2. Stores (Child)</span>
-                <span className="text-[10px] text-slate-400">Collection</span>
+                </pre>
               </div>
-              <pre className="text-[11px] leading-relaxed overflow-x-auto text-indigo-300">
+
+              {/* Collection 2: Stores (Child Branches) */}
+              <div className="bg-slate-900 text-slate-100 p-4 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="font-bold text-indigo-400">2. Stores (Child)</span>
+                  <span className="text-[10px] text-slate-400">Branch</span>
+                </div>
+                <pre className="text-[11px] leading-relaxed overflow-x-auto text-indigo-300">
 {`{
-  _id: "STR-AF-001",
-  retailerId: "tenant-alfatah",
-  name: "Al-Fateh — Main Branch",
-  type: "child",
+  _id: ObjectId,
+  parentRetailerId: ObjectId,
+  storeName: "Al-Fateh Samanabad",
+  storeCode: "ALF-BR-001",
+  branchManager: "Manager Name",
+  phone: "+92 300 8441111",
+  email: "samanabad@alfatah.pk",
   address: "Samanabad, Faisalabad",
+  city: "Faisalabad",
+  type: "child",
   location: {
     type: "Point",
     coordinates: [73.0600, 31.3960]
   },
-  deliveryZoneId: "zone_001",
+  openingHours: "08:00 AM - 11:00 PM",
   status: "active"
 }`}
-              </pre>
-            </div>
-
-            {/* Collection 3: DeliveryZones (Master) */}
-            <div className="bg-slate-900 text-slate-100 p-4 rounded-2xl space-y-2">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="font-bold text-amber-400">3. DeliveryZones</span>
-                <span className="text-[10px] text-slate-400">Collection</span>
+                </pre>
               </div>
-              <pre className="text-[11px] leading-relaxed overflow-x-auto text-amber-300">
+
+              {/* Collection 3: DeliveryZones (Master) */}
+              <div className="bg-slate-900 text-slate-100 p-4 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="font-bold text-amber-400">3. DeliveryZones</span>
+                  <span className="text-[10px] text-slate-400">Master Zone</span>
+                </div>
+                <pre className="text-[11px] leading-relaxed overflow-x-auto text-amber-300">
 {`{
   _id: "zone_001",
   name: "Zone 1 — Samanabad",
+  city: "Faisalabad",
   polygon: {
     type: "Polygon",
-    coordinates: [ ... ]
+    coordinates: [
+      [31.4080, 73.0450],
+      [31.4080, 73.0760],
+      [31.3780, 73.0760],
+      [31.3780, 73.0450],
+      [31.4080, 73.0450]
+    ]
   },
   status: "active"
 }`}
-              </pre>
+                </pre>
+              </div>
+
+              {/* Collection 4: Retailer Delivery Zone Association */}
+              <div className="bg-slate-900 text-slate-100 p-4 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="font-bold text-sky-400">4. Zone Association</span>
+                  <span className="text-[10px] text-slate-400">Association</span>
+                </div>
+                <pre className="text-[11px] leading-relaxed overflow-x-auto text-sky-300">
+{`{
+  _id: ObjectId,
+  storeId: ObjectId("STR-AF-001"),
+  parentRetailerId: ObjectId("tenant-alfatah"),
+  deliveryZoneId: ObjectId("zone_001"),
+  assignedAt: ISODate(),
+  assignedBy: "Super Admin",
+  status: "active"
+}`}
+                </pre>
+              </div>
             </div>
           </div>
         </div>
@@ -2302,13 +2734,18 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       {/* ===================================================================== */}
       {isAddStoreModalOpen && targetParentRetailer && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto my-auto text-xs">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150 max-h-[92vh] overflow-y-auto my-auto text-xs">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-base font-black text-slate-900 leading-tight">
-                  Add Child Branch under {targetParentRetailer.name}
+                <h3 className="text-base font-black text-slate-900 leading-tight flex items-center gap-2">
+                  <span>Register Physical Store Branch</span>
+                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                    Child Store
+                  </span>
                 </h3>
-                <span className="text-xs text-slate-500">Create a physical store branch linked to this retailer</span>
+                <span className="text-xs text-slate-500">
+                  Adding physical branch under <strong>{targetParentRetailer.name}</strong> (Parent Retailer)
+                </span>
               </div>
               <button
                 type="button"
@@ -2320,46 +2757,140 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
             </div>
 
             <form onSubmit={handleSaveAddStore} className="space-y-3.5">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Branch Store Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={storeForm.name}
-                  onChange={(e) => setStoreForm({ ...storeForm, name: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none"
-                />
+              {/* Parent Retailer Readonly Info Card */}
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">{targetParentRetailer.logo || '🏬'}</span>
+                  <div>
+                    <span className="font-bold text-slate-900 text-xs block">
+                      {targetParentRetailer.name}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-semibold">
+                      Parent Retailer • {targetParentRetailer.retailerCode || targetParentRetailer.id}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold bg-slate-900 text-white px-2 py-0.5 rounded-full">
+                  Auto-Linked Parent
+                </span>
               </div>
 
+              {/* Branch Name & Unique Store Code */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Store / Branch Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Al-Fateh — Samanabad Branch"
+                    value={storeForm.name}
+                    onChange={(e) => setStoreForm({ ...storeForm, name: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Store Code (Unique) *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. ALF-BR-001"
+                    value={storeForm.storeCode}
+                    onChange={(e) => setStoreForm({ ...storeForm, storeCode: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-mono font-bold focus:bg-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Branch Manager & Contact Phone */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Branch Manager Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Tariq Mehmood"
+                    value={storeForm.branchManager}
+                    onChange={(e) => setStoreForm({ ...storeForm, branchManager: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Phone Number *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. +92 300 8441199"
+                    value={storeForm.phone}
+                    onChange={(e) => setStoreForm({ ...storeForm, phone: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Physical Address */}
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Physical Store Address *</label>
                 <input
                   type="text"
                   required
+                  placeholder="e.g. Main Commercial Avenue, Samanabad, Faisalabad"
                   value={storeForm.address}
                   onChange={(e) => setStoreForm({ ...storeForm, address: e.target.value })}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
                 />
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Assign Master Delivery Zone *</label>
-                <select
-                  value={storeForm.deliveryZoneId}
-                  onChange={(e) => setStoreForm({ ...storeForm, deliveryZoneId: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
-                >
-                  {masterZones.map((z) => (
-                    <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
-                      {z.name} (Fee: Rs. {z.deliveryFee || 60})
-                    </option>
-                  ))}
-                </select>
+              {/* City Selector with Dynamic Map Pan */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">City *</label>
+                  <select
+                    value={storeForm.city}
+                    onChange={(e) => {
+                      const cityName = e.target.value;
+                      const cityObj = PAKISTAN_CITIES.find((c) => c.name.toLowerCase() === cityName.toLowerCase());
+                      setStoreForm({
+                        ...storeForm,
+                        city: cityName,
+                        latitude: cityObj ? cityObj.lat : storeForm.latitude,
+                        longitude: cityObj ? cityObj.lng : storeForm.longitude
+                      });
+                      if (mapInstanceRef.current && cityObj) {
+                        mapInstanceRef.current.flyTo([cityObj.lat, cityObj.lng], cityObj.zoom || 13, { duration: 1.2 });
+                      }
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
+                  >
+                    {PAKISTAN_CITIES.map((c) => (
+                      <option key={c.name} value={c.name}>
+                        📍 {c.name} {c.name === 'Faisalabad' ? '(Hub City)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Initial Delivery Zone Assignment</label>
+                  <select
+                    value={storeForm.deliveryZoneId || ''}
+                    onChange={(e) => setStoreForm({ ...storeForm, deliveryZoneId: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
+                  >
+                    <option value="">⚠️ Leave Unassigned (Initially Unassigned Zone)</option>
+                    {masterZones.map((z) => (
+                      <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
+                        {z.name} (Fee: Rs. {z.deliveryFee || 60})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
+              {/* Coordinates (Captured from Map / City Center) */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Latitude</label>
+                  <label className="font-bold text-slate-700 block mb-1">
+                    Latitude 📍 (Captured from pin)
+                  </label>
                   <input
                     type="number"
                     step="0.0001"
@@ -2369,7 +2900,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Longitude</label>
+                  <label className="font-bold text-slate-700 block mb-1">
+                    Longitude 📍 (Captured from pin)
+                  </label>
                   <input
                     type="number"
                     step="0.0001"
@@ -2377,6 +2910,33 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                     onChange={(e) => setStoreForm({ ...storeForm, longitude: parseFloat(e.target.value) })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-mono focus:bg-white focus:outline-none"
                   />
+                </div>
+              </div>
+
+              {/* Operating Hours & Status */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Operating Status</label>
+                  <select
+                    value={storeForm.operatingStatus}
+                    onChange={(e) => setStoreForm({ ...storeForm, operatingStatus: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:outline-none cursor-pointer"
+                  >
+                    <option value="Open">🟢 Open (08:00 AM - 11:00 PM)</option>
+                    <option value="Busy">🟡 Busy</option>
+                    <option value="Closed">🔴 Closed</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Branch Status</label>
+                  <select
+                    value={storeForm.status}
+                    onChange={(e) => setStoreForm({ ...storeForm, status: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:outline-none cursor-pointer"
+                  >
+                    <option value="active">✓ Active Branch</option>
+                    <option value="inactive">✕ Inactive Branch</option>
+                  </select>
                 </div>
               </div>
 
@@ -2390,9 +2950,152 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
-                  Save Store Branch
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>Register Physical Branch</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL: ASSIGN STORE TO DELIVERY ZONE WORKFLOW                         */}
+      {/* ===================================================================== */}
+      {isAssignModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto my-auto text-xs">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900 leading-tight">
+                  Assign Store to Delivery Zone
+                </h3>
+                <span className="text-xs text-slate-500">
+                  Connect physical child branch with an existing master delivery zone
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAssignModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveStoreAssignment} className="space-y-4">
+              {/* Step 1: Select Store / Branch */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  1. Select Store / Branch *
+                </label>
+                <select
+                  value={selectedStoreForAssign?.storeId || selectedStoreForAssign?._id || ''}
+                  onChange={(e) => {
+                    const matched = stores.find((s) => (s.storeId || s._id) === e.target.value);
+                    setSelectedStoreForAssign(matched);
+                    if (matched?.deliveryZoneId) {
+                      setAssignmentZoneId(matched.deliveryZoneId);
+                    }
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
+                >
+                  {stores.map((s) => (
+                    <option key={s.storeId || s._id} value={s.storeId || s._id}>
+                      {s.name} ({s.storeCode || s.storeId}) — {s.parentRetailerName}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Selected Store Card */}
+                {selectedStoreForAssign && (
+                  <div className="mt-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-900 text-xs">
+                        {selectedStoreForAssign.name}
+                      </span>
+                      <span className="text-[10px] font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded">
+                        {selectedStoreForAssign.storeCode || selectedStoreForAssign.storeId} · Child Store
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-600 flex items-center gap-2">
+                      <span><strong>Parent:</strong> {selectedStoreForAssign.parentRetailerName || 'Parent Retailer'}</span>
+                      <span>•</span>
+                      <span><strong>City:</strong> {selectedStoreForAssign.city || 'Faisalabad'}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
+                      <MapPin className="w-3 h-3 text-slate-400" />
+                      <span>{selectedStoreForAssign.address}</span>
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Step 2: Select Existing Delivery Zone */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  2. Select Existing Delivery Zone *
+                </label>
+                <select
+                  value={assignmentZoneId}
+                  onChange={(e) => setAssignmentZoneId(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
+                >
+                  {masterZones.map((z) => (
+                    <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
+                      {z.name} ({z.zoneId || z._id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Step 3: Zone Information Card */}
+              {(() => {
+                const zoneObj = masterZones.find((z) => (z.zoneId || z._id) === assignmentZoneId) || masterZones[0];
+                return (
+                  <div className="p-3.5 bg-indigo-50/70 rounded-2xl border border-indigo-100 space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 block">
+                      Zone Information
+                    </span>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Zone Name:</span>
+                        <span className="font-bold text-slate-800">{zoneObj?.name}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Zone ID:</span>
+                        <span className="font-mono font-bold text-indigo-700">{zoneObj?.zoneId || zoneObj?._id}</span>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-indigo-200/60 flex items-center justify-between text-[11px]">
+                      <span className="font-semibold text-emerald-800 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        Polygon: Already created
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        No new polygon will be drawn
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAssignModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>Assign Store to Zone</span>
                 </button>
               </div>
             </form>

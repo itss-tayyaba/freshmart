@@ -160,19 +160,34 @@ export const createTenant = async (req, res) => {
     const chosenPlan = plan || subscription?.plan || 'Starter';
     const chosenPrice = price !== undefined ? Number(price) : (subscription?.price || (chosenPlan === 'Enterprise' ? 75000 : chosenPlan === 'Starter' ? 15000 : 35000));
 
+    const retailerCode = req.body.retailerCode || req.body.code || `RET-${generatedSlug.toUpperCase().slice(0, 4) || '001'}`;
+    const contactPerson = req.body.contactPerson || owner.trim();
+    const phone = req.body.phone || ownerPhone || '+92 300 1234567';
+    const headOfficeAddress = req.body.headOfficeAddress || req.body.address || `${req.body.city || 'Faisalabad'}, Pakistan`;
+    const city = req.body.city || 'Faisalabad';
+    const notes = req.body.notes || '';
+
     const newTenantData = {
       id: tenantId,
       tenantId,
       name: name.trim(),
+      retailerCode,
+      contactPerson,
+      phone,
+      email: email.toLowerCase().trim(),
+      headOfficeAddress,
+      city,
+      type: 'parent',
+      notes,
       slug: generatedSlug,
       tagline: tagline || 'Premier Grocery & Essentials Partner',
       description: description || '',
       logo: logo || '🏬',
       banner: banner || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
       badge: badge || 'Official Partner Store',
-      ownerName: owner.trim(),
+      ownerName: contactPerson,
       ownerEmail: email.toLowerCase().trim(),
-      ownerPhone: ownerPhone || '+92 300 1234567',
+      ownerPhone: phone,
       status: status || 'Active',
       theme: theme || {
         primaryColor: '#047857',

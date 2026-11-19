@@ -203,8 +203,29 @@ export const createStore = async (req, res) => {
       deliveryRadiusKm
     } = req.body;
 
+    const rawParentId = req.body.parentRetailerId || req.body.retailerId || tenantId;
+    if (!rawParentId) {
+      return res.status(400).json({ success: false, message: 'A store cannot be registered without a parent retailer.' });
+    }
+
     if (!name || !branchName) {
       return res.status(400).json({ success: false, message: 'Store name and branch name are required.' });
+    }
+
+    // Enforce unique store code if provided
+    const requestedCode = String(req.body.storeCode || storeId || '').trim();
+    if (requestedCode) {
+      const diskStores = loadDiskStores();
+      const duplicate = diskStores.find(
+        (s) => (s.storeCode && s.storeCode.toLowerCase() === requestedCode.toLowerCase()) ||
+               (String(s.storeId || s._id).toLowerCase() === requestedCode.toLowerCase())
+      );
+      if (duplicate) {
+        return res.status(409).json({
+          success: false,
+          message: `Store code must be unique. A store with code "${requestedCode}" already exists.`
+        });
+      }
     }
 
     if (latitude === undefined || longitude === undefined || isNaN(Number(latitude)) || isNaN(Number(longitude))) {
@@ -246,13 +267,25 @@ export const createStore = async (req, res) => {
 
     const generatedId = storeId || `STR-${canonicalTenant.substring(0, 10).toUpperCase()}-${Date.now().toString().slice(-4)}`;
 
+    const targetZoneId = req.body.assignedZoneId || req.body.zoneId || null;
+
     const newStoreData = {
       _id: generatedId,
       storeId: generatedId,
+      storeCode: requestedCode || generatedId,
+      parentRetailerId: canonicalTenant,
       tenantId: canonicalTenant,
       tenantName: retailer.name,
       name,
+      storeName: name,
       branchName,
+      branchManager: req.body.branchManager || manager || `${retailer.name} Manager`,
+      manager: req.body.branchManager || manager || `${retailer.name} Manager`,
+      phone: req.body.phone || contactNumber || '+92 300 0000000',
+      contactNumber: req.body.phone || contactNumber || '+92 300 0000000',
+      email: req.body.email || '',
+      type: 'child',
+      notes: req.body.notes || '',
       address: address || `${branchName}, ${city || 'Faisalabad'}, Pakistan`,
       city: city || 'Faisalabad',
       latitude: lat,
@@ -261,15 +294,14 @@ export const createStore = async (req, res) => {
         type: 'Point',
         coordinates: [lng, lat]
       },
-      contactNumber: contactNumber || '+92 300 0000000',
       openingHours: openingHours || '08:00 AM',
       closingHours: closingHours || '11:00 PM',
       storeImage: storeImage || retailer.banner || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
       status: status || 'active',
       isActive: String(status || 'active').toLowerCase() === 'active',
       operatingStatus: operatingStatus || 'Open',
-      manager: manager || `${retailer.name} Manager`,
-      deliveryRadiusKm: Number(deliveryRadiusKm || 5)
+      deliveryRadiusKm: Number(deliveryRadiusKm || 5),
+      assignedZoneId: targetZoneId
     };
 
     // Save to MongoDB
@@ -308,18 +340,21 @@ export const createStore = async (req, res) => {
     saveDiskStores(updatedDisk);
 
     // Optional: link store to zone if assignedZoneId or zoneId provided
-    const targetZoneId = req.body.assignedZoneId || req.body.zoneId;
     if (targetZoneId) {
       try {
         const diskAssignments = loadDiskAssignments();
         const existingIdx = diskAssignments.findIndex((a) => a.zoneId === targetZoneId && a.storeId === generatedId);
         const assignRecord = {
           zoneId: targetZoneId,
+          deliveryZoneId: targetZoneId,
           storeId: generatedId,
           tenantId: canonicalTenant,
+          parentRetailerId: canonicalTenant,
           isActive: true,
+          status: 'active',
           priority: 1,
-          assignedAt: new Date().toISOString()
+          assignedAt: new Date().toISOString(),
+          assignedBy: 'Super Admin'
         };
         if (existingIdx >= 0) {
           diskAssignments[existingIdx] = assignRecord;

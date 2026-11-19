@@ -34,6 +34,7 @@ import {
   CORE_RETAILERS,
   BASELINE_FIVE_STORES
 } from '../../../utils/storeHelper';
+import { PAKISTAN_CITIES } from '../../../data/retailerZoneHierarchyData';
 
 export const StoreManagementView = () => {
   const {
@@ -346,6 +347,27 @@ export const StoreManagementView = () => {
     }
   };
 
+  const handleCitySelectChange = (newCityName) => {
+    const cityObj = PAKISTAN_CITIES.find((c) => c.name.toLowerCase() === newCityName.toLowerCase());
+    const lat = cityObj ? cityObj.lat : formData.latitude;
+    const lng = cityObj ? cityObj.lng : formData.longitude;
+    const zoom = cityObj?.zoom || 13;
+
+    setFormData((prev) => ({
+      ...prev,
+      city: newCityName,
+      latitude: lat,
+      longitude: lng
+    }));
+
+    if (mapInstanceRef.current && cityObj) {
+      mapInstanceRef.current.flyTo([lat, lng], zoom, { duration: 1.2 });
+    }
+    if (markerRef.current && cityObj) {
+      markerRef.current.setLatLng([lat, lng]);
+    }
+  };
+
   // Handlers
   const handleOpenAdd = () => {
     setFormError(null);
@@ -466,15 +488,26 @@ export const StoreManagementView = () => {
       const storeRecord = {
         _id: sId,
         storeId: sId,
+        storeCode: sId,
+        storeName: nameVal,
         tenantId: canonicalTenant,
         tenantName: retailerObj.name,
+        parentRetailerId: canonicalTenant,
+        parentRetailerName: retailerObj.name,
+        type: 'child',
         name: nameVal,
         branchName: branchVal,
         address: addressVal,
         city: cityVal,
         latitude: latVal,
         longitude: lngVal,
+        location: {
+          type: 'Point',
+          coordinates: [lngVal, latVal]
+        },
         contactNumber: formData.contactNumber || '+92 300 0000000',
+        phone: formData.contactNumber || '+92 300 0000000',
+        email: formData.managerEmail || '',
         openingHours: formData.openingHours || '08:00 AM',
         closingHours: formData.closingHours || '11:00 PM',
         storeImage: formData.storeImage || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
@@ -482,8 +515,10 @@ export const StoreManagementView = () => {
         isActive: String(formData.status || 'active').toLowerCase() === 'active',
         operatingStatus: formData.operatingStatus || 'Open',
         manager: formData.manager || `${retailerObj.name} Manager`,
+        branchManager: formData.manager || `${retailerObj.name} Manager`,
         deliveryRadiusKm: Number(formData.deliveryRadiusKm || 5),
-        assignedZoneId: formData.assignedZoneId || ''
+        assignedZoneId: formData.assignedZoneId || '',
+        deliveryZoneId: formData.assignedZoneId || null
       };
 
       if (isEditModalOpen && selectedStore) {
@@ -1052,15 +1087,18 @@ export const StoreManagementView = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">City *</label>
-                  <input
-                    type="text"
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">City Location * (Dynamic Map Pan)</label>
+                  <select
                     value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    required
-                    placeholder="e.g. Faisalabad"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500"
-                  />
+                    onChange={(e) => handleCitySelectChange(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-emerald-500 font-bold cursor-pointer"
+                  >
+                    {PAKISTAN_CITIES.map((c) => (
+                      <option key={c.name} value={c.name}>
+                        📍 {c.name} {c.name === 'Faisalabad' ? '(Primary Hub)' : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

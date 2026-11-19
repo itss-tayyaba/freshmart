@@ -4527,15 +4527,28 @@ export const SuperAdminDashboard = () => {
       {/* ===================================================================== */}
       {isAddTenantOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto my-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150 max-h-[92vh] overflow-y-auto my-auto text-xs">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-base font-black text-slate-900 leading-tight">Register New Supermarket Store</h3>
-                <span className="text-xs text-slate-500">Create a new supermarket partner on the platform</span>
+                <h3 className="text-base font-black text-slate-900 leading-tight flex items-center gap-2">
+                  <span>Register Parent Retailer</span>
+                  <span className="text-[10px] font-bold bg-slate-900 text-white px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    Parent / Retail Chain
+                  </span>
+                </h3>
+                <span className="text-xs text-slate-500">Step 1: Register supermarket parent company/chain. Physical child stores/branches are added under this retailer.</span>
               </div>
               <button onClick={() => setIsAddTenantOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* Informational Callout */}
+            <div className="p-3 bg-emerald-50/70 border border-emerald-100 rounded-2xl text-[11px] text-emerald-900 font-medium flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                <strong>Parent Retailer Architecture:</strong> The parent retailer does not need a delivery zone or delivery polygon at registration. Physical stores inherit the brand and link to zones individually.
+              </span>
             </div>
 
             <form
@@ -4543,20 +4556,32 @@ export const SuperAdminDashboard = () => {
                 e.preventDefault();
                 const formData = new FormData(e.target);
                 const storeName = formData.get('name');
+                const retailerCode = formData.get('retailerCode') || `RET-${Date.now().toString().slice(-3)}`;
+                const contactPerson = formData.get('contactPerson') || formData.get('ownerName') || 'Manager';
+                const ownerPhone = formData.get('phone') || '+92 300 0000000';
                 const ownerEmail = formData.get('email');
-                const plan = formData.get('plan') || 'Professional';
+                const headOfficeAddress = formData.get('headOfficeAddress') || 'Main Corporate Head Office';
                 const city = formData.get('city') || 'Faisalabad';
-                const branchAddress = formData.get('branchAddress') || `${city} Main Hub`;
+                const status = formData.get('status') || 'active';
+                const notes = formData.get('notes') || '';
+                const plan = formData.get('plan') || 'Professional';
                 const adminPassword = formData.get('password') || 'admin123';
 
                 const newTenant = await addTenant({
                   name: storeName,
+                  retailerCode: retailerCode,
+                  contactPerson: contactPerson,
+                  phone: ownerPhone,
+                  headOfficeAddress: headOfficeAddress,
+                  city: city,
+                  status: status,
+                  type: 'parent',
+                  notes: notes,
                   slug: storeName.toLowerCase().replace(/\s+/g, '-'),
                   tagline: 'Quality Fresh Groceries & Household Essentials',
-                  ownerName: formData.get('ownerName') || 'Store Partner',
+                  ownerName: contactPerson,
                   ownerEmail: ownerEmail,
-                  city: city,
-                  location: `${city} Hub`,
+                  location: `${city} Head Office`,
                   color: '#0e7c66',
                   logo: '🏬',
                   subscription: {
@@ -4566,7 +4591,7 @@ export const SuperAdminDashboard = () => {
                     status: 'Active',
                     features: ['Store Admin Console', 'Unlimited Products', 'Fleet Dispatch']
                   },
-                  hubs: [`${city} Hub (${branchAddress})`]
+                  hubs: [`${city} Head Office (${headOfficeAddress})`]
                 });
 
                 if (addStoreAdmin) {
@@ -4581,64 +4606,74 @@ export const SuperAdminDashboard = () => {
                   });
                 }
 
-                addToast('Supermarket Registered 🎉', `${storeName} (${city}) added with ${plan} subscription.`);
+                addToast('Parent Retailer Registered 🎉', `${storeName} [${retailerCode}] added as Parent Retailer.`);
                 setIsAddTenantOpen(false);
               }}
               className="space-y-3 text-xs"
             >
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Supermarket Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  required
-                  placeholder="e.g. Imtiaz Super Market"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
-                />
-              </div>
-
+              {/* Retailer Name & Retailer Code */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Store City Location</label>
-                  <select
-                    name="city"
-                    defaultValue="Faisalabad"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none font-bold"
-                  >
-                    <option value="Faisalabad">📍 Faisalabad</option>
-                    <option value="Lahore">📍 Lahore</option>
-                    <option value="Islamabad">📍 Islamabad</option>
-                    <option value="Karachi">📍 Karachi</option>
-                    <option value="Rawalpindi">📍 Rawalpindi</option>
-                    <option value="Multan">📍 Multan</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Branch / Hub Address</label>
+                  <label className="font-bold text-slate-700 block mb-1">Retailer / Company Name *</label>
                   <input
                     type="text"
-                    name="branchAddress"
-                    placeholder="e.g. Main Commercial Hub"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Owner / Manager Name</label>
-                  <input
-                    type="text"
-                    name="ownerName"
+                    name="name"
                     required
-                    placeholder="e.g. Imtiaz Abbasi"
+                    placeholder="e.g. Al-Fateh Supermarket"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Retailer Code (Unique) *</label>
+                  <input
+                    type="text"
+                    name="retailerCode"
+                    required
+                    placeholder="e.g. RET-001"
+                    defaultValue={`RET-${Date.now().toString().slice(-3)}`}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-mono font-bold focus:bg-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Contact Person & Phone */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Company Contact Person *</label>
+                  <input
+                    type="text"
+                    name="contactPerson"
+                    required
+                    placeholder="e.g. Manager / Owner Name"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
                   />
                 </div>
-
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Initial Admin Password</label>
+                  <label className="font-bold text-slate-700 block mb-1">Phone Number *</label>
+                  <input
+                    type="text"
+                    name="phone"
+                    required
+                    placeholder="e.g. +92 300 8441111"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Email & Initial Admin Password */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Official Email *</label>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    placeholder="e.g. company@alfatah.pk"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Admin Password *</label>
                   <input
                     type="text"
                     name="password"
@@ -4648,27 +4683,74 @@ export const SuperAdminDashboard = () => {
                 </div>
               </div>
 
+              {/* Head Office Address */}
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Official Owner Email</label>
+                <label className="font-bold text-slate-700 block mb-1">Head Office Address *</label>
                 <input
-                  type="email"
-                  name="email"
+                  type="text"
+                  name="headOfficeAddress"
                   required
-                  placeholder="e.g. admin@imtiaz.pk"
+                  placeholder="e.g. Commercial Avenue, Faisalabad"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
                 />
               </div>
 
+              {/* City Location & Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Head Office City Location *</label>
+                  <select
+                    name="city"
+                    defaultValue="Faisalabad"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none font-bold cursor-pointer"
+                  >
+                    <option value="Faisalabad">📍 Faisalabad (Hub City)</option>
+                    <option value="Lahore">📍 Lahore</option>
+                    <option value="Islamabad">📍 Islamabad</option>
+                    <option value="Karachi">📍 Karachi</option>
+                    <option value="Rawalpindi">📍 Rawalpindi</option>
+                    <option value="Multan">📍 Multan</option>
+                    <option value="Peshawar">📍 Peshawar</option>
+                    <option value="Gujranwala">📍 Gujranwala</option>
+                    <option value="Sialkot">📍 Sialkot</option>
+                    <option value="Quetta">📍 Quetta</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Parent Retailer Status *</label>
+                  <select
+                    name="status"
+                    defaultValue="active"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none font-bold cursor-pointer"
+                  >
+                    <option value="active">✓ Active Company</option>
+                    <option value="inactive">✕ Inactive Company</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Subscription Plan Tier */}
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Subscription Plan Tier</label>
                 <select
                   name="plan"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none cursor-pointer"
                 >
                   <option value="Enterprise">Enterprise (PKR 75,000/mo - 2% Commission)</option>
                   <option value="Professional">Professional (PKR 35,000/mo - 3.5% Commission)</option>
                   <option value="Starter">Starter (PKR 15,000/mo - 5% Commission)</option>
                 </select>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Admin Notes (Optional)</label>
+                <input
+                  type="text"
+                  name="notes"
+                  placeholder="e.g. Registered retail partner chain"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none"
+                />
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
@@ -4681,9 +4763,10 @@ export const SuperAdminDashboard = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
-                  Register Store
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>Register Parent Retailer</span>
                 </button>
               </div>
             </form>

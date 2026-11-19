@@ -19,6 +19,20 @@ const storeSchema = new mongoose.Schema(
       index: true,
       trim: true
     },
+    parentRetailerId: {
+      type: String,
+      index: true,
+      trim: true
+    },
+    storeCode: {
+      type: String,
+      trim: true,
+      index: true
+    },
+    storeName: {
+      type: String,
+      trim: true
+    },
     tenantName: {
       type: String,
       trim: true
@@ -32,6 +46,27 @@ const storeSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true
+    },
+    branchManager: {
+      type: String,
+      trim: true
+    },
+    phone: {
+      type: String,
+      trim: true
+    },
+    email: {
+      type: String,
+      trim: true
+    },
+    type: {
+      type: String,
+      default: 'child'
+    },
+    notes: {
+      type: String,
+      trim: true,
+      default: ''
     },
     address: {
       type: String,
@@ -158,6 +193,17 @@ storeSchema.pre('validate', function (next) {
   if (this.status) {
     this.isActive = String(this.status).toLowerCase() === 'active';
   }
+  if (this.parentRetailerId && !this.tenantId) this.tenantId = this.parentRetailerId;
+  if (this.tenantId && !this.parentRetailerId) this.parentRetailerId = this.tenantId;
+  if (this.storeCode && !this.storeId) this.storeId = this.storeCode;
+  if (this.storeId && !this.storeCode) this.storeCode = this.storeId;
+  if (this.storeName && !this.name) this.name = this.storeName;
+  if (this.name && !this.storeName) this.storeName = this.name;
+  if (this.branchManager && !this.manager) this.manager = this.branchManager;
+  if (this.manager && !this.branchManager) this.branchManager = this.manager;
+  if (this.phone && !this.contactNumber) this.contactNumber = this.phone;
+  if (this.contactNumber && !this.phone) this.phone = this.contactNumber;
+  if (!this.type) this.type = 'child';
   if (typeof next === 'function') next();
 });
 

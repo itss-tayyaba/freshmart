@@ -95,6 +95,30 @@ import { createPickupStaff, getPickupStaff } from '../controllers/pickupStaffCon
 import { authLimiter } from '../middleware/rateLimitMiddleware.js';
 import { listStoreAdmins, createStoreAdmin, resetStoreAdminPassword, suggestZone } from '../controllers/storeAdminController.js';
 import {
+  getStores,
+  createStore,
+  updateStore,
+  deleteStore,
+  toggleStoreStatus
+} from '../controllers/storeController.js';
+import {
+  getZones,
+  createZone,
+  updateZone,
+  deleteZone,
+  toggleZoneStatus
+} from '../controllers/zoneController.js';
+import {
+  getAllAssignments,
+  getZoneStores,
+  assignStoresToZone,
+  removeStoreFromZone
+} from '../controllers/assignmentController.js';
+import {
+  checkDeliveryAvailability,
+  getEligibleStores
+} from '../controllers/deliveryEligibilityController.js';
+import {
   validate,
   registerSchema,
   loginSchema,
@@ -261,5 +285,26 @@ router.delete('/tenants/:id', deleteTenant);
 router.put('/tenants/:id/subscription', updateSubscription);
 router.get('/tenants/:id/orders', getTenantOrders);
 router.get('/tenants/:id/performance', getTenantPerformance);
+
+// --- GIS & Multi-Store Management Routes ---
+router.get('/admin/stores', protect, getStores);
+router.post('/admin/stores', protect, superAdminOnly, createStore);
+router.put('/admin/stores/:id', protect, superAdminOnly, updateStore);
+router.delete('/admin/stores/:id', protect, superAdminOnly, deleteStore);
+router.put('/admin/stores/:id/toggle', protect, superAdminOnly, toggleStoreStatus);
+
+router.get('/admin/zones', protect, getZones);
+router.post('/admin/zones', protect, superAdminOnly, createZone);
+router.put('/admin/zones/:id', protect, superAdminOnly, updateZone);
+router.delete('/admin/zones/:id', protect, superAdminOnly, deleteZone);
+router.put('/admin/zones/:id/toggle', protect, superAdminOnly, toggleZoneStatus);
+
+router.get('/admin/assignments', protect, getAllAssignments);
+router.get('/admin/zones/:id/stores', protect, getZoneStores);
+router.post('/admin/zones/:id/stores', protect, superAdminOnly, assignStoresToZone);
+router.delete('/admin/zones/:id/stores/:storeId', protect, superAdminOnly, removeStoreFromZone);
+
+router.post('/delivery/check-eligibility', checkDeliveryAvailability);
+router.post('/delivery/eligible-stores', getEligibleStores);
 
 export default router;

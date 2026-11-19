@@ -78,6 +78,45 @@ const tenantSchema = new mongoose.Schema(
       type: String,
       default: 'Official Partner Store'
     },
+    retailerCode: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    contactPerson: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    phone: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    email: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    headOfficeAddress: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    city: {
+      type: String,
+      trim: true,
+      default: 'Faisalabad'
+    },
+    type: {
+      type: String,
+      default: 'parent'
+    },
+    notes: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     ownerName: {
       type: String,
       required: true
@@ -136,5 +175,16 @@ const tenantSchema = new mongoose.Schema(
     bufferCommands: false
   }
 );
+
+tenantSchema.pre('validate', function (next) {
+  if (this.contactPerson && !this.ownerName) this.ownerName = this.contactPerson;
+  if (this.ownerName && !this.contactPerson) this.contactPerson = this.ownerName;
+  if (this.email && !this.ownerEmail) this.ownerEmail = this.email;
+  if (this.ownerEmail && !this.email) this.email = this.ownerEmail;
+  if (this.phone && !this.ownerPhone) this.ownerPhone = this.phone;
+  if (this.ownerPhone && !this.phone) this.phone = this.ownerPhone;
+  if (!this.type) this.type = 'parent';
+  if (typeof next === 'function') next();
+});
 
 export const Tenant = mongoose.model('Tenant', tenantSchema);
