@@ -72,7 +72,7 @@ import {
   isStoreAreaPolygon
 } from '../../data/retailerZoneHierarchyData';
 import { DeliveryView } from '../Admin/views/DeliveryView';
-import { getAllUnifiedStores, BASELINE_FIVE_STORES, CORE_RETAILERS } from '../../utils/storeHelper';
+import { getAllUnifiedStores, BASELINE_FIVE_STORES, CORE_RETAILERS, getDeletedStoreIds } from '../../utils/storeHelper';
 import { storeAdminApi } from '../../services/storeAdminApi';
 import { STORE_REGISTRY } from '../../data/storeRegistry';
 
