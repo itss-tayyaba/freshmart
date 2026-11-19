@@ -142,9 +142,33 @@ export const saveLocalCustomStore = (newStore) => {
   } catch {}
 };
 
+export const getDeletedStoreIds = () => {
+  try {
+    const raw = localStorage.getItem('freshmart_deleted_store_ids');
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+export const markStoreDeleted = (rawId) => {
+  try {
+    const id = String(rawId || '').trim();
+    if (!id) return;
+    const current = getDeletedStoreIds();
+    if (!current.includes(id)) {
+      localStorage.setItem('freshmart_deleted_store_ids', JSON.stringify([...current, id]));
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('freshmart_store_deleted', { detail: { storeId: id } }));
+    }
+  } catch (e) {}
+};
+
 export const removeLocalCustomStore = (storeId) => {
   if (!storeId) return;
   try {
+    markStoreDeleted(storeId);
     const existing = loadLocalCustomStores().filter(
       (s) => (s.storeId || s._id) !== storeId
     );
@@ -213,7 +237,10 @@ export const getAllUnifiedStores = (apiStores = [], _extraBranches = [], targetC
   loadLocalCustomStores().forEach(add);
   (Array.isArray(apiStores) ? apiStores : []).forEach(add);
 
-  const all = Array.from(byId.values());
+  const deletedIds = new Set(getDeletedStoreIds());
+  const all = Array.from(byId.values()).filter(
+    (s) => !deletedIds.has(s.storeId) && !deletedIds.has(s._id) && !deletedIds.has(s.storeCode)
+  );
   return targetCity
     ? all.filter((s) => String(s.city || '').toLowerCase().includes(String(targetCity).toLowerCase()))
     : all;

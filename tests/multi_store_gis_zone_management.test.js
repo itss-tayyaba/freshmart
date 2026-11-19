@@ -432,6 +432,40 @@ describe('Multi-Store GIS Delivery Zone Management Suite', () => {
     assert.ok(!disk.some((z) => z.zoneId === 'ZONE-TEST-DGROUND'));
   });
 
+  it('17. Permanently deletes a store branch via deleteStore controller (DELETE /api/admin/stores/:storeId)', async () => {
+    // 1. Create temporary store to delete
+    const storeToDel = {
+      storeId: 'STR-TEST-TO-DELETE',
+      storeName: 'Branch To Delete',
+      name: 'Branch To Delete',
+      tenantId: 'tenant-alfatah',
+      parentRetailerId: 'tenant-alfatah',
+      deliveryZoneId: 'ZONE-TEST-DGROUND',
+      latitude: 31.4125,
+      longitude: 73.0830
+    };
+    const disk = loadDiskStores();
+    saveDiskStores([...disk, storeToDel]);
+
+    // 2. Call deleteStore with storeId param
+    const { req, res, getData, getStatus } = mockReqRes({}, { storeId: 'STR-TEST-TO-DELETE' });
+    await deleteStore(req, res);
+
+    const data = getData();
+    assert.equal(getStatus(), 200);
+    assert.equal(data.success, true);
+    assert.equal(data.message, 'Store permanently deleted');
+    assert.ok(data.deletedStore);
+    assert.equal(data.deletedStore.id, 'STR-TEST-TO-DELETE');
+    assert.equal(data.deletedStore.name, 'Branch To Delete');
+    assert.equal(data.deletedStore.parentRetailerId, 'tenant-alfatah');
+    assert.equal(data.deletedStore.deliveryZoneId, 'ZONE-TEST-DGROUND');
+
+    // 3. Confirm store is removed from disk stores
+    const updatedDisk = loadDiskStores();
+    assert.ok(!updatedDisk.some((s) => s.storeId === 'STR-TEST-TO-DELETE'));
+  });
+
   after(() => {
     // Teardown: Remove temporary test artifacts so runtime databases remain pristine
     const diskStores = loadDiskStores();

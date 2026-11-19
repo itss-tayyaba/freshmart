@@ -477,26 +477,37 @@ export const TWELVE_PHYSICAL_STORES = [
 
 // Local Storage helpers for persisting zone associations across the browser
 export const loadRetailerStores = () => {
+  let deletedIds = new Set();
+  try {
+    const dRaw = localStorage.getItem('freshmart_deleted_store_ids');
+    if (dRaw) deletedIds = new Set(JSON.parse(dRaw));
+  } catch (e) {}
+
   try {
     const raw = localStorage.getItem('freshmart_retailer_stores');
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length >= 1) {
-        return parsed.map((s) => {
-          const sId = s.storeId || s._id;
-          const baseline = TWELVE_PHYSICAL_STORES.find(
-            (b) => (b.storeId || b._id) === sId
-          ) || TWELVE_PHYSICAL_STORES[0];
-          return {
-            ...baseline,
-            ...s,
-            deliveryZoneId: s.deliveryZoneId || baseline.deliveryZoneId || 'zone_001'
-          };
-        });
+        return parsed
+          .filter((s) => !deletedIds.has(s.storeId) && !deletedIds.has(s._id) && !deletedIds.has(s.storeCode))
+          .map((s) => {
+            const sId = s.storeId || s._id;
+            const baseline = TWELVE_PHYSICAL_STORES.find(
+              (b) => (b.storeId || b._id) === sId
+            ) || TWELVE_PHYSICAL_STORES[0];
+            return {
+              ...baseline,
+              ...s,
+              deliveryZoneId: s.deliveryZoneId !== undefined ? s.deliveryZoneId : (baseline.deliveryZoneId || null)
+            };
+          });
       }
     }
   } catch (e) {}
-  return TWELVE_PHYSICAL_STORES;
+
+  return TWELVE_PHYSICAL_STORES.filter(
+    (s) => !deletedIds.has(s.storeId) && !deletedIds.has(s._id) && !deletedIds.has(s.storeCode)
+  );
 };
 
 export const saveRetailerStores = (stores) => {
@@ -506,6 +517,21 @@ export const saveRetailerStores = (stores) => {
       window.dispatchEvent(new CustomEvent('freshmart_retailer_stores_updated', { detail: stores }));
     }
   } catch (e) {}
+};
+
+export const deleteRetailerStore = (storeId) => {
+  try {
+    const dRaw = localStorage.getItem('freshmart_deleted_store_ids');
+    const dList = dRaw ? JSON.parse(dRaw) : [];
+    if (!dList.includes(storeId)) {
+      localStorage.setItem('freshmart_deleted_store_ids', JSON.stringify([...dList, storeId]));
+    }
+  } catch (e) {}
+
+  const current = loadRetailerStores();
+  const updated = current.filter((s) => (s.storeId || s._id) !== storeId && s.storeCode !== storeId);
+  saveRetailerStores(updated);
+  return updated;
 };
 
 export const loadMasterZones = () => {

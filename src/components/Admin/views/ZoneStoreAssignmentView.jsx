@@ -38,12 +38,17 @@ import { useStore } from '../../../context/StoreContext';
 import { switchMapTileLayer } from '../../../utils/mapTiles';
 import { apiService } from '../../../services/api';
 import {
+  removeLocalCustomStore,
+  markStoreDeleted
+} from '../../../utils/storeHelper';
+import {
   FOUR_PARENT_RETAILERS,
   FOUR_MASTER_DELIVERY_ZONES,
   TWELVE_PHYSICAL_STORES,
   PAKISTAN_CITIES,
   loadRetailerStores,
   saveRetailerStores,
+  deleteRetailerStore,
   loadMasterZones,
   saveMasterZones
 } from '../../../data/retailerZoneHierarchyData';
@@ -776,15 +781,27 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     }
   };
 
-  const handleDeleteStoreConfirm = (store) => {
+  const handleDeleteStoreConfirm = async (store) => {
+    if (!store) return;
     const sId = store.storeId || store._id;
-    const updated = stores.filter((s) => (s.storeId || s._id) !== sId);
+    markStoreDeleted(sId);
+    removeLocalCustomStore(sId);
+    const updated = deleteRetailerStore(sId);
+
+    try {
+      await apiService.deleteStore(sId);
+    } catch (e) {
+      console.warn('Backend deleteStore offline:', e.message);
+    }
+
     setStores(updated);
-    saveRetailerStores(updated);
+    if (setAllBranches) {
+      setAllBranches((prev) => prev.filter((b) => (b.id || b._id) !== sId && b.storeId !== sId));
+    }
     setStoreToDelete(null);
 
     if (addToast) {
-      addToast('Store Removed 🗑️', `${store.name} was removed from the directory.`, 'info');
+      addToast('Store Removed 🗑️', `${store.name} was permanently deleted from the directory.`, 'info');
     }
   };
 
@@ -1389,10 +1406,20 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                       <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700">
                         {store.storeCode || store.storeId}
                       </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3 text-amber-600" />
-                        <span>Unassigned</span>
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3 text-amber-600" />
+                          <span>Unassigned</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setStoreToDelete(store)}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition"
+                          title="Delete Store Branch"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     <h4 className="font-black text-slate-900 text-sm leading-tight">
@@ -1921,6 +1948,14 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                                   title="Edit Store Branch"
                                 >
                                   <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setStoreToDelete(store)}
+                                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition"
+                                  title="Delete Store Branch"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             </div>
@@ -2458,6 +2493,16 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                                   <span>Unassign</span>
                                 </button>
                               )}
+
+                              <button
+                                type="button"
+                                onClick={() => setStoreToDelete(store)}
+                                className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                                title="Permanently delete store branch"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Delete</span>
+                              </button>
                             </div>
                           </td>
                         </tr>

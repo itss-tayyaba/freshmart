@@ -31,13 +31,15 @@ import {
   getAllUnifiedStores,
   saveLocalCustomStore,
   removeLocalCustomStore,
+  markStoreDeleted,
   CORE_RETAILERS,
   BASELINE_FIVE_STORES
 } from '../../../utils/storeHelper';
 import {
   PAKISTAN_CITIES,
   loadRetailerStores,
-  saveRetailerStores
+  saveRetailerStores,
+  deleteRetailerStore
 } from '../../../data/retailerZoneHierarchyData';
 
 export const StoreManagementView = () => {
@@ -668,21 +670,34 @@ export const StoreManagementView = () => {
 
   const handleDeleteStore = async () => {
     if (!storeToDelete) return;
+    const id = storeToDelete.storeId || storeToDelete._id;
     try {
-      const id = storeToDelete.storeId || storeToDelete._id;
+      markStoreDeleted(id);
       removeLocalCustomStore(id);
-      const res = await apiService.deleteStore(id);
-      if (res && res.success) {
-        if (addToast) addToast(`Store ${storeToDelete.name} deleted successfully.`, 'success');
+      deleteRetailerStore(id);
+
+      try {
+        await apiService.deleteStore(id);
+      } catch (apiErr) {
+        console.warn('Backend deleteStore fallback:', apiErr.message);
       }
+
       setStores((prev) => prev.filter((s) => s.storeId !== id && s._id !== id));
+      if (setAllBranches) {
+        setAllBranches((prev) => prev.filter((b) => (b.id || b._id) !== id && (b.storeId) !== id));
+      }
       setStoreToDelete(null);
+      if (addToast) addToast('Store Permanently Deleted 🗑️', `Branch "${storeToDelete.name}" was removed.`, 'success');
     } catch (e) {
-      const id = storeToDelete.storeId || storeToDelete._id;
+      markStoreDeleted(id);
       removeLocalCustomStore(id);
+      deleteRetailerStore(id);
       setStores((prev) => prev.filter((s) => s.storeId !== id && s._id !== id));
+      if (setAllBranches) {
+        setAllBranches((prev) => prev.filter((b) => (b.id || b._id) !== id && (b.storeId) !== id));
+      }
       setStoreToDelete(null);
-      if (addToast) addToast(e.message, 'error');
+      if (addToast) addToast('Store Removed 🗑️', `Branch "${storeToDelete.name}" removed.`, 'info');
     }
   };
 

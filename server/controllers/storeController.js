@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import mongoose from 'mongoose';
 import { Store } from '../models/Store.js';
 import { Branch } from '../models/Branch.js';
 import { ZoneStore } from '../models/ZoneStore.js';
@@ -12,6 +13,29 @@ import { loadDiskAssignments, saveDiskAssignments } from './assignmentController
 
 const STORES_FILE_PATH = path.resolve(process.cwd(), 'server/data/stores_db.json');
 const BRANCHES_FILE_PATH = path.resolve(process.cwd(), 'server/data/branches_db.json');
+const DELETED_STORES_FILE_PATH = path.resolve(process.cwd(), 'server/data/deleted_stores_db.json');
+
+export const loadDeletedStoreIds = () => {
+  try {
+    if (fs.existsSync(DELETED_STORES_FILE_PATH)) {
+      const data = fs.readFileSync(DELETED_STORES_FILE_PATH, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+};
+
+export const recordDeletedStoreId = (id) => {
+  try {
+    const list = loadDeletedStoreIds();
+    const strId = String(id || '').trim();
+    if (strId && !list.includes(strId)) {
+      list.push(strId);
+      fs.writeFileSync(DELETED_STORES_FILE_PATH, JSON.stringify(list, null, 2), 'utf-8');
+    }
+  } catch (e) {}
+};
 
 // The 4 Core Supermarket Stores located at D-Ground, Peoples Colony, Susan Road, and Samanabad
 // All platform stores come from the shared registry (src/data/storeRegistry.js).
@@ -46,19 +70,25 @@ export const deduplicateStores = (storesList = []) => {
 };
 
 export const loadDiskStores = () => {
+  const deletedIds = new Set(loadDeletedStoreIds());
   try {
     if (fs.existsSync(STORES_FILE_PATH)) {
       const data = fs.readFileSync(STORES_FILE_PATH, 'utf-8');
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        const withoutDeleted = parsed.filter(
+          (s) => !deletedIds.has(s.storeId) && !deletedIds.has(s._id) && !deletedIds.has(s.storeCode)
+        );
         if (process.env.NODE_ENV !== 'test') {
-          return deduplicateStores(parsed);
+          return deduplicateStores(withoutDeleted);
         }
-        return parsed;
+        return withoutDeleted;
       }
     }
   } catch (e) {}
-  return FOUR_CORE_STORES;
+  return FOUR_CORE_STORES.filter(
+    (s) => !deletedIds.has(s.storeId) && !deletedIds.has(s._id) && !deletedIds.has(s.storeCode)
+  );
 };
 
 export const saveDiskStores = (stores) => {
@@ -473,24 +503,75 @@ export const updateStore = async (req, res) => {
   }
 };
 
-// @desc    Delete store
-// @route   DELETE /api/admin/stores/:id
+// @desc    Permanently delete store
+// @route   DELETE /api/admin/stores/:storeId (also /api/admin/stores/:id)
 export const deleteStore = async (req, res) => {
+  const storeId = req.params.storeId || req.params.id;
+
   try {
-    const { id } = req.params;
+    if (!storeId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid store ID',
+      });
+    }
+
+    let deletedStoreData = null;
 
     if (isDbOnline()) {
       try {
-        await Store.findOneAndDelete({ $or: [{ storeId: id }, { _id: id }] });
-        await Branch.findOneAndDelete({ $or: [{ id }, { _id: id }] });
-        await ZoneStore.deleteMany({ storeId: id });
+        const isMongoId = mongoose.Types.ObjectId.isValid(storeId);
+        const query = isMongoId
+          ? { $or: [{ _id: storeId }, { storeId: storeId }] }
+          : { $or: [{ storeId: storeId }, { _id: storeId }, { code: storeId }] };
+
+        const store = await Store.findOne(query);
+        if (store) {
+          deletedStoreData = {
+            id: store._id,
+            name: store.storeName || store.name,
+            parentRetailerId: store.parentRetailerId || store.retailerId || store.tenantId,
+            deliveryZoneId: store.deliveryZoneId || null,
+          };
+          await Store.findByIdAndDelete(store._id);
+        } else {
+          await Store.deleteMany(query);
+        }
+
+        await Branch.deleteMany({ $or: [{ id: storeId }, { _id: storeId }] });
+        await ZoneStore.deleteMany({ storeId });
         const { DeliveryZone } = await import('../models/DeliveryZone.js');
-        await DeliveryZone.findOneAndDelete({ assignedStoreId: id });
-      } catch (err) {}
+        await DeliveryZone.findOneAndDelete({ assignedStoreId: storeId });
+      } catch (err) {
+        console.error('DB Store Delete Error:', err);
+      }
     }
 
+    // Find in disk stores before marking deleted
+    let diskRaw = [];
+    try {
+      if (fs.existsSync(STORES_FILE_PATH)) {
+        diskRaw = JSON.parse(fs.readFileSync(STORES_FILE_PATH, 'utf-8'));
+      }
+    } catch (e) {}
+
+    const existing = Array.isArray(diskRaw)
+      ? diskRaw.find((s) => s.storeId === storeId || s._id === storeId || s.storeCode === storeId)
+      : null;
+
+    if (existing && !deletedStoreData) {
+      deletedStoreData = {
+        id: existing.storeId || existing._id,
+        name: existing.storeName || existing.name,
+        parentRetailerId: existing.parentRetailerId || existing.retailerId || existing.tenantId,
+        deliveryZoneId: existing.deliveryZoneId || null,
+      };
+    }
+
+    recordDeletedStoreId(storeId);
+
     const disk = loadDiskStores();
-    const filtered = disk.filter((s) => s.storeId !== id && s._id !== id);
+    const filtered = disk.filter((s) => s.storeId !== storeId && s._id !== storeId);
     saveDiskStores(filtered);
 
     // Also remove from branches
@@ -501,7 +582,7 @@ export const deleteStore = async (req, res) => {
         const bList = JSON.parse(raw);
         if (Array.isArray(bList)) {
           const filteredBranches = bList.filter(
-            (b) => String(b._id || b.id || '').toLowerCase() !== String(id).toLowerCase()
+            (b) => String(b._id || b.id || '').toLowerCase() !== String(storeId).toLowerCase()
           );
           fs.writeFileSync(branchesPath, JSON.stringify(filteredBranches, null, 2), 'utf-8');
         }
@@ -511,17 +592,27 @@ export const deleteStore = async (req, res) => {
     // Also remove from assignments
     try {
       const diskAssignments = loadDiskAssignments();
-      const filteredAssignments = diskAssignments.filter((a) => a.storeId !== id);
+      const filteredAssignments = diskAssignments.filter((a) => a.storeId !== storeId);
       saveDiskAssignments(filteredAssignments);
     } catch (e) {}
 
-    return res.json({
+    // Return exact response matching user specification
+    return res.status(200).json({
       success: true,
-      message: 'Store deleted successfully.',
-      storeId: id
+      message: 'Store permanently deleted',
+      deletedStore: deletedStoreData || {
+        id: storeId,
+        name: storeId,
+        parentRetailerId: null,
+        deliveryZoneId: null,
+      },
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error('Delete Store Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete store',
+    });
   }
 };
 

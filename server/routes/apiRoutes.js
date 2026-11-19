@@ -290,6 +290,7 @@ router.get('/tenants/:id/performance', getTenantPerformance);
 router.get('/admin/stores', protect, getStores);
 router.post('/admin/stores', protect, superAdminOnly, createStore);
 router.put('/admin/stores/:id', protect, superAdminOnly, updateStore);
+router.delete('/admin/stores/:storeId', protect, superAdminOnly, deleteStore);
 router.delete('/admin/stores/:id', protect, superAdminOnly, deleteStore);
 router.put('/admin/stores/:id/toggle', protect, superAdminOnly, toggleStoreStatus);
 
