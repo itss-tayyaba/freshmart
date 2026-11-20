@@ -137,11 +137,13 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [selectedStoreForAssign, setSelectedStoreForAssign] = useState(null);
   const [assignmentZoneId, setAssignmentZoneId] = useState('zone_001');
+  const [targetStoreForNewZone, setTargetStoreForNewZone] = useState(null);
 
   // Zone Form State
   const [zoneForm, setZoneForm] = useState({
     name: '',
     shortName: '',
+    city: 'Faisalabad',
     zoneNumber: 5,
     color: '#0d9488',
     deliveryFee: 60,
@@ -249,10 +251,61 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   };
 
   const handleOpenAssignModal = (store = null) => {
-    const target = store || stores[0];
+    const target = store || stores.find((s) => !s.deliveryZoneId) || stores[0];
     setSelectedStoreForAssign(target);
-    setAssignmentZoneId(target?.deliveryZoneId || masterZones[0]?.zoneId || masterZones[0]?._id || 'zone_001');
+
+    const storeCity = String(target?.city || 'Faisalabad').trim().toLowerCase();
+    const cityZones = masterZones.filter((z) => String(z.city || 'Faisalabad').trim().toLowerCase() === storeCity);
+
+    if (target?.deliveryZoneId) {
+      setAssignmentZoneId(target.deliveryZoneId);
+    } else if (cityZones.length > 0) {
+      setAssignmentZoneId(cityZones[0].zoneId || cityZones[0]._id);
+    } else {
+      setAssignmentZoneId(masterZones[0]?.zoneId || masterZones[0]?._id || 'zone_001');
+    }
     setIsAssignModalOpen(true);
+  };
+
+  const handleOpenAddZoneForStore = (store) => {
+    if (!store) return;
+    const storeCity = (store.city || 'Lahore').trim();
+    setTargetStoreForNewZone(store);
+
+    const cityObj = PAKISTAN_CITIES.find(
+      (c) => c.name.toLowerCase() === storeCity.toLowerCase()
+    );
+    const lat = Number(store.latitude) || cityObj?.lat || 31.5204;
+    const lng = Number(store.longitude) || cityObj?.lng || 74.3587;
+
+    const nextNumber = masterZones.length + 1;
+    const defaultColor = ZONE_PRESET_COLORS[(nextNumber - 1) % ZONE_PRESET_COLORS.length].hex;
+
+    setZoneForm({
+      name: `Zone ${nextNumber} — ${storeCity} Central`,
+      shortName: `${storeCity} Hub`,
+      city: storeCity,
+      zoneNumber: nextNumber,
+      color: defaultColor,
+      deliveryFee: 70,
+      minOrder: 450,
+      freeDeliveryThreshold: 2200,
+      centerLat: lat,
+      centerLng: lng,
+      status: 'active'
+    });
+
+    setIsAssignModalOpen(false);
+    setIsAddZoneModalOpen(true);
+    handleCitySelect(storeCity);
+
+    if (addToast) {
+      addToast(
+        `Creating Zone for ${storeCity} 🗺️`,
+        `Fill zone parameters and save to draw polygon & assign ${store.name}.`,
+        'info'
+      );
+    }
   };
 
   const handleSaveStoreAssignment = (e) => {
@@ -521,6 +574,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     ];
 
     const newZoneId = `zone_${Date.now().toString().slice(-4)}`;
+    const zoneCity = zoneForm.city || selectedCity || 'Faisalabad';
     const newZone = {
       _id: newZoneId,
       id: newZoneId,
@@ -528,7 +582,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       zoneNumber: Number(zoneForm.zoneNumber) || masterZones.length + 1,
       name: zoneForm.name.trim(),
       shortName: zoneForm.shortName.trim() || zoneForm.name.trim(),
-      city: 'Faisalabad',
+      city: zoneCity,
       color: zoneForm.color || '#0d9488',
       deliveryFee: Number(zoneForm.deliveryFee) || 60,
       minOrder: Number(zoneForm.minOrder) || 400,
@@ -546,7 +600,18 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     saveMasterZones(updatedZones);
     setIsAddZoneModalOpen(false);
 
-    if (addToast) {
+    if (targetStoreForNewZone) {
+      const sId = targetStoreForNewZone.storeId || targetStoreForNewZone._id;
+      updateStoreZone(sId, newZoneId);
+      if (addToast) {
+        addToast(
+          'Zone Created & Store Assigned 🎉',
+          `${targetStoreForNewZone.name} is now assigned to ${newZone.name} in ${newZone.city}.`,
+          'success'
+        );
+      }
+      setTargetStoreForNewZone(null);
+    } else if (addToast) {
       addToast(
         'Master Zone Created 🗺️',
         `Successfully added ${newZone.name} to the platform.`,
@@ -2684,7 +2749,29 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">City *</label>
+                  <select
+                    value={zoneForm.city || 'Faisalabad'}
+                    onChange={(e) => {
+                      const newCity = e.target.value;
+                      const cObj = PAKISTAN_CITIES.find((c) => c.name.toLowerCase() === newCity.toLowerCase());
+                      setZoneForm({
+                        ...zoneForm,
+                        city: newCity,
+                        centerLat: cObj?.lat || zoneForm.centerLat,
+                        centerLng: cObj?.lng || zoneForm.centerLng
+                      });
+                      handleCitySelect(newCity);
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
+                  >
+                    {PAKISTAN_CITIES.map((c) => (
+                      <option key={c.name} value={c.name}>📍 {c.name}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Short Name / Label *</label>
                   <input
@@ -3279,118 +3366,183 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
             </div>
 
             <form onSubmit={handleSaveStoreAssignment} className="space-y-4">
-              {/* Step 1: Select Store / Branch */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  1. Select Store / Branch *
-                </label>
-                <select
-                  value={selectedStoreForAssign?.storeId || selectedStoreForAssign?._id || ''}
-                  onChange={(e) => {
-                    const matched = stores.find((s) => (s.storeId || s._id) === e.target.value);
-                    setSelectedStoreForAssign(matched);
-                    if (matched?.deliveryZoneId) {
-                      setAssignmentZoneId(matched.deliveryZoneId);
-                    }
-                  }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
-                >
-                  {stores.map((s) => (
-                    <option key={s.storeId || s._id} value={s.storeId || s._id}>
-                      {s.name} ({s.storeCode || s.storeId}) — {s.parentRetailerName}
-                    </option>
-                  ))}
-                </select>
-
-                {/* Selected Store Card */}
-                {selectedStoreForAssign && (
-                  <div className="mt-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-900 text-xs">
-                        {selectedStoreForAssign.name}
-                      </span>
-                      <span className="text-[10px] font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded">
-                        {selectedStoreForAssign.storeCode || selectedStoreForAssign.storeId} · Child Store
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-600 flex items-center gap-2">
-                      <span><strong>Parent:</strong> {selectedStoreForAssign.parentRetailerName || 'Parent Retailer'}</span>
-                      <span>•</span>
-                      <span><strong>City:</strong> {selectedStoreForAssign.city || 'Faisalabad'}</span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
-                      <MapPin className="w-3 h-3 text-slate-400" />
-                      <span>{selectedStoreForAssign.address}</span>
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Step 2: Select Existing Delivery Zone */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  2. Select Existing Delivery Zone *
-                </label>
-                <select
-                  value={assignmentZoneId}
-                  onChange={(e) => setAssignmentZoneId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
-                >
-                  {masterZones.map((z) => (
-                    <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
-                      {z.name} ({z.zoneId || z._id})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Step 3: Zone Information Card */}
               {(() => {
-                const zoneObj = masterZones.find((z) => (z.zoneId || z._id) === assignmentZoneId) || masterZones[0];
+                const targetCity = (selectedStoreForAssign?.city || 'Faisalabad').trim();
+                const availableCityZones = masterZones.filter((z) => {
+                  const zCity = String(z.city || 'Faisalabad').trim().toLowerCase();
+                  return zCity === targetCity.toLowerCase();
+                });
+                const zoneObj = masterZones.find((z) => (z.zoneId || z._id) === assignmentZoneId) || availableCityZones[0] || masterZones[0];
+
                 return (
-                  <div className="p-3.5 bg-indigo-50/70 rounded-2xl border border-indigo-100 space-y-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 block">
-                      Zone Information
-                    </span>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-slate-500 block text-[10px]">Zone Name:</span>
-                        <span className="font-bold text-slate-800">{zoneObj?.name}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-500 block text-[10px]">Zone ID:</span>
-                        <span className="font-mono font-bold text-indigo-700">{zoneObj?.zoneId || zoneObj?._id}</span>
-                      </div>
+                  <>
+                    {/* Selected Store / Branch to Assign (Direct display without dropdown) */}
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1.5 flex items-center justify-between">
+                        <span>Selected Store / Branch</span>
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                          Target Branch
+                        </span>
+                      </label>
+
+                      {selectedStoreForAssign ? (
+                        <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1.5 shadow-2xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-black text-slate-900 text-sm">
+                              {selectedStoreForAssign.name}
+                            </span>
+                            <span className="text-[10px] font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded">
+                              {selectedStoreForAssign.storeCode || selectedStoreForAssign.storeId} · Child Store
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-600 flex items-center gap-2">
+                            <span><strong>Parent:</strong> {selectedStoreForAssign.parentRetailerName || 'Parent Retailer'}</span>
+                            <span>•</span>
+                            <span><strong>City:</strong> <strong className="text-slate-800">{selectedStoreForAssign.city || 'Faisalabad'}</strong></span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 flex items-center gap-1 font-mono">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span>{selectedStoreForAssign.address || 'Address not specified'}</span>
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
+                          No store selected
+                        </div>
+                      )}
                     </div>
-                    <div className="pt-2 border-t border-indigo-200/60 flex items-center justify-between text-[11px]">
-                      <span className="font-semibold text-emerald-800 flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        Polygon: Already created
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-medium">
-                        No new polygon will be drawn
-                      </span>
+
+                    {/* Step 2: Delivery Zone Selection & Out-of-city Handling */}
+                    {availableCityZones.length === 0 ? (
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">
+                          Delivery Zone in {targetCity}
+                        </label>
+
+                        <div className="p-4 bg-amber-50/90 rounded-2xl border border-amber-200 space-y-3">
+                          <div className="flex items-start gap-2.5">
+                            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                            <div>
+                              <h4 className="font-bold text-amber-900 text-xs">
+                                No Delivery Zone Available in {targetCity}
+                              </h4>
+                              <p className="text-[11px] text-amber-800 mt-1 leading-relaxed">
+                                This store is located in <strong>{targetCity}</strong>, but no master delivery zone or polygon has been created for {targetCity} yet.
+                                Create a delivery zone for {targetCity} to assign this branch.
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAddZoneForStore(selectedStoreForAssign)}
+                            className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <Plus className="w-4 h-4 stroke-[3]" />
+                            <span>+ Create Delivery Zone for {targetCity} & Assign Store</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="font-bold text-slate-700 block">
+                            Select Existing Delivery Zone ({targetCity}) *
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAddZoneForStore(selectedStoreForAssign)}
+                            className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>+ New Zone in {targetCity}</span>
+                          </button>
+                        </div>
+                        <select
+                          value={assignmentZoneId}
+                          onChange={(e) => setAssignmentZoneId(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
+                        >
+                          <optgroup label={`${targetCity} Delivery Zones`}>
+                            {availableCityZones.map((z) => (
+                              <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
+                                {z.name} ({z.zoneId || z._id})
+                              </option>
+                            ))}
+                          </optgroup>
+                          {masterZones.some((z) => String(z.city || 'Faisalabad').toLowerCase() !== targetCity.toLowerCase()) && (
+                            <optgroup label="Other Cities">
+                              {masterZones
+                                .filter((z) => String(z.city || 'Faisalabad').toLowerCase() !== targetCity.toLowerCase())
+                                .map((z) => (
+                                  <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
+                                    {z.name} ({z.city || 'Faisalabad'})
+                                  </option>
+                                ))}
+                            </optgroup>
+                          )}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Zone Information Card (When zone is selected) */}
+                    {availableCityZones.length > 0 && zoneObj && (
+                      <div className="p-3.5 bg-indigo-50/70 rounded-2xl border border-indigo-100 space-y-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 block">
+                          Zone Information
+                        </span>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-slate-500 block text-[10px]">Zone Name:</span>
+                            <span className="font-bold text-slate-800">{zoneObj?.name}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[10px]">Zone ID & City:</span>
+                            <span className="font-mono font-bold text-indigo-700">{zoneObj?.zoneId || zoneObj?._id} • {zoneObj?.city || 'Faisalabad'}</span>
+                          </div>
+                        </div>
+                        <div className="pt-2 border-t border-indigo-200/60 flex items-center justify-between text-[11px]">
+                          <span className="font-semibold text-emerald-800 flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            Polygon: Already created
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-medium">
+                            No new polygon will be drawn
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsAssignModalOpen(false)}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      {availableCityZones.length === 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAddZoneForStore(selectedStoreForAssign)}
+                          className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Plus className="w-4 h-4 stroke-[3]" />
+                          <span>Create Zone for {targetCity}</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="submit"
+                          className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Check className="w-4 h-4 stroke-[3]" />
+                          <span>Assign Store to Zone</span>
+                        </button>
+                      )}
                     </div>
-                  </div>
+                  </>
                 );
               })()}
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAssignModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
-                >
-                  <Check className="w-4 h-4 stroke-[3]" />
-                  <span>Assign Store to Zone</span>
-                </button>
-              </div>
             </form>
           </div>
         </div>
