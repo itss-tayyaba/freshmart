@@ -53,6 +53,7 @@ export const FreshMartHeader = () => {
     tenants,
     currentTenant,
     setCurrentTenant,
+    currentBranch,
     setActiveCategory,
     categories,
     getNearbyStores,
@@ -386,15 +387,20 @@ export const FreshMartHeader = () => {
           </div>
         </div>
 
-        {/* 🏬 Multi-Tenant Supermarket Switcher with Nearness & Distance (Desktop / Tablet) */}
+        {/* 🏬 Exact Active Serving Branch Switcher with Nearness & Distance (Desktop / Tablet) */}
         <div className="hidden md:flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition shrink-0">
           <div style={{ backgroundColor: tenantThemeColor }} className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg text-white flex items-center justify-center text-xs shadow-xs shrink-0 font-bold">
             {tenantLogo}
           </div>
           <div className="text-left leading-tight">
-            <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase">
-              Supermarket
-            </span>
+            <div className="flex items-center gap-1">
+              <span className="text-[9px] sm:text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 block uppercase tracking-wider">
+                Serving Branch
+              </span>
+              <span className="text-[8px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold px-1 py-0.2 rounded">
+                Zone Active
+              </span>
+            </div>
             <div className="flex items-center">
               <select
                 value={currentTenant?.id || 'tenant-freshmart'}
@@ -412,16 +418,23 @@ export const FreshMartHeader = () => {
                     if (fallback) setCurrentTenant(fallback);
                   }
                 }}
-                className="text-xs font-bold text-slate-900 dark:text-slate-100 bg-transparent focus:outline-none cursor-pointer max-w-[130px] sm:max-w-[190px] truncate"
+                className="text-xs font-black text-slate-900 dark:text-slate-100 bg-transparent focus:outline-none cursor-pointer max-w-[140px] sm:max-w-[210px] truncate"
+                title={`Serving Branch: ${currentBranch?.name || currentTenant?.name} (Parent: ${currentTenant?.name})`}
               >
-                {nearbyStoreOptions.map((s) => (
-                  <option key={s.id} value={s.id} className="text-slate-800 dark:text-slate-100 dark:bg-slate-800">
-                    {s.displayName || s.tenant?.displayName || s.tenant?.name || s.name}
-                    {s.distanceFormatted ? ` (${s.distanceFormatted})` : ''}
-                  </option>
-                ))}
+                {nearbyStoreOptions.map((s) => {
+                  const bName = s.nearestBranch?.name || s.nearestBranch?.branchName;
+                  const label = bName ? `${bName}` : (s.displayName || s.name);
+                  return (
+                    <option key={s.id} value={s.id} className="text-slate-800 dark:text-slate-100 dark:bg-slate-800">
+                      {label} ({s.tenant?.name || s.name}){s.distanceFormatted ? ` • ${s.distanceFormatted}` : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
+            <span className="text-[9px] text-slate-500 dark:text-slate-400 font-semibold truncate block max-w-[190px]">
+              {currentBranch?.name ? `${currentBranch.name}` : `Serving your delivery area`}
+            </span>
           </div>
         </div>
 
@@ -628,12 +641,15 @@ export const FreshMartHeader = () => {
             style={{ color: tenantThemeColor }}
             className="text-xs font-bold bg-transparent dark:bg-slate-800 focus:outline-none cursor-pointer truncate max-w-full"
           >
-            {nearbyStoreOptions.map((s) => (
-              <option key={s.id} value={s.id} className="text-slate-800 dark:text-slate-100 dark:bg-slate-800">
-                {s.displayName || s.tenant?.displayName || s.tenant?.name || s.name}
-                {s.distanceFormatted ? ` (${s.distanceFormatted})` : ''}
-              </option>
-            ))}
+            {nearbyStoreOptions.map((s) => {
+              const bName = s.nearestBranch?.name || s.nearestBranch?.branchName;
+              const label = bName ? `${bName}` : (s.displayName || s.name);
+              return (
+                <option key={s.id} value={s.id} className="text-slate-800 dark:text-slate-100 dark:bg-slate-800">
+                  {label} ({s.tenant?.name || s.name}){s.distanceFormatted ? ` • ${s.distanceFormatted}` : ''}
+                </option>
+              );
+            })}
           </select>
         </div>
 
@@ -907,12 +923,15 @@ export const FreshMartHeader = () => {
                   style={{ color: tenantThemeColor }}
                   className="w-full text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 focus:outline-none cursor-pointer"
                 >
-                  {nearbyStoreOptions.map((s) => (
-                    <option key={s.id} value={s.id} className="text-slate-800 dark:text-slate-200 dark:bg-slate-900">
-                      {s.displayName || s.tenant?.displayName || s.tenant?.name || s.name}
-                      {s.distanceFormatted ? ` (${s.distanceFormatted})` : ''}
-                    </option>
-                  ))}
+                  {nearbyStoreOptions.map((s) => {
+                    const bName = s.nearestBranch?.name || s.nearestBranch?.branchName;
+                    const label = bName ? `${bName}` : (s.displayName || s.name);
+                    return (
+                      <option key={s.id} value={s.id} className="text-slate-800 dark:text-slate-200 dark:bg-slate-900">
+                        {label} ({s.tenant?.name || s.name}){s.distanceFormatted ? ` • ${s.distanceFormatted}` : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

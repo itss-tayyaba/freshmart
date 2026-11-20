@@ -39,7 +39,8 @@ import {
   calculateHaversineDistanceKm,
   calculateRoadDistanceKm,
   calculateBranchDeliveryFee,
-  estimateDeliveryTime
+  estimateDeliveryTime,
+  resolveBranchForCustomerLocation
 } from '../utils/distanceCalculator';
 import { resolveOrderRouting, isOrderVisibleToUser, canAssignRiderToOrder, canAssignStaffToOrder, getStrictEligibleRiders } from '../utils/orderScope';
 import {
@@ -1247,49 +1248,43 @@ export const StoreProvider = ({ children }) => {
     } catch (e) {}
   };
 
-  // Keep branch dynamically set to corresponding tenant branch nearest to customer delivery location
+  // Keep branch dynamically set to corresponding physical branch assigned to customer delivery polygon
   useEffect(() => {
-    const canonical = resolveTenantId(currentTenant?.id);
-    const tenantBranches = (allBranches || BRANCHES).filter(
-      (b) => isSameTenant(b.tenantId, currentTenant?.id) || b.tenantId === canonical
-    );
-    if (tenantBranches.length > 0) {
-      const uLat = Number(deliveryLocation?.lat || deliveryLocation?.coords?.lat || 31.4125);
-      const uLng = Number(deliveryLocation?.lng || deliveryLocation?.coords?.lng || 73.0995);
-      let closest = tenantBranches[0];
-      let minD = Infinity;
-      for (const b of tenantBranches) {
-        const bLat = Number(b.latitude ?? b.coordinates?.lat);
-        const bLng = Number(b.longitude ?? b.coordinates?.lng);
-        if (!isNaN(bLat) && !isNaN(bLng)) {
-          const d = calculateDistanceKm(uLat, uLng, bLat, bLng);
-          if (d < minD) {
-            minD = d;
-            closest = b;
-          }
-        }
-      }
-      setCurrentBranch(closest);
+    const coords = deliveryLocation?.coords || deliveryLocation || { lat: 31.4125, lng: 73.0995 };
+    const unifiedStores = getAllUnifiedStores(allBranches);
+    const pool = (unifiedStores && unifiedStores.length > 0) ? unifiedStores : (allBranches || BRANCHES);
+    const assignedBranch = resolveBranchForCustomerLocation(currentTenant?.id, coords, pool);
+
+    if (assignedBranch) {
+      setCurrentBranch(assignedBranch);
     } else {
-      const tenantHubName = currentTenant?.hubs?.[0] || `${currentTenant?.name || 'Store'} (Faisalabad Flagship Hub)`;
-      const tenantBranch = {
-        _id: `branch_${currentTenant?.id || 'curr'}_fsd`,
-        id: `branch_${currentTenant?.id || 'curr'}_fsd`,
-        code: `FSD-${(currentTenant?.name || 'ST').substring(0, 2).toUpperCase()}`,
-        name: tenantHubName,
-        shortName: `${currentTenant?.name || 'Store'} Hub`,
-        tenantId: currentTenant?.id || 'tenant-chaseup',
-        city: 'Faisalabad',
-        district: 'Mall of Faisalabad & Peoples Colony',
-        address: `${tenantHubName}, Faisalabad, Punjab, Pakistan`,
-        coordinates: { lat: 31.4125, lng: 73.0915 },
-        latitude: 31.4125,
-        longitude: 73.0915,
-        deliveryRadius: 15,
-        status: 'Active',
-        isFlagship: true
-      };
-      setCurrentBranch(tenantBranch);
+      const canonical = resolveTenantId(currentTenant?.id);
+      const tenantBranches = pool.filter(
+        (b) => isSameTenant(b.tenantId, currentTenant?.id) || b.tenantId === canonical
+      );
+      if (tenantBranches.length > 0) {
+        setCurrentBranch(tenantBranches[0]);
+      } else {
+        const tenantHubName = currentTenant?.hubs?.[0] || `${currentTenant?.name || 'Store'} (Faisalabad Flagship Hub)`;
+        const tenantBranch = {
+          _id: `branch_${currentTenant?.id || 'curr'}_fsd`,
+          id: `branch_${currentTenant?.id || 'curr'}_fsd`,
+          code: `FSD-${(currentTenant?.name || 'ST').substring(0, 2).toUpperCase()}`,
+          name: tenantHubName,
+          shortName: `${currentTenant?.name || 'Store'} Hub`,
+          tenantId: currentTenant?.id || 'tenant-chaseup',
+          city: 'Faisalabad',
+          district: 'Mall of Faisalabad & Peoples Colony',
+          address: `${tenantHubName}, Faisalabad, Punjab, Pakistan`,
+          coordinates: { lat: 31.4125, lng: 73.0915 },
+          latitude: 31.4125,
+          longitude: 73.0915,
+          deliveryRadius: 15,
+          status: 'Active',
+          isFlagship: true
+        };
+        setCurrentBranch(tenantBranch);
+      }
     }
   }, [currentTenant, deliveryLocation, allBranches]);
 
@@ -1454,25 +1449,18 @@ export const StoreProvider = ({ children }) => {
     if (branch) {
       setCurrentBranch(branch);
     } else {
-      const canonical = resolveTenantId(resolvedTenant.id);
-      const bList = (allBranches || BRANCHES).filter((b) => isSameTenant(b.tenantId, canonical) || isSameTenant(b.tenantId, resolvedTenant.id));
-      if (bList.length > 0) {
-        const uLat = Number(deliveryLocation?.lat || 31.4125);
-        const uLng = Number(deliveryLocation?.lng || 73.0995);
-        let best = bList[0];
-        let bestDist = Infinity;
-        for (const b of bList) {
-          const bLat = Number(b.latitude ?? b.coordinates?.lat);
-          const bLng = Number(b.longitude ?? b.coordinates?.lng);
-          if (!isNaN(bLat) && !isNaN(bLng)) {
-            const d = calculateDistanceKm(uLat, uLng, bLat, bLng);
-            if (d < bestDist) {
-              bestDist = d;
-              best = b;
-            }
-          }
+      const coords = deliveryLocation?.coords || deliveryLocation || { lat: 31.4125, lng: 73.0995 };
+      const unifiedStores = getAllUnifiedStores(allBranches);
+      const pool = (unifiedStores && unifiedStores.length > 0) ? unifiedStores : (allBranches || BRANCHES);
+      const resolved = resolveBranchForCustomerLocation(resolvedTenant.id, coords, pool);
+      if (resolved) {
+        setCurrentBranch(resolved);
+      } else {
+        const canonical = resolveTenantId(resolvedTenant.id);
+        const bList = pool.filter((b) => isSameTenant(b.tenantId, canonical) || isSameTenant(b.tenantId, resolvedTenant.id));
+        if (bList.length > 0) {
+          setCurrentBranch(bList[0]);
         }
-        setCurrentBranch(best);
       }
     }
     try {
@@ -1752,17 +1740,38 @@ export const StoreProvider = ({ children }) => {
     let filtered = (allProducts || []).filter(
       (p) => isSameTenant(p.tenantId, targetTenantId) || (!p.tenantId && isSameTenant(targetTenantId, 'tenant-freshmart'))
     );
-    if (currentBranch?._id || currentBranch?.id) {
-      const activeBId = String(currentBranch._id || currentBranch.id).trim();
-      const branchSpecific = filtered.filter((p) => isProductInBranch(p, activeBId, currentBranch.name));
-      if (branchSpecific.length > 0) {
-        return branchSpecific;
-      }
-    }
     if (!filtered || filtered.length === 0) {
       filtered = (ALL_BRANCH_PRODUCTS || []).filter(
         (p) => isSameTenant(p.tenantId, targetTenantId) || (!p.tenantId && isSameTenant(targetTenantId, 'tenant-freshmart'))
       );
+    }
+
+    if (currentBranch?._id || currentBranch?.id) {
+      const activeBId = String(currentBranch._id || currentBranch.id).trim();
+      const branchSpecific = filtered.filter((p) => isProductInBranch(p, activeBId, currentBranch.name));
+      const baseCatalog = branchSpecific.length > 0 ? branchSpecific : filtered;
+
+      return baseCatalog.map((p) => {
+        const pId = p.id || p._id || p.customId;
+        const branchStockEntry = (branchInventory || []).find(
+          (inv) =>
+            isSameTenant(inv.tenantId, targetTenantId) &&
+            (String(inv.branchId || inv.storeId || '').toLowerCase() === activeBId.toLowerCase()) &&
+            (inv.productId === pId || inv.productId === p.customId || inv.productId === p.id)
+        );
+
+        return {
+          ...p,
+          branchId: currentBranch._id || currentBranch.id,
+          branchName: currentBranch.name,
+          storeId: currentBranch._id || currentBranch.id,
+          stock: branchStockEntry?.stock !== undefined ? branchStockEntry.stock : (p.stock ?? 50),
+          stockCount: branchStockEntry?.stock !== undefined ? branchStockEntry.stock : (p.stockCount ?? 50),
+          price: branchStockEntry?.price !== undefined ? branchStockEntry.price : p.price,
+          inStock: branchStockEntry?.stock !== undefined ? branchStockEntry.stock > 0 : (p.inStock ?? true),
+          servingBranchBadge: `${currentBranch.name} • Live Inventory`
+        };
+      });
     }
     return filtered;
   }, [allProducts, currentTenant, user?.role, user?.branchId, user?.branchName, currentBranchFilter, currentBranch]);
@@ -7870,6 +7879,7 @@ export const StoreProvider = ({ children }) => {
         setIsPickupStaffAutoAssignEnabled,
         currentBranch,
         setCurrentBranch,
+        resolveBranchForCustomerLocation,
         currentBranchFilter,
         setCurrentBranchFilter,
         branches: allBranches.filter((b) => isSameTenant(b.tenantId, currentTenant?.id)),

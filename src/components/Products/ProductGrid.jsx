@@ -17,7 +17,7 @@ const CATEGORY_TABS = [
 ];
 
 export const ProductGrid = () => {
-  const { activeCategory, setActiveCategory, products, currentTenant } = useStore();
+  const { activeCategory, setActiveCategory, products, currentTenant, currentBranch } = useStore();
   const [sortBy, setSortBy] = useState('recommended');
   const [onlyOrganic, setOnlyOrganic] = useState(false);
 
@@ -63,19 +63,28 @@ export const ProductGrid = () => {
             <span className="text-xs font-bold uppercase tracking-wider text-brand-green bg-emerald-100/80 px-2.5 py-1 rounded-full">
               Explore Store
             </span>
-            {currentTenant && (
-              <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-slate-900 text-white flex items-center gap-1.5 shadow-xs border border-slate-700">
-                <span>{currentTenant.logo || '🏬'}</span>
-                <span>{currentTenant.name}</span>
-                <span className="text-emerald-400 text-[10px] hidden sm:inline">&bull; {currentTenant.badge}</span>
+            {currentBranch && (
+              <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-600 text-white flex items-center gap-1.5 shadow-xs border border-emerald-500">
+                <span>🏬</span>
+                <span>{currentBranch.name}</span>
+                <span className="text-emerald-200 text-[10px] hidden sm:inline">&bull; Physical Branch</span>
               </span>
             )}
+            {currentTenant && (
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-900 text-white flex items-center gap-1.5 shadow-xs border border-slate-700">
+                <span>{currentTenant.logo || '🏬'}</span>
+                <span>Parent: {currentTenant.name}</span>
+              </span>
+            )}
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+              Serving your delivery area
+            </span>
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight mt-2 flex items-center gap-2">
-            <span>{currentTenant?.name ? `${currentTenant.name} Catalog` : 'Featured Products & Specials'}</span>
+            <span>{currentBranch?.name ? `${currentBranch.name}` : (currentTenant?.name ? `${currentTenant.name} Catalog` : 'Featured Products & Specials')}</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Showing {filteredProducts.length} items from {currentTenant?.name || 'FreshMart'}. {currentTenant?.tagline || ''}
+            Serving your delivery area &bull; Showing {filteredProducts.length} items from {currentBranch?.name || currentTenant?.name}. Branch prices, live stock &amp; dispatch by {currentBranch?.name || currentTenant?.name} Store Admin.
           </p>
         </div>
 

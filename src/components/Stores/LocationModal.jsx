@@ -759,7 +759,7 @@ const LocationModalContent = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-xs font-black text-slate-900 truncate">
-                          {store.displayName || store.name}
+                          {store.nearestBranch?.name || store.displayName || store.name}
                         </span>
                         <span className="text-xs font-black text-slate-800 shrink-0">
                           {store.distanceFormatted}
@@ -789,9 +789,11 @@ const LocationModalContent = () => {
 
                       <div className="mt-1 text-[10px] text-slate-500 font-medium truncate flex items-center gap-1">
                         <span>🏬</span>
-                        <span className="truncate">Store: {store.nearestBranch?.name || 'Commercial Hub'}</span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-300 truncate">
+                          Parent: {store.name} &bull; Child Store
+                        </span>
                         {store.storeAreaPolygon && (
-                          <span className="text-amber-700 font-bold shrink-0">({store.storeAreaPolygon.name})</span>
+                          <span className="text-emerald-700 font-bold shrink-0">({store.storeAreaPolygon.name})</span>
                         )}
                       </div>
                     </div>

@@ -353,7 +353,15 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
       }
       const group = retailerMap.get(tId);
       group.branches.push(branch);
-      if (branch.distanceKm < group.bestBranch.distanceKm) {
+      const currentIsZoneAssigned = Boolean(group.bestBranch.insideMasterZone || group.bestBranch.insideDeliveryZone);
+      const newIsZoneAssigned = Boolean(branch.insideMasterZone || branch.insideDeliveryZone);
+
+      if (newIsZoneAssigned && !currentIsZoneAssigned) {
+        group.bestBranch = branch;
+        group.distanceKm = branch.distanceKm;
+        group.deliveryFee = branch.deliveryFee;
+        group.estimatedTime = branch.estimatedTime;
+      } else if (newIsZoneAssigned === currentIsZoneAssigned && branch.distanceKm < group.bestBranch.distanceKm) {
         group.bestBranch = branch;
         group.distanceKm = branch.distanceKm;
         group.deliveryFee = branch.deliveryFee;
@@ -391,5 +399,159 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
     searchStepsTaken,
     overlappingRetailersCount: eligibleRetailers.length,
     hasOverlappingZones: eligibleRetailers.length > 1
+  };
+}
+
+/**
+ * Resolves the exact physical branch of a retailer assigned to the customer's delivery zone polygon.
+ * 
+ * Pipeline:
+ * 1. Customer Location (lat, lng)
+ * 2. Match coordinates with active Delivery Polygons
+ * 3. Find matching Delivery Zone (e.g. Zone 2 - Canal Road)
+ * 4. Find physical store of tenantId assigned to this zone (e.g. Al-Fatah - Canal Road Hub)
+ * 5. Return that exact physical branch
+ */
+export function resolveBranchForCustomerLocation(tenantId, customerCoords, branches = [], options = {}) {
+  const normUser = normalizeLatLng(customerCoords);
+  if (!normUser) return null;
+  const userLat = normUser.lat;
+  const userLng = normUser.lng;
+
+  // 1. Get delivery zones
+  let zonesList = options.zones || [];
+  if (!Array.isArray(zonesList) || zonesList.length === 0) {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const raw = window.localStorage.getItem('freshmart_master_zones') || window.localStorage.getItem('freshmart_zones');
+        if (raw) zonesList = JSON.parse(raw);
+      }
+    } catch (e) {}
+  }
+
+  // 2. Determine which zone polygon contains the customer coordinates
+  let matchedZone = null;
+  if (Array.isArray(zonesList) && zonesList.length > 0) {
+    for (const z of zonesList) {
+      if (!z || z.isActive === false || String(z.status || 'active').toLowerCase() === 'inactive') continue;
+      let rawRing = null;
+      if (z.geometry && Array.isArray(z.geometry.coordinates)) {
+        rawRing = Array.isArray(z.geometry.coordinates[0]) && Array.isArray(z.geometry.coordinates[0][0])
+          ? z.geometry.coordinates[0]
+          : z.geometry.coordinates;
+      } else if (z.polygon && Array.isArray(z.polygon.coordinates)) {
+        rawRing = Array.isArray(z.polygon.coordinates[0]) && Array.isArray(z.polygon.coordinates[0][0])
+          ? z.polygon.coordinates[0]
+          : z.polygon.coordinates;
+      } else if (Array.isArray(z.polygon)) {
+        rawRing = z.polygon;
+      } else if (Array.isArray(z.coordinates)) {
+        rawRing = Array.isArray(z.coordinates[0]) && Array.isArray(z.coordinates[0][0])
+          ? z.coordinates[0]
+          : z.coordinates;
+      }
+
+      if (Array.isArray(rawRing) && rawRing.length >= 3) {
+        if (isPointInPolygon({ lat: userLat, lng: userLng }, rawRing)) {
+          matchedZone = z;
+          break;
+        }
+      }
+    }
+  }
+
+  const normalizeTenantId = (raw) => {
+    if (!raw) return 'unknown';
+    const s = String(raw).toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (s.includes('alfatah') || s.includes('fatah') || s.includes('alfateh') || s.includes('fateh') || s === 'company001') return 'tenant-alfatah';
+    if (s.includes('chaseup') || s.includes('caseup') || s === 'cu' || s === 'company002') return 'tenant-chaseup';
+    if (s.includes('chaseval') || s.includes('caseval') || s === 'cv' || s === 'company003') return 'tenant-chasevalue';
+    if (s.includes('freshmart') || s.includes('unimart') || s.includes('unimaart') || s === 'company004') return 'tenant-freshmart';
+    return String(raw);
+  };
+
+  // 3. Filter branches belonging to this retailer (tenantId)
+  const normTenant = normalizeTenantId(tenantId);
+  const retailerBranches = (branches || []).filter((b) => {
+    const rawT = b.tenantId || b.companyId || b.retailerId;
+    return normalizeTenantId(rawT) === normTenant;
+  });
+
+  if (retailerBranches.length === 0) return null;
+
+  // 4. If matchedZone was found, find the physical branch assigned to this zone
+  if (matchedZone) {
+    const zId = String(matchedZone.zoneId || matchedZone._id || matchedZone.id || '').toLowerCase();
+    const zName = String(matchedZone.name || matchedZone.shortName || '').toLowerCase();
+
+    const zoneMatches = (testZoneId) => {
+      if (!testZoneId) return false;
+      const tz = String(testZoneId).toLowerCase();
+      if (tz === zId) return true;
+      if (tz.includes('samanabad') && (zId.includes('001') || zId.includes('samanabad') || zName.includes('samanabad'))) return true;
+      if (tz.includes('madina') && (zId.includes('002') || zId.includes('madina') || zName.includes('madina'))) return true;
+      if (tz.includes('canal') && (zId.includes('002') || zId.includes('canal') || zName.includes('canal') || zName.includes('madina'))) return true;
+      if (tz.includes('dground') && (zId.includes('003') || zId.includes('dground') || zId.includes('d-ground') || zName.includes('d-ground'))) return true;
+      if (tz.includes('peoples') && (zId.includes('004') || zId.includes('peoples') || zName.includes('people'))) return true;
+      if (tz.includes('clock') && (zId.includes('clock') || zId.includes('001') || zId.includes('003') || zName.includes('clock'))) return true;
+      return false;
+    };
+
+    // Check explicit assignments
+    const assignedBranch = retailerBranches.find((b) => {
+      const bId = String(b.storeId || b.branchId || b._id || b.id || '').toLowerCase();
+      const bDeliveryZone = String(b.deliveryZoneId || '').toLowerCase();
+      const bAssignedZone = String(b.assignedZoneId || '').toLowerCase();
+      const bName = String(b.name || b.branchName || '').toLowerCase();
+
+      if (zoneMatches(bDeliveryZone) || zoneMatches(bAssignedZone)) return true;
+      if (Array.isArray(matchedZone.assignedStoreIds) && matchedZone.assignedStoreIds.some((sId) => String(sId).toLowerCase() === bId)) return true;
+      if (matchedZone.assignedStoreId && String(matchedZone.assignedStoreId).toLowerCase() === bId) return true;
+      if (Array.isArray(options.assignments) && options.assignments.some(
+        (a) => (String(a.zoneId || '').toLowerCase() === zId || zoneMatches(a.zoneId)) &&
+               String(a.storeId || '').toLowerCase() === bId &&
+               a.isActive !== false
+      )) return true;
+
+      // Smart name / hub matching
+      if ((zName.includes('canal') || zId.includes('canal') || zId.includes('002')) && (bName.includes('canal') || bId.includes('canal'))) return true;
+      if ((zName.includes('madina') || zId.includes('002')) && (bName.includes('madina') || bId.includes('madina') || bName.includes('canal'))) return true;
+      if ((zName.includes('d-ground') || zId.includes('003')) && (bName.includes('d-ground') || bName.includes('flagship') || bId.includes('fsd'))) return true;
+      if ((zName.includes('samanabad') || zId.includes('001')) && (bName.includes('samanabad') || bName.includes('main branch') || bId.includes('samanabad'))) return true;
+      if ((zName.includes('people') || zId.includes('004')) && (bName.includes('people') || bName.includes('kohinoor') || bId.includes('kohinoor'))) return true;
+
+      return false;
+    });
+
+    if (assignedBranch) {
+      return {
+        ...assignedBranch,
+        servingZone: matchedZone,
+        servingZoneName: matchedZone.name,
+        isAssignedToCustomerZone: true
+      };
+    }
+  }
+
+  // 5. Fallback: Closest branch by Euclidean distance
+  let closest = retailerBranches[0];
+  let minD = Infinity;
+  for (const b of retailerBranches) {
+    const bLat = Number(b.latitude ?? b.coordinates?.lat);
+    const bLng = Number(b.longitude ?? b.coordinates?.lng);
+    if (!isNaN(bLat) && !isNaN(bLng)) {
+      const d = calculateHaversineDistanceKm(userLat, userLng, bLat, bLng);
+      if (d < minD) {
+        minD = d;
+        closest = b;
+      }
+    }
+  }
+
+  return {
+    ...closest,
+    servingZone: matchedZone || null,
+    servingZoneName: matchedZone?.name || null,
+    isAssignedToCustomerZone: Boolean(matchedZone)
   };
 }

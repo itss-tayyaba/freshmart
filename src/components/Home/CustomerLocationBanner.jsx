@@ -388,6 +388,35 @@ export const CustomerLocationBanner = ({ onLocationConfirmed }) => {
               </div>
             )}
 
+            {/* Active Serving Branch Indicator */}
+            {currentBranch && !isOutsideDeliveryZone && (
+              <div className="bg-emerald-950/70 border border-emerald-500/40 rounded-xl px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 animate-in fade-in">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/30 text-emerald-300 flex items-center justify-center shrink-0 text-sm">
+                    🏬
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-emerald-200 truncate">
+                        {currentBranch.name}
+                      </span>
+                      <span className="text-[9px] font-bold bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded">
+                        Serving your delivery area
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-300 truncate mt-0.5">
+                      Parent Retailer: {currentTenant?.name || 'Supermarket'} • Physical Branch assigned to your zone
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0 self-start sm:self-auto">
+                  <span className="text-[10px] font-bold text-slate-400">
+                    Dispatch: {currentBranch.name} Admin
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Out of Delivery Zone Alert */}
             {isOutsideDeliveryZone && (
               <div className="p-3 sm:p-3.5 rounded-xl bg-rose-950/90 border-2 border-rose-500/80 text-white text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in">
