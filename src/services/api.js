@@ -1364,6 +1364,46 @@ export const apiService = {
       const res = await fetch(`${API_BASE_URL}/admin/stores${query ? `?${query}` : ''}`, {
         headers: getAuthHeaders()
       });
+      const data = await handleResponse(res);
+      if (data?.deletedStoreIds && Array.isArray(data.deletedStoreIds) && data.deletedStoreIds.length > 0) {
+        try {
+          const { markStoreDeleted } = await import('../utils/storeHelper');
+          markStoreDeleted(data.deletedStoreIds);
+        } catch (e) {}
+      }
+
+      // Auto-sync any local deletions that might be missing from the cloud DB
+      try {
+        const rawLocal = localStorage.getItem('freshmart_deleted_store_ids');
+        if (rawLocal) {
+          const localDeleted = JSON.parse(rawLocal);
+          if (Array.isArray(localDeleted) && localDeleted.length > 0) {
+            const serverSet = new Set((data?.deletedStoreIds || []).map((x) => String(x).toLowerCase().trim()));
+            const missingOnServer = localDeleted.filter((id) => !serverSet.has(String(id).toLowerCase().trim()));
+            if (missingOnServer.length > 0) {
+              fetch(`${API_BASE_URL}/admin/stores/sync-deleted`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ deletedStoreIds: missingOnServer })
+              }).catch(() => {});
+            }
+          }
+        }
+      } catch (e) {}
+
+      return data;
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async syncDeletedStores(deletedStoreIds = []) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/stores/sync-deleted`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ deletedStoreIds })
+      });
       return await handleResponse(res);
     } catch (e) {
       return { success: false, error: e.message };

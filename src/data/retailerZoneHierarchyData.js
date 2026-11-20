@@ -1,6 +1,27 @@
 // Single Source of Truth for Business Hierarchy:
 // 4 Parent Retailers • 12 Physical Child Stores • 4 Master Delivery Zones
 import { LEGACY_STORE_ID_MAP } from './storeRegistry.js';
+import { getAllUnifiedStores } from '../utils/storeHelper.js';
+
+export const ZONE_CODE_TO_MASTER_ZONE_MAP = {
+  'ZONE-FSD-SAMANABAD': 'zone_001',
+  'ZONE-FSD-CLOCKTOWER': 'zone_001',
+  'ZONE-FSD-MADINA': 'zone_002',
+  'ZONE-FSD-DGROUND': 'zone_003',
+  'ZONE-FSD-CANAL': 'zone_004',
+  'ZONE-FSD-PEOPLES': 'zone_004',
+  'zone_001': 'zone_001',
+  'zone_002': 'zone_002',
+  'zone_003': 'zone_003',
+  'zone_004': 'zone_004'
+};
+
+export const MASTER_ZONE_TO_ZONE_CODE_MAP = {
+  'zone_001': 'ZONE-FSD-CLOCKTOWER',
+  'zone_002': 'ZONE-FSD-MADINA',
+  'zone_003': 'ZONE-FSD-DGROUND',
+  'zone_004': 'ZONE-FSD-CANAL'
+};
 
 export const PAKISTAN_CITIES = [
   { name: 'Faisalabad', lat: 31.4187, lng: 73.0791, zoom: 13, label: 'Faisalabad (Primary Hub)' },
@@ -477,51 +498,83 @@ export const TWELVE_PHYSICAL_STORES = [
 ];
 
 // Local Storage helpers for persisting zone associations across the browser
-export const loadRetailerStores = () => {
-  let deletedIds = new Set();
+export const loadRetailerStores = (apiStores = []) => {
+  const unified = getAllUnifiedStores(apiStores);
+
+  // Load explicit retailer store assignments from localStorage
+  let savedOverrides = {};
   try {
-    const dRaw = localStorage.getItem('freshmart_deleted_store_ids');
-    if (dRaw) {
-      const parsed = JSON.parse(dRaw);
+    const raw = localStorage.getItem('freshmart_retailer_stores');
+    if (raw) {
+      const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        parsed.forEach((id) => {
-          deletedIds.add(id);
-          if (LEGACY_STORE_ID_MAP && LEGACY_STORE_ID_MAP[id]) deletedIds.add(LEGACY_STORE_ID_MAP[id]);
-          if (LEGACY_STORE_ID_MAP) {
-            for (const [legacyId, canonId] of Object.entries(LEGACY_STORE_ID_MAP)) {
-              if (canonId === id) deletedIds.add(legacyId);
-            }
-          }
+        parsed.forEach((s) => {
+          const id = s.storeId || s._id;
+          if (id) savedOverrides[id] = s;
         });
       }
     }
   } catch (e) {}
 
-  try {
-    const raw = localStorage.getItem('freshmart_retailer_stores');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length >= 1) {
-        return parsed
-          .filter((s) => !deletedIds.has(s.storeId) && !deletedIds.has(s._id) && !deletedIds.has(s.storeCode))
-          .map((s) => {
-            const sId = s.storeId || s._id;
-            const baseline = TWELVE_PHYSICAL_STORES.find(
-              (b) => (b.storeId || b._id) === sId
-            ) || TWELVE_PHYSICAL_STORES[0];
-            return {
-              ...baseline,
-              ...s,
-              deliveryZoneId: s.deliveryZoneId !== undefined ? s.deliveryZoneId : (baseline.deliveryZoneId || null)
-            };
-          });
-      }
-    }
-  } catch (e) {}
+  return unified.map((store, index) => {
+    const id = store.storeId || store._id;
+    const override = savedOverrides[id] || {};
 
-  return TWELVE_PHYSICAL_STORES.filter(
-    (s) => !deletedIds.has(s.storeId) && !deletedIds.has(s._id) && !deletedIds.has(s.storeCode)
-  );
+    const baseline = TWELVE_PHYSICAL_STORES.find(
+      (b) => (b.storeId || b._id) === id
+    );
+
+    let zoneId = null;
+    if (override.deliveryZoneId !== undefined) {
+      zoneId = override.deliveryZoneId;
+    } else if (store.deliveryZoneId !== undefined) {
+      zoneId = store.deliveryZoneId;
+    } else if (store.assignedZoneId) {
+      zoneId = ZONE_CODE_TO_MASTER_ZONE_MAP[store.assignedZoneId] || store.assignedZoneId;
+    } else if (baseline && baseline.deliveryZoneId) {
+      zoneId = baseline.deliveryZoneId;
+    }
+
+    const parentRetailer = FOUR_PARENT_RETAILERS.find(
+      (r) => r.id === store.tenantId || r.retailerId === store.tenantId
+    );
+
+    const lat = Number(store.latitude || store.coords?.lat || baseline?.latitude || 31.4140);
+    const lng = Number(store.longitude || store.coords?.lng || baseline?.longitude || 73.0950);
+
+    return {
+      ...(baseline || {}),
+      ...store,
+      _id: id,
+      storeId: id,
+      retailerId: store.tenantId || override.retailerId || baseline?.retailerId || 'tenant-alfatah',
+      tenantId: store.tenantId || override.tenantId || baseline?.tenantId || 'tenant-alfatah',
+      parentRetailerName: parentRetailer?.name || store.parentRetailerName || store.tenantName || store.retailerName || baseline?.parentRetailerName || 'Retailer',
+      retailerNumber: store.retailerNumber || baseline?.retailerNumber || (index + 1),
+      name: store.name || store.branchName || baseline?.name,
+      branchName: store.branchName || store.name || baseline?.branchName,
+      type: 'child',
+      address: store.address || baseline?.address || `${store.city || 'Faisalabad'}, Pakistan`,
+      city: store.city || baseline?.city || 'Faisalabad',
+      latitude: lat,
+      longitude: lng,
+      location: store.location || {
+        type: 'Point',
+        coordinates: [lng, lat]
+      },
+      deliveryZoneId: zoneId || null,
+      assignedZoneId: zoneId ? (MASTER_ZONE_TO_ZONE_CODE_MAP[zoneId] || zoneId) : null,
+      assignmentStatus: zoneId ? 'active' : 'unassigned',
+      status: store.status || baseline?.status || 'active',
+      isActive: store.isActive !== false,
+      operatingStatus: store.operatingStatus || baseline?.operatingStatus || 'Open',
+      openingHours: store.openingHours || baseline?.openingHours || '08:00 AM',
+      closingHours: store.closingHours || baseline?.closingHours || '11:00 PM',
+      phone: store.contactNumber || store.phone || baseline?.phone || '+92 300 0000000',
+      ...override,
+      deliveryZoneId: zoneId || null
+    };
+  });
 };
 
 export const saveRetailerStores = (stores) => {

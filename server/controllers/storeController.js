@@ -26,7 +26,27 @@ export const loadDeletedStoreIds = () => {
   return [];
 };
 
-export const recordDeletedStoreId = (id, extraIds = []) => {
+export const loadDeletedStoreIdsAsync = async () => {
+  const diskList = loadDeletedStoreIds();
+  const allSet = new Set(diskList);
+  if (isDbOnline()) {
+    try {
+      const { DeletedStore } = await import('../models/DeletedStore.js');
+      const docs = await DeletedStore.find({}).lean();
+      docs.forEach((d) => {
+        if (d.storeId) allSet.add(d.storeId);
+        if (Array.isArray(d.aliasIds)) {
+          d.aliasIds.forEach((id) => allSet.add(id));
+        }
+      });
+    } catch (e) {
+      console.warn('Error reading DeletedStore from DB:', e.message);
+    }
+  }
+  return Array.from(allSet);
+};
+
+export const recordDeletedStoreId = async (id, extraIds = []) => {
   try {
     const list = loadDeletedStoreIds();
     const rawList = [id, ...(Array.isArray(extraIds) ? extraIds : [extraIds])].filter(Boolean);
@@ -61,6 +81,28 @@ export const recordDeletedStoreId = (id, extraIds = []) => {
     });
     if (modified) {
       fs.writeFileSync(DELETED_STORES_FILE_PATH, JSON.stringify(list, null, 2), 'utf-8');
+    }
+
+    if (isDbOnline()) {
+      try {
+        const { DeletedStore } = await import('../models/DeletedStore.js');
+        const primaryId = String(id || '').trim();
+        if (primaryId) {
+          await DeletedStore.findOneAndUpdate(
+            { storeId: primaryId },
+            {
+              $set: {
+                storeId: primaryId,
+                aliasIds: Array.from(toAdd),
+                deletedAt: new Date()
+              }
+            },
+            { upsert: true }
+          );
+        }
+      } catch (err) {
+        console.warn('DB recordDeletedStoreId error:', err.message);
+      }
     }
   } catch (e) {}
 };
@@ -140,7 +182,7 @@ export const getStores = async (req, res) => {
   try {
     const { tenantId, city, search, status } = req.query;
 
-    const deletedStoreIds = loadDeletedStoreIds();
+    const deletedStoreIds = await loadDeletedStoreIdsAsync();
     const deletedSet = new Set(deletedStoreIds.map((x) => String(x).toLowerCase().trim()));
 
     const isRecordDeleted = (s) => {
@@ -219,7 +261,8 @@ export const getStores = async (req, res) => {
     return res.json({
       success: true,
       count: stores.length,
-      stores
+      stores,
+      deletedStoreIds
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -663,7 +706,7 @@ export const deleteStore = async (req, res) => {
       }
     }
 
-    recordDeletedStoreId(storeId, aliasIds);
+    await recordDeletedStoreId(storeId, aliasIds);
 
     const disk = loadDiskStores();
     const filtered = disk.filter((s) => !aliasIds.includes(s.storeId) && !aliasIds.includes(s._id));
@@ -819,5 +862,22 @@ export const getRetailerStores = async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Sync deleted stores across all browsers / clients via MongoDB
+// @route   POST /api/admin/stores/sync-deleted
+export const syncDeletedStores = async (req, res) => {
+  try {
+    const { deletedStoreIds = [] } = req.body;
+    if (Array.isArray(deletedStoreIds) && deletedStoreIds.length > 0) {
+      for (const id of deletedStoreIds) {
+        await recordDeletedStoreId(id);
+      }
+    }
+    const current = await loadDeletedStoreIdsAsync();
+    return res.json({ success: true, deletedStoreIds: current });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
   }
 };

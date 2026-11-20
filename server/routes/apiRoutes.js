@@ -100,7 +100,9 @@ import {
   createStore,
   updateStore,
   deleteStore,
-  toggleStoreStatus
+  toggleStoreStatus,
+  syncDeletedStores,
+  loadDeletedStoreIdsAsync
 } from '../controllers/storeController.js';
 import {
   getZones,
@@ -290,6 +292,15 @@ router.get('/tenants/:id/performance', getTenantPerformance);
 // --- GIS & Multi-Store Management Routes ---
 router.get('/admin/stores', protect, getStores);
 router.post('/admin/stores', protect, superAdminOnly, createStore);
+router.post('/admin/stores/sync-deleted', protect, syncDeletedStores);
+router.get('/admin/deleted-stores', protect, async (req, res) => {
+  try {
+    const deleted = await loadDeletedStoreIdsAsync();
+    res.json({ success: true, deletedStoreIds: deleted });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
 router.put('/admin/stores/:id', protect, superAdminOnly, updateStore);
 router.delete('/admin/stores/:storeId', protect, superAdminOnly, deleteStore);
 router.delete('/admin/stores/:id', protect, superAdminOnly, deleteStore);

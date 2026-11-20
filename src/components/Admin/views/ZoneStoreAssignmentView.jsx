@@ -50,7 +50,8 @@ import {
   saveRetailerStores,
   deleteRetailerStore,
   loadMasterZones,
-  saveMasterZones
+  saveMasterZones,
+  MASTER_ZONE_TO_ZONE_CODE_MAP
 } from '../../../data/retailerZoneHierarchyData';
 
 // HTML escape helper for safe Leaflet popup injection
@@ -212,13 +213,14 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   // ---------------------------------------------------------------------------
   // ZONE CHANGE HANDLER FOR STORES & UNASSIGN LOGIC
   // ---------------------------------------------------------------------------
-  const updateStoreZone = (storeId, newZoneId) => {
+  const updateStoreZone = async (storeId, newZoneId) => {
     const updated = stores.map((s) => {
       const id = s.storeId || s._id;
       if (id === storeId) {
         return {
           ...s,
-          deliveryZoneId: newZoneId,
+          deliveryZoneId: newZoneId || null,
+          assignedZoneId: newZoneId ? (MASTER_ZONE_TO_ZONE_CODE_MAP[newZoneId] || newZoneId) : null,
           assignedAt: new Date().toISOString(),
           assignedBy: 'Super Admin',
           assignmentStatus: newZoneId ? 'active' : 'unassigned'
@@ -229,6 +231,39 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
     setStores(updated);
     saveRetailerStores(updated);
+
+    // Also update freshmart_custom_stores if this is a custom store
+    try {
+      const rawCustom = localStorage.getItem('freshmart_custom_stores');
+      if (rawCustom) {
+        const custom = JSON.parse(rawCustom);
+        if (Array.isArray(custom)) {
+          const cIdx = custom.findIndex((s) => (s.storeId || s._id) === storeId);
+          if (cIdx !== -1) {
+            custom[cIdx] = {
+              ...custom[cIdx],
+              deliveryZoneId: newZoneId || null,
+              assignedZoneId: newZoneId || null
+            };
+            localStorage.setItem('freshmart_custom_stores', JSON.stringify(custom));
+          }
+        }
+      }
+    } catch (e) {}
+
+    // Persist to backend
+    try {
+      await apiService.updateStore(storeId, {
+        deliveryZoneId: newZoneId || null,
+        assignedZoneId: newZoneId ? (MASTER_ZONE_TO_ZONE_CODE_MAP[newZoneId] || newZoneId) : null
+      });
+    } catch (e) {}
+
+    // Dispatch global events so Dashboard & sidebars immediately refresh
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('freshmart_stores_updated', { detail: { storeId, newZoneId } }));
+      window.dispatchEvent(new CustomEvent('freshmart_branches_updated'));
+    }
 
     const storeObj = stores.find((s) => (s.storeId || s._id) === storeId);
     const zoneObj = masterZones.find((z) => (z.zoneId || z._id) === newZoneId);
@@ -456,6 +491,13 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
   // Synchronize store and polygon state in real time when stores are deleted or modified anywhere
   useEffect(() => {
+    let isMounted = true;
+    apiService.getStores().then((res) => {
+      if (isMounted && res?.stores) {
+        setStores(loadRetailerStores(res.stores));
+      }
+    }).catch(() => {});
+
     const handleStoreSync = () => {
       const refreshedStores = loadRetailerStores();
       setStores(refreshedStores);
@@ -468,6 +510,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     window.addEventListener('freshmart_retailer_stores_updated', handleStoreSync);
     window.addEventListener('freshmart_store_deleted', handleStoreSync);
     return () => {
+      isMounted = false;
       window.removeEventListener('freshmart_stores_updated', handleStoreSync);
       window.removeEventListener('freshmart_retailer_stores_updated', handleStoreSync);
       window.removeEventListener('freshmart_store_deleted', handleStoreSync);
