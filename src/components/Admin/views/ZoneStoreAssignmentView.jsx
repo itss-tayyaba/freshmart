@@ -267,6 +267,139 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     setIsAssignModalOpen(true);
   };
 
+  const handleStartDrawNewZoneForStore = (store) => {
+    if (!store) return;
+    const storeCity = (store.city || 'Lahore').trim();
+    setTargetStoreForNewZone(store);
+    setSelectedCity(storeCity);
+
+    const cityObj = PAKISTAN_CITIES.find(
+      (c) => c.name.toLowerCase() === storeCity.toLowerCase()
+    );
+    const lat = Number(store.latitude) || cityObj?.lat || 31.5204;
+    const lng = Number(store.longitude) || cityObj?.lng || 74.3587;
+
+    const nextNumber = masterZones.length + 1;
+    const defaultColor = ZONE_PRESET_COLORS[(nextNumber - 1) % ZONE_PRESET_COLORS.length].hex;
+    const newZoneId = `zone_${Date.now().toString().slice(-4)}`;
+
+    const draftZone = {
+      _id: newZoneId,
+      id: newZoneId,
+      zoneId: newZoneId,
+      zoneNumber: nextNumber,
+      name: `Zone ${nextNumber} — ${storeCity} Central`,
+      shortName: `${storeCity} Delivery Zone`,
+      city: storeCity,
+      color: defaultColor,
+      deliveryFee: 70,
+      minOrder: 450,
+      freeDeliveryThreshold: 2200,
+      status: 'active',
+      center: [lat, lng],
+      isNewZone: true,
+      targetStore: store
+    };
+
+    const delta = 0.012;
+    const initialCorners = [
+      [Number((lat + delta).toFixed(5)), Number((lng - delta).toFixed(5))],
+      [Number((lat + delta).toFixed(5)), Number((lng + delta).toFixed(5))],
+      [Number((lat - delta).toFixed(5)), Number((lng + delta).toFixed(5))],
+      [Number((lat - delta).toFixed(5)), Number((lng - delta).toFixed(5))]
+    ];
+
+    setEditingPolygonZone(draftZone);
+    setEditingPolygonPoints(initialCorners);
+    setPointsHistory([initialCorners]);
+    setPolygonEditMode('drag');
+    setFocusedStoreId(store.storeId || store._id);
+    setIsAssignModalOpen(false);
+    setIsAddZoneModalOpen(false);
+
+    setTimeout(() => {
+      if (mapContainerRef.current) {
+        mapContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.flyTo([lat, lng], 14, { duration: 0.8 });
+      }
+    }, 150);
+
+    if (addToast) {
+      addToast(
+        'Interactive Zone Drawing Active ✏️',
+        `Draw/reshape polygon corners around "${store.name}". Click "✓ Save & Assign Store" when finished to link automatically!`,
+        'info'
+      );
+    }
+  };
+
+  const handleStartDrawMasterZone = (cityName = selectedCity) => {
+    const city = (cityName || 'Faisalabad').trim();
+    setSelectedCity(city);
+    const cityObj = PAKISTAN_CITIES.find(
+      (c) => c.name.toLowerCase() === city.toLowerCase()
+    );
+    const lat = cityObj?.lat || 31.4140;
+    const lng = cityObj?.lng || 73.0950;
+
+    const nextNumber = masterZones.length + 1;
+    const defaultColor = ZONE_PRESET_COLORS[(nextNumber - 1) % ZONE_PRESET_COLORS.length].hex;
+    const newZoneId = `zone_${Date.now().toString().slice(-4)}`;
+
+    const draftZone = {
+      _id: newZoneId,
+      id: newZoneId,
+      zoneId: newZoneId,
+      zoneNumber: nextNumber,
+      name: `Zone ${nextNumber} — ${city} Central`,
+      shortName: `${city} Central`,
+      city: city,
+      color: defaultColor,
+      deliveryFee: 70,
+      minOrder: 450,
+      freeDeliveryThreshold: 2200,
+      status: 'active',
+      center: [lat, lng],
+      isNewZone: true,
+      targetStore: null
+    };
+
+    const delta = 0.015;
+    const initialCorners = [
+      [Number((lat + delta).toFixed(5)), Number((lng - delta).toFixed(5))],
+      [Number((lat + delta).toFixed(5)), Number((lng + delta).toFixed(5))],
+      [Number((lat - delta).toFixed(5)), Number((lng + delta).toFixed(5))],
+      [Number((lat - delta).toFixed(5)), Number((lng - delta).toFixed(5))]
+    ];
+
+    setTargetStoreForNewZone(null);
+    setEditingPolygonZone(draftZone);
+    setEditingPolygonPoints(initialCorners);
+    setPointsHistory([initialCorners]);
+    setPolygonEditMode('drag');
+    setIsAssignModalOpen(false);
+    setIsAddZoneModalOpen(false);
+
+    setTimeout(() => {
+      if (mapContainerRef.current) {
+        mapContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.flyTo([lat, lng], 13, { duration: 0.8 });
+      }
+    }, 150);
+
+    if (addToast) {
+      addToast(
+        'Interactive Zone Drawing Active ✏️',
+        `Drag numbered corners or click "+ Add Points" to draw your delivery polygon in ${city}. Click "✓ Add Zone Automatically" to save.`,
+        'info'
+      );
+    }
+  };
+
   const handleOpenAddZoneForStore = (store) => {
     if (!store) return;
     const storeCity = (store.city || 'Lahore').trim();
@@ -420,6 +553,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     setEditingPolygonZone(null);
     setEditingPolygonPoints([]);
     setPointsHistory([]);
+    setTargetStoreForNewZone(null);
     if (addToast) {
       addToast('Polygon Editing Cancelled', 'No boundary changes were saved.', 'info');
     }
@@ -446,40 +580,102 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       Number((sumLng / cleanPoints.length).toFixed(4))
     ];
 
-    const updatedZones = masterZones.map((z) => {
-      const currentId = z.zoneId || z._id;
-      if (currentId === zId) {
-        return {
-          ...z,
-          center: newCenter,
-          polygon: {
-            type: 'Polygon',
-            coordinates: cleanPoints
-          }
-        };
-      }
-      return z;
-    });
+    const isNewZone = Boolean(
+      editingPolygonZone.isNewZone ||
+      !masterZones.some((z) => (z.zoneId || z._id) === zId)
+    );
 
-    setMasterZones(updatedZones);
-    saveMasterZones(updatedZones);
+    let updatedZones = [];
+    let savedZone = null;
 
-    try {
-      apiService.updateZone(zId, {
+    if (isNewZone) {
+      savedZone = {
+        ...editingPolygonZone,
+        _id: zId,
+        id: zId,
+        zoneId: zId,
         center: newCenter,
-        polygon: { type: 'Polygon', coordinates: cleanPoints }
-      }).catch(() => {});
-    } catch (e) {}
+        polygon: {
+          type: 'Polygon',
+          coordinates: cleanPoints
+        }
+      };
+      delete savedZone.isNewZone;
+      delete savedZone.targetStore;
 
+      updatedZones = [...masterZones, savedZone];
+      setMasterZones(updatedZones);
+      saveMasterZones(updatedZones);
+
+      try {
+        apiService.createZone(savedZone).catch(() => {});
+      } catch (e) {}
+    } else {
+      updatedZones = masterZones.map((z) => {
+        const currentId = z.zoneId || z._id;
+        if (currentId === zId) {
+          savedZone = {
+            ...z,
+            center: newCenter,
+            polygon: {
+              type: 'Polygon',
+              coordinates: cleanPoints
+            }
+          };
+          return savedZone;
+        }
+        return z;
+      });
+      setMasterZones(updatedZones);
+      saveMasterZones(updatedZones);
+
+      try {
+        apiService.updateZone(zId, {
+          center: newCenter,
+          polygon: { type: 'Polygon', coordinates: cleanPoints }
+        }).catch(() => {});
+      } catch (e) {}
+    }
+
+    const targetStore = targetStoreForNewZone || editingPolygonZone.targetStore;
     const zoneName = editingPolygonZone.name;
+
     setEditingPolygonZone(null);
     setEditingPolygonPoints([]);
     setPointsHistory([]);
+    setTargetStoreForNewZone(null);
 
-    if (addToast) {
+    // If a store was targeted for this new drawn zone, automatically assign it immediately!
+    if (targetStore) {
+      const sId = targetStore.storeId || targetStore._id;
+      updateStoreZone(sId, zId);
+
+      // If store lacked coordinates, update with zone centroid
+      if (isNaN(Number(targetStore.latitude)) || isNaN(Number(targetStore.longitude))) {
+        try {
+          const currentStores = loadRetailerStores();
+          const nextStores = currentStores.map((s) => {
+            if ((s.storeId || s._id) === sId) {
+              return { ...s, latitude: newCenter[0], longitude: newCenter[1], deliveryZoneId: zId };
+            }
+            return s;
+          });
+          saveRetailerStores(nextStores);
+          setStores(nextStores);
+        } catch (e) {}
+      }
+
+      if (addToast) {
+        addToast(
+          'Zone Drawn & Store Assigned Automatically 🎉',
+          `Zone "${zoneName}" created from drawn polygon and "${targetStore.name}" is now assigned to it!`,
+          'success'
+        );
+      }
+    } else if (addToast) {
       addToast(
-        'Delivery Polygon Saved 🗺️',
-        `Custom geofence for "${zoneName}" (${cleanPoints.length} vertices) updated and saved successfully.`,
+        isNewZone ? 'Delivery Zone Drawn & Added 🗺️' : 'Delivery Polygon Saved 🗺️',
+        `Geofence for "${zoneName}" (${cleanPoints.length} vertices) saved successfully.`,
         'success'
       );
     }
@@ -1090,10 +1286,21 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
     // 2. Draw Physical Child Store Markers
     filteredStores.forEach((store) => {
-      const lat = Number(store.latitude);
-      const lng = Number(store.longitude);
-      if (isNaN(lat) || isNaN(lng)) return;
+      let lat = Number(store.latitude);
+      let lng = Number(store.longitude);
+      if (isNaN(lat) || isNaN(lng)) {
+        const cityMatch = PAKISTAN_CITIES.find(
+          (c) => c.name.toLowerCase() === String(store.city || '').toLowerCase()
+        );
+        if (cityMatch) {
+          lat = cityMatch.lat;
+          lng = cityMatch.lng;
+        } else {
+          return;
+        }
+      }
 
+      const isTargetStore = targetStoreForNewZone && (store.storeId || store._id) === (targetStoreForNewZone.storeId || targetStoreForNewZone._id);
       const isUnassigned = !store.deliveryZoneId;
       const assignedZone = isUnassigned
         ? null
@@ -1102,8 +1309,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
         parentRetailers.find((r) => r.id === store.retailerId) ||
         parentRetailers[0] ||
         FOUR_PARENT_RETAILERS[0];
-      const zoneColor = isUnassigned ? '#f59e0b' : (assignedZone?.color || '#0284c7');
-      const isFocused = focusedStoreId === (store.storeId || store._id);
+      const zoneColor = isTargetStore ? '#10b981' : isUnassigned ? '#f59e0b' : (assignedZone?.color || '#0284c7');
+      const isFocused = isTargetStore || (focusedStoreId === (store.storeId || store._id));
       const isMainBranch = store.name.toLowerCase().includes('main') || store.branchName.toLowerCase().includes('main');
 
       const customIcon = L.divIcon({
@@ -1117,8 +1324,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
             height: ${isFocused ? '40px' : '34px'};
             background: #ffffff;
             border-radius: 12px;
-            border: ${isFocused ? '3.5px solid #0f172a' : isUnassigned ? '3px dashed #f59e0b' : `3px solid ${zoneColor}`};
-            box-shadow: ${isFocused ? '0 0 0 4px ' + zoneColor + '88, 0 8px 16px rgba(0,0,0,0.35)' : isUnassigned ? '0 0 0 3px #fef3c7, 0 4px 12px rgba(245,158,11,0.35)' : '0 4px 12px rgba(0,0,0,0.25)'};
+            border: ${isTargetStore ? '3.5px solid #10b981' : isFocused ? '3.5px solid #0f172a' : isUnassigned ? '3px dashed #f59e0b' : `3px solid ${zoneColor}`};
+            box-shadow: ${isTargetStore ? '0 0 0 4px #10b98188, 0 8px 16px rgba(16,185,129,0.4)' : isFocused ? '0 0 0 4px ' + zoneColor + '88, 0 8px 16px rgba(0,0,0,0.35)' : isUnassigned ? '0 0 0 3px #fef3c7, 0 4px 12px rgba(245,158,11,0.35)' : '0 4px 12px rgba(0,0,0,0.25)'};
             font-size: ${isFocused ? '18px' : '14px'};
             cursor: pointer;
             position: relative;
@@ -1129,14 +1336,14 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
               position: absolute;
               bottom: -6px;
               right: -6px;
-              background: ${isUnassigned ? '#f59e0b' : zoneColor};
+              background: ${isTargetStore ? '#10b981' : isUnassigned ? '#f59e0b' : zoneColor};
               color: #ffffff;
               font-size: 9px;
               font-weight: 900;
               border-radius: 9999px;
               padding: 1px 4px;
               border: 1.5px solid #ffffff;
-            ">${isUnassigned ? '⚠️' : (store.retailerNumber || '•')}</span>
+            ">${isTargetStore ? '🎯' : isUnassigned ? '⚠️' : (store.retailerNumber || '•')}</span>
           </div>
         `,
         iconSize: [isFocused ? 40 : 34, isFocused ? 40 : 34],
@@ -1211,7 +1418,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
       storeMarkersGroupRef.current.addLayer(marker);
     });
-  }, [masterZones, stores, filteredStores, selectedZoneFilter, parentRetailers, editingPolygonZone, focusedStoreId]);
+  }, [masterZones, stores, filteredStores, selectedZoneFilter, parentRetailers, editingPolygonZone, focusedStoreId, targetStoreForNewZone]);
 
   // ---------------------------------------------------------------------------
   // INTERACTIVE EDITABLE POLYGON & DRAGGABLE VERTEX HANDLERS ON MAP
@@ -1349,6 +1556,16 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
         {/* View Toggle Tabs & Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => handleStartDrawMasterZone(selectedCity)}
+            className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+            title="Draw a delivery zone polygon directly on the map"
+          >
+            <Compass className="w-4 h-4" />
+            <span>✏️ Draw Zone on Map</span>
+          </button>
+
           <button
             type="button"
             onClick={handleOpenAddZone}
@@ -1723,15 +1940,26 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-black text-sm text-white">
-                    Editing Polygon: {editingPolygonZone.name}
+                    {targetStoreForNewZone
+                      ? `✏️ Drawing Delivery Zone for: ${targetStoreForNewZone.name}`
+                      : editingPolygonZone.isNewZone
+                      ? `✏️ Drawing New Delivery Zone: ${editingPolygonZone.name}`
+                      : `Editing Polygon: ${editingPolygonZone.name}`}
                   </span>
+                  {targetStoreForNewZone && (
+                    <span className="text-[10px] font-black bg-amber-400 text-slate-950 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                      🏪 Target Branch ({editingPolygonZone.city || selectedCity})
+                    </span>
+                  )}
                   <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <Target className="w-3 h-3" />
                     <span>{editingPolygonPoints.length} Corners</span>
                   </span>
                 </div>
                 <p className="text-xs text-slate-300 mt-0.5">
-                  {polygonEditMode === 'drag'
+                  {targetStoreForNewZone
+                    ? `Shape polygon corners around "${targetStoreForNewZone.name}". Click "✓ Save & Assign Store" to save and assign automatically.`
+                    : polygonEditMode === 'drag'
                     ? '🖐️ Drag numbered circles to reshape polygon boundary corners.'
                     : '➕ Click anywhere on the map to add new boundary corners.'}
                 </p>
@@ -1789,7 +2017,13 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                 className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer"
               >
                 <Check className="w-4 h-4 stroke-[3]" />
-                <span>Save Polygon</span>
+                <span>
+                  {targetStoreForNewZone
+                    ? `✓ Save & Assign ${targetStoreForNewZone.name}`
+                    : editingPolygonZone.isNewZone
+                    ? '✓ Add Zone Automatically'
+                    : 'Save Polygon'}
+                </span>
               </button>
 
               <button
@@ -2879,20 +3113,38 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
                 <button
                   type="button"
-                  onClick={() => setIsAddZoneModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
+                  onClick={() => {
+                    setIsAddZoneModalOpen(false);
+                    if (targetStoreForNewZone) {
+                      handleStartDrawNewZoneForStore(targetStoreForNewZone);
+                    } else {
+                      handleStartDrawMasterZone(zoneForm.city || selectedCity);
+                    }
+                  }}
+                  className="px-3.5 py-2 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  title="Draw polygon directly on the map instead of entering coordinates"
                 >
-                  Cancel
+                  <Compass className="w-3.5 h-3.5" />
+                  <span>✏️ Draw Boundary on Map</span>
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer"
-                >
-                  Create Master Zone
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddZoneModalOpen(false)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer"
+                  >
+                    Create Master Zone
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -3435,11 +3687,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
                           <button
                             type="button"
-                            onClick={() => handleOpenAddZoneForStore(selectedStoreForAssign)}
-                            className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                            onClick={() => handleStartDrawNewZoneForStore(selectedStoreForAssign)}
+                            className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
                           >
-                            <Plus className="w-4 h-4 stroke-[3]" />
-                            <span>+ Create Delivery Zone for {targetCity} & Assign Store</span>
+                            <Compass className="w-4 h-4 stroke-[2.5]" />
+                            <span>✏️ Draw Delivery Zone for {targetCity} on Map & Assign Store</span>
                           </button>
                         </div>
                       </div>
@@ -3451,11 +3703,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                           </label>
                           <button
                             type="button"
-                            onClick={() => handleOpenAddZoneForStore(selectedStoreForAssign)}
+                            onClick={() => handleStartDrawNewZoneForStore(selectedStoreForAssign)}
                             className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer flex items-center gap-1"
                           >
-                            <Plus className="w-3 h-3" />
-                            <span>+ New Zone in {targetCity}</span>
+                            <Compass className="w-3.5 h-3.5" />
+                            <span>✏️ Draw New Zone on Map</span>
                           </button>
                         </div>
                         <select
@@ -3475,7 +3727,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                               {masterZones
                                 .filter((z) => String(z.city || 'Faisalabad').toLowerCase() !== targetCity.toLowerCase())
                                 .map((z) => (
-                                  <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
+                                   <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
                                     {z.name} ({z.city || 'Faisalabad'})
                                   </option>
                                 ))}
@@ -3524,11 +3776,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                       {availableCityZones.length === 0 ? (
                         <button
                           type="button"
-                          onClick={() => handleOpenAddZoneForStore(selectedStoreForAssign)}
-                          className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                          onClick={() => handleStartDrawNewZoneForStore(selectedStoreForAssign)}
+                          className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95"
                         >
-                          <Plus className="w-4 h-4 stroke-[3]" />
-                          <span>Create Zone for {targetCity}</span>
+                          <Compass className="w-4 h-4 stroke-[2.5]" />
+                          <span>Draw Zone for {targetCity} & Assign</span>
                         </button>
                       ) : (
                         <button

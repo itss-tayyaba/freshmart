@@ -622,13 +622,13 @@ export const loadMasterZones = () => {
           const zId = z.zoneId || z._id;
           const baseline = FOUR_MASTER_DELIVERY_ZONES.find(
             (b) => (b.zoneId || b._id) === zId
-          ) || FOUR_MASTER_DELIVERY_ZONES[0];
+          ) || {};
           return {
             ...baseline,
             ...z,
             polygon: (z.polygon && Array.isArray(z.polygon.coordinates) && z.polygon.coordinates.length >= 3)
               ? z.polygon
-              : baseline.polygon
+              : (baseline.polygon || z.polygon)
           };
         });
       }
