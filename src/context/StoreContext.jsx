@@ -3635,17 +3635,28 @@ export const StoreProvider = ({ children }) => {
 
   const [riders, setRiders] = useState(() => {
     try {
+      const deletedIds = new Set(
+        JSON.parse(localStorage.getItem('freshmart_deleted_rider_ids') || '[]').map((x) => String(x).toLowerCase().trim())
+      );
+      const isDeleted = (r) => {
+        if (!r) return true;
+        const keys = [r.id, r._id, r.riderId, r.username, r.phone].filter(Boolean).map((k) => String(k).toLowerCase().trim());
+        return keys.some((k) => deletedIds.has(k));
+      };
+
       const saved = localStorage.getItem('freshmart_riders_v3') || localStorage.getItem('freshmart_riders');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const existingKeys = new Set(parsed.map((r) => (r.username || r.phone || r.id)?.toLowerCase()));
-          const merged = [...parsed];
+          const filteredSaved = parsed.filter((r) => !isDeleted(r));
+          const existingKeys = new Set(
+            filteredSaved.flatMap((r) => [r.username, r.phone, r.id, r.riderId, r._id].filter(Boolean).map((x) => String(x).toLowerCase().trim()))
+          );
+          const merged = [...filteredSaved];
           (INITIAL_RIDERS || []).forEach((initR) => {
-            const k1 = (initR.username || '').toLowerCase();
-            const k2 = (initR.phone || '').toLowerCase();
-            const k3 = (initR.id || '').toLowerCase();
-            if (!existingKeys.has(k1) && !existingKeys.has(k2) && !existingKeys.has(k3)) {
+            if (isDeleted(initR)) return;
+            const initKeys = [initR.username, initR.phone, initR.id, initR.riderId].filter(Boolean).map((x) => String(x).toLowerCase().trim());
+            if (!initKeys.some((k) => existingKeys.has(k))) {
               merged.push(initR);
             }
           });
@@ -3658,13 +3669,26 @@ export const StoreProvider = ({ children }) => {
                 ...r,
                 tenantId: matchedInit.tenantId,
                 tenantName: matchedInit.tenantName,
-                isGlobal: false
+                branchId: r.branchId || r.storeId || matchedInit.branchId || matchedInit.storeId,
+                storeId: r.storeId || r.branchId || matchedInit.storeId || matchedInit.branchId,
+                isGlobal: Boolean(r.isGlobal ?? matchedInit.isGlobal ?? false)
               };
             }
-            return { ...r, isGlobal: false };
+            return {
+              ...r,
+              branchId: r.branchId || r.storeId,
+              storeId: r.storeId || r.branchId,
+              isGlobal: Boolean(r.isGlobal ?? false)
+            };
           });
         }
       }
+      return (INITIAL_RIDERS || []).filter((r) => !isDeleted(r)).map((r) => ({
+        ...r,
+        branchId: r.branchId || r.storeId,
+        storeId: r.storeId || r.branchId,
+        isGlobal: Boolean(r.isGlobal ?? false)
+      }));
     } catch (e) {}
     return INITIAL_RIDERS || [];
   });
@@ -4077,22 +4101,33 @@ export const StoreProvider = ({ children }) => {
   useEffect(() => {
     const syncRiders = async () => {
       try {
+        const deletedIds = new Set(
+          JSON.parse(localStorage.getItem('freshmart_deleted_rider_ids') || '[]').map((x) => String(x).toLowerCase().trim())
+        );
+        const isDeleted = (r) => {
+          if (!r) return true;
+          const keys = [r.id, r._id, r.riderId, r.username, r.phone].filter(Boolean).map((k) => String(k).toLowerCase().trim());
+          return keys.some((k) => deletedIds.has(k));
+        };
+
         const res = await apiService.getRiders();
         if (res && res.success && Array.isArray(res.riders)) {
-          const cleanRiders = res.riders.filter(
-            (r) => r && (r.id || r._id)
-          );
+          const cleanRiders = res.riders
+            .filter((r) => r && (r.id || r._id))
+            .filter((r) => !isDeleted(r));
+
           setRiders((prev) => {
             const keyMap = new Map();
-            (prev && prev.length > 0 ? prev : INITIAL_RIDERS || []).forEach((r) => {
-              const k = (r.username || r.phone || r.id || '').toLowerCase();
+            (prev && prev.length > 0 ? prev : (INITIAL_RIDERS || []).filter((r) => !isDeleted(r))).forEach((r) => {
+              if (isDeleted(r)) return;
+              const k = (r.username || r.phone || r.id || r._id || '').toLowerCase();
               if (k) keyMap.set(k, r);
             });
             cleanRiders.forEach((r) => {
-              const k = (r.username || r.phone || r.id || '').toLowerCase();
+              const k = (r.username || r.phone || r.id || r._id || '').toLowerCase();
               if (k) keyMap.set(k, { ...(keyMap.get(k) || {}), ...r });
             });
-            const merged = Array.from(keyMap.values());
+            const merged = Array.from(keyMap.values()).filter((r) => !isDeleted(r));
             try {
               localStorage.setItem('freshmart_riders_v3', JSON.stringify(merged));
               localStorage.setItem('freshmart_riders', JSON.stringify(merged));
@@ -4279,6 +4314,7 @@ export const StoreProvider = ({ children }) => {
     const tenantName = riderData.tenantName || currentTenant?.name || 'Al-Fatah';
     const regionName = riderData.region || riderData.zone || 'Samanabad';
 
+    const targetBranchId = riderData.branchId || riderData.storeId || null;
     const newRider = {
       id: newId,
       riderId: newId,
@@ -4286,7 +4322,8 @@ export const StoreProvider = ({ children }) => {
       phone: riderData.phone || 'Not set',
       vehicleType: riderData.vehicleType || '🏍️ Honda 125',
       vehicleNumber: riderData.vehicleNumber || `FSD-${Math.floor(1000 + Math.random() * 9000)}`,
-      branchId: riderData.branchId || null,
+      branchId: targetBranchId,
+      storeId: targetBranchId,
       branchName: riderData.branchName || regionName,
       city: riderData.city || currentTenant?.city || 'Faisalabad',
       region: regionName,
@@ -4308,6 +4345,16 @@ export const StoreProvider = ({ children }) => {
       joinedDate: new Date().toISOString().split('T')[0],
       isGlobal: Boolean(riderData.isGlobal ?? false)
     };
+
+    // Remove new rider keys from tombstones if previously deleted
+    try {
+      const stored = JSON.parse(localStorage.getItem('freshmart_deleted_rider_ids') || '[]');
+      const filtered = stored.filter((x) => {
+        const val = String(x).toLowerCase().trim();
+        return val !== newId.toLowerCase() && val !== newRider.username.toLowerCase();
+      });
+      localStorage.setItem('freshmart_deleted_rider_ids', JSON.stringify(filtered));
+    } catch (e) {}
 
     setRiders((prev) => {
       const updated = [newRider, ...prev];
@@ -4386,27 +4433,65 @@ export const StoreProvider = ({ children }) => {
   };
 
   const deleteRider = async (id) => {
+    if (!id) return;
+    const cleanId = String(id).trim();
+    const cleanLower = cleanId.toLowerCase();
+
+    // 1. Record permanent tombstone in localStorage
+    try {
+      const stored = JSON.parse(localStorage.getItem('freshmart_deleted_rider_ids') || '[]');
+      const set = new Set(stored.map((x) => String(x).toLowerCase().trim()));
+      set.add(cleanLower);
+      const targetRider = (riders || []).find((r) =>
+        String(r.id || '').toLowerCase() === cleanLower ||
+        String(r._id || '').toLowerCase() === cleanLower ||
+        String(r.riderId || '').toLowerCase() === cleanLower ||
+        String(r.username || '').toLowerCase() === cleanLower
+      );
+      if (targetRider) {
+        if (targetRider.id) set.add(String(targetRider.id).toLowerCase());
+        if (targetRider._id) set.add(String(targetRider._id).toLowerCase());
+        if (targetRider.riderId) set.add(String(targetRider.riderId).toLowerCase());
+        if (targetRider.username) set.add(String(targetRider.username).toLowerCase());
+        if (targetRider.phone) set.add(String(targetRider.phone).toLowerCase());
+      }
+      localStorage.setItem('freshmart_deleted_rider_ids', JSON.stringify(Array.from(set)));
+    } catch (e) {}
+
+    // 2. Remove immediately from local state
     setRiders((prev) => {
-      const updated = prev.filter((r) => r.id !== id);
+      const updated = prev.filter((r) => {
+        const rId = String(r.id || '').toLowerCase();
+        const rMongoId = String(r._id || '').toLowerCase();
+        const rRiderId = String(r.riderId || '').toLowerCase();
+        const rUsername = String(r.username || '').toLowerCase();
+        return rId !== cleanLower && rMongoId !== cleanLower && rRiderId !== cleanLower && rUsername !== cleanLower;
+      });
       try {
         localStorage.setItem('freshmart_riders', JSON.stringify(updated));
         localStorage.setItem('freshmart_riders_v3', JSON.stringify(updated));
       } catch (e) {}
       return updated;
     });
-    addToast('Rider Removed', 'Rider deleted from fleet.', 'info');
+    addToast('Rider Removed', 'Rider permanently deleted from fleet.', 'info');
+
+    // 3. Delete permanently from backend & MongoDB
     try {
-      await apiService.deleteRider(id);
+      await apiService.deleteRider(cleanId);
     } catch (e) {}
   };
 
   const clearAllRiders = async () => {
-    setRiders([]);
     try {
+      const allIds = (riders || []).flatMap((r) => [r.id, r._id, r.riderId, r.username, r.phone].filter(Boolean).map((x) => String(x).toLowerCase().trim()));
+      const stored = JSON.parse(localStorage.getItem('freshmart_deleted_rider_ids') || '[]');
+      const set = new Set([...stored.map((x) => String(x).toLowerCase().trim()), ...allIds]);
+      localStorage.setItem('freshmart_deleted_rider_ids', JSON.stringify(Array.from(set)));
       localStorage.removeItem('freshmart_riders');
       localStorage.removeItem('freshmart_riders_v2');
       localStorage.removeItem('freshmart_riders_v3');
     } catch (e) {}
+    setRiders([]);
     addToast('Fleet Cleared 🗑️', 'All couriers removed. You can now register fresh couriers.', 'info');
     try {
       await apiService.clearAllRiders();

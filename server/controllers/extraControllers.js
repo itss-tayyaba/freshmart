@@ -49,13 +49,59 @@ import path from 'node:path';
 import { INITIAL_RIDERS } from '../../src/data/tenantData.js';
 
 const RIDERS_FILE_PATH = path.resolve(process.cwd(), 'server/data/riders_db.json');
+const DELETED_RIDERS_FILE_PATH = path.resolve(process.cwd(), 'server/data/deleted_riders_db.json');
+
+export const loadDiskDeletedRiders = () => {
+  try {
+    if (fs.existsSync(DELETED_RIDERS_FILE_PATH)) {
+      const data = fs.readFileSync(DELETED_RIDERS_FILE_PATH, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+};
+
+export const saveDiskDeletedRider = (riderId) => {
+  try {
+    if (!riderId) return;
+    const list = loadDiskDeletedRiders();
+    const clean = String(riderId).trim().toLowerCase();
+    if (clean && !list.includes(clean)) {
+      list.push(clean);
+      fs.writeFileSync(DELETED_RIDERS_FILE_PATH, JSON.stringify(list, null, 2), 'utf-8');
+    }
+  } catch (e) {}
+};
+
+export const removeDiskDeletedRider = (riderId) => {
+  try {
+    if (!riderId) return;
+    const clean = String(riderId).trim().toLowerCase();
+    const list = loadDiskDeletedRiders();
+    const filtered = list.filter((x) => String(x).toLowerCase().trim() !== clean);
+    if (filtered.length !== list.length) {
+      fs.writeFileSync(DELETED_RIDERS_FILE_PATH, JSON.stringify(filtered, null, 2), 'utf-8');
+    }
+  } catch (e) {}
+};
 
 export const loadDiskRiders = () => {
   try {
     if (fs.existsSync(RIDERS_FILE_PATH)) {
       const data = fs.readFileSync(RIDERS_FILE_PATH, 'utf-8');
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        const deletedSet = new Set(loadDiskDeletedRiders().map((x) => String(x).toLowerCase().trim()));
+        return parsed.filter((r) => {
+          if (!r) return false;
+          const k1 = String(r.id || '').trim().toLowerCase();
+          const k2 = String(r.riderId || '').trim().toLowerCase();
+          const k3 = String(r.username || '').trim().toLowerCase();
+          const k4 = String(r._id || '').trim().toLowerCase();
+          return !deletedSet.has(k1) && !deletedSet.has(k2) && !deletedSet.has(k3) && !deletedSet.has(k4);
+        });
+      }
     }
   } catch (e) {}
   return [];
@@ -285,7 +331,8 @@ export const getRiders = async (req, res) => {
     const callerTenant = req.user?.role === 'superadmin'
       ? (req.query.tenantId || req.headers['x-tenant-id'])
       : req.user?.tenantId;
-    const callerBranch = req.query.branchId || (req.user?.branchId !== 'all' ? req.user?.branchId : null);
+    const callerBranch = req.query.branchId || req.query.storeId || (req.user?.branchId !== 'all' ? req.user?.branchId : null);
+    const deletedSet = new Set(loadDiskDeletedRiders().map((x) => String(x).toLowerCase().trim()));
 
     if (isDbOnline()) {
       const filter = {};
@@ -293,7 +340,7 @@ export const getRiders = async (req, res) => {
         filter.$or = [{ tenantId: callerTenant }, { isGlobal: true }, { tenantId: null }];
       }
       if (callerBranch && callerBranch !== 'all') {
-        filter.branchId = callerBranch;
+        filter.$or = [{ branchId: callerBranch }, { storeId: callerBranch }];
       }
 
       let riders = await Rider.find(filter).sort({ createdAt: -1 });
@@ -302,34 +349,47 @@ export const getRiders = async (req, res) => {
         riders = diskFallback;
       }
 
-      const mapped = (riders || []).map((r) => {
-        const lat = r.latitude ?? r.coordinates?.lat;
-        const lng = r.longitude ?? r.coordinates?.lng;
-        return {
-          id: r.id || r._id?.toString(),
-          name: r.name,
-          phone: r.phone,
-          vehicleType: r.vehicleType,
-          vehicleNumber: r.vehicleNumber,
-          zone: r.zone || r.region,
-          region: r.region || r.zone,
-          city: r.city || 'Faisalabad',
-          serviceArea: r.serviceArea || r.region || r.zone || '',
-          address: r.address || '',
-          latitude: lat,
-          longitude: lng,
-          coordinates: r.coordinates || ((lat && lng) ? { lat, lng } : undefined),
-          coverageRadiusKm: r.coverageRadiusKm || 15,
-          status: r.status || 'Active',
-          username: r.username,
-          deliveriesCount: r.deliveriesCount || 0,
-          rating: r.rating || 5.0,
-          tenantId: r.tenantId,
-          branchId: r.branchId,
-          branchName: r.branchName,
-          isGlobal: Boolean(r.isGlobal ?? true)
-        };
-      });
+      const mapped = (riders || [])
+        .filter((r) => {
+          if (!r) return false;
+          const k1 = String(r.id || '').trim().toLowerCase();
+          const k2 = String(r.riderId || '').trim().toLowerCase();
+          const k3 = String(r.username || '').trim().toLowerCase();
+          const k4 = String(r._id || '').trim().toLowerCase();
+          return !deletedSet.has(k1) && !deletedSet.has(k2) && !deletedSet.has(k3) && !deletedSet.has(k4);
+        })
+        .map((r) => {
+          const lat = r.latitude ?? r.coordinates?.lat;
+          const lng = r.longitude ?? r.coordinates?.lng;
+          const bId = r.branchId || r.storeId || 'branch_af_fsd';
+          return {
+            id: r.id || r._id?.toString(),
+            riderId: r.riderId || r.id || r._id?.toString(),
+            name: r.name,
+            phone: r.phone,
+            vehicleType: r.vehicleType,
+            vehicleNumber: r.vehicleNumber,
+            zone: r.zone || r.region,
+            region: r.region || r.zone,
+            city: r.city || 'Faisalabad',
+            serviceArea: r.serviceArea || r.region || r.zone || '',
+            address: r.address || '',
+            latitude: lat,
+            longitude: lng,
+            coordinates: r.coordinates || ((lat && lng) ? { lat, lng } : undefined),
+            coverageRadiusKm: r.coverageRadiusKm || 15,
+            status: r.status || 'Active',
+            username: r.username,
+            deliveriesCount: r.deliveriesCount || 0,
+            rating: r.rating || 5.0,
+            tenantId: r.tenantId,
+            tenantName: r.tenantName,
+            branchId: bId,
+            storeId: bId,
+            branchName: r.branchName,
+            isGlobal: Boolean(r.isGlobal ?? false)
+          };
+        });
       return res.json({ success: true, riders: mapped });
     }
 
@@ -338,9 +398,20 @@ export const getRiders = async (req, res) => {
       list = list.filter((r) => r.isGlobal || !r.tenantId || isSameTenant(r.tenantId, callerTenant));
     }
     if (callerBranch && callerBranch !== 'all') {
-      list = list.filter((r) => !r.branchId || r.branchId === callerBranch);
+      list = list.filter((r) => !r.branchId || r.branchId === callerBranch || r.storeId === callerBranch);
     }
-    res.json({ success: true, riders: list });
+    const cleanList = list.filter((r) => {
+      const k1 = String(r.id || '').trim().toLowerCase();
+      const k2 = String(r.riderId || '').trim().toLowerCase();
+      const k3 = String(r.username || '').trim().toLowerCase();
+      const k4 = String(r._id || '').trim().toLowerCase();
+      return !deletedSet.has(k1) && !deletedSet.has(k2) && !deletedSet.has(k3) && !deletedSet.has(k4);
+    }).map((r) => ({
+      ...r,
+      storeId: r.storeId || r.branchId,
+      branchId: r.branchId || r.storeId
+    }));
+    res.json({ success: true, riders: cleanList });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message, riders: [] });
   }
@@ -435,10 +506,17 @@ export const addRider = async (req, res) => {
       deliveriesCount: 0,
       rating: 5.0,
       tenantId,
+      tenantName: req.body.tenantName || 'Supermarket',
       branchId,
+      storeId: branchId,
       branchName,
       isGlobal: Boolean(isGlobal ?? false)
     };
+
+    // Remove from deleted tombstones if being added
+    removeDiskDeletedRider(riderId);
+    if (newRider.username) removeDiskDeletedRider(newRider.username);
+    if (newRider.phone) removeDiskDeletedRider(newRider.phone);
 
     // Save to Disk Database
     const diskRiders = loadDiskRiders();
@@ -478,9 +556,14 @@ export const updateRider = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body || {};
+    const cleanId = String(id || '').trim().toLowerCase();
+
+    removeDiskDeletedRider(id);
+    if (cleanId) removeDiskDeletedRider(cleanId);
+    if (updates.username) removeDiskDeletedRider(updates.username);
+    if (updates.phone) removeDiskDeletedRider(updates.phone);
 
     const diskRiders = loadDiskRiders();
-    const cleanId = String(id || '').trim().toLowerCase();
     const idx = diskRiders.findIndex(
       (r) =>
         String(r.id || '').trim().toLowerCase() === cleanId ||
@@ -550,13 +633,51 @@ export const updateRider = async (req, res) => {
 export const deleteRider = async (req, res) => {
   try {
     const { id } = req.params;
-    if (isDbOnline()) {
-      await Rider.deleteOne({ $or: [{ id }, { _id: id }] });
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Rider ID is required' });
     }
-    const diskRiders = loadDiskRiders().filter((r) => r.id !== id && r._id !== id);
+    const cleanId = String(id).trim();
+    const cleanIdLower = cleanId.toLowerCase();
+
+    // 1. Delete from MongoDB safely avoiding CastError on _id
+    if (isDbOnline()) {
+      try {
+        const orConditions = [
+          { id: cleanId },
+          { id: cleanId.toUpperCase() },
+          { id: cleanIdLower },
+          { riderId: cleanId },
+          { riderId: cleanId.toUpperCase() },
+          { username: cleanIdLower }
+        ];
+        if (mongoose.Types.ObjectId.isValid(cleanId)) {
+          orConditions.push({ _id: cleanId });
+        }
+        await Rider.deleteMany({ $or: orConditions });
+        await User.deleteMany({
+          $or: [
+            { role: 'rider', username: cleanIdLower },
+            ...(mongoose.Types.ObjectId.isValid(cleanId) ? [{ _id: cleanId }] : [])
+          ]
+        });
+      } catch (dbErr) {
+        console.warn('MongoDB rider delete error:', dbErr.message);
+      }
+    }
+
+    // 2. Delete from server/data/riders_db.json
+    const diskRiders = loadDiskRiders().filter((r) => {
+      const rId = String(r.id || r.riderId || r._id || '').trim().toLowerCase();
+      const rUser = String(r.username || '').trim().toLowerCase();
+      return rId !== cleanIdLower && rUser !== cleanIdLower;
+    });
     saveAllDiskRiders(diskRiders);
-    memoryRiders = memoryRiders.filter((r) => r.id !== id && r._id !== id);
-    res.json({ success: true, message: 'Rider removed' });
+    memoryRiders = diskRiders;
+
+    // 3. Save to deleted riders tombstone file
+    saveDiskDeletedRider(cleanIdLower);
+
+    res.json({ success: true, message: 'Rider permanently removed', deletedId: cleanId });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -564,8 +685,21 @@ export const deleteRider = async (req, res) => {
 
 export const clearAllRiders = async (req, res) => {
   try {
+    const existing = loadDiskRiders();
+    existing.forEach((r) => {
+      const k1 = r.id || r.riderId || r._id;
+      const k2 = r.username;
+      if (k1) saveDiskDeletedRider(k1);
+      if (k2) saveDiskDeletedRider(k2);
+    });
+
     if (isDbOnline()) {
-      await Rider.deleteMany({});
+      try {
+        await Rider.deleteMany({});
+        await User.deleteMany({ role: 'rider' });
+      } catch (dbErr) {
+        console.warn('MongoDB clear riders error:', dbErr.message);
+      }
     }
     saveAllDiskRiders([]);
     memoryRiders = [];

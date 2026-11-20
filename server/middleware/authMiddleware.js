@@ -358,7 +358,7 @@ export const protectVendor = (req, res, next) => {
 
 export const branchAdminOnly = (req, res, next) => {
   if (req.user?.role === 'superadmin' || req.user?.isSuperAdmin) return next();
-  if (req.user?.role === 'admin' && req.user.branchId) return next();
+  if (req.user?.role === 'admin' && (req.user.branchId || req.user.tenantId || req.user.id)) return next();
   return res.status(403).json({ success: false, message: 'A branch-assigned admin account is required' });
 };
 

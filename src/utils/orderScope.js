@@ -419,6 +419,17 @@ export const canAssignRiderToOrder = (arg1, arg2) => {
     };
   }
 
+  // 1b. Strict Physical Branch Isolation:
+  // Each physical branch (People's Colony, Madina Town, Canal Road, etc.) operates its own independent riders fleet.
+  const orderBranch = order.branchId || order.storeId;
+  const riderBranch = rider.branchId || rider.storeId;
+  if (orderBranch && riderBranch && !rider.isGlobal && String(orderBranch).trim().toLowerCase() !== String(riderBranch).trim().toLowerCase()) {
+    return {
+      allowed: false,
+      reason: `Rider ${rider.name || rider.username || ''} is assigned to [${rider.branchName || riderBranch}] and cannot deliver orders for [${order.branchName || orderBranch}]. Each physical branch operates its own independent riders fleet.`
+    };
+  }
+
   // 2. Resolve geographic area / city for order and rider (cross-city sanity check only)
   const getArea = (entity = {}) => {
     const s = [
@@ -498,7 +509,17 @@ export const canAssignStaffToOrder = (order, staff) => {
     };
   }
 
-  // NOTE: Pickup staff serve the entire supermarket chain, NOT partitioned by branch.
+  // Strict Physical Branch Isolation:
+  // Each physical store operates its own dedicated pickup staff / packing desk.
+  const orderBranch = order.branchId || order.storeId;
+  const staffBranch = staff.branchId || staff.storeId;
+  if (orderBranch && staffBranch && !staff.isGlobal && String(orderBranch).trim().toLowerCase() !== String(staffBranch).trim().toLowerCase()) {
+    return {
+      allowed: false,
+      reason: `Pickup staff ${staff.name || staff.username} is assigned to [${staff.branchName || staffBranch}] and cannot prepare orders for [${order.branchName || orderBranch}]. Each physical store operates its own dedicated pickup staff.`
+    };
+  }
+
   return { allowed: true };
 };
 

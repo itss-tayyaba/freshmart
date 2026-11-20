@@ -375,18 +375,34 @@ export const DeliveryView = () => {
   const [simulatedRiderId, setSimulatedRiderId] = useState(riders[0]?.id || '');
   const [dutyFilter, setDutyFilter] = useState('All'); // 'All' | 'On-Duty' | 'Off-Duty'
 
-  // Filter riders - strictly scoped to store tenant or all active registered riders
+  // Filter riders - strictly scoped to store tenant and physical branch (Level 2 partition)
   const storeRiders = useMemo(() => {
     const tId = (user?.role !== 'superadmin' && user?.tenantId)
       ? user.tenantId
       : (currentTenant?.id || user?.tenantId);
+    const activeBranchId = (user?.role !== 'superadmin' && user?.branchId && user?.branchId !== 'all')
+      ? user.branchId
+      : (user?.storeId && user?.storeId !== 'all' ? user.storeId : null);
+
     const allRidersList = Array.isArray(riders) ? riders : [];
-    if (!tId || adminRole === 'superadmin') return allRidersList;
-    const tenantMatched = allRidersList.filter(
-      (r) => isSameTenant(r.tenantId, tId)
-    );
-    return tenantMatched;
-  }, [riders, currentTenant?.id, user?.tenantId, adminRole]);
+    if (!tId && !activeBranchId && adminRole === 'superadmin') return allRidersList;
+
+    return allRidersList.filter((r) => {
+      // 1. Tenant match (Level 1)
+      if (tId && adminRole !== 'superadmin' && !isSameTenant(r.tenantId, tId)) {
+        return false;
+      }
+      // 2. Branch match (Level 2: physical branch isolation)
+      // When logged in as branch admin or viewing a specific branch, only show riders assigned to this physical branch or global couriers
+      if (activeBranchId) {
+        const rBranch = r.branchId || r.storeId;
+        const matchesBranch = rBranch === activeBranchId;
+        const isGlobal = Boolean(r.isGlobal);
+        return matchesBranch || isGlobal;
+      }
+      return true;
+    });
+  }, [riders, currentTenant?.id, user?.tenantId, user?.branchId, user?.storeId, adminRole]);
 
   // Filter riders based on search, branch/zone, and duty status
   const filteredRiders = storeRiders.filter((r) => {
@@ -679,12 +695,14 @@ export const DeliveryView = () => {
       ? user.tenantName
       : (currentTenant?.name || selectedBranch?.tenantName || 'Chase Value');
 
+    const targetBranchId = isCustomRegion ? 'custom' : (selectedBranch?.id || selectedBranch?._id || '');
     addRider({
       name: newRiderForm.name.trim(),
       phone: newRiderForm.phone.trim(),
       vehicleType: newRiderForm.vehicleType || '🏍️ Honda 125',
       vehicleNumber: generatedPlate,
-      branchId: isCustomRegion ? 'custom' : (selectedBranch?.id || selectedBranch?._id || ''),
+      branchId: targetBranchId,
+      storeId: targetBranchId,
       branchName: finalBranchName,
       city: riderCity,
       serviceArea: riderArea,
@@ -1776,7 +1794,7 @@ export const DeliveryView = () => {
                                   type="button"
                                   onClick={() => {
                                     if (window.confirm(`Delete rider "${rider.name}" from fleet?`)) {
-                                      deleteRider(rider.id);
+                                      deleteRider(rider.id || rider.riderId || rider._id);
                                     }
                                   }}
                                   className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-600 border border-slate-300 hover:border-rose-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
