@@ -21,7 +21,10 @@ import {
   X,
   ExternalLink,
   Check,
-  Layers
+  Layers,
+  ShieldCheck,
+  Compass,
+  Shield
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { apiService } from '../../../services/api';
@@ -72,26 +75,6 @@ export const StoreManagementView = () => {
   const formRef = useRef(null);
 
   const [zones, setZones] = useState([]);
-
-  // Local storage helpers for store resilience
-  const loadLocalCustomStores = () => {
-    try {
-      const raw = localStorage.getItem('freshmart_custom_stores');
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  };
-
-  const saveLocalCustomStore = (newStore) => {
-    try {
-      const existing = loadLocalCustomStores().filter(
-        (s) => (s.storeId || s._id) !== (newStore.storeId || newStore._id)
-      );
-      const updated = [newStore, ...existing];
-      localStorage.setItem('freshmart_custom_stores', JSON.stringify(updated));
-    } catch {}
-  };
 
   // Form State
   const [formData, setFormData] = useState({
@@ -208,7 +191,21 @@ export const StoreManagementView = () => {
 
   useEffect(() => {
     fetchStoresList();
-  }, []);
+
+    const handleStoresSync = () => {
+      setStores(getAllUnifiedStores([], allBranches));
+    };
+
+    window.addEventListener('freshmart_store_deleted', handleStoresSync);
+    window.addEventListener('freshmart_stores_updated', handleStoresSync);
+    window.addEventListener('freshmart_branches_updated', handleStoresSync);
+
+    return () => {
+      window.removeEventListener('freshmart_store_deleted', handleStoresSync);
+      window.removeEventListener('freshmart_stores_updated', handleStoresSync);
+      window.removeEventListener('freshmart_branches_updated', handleStoresSync);
+    };
+  }, [allBranches]);
 
   // Filtered stores
   const filteredStores = useMemo(() => {
@@ -670,33 +667,61 @@ export const StoreManagementView = () => {
 
   const handleDeleteStore = async () => {
     if (!storeToDelete) return;
-    const id = storeToDelete.storeId || storeToDelete._id;
-    try {
-      markStoreDeleted(id);
-      removeLocalCustomStore(id);
-      deleteRetailerStore(id);
+    const ids = [
+      storeToDelete.storeId,
+      storeToDelete._id,
+      storeToDelete.branchId,
+      storeToDelete.id,
+      storeToDelete.storeCode,
+      storeToDelete.code
+    ].filter(Boolean);
+    const primaryId = storeToDelete.storeId || storeToDelete._id || ids[0];
 
+    try {
+      // 1. Permanently blacklist across local caches & storage
+      markStoreDeleted(primaryId, ids);
+      deleteRetailerStore(primaryId);
+
+      // 2. Call backend permanent delete endpoints
       try {
-        await apiService.deleteStore(id);
+        await apiService.deleteStore(primaryId);
       } catch (apiErr) {
         console.warn('Backend deleteStore fallback:', apiErr.message);
       }
+      try {
+        await apiService.deleteBranch(primaryId);
+      } catch (brErr) {}
 
-      setStores((prev) => prev.filter((s) => s.storeId !== id && s._id !== id));
+      // 3. Match and filter locally
+      const idMatch = (s) => {
+        const sIds = [s.storeId, s._id, s.branchId, s.id, s.storeCode, s.code]
+          .filter(Boolean)
+          .map((x) => String(x).toLowerCase().trim());
+        return ids.some((delId) => sIds.includes(String(delId).toLowerCase().trim()));
+      };
+
+      setStores((prev) => prev.filter((s) => !idMatch(s)));
       if (setAllBranches) {
-        setAllBranches((prev) => prev.filter((b) => (b.id || b._id) !== id && (b.storeId) !== id));
+        setAllBranches((prev) => prev.filter((b) => !idMatch(b)));
       }
       setStoreToDelete(null);
-      if (addToast) addToast('Store Permanently Deleted 🗑️', `Branch "${storeToDelete.name}" was removed.`, 'success');
+      if (isViewModalOpen) setIsViewModalOpen(false);
+
+      // 4. Dispatch global events
+      window.dispatchEvent(new CustomEvent('freshmart_store_deleted', { detail: { storeId: primaryId, allDeletedIds: ids } }));
+      window.dispatchEvent(new CustomEvent('freshmart_stores_updated', { detail: { storeId: primaryId, deleted: true } }));
+      window.dispatchEvent(new CustomEvent('freshmart_branches_updated'));
+
+      if (addToast) addToast('Store Permanently Deleted 🗑️', `Branch "${storeToDelete.name}" was permanently removed from database and dashboard.`, 'success');
     } catch (e) {
-      markStoreDeleted(id);
-      removeLocalCustomStore(id);
-      deleteRetailerStore(id);
-      setStores((prev) => prev.filter((s) => s.storeId !== id && s._id !== id));
+      markStoreDeleted(primaryId, ids);
+      deleteRetailerStore(primaryId);
+      setStores((prev) => prev.filter((s) => s.storeId !== primaryId && s._id !== primaryId));
       if (setAllBranches) {
-        setAllBranches((prev) => prev.filter((b) => (b.id || b._id) !== id && (b.storeId) !== id));
+        setAllBranches((prev) => prev.filter((b) => (b.id || b._id) !== primaryId && b.storeId !== primaryId));
       }
       setStoreToDelete(null);
+      if (isViewModalOpen) setIsViewModalOpen(false);
       if (addToast) addToast('Store Removed 🗑️', `Branch "${storeToDelete.name}" removed.`, 'info');
     }
   };
@@ -1485,6 +1510,368 @@ export const StoreManagementView = () => {
           </div>
         </div>
       )}
+
+      {/* Store / Branch Specification & Details View Modal (Eye Icon) */}
+      {isViewModalOpen && selectedStore && (() => {
+        const sId = selectedStore.storeCode || selectedStore.code || selectedStore.storeId || selectedStore._id;
+        const retailer = CORE_RETAILERS.find(
+          (r) =>
+            String(selectedStore.tenantId || '').toLowerCase().includes(r.id.replace('tenant-', '')) ||
+            String(selectedStore.tenantName || '').toLowerCase().includes(r.name.toLowerCase()) ||
+            String(selectedStore.name || '').toLowerCase().includes(r.name.toLowerCase())
+        ) || CORE_RETAILERS[0];
+
+        const matchedAdmin = [...(storeAdmins || []), ...backendAdmins].find((a) =>
+          (a.branchId && (a.branchId === sId || a.branchId === selectedStore._id || a.branchId === selectedStore.storeId)) ||
+          (a.branchName && (a.branchName.toLowerCase() === (selectedStore.branchName || selectedStore.name || '').toLowerCase()))
+        );
+
+        const matchedZone = getZoneContainingPoint(selectedStore.latitude, selectedStore.longitude) ||
+          zones.find((z) => z.id === selectedStore.assignedZoneId || z.zoneId === selectedStore.assignedZoneId || z._id === selectedStore.assignedZoneId);
+
+        const isActive = selectedStore.isActive !== false && String(selectedStore.status).toLowerCase() === 'active';
+        const latVal = Number(selectedStore.latitude || 31.4125);
+        const lngVal = Number(selectedStore.longitude || 73.0995);
+        const domain = retailer.domain || 'supermarket.pk';
+        const cleanSlug = String(sId).replace(/^(branch_|STR-)/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        const defaultEmail = `admin.${cleanSlug}@${domain}`;
+        const adminEmail = matchedAdmin?.email || matchedAdmin?.username || selectedStore.managerEmail || defaultEmail;
+        const adminName = matchedAdmin?.name || `${selectedStore.branchName || selectedStore.name} Admin`;
+        const adminPhone = matchedAdmin?.phone || selectedStore.contactNumber || selectedStore.phone || '+92 41 8541122';
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-3xl w-full my-8 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="p-6 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white relative">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shadow-inner">
+                      <Building2 className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500 text-slate-950">
+                          Child Store • Branch Level 2
+                        </span>
+                        <span className="text-slate-400 text-xs font-mono">
+                          ID: {sId}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-black text-white mt-1">
+                        {selectedStore.name || selectedStore.storeName}
+                      </h3>
+                      <p className="text-xs text-slate-300">
+                        Physical supermarket branch operational profile, GPS pin, zone mapping & dedicated admin.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsViewModalOpen(false)}
+                    className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Body Content */}
+              <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+                {/* 1. ARCHITECTURE & HIERARCHY BANNER */}
+                <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      Two-Level Platform Hierarchy Classification
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-600 text-white">
+                      Verified Child Branch
+                    </span>
+                  </div>
+                  
+                  {/* Visual tree: Parent Retailer -> Child Branch */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                    <div className="p-3 bg-white rounded-xl border border-emerald-200 shadow-2xs">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        Level 1: Master Retailer Chain
+                      </div>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-xl">{retailer.logo}</span>
+                        <div>
+                          <div className="font-bold text-slate-900 text-xs">{retailer.name}</div>
+                          <div className="text-[10px] font-mono text-slate-500">
+                            Retailer Code: {selectedStore.tenantId || retailer.id}
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+                        Parent entity holding company contracts, catalog pricing, and brand credentials.
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-emerald-100/60 rounded-xl border border-emerald-300 shadow-2xs">
+                      <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
+                        Level 2: Child Store / Physical Branch
+                      </div>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-xl">🏢</span>
+                        <div>
+                          <div className="font-bold text-emerald-950 text-xs">
+                            {selectedStore.branchName || selectedStore.name}
+                          </div>
+                          <div className="text-[10px] font-mono text-emerald-800">
+                            Store Code: {sId}
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-emerald-800 mt-2 leading-relaxed">
+                        Physical store unit with independent map coordinates, delivery dispatch, and order fulfillment.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. OPERATIONAL STATUS & ATTRIBUTES */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Operating Status
+                    </span>
+                    <div className="flex items-center gap-1.5 mt-1 font-bold text-xs text-slate-800">
+                      <span className={`w-2 h-2 rounded-full ${
+                        selectedStore.operatingStatus === 'Open' ? 'bg-emerald-500 animate-pulse' :
+                        selectedStore.operatingStatus === 'Busy' ? 'bg-amber-500' : 'bg-slate-400'
+                      }`} />
+                      <span>{selectedStore.operatingStatus || 'Open'}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Storefront Active
+                    </span>
+                    <div className="flex items-center gap-1.5 mt-1 font-bold text-xs text-slate-800">
+                      {isActive ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-emerald-700">Active</span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-3.5 h-3.5 text-rose-500" />
+                          <span className="text-rose-600">Inactive</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Operating Hours
+                    </span>
+                    <div className="flex items-center gap-1 mt-1 font-bold text-xs text-slate-800">
+                      <Clock className="w-3.5 h-3.5 text-slate-500" />
+                      <span>{selectedStore.openingHours || '08:00 AM'} - {selectedStore.closingHours || '11:00 PM'}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Express SLA
+                    </span>
+                    <div className="flex items-center gap-1 mt-1 font-bold text-xs text-slate-800">
+                      <span>🛵 30 – 45 Min SLA</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. PHYSICAL ADDRESS & GEOGRAPHICAL GPS COORDINATES */}
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <MapPin className="w-4 h-4 text-emerald-600" />
+                      Physical Address & Precise GPS Map Location
+                    </span>
+                    <a
+                      href={`https://www.google.com/maps?q=${latVal},${lngVal}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 hover:underline cursor-pointer"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Open in Google Maps
+                    </a>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <div className="sm:col-span-2 p-3 bg-white rounded-xl border border-slate-200">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        Street Address & Hub
+                      </div>
+                      <p className="text-xs font-semibold text-slate-900 mt-1">
+                        {selectedStore.address || 'Main Commercial Avenue, Faisalabad, Pakistan'}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2 text-[10px] text-slate-500">
+                        <span className="px-2 py-0.5 bg-slate-100 rounded-md font-bold text-slate-700">
+                          {selectedStore.city || 'Faisalabad'}
+                        </span>
+                        <span>• Registered Commercial Outpost</span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-slate-200">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        GPS Coordinates
+                      </div>
+                      <div className="mt-1 font-mono text-xs font-bold text-slate-800 space-y-0.5">
+                        <div>Lat: {latVal.toFixed(6)}</div>
+                        <div>Lng: {lngVal.toFixed(6)}</div>
+                      </div>
+                      <div className="mt-2 text-[10px] font-semibold text-emerald-700">
+                        📍 Pin Verified on Master Grid
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. RETAILER DELIVERY ZONE ASSOCIATION */}
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <Compass className="w-4 h-4 text-teal-600" />
+                      Delivery Polygon & Territory Association
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      Module 1 GIS Association
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 bg-white rounded-xl border border-slate-200">
+                    {matchedZone ? (
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-md text-[10px] font-bold">
+                              Assigned Polygon: {matchedZone.code || matchedZone.id}
+                            </span>
+                            <span className="text-xs font-bold text-slate-900">
+                              {matchedZone.name}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                            Customer orders placed by shoppers located within this irregular polygon boundary will be routed to this store branch.
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-xl">📍</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <span className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-300 rounded-md text-[10px] font-bold">
+                            Standalone Branch (5 km Default Radius)
+                          </span>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            This branch operates with a standard {selectedStore.deliveryRadiusKm || 5} km radius. You can associate it with a master polygon on the Retailer Delivery Zones page anytime.
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-amber-500 font-bold text-xs">
+                          {selectedStore.deliveryRadiusKm || 5} km Radius
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 5. DEDICATED STORE ADMIN CREDENTIALS */}
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <Shield className="w-4 h-4 text-amber-600" />
+                      Dedicated Branch Admin Account
+                    </span>
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                      🔒 Isolated Branch Access
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-3 bg-white rounded-xl border border-slate-200">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Admin Officer
+                      </span>
+                      <div className="font-bold text-xs text-slate-900 mt-1">
+                        {adminName}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                        Role: Dedicated Mart Admin
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-slate-200">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Login Username / Email
+                      </span>
+                      <div className="font-bold text-xs text-slate-900 mt-1 font-mono truncate" title={adminEmail}>
+                        {adminEmail}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        Domain: {domain}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-slate-200">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Direct Phone Contact
+                      </span>
+                      <div className="font-bold text-xs text-slate-900 mt-1 font-mono">
+                        {adminPhone}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        Branch Operations Line
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsViewModalOpen(false)}
+                  className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition cursor-pointer"
+                >
+                  Close
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsViewModalOpen(false);
+                      setStoreToDelete(selectedStore);
+                    }}
+                    className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Branch</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsViewModalOpen(false);
+                      handleOpenEdit(selectedStore);
+                    }}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-950/10"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>Edit Branch</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

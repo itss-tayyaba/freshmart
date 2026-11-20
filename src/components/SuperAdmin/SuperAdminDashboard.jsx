@@ -1336,7 +1336,7 @@ export const SuperAdminDashboard = () => {
                 <Compass className="w-4 h-4 text-emerald-400" />
                 <div className="text-left flex-1 min-w-0">
                   <div className="text-xs font-bold truncate">Retailer Delivery Zones</div>
-                  <div className="text-[10px] opacity-70 truncate">4 Master Zones • 12 Physical Stores</div>
+                  <div className="text-[10px] opacity-70 truncate">{gisStats.totalZones} Master Zones • {gisStats.totalStores} Physical Stores</div>
                 </div>
                 <span className="ml-auto text-[9px] bg-emerald-950/60 text-emerald-300 border border-emerald-700/50 px-1.5 py-0.5 rounded font-bold">
                   4 Zones
@@ -1615,7 +1615,7 @@ export const SuperAdminDashboard = () => {
                     </div>
                   </div>
                   <div className={`mt-3 flex items-center justify-between text-[11px] font-semibold ${gisStats.unassignedStores === 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
-                    <span>{gisStats.unassignedStores === 0 ? 'All 12 Stores Linked' : 'Requires Zone Link'}</span>
+                    <span>{gisStats.unassignedStores === 0 ? `All ${gisStats.totalStores} Stores Linked` : 'Requires Zone Link'}</span>
                     <span>{gisStats.unassignedStores === 0 ? '✓ 100%' : '→'}</span>
                   </div>
                 </div>

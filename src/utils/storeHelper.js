@@ -146,12 +146,22 @@ export const getDeletedStoreIds = () => {
   try {
     const raw = localStorage.getItem('freshmart_deleted_store_ids');
     const base = raw ? JSON.parse(raw) : [];
-    const expanded = new Set(Array.isArray(base) ? base : []);
-    base.forEach((id) => {
-      if (LEGACY_STORE_ID_MAP && LEGACY_STORE_ID_MAP[id]) expanded.add(LEGACY_STORE_ID_MAP[id]);
+    const expanded = new Set();
+    (Array.isArray(base) ? base : []).forEach((id) => {
+      if (!id) return;
+      const strId = String(id).trim();
+      expanded.add(strId);
+      expanded.add(strId.toLowerCase());
+      if (LEGACY_STORE_ID_MAP && LEGACY_STORE_ID_MAP[strId]) {
+        expanded.add(LEGACY_STORE_ID_MAP[strId]);
+        expanded.add(LEGACY_STORE_ID_MAP[strId].toLowerCase());
+      }
       if (LEGACY_STORE_ID_MAP) {
         for (const [legacyId, canonId] of Object.entries(LEGACY_STORE_ID_MAP)) {
-          if (canonId === id) expanded.add(legacyId);
+          if (canonId === strId) {
+            expanded.add(legacyId);
+            expanded.add(legacyId.toLowerCase());
+          }
         }
       }
     });
@@ -161,54 +171,141 @@ export const getDeletedStoreIds = () => {
   }
 };
 
-export const markStoreDeleted = (rawId) => {
+export const markStoreDeleted = (rawId, extraIds = []) => {
   try {
-    const id = String(rawId || '').trim();
-    if (!id) return;
+    const rawList = [rawId, ...(Array.isArray(extraIds) ? extraIds : [extraIds])].filter(Boolean);
+    if (rawList.length === 0) return;
+
     const current = getDeletedStoreIds();
-    const toAdd = new Set([id]);
-    if (LEGACY_STORE_ID_MAP && LEGACY_STORE_ID_MAP[id]) toAdd.add(LEGACY_STORE_ID_MAP[id]);
-    if (LEGACY_STORE_ID_MAP) {
-      for (const [legacyId, canonId] of Object.entries(LEGACY_STORE_ID_MAP)) {
-        if (canonId === id) toAdd.add(legacyId);
+    const toAdd = new Set(current);
+
+    rawList.forEach((item) => {
+      const id = typeof item === 'object'
+        ? (item.storeId || item._id || item.branchId || item.id || item.storeCode || item.code)
+        : item;
+      if (!id) return;
+      const strId = String(id).trim();
+      toAdd.add(strId);
+      toAdd.add(strId.toLowerCase());
+      toAdd.add(strId.toUpperCase());
+      if (LEGACY_STORE_ID_MAP && LEGACY_STORE_ID_MAP[strId]) {
+        toAdd.add(LEGACY_STORE_ID_MAP[strId]);
+        toAdd.add(LEGACY_STORE_ID_MAP[strId].toLowerCase());
       }
-    }
-    const updated = Array.from(new Set([...current, ...toAdd]));
+      if (LEGACY_STORE_ID_MAP) {
+        for (const [legacyId, canonId] of Object.entries(LEGACY_STORE_ID_MAP)) {
+          if (canonId === strId) {
+            toAdd.add(legacyId);
+            toAdd.add(legacyId.toLowerCase());
+          }
+        }
+      }
+    });
+
+    const updated = Array.from(toAdd);
     localStorage.setItem('freshmart_deleted_store_ids', JSON.stringify(updated));
 
-    // Also clean up associated Mart Admin from local storage
+    const checkMatch = (s) => {
+      if (!s) return false;
+      const ids = [s.storeId, s._id, s.branchId, s.id, s.storeCode, s.code]
+        .filter(Boolean)
+        .map((x) => String(x).toLowerCase().trim());
+      return ids.some((cid) => toAdd.has(cid));
+    };
+
+    // Clean freshmart_custom_stores
+    try {
+      const custom = localStorage.getItem('freshmart_custom_stores');
+      if (custom) {
+        const parsed = JSON.parse(custom);
+        if (Array.isArray(parsed)) {
+          localStorage.setItem('freshmart_custom_stores', JSON.stringify(parsed.filter((s) => !checkMatch(s))));
+        }
+      }
+    } catch {}
+
+    // Clean freshmart_retailer_stores
+    try {
+      const ret = localStorage.getItem('freshmart_retailer_stores');
+      if (ret) {
+        const parsed = JSON.parse(ret);
+        if (Array.isArray(parsed)) {
+          localStorage.setItem('freshmart_retailer_stores', JSON.stringify(parsed.filter((s) => !checkMatch(s))));
+        }
+      }
+    } catch {}
+
+    // Clean freshmart_branches
+    try {
+      const br = localStorage.getItem('freshmart_branches');
+      if (br) {
+        const parsed = JSON.parse(br);
+        if (Array.isArray(parsed)) {
+          localStorage.setItem('freshmart_branches', JSON.stringify(parsed.filter((s) => !checkMatch(s))));
+        }
+      }
+    } catch {}
+
+    // Clean freshmart_stores
+    try {
+      const st = localStorage.getItem('freshmart_stores');
+      if (st) {
+        const parsed = JSON.parse(st);
+        if (Array.isArray(parsed)) {
+          localStorage.setItem('freshmart_stores', JSON.stringify(parsed.filter((s) => !checkMatch(s))));
+        }
+      }
+    } catch {}
+
+    // Clean freshmart_store_admins
     try {
       const savedAdmins = localStorage.getItem('freshmart_store_admins');
       if (savedAdmins) {
         const parsed = JSON.parse(savedAdmins);
         if (Array.isArray(parsed)) {
           const filtered = parsed.filter(
-            (sa) => !toAdd.has(sa.branchId) && !toAdd.has(sa.storeId)
+            (sa) => {
+              const ids = [sa.branchId, sa.storeId, sa.id, sa._id]
+                .filter(Boolean)
+                .map((x) => String(x).toLowerCase().trim());
+              return !ids.some((cid) => toAdd.has(cid));
+            }
           );
           localStorage.setItem('freshmart_store_admins', JSON.stringify(filtered));
         }
       }
     } catch {}
 
+    // Clean freshmart_assignments
+    try {
+      const asg = localStorage.getItem('freshmart_assignments');
+      if (asg) {
+        const parsed = JSON.parse(asg);
+        if (Array.isArray(parsed)) {
+          localStorage.setItem(
+            'freshmart_assignments',
+            JSON.stringify(
+              parsed.filter((a) => {
+                const sid = String(a.storeId || '').toLowerCase().trim();
+                return !toAdd.has(sid);
+              })
+            )
+          );
+        }
+      }
+    } catch {}
+
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('freshmart_store_deleted', { detail: { storeId: id, allDeletedIds: updated } }));
-      window.dispatchEvent(new CustomEvent('freshmart_stores_updated', { detail: { storeId: id, deleted: true } }));
+      window.dispatchEvent(new CustomEvent('freshmart_store_deleted', { detail: { allDeletedIds: updated } }));
+      window.dispatchEvent(new CustomEvent('freshmart_stores_updated', { detail: { deleted: true } }));
+      window.dispatchEvent(new CustomEvent('freshmart_branches_updated'));
     }
   } catch (e) {}
 };
 
 export const removeLocalCustomStore = (storeId) => {
   if (!storeId) return;
-  try {
-    markStoreDeleted(storeId);
-    const existing = loadLocalCustomStores().filter(
-      (s) => (s.storeId || s._id) !== storeId
-    );
-    localStorage.setItem('freshmart_custom_stores', JSON.stringify(existing));
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('freshmart_stores_updated', { detail: { storeId, deleted: true } }));
-    }
-  } catch {}
+  markStoreDeleted(storeId);
 };
 
 export const deduplicateStores = (storesList = []) => {
@@ -269,10 +366,16 @@ export const getAllUnifiedStores = (apiStores = [], _extraBranches = [], targetC
   loadLocalCustomStores().forEach(add);
   (Array.isArray(apiStores) ? apiStores : []).forEach(add);
 
-  const deletedIds = new Set(getDeletedStoreIds());
-  const all = Array.from(byId.values()).filter(
-    (s) => !deletedIds.has(s.storeId) && !deletedIds.has(s._id) && !deletedIds.has(s.storeCode)
-  );
+  const rawDeleted = getDeletedStoreIds();
+  const deletedSet = new Set(rawDeleted.map((x) => String(x).toLowerCase().trim()));
+
+  const all = Array.from(byId.values()).filter((s) => {
+    if (!s) return false;
+    const candidateIds = [s.storeId, s._id, s.storeCode, s.code, s.branchId, s.id]
+      .filter(Boolean)
+      .map((x) => String(x).toLowerCase().trim());
+    return !candidateIds.some((cid) => deletedSet.has(cid));
+  });
   return targetCity
     ? all.filter((s) => String(s.city || '').toLowerCase().includes(String(targetCity).toLowerCase()))
     : all;

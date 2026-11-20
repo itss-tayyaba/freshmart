@@ -26,30 +26,41 @@ export const loadDeletedStoreIds = () => {
   return [];
 };
 
-export const recordDeletedStoreId = (id) => {
+export const recordDeletedStoreId = (id, extraIds = []) => {
   try {
     const list = loadDeletedStoreIds();
-    const strId = String(id || '').trim();
-    if (strId) {
-      const toAdd = new Set([strId]);
+    const rawList = [id, ...(Array.isArray(extraIds) ? extraIds : [extraIds])].filter(Boolean);
+    const toAdd = new Set();
+
+    rawList.forEach((item) => {
+      const strId = String(item || '').trim();
+      if (!strId) return;
+      toAdd.add(strId);
+      toAdd.add(strId.toLowerCase());
+      toAdd.add(strId.toUpperCase());
       if (LEGACY_STORE_ID_MAP && LEGACY_STORE_ID_MAP[strId]) {
         toAdd.add(LEGACY_STORE_ID_MAP[strId]);
+        toAdd.add(LEGACY_STORE_ID_MAP[strId].toLowerCase());
       }
       if (LEGACY_STORE_ID_MAP) {
         for (const [legacyId, canonId] of Object.entries(LEGACY_STORE_ID_MAP)) {
-          if (canonId === strId) toAdd.add(legacyId);
+          if (canonId === strId) {
+            toAdd.add(legacyId);
+            toAdd.add(legacyId.toLowerCase());
+          }
         }
       }
-      let modified = false;
-      toAdd.forEach((item) => {
-        if (!list.includes(item)) {
-          list.push(item);
-          modified = true;
-        }
-      });
-      if (modified) {
-        fs.writeFileSync(DELETED_STORES_FILE_PATH, JSON.stringify(list, null, 2), 'utf-8');
+    });
+
+    let modified = false;
+    toAdd.forEach((item) => {
+      if (!list.includes(item)) {
+        list.push(item);
+        modified = true;
       }
+    });
+    if (modified) {
+      fs.writeFileSync(DELETED_STORES_FILE_PATH, JSON.stringify(list, null, 2), 'utf-8');
     }
   } catch (e) {}
 };
@@ -87,15 +98,21 @@ export const deduplicateStores = (storesList = []) => {
 };
 
 export const loadDiskStores = () => {
-  const deletedIds = new Set(loadDeletedStoreIds());
+  const deletedIds = new Set(loadDeletedStoreIds().map((x) => String(x).toLowerCase().trim()));
+  const isExcluded = (s) => {
+    if (!s) return true;
+    const ids = [s.storeId, s._id, s.storeCode, s.code, s.branchId, s.id]
+      .filter(Boolean)
+      .map((x) => String(x).toLowerCase().trim());
+    return ids.some((id) => deletedIds.has(id));
+  };
+
   try {
     if (fs.existsSync(STORES_FILE_PATH)) {
       const data = fs.readFileSync(STORES_FILE_PATH, 'utf-8');
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const withoutDeleted = parsed.filter(
-          (s) => !deletedIds.has(s.storeId) && !deletedIds.has(s._id) && !deletedIds.has(s.storeCode)
-        );
+        const withoutDeleted = parsed.filter((s) => !isExcluded(s));
         if (process.env.NODE_ENV !== 'test') {
           return deduplicateStores(withoutDeleted);
         }
@@ -103,9 +120,7 @@ export const loadDiskStores = () => {
       }
     }
   } catch (e) {}
-  return FOUR_CORE_STORES.filter(
-    (s) => !deletedIds.has(s.storeId) && !deletedIds.has(s._id) && !deletedIds.has(s.storeCode)
-  );
+  return FOUR_CORE_STORES.filter((s) => !isExcluded(s));
 };
 
 export const saveDiskStores = (stores) => {
@@ -125,16 +140,28 @@ export const getStores = async (req, res) => {
   try {
     const { tenantId, city, search, status } = req.query;
 
+    const deletedStoreIds = loadDeletedStoreIds();
+    const deletedSet = new Set(deletedStoreIds.map((x) => String(x).toLowerCase().trim()));
+
+    const isRecordDeleted = (s) => {
+      if (!s) return true;
+      const ids = [s.storeId, s._id, s.storeCode, s.code, s.branchId, s.id]
+        .filter(Boolean)
+        .map((x) => String(x).toLowerCase().trim());
+      return ids.some((id) => deletedSet.has(id));
+    };
+
     let dbStores = [];
     if (isDbOnline()) {
       try {
-        dbStores = await Store.find({}).lean();
+        const rawDb = await Store.find({}).lean();
+        dbStores = (Array.isArray(rawDb) ? rawDb : []).filter((s) => !isRecordDeleted(s));
       } catch (err) {
         console.warn('Store DB fetch error:', err.message);
       }
     }
 
-    const diskStores = loadDiskStores();
+    const diskStores = loadDiskStores().filter((s) => !isRecordDeleted(s));
 
     // Deduplicate stores by storeId / _id
     const storeMap = new Map();
@@ -150,13 +177,13 @@ export const getStores = async (req, res) => {
     });
 
     if (storeMap.size === 0 && process.env.NODE_ENV !== 'test') {
-      FOUR_CORE_STORES.forEach((s) => storeMap.set(s.storeId || s._id, s));
+      FOUR_CORE_STORES.filter((s) => !isRecordDeleted(s)).forEach((s) => storeMap.set(s.storeId || s._id, s));
     }
 
     // Old duplicate records of the same physical stores (pre-registry ids) are dropped so counts match everywhere.
     ['STR-UM-001', 'STR-AF-001', 'STR-CV-001', 'STR-CU-001', 'STR-CHA-3330'].forEach((id) => storeMap.delete(id));
 
-    let stores = deduplicateStores(Array.from(storeMap.values()));
+    let stores = deduplicateStores(Array.from(storeMap.values())).filter((s) => !isRecordDeleted(s));
 
     // Apply filtering
     if (tenantId && tenantId !== 'all') {
@@ -535,6 +562,11 @@ export const deleteStore = async (req, res) => {
 
     let deletedStoreData = null;
     const aliasIds = [storeId];
+    if (Array.isArray(req.body?.aliasIds)) {
+      req.body.aliasIds.filter(Boolean).forEach((id) => {
+        if (!aliasIds.includes(id)) aliasIds.push(id);
+      });
+    }
     if (LEGACY_STORE_ID_MAP && LEGACY_STORE_ID_MAP[storeId]) {
       aliasIds.push(LEGACY_STORE_ID_MAP[storeId]);
     }
@@ -549,7 +581,7 @@ export const deleteStore = async (req, res) => {
         const isMongoId = mongoose.Types.ObjectId.isValid(storeId);
         const query = isMongoId
           ? { $or: [{ _id: storeId }, { storeId: { $in: aliasIds } }] }
-          : { $or: [{ storeId: { $in: aliasIds } }, { _id: { $in: aliasIds } }, { code: { $in: aliasIds } }] };
+          : { $or: [{ storeId: { $in: aliasIds } }, { _id: { $in: aliasIds } }, { code: { $in: aliasIds } }, { storeCode: { $in: aliasIds } }] };
 
         const store = await Store.findOne(query);
         if (store) {
@@ -559,11 +591,26 @@ export const deleteStore = async (req, res) => {
             parentRetailerId: store.parentRetailerId || store.retailerId || store.tenantId,
             deliveryZoneId: store.deliveryZoneId || null,
           };
+          [store._id?.toString(), store.storeId, store.storeCode, store.code, store.branchId, store.id]
+            .filter(Boolean)
+            .forEach((id) => {
+              if (!aliasIds.includes(id)) aliasIds.push(id);
+            });
           await Store.findByIdAndDelete(store._id);
         }
-        await Store.deleteMany(query);
+        await Store.deleteMany({
+          $or: [
+            { storeId: { $in: aliasIds } },
+            { _id: { $in: aliasIds } },
+            { code: { $in: aliasIds } },
+            { storeCode: { $in: aliasIds } },
+            { id: { $in: aliasIds } }
+          ]
+        });
 
-        await Branch.deleteMany({ $or: [{ id: { $in: aliasIds } }, { _id: { $in: aliasIds } }] });
+        await Branch.deleteMany({
+          $or: [{ id: { $in: aliasIds } }, { _id: { $in: aliasIds } }, { branchId: { $in: aliasIds } }]
+        });
         await ZoneStore.deleteMany({ storeId: { $in: aliasIds } });
 
         // Unlink store from delivery polygon (DeliveryZone), clearing assignedStoreId
@@ -600,16 +647,23 @@ export const deleteStore = async (req, res) => {
       ? diskRaw.find((s) => aliasIds.includes(s.storeId) || aliasIds.includes(s._id) || aliasIds.includes(s.storeCode))
       : null;
 
-    if (existing && !deletedStoreData) {
-      deletedStoreData = {
-        id: existing.storeId || existing._id,
-        name: existing.storeName || existing.name,
-        parentRetailerId: existing.parentRetailerId || existing.retailerId || existing.tenantId,
-        deliveryZoneId: existing.deliveryZoneId || null,
-      };
+    if (existing) {
+      [existing.storeId, existing._id, existing.storeCode, existing.code, existing.branchId, existing.id]
+        .filter(Boolean)
+        .forEach((id) => {
+          if (!aliasIds.includes(id)) aliasIds.push(id);
+        });
+      if (!deletedStoreData) {
+        deletedStoreData = {
+          id: existing.storeId || existing._id,
+          name: existing.storeName || existing.name,
+          parentRetailerId: existing.parentRetailerId || existing.retailerId || existing.tenantId,
+          deliveryZoneId: existing.deliveryZoneId || null,
+        };
+      }
     }
 
-    aliasIds.forEach((aid) => recordDeletedStoreId(aid));
+    recordDeletedStoreId(storeId, aliasIds);
 
     const disk = loadDiskStores();
     const filtered = disk.filter((s) => !aliasIds.includes(s.storeId) && !aliasIds.includes(s._id));

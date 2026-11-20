@@ -25,7 +25,7 @@ import { loadDiskOrders } from './orderController.js';
 import { findAvailableRetailers } from '../utils/deliveryZoneHelper.js';
 import { loadDiskZones, saveDiskZones } from './zoneController.js';
 import { loadDiskAssignments, saveDiskAssignments } from './assignmentController.js';
-import { loadDiskStores, saveDiskStores } from './storeController.js';
+import { loadDiskStores, saveDiskStores, recordDeletedStoreId } from './storeController.js';
 
 const BRANCHES_FILE_PATH = path.resolve(process.cwd(), 'server/data/branches_db.json');
 
@@ -494,6 +494,7 @@ export const deleteBranch = async (req, res) => {
   try {
     const { id } = req.params;
     const cleanId = String(id).toLowerCase().trim();
+    recordDeletedStoreId(id);
 
     if (isDbOnline()) {
       try {
