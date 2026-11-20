@@ -142,6 +142,31 @@ export const saveLocalCustomStore = (newStore) => {
   } catch {}
 };
 
+let _cachedApiStores = [];
+
+export const getCachedApiStores = () => {
+  if (Array.isArray(_cachedApiStores) && _cachedApiStores.length > 0) return _cachedApiStores;
+  try {
+    const raw = localStorage.getItem('freshmart_cached_api_stores');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        _cachedApiStores = parsed;
+        return parsed;
+      }
+    }
+  } catch (e) {}
+  return [];
+};
+
+export const setCachedApiStores = (apiStores = []) => {
+  if (!Array.isArray(apiStores) || apiStores.length === 0) return;
+  _cachedApiStores = apiStores;
+  try {
+    localStorage.setItem('freshmart_cached_api_stores', JSON.stringify(apiStores));
+  } catch (e) {}
+};
+
 export const getDeletedStoreIds = () => {
   try {
     const raw = localStorage.getItem('freshmart_deleted_store_ids');
@@ -220,6 +245,20 @@ export const markStoreDeleted = (rawId, extraIds = []) => {
         const parsed = JSON.parse(custom);
         if (Array.isArray(parsed)) {
           localStorage.setItem('freshmart_custom_stores', JSON.stringify(parsed.filter((s) => !checkMatch(s))));
+        }
+      }
+    } catch {}
+
+    // Clean freshmart_cached_api_stores
+    try {
+      if (Array.isArray(_cachedApiStores)) {
+        _cachedApiStores = _cachedApiStores.filter((s) => !checkMatch(s));
+      }
+      const cachedRaw = localStorage.getItem('freshmart_cached_api_stores');
+      if (cachedRaw) {
+        const parsed = JSON.parse(cachedRaw);
+        if (Array.isArray(parsed)) {
+          localStorage.setItem('freshmart_cached_api_stores', JSON.stringify(parsed.filter((s) => !checkMatch(s))));
         }
       }
     } catch {}
@@ -364,7 +403,15 @@ export const getAllUnifiedStores = (apiStores = [], _extraBranches = [], targetC
 
   STORE_REGISTRY.map(toStoreRecord).forEach(add);
   loadLocalCustomStores().forEach(add);
-  (Array.isArray(apiStores) ? apiStores : []).forEach(add);
+
+  if (Array.isArray(apiStores) && apiStores.length > 0) {
+    setCachedApiStores(apiStores);
+  }
+  const effectiveApiStores = (Array.isArray(apiStores) && apiStores.length > 0)
+    ? apiStores
+    : getCachedApiStores();
+
+  effectiveApiStores.forEach(add);
 
   const rawDeleted = getDeletedStoreIds();
   const deletedSet = new Set(rawDeleted.map((x) => String(x).toLowerCase().trim()));

@@ -1367,8 +1367,14 @@ export const apiService = {
       const data = await handleResponse(res);
       if (data?.deletedStoreIds && Array.isArray(data.deletedStoreIds) && data.deletedStoreIds.length > 0) {
         try {
-          const { markStoreDeleted } = await import('../utils/storeHelper');
-          markStoreDeleted(data.deletedStoreIds);
+          const { getDeletedStoreIds, markStoreDeleted } = await import('../utils/storeHelper');
+          const currentDeleted = new Set(getDeletedStoreIds().map((x) => String(x).toLowerCase().trim()));
+          const newDeleted = data.deletedStoreIds.filter(
+            (id) => !currentDeleted.has(String(id).toLowerCase().trim())
+          );
+          if (newDeleted.length > 0) {
+            markStoreDeleted(newDeleted);
+          }
         } catch (e) {}
       }
 

@@ -54,7 +54,7 @@ export const StoreManagementView = () => {
     addToast
   } = useStore();
 
-  const [stores, setStores] = useState(() => getAllUnifiedStores([], allBranches));
+  const [stores, setStores] = useState(() => getAllUnifiedStores());
   // Admins that exist in the database (one admin per store) + one-time credentials after creating one
   const [backendAdmins, setBackendAdmins] = useState([]);
   const [adminCreds, setAdminCreds] = useState(null);
@@ -152,7 +152,7 @@ export const StoreManagementView = () => {
         apiService.getAllAssignments()
       ]);
 
-      const allMerged = getAllUnifiedStores(res?.stores, allBranches);
+      const allMerged = getAllUnifiedStores(res?.stores);
       setStores(allMerged);
 
       if (zonesRes && zonesRes.success && Array.isArray(zonesRes.zones)) {
@@ -163,7 +163,7 @@ export const StoreManagementView = () => {
       }
     } catch (e) {
       console.warn('Stores fetch error:', e.message);
-      setStores(getAllUnifiedStores([], allBranches));
+      setStores(getAllUnifiedStores());
     } finally {
       setIsLoading(false);
     }
@@ -193,7 +193,7 @@ export const StoreManagementView = () => {
     fetchStoresList();
 
     const handleStoresSync = () => {
-      setStores(getAllUnifiedStores([], allBranches));
+      setStores(getAllUnifiedStores());
     };
 
     window.addEventListener('freshmart_store_deleted', handleStoresSync);
