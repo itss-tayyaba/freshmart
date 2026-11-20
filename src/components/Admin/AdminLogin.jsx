@@ -21,7 +21,21 @@ import { STORE_LOCATIONS } from '../../data/freshMartData';
 import { getAllUnifiedStores } from '../../utils/storeHelper';
 
 export const AdminLogin = () => {
-  const { adminLogin, navigateTo, storeAdmins, allBranches } = useStore();
+  const { adminLogin, navigateTo, storeAdmins, allBranches, isAdminLoggedIn, user, adminRole } = useStore();
+
+  // If already logged in, automatically redirect to appropriate console view
+  React.useEffect(() => {
+    if (isAdminLoggedIn && user) {
+      const effRole = (user.role || adminRole || '').toLowerCase();
+      if (effRole === 'rider') {
+        navigateTo('delivery-portal');
+      } else if (effRole === 'pickup_staff' || effRole === 'pickupstaff') {
+        navigateTo('pickup-staff');
+      } else {
+        navigateTo('admin');
+      }
+    }
+  }, [isAdminLoggedIn, user, adminRole, navigateTo]);
   const activeStores = React.useMemo(() => {
     const list = getAllUnifiedStores(allBranches);
     return list.length > 0 ? list : STORE_LOCATIONS;
@@ -127,6 +141,15 @@ export const AdminLogin = () => {
       const result = await adminLogin(cleanUser, cleanPass, selectedRole, null, selectedBranchId);
       if (!result || !result.success) {
         setErrorMessage(result?.error || 'Invalid credentials. Please verify your login details.');
+      } else {
+        const role = (result.role || selectedRole).toLowerCase();
+        if (role === 'rider') {
+          navigateTo('delivery-portal');
+        } else if (role === 'pickup_staff' || role === 'pickupstaff') {
+          navigateTo('pickup-staff');
+        } else {
+          navigateTo('admin');
+        }
       }
     } catch (err) {
       setErrorMessage(err.message || 'Login failed. Please check your credentials and try again.');

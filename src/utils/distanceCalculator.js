@@ -184,48 +184,94 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
       let insideMasterZone = false;
       let storeAreaPolygon = null;
       const zonesList = options.zones || [];
-      if (Array.isArray(zonesList) && zonesList.length > 0) {
-        for (const z of zonesList) {
-          if (z.isActive === false || String(z.status).toLowerCase() === 'inactive') continue;
-          const rawRing = z.geometry?.coordinates?.[0] || z.coordinates?.[0] || z.coordinates;
-          if (Array.isArray(rawRing) && rawRing.length >= 3) {
-            // Check if store physically lies in this polygon or is assigned to this zone
-            const bInZone = isPointInPolygon({ lat: bLat, lng: bLng }, rawRing);
-            const branchId = String(b._id || b.id || b.storeId || '').toLowerCase();
-            const isAssigned = (options.assignments || []).some(
-              (a) => a.zoneId === z.zoneId && String(a.storeId || '').toLowerCase() === branchId
-            ) || (z.assignedStoreId && String(z.assignedStoreId).toLowerCase() === branchId) ||
-                 (b.assignedZoneId && String(b.assignedZoneId).toLowerCase() === String(z.zoneId || '').toLowerCase());
+      const hasActiveDeliveryZones = Array.isArray(zonesList) && zonesList.some(
+        (z) => z && z.isActive !== false && String(z.status || 'active').toLowerCase() !== 'inactive'
+      );
 
-            const isStoreAssociatedWithZone = isAssigned || bInZone;
+      if (hasActiveDeliveryZones) {
+        for (const z of zonesList) {
+          if (!z || z.isActive === false || String(z.status || 'active').toLowerCase() === 'inactive') continue;
+
+          let rawRing = null;
+          if (z.geometry && Array.isArray(z.geometry.coordinates)) {
+            rawRing = Array.isArray(z.geometry.coordinates[0]) && Array.isArray(z.geometry.coordinates[0][0])
+              ? z.geometry.coordinates[0]
+              : z.geometry.coordinates;
+          } else if (z.polygon && Array.isArray(z.polygon.coordinates)) {
+            rawRing = Array.isArray(z.polygon.coordinates[0]) && Array.isArray(z.polygon.coordinates[0][0])
+              ? z.polygon.coordinates[0]
+              : z.polygon.coordinates;
+          } else if (Array.isArray(z.polygon)) {
+            rawRing = z.polygon;
+          } else if (Array.isArray(z.coordinates)) {
+            rawRing = Array.isArray(z.coordinates[0]) && Array.isArray(z.coordinates[0][0])
+              ? z.coordinates[0]
+              : z.coordinates;
+          }
+
+          if (Array.isArray(rawRing) && rawRing.length >= 3) {
+            const branchId = String(b._id || b.id || b.storeId || b.branchId || '').toLowerCase();
+            const zId = String(z.zoneId || z._id || z.id || '').toLowerCase();
+            const bDeliveryZone = String(b.deliveryZoneId || '').toLowerCase();
+            const bAssignedZone = String(b.assignedZoneId || '').toLowerCase();
+
+            const zoneMatches = (testZoneId) => {
+              if (!testZoneId) return false;
+              const tz = String(testZoneId).toLowerCase();
+              if (tz === zId) return true;
+              if (tz.includes('samanabad') && (zId.includes('001') || zId.includes('samanabad'))) return true;
+              if (tz.includes('madina') && (zId.includes('002') || zId.includes('madina'))) return true;
+              if (tz.includes('dground') && (zId.includes('003') || zId.includes('dground') || zId.includes('d-ground'))) return true;
+              if (tz.includes('peoples') && (zId.includes('004') || zId.includes('peoples'))) return true;
+              if (tz.includes('canal') && (zId.includes('canal') || zId.includes('002'))) return true;
+              if (tz.includes('clock') && (zId.includes('clock') || zId.includes('001') || zId.includes('003'))) return true;
+              return false;
+            };
+
+            const isAssigned =
+              zoneMatches(bDeliveryZone) ||
+              zoneMatches(bAssignedZone) ||
+              (Array.isArray(z.assignedStoreIds) && z.assignedStoreIds.some((sId) => String(sId).toLowerCase() === branchId)) ||
+              (z.assignedStoreId && String(z.assignedStoreId).toLowerCase() === branchId) ||
+              (Array.isArray(options.assignments) && options.assignments.some(
+                (a) => (String(a.zoneId || '').toLowerCase() === zId || zoneMatches(a.zoneId)) &&
+                       String(a.storeId || '').toLowerCase() === branchId &&
+                       a.isActive !== false
+              ));
+
+            // Fallback: If store has NO assigned zone, check if store physical location lies inside zone
+            const bInZone = isPointInPolygon({ lat: bLat, lng: bLng }, rawRing);
+            const isStoreAssociatedWithZone = isAssigned || (!bDeliveryZone && !bAssignedZone && bInZone);
 
             if (isStoreAssociatedWithZone) {
               if (!storeAreaPolygon) {
                 storeAreaPolygon = {
-                  zoneId: z.zoneId,
+                  zoneId: z.zoneId || z._id,
                   name: z.name,
                   color: z.color || '#10b981',
-                  deliveryCharge: z.deliveryCharge
+                  deliveryCharge: z.deliveryCharge ?? z.deliveryFee
                 };
               }
-            }
 
-            // Check if customer doorstep is also in this polygon
-            const userInZone = isPointInPolygon({ lat: userLat, lng: userLng }, rawRing);
-            if (userInZone && isStoreAssociatedWithZone) {
-              insideMasterZone = true;
+              // Check if customer doorstep is also in this polygon
+              const userInZone = isPointInPolygon({ lat: userLat, lng: userLng }, rawRing);
+              if (userInZone) {
+                insideMasterZone = true;
+              }
             }
           }
         }
       }
 
-      // Concept 2: Each store has its own delivery region polygon
-      // The 3 main master polygons cover all stores (where stores lie).
-      // Remaining polygons are individual delivery regions. If a store has a custom delivery region polygon,
-      // it delivers strictly within its drawn delivery region boundary.
+      // STRICT ZONE BOUNDARY:
+      // If delivery zones are defined in the platform:
+      // A store is deliverable IF AND ONLY IF:
+      // 1) The customer location is inside a delivery zone covering/assigned to this store (insideMasterZone), OR
+      // 2) The store has its own explicit custom deliveryPolygon, and customer is inside it (hasPolygon && insidePolygon)
+      // When no delivery zones are configured, falls back to distance radius.
       const insideDeliveryZone = hasPolygon
         ? insidePolygon
-        : (insideMasterZone || effectiveDistKm <= configuredRadius);
+        : (hasActiveDeliveryZones ? insideMasterZone : (effectiveDistKm <= configuredRadius));
       const isEligible = insideDeliveryZone;
 
       const fee = calculateBranchDeliveryFee(b, effectiveDistKm);

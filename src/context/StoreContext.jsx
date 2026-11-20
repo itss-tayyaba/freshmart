@@ -97,7 +97,8 @@ export const useStore = () => {
 };
 
 import { sanitizeOrder } from '../utils/orderSanitizer.js';
-import { getDeletedStoreIds } from '../utils/storeHelper.js';
+import { getDeletedStoreIds, getAllUnifiedStores } from '../utils/storeHelper.js';
+import { loadMasterZones } from '../data/retailerZoneHierarchyData.js';
 import {
   isOrderAssignedToPickupStaff,
   isPickupOrderAssigned,
@@ -1297,12 +1298,30 @@ export const StoreProvider = ({ children }) => {
     const userLat = Number(coords?.lat || coords?.latitude || deliveryLocation?.lat || deliveryLocation?.coords?.lat || 31.4125);
     const userLng = Number(coords?.lng || coords?.longitude || deliveryLocation?.lng || deliveryLocation?.coords?.lng || 73.0995);
 
-    const branchesToEvaluate = (allBranches && allBranches.length > 0) ? allBranches : BRANCHES;
+    const unifiedStores = getAllUnifiedStores(allBranches);
+    const branchesToEvaluate = (unifiedStores && unifiedStores.length > 0)
+      ? unifiedStores
+      : ((allBranches && allBranches.length > 0) ? allBranches : BRANCHES);
+
     let effectiveZones = options.zones || [];
     if (!Array.isArray(effectiveZones) || effectiveZones.length === 0) {
       try {
         const savedZ = localStorage.getItem('freshmart_zones');
         if (savedZ) effectiveZones = JSON.parse(savedZ) || [];
+      } catch (e) {}
+    }
+    if (!Array.isArray(effectiveZones) || effectiveZones.length === 0) {
+      try {
+        const masterZ = localStorage.getItem('freshmart_master_zones');
+        if (masterZ) {
+          const parsed = JSON.parse(masterZ);
+          if (Array.isArray(parsed) && parsed.length > 0) effectiveZones = parsed;
+        }
+      } catch (e) {}
+    }
+    if (!Array.isArray(effectiveZones) || effectiveZones.length === 0) {
+      try {
+        effectiveZones = loadMasterZones();
       } catch (e) {}
     }
 
@@ -1344,7 +1363,7 @@ export const StoreProvider = ({ children }) => {
       const isDeliverable = Boolean(eligibleGroup && eligibleGroup.isEligible);
       
       // Always resolve authentic physical branch with exact coordinates for this tenant
-      let bestBranch = matchedGroup?.bestBranch || null;
+      let bestBranch = eligibleGroup?.bestBranch || matchedGroup?.bestBranch || null;
       if (!bestBranch) {
         const tenantBranches = branchesToEvaluate.filter(
           (b) => isSameTenant(b.tenantId, tenant.id) || b.tenantId === tenantCanonicalId

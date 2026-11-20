@@ -17,6 +17,7 @@ import { detectUserLocation, reverseGeocodeAddress } from '../../utils/geolocati
 import { apiService } from '../../services/api';
 import { switchMapTileLayer } from '../../utils/mapTiles';
 import { isPointInPolygon, normalizeLatLng } from '../../utils/distanceCalculator';
+import { loadMasterZones } from '../../data/retailerZoneHierarchyData';
 
 // Custom Modern SVG Pin for User Location to guarantee zero missing asset issues in Vite
 const createUserPin = () =>
@@ -101,6 +102,16 @@ const LocationModalContent = () => {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch (e) {}
+    try {
+      const masterZ = localStorage.getItem('freshmart_master_zones');
+      if (masterZ) {
+        const parsed = JSON.parse(masterZ);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    try {
+      return loadMasterZones();
+    } catch (e) {}
     return [];
   });
   const zonesLayerGroupRef = useRef(null);
@@ -124,21 +135,33 @@ const LocationModalContent = () => {
       } else {
         try {
           const saved = localStorage.getItem('freshmart_zones');
-          if (saved) setDeliveryZones(JSON.parse(saved));
+          if (saved) {
+            setDeliveryZones(JSON.parse(saved));
+            return;
+          }
+          const master = localStorage.getItem('freshmart_master_zones');
+          if (master) {
+            setDeliveryZones(JSON.parse(master));
+            return;
+          }
         } catch (err) {}
         fetchLatestZones();
       }
     };
 
     window.addEventListener('freshmart_zones_updated', handleZonesUpdated);
+    window.addEventListener('freshmart_master_zones_updated', handleZonesUpdated);
     window.addEventListener('freshmart_branches_updated', fetchLatestZones);
     window.addEventListener('freshmart_stores_updated', fetchLatestZones);
+    window.addEventListener('freshmart_assignments_updated', fetchLatestZones);
 
     return () => {
       isMounted = false;
       window.removeEventListener('freshmart_zones_updated', handleZonesUpdated);
+      window.removeEventListener('freshmart_master_zones_updated', handleZonesUpdated);
       window.removeEventListener('freshmart_branches_updated', fetchLatestZones);
       window.removeEventListener('freshmart_stores_updated', fetchLatestZones);
+      window.removeEventListener('freshmart_assignments_updated', fetchLatestZones);
     };
   }, []);
 
