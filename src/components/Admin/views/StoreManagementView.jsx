@@ -363,12 +363,22 @@ export const StoreManagementView = () => {
     const lng = cityObj ? cityObj.lng : formData.longitude;
     const zoom = cityObj?.zoom || 13;
 
-    setFormData((prev) => ({
-      ...prev,
-      city: newCityName,
-      latitude: lat,
-      longitude: lng
-    }));
+    setFormData((prev) => {
+      const currentZone = zones.find((z) => (z.zoneId || z._id || z.id) === prev.assignedZoneId);
+      const zoneCity = String(currentZone?.city || '').trim().toLowerCase();
+      const isZoneInNewCity = currentZone && (
+        zoneCity === newCityName.toLowerCase() ||
+        String(currentZone.name || '').toLowerCase().includes(newCityName.toLowerCase())
+      );
+
+      return {
+        ...prev,
+        city: newCityName,
+        latitude: lat,
+        longitude: lng,
+        assignedZoneId: isZoneInNewCity ? prev.assignedZoneId : ''
+      };
+    });
 
     if (mapInstanceRef.current && cityObj) {
       mapInstanceRef.current.flyTo([lat, lng], zoom, { duration: 1.2 });
@@ -461,6 +471,35 @@ export const StoreManagementView = () => {
   const detectedZone = useMemo(() => {
     return getZoneContainingPoint(formData.latitude, formData.longitude);
   }, [formData.latitude, formData.longitude, zones]);
+
+  // Only display delivery polygons that belong to the store's selected city and are available/active
+  const availableCityZones = useMemo(() => {
+    if (!Array.isArray(zones) || zones.length === 0) return [];
+    const targetCity = String(formData.city || 'Faisalabad').trim().toLowerCase();
+
+    return zones.filter((z) => {
+      // If this zone is currently selected by the store (e.g. when editing), always retain it
+      const zKey = z.zoneId || z._id || z.id;
+      if (formData.assignedZoneId && (zKey === formData.assignedZoneId || z.id === formData.assignedZoneId)) {
+        return true;
+      }
+
+      // Check if zone is active/available
+      const isAvailable = z.isActive !== false && String(z.status || 'active').toLowerCase() !== 'inactive';
+      if (!isAvailable) return false;
+
+      // Check city match
+      const zCity = String(z.city || '').trim().toLowerCase();
+      if (zCity && zCity === targetCity) return true;
+
+      // Also match if zone name or area mentions the city
+      const zName = String(z.name || '').toLowerCase();
+      const zArea = String(z.area || '').toLowerCase();
+      if (zName.includes(targetCity) || zArea.includes(targetCity)) return true;
+
+      return false;
+    });
+  }, [zones, formData.city, formData.assignedZoneId]);
 
   const handleSaveStore = async (e) => {
     if (e) e.preventDefault();
@@ -1302,7 +1341,9 @@ export const StoreManagementView = () => {
                       <Layers className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Assign Delivery Area (Polygon)</span>
                     </label>
-                    <span className="text-[10px] text-emerald-700 font-medium">Irregular Shape</span>
+                    <span className="text-[10px] text-emerald-700 font-semibold">
+                      {availableCityZones.length} Available in {formData.city || 'City'}
+                    </span>
                   </div>
                   <select
                     value={formData.assignedZoneId || ''}
@@ -1310,15 +1351,21 @@ export const StoreManagementView = () => {
                     className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden"
                   >
                     <option value="">-- No Polygon Zone Assigned (Assign Later or in Zone Management) --</option>
-                    {zones.map((z) => (
-                      <option key={z.zoneId} value={z.zoneId}>
-                        {z.name} ({z.code}) - {z.city} [{z.isActive !== false ? 'Active' : 'Inactive'}]
+                    {availableCityZones.map((z) => (
+                      <option key={z.zoneId || z._id || z.id} value={z.zoneId || z._id || z.id}>
+                        {z.name} {z.code ? `(${z.code})` : ''} - {z.city || formData.city} [{z.isActive !== false && z.status !== 'inactive' ? 'Active' : 'Inactive'}]
                       </option>
                     ))}
                   </select>
-                  <p className="text-[10px] text-emerald-700/90 leading-tight">
-                    A polygon is not a circle. Each store has its own delivery area drawn on the map by the admin.
-                  </p>
+                  {availableCityZones.length === 0 ? (
+                    <p className="text-[10px] text-amber-700 font-medium leading-tight">
+                      📍 No delivery polygon zones available for <strong>{formData.city}</strong>. You can save this store as unassigned and draw its boundary anytime in Retailer Delivery Zones.
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-emerald-700/90 leading-tight">
+                      A polygon is not a circle. Each store has its own delivery area drawn on the map by the admin.
+                    </p>
+                  )}
                 </div>
               </div>
 
