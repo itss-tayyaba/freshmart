@@ -120,5 +120,22 @@ export const LEGACY_STORE_ID_MAP = {
   'STR-CU-001': 'branch_cu_samanabad',
   'STR-CU-002': 'branch_cu_satiana',
   'STR-CU-003': 'branch_006',
-  'STR-CHA-3330': null
+  'STR-CHA-3330': null,
+  'STR-ALF-0637': null,
+  'STR-CHA-7916': null,
+  'STR-CHA-6667': null,
+  'STR-CHA-6072': null,
+  'STR-ALF-1707': null,
+  'STR-ALF-7663': null,
+  '6af95460cd644955abd889ee': null,
+  '6af6e561d12797f0aab8ef40': null,
+  '6af6e560d12797f0aab8ef3d': null,
+  'branch_012': null,
+  'branch_011': null,
+  'branch_010': null,
+  'branch_009': null,
+  'branch_008': null,
+  'branch_007': null,
+  'branch_005': null,
+  'branch_004': null
 };

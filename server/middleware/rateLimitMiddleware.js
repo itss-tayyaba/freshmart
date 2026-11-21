@@ -3,8 +3,8 @@ import rateLimit from 'express-rate-limit';
 // Rate limiter for login & registration routes to prevent brute-force attacks
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes window
-  max: 20, // Max 20 auth attempts per IP per 15 mins
-  skip: () => process.env.NODE_ENV === 'test',
+  max: 1000, // Generous auth allowance
+  skip: () => process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development',
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -16,8 +16,8 @@ export const authLimiter = rateLimit({
 // General API protection rate limiter
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
-  skip: () => process.env.NODE_ENV === 'test',
+  max: 50000,
+  skip: () => process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development',
   standardHeaders: true,
   legacyHeaders: false,
   message: {

@@ -121,7 +121,13 @@ export const loadLocalCustomStores = () => {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((s) => s && !String(s.storeId || s._id || '').endsWith('-TEST') && !String(s.storeId || s._id || '').includes('CHA-3330'));
+    return parsed.filter((s) => {
+      if (!s) return false;
+      const sId = String(s.storeId || s._id || '').trim();
+      if (!sId || sId.endsWith('-TEST') || sId.includes('CHA-3330')) return false;
+      if (Object.prototype.hasOwnProperty.call(LEGACY_STORE_ID_MAP, sId) && LEGACY_STORE_ID_MAP[sId] === null) return false;
+      return true;
+    });
   } catch {
     return [];
   }
@@ -144,6 +150,55 @@ export const saveLocalCustomStore = (newStore) => {
 
 let _cachedApiStores = [];
 
+export const purgeStaleLocalStorage = () => {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const isJunk = (id) => {
+      const str = String(id || '').trim();
+      if (!str) return true;
+      if (str.endsWith('-TEST') || str.includes('CHA-3330')) return true;
+      if (Object.prototype.hasOwnProperty.call(LEGACY_STORE_ID_MAP, str) && LEGACY_STORE_ID_MAP[str] === null) return true;
+      return false;
+    };
+
+    ['freshmart_custom_stores', 'freshmart_cached_api_stores', 'freshmart_retailer_stores', 'freshmart_branches', 'freshmart_stores'].forEach((key) => {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            const filtered = parsed.filter((item) => {
+              const id = item?.storeId || item?._id || item?.id || item?.code;
+              return !isJunk(id);
+            });
+            if (filtered.length !== parsed.length) {
+              localStorage.setItem(key, JSON.stringify(filtered));
+            }
+          }
+        } catch (e) {}
+      }
+    });
+
+    const asgRaw = localStorage.getItem('freshmart_assignments');
+    if (asgRaw) {
+      try {
+        const parsed = JSON.parse(asgRaw);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((a) => !isJunk(a.storeId));
+          if (filtered.length !== parsed.length) {
+            localStorage.setItem('freshmart_assignments', JSON.stringify(filtered));
+          }
+        }
+      } catch (e) {}
+    }
+  } catch (e) {}
+};
+
+// Auto-run once on module load in browser
+if (typeof window !== 'undefined') {
+  purgeStaleLocalStorage();
+}
+
 export const getCachedApiStores = () => {
   if (Array.isArray(_cachedApiStores) && _cachedApiStores.length > 0) return _cachedApiStores;
   try {
@@ -151,8 +206,15 @@ export const getCachedApiStores = () => {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        _cachedApiStores = parsed;
-        return parsed;
+        const clean = parsed.filter((s) => {
+          if (!s) return false;
+          const sId = String(s.storeId || s._id || '').trim();
+          if (!sId || sId.endsWith('-TEST') || sId.includes('CHA-3330')) return false;
+          if (Object.prototype.hasOwnProperty.call(LEGACY_STORE_ID_MAP, sId) && LEGACY_STORE_ID_MAP[sId] === null) return false;
+          return true;
+        });
+        _cachedApiStores = clean;
+        return clean;
       }
     }
   } catch (e) {}

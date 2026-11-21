@@ -510,7 +510,9 @@ export const loadRetailerStores = (apiStores = []) => {
       if (Array.isArray(parsed)) {
         parsed.forEach((s) => {
           const id = s.storeId || s._id;
-          if (id) savedOverrides[id] = s;
+          if (id && (!Object.prototype.hasOwnProperty.call(LEGACY_STORE_ID_MAP, id) || LEGACY_STORE_ID_MAP[id] !== null)) {
+            savedOverrides[id] = s;
+          }
         });
       }
     }
