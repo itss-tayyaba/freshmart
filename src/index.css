@@ -547,5 +547,16 @@ img.leaflet-tile,
   opacity: 1 !important;
 }
 
+/* Ensure Leaflet markers and icons remain completely still: no fly, slide, or flicker transitions */
+.custom-store-marker,
+.custom-store-marker *,
+.custom-polygon-vertex,
+.custom-polygon-vertex *,
+.leaflet-marker-icon,
+.leaflet-marker-icon * {
+  transition: none !important;
+  animation-duration: 0s !important;
+}
+
 
 

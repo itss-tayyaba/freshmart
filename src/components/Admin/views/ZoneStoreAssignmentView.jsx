@@ -200,6 +200,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   const activePopupStoreIdRef = useRef(null);
   const isRebuildingMarkersRef = useRef(false);
   const storeMarkersMapRef = useRef({});
+  const [highlightedZoneId, setHighlightedZoneId] = useState(null);
+  const highlightTimerRef = useRef(null);
 
   // ---------------------------------------------------------------------------
   // INTERACTIVE CITY SELECTOR ON MAP (Real-time Pan & Zoom)
@@ -883,26 +885,35 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
     activePopupStoreIdRef.current = sId;
     setFocusedStoreId(sId);
-    setSelectedZoneFilter(assignedZone.zoneId || assignedZone._id);
+    setHighlightedZoneId(assignedZone.zoneId || assignedZone._id);
 
-    if (mapInstanceRef.current) {
-      if (mapContainerRef.current) {
-        mapContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Keep polygon highlight and connection line completely still for 10 seconds
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => {
+      setHighlightedZoneId(null);
+      setFocusedStoreId(null);
+    }, 10000);
+
+    // Keep map camera still: no jarring flyTo or screen scroll
+    if (mapInstanceRef.current && store.latitude && store.longitude) {
+      const lat = Number(store.latitude);
+      const lng = Number(store.longitude);
+      const bounds = mapInstanceRef.current.getBounds();
+      if (!bounds.contains([lat, lng])) {
+        mapInstanceRef.current.panTo([lat, lng], { animate: false });
       }
-      mapInstanceRef.current.flyTo([Number(store.latitude), Number(store.longitude)], 14, { duration: 0.8 });
     }
 
-    setTimeout(() => {
-      if (storeMarkersMapRef.current[sId]) {
-        storeMarkersMapRef.current[sId].openPopup();
-      }
-    }, 150);
+    if (storeMarkersMapRef.current[sId]) {
+      storeMarkersMapRef.current[sId].openPopup();
+    }
 
     if (addToast) {
       addToast(
         'Store & Delivery Polygon 📍',
-        `${store.name} delivers within ${assignedZone.name}. Showing its geographic polygon.`,
-        'info'
+        `${store.name} delivers within ${assignedZone.name}. Polygon active and still for 10 seconds.`,
+        'info',
+        10000
       );
     }
   };
@@ -1388,12 +1399,13 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
         return;
       }
 
-      const isFiltered = selectedZoneFilter !== 'all' && selectedZoneFilter !== zId;
+      const isHighlighted = highlightedZoneId && (highlightedZoneId === zId);
+      const isFiltered = (selectedZoneFilter !== 'all' && selectedZoneFilter !== zId) && !isHighlighted;
       const storesInZone = stores.filter((s) => s.deliveryZoneId === zId);
 
-      const strokeOpacity = isFiltered ? 0.25 : 0.9;
-      const strokeWeight = isFiltered ? 1.5 : 3;
-      const fillOpacity = isFiltered ? 0.04 : 0.22;
+      const strokeOpacity = isHighlighted ? 1.0 : isFiltered ? 0.25 : 0.9;
+      const strokeWeight = isHighlighted ? 4.5 : isFiltered ? 1.5 : 3;
+      const fillOpacity = isHighlighted ? 0.40 : isFiltered ? 0.04 : 0.22;
 
       const polygon = L.polygon(zone.polygon.coordinates, {
         color: zone.color,
@@ -1493,7 +1505,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
             font-size: ${isTargetStore ? '18px' : '14px'};
             cursor: pointer;
             position: relative;
-            transition: all 0.2s ease;
+            user-select: none;
           ">
             <span>${parentRetailer?.logo || '🏬'}</span>
             <span style="
@@ -1590,6 +1602,14 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       marker.on('popupopen', () => {
         activePopupStoreIdRef.current = sId;
         setFocusedStoreId(sId);
+        if (assignedZone) {
+          setHighlightedZoneId(assignedZone.zoneId || assignedZone._id);
+          if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+          highlightTimerRef.current = setTimeout(() => {
+            setHighlightedZoneId(null);
+            setFocusedStoreId(null);
+          }, 10000);
+        }
       });
 
       marker.on('popupclose', () => {
@@ -1608,7 +1628,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     if (activePopupStoreIdRef.current && storeMarkersMapRef.current[activePopupStoreIdRef.current]) {
       storeMarkersMapRef.current[activePopupStoreIdRef.current].openPopup();
     }
-  }, [masterZones, stores, filteredStores, selectedZoneFilter, parentRetailers, editingPolygonZone, targetStoreForNewZone]);
+  }, [masterZones, stores, filteredStores, selectedZoneFilter, parentRetailers, editingPolygonZone, targetStoreForNewZone, highlightedZoneId]);
 
   // ---------------------------------------------------------------------------
   // CONNECTION LINES (Hover / Focus State) - Separate to prevent marker flicker
@@ -1688,7 +1708,6 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
             color: #0f172a;
             cursor: grab;
             user-select: none;
-            transition: transform 0.1s ease;
           ">
             ${idx + 1}
           </div>

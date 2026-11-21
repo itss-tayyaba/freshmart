@@ -292,7 +292,7 @@ const riderBaseCoordinates = (rider) => {
 export const StoreProvider = ({ children }) => {
   // Toast notifications state & helpers (available across the whole provider)
   const [toasts, setToasts] = useState([]);
-  const addToast = (title, messageOrType, explicitType = 'success') => {
+  const addToast = (title, messageOrType, explicitType = 'success', customDuration = 4000) => {
     let message = messageOrType || '';
     let type = explicitType;
     if (['error', 'warning', 'info', 'success'].includes(String(messageOrType).toLowerCase()) && explicitType === 'success') {
@@ -313,9 +313,10 @@ export const StoreProvider = ({ children }) => {
     const id = Date.now() + Math.random();
     // Cap to at most 1 active toast so notifications never stack
     setToasts([{ id, title, message, type }]);
+    const duration = typeof customDuration === 'number' && customDuration > 0 ? customDuration : 4000;
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
+    }, duration);
   };
   const removeToast = (id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));

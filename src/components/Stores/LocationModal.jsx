@@ -199,6 +199,7 @@ const LocationModalContent = () => {
   const outsideStores = useMemo(() => {
     return (nearbyStores || []).filter((s) => !s.isDeliverable);
   }, [nearbyStores]);
+  const nonDeliverableStores = outsideStores || [];
 
   const closestStore = deliverableStores && deliverableStores.length > 0 ? deliverableStores[0] : null;
   const isOutsideDeliveryZone = deliverableStores.length === 0;
