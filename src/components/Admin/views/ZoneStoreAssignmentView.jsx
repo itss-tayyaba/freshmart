@@ -41,6 +41,7 @@ import {
   removeLocalCustomStore,
   markStoreDeleted
 } from '../../../utils/storeHelper';
+import { isPointInPolygon, normalizeLatLng, getPolygonCentroidAndInsidePoint } from '../../../utils/distanceCalculator';
 import {
   FOUR_PARENT_RETAILERS,
   FOUR_MASTER_DELIVERY_ZONES,
@@ -193,6 +194,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   const storeMarkersGroupRef = useRef(null);
   const activeEditLayerGroupRef = useRef(null);
   const connectionLineGroupRef = useRef(null);
+  const suppressSyncRef = useRef(false);
+  const activePolyLayerRef = useRef(null);
+  const editPointsRef = useRef([]);
 
   // ---------------------------------------------------------------------------
   // INTERACTIVE CITY SELECTOR ON MAP (Real-time Pan & Zoom)
@@ -211,77 +215,161 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   };
 
   // ---------------------------------------------------------------------------
-  // ZONE CHANGE HANDLER FOR STORES & UNASSIGN LOGIC
+  // ZONE CHANGE HANDLER FOR STORES & UNASSIGN LOGIC (With Boundary Enforcement)
   // ---------------------------------------------------------------------------
   const updateStoreZone = async (storeId, newZoneId) => {
-    const updated = stores.map((s) => {
-      const id = s.storeId || s._id;
-      if (id === storeId) {
-        return {
-          ...s,
-          deliveryZoneId: newZoneId || null,
-          assignedZoneId: newZoneId ? (MASTER_ZONE_TO_ZONE_CODE_MAP[newZoneId] || newZoneId) : null,
-          assignedAt: new Date().toISOString(),
-          assignedBy: 'Super Admin',
-          assignmentStatus: newZoneId ? 'active' : 'unassigned'
-        };
-      }
-      return s;
-    });
-
-    setStores(updated);
-    saveRetailerStores(updated);
-
-    // Also update freshmart_custom_stores if this is a custom store
+    suppressSyncRef.current = true;
     try {
-      const rawCustom = localStorage.getItem('freshmart_custom_stores');
-      if (rawCustom) {
-        const custom = JSON.parse(rawCustom);
-        if (Array.isArray(custom)) {
-          const cIdx = custom.findIndex((s) => (s.storeId || s._id) === storeId);
-          if (cIdx !== -1) {
-            custom[cIdx] = {
-              ...custom[cIdx],
-              deliveryZoneId: newZoneId || null,
-              assignedZoneId: newZoneId || null
-            };
-            localStorage.setItem('freshmart_custom_stores', JSON.stringify(custom));
+      const storeObj = stores.find((s) => (s.storeId || s._id) === storeId);
+      const zoneObj = newZoneId ? masterZones.find((z) => (z.zoneId || z._id) === newZoneId) : null;
+
+      let newLat = storeObj?.latitude;
+      let newLng = storeObj?.longitude;
+      let coordsRepositioned = false;
+
+      // Enforce: When associating store with a polygon, guarantee coordinates lie strictly inside that polygon
+      if (zoneObj) {
+        const polyCoords = zoneObj.polygon?.coordinates || zoneObj.coordinates;
+        const currentPt = [Number(newLat), Number(newLng)];
+        const isAlreadyInside =
+          !isNaN(currentPt[0]) &&
+          !isNaN(currentPt[1]) &&
+          polyCoords &&
+          isPointInPolygon(currentPt, polyCoords);
+
+        if (!isAlreadyInside && polyCoords && polyCoords.length >= 3) {
+          const insidePoint = getPolygonCentroidAndInsidePoint(polyCoords);
+          if (insidePoint) {
+            newLat = insidePoint[0];
+            newLng = insidePoint[1];
+            coordsRepositioned = true;
+          } else if (zoneObj.center) {
+            const c = normalizeLatLng(zoneObj.center);
+            if (c) {
+              newLat = c.lat;
+              newLng = c.lng;
+              coordsRepositioned = true;
+            }
           }
         }
       }
-    } catch (e) {}
 
-    // Persist to backend
-    try {
-      await apiService.updateStore(storeId, {
-        deliveryZoneId: newZoneId || null,
-        assignedZoneId: newZoneId ? (MASTER_ZONE_TO_ZONE_CODE_MAP[newZoneId] || newZoneId) : null
+      const updated = stores.map((s) => {
+        const id = s.storeId || s._id;
+        if (id === storeId) {
+          return {
+            ...s,
+            deliveryZoneId: newZoneId || null,
+            assignedZoneId: newZoneId ? (MASTER_ZONE_TO_ZONE_CODE_MAP[newZoneId] || newZoneId) : null,
+            assignedAt: new Date().toISOString(),
+            assignedBy: 'Super Admin',
+            assignmentStatus: newZoneId ? 'active' : 'unassigned',
+            latitude: newLat !== undefined ? newLat : s.latitude,
+            longitude: newLng !== undefined ? newLng : s.longitude,
+            location: (newLat !== undefined && newLng !== undefined)
+              ? { type: 'Point', coordinates: [Number(newLng), Number(newLat)] }
+              : s.location
+          };
+        }
+        return s;
       });
-    } catch (e) {}
 
-    // Dispatch global events so Dashboard & sidebars immediately refresh
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('freshmart_stores_updated', { detail: { storeId, newZoneId } }));
-      window.dispatchEvent(new CustomEvent('freshmart_branches_updated'));
-    }
+      setStores(updated);
+      saveRetailerStores(updated);
 
-    const storeObj = stores.find((s) => (s.storeId || s._id) === storeId);
-    const zoneObj = masterZones.find((z) => (z.zoneId || z._id) === newZoneId);
+      // Also update freshmart_custom_stores if this is a custom store
+      try {
+        const rawCustom = localStorage.getItem('freshmart_custom_stores');
+        if (rawCustom) {
+          const custom = JSON.parse(rawCustom);
+          if (Array.isArray(custom)) {
+            const cIdx = custom.findIndex((s) => (s.storeId || s._id) === storeId);
+            if (cIdx !== -1) {
+              custom[cIdx] = {
+                ...custom[cIdx],
+                deliveryZoneId: newZoneId || null,
+                assignedZoneId: newZoneId || null,
+                latitude: newLat !== undefined ? newLat : custom[cIdx].latitude,
+                longitude: newLng !== undefined ? newLng : custom[cIdx].longitude,
+                location: (newLat !== undefined && newLng !== undefined)
+                  ? { type: 'Point', coordinates: [Number(newLng), Number(newLat)] }
+                  : custom[cIdx].location
+              };
+              localStorage.setItem('freshmart_custom_stores', JSON.stringify(custom));
+            }
+          }
+        }
+      } catch (e) {}
 
-    if (addToast) {
-      if (newZoneId) {
-        addToast(
-          'Delivery Zone Assigned 📍',
-          `${storeObj?.name || 'Store'} is now assigned to ${zoneObj?.name || newZoneId}.`,
-          'success'
-        );
-      } else {
-        addToast(
-          'Store Unassigned ⚠️',
-          `${storeObj?.name || 'Store'} has been detached from its delivery zone.`,
-          'info'
-        );
+      // Also update freshmart_branches in localStorage
+      try {
+        const rawBranches = localStorage.getItem('freshmart_branches');
+        if (rawBranches) {
+          const branches = JSON.parse(rawBranches);
+          if (Array.isArray(branches)) {
+            const bIdx = branches.findIndex((b) => (b.storeId || b._id) === storeId);
+            if (bIdx !== -1) {
+              branches[bIdx] = {
+                ...branches[bIdx],
+                deliveryZoneId: newZoneId || null,
+                assignedZoneId: newZoneId || null,
+                latitude: newLat !== undefined ? newLat : branches[bIdx].latitude,
+                longitude: newLng !== undefined ? newLng : branches[bIdx].longitude
+              };
+              localStorage.setItem('freshmart_branches', JSON.stringify(branches));
+            }
+          }
+        }
+      } catch (e) {}
+
+      // Persist to backend
+      try {
+        const payload = {
+          deliveryZoneId: newZoneId || null,
+          assignedZoneId: newZoneId ? (MASTER_ZONE_TO_ZONE_CODE_MAP[newZoneId] || newZoneId) : null
+        };
+        if (coordsRepositioned) {
+          payload.latitude = newLat;
+          payload.longitude = newLng;
+          payload.location = { type: 'Point', coordinates: [Number(newLng), Number(newLat)] };
+        }
+        await apiService.updateStore(storeId, payload);
+        if (newZoneId) {
+          await apiService.assignStoresToZone(newZoneId, [storeId]).catch(() => {});
+        }
+      } catch (e) {}
+
+      // Dispatch global events so Dashboard & sidebars immediately refresh
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('freshmart_stores_updated', { detail: { storeId, newZoneId } }));
+        window.dispatchEvent(new CustomEvent('freshmart_branches_updated'));
       }
+
+      // Fly map to newly positioned store pin if it was relocated into the polygon
+      if (coordsRepositioned && mapInstanceRef.current && newLat && newLng) {
+        mapInstanceRef.current.flyTo([Number(newLat), Number(newLng)], 14, { duration: 0.8 });
+      }
+
+      if (addToast) {
+        if (newZoneId) {
+          const locMsg = coordsRepositioned ? ' Store pin placed inside delivery polygon boundary.' : '';
+          addToast(
+            'Delivery Zone Assigned 📍',
+            `${storeObj?.name || 'Store'} is now assigned to ${zoneObj?.name || newZoneId}.${locMsg}`,
+            'success'
+          );
+        } else {
+          addToast(
+            'Store Unassigned ⚠️',
+            `${storeObj?.name || 'Store'} has been detached from its delivery zone.`,
+            'info'
+          );
+        }
+      }
+    } finally {
+      setTimeout(() => {
+        suppressSyncRef.current = false;
+      }, 100);
     }
   };
 
@@ -499,12 +587,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     }).catch(() => {});
 
     const handleStoreSync = () => {
+      if (suppressSyncRef.current) return;
       const refreshedStores = loadRetailerStores();
       setStores(refreshedStores);
       setMasterZones(loadMasterZones());
-      if (storeMarkersGroupRef.current) {
-        storeMarkersGroupRef.current.clearLayers();
-      }
     };
     window.addEventListener('freshmart_stores_updated', handleStoreSync);
     window.addEventListener('freshmart_retailer_stores_updated', handleStoreSync);
@@ -637,6 +723,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
         _id: zId,
         id: zId,
         zoneId: zId,
+        drawnByUser: true,
+        isCustom: true,
         center: newCenter,
         polygon: {
           type: 'Polygon',
@@ -659,6 +747,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
         if (currentId === zId) {
           savedZone = {
             ...z,
+            drawnByUser: true,
+            isCustom: true,
             center: newCenter,
             polygon: {
               type: 'Polygon',
@@ -675,10 +765,42 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       try {
         apiService.updateZone(zId, {
           center: newCenter,
+          drawnByUser: true,
+          isCustom: true,
           polygon: { type: 'Polygon', coordinates: cleanPoints }
         }).catch(() => {});
       } catch (e) {}
     }
+
+    // Ensure all stores previously assigned to this zone lie inside the newly adjusted polygon
+    try {
+      const assignedStores = stores.filter((s) => s.deliveryZoneId === zId);
+      if (assignedStores.length > 0) {
+        let anyRepositioned = false;
+        const insidePt = getPolygonCentroidAndInsidePoint(cleanPoints) || newCenter;
+        const adjustedStores = stores.map((s) => {
+          if (s.deliveryZoneId === zId) {
+            const pt = [Number(s.latitude), Number(s.longitude)];
+            const isInside = !isNaN(pt[0]) && !isNaN(pt[1]) && isPointInPolygon(pt, cleanPoints);
+            if (!isInside) {
+              anyRepositioned = true;
+              return {
+                ...s,
+                latitude: insidePt[0],
+                longitude: insidePt[1],
+                location: { type: 'Point', coordinates: [insidePt[1], insidePt[0]] }
+              };
+            }
+          }
+          return s;
+        });
+
+        if (anyRepositioned) {
+          setStores(adjustedStores);
+          saveRetailerStores(adjustedStores);
+        }
+      }
+    } catch (e) {}
 
     const targetStore = targetStoreForNewZone || editingPolygonZone.targetStore;
     const zoneName = editingPolygonZone.name;
@@ -779,16 +901,22 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   const handleOpenAddZone = () => {
     const nextNumber = masterZones.length + 1;
     const defaultColor = ZONE_PRESET_COLORS[(nextNumber - 1) % ZONE_PRESET_COLORS.length].hex;
+    const city = selectedCity || 'Faisalabad';
+    const cityObj = PAKISTAN_CITIES.find((c) => c.name.toLowerCase() === city.toLowerCase());
+    const lat = cityObj?.lat || 31.4250;
+    const lng = cityObj?.lng || 73.0850;
+
     setZoneForm({
-      name: `Zone ${nextNumber} — Gulberg & Kohinoor Hub`,
-      shortName: `Gulberg Hub`,
+      name: `Zone ${nextNumber} — ${city} Central`,
+      shortName: `${city} Central`,
+      city: city,
       zoneNumber: nextNumber,
       color: defaultColor,
       deliveryFee: 65,
       minOrder: 400,
       freeDeliveryThreshold: 2000,
-      centerLat: 31.4250,
-      centerLng: 73.0850,
+      centerLat: lat,
+      centerLng: lng,
       status: 'active'
     });
     setIsAddZoneModalOpen(true);
@@ -803,13 +931,12 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     const deltaLat = 0.015;
     const deltaLng = 0.016;
 
-    // Generate polygonal boundary around center
+    // Generate 4 polygonal boundary corners around center
     const polygonCoordinates = [
       [Number((lat + deltaLat).toFixed(4)), Number((lng - deltaLng).toFixed(4))],
       [Number((lat + deltaLat).toFixed(4)), Number((lng + deltaLng).toFixed(4))],
       [Number((lat - deltaLat).toFixed(4)), Number((lng + deltaLng).toFixed(4))],
-      [Number((lat - deltaLat).toFixed(4)), Number((lng - deltaLng).toFixed(4))],
-      [Number((lat + deltaLat).toFixed(4)), Number((lng - deltaLng).toFixed(4))]
+      [Number((lat - deltaLat).toFixed(4)), Number((lng - deltaLng).toFixed(4))]
     ];
 
     const newZoneId = `zone_${Date.now().toString().slice(-4)}`;
@@ -822,6 +949,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       name: zoneForm.name.trim(),
       shortName: zoneForm.shortName.trim() || zoneForm.name.trim(),
       city: zoneCity,
+      drawnByUser: true,
+      isCustom: true,
       color: zoneForm.color || '#0d9488',
       deliveryFee: Number(zoneForm.deliveryFee) || 60,
       minOrder: Number(zoneForm.minOrder) || 400,
@@ -1225,14 +1354,13 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   };
 
   // ---------------------------------------------------------------------------
-  // RENDER MASTER ZONE POLYGONS & STORE PINS ON MAP
+  // RENDER MASTER ZONE POLYGONS & STORE PINS ON MAP (Decoupled from hover state)
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!mapInstanceRef.current || !zonePolygonsGroupRef.current || !storeMarkersGroupRef.current) return;
 
     zonePolygonsGroupRef.current.clearLayers();
     storeMarkersGroupRef.current.clearLayers();
-    if (connectionLineGroupRef.current) connectionLineGroupRef.current.clearLayers();
 
     // 1. Draw Master Delivery Zone Polygons
     masterZones.forEach((zone) => {
@@ -1247,11 +1375,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
       const isFiltered = selectedZoneFilter !== 'all' && selectedZoneFilter !== zId;
       const storesInZone = stores.filter((s) => s.deliveryZoneId === zId);
-      const isFocused = focusedStoreId && storesInZone.some((s) => (s.storeId || s._id) === focusedStoreId);
 
-      const strokeOpacity = isFiltered ? 0.25 : (isFocused ? 1 : 0.9);
-      const strokeWeight = isFocused ? 4 : (isFiltered ? 1.5 : 3);
-      const fillOpacity = isFiltered ? 0.04 : (isFocused ? 0.32 : 0.22);
+      const strokeOpacity = isFiltered ? 0.25 : 0.9;
+      const strokeWeight = isFiltered ? 1.5 : 3;
+      const fillOpacity = isFiltered ? 0.04 : 0.22;
 
       const polygon = L.polygon(zone.polygon.coordinates, {
         color: zone.color,
@@ -1259,7 +1386,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
         opacity: strokeOpacity,
         fillColor: zone.color,
         fillOpacity: fillOpacity,
-        dashArray: isFiltered ? '4, 4' : (isFocused ? '6, 6' : null)
+        dashArray: isFiltered ? '4, 4' : null
       });
 
       polygon.bindPopup(`
@@ -1305,26 +1432,6 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       `);
 
       zonePolygonsGroupRef.current.addLayer(polygon);
-
-      // If store is focused, draw dashed connection line from store pin to zone center
-      if (isFocused && connectionLineGroupRef.current && zone.center) {
-        const storeObj = stores.find((s) => (s.storeId || s._id) === focusedStoreId);
-        if (storeObj && storeObj.latitude && storeObj.longitude) {
-          const line = L.polyline(
-            [
-              [Number(storeObj.latitude), Number(storeObj.longitude)],
-              [Number(zone.center[0]), Number(zone.center[1])]
-            ],
-            {
-              color: zone.color,
-              weight: 2.5,
-              dashArray: '5, 8',
-              opacity: 0.9
-            }
-          );
-          connectionLineGroupRef.current.addLayer(line);
-        }
-      }
     });
 
     // 2. Draw Physical Child Store Markers
@@ -1353,7 +1460,6 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
         parentRetailers[0] ||
         FOUR_PARENT_RETAILERS[0];
       const zoneColor = isTargetStore ? '#10b981' : isUnassigned ? '#f59e0b' : (assignedZone?.color || '#0284c7');
-      const isFocused = isTargetStore || (focusedStoreId === (store.storeId || store._id));
       const isMainBranch = store.name.toLowerCase().includes('main') || store.branchName.toLowerCase().includes('main');
 
       const customIcon = L.divIcon({
@@ -1363,13 +1469,13 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: ${isFocused ? '40px' : '34px'};
-            height: ${isFocused ? '40px' : '34px'};
+            width: ${isTargetStore ? '40px' : '34px'};
+            height: ${isTargetStore ? '40px' : '34px'};
             background: #ffffff;
             border-radius: 12px;
-            border: ${isTargetStore ? '3.5px solid #10b981' : isFocused ? '3.5px solid #0f172a' : isUnassigned ? '3px dashed #f59e0b' : `3px solid ${zoneColor}`};
-            box-shadow: ${isTargetStore ? '0 0 0 4px #10b98188, 0 8px 16px rgba(16,185,129,0.4)' : isFocused ? '0 0 0 4px ' + zoneColor + '88, 0 8px 16px rgba(0,0,0,0.35)' : isUnassigned ? '0 0 0 3px #fef3c7, 0 4px 12px rgba(245,158,11,0.35)' : '0 4px 12px rgba(0,0,0,0.25)'};
-            font-size: ${isFocused ? '18px' : '14px'};
+            border: ${isTargetStore ? '3.5px solid #10b981' : isUnassigned ? '3px dashed #f59e0b' : `3px solid ${zoneColor}`};
+            box-shadow: ${isTargetStore ? '0 0 0 4px #10b98188, 0 8px 16px rgba(16,185,129,0.4)' : isUnassigned ? '0 0 0 3px #fef3c7, 0 4px 12px rgba(245,158,11,0.35)' : '0 4px 12px rgba(0,0,0,0.25)'};
+            font-size: ${isTargetStore ? '18px' : '14px'};
             cursor: pointer;
             position: relative;
             transition: all 0.2s ease;
@@ -1389,13 +1495,15 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
             ">${isTargetStore ? '🎯' : isUnassigned ? '⚠️' : (store.retailerNumber || '•')}</span>
           </div>
         `,
-        iconSize: [isFocused ? 40 : 34, isFocused ? 40 : 34],
-        iconAnchor: [isFocused ? 20 : 17, isFocused ? 20 : 17]
+        iconSize: [isTargetStore ? 40 : 34, isTargetStore ? 40 : 34],
+        iconAnchor: [isTargetStore ? 20 : 17, isTargetStore ? 20 : 17]
       });
 
       const marker = L.marker([lat, lng], { icon: customIcon });
 
+      const storeCity = String(store.city || '').trim().toLowerCase();
       const zoneOptionsHtml = masterZones
+        .filter((z) => !storeCity || String(z.city || '').trim().toLowerCase() === storeCity)
         .map(
           (z) =>
             `<option value="${z.zoneId || z._id}" ${
@@ -1461,7 +1569,36 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
       storeMarkersGroupRef.current.addLayer(marker);
     });
-  }, [masterZones, stores, filteredStores, selectedZoneFilter, parentRetailers, editingPolygonZone, focusedStoreId, targetStoreForNewZone]);
+  }, [masterZones, stores, filteredStores, selectedZoneFilter, parentRetailers, editingPolygonZone, targetStoreForNewZone]);
+
+  // ---------------------------------------------------------------------------
+  // CONNECTION LINES (Hover / Focus State) - Separate to prevent marker flicker
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!connectionLineGroupRef.current) return;
+    connectionLineGroupRef.current.clearLayers();
+
+    if (!focusedStoreId) return;
+    const storeObj = stores.find((s) => (s.storeId || s._id) === focusedStoreId);
+    if (!storeObj || !storeObj.deliveryZoneId) return;
+
+    const zone = masterZones.find((z) => (z.zoneId || z._id) === storeObj.deliveryZoneId);
+    if (zone && zone.center && storeObj.latitude && storeObj.longitude) {
+      const line = L.polyline(
+        [
+          [Number(storeObj.latitude), Number(storeObj.longitude)],
+          [Number(zone.center[0]), Number(zone.center[1])]
+        ],
+        {
+          color: zone.color,
+          weight: 2.5,
+          dashArray: '5, 8',
+          opacity: 0.9
+        }
+      );
+      connectionLineGroupRef.current.addLayer(line);
+    }
+  }, [focusedStoreId, stores, masterZones]);
 
   // ---------------------------------------------------------------------------
   // INTERACTIVE EDITABLE POLYGON & DRAGGABLE VERTEX HANDLERS ON MAP
@@ -1470,24 +1607,30 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     if (!mapInstanceRef.current || !activeEditLayerGroupRef.current) return;
     activeEditLayerGroupRef.current.clearLayers();
 
-    if (!editingPolygonZone || !Array.isArray(editingPolygonPoints) || editingPolygonPoints.length === 0) return;
+    if (!editingPolygonZone || !Array.isArray(editingPolygonPoints) || editingPolygonPoints.length === 0) {
+      activePolyLayerRef.current = null;
+      editPointsRef.current = [];
+      return;
+    }
 
     const zoneColor = editingPolygonZone.color || '#ea580c';
+    editPointsRef.current = editingPolygonPoints.map((pt) => [Number(pt[0]), Number(pt[1])]);
 
-    // 1. Draw live active polygon boundary
-    if (editingPolygonPoints.length >= 2) {
-      const activePolygon = L.polygon(editingPolygonPoints, {
+    // 1. Draw live active polygon boundary and store reference
+    if (editPointsRef.current.length >= 2) {
+      const activePolygon = L.polygon(editPointsRef.current, {
         color: zoneColor,
         weight: 3.5,
         dashArray: '6, 6',
         fillColor: zoneColor,
         fillOpacity: 0.32
       });
+      activePolyLayerRef.current = activePolygon;
       activeEditLayerGroupRef.current.addLayer(activePolygon);
     }
 
     // 2. Draw draggable vertex handles for each polygon corner
-    editingPolygonPoints.forEach((point, idx) => {
+    editPointsRef.current.forEach((point, idx) => {
       const vertexIcon = L.divIcon({
         className: 'custom-polygon-vertex',
         html: `
@@ -1523,15 +1666,16 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
       marker.on('drag', (e) => {
         const { lat, lng } = e.target.getLatLng();
-        setEditingPolygonPoints((prev) => {
-          const next = [...prev];
-          next[idx] = [Number(lat.toFixed(5)), Number(lng.toFixed(5))];
-          return next;
-        });
+        editPointsRef.current[idx] = [Number(lat.toFixed(5)), Number(lng.toFixed(5))];
+        if (activePolyLayerRef.current) {
+          activePolyLayerRef.current.setLatLngs(editPointsRef.current);
+        }
       });
 
       marker.on('dragend', () => {
-        setPointsHistory((prev) => [...prev, editingPolygonPoints]);
+        const committed = [...editPointsRef.current];
+        setEditingPolygonPoints(committed);
+        setPointsHistory((prev) => [...prev, committed]);
       });
 
       marker.bindTooltip(`Corner #${idx + 1}<br/><span style="font-size: 9px; color: #64748b;">Drag to move • Click to delete</span>`, {
@@ -1540,8 +1684,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       });
 
       marker.on('click', () => {
-        if (editingPolygonPoints.length > 3) {
-          setEditingPolygonPoints((prev) => prev.filter((_, i) => i !== idx));
+        if (editPointsRef.current.length > 3) {
+          const next = editPointsRef.current.filter((_, i) => i !== idx);
+          setEditingPolygonPoints(next);
+          setPointsHistory((prev) => [...prev, next]);
           if (addToast) addToast('Corner Removed', `Deleted corner #${idx + 1}`, 'info');
         } else {
           if (addToast) addToast('Cannot Remove', 'Polygon requires at least 3 points.', 'error');
@@ -1550,7 +1696,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
       activeEditLayerGroupRef.current.addLayer(marker);
     });
-  }, [editingPolygonZone, editingPolygonPoints, addToast]);
+  }, [editingPolygonZone, editingPolygonPoints.length, pointsHistory.length, addToast]);
 
   // ---------------------------------------------------------------------------
   // MAP CLICK LISTENER FOR ADDING / REDRAWING POLYGON POINTS
@@ -1805,8 +1951,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                         }}
                         className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none cursor-pointer"
                       >
-                        <option value="" disabled>Select delivery zone...</option>
-                        {masterZones.map((z) => (
+                        <option value="" disabled>Select delivery zone ({store.city || 'City'})...</option>
+                        {masterZones
+                          .filter((z) => !store.city || String(z.city || '').toLowerCase() === String(store.city || '').toLowerCase())
+                          .map((z) => (
                           <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
                             {z.name}
                           </option>
@@ -1942,10 +2090,13 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                   defaultValue=""
                   className="bg-sky-50 border border-sky-200 text-sky-800 font-bold text-xs rounded-xl px-2.5 py-1.5 cursor-pointer hover:bg-sky-100 transition shadow-2xs"
                 >
-                  <option value="" disabled>✏️ Reshape a Zone Polygon...</option>
-                  {masterZones.map((z) => (
+                  <option value="" disabled>✏️ Reshape a Zone Polygon ({selectedCity})...</option>
+                  {(masterZones.some((z) => String(z.city || '').toLowerCase() === selectedCity.toLowerCase())
+                    ? masterZones.filter((z) => String(z.city || '').toLowerCase() === selectedCity.toLowerCase())
+                    : masterZones
+                  ).map((z) => (
                     <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
-                      Reshape: {z.name}
+                      Reshape: {z.name} ({z.city || selectedCity})
                     </option>
                   ))}
                 </select>
@@ -2373,8 +2524,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                               }`}
                               style={{ borderLeftWidth: '4px', borderLeftColor: store.deliveryZoneId ? assignedZone?.color : '#f59e0b' }}
                             >
-                              <option value="" disabled>-- Select Existing Delivery Polygon --</option>
-                              {masterZones.map((z) => (
+                              <option value="" disabled>-- Select Delivery Polygon ({store.city || 'City'}) --</option>
+                              {masterZones
+                                .filter((z) => !store.city || String(z.city || '').toLowerCase() === String(store.city || '').toLowerCase())
+                                .map((z) => (
                                 <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
                                   {z.name}
                                 </option>
@@ -2552,7 +2705,13 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                                     className="text-[11px] font-bold bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-700 cursor-pointer"
                                     title="Move store to another zone"
                                   >
-                                    {masterZones.map((z) => (
+                                    {masterZones
+                                      .filter((z) => {
+                                        const c1 = String(z.city || '').toLowerCase();
+                                        const c2 = String(store.city || zone.city || '').toLowerCase();
+                                        return !c2 || c1 === c2;
+                                      })
+                                      .map((z) => (
                                       <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
                                         Move to: {z.shortName}
                                       </option>
@@ -3551,7 +3710,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
                   >
                     <option value="">⚠️ Leave Unassigned (Initially Unassigned Zone)</option>
-                    {masterZones.map((z) => (
+                    {masterZones
+                      .filter((z) => !storeForm.city || String(z.city || '').toLowerCase() === String(storeForm.city || '').toLowerCase())
+                      .map((z) => (
                       <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
                         {z.name} (Fee: Rs. {z.deliveryFee || 60})
                       </option>
@@ -3758,24 +3919,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                           onChange={(e) => setAssignmentZoneId(e.target.value)}
                           className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
                         >
-                          <optgroup label={`${targetCity} Delivery Zones`}>
-                            {availableCityZones.map((z) => (
-                              <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
-                                {z.name} ({z.zoneId || z._id})
-                              </option>
-                            ))}
-                          </optgroup>
-                          {masterZones.some((z) => String(z.city || 'Faisalabad').toLowerCase() !== targetCity.toLowerCase()) && (
-                            <optgroup label="Other Cities">
-                              {masterZones
-                                .filter((z) => String(z.city || 'Faisalabad').toLowerCase() !== targetCity.toLowerCase())
-                                .map((z) => (
-                                   <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
-                                    {z.name} ({z.city || 'Faisalabad'})
-                                  </option>
-                                ))}
-                            </optgroup>
-                          )}
+                          {availableCityZones.map((z) => (
+                            <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
+                              {z.name} - {z.city || targetCity}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     )}
@@ -3895,7 +4043,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                   onChange={(e) => setStoreForm({ ...storeForm, deliveryZoneId: e.target.value })}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
                 >
-                  {masterZones.map((z) => (
+                  {masterZones
+                    .filter((z) => !storeForm.city || String(z.city || '').toLowerCase() === String(storeForm.city || '').toLowerCase())
+                    .map((z) => (
                     <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
                       {z.name} (Fee: Rs. {z.deliveryFee || 60})
                     </option>

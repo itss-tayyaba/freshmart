@@ -103,6 +103,63 @@ export function isPointInPolygon(point, polygon) {
 }
 
 /**
+ * Calculate interior point or centroid guaranteed to lie inside polygon boundary
+ */
+export function getPolygonCentroidAndInsidePoint(polygonCoords) {
+  if (!polygonCoords) return null;
+  const coords = Array.isArray(polygonCoords[0]) && Array.isArray(polygonCoords[0][0])
+    ? polygonCoords[0]
+    : (Array.isArray(polygonCoords) ? polygonCoords : null);
+
+  if (!coords || coords.length < 3) return null;
+
+  let sumLat = 0;
+  let sumLng = 0;
+  let count = 0;
+  const normalizedPoints = [];
+
+  coords.forEach((pt) => {
+    const norm = normalizeLatLng(pt);
+    if (norm) {
+      sumLat += norm.lat;
+      sumLng += norm.lng;
+      count++;
+      normalizedPoints.push([norm.lat, norm.lng]);
+    }
+  });
+
+  if (count < 3) return null;
+
+  const centroid = [
+    Number((sumLat / count).toFixed(5)),
+    Number((sumLng / count).toFixed(5))
+  ];
+
+  if (isPointInPolygon(centroid, normalizedPoints)) {
+    return centroid;
+  }
+
+  // If centroid is outside (e.g. concave/L-shaped polygon), test triangle centroid
+  const p0 = normalizedPoints[0];
+  const p1 = normalizedPoints[1];
+  const p2 = normalizedPoints[2];
+  const triCenter = [
+    Number(((p0[0] + p1[0] + p2[0]) / 3).toFixed(5)),
+    Number(((p0[1] + p1[1] + p2[1]) / 3).toFixed(5))
+  ];
+  if (isPointInPolygon(triCenter, normalizedPoints)) {
+    return triCenter;
+  }
+
+  // Fallback to midpoint towards first vertex
+  const fallback = [
+    Number(((centroid[0] + p0[0]) / 2).toFixed(5)),
+    Number(((centroid[1] + p0[1]) / 2).toFixed(5))
+  ];
+  return isPointInPolygon(fallback, normalizedPoints) ? fallback : centroid;
+}
+
+/**
  * Resolve delivery fee based on branch delivery tiers
  */
 export function calculateBranchDeliveryFee(branch, distanceKm) {

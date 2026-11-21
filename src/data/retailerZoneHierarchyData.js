@@ -678,13 +678,10 @@ export const loadMasterZones = () => {
           const baseline = FOUR_MASTER_DELIVERY_ZONES.find(
             (b) => (b.zoneId || b._id) === zId
           ) || {};
-          const isUserDrawn = Boolean(z.drawnByUser || z.isCustom || z.userDrawn);
-          const hasBaseline = Boolean(baseline.zoneId);
-          const polygonToUse = (!isUserDrawn && hasBaseline && baseline.polygon)
-            ? baseline.polygon
-            : ((z.polygon && Array.isArray(z.polygon.coordinates) && z.polygon.coordinates.length >= 3)
-                ? z.polygon
-                : (baseline.polygon || z.polygon));
+          const hasValidStoredPolygon = z.polygon && Array.isArray(z.polygon.coordinates) && z.polygon.coordinates.length >= 3;
+          const polygonToUse = hasValidStoredPolygon
+            ? z.polygon
+            : (baseline.polygon || z.polygon);
 
           return {
             ...baseline,

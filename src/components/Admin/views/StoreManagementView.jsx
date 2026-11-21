@@ -44,6 +44,11 @@ import {
   saveRetailerStores,
   deleteRetailerStore
 } from '../../../data/retailerZoneHierarchyData';
+import {
+  isPointInPolygon,
+  getPolygonCentroidAndInsidePoint,
+  normalizeLatLng
+} from '../../../utils/distanceCalculator';
 
 export const StoreManagementView = () => {
   const {
@@ -178,19 +183,21 @@ export const StoreManagementView = () => {
   // Helper to detect which master polygon a store point lies inside
   const getZoneContainingPoint = (lat, lng) => {
     if (!lat || !lng || !zones || zones.length === 0) return null;
-    const x = Number(lng);
-    const y = Number(lat);
+    const pt = [Number(lat), Number(lng)];
+    if (isNaN(pt[0]) || isNaN(pt[1])) return null;
+
     for (const z of zones) {
-      if (!z.geometry || !z.geometry.coordinates || !z.geometry.coordinates[0]) continue;
-      const poly = z.geometry.coordinates[0];
-      let inside = false;
-      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const xi = poly[i][0], yi = poly[i][1];
-        const xj = poly[j][0], yj = poly[j][1];
-        const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-        if (intersect) inside = !inside;
+      let poly = null;
+      if (z.polygon?.coordinates && Array.isArray(z.polygon.coordinates)) {
+        poly = z.polygon.coordinates;
+      } else if (z.geometry?.coordinates?.[0] && Array.isArray(z.geometry.coordinates[0])) {
+        poly = z.geometry.coordinates[0];
+      } else if (Array.isArray(z.coordinates)) {
+        poly = z.coordinates;
       }
-      if (inside) return z;
+      if (poly && poly.length >= 3 && isPointInPolygon(pt, poly)) {
+        return z;
+      }
     }
     return null;
   };
@@ -514,8 +521,33 @@ export const StoreManagementView = () => {
     const addressVal = String(formData.address || '').trim() || `Main Commercial Avenue, ${formData.city || 'Faisalabad'}, Pakistan`;
     const cityVal = String(formData.city || '').trim() || 'Faisalabad';
 
-    const latVal = (Number.isFinite(Number(formData.latitude)) && !isNaN(Number(formData.latitude))) ? Number(formData.latitude) : 31.4125;
-    const lngVal = (Number.isFinite(Number(formData.longitude)) && !isNaN(Number(formData.longitude))) ? Number(formData.longitude) : 73.0995;
+    let latVal = (Number.isFinite(Number(formData.latitude)) && !isNaN(Number(formData.latitude))) ? Number(formData.latitude) : 31.4125;
+    let lngVal = (Number.isFinite(Number(formData.longitude)) && !isNaN(Number(formData.longitude))) ? Number(formData.longitude) : 73.0995;
+
+    // Ensure store coordinates strictly lie inside the assigned polygon
+    if (formData.assignedZoneId) {
+      const targetZone = zones.find((z) => (z.zoneId || z._id || z.id) === formData.assignedZoneId);
+      if (targetZone) {
+        const polyCoords = targetZone.polygon?.coordinates || targetZone.geometry?.coordinates?.[0] || targetZone.coordinates;
+        const currentPt = [latVal, lngVal];
+        const isInside = polyCoords && isPointInPolygon(currentPt, polyCoords);
+        if (!isInside) {
+          if (polyCoords && polyCoords.length >= 3) {
+            const insidePt = getPolygonCentroidAndInsidePoint(polyCoords);
+            if (insidePt) {
+              latVal = insidePt[0];
+              lngVal = insidePt[1];
+            }
+          } else if (targetZone.center) {
+            const c = normalizeLatLng(targetZone.center);
+            if (c) {
+              latVal = c.lat;
+              lngVal = c.lng;
+            }
+          }
+        }
+      }
+    }
 
     suppressSyncRef.current = true;
     fetchSeqRef.current++;
@@ -1347,7 +1379,32 @@ export const StoreManagementView = () => {
                   </div>
                   <select
                     value={formData.assignedZoneId || ''}
-                    onChange={(e) => setFormData({ ...formData, assignedZoneId: e.target.value })}
+                    onChange={(e) => {
+                      const selectedZId = e.target.value;
+                      let updatedCoords = {};
+                      if (selectedZId) {
+                        const targetZone = zones.find((z) => (z.zoneId || z._id || z.id) === selectedZId);
+                        if (targetZone) {
+                          const polyCoords = targetZone.polygon?.coordinates || targetZone.geometry?.coordinates?.[0] || targetZone.coordinates;
+                          const currentPt = [Number(formData.latitude), Number(formData.longitude)];
+                          const isInside = !isNaN(currentPt[0]) && !isNaN(currentPt[1]) && polyCoords && isPointInPolygon(currentPt, polyCoords);
+                          if (!isInside) {
+                            if (polyCoords && polyCoords.length >= 3) {
+                              const insidePt = getPolygonCentroidAndInsidePoint(polyCoords);
+                              if (insidePt) {
+                                updatedCoords = { latitude: insidePt[0], longitude: insidePt[1] };
+                              }
+                            } else if (targetZone.center) {
+                              const c = normalizeLatLng(targetZone.center);
+                              if (c) {
+                                updatedCoords = { latitude: c.lat, longitude: c.lng };
+                              }
+                            }
+                          }
+                        }
+                      }
+                      setFormData({ ...formData, assignedZoneId: selectedZId, ...updatedCoords });
+                    }}
                     className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden"
                   >
                     <option value="">-- No Polygon Zone Assigned (Assign Later or in Zone Management) --</option>
