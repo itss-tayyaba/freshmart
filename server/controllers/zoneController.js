@@ -241,6 +241,155 @@ export const DEFAULT_PLATFORM_ZONES = [
         [73.0540, 31.4210]
       ]]
     }
+  },
+
+  // --- Lahore Master Regional Delivery Zones ---
+  {
+    _id: 'ZONE-LHR-GULBERG',
+    zoneId: 'ZONE-LHR-GULBERG',
+    name: 'Gulberg & MM Alam Commercial Hub',
+    code: 'LHR-GLB',
+    city: 'Lahore',
+    area: 'Gulberg & Main Boulevard',
+    description: 'Premier shopping, culinary and commercial district of Lahore encompassing Main Boulevard, MM Alam, and Gulberg II & III.',
+    color: '#2563eb',
+    deliveryCharge: 80,
+    minOrderAmount: 450,
+    freeDeliveryThreshold: 2200,
+    estimatedDeliveryTime: '20-30 mins',
+    type: 'delivery_zone',
+    isDeliveryZone: true,
+    isStoreAreaPolygon: true,
+    status: 'active',
+    isActive: true,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [74.335, 31.535],
+        [74.370, 31.535],
+        [74.370, 31.500],
+        [74.335, 31.500],
+        [74.335, 31.535]
+      ]]
+    }
+  },
+  {
+    _id: 'ZONE-LHR-DHA',
+    zoneId: 'ZONE-LHR-DHA',
+    name: 'DHA Phase 1-5 Express Zone',
+    code: 'LHR-DHA',
+    city: 'Lahore',
+    area: 'DHA & Cantt',
+    description: 'High-density upscale residential and commercial sector spanning DHA Phases 1 to 5 and Lahore Cantt.',
+    color: '#16a34a',
+    deliveryCharge: 90,
+    minOrderAmount: 500,
+    freeDeliveryThreshold: 2500,
+    estimatedDeliveryTime: '20-35 mins',
+    type: 'delivery_zone',
+    isDeliveryZone: true,
+    isStoreAreaPolygon: true,
+    status: 'active',
+    isActive: true,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [74.370, 31.495],
+        [74.425, 31.495],
+        [74.425, 31.460],
+        [74.370, 31.460],
+        [74.370, 31.495]
+      ]]
+    }
+  },
+  {
+    _id: 'ZONE-LHR-MODELTOWN',
+    zoneId: 'ZONE-LHR-MODELTOWN',
+    name: 'Model Town & Garden Town Hub',
+    code: 'LHR-MDL',
+    city: 'Lahore',
+    area: 'Model Town & Garden Town',
+    description: 'Central suburban hub covering Model Town, Garden Town, and Faisal Town commercial zones.',
+    color: '#ea580c',
+    deliveryCharge: 75,
+    minOrderAmount: 400,
+    freeDeliveryThreshold: 2000,
+    estimatedDeliveryTime: '25-35 mins',
+    type: 'delivery_zone',
+    isDeliveryZone: true,
+    isStoreAreaPolygon: true,
+    status: 'active',
+    isActive: true,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [74.305, 31.505],
+        [74.340, 31.505],
+        [74.340, 31.470],
+        [74.305, 31.470],
+        [74.305, 31.505]
+      ]]
+    }
+  },
+
+  // --- Islamabad Master Regional Delivery Zones ---
+  {
+    _id: 'ZONE-ISB-F6F7',
+    zoneId: 'ZONE-ISB-F6F7',
+    name: 'F-6 & F-7 Super Market Corridor',
+    code: 'ISB-F67',
+    city: 'Islamabad',
+    area: 'F-6 & F-7 Super Market',
+    description: 'Central shopping, embassy and retail corridor covering F-6, F-7, and Kohsar Market.',
+    color: '#7c3aed',
+    deliveryCharge: 80,
+    minOrderAmount: 450,
+    freeDeliveryThreshold: 2200,
+    estimatedDeliveryTime: '20-30 mins',
+    type: 'delivery_zone',
+    isDeliveryZone: true,
+    isStoreAreaPolygon: true,
+    status: 'active',
+    isActive: true,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.045, 33.740],
+        [73.080, 33.740],
+        [73.080, 33.710],
+        [73.045, 33.710],
+        [73.045, 33.740]
+      ]]
+    }
+  },
+  {
+    _id: 'ZONE-ISB-BLUEAREA',
+    zoneId: 'ZONE-ISB-BLUEAREA',
+    name: 'Blue Area & Commercial Corridor',
+    code: 'ISB-BLU',
+    city: 'Islamabad',
+    area: 'Blue Area & G-6/G-7',
+    description: 'Central business district spine spanning Jinnah Avenue, Blue Area, and neighboring G-6/G-7 sectors.',
+    color: '#0284c7',
+    deliveryCharge: 80,
+    minOrderAmount: 450,
+    freeDeliveryThreshold: 2200,
+    estimatedDeliveryTime: '20-30 mins',
+    type: 'delivery_zone',
+    isDeliveryZone: true,
+    isStoreAreaPolygon: true,
+    status: 'active',
+    isActive: true,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.055, 33.725],
+        [73.095, 33.725],
+        [73.095, 33.695],
+        [73.055, 33.695],
+        [73.055, 33.725]
+      ]]
+    }
   }
 ];
 
@@ -258,6 +407,7 @@ export const getAllZonesMerged = async () => {
   const diskZones = loadDiskZones();
   const map = new Map();
 
+  DEFAULT_PLATFORM_ZONES.forEach((z) => map.set(z.zoneId, z));
   diskZones.forEach((z) => map.set(z.zoneId, z));
   dbZones.forEach((z) => map.set(z.zoneId, {
     ...z,
