@@ -197,6 +197,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   const suppressSyncRef = useRef(false);
   const activePolyLayerRef = useRef(null);
   const editPointsRef = useRef([]);
+  const activePopupStoreIdRef = useRef(null);
+  const isRebuildingMarkersRef = useRef(false);
+  const storeMarkersMapRef = useRef({});
 
   // ---------------------------------------------------------------------------
   // INTERACTIVE CITY SELECTOR ON MAP (Real-time Pan & Zoom)
@@ -219,6 +222,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   // ---------------------------------------------------------------------------
   const updateStoreZone = async (storeId, newZoneId) => {
     suppressSyncRef.current = true;
+    activePopupStoreIdRef.current = storeId;
     try {
       const storeObj = stores.find((s) => (s.storeId || s._id) === storeId);
       const zoneObj = newZoneId ? masterZones.find((z) => (z.zoneId || z._id) === newZoneId) : null;
@@ -873,10 +877,12 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   };
 
   const handleHighlightStorePolygon = (store) => {
+    const sId = store.storeId || store._id;
     const assignedZone = masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId);
     if (!assignedZone) return;
 
-    setFocusedStoreId(store.storeId || store._id);
+    activePopupStoreIdRef.current = sId;
+    setFocusedStoreId(sId);
     setSelectedZoneFilter(assignedZone.zoneId || assignedZone._id);
 
     if (mapInstanceRef.current) {
@@ -885,6 +891,12 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       }
       mapInstanceRef.current.flyTo([Number(store.latitude), Number(store.longitude)], 14, { duration: 0.8 });
     }
+
+    setTimeout(() => {
+      if (storeMarkersMapRef.current[sId]) {
+        storeMarkersMapRef.current[sId].openPopup();
+      }
+    }, 150);
 
     if (addToast) {
       addToast(
@@ -1321,7 +1333,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       center: [31.4140, 73.0950],
       zoom: 13,
       zoomControl: true,
-      attributionControl: false
+      attributionControl: false,
+      closePopupOnClick: false
     });
 
     switchMapTileLayer(map, tileLayerType, tileLayerRef);
@@ -1359,8 +1372,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
   useEffect(() => {
     if (!mapInstanceRef.current || !zonePolygonsGroupRef.current || !storeMarkersGroupRef.current) return;
 
+    isRebuildingMarkersRef.current = true;
     zonePolygonsGroupRef.current.clearLayers();
     storeMarkersGroupRef.current.clearLayers();
+    storeMarkersMapRef.current = {};
 
     // 1. Draw Master Delivery Zone Polygons
     masterZones.forEach((zone) => {
@@ -1499,6 +1514,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
         iconAnchor: [isTargetStore ? 20 : 17, isTargetStore ? 20 : 17]
       });
 
+      const sId = store.storeId || store._id;
       const marker = L.marker([lat, lng], { icon: customIcon });
 
       const storeCity = String(store.city || '').trim().toLowerCase();
@@ -1565,10 +1581,33 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
               `
           }
         </div>
-      `);
+      `, {
+        autoClose: true,
+        closeOnClick: false,
+        autoPan: false
+      });
 
+      marker.on('popupopen', () => {
+        activePopupStoreIdRef.current = sId;
+        setFocusedStoreId(sId);
+      });
+
+      marker.on('popupclose', () => {
+        if (!isRebuildingMarkersRef.current && activePopupStoreIdRef.current === sId) {
+          activePopupStoreIdRef.current = null;
+        }
+      });
+
+      storeMarkersMapRef.current[sId] = marker;
       storeMarkersGroupRef.current.addLayer(marker);
     });
+
+    isRebuildingMarkersRef.current = false;
+
+    // Persist open popup across re-renders or background sync updates
+    if (activePopupStoreIdRef.current && storeMarkersMapRef.current[activePopupStoreIdRef.current]) {
+      storeMarkersMapRef.current[activePopupStoreIdRef.current].openPopup();
+    }
   }, [masterZones, stores, filteredStores, selectedZoneFilter, parentRetailers, editingPolygonZone, targetStoreForNewZone]);
 
   // ---------------------------------------------------------------------------

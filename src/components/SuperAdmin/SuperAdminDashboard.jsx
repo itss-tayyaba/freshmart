@@ -226,7 +226,7 @@ export const SuperAdminDashboard = () => {
     id: '',
     name: '',
     email: '',
-    password: 'admin123',
+    password: '',
     phone: '',
     tenantId: 'tenant-alfatah',
     tenantName: '',
@@ -523,48 +523,76 @@ export const SuperAdminDashboard = () => {
     return { unallocated, allocated };
   }, [liveStores, storeAdmins, backendStoreAdmins]);
 
-  // 🏢 Dedicated Mart / Branch Admins: exactly 1 dedicated admin per active physical branch
+  // 🏢 Dedicated Mart / Branch Admins: only return genuine admins that were explicitly created
   const displayStoreAdmins = useMemo(() => {
     const unifiedStores = getAllUnifiedStores(liveStores);
     const deletedIds = new Set(getDeletedStoreIds());
+    const admins = [];
 
-    return unifiedStores
+    unifiedStores
       .filter((st) => {
         const sId = st.storeId || st._id;
         return sId && !deletedIds.has(sId);
       })
-      .map((st) => {
+      .forEach((st) => {
         const sId = st.storeId || st._id;
         const bEntry = (backendStoreAdmins || []).find((b) => b.storeId === sId || b.branchId === sId);
         const bAdm = bEntry?.admin;
         const localAdm = (storeAdmins || []).find(
           (a) =>
-            (a.branchId && (a.branchId === sId || a.branchId === st.branchId)) ||
+            (a.branchId && (a.branchId === sId || a.branchId === st.branchId || a.branchId === st._id)) ||
             (a.email && bAdm && (a.email.toLowerCase() === bAdm.email?.toLowerCase() || a.email.toLowerCase() === bAdm.username?.toLowerCase()))
         );
 
-        const domain = st.tenantId ? (CORE_RETAILERS.find((r) => r.id === st.tenantId)?.name?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'mart') : 'mart';
-        const cleanSlug = String(sId).replace(/^(branch_|STR-)/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '_');
-        const defaultEmail = `admin.${cleanSlug}@${domain}.pk`;
-        const email = bAdm?.email || bAdm?.username || localAdm?.email || localAdm?.username || defaultEmail;
+        // DO NOT synthesize fake admins! If no admin was created for this store, skip it.
+        if (!bAdm && !localAdm) return;
 
-        return {
+        const email = bAdm?.email || bAdm?.username || localAdm?.email || localAdm?.username;
+        if (!email) return;
+
+        admins.push({
           id: bAdm?.id || localAdm?.id || `adm-${sId}`,
-          name: bAdm?.name || localAdm?.name || `${st.branchName || st.name} Admin`,
+          name: bAdm?.name || localAdm?.name || bAdm?.username || localAdm?.username || 'Branch Admin',
           email,
           username: bAdm?.username || localAdm?.username || email,
-          phone: localAdm?.phone || st.contactNumber || '',
-          city: st.city || localAdm?.city || 'Faisalabad',
+          phone: localAdm?.phone || bAdm?.phone || st.contactNumber || '',
+          city: st.city || localAdm?.city || bAdm?.city || 'Faisalabad',
           tenantId: st.tenantId,
-          tenantName: st.tenantName || localAdm?.tenantName || CORE_RETAILERS.find((r) => r.id === st.tenantId)?.name || 'Retailer',
+          tenantName: st.tenantName || localAdm?.tenantName || bAdm?.tenantName || CORE_RETAILERS.find((r) => r.id === st.tenantId)?.name || 'Retailer',
           branchId: sId,
           branchName: st.branchName || st.name,
           status: bAdm?.status || localAdm?.status || 'Active',
           role: 'admin',
-          password: localAdm?.password || bAdm?.plainPassword || 'admin123',
+          password: localAdm?.password || bAdm?.plainPassword || '',
           isStoreLinked: true
-        };
+        });
       });
+
+    // Also include any standalone store admins from storeAdmins that were created without a branch link yet
+    (storeAdmins || []).forEach((sa) => {
+      if (!sa.email) return;
+      const alreadyListed = admins.some((a) => a.id === sa.id || a.email.toLowerCase() === sa.email.toLowerCase());
+      if (!alreadyListed && !deletedIds.has(sa.branchId)) {
+        admins.push({
+          id: sa.id || `adm-${sa.email}`,
+          name: sa.name || sa.username || 'Branch Admin',
+          email: sa.email,
+          username: sa.username || sa.email,
+          phone: sa.phone || '',
+          city: sa.city || 'Faisalabad',
+          tenantId: sa.tenantId,
+          tenantName: sa.tenantName || 'Retailer',
+          branchId: sa.branchId || null,
+          branchName: sa.branchName || null,
+          status: sa.status || 'Active',
+          role: 'admin',
+          password: sa.password || '',
+          isStoreLinked: Boolean(sa.branchId)
+        });
+      }
+    });
+
+    return admins;
   }, [liveStores, backendStoreAdmins, storeAdmins]);
 
   // Helper to calculate active in-progress deliveries for any rider
@@ -889,7 +917,7 @@ export const SuperAdminDashboard = () => {
     email: '',
     phone: '',
     city: 'Faisalabad',
-    password: 'admin123'
+    password: ''
   });
 
   const [editPlanForm, setEditPlanForm] = useState({
@@ -1028,7 +1056,7 @@ export const SuperAdminDashboard = () => {
       id: admin.id || admin.email,
       name: admin.name || '',
       email: admin.email || '',
-      password: admin.password || 'admin123',
+      password: admin.password || '',
       phone: admin.phone || '',
       tenantId: admin.tenantId || 'tenant-alfatah',
       tenantName: admin.tenantName || '',
@@ -1074,7 +1102,7 @@ export const SuperAdminDashboard = () => {
       email: '',
       phone: '',
       city: 'Faisalabad',
-      password: 'admin123'
+      password: ''
     });
   };
 
@@ -2741,7 +2769,7 @@ export const SuperAdminDashboard = () => {
                         email: '',
                         phone: '',
                         city: 'Faisalabad',
-                        password: 'admin123'
+                        password: ''
                       });
                       setIsAddAdminOpen(true);
                     }}
@@ -2792,7 +2820,7 @@ export const SuperAdminDashboard = () => {
                         email: '',
                         phone: '',
                         city: 'Faisalabad',
-                        password: 'admin123'
+                        password: ''
                       });
                       setIsAddAdminOpen(true);
                     }}
@@ -2804,151 +2832,233 @@ export const SuperAdminDashboard = () => {
                 </div>
 
                 <div className="divide-y divide-slate-100">
-                  {(displayStoreAdmins || [])
-                    .filter((a) => adminCityFilter === 'all' || (a.city || 'Faisalabad').toLowerCase() === adminCityFilter.toLowerCase())
-                    .map((admin) => {
-                    const isPasswordShown = !!showPasswordMap[admin.id];
-                    return (
-                      <div
-                        key={admin.id}
-                        className="p-4 hover:bg-slate-50/70 transition flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-10 h-10 rounded-xl bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
-                            {admin.name.slice(0, 2).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-black text-slate-900 text-sm truncate">{admin.name}</span>
-                              <span className="text-[10px] bg-slate-100 font-bold px-2 py-0.5 rounded-full text-slate-700">
-                                {admin.tenantName}
-                              </span>
-                              <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
-                                📍 {admin.city || 'Faisalabad'}
-                              </span>
-                              {admin.branchName && (
-                                <span className="text-[10px] bg-blue-50 text-blue-800 font-bold px-2 py-0.5 rounded-full border border-blue-200 flex items-center gap-1">
-                                  🏢 {admin.branchName}
-                                </span>
-                              )}
-                              <span
-                                className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                                  admin.status === 'Active'
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : 'bg-rose-100 text-rose-800'
-                                }`}
-                              >
-                                {admin.status || 'Active'}
-                              </span>
-                            </div>
-                            <div className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
-                              {admin.email} {admin.phone && `• ${admin.phone}`} • 📍 {admin.city || 'Faisalabad'}
-                            </div>
-                          </div>
+                  {(() => {
+                    const filteredAdmins = (displayStoreAdmins || []).filter(
+                      (a) => adminCityFilter === 'all' || (a.city || 'Faisalabad').toLowerCase() === adminCityFilter.toLowerCase()
+                    );
+
+                    if (filteredAdmins.length === 0) {
+                      return (
+                        <div className="p-8 text-center text-slate-400">
+                          <ShieldCheck className="w-10 h-10 mx-auto text-slate-300 mb-2 opacity-50" />
+                          <div className="font-bold text-sm text-slate-700">No Branch Admins Registered Yet</div>
+                          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                            No dedicated admin accounts have been created for this filter. Create one by clicking "+ Add Store Admin" or assign one to an unallocated branch below.
+                          </p>
                         </div>
+                      );
+                    }
 
-                        {/* Password & Controls */}
-                        <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                          {/* 1-Click Launch Dashboard */}
-                          <button
-                            type="button"
-                            onClick={() => handleOpenAdminDashboard(admin)}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer transition shadow-xs flex items-center gap-1"
-                            title="Directly launch dashboard for this admin"
-                          >
-                            <span>🚀 Open Dashboard</span>
-                          </button>
+                    return filteredAdmins.map((admin) => {
+                      const isPasswordShown = !!showPasswordMap[admin.id];
+                      return (
+                        <div
+                          key={admin.id}
+                          className="p-4 hover:bg-slate-50/70 transition flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                              {admin.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-black text-slate-900 text-sm truncate">{admin.name}</span>
+                                <span className="text-[10px] bg-slate-100 font-bold px-2 py-0.5 rounded-full text-slate-700">
+                                  {admin.tenantName}
+                                </span>
+                                <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                                  📍 {admin.city || 'Faisalabad'}
+                                </span>
+                                {admin.branchName && (
+                                  <span className="text-[10px] bg-blue-50 text-blue-800 font-bold px-2 py-0.5 rounded-full border border-blue-200 flex items-center gap-1">
+                                    🏢 {admin.branchName}
+                                  </span>
+                                )}
+                                <span
+                                  className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                                    admin.status === 'Active'
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : 'bg-rose-100 text-rose-800'
+                                  }`}
+                                >
+                                  {admin.status || 'Active'}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
+                                {admin.email} {admin.phone && `• ${admin.phone}`} • 📍 {admin.city || 'Faisalabad'}
+                              </div>
+                            </div>
+                          </div>
 
-                          <div className="bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 flex items-center gap-2">
-                            <KeyRound className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="font-mono font-bold text-xs text-slate-800">
-                              {isPasswordShown ? admin.password : '••••••••'}
-                            </span>
+                          {/* Password & Controls */}
+                          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                            {/* 1-Click Launch Dashboard */}
                             <button
                               type="button"
-                              onClick={() => togglePasswordVisibility(admin.id)}
-                              className="text-slate-400 hover:text-slate-700 cursor-pointer"
-                              title={isPasswordShown ? 'Hide' : 'Show'}
+                              onClick={() => handleOpenAdminDashboard(admin)}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer transition shadow-xs flex items-center gap-1"
+                              title="Directly launch dashboard for this admin"
                             >
-                              {isPasswordShown ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              <span>🚀 Open Dashboard</span>
                             </button>
+
+                            <div className="bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 flex items-center gap-2">
+                              <KeyRound className="w-3.5 h-3.5 text-slate-400" />
+                              <span className="font-mono font-bold text-xs text-slate-800">
+                                {isPasswordShown ? (admin.password || '••••••••') : '••••••••'}
+                              </span>
+                              {admin.password && (
+                                <button
+                                  type="button"
+                                  onClick={() => togglePasswordVisibility(admin.id)}
+                                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                                  title={isPasswordShown ? 'Hide' : 'Show'}
+                                >
+                                  {isPasswordShown ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                </button>
+                              )}
+                              {admin.password && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(admin.password);
+                                    addToast('Copied!', 'Password copied to clipboard.');
+                                  }}
+                                  className="text-slate-400 hover:text-slate-700 cursor-pointer ml-1"
+                                  title="Copy"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditAdmin(admin)}
+                              className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-lg text-xs font-bold cursor-pointer transition flex items-center gap-1"
+                              title="Edit Admin Credentials, Password & Mart"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                              <span>Edit</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (admin.branchId) {
+                                  try {
+                                    const res = await storeAdminApi.resetPassword(admin.branchId);
+                                    if (res?.success && res.password) {
+                                      updateStoreAdmin(admin.id, { password: res.password });
+                                      addToast('Password Reset 🔑', `New generated password for ${admin.name}: ${res.password}`);
+                                      return;
+                                    }
+                                  } catch (e) {}
+                                }
+                                const newPass = prompt(`Set new password for ${admin.name} (${admin.tenantName}):`, admin.password);
+                                if (newPass && newPass.trim()) {
+                                  updateStoreAdmin(admin.id, { password: newPass.trim() });
+                                  addToast('Password Changed 🔑', `New password set for ${admin.name}.`);
+                                }
+                              }}
+                              className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer transition"
+                            >
+                              Reset Key
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => toggleStoreAdminStatus(admin.id)}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                admin.status === 'Active'
+                                  ? 'bg-amber-50 hover:bg-amber-100 text-amber-700'
+                                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                              }`}
+                            >
+                              {admin.status === 'Active' ? 'Suspend' : 'Activate'}
+                            </button>
+
                             <button
                               type="button"
                               onClick={() => {
-                                navigator.clipboard.writeText(admin.password);
-                                addToast('Copied!', 'Password copied to clipboard.');
+                                if (window.confirm(`Delete Mart Admin ${admin.name}?`)) {
+                                  deleteStoreAdmin(admin.id);
+                                }
                               }}
-                              className="text-slate-400 hover:text-slate-700 cursor-pointer ml-1"
-                              title="Copy"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg cursor-pointer transition"
+                              title="Delete Admin"
                             >
-                              <Copy className="w-3 h-3" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
 
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditAdmin(admin)}
-                            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-lg text-xs font-bold cursor-pointer transition flex items-center gap-1"
-                            title="Edit Admin Credentials, Password & Mart"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                            <span>Edit</span>
-                          </button>
+              {/* Unallocated Branches Section */}
+              {branchAllocationStatus.unallocated.length > 0 && (
+                <div className="bg-amber-50/60 border border-amber-200 rounded-2xl p-5 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-amber-700" />
+                      <span className="text-xs font-bold text-amber-900">
+                        ⚠️ Store Branches Awaiting Admin Account ({branchAllocationStatus.unallocated.length})
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-amber-700 font-medium">
+                      No admin credentials exist for these physical branches yet. Click "+ Assign Admin" to create one.
+                    </span>
+                  </div>
 
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (admin.branchId) {
-                                try {
-                                  const res = await storeAdminApi.resetPassword(admin.branchId);
-                                  if (res?.success && res.password) {
-                                    updateStoreAdmin(admin.id, { password: res.password });
-                                    addToast('Password Reset 🔑', `New generated password for ${admin.name}: ${res.password}`);
-                                    return;
-                                  }
-                                } catch (e) {}
-                              }
-                              const newPass = prompt(`Set new password for ${admin.name} (${admin.tenantName}):`, admin.password);
-                              if (newPass && newPass.trim()) {
-                                updateStoreAdmin(admin.id, { password: newPass.trim() });
-                                addToast('Password Changed 🔑', `New password set for ${admin.name}.`);
-                              }
-                            }}
-                            className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer transition"
-                          >
-                            Reset Key
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => toggleStoreAdminStatus(admin.id)}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                              admin.status === 'Active'
-                                ? 'bg-amber-50 hover:bg-amber-100 text-amber-700'
-                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
-                            }`}
-                          >
-                            {admin.status === 'Active' ? 'Suspend' : 'Activate'}
-                          </button>
-
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                    {branchAllocationStatus.unallocated.map((b) => {
+                      const bId = b.storeId || b._id;
+                      const bName = b.branchName || b.name;
+                      const retailer = displayStores.find((s) => isSameTenant(s.id, b.tenantId)) || CORE_RETAILERS[0];
+                      return (
+                        <div
+                          key={bId}
+                          className="bg-white p-3.5 rounded-xl border border-amber-200/90 shadow-2xs flex items-center justify-between gap-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="font-bold text-xs text-slate-900 truncate">
+                              🏢 {bName}
+                            </div>
+                            <div className="text-[10px] text-slate-500 truncate mt-0.5">
+                              {retailer?.name || 'Retailer'} • 📍 {b.city || 'Faisalabad'}
+                            </div>
+                            <div className="text-[10px] font-bold text-amber-700 mt-1">
+                              Status: No Admin Assigned
+                            </div>
+                          </div>
                           <button
                             type="button"
                             onClick={() => {
-                              if (window.confirm(`Delete Mart Admin ${admin.name}?`)) {
-                                deleteStoreAdmin(admin.id);
-                              }
+                              setNewAdminForm({
+                                tenantId: b.tenantId || 'tenant-alfatah',
+                                branchId: bId,
+                                branchName: bName,
+                                name: '',
+                                email: '',
+                                phone: '',
+                                city: b.city || 'Faisalabad',
+                                password: ''
+                              });
+                              setIsAddAdminOpen(true);
                             }}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg cursor-pointer transition"
-                            title="Delete Admin"
+                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shrink-0 transition cursor-pointer shadow-2xs"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            + Assign Admin
                           </button>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -4043,8 +4153,8 @@ export const SuperAdminDashboard = () => {
                         branchName: bName,
                         tenantId: bObj.tenantId || prev.tenantId,
                         city: bObj.city || prev.city || 'Faisalabad',
-                        name: prev.name || `${retailer?.name || 'Store'} (${bName}) Admin`,
-                        email: prev.email || `admin.${cleanSlug}@${tenantSlug}.pk`
+                        name: prev.name || '',
+                        email: prev.email || ''
                       }));
                     } else {
                       setNewAdminForm((prev) => ({ ...prev, branchId: '', branchName: '' }));
@@ -4559,7 +4669,7 @@ export const SuperAdminDashboard = () => {
                 const status = formData.get('status') || 'active';
                 const notes = formData.get('notes') || '';
                 const plan = formData.get('plan') || 'Professional';
-                const adminPassword = formData.get('password') || 'admin123';
+                const adminPassword = formData.get('password') || '';
 
                 const newTenant = await addTenant({
                   name: storeName,
@@ -4669,9 +4779,10 @@ export const SuperAdminDashboard = () => {
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Admin Password *</label>
                   <input
-                    type="text"
+                    type="password"
                     name="password"
-                    defaultValue="admin123"
+                    required
+                    placeholder="Enter login password"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono text-slate-800 focus:bg-white focus:outline-none"
                   />
                 </div>

@@ -415,12 +415,12 @@ export const StoreManagementView = () => {
       openingHours: '08:00 AM',
       closingHours: '11:00 PM',
       deliveryRadiusKm: 5,
-      managerEmail: `manager.${tId.replace('tenant-', '')}@freshmart.pk`,
+      managerEmail: '',
       managerPassword: '',
       storeImage: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
       status: 'active',
       operatingStatus: 'Open',
-      manager: `${retailer.name} Manager`,
+      manager: '',
       assignedZoneId: ''
     });
     setIsAddModalOpen(true);
@@ -1635,10 +1635,10 @@ export const StoreManagementView = () => {
         const lngVal = Number(selectedStore.longitude || 73.0995);
         const domain = retailer.domain || 'supermarket.pk';
         const cleanSlug = String(sId).replace(/^(branch_|STR-)/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '_');
-        const defaultEmail = `admin.${cleanSlug}@${domain}`;
-        const adminEmail = matchedAdmin?.email || matchedAdmin?.username || selectedStore.managerEmail || defaultEmail;
-        const adminName = matchedAdmin?.name || `${selectedStore.branchName || selectedStore.name} Admin`;
-        const adminPhone = matchedAdmin?.phone || selectedStore.contactNumber || selectedStore.phone || '+92 41 8541122';
+        const hasAdmin = Boolean(matchedAdmin || selectedStore.managerEmail || selectedStore.manager);
+        const adminEmail = matchedAdmin?.email || matchedAdmin?.username || selectedStore.managerEmail || '';
+        const adminName = matchedAdmin?.name || selectedStore.manager || '';
+        const adminPhone = matchedAdmin?.phone || selectedStore.contactNumber || selectedStore.phone || '';
 
         return (
           <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
@@ -1890,48 +1890,75 @@ export const StoreManagementView = () => {
                       <Shield className="w-4 h-4 text-amber-600" />
                       Dedicated Branch Admin Account
                     </span>
-                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                      🔒 Isolated Branch Access
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      hasAdmin
+                        ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                        : 'text-amber-700 bg-amber-50 border-amber-200'
+                    }`}>
+                      {hasAdmin ? '✓ Admin Active' : '⚠️ No Admin Assigned'}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="p-3 bg-white rounded-xl border border-slate-200">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                        Admin Officer
-                      </span>
-                      <div className="font-bold text-xs text-slate-900 mt-1">
-                        {adminName}
+                  {hasAdmin ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="p-3 bg-white rounded-xl border border-slate-200">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Admin Officer
+                        </span>
+                        <div className="font-bold text-xs text-slate-900 mt-1">
+                          {adminName || 'Assigned Manager'}
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                          Role: Dedicated Mart Admin
+                        </div>
                       </div>
-                      <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
-                        Role: Dedicated Mart Admin
-                      </div>
-                    </div>
 
-                    <div className="p-3 bg-white rounded-xl border border-slate-200">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                        Login Username / Email
-                      </span>
-                      <div className="font-bold text-xs text-slate-900 mt-1 font-mono truncate" title={adminEmail}>
-                        {adminEmail}
+                      <div className="p-3 bg-white rounded-xl border border-slate-200">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Login Username / Email
+                        </span>
+                        <div className="font-bold text-xs text-slate-900 mt-1 font-mono truncate" title={adminEmail}>
+                          {adminEmail || 'Not configured'}
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          Domain: {domain}
+                        </div>
                       </div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
-                        Domain: {domain}
-                      </div>
-                    </div>
 
-                    <div className="p-3 bg-white rounded-xl border border-slate-200">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                        Direct Phone Contact
-                      </span>
-                      <div className="font-bold text-xs text-slate-900 mt-1 font-mono">
-                        {adminPhone}
-                      </div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
-                        Branch Operations Line
+                      <div className="p-3 bg-white rounded-xl border border-slate-200">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Direct Phone Contact
+                        </span>
+                        <div className="font-bold text-xs text-slate-900 mt-1 font-mono">
+                          {adminPhone || selectedStore.phone || 'N/A'}
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          Branch Operations Line
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="font-bold text-xs text-amber-900">
+                          No Dedicated Branch Admin Assigned
+                        </div>
+                        <div className="text-[11px] text-amber-700 mt-0.5">
+                          No login credentials have been created for this physical branch yet. You can add an admin in Super Admin dashboard.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsStoreDetailsOpen(false);
+                          if (navigateTo) navigateTo('superadmin', { tab: 'admins' });
+                        }}
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shrink-0 transition cursor-pointer"
+                      >
+                        + Add Branch Admin
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
