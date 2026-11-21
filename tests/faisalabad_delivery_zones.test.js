@@ -111,26 +111,39 @@ describe('Dynamic Multi-Retailer Delivery Zones – Faisalabad Verification Suit
     assert.ok(tenantIds.length >= 2, 'At least 2 retailers must be deliverable to D-Ground');
   });
 
-  it('5. Progressive Search Expansion: expands from 5km to 10km to 15km if no store is within 5km', () => {
-    // Branch located ~18 km away from customer
-    const mockFarBranches = [
+  it('5. Progressive Search Expansion: expands from 0km to 2km to 3km progressively', () => {
+    // Delivery polygon located elsewhere (e.g., Canal Road)
+    const mockCanalZone = {
+      zoneId: 'ZONE-CANAL-01',
+      name: 'Canal Zone',
+      isActive: true,
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[[73.15, 31.45], [73.18, 31.45], [73.18, 31.42], [73.15, 31.42], [73.15, 31.45]]]
+      }
+    };
+
+    // Branch located ~2.4 km away from customer (D-Ground)
+    const mockBranchAt2Point5Km = [
       {
-        _id: 'branch_far_01',
+        _id: 'branch_2point5km_01',
         tenantId: 'company_001',
-        name: 'Far Branch',
-        latitude: 31.3000,
-        longitude: 72.9500,
-        deliveryRadiusKm: 25, // explicitly delivers up to 25 km
+        name: 'Nearby 2.5km Branch',
+        latitude: 31.4125 + 0.022, // ~2.4 km away
+        longitude: 73.0995,
+        deliveryRadiusKm: 5,
         deliveryStatus: 'active'
       }
     ];
 
-    const result = findAvailableRetailers(D_GROUND_COORDS, mockFarBranches, { maxSearchRadiusKm: 25 });
+    const result = findAvailableRetailers(D_GROUND_COORDS, mockBranchAt2Point5Km, { zones: [mockCanalZone] });
 
-    // Should have expanded past 5 km, 10 km, and 15 km to reach 20 km
-    assert.ok(result.searchRadiusKm >= 15, `Search must have expanded (got ${result.searchRadiusKm} km)`);
-    assert.ok(result.searchStepsTaken.includes(5), 'Search must have evaluated 5 km step');
-    assert.ok(result.searchStepsTaken.includes(10), 'Search must have evaluated 10 km step');
+    // Customer is outside Canal Zone (Stage 1), outside 2 km (Stage 2), and resolved at 3 km (Stage 3)
+    assert.equal(result.searchStage, 3, 'Should resolve at Stage 3 (within 3 km)');
+    assert.equal(result.searchRadiusKm, 3, 'Search radius must be 3 km');
+    assert.ok(result.searchStepsTaken.includes(0), 'Must evaluate 0 km step');
+    assert.ok(result.searchStepsTaken.includes(2), 'Must evaluate 2 km step');
+    assert.ok(result.searchStepsTaken.includes(3), 'Must evaluate 3 km step');
     assert.ok(result.eligibleRetailers.length > 0, 'Found branch after progressive expansion');
   });
 

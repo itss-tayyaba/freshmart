@@ -3,7 +3,13 @@
  */
 
 const EARTH_RADIUS_KM = 6371.0;
-export const SEARCH_STEPS_KM = [5, 10, 15, 20, 25];
+export const SEARCH_STEPS_KM = [0, 2, 3];
+export const PROGRESSIVE_SEARCH_STAGES = [
+  { stage: 1, key: 'zone_match', radiusKm: 0, label: 'Stage 1 — Customer Exact Location (Zone Match)' },
+  { stage: 2, key: '2km_expansion', radiusKm: 2, label: 'Stage 2 — Nearby Branches (Within 2 km)' },
+  { stage: 3, key: '3km_expansion', radiusKm: 3, label: 'Stage 3 — Extended Area (Within 3 km)' },
+  { stage: 4, key: 'beyond_3km_fallback', radiusKm: null, label: 'Stage 4 — Beyond 3 km (Alternative Nearest Store)' }
+];
 
 /**
  * Calculate accurate straight-line distance using the Haversine formula
@@ -150,13 +156,94 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
         : straightLineKm;
 
       const configuredRadius = Number(b.deliveryRadiusKm ?? b.deliveryRadius ?? 5);
-      const insidePolygon = Array.isArray(b.deliveryPolygon) && b.deliveryPolygon.length >= 3
+      const hasPolygon = Array.isArray(b.deliveryPolygon) && b.deliveryPolygon.length >= 3;
+      const insidePolygon = hasPolygon
         ? isPointInPolygon({ lat: userLat, lng: userLng }, b.deliveryPolygon)
         : false;
 
-      // Deliverable if inside custom polygon, within configured radius, or within 3 km of store
-      const insideDeliveryZone = insidePolygon || effectiveDistKm <= configuredRadius || effectiveDistKm <= 3.0;
-      const isEligible = insideDeliveryZone || (b.supportsExtendedDelivery && effectiveDistKm <= 20);
+      // Check if user is inside a delivery zone covering/assigned to this store
+      let insideMasterZone = false;
+      let storeAreaPolygon = null;
+      const zonesList = options.zones || [];
+      const hasActiveDeliveryZones = Array.isArray(zonesList) && zonesList.some(
+        (z) => z && z.isActive !== false && String(z.status || 'active').toLowerCase() !== 'inactive'
+      );
+
+      if (hasActiveDeliveryZones) {
+        for (const z of zonesList) {
+          if (!z || z.isActive === false || String(z.status || 'active').toLowerCase() === 'inactive') continue;
+
+          let rawRing = null;
+          if (z.geometry && Array.isArray(z.geometry.coordinates)) {
+            rawRing = Array.isArray(z.geometry.coordinates[0]) && Array.isArray(z.geometry.coordinates[0][0])
+              ? z.geometry.coordinates[0]
+              : z.geometry.coordinates;
+          } else if (z.polygon && Array.isArray(z.polygon.coordinates)) {
+            rawRing = Array.isArray(z.polygon.coordinates[0]) && Array.isArray(z.polygon.coordinates[0][0])
+              ? z.polygon.coordinates[0]
+              : z.polygon.coordinates;
+          } else if (Array.isArray(z.polygon)) {
+            rawRing = z.polygon;
+          } else if (Array.isArray(z.coordinates)) {
+            rawRing = Array.isArray(z.coordinates[0]) && Array.isArray(z.coordinates[0][0])
+              ? z.coordinates[0]
+              : z.coordinates;
+          }
+
+          if (Array.isArray(rawRing) && rawRing.length >= 3) {
+            const branchId = String(b._id || b.id || b.storeId || b.branchId || '').toLowerCase();
+            const zId = String(z.zoneId || z._id || z.id || '').toLowerCase();
+            const bDeliveryZone = String(b.deliveryZoneId || '').toLowerCase();
+            const bAssignedZone = String(b.assignedZoneId || '').toLowerCase();
+
+            const zoneMatches = (testZoneId) => {
+              if (!testZoneId) return false;
+              const tz = String(testZoneId).toLowerCase();
+              if (tz === zId) return true;
+              return false;
+            };
+
+            const isAssigned =
+              zoneMatches(bDeliveryZone) ||
+              zoneMatches(bAssignedZone) ||
+              (Array.isArray(z.assignedStoreIds) && z.assignedStoreIds.some((sId) => String(sId).toLowerCase() === branchId)) ||
+              (z.assignedStoreId && String(z.assignedStoreId).toLowerCase() === branchId) ||
+              (Array.isArray(options.assignments) && options.assignments.some(
+                (a) => String(a.zoneId || '').toLowerCase() === zId &&
+                       String(a.storeId || '').toLowerCase() === branchId &&
+                       a.isActive !== false
+              ));
+
+            const bInZone = isPointInPolygon({ lat: bLat, lng: bLng }, rawRing);
+            const isStoreAssociatedWithZone = isAssigned || (!bDeliveryZone && !bAssignedZone && bInZone);
+
+            if (isStoreAssociatedWithZone) {
+              if (!storeAreaPolygon) {
+                storeAreaPolygon = {
+                  zoneId: z.zoneId || z._id,
+                  name: z.name,
+                  color: z.color || '#10b981',
+                  deliveryCharge: z.deliveryCharge ?? z.deliveryFee
+                };
+              }
+
+              const userInZone = isPointInPolygon({ lat: userLat, lng: userLng }, rawRing);
+              if (userInZone) {
+                insideMasterZone = true;
+              }
+            }
+          }
+        }
+      }
+
+      // STRICT ZONE BOUNDARY:
+      // A store is in delivery zone polygon (Stage 1) IF:
+      // 1) The customer location is inside a delivery zone assigned to this store (insideMasterZone), OR
+      // 2) The store has its own explicit custom deliveryPolygon, and customer is inside it (hasPolygon && insidePolygon)
+      const insideDeliveryZone = hasPolygon
+        ? insidePolygon
+        : (hasActiveDeliveryZones ? insideMasterZone : (effectiveDistKm <= configuredRadius));
+      const isEligible = insideDeliveryZone;
 
       const fee = calculateBranchDeliveryFee(b, effectiveDistKm);
       const estimatedTime = estimateDeliveryTime(effectiveDistKm);
@@ -176,23 +263,98 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
     })
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
-  // Progressive Expansion Loop: 1 km -> 3 km -> 5 km -> 10 km -> 15 km -> 20 km -> 25 km
-  let searchRadiusKm = SEARCH_STEPS_KM[0] || 1;
+  // Progressive Expansion Loop: 0 km → 2 km → 3 km → Beyond 3 km (Fallback)
+  let searchStage = 1;
+  let stageKey = 'zone_match';
+  let stageLabel = 'Stage 1 — Customer Exact Location (Zone Match)';
+  let searchRadiusKm = 0;
   const searchStepsTaken = [];
   let discoveredBranchesInRadius = [];
   let eligibleBranchesInRadius = [];
 
-  for (const stepKm of SEARCH_STEPS_KM) {
-    if (stepKm > maxSearchLimit) break;
-    searchRadiusKm = stepKm;
-    searchStepsTaken.push(stepKm);
+  // STAGE 1 — 0 km: Customer's exact location (Polygon Zone Match)
+  searchStepsTaken.push(0);
+  const stage1Eligible = branchEvaluations.filter((b) => b.insideDeliveryZone);
 
-    discoveredBranchesInRadius = branchEvaluations.filter((b) => b.distanceKm <= stepKm);
-    eligibleBranchesInRadius = discoveredBranchesInRadius.filter((b) => b.isEligibleForDelivery);
+  if (stage1Eligible.length > 0) {
+    searchStage = 1;
+    stageKey = 'zone_match';
+    stageLabel = 'Stage 1 — Customer Exact Location (Zone Match)';
+    searchRadiusKm = 0;
+    discoveredBranchesInRadius = stage1Eligible;
+    eligibleBranchesInRadius = stage1Eligible;
+  } else {
+    // STAGE 2 — 2 km: Search nearby branches within 2 km
+    searchStepsTaken.push(2);
+    const within2Km = branchEvaluations.filter((b) => b.distanceKm <= 2.0);
+    const stage2Eligible = within2Km.filter(
+      (b) => b.isEligibleForDelivery || b.distanceKm <= b.deliveryRadiusKm
+    );
 
-    // If at least one eligible delivery branch is found, stop expansion
-    if (eligibleBranchesInRadius.length > 0) {
-      break;
+    if (stage2Eligible.length > 0) {
+      searchStage = 2;
+      stageKey = '2km_expansion';
+      stageLabel = 'Stage 2 — Nearby Branches (Within 2 km)';
+      searchRadiusKm = 2;
+      eligibleBranchesInRadius = stage2Eligible.map((b) => ({
+        ...b,
+        isEligibleForDelivery: true,
+        deliveryType: 'nearby_branch_2km'
+      }));
+      const eligibleIds = new Set(eligibleBranchesInRadius.map((b) => b.id || b.storeId));
+      discoveredBranchesInRadius = within2Km.map((b) => {
+        const id = b.id || b.storeId;
+        return eligibleIds.has(id)
+          ? eligibleBranchesInRadius.find((e) => (e.id || e.storeId) === id)
+          : b;
+      });
+    } else {
+      // STAGE 3 — 3 km: Expand search further within 3 km
+      searchStepsTaken.push(3);
+      const within3Km = branchEvaluations.filter((b) => b.distanceKm <= 3.0);
+      const stage3Eligible = within3Km.filter(
+        (b) => b.isEligibleForDelivery || b.distanceKm <= b.deliveryRadiusKm
+      );
+
+      if (stage3Eligible.length > 0) {
+        searchStage = 3;
+        stageKey = '3km_expansion';
+        stageLabel = 'Stage 3 — Extended Area (Within 3 km)';
+        searchRadiusKm = 3;
+        eligibleBranchesInRadius = stage3Eligible.map((b) => ({
+          ...b,
+          isEligibleForDelivery: true,
+          deliveryType: 'extended_branch_3km'
+        }));
+        const eligibleIds = new Set(eligibleBranchesInRadius.map((b) => b.id || b.storeId));
+        discoveredBranchesInRadius = within3Km.map((b) => {
+          const id = b.id || b.storeId;
+          return eligibleIds.has(id)
+            ? eligibleBranchesInRadius.find((e) => (e.id || e.storeId) === id)
+            : b;
+        });
+      } else {
+        // STAGE 4 — Beyond 3 km: Display nearest store as an alternative
+        searchStepsTaken.push('beyond_3km');
+        searchStage = 4;
+        stageKey = 'beyond_3km_fallback';
+        stageLabel = 'Stage 4 — Beyond 3 km (Alternative Nearest Store)';
+        const closest = branchEvaluations[0] || null;
+        searchRadiusKm = closest ? Math.round(closest.distanceKm) : 5;
+        discoveredBranchesInRadius = closest
+          ? [
+              {
+                ...closest,
+                isEligibleForDelivery: false,
+                outsideDeliveryCoverage: true,
+                isAlternative: true,
+                badge: 'Outside Coverage • Alternative Store',
+                deliveryNotice: 'Outside delivery coverage (pickup only, not delivering to your location)'
+              }
+            ]
+          : [];
+        eligibleBranchesInRadius = [];
+      }
     }
   }
 
@@ -270,8 +432,13 @@ export function findAvailableRetailers(customerCoords, branches = [], options = 
     eligibleRetailers,
     unavailableRetailers,
     allDiscoveredBranches: discoveredBranchesInRadius,
+    searchStage,
+    stageKey,
+    stageLabel,
     searchRadiusKm,
     searchStepsTaken,
+    isDeliverable: eligibleRetailers.length > 0,
+    outsideDeliveryCoverage: eligibleRetailers.length === 0,
     overlappingRetailersCount: eligibleRetailers.length,
     hasOverlappingZones: eligibleRetailers.length > 1
   };

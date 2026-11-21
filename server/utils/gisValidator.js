@@ -161,6 +161,29 @@ export function calculateDistanceToZoneKm(lat, lng, geojsonPolygon) {
 }
 
 /**
+ * Calculates distance between two points in kilometers
+ */
+export function calculatePointDistanceKm(lat1, lng1, lat2, lng2) {
+  try {
+    const pt1 = turf.point([Number(lng1), Number(lat1)]);
+    const pt2 = turf.point([Number(lng2), Number(lat2)]);
+    return Number(turf.distance(pt1, pt2, { units: 'kilometers' }).toFixed(2));
+  } catch (e) {
+    const R = 6371;
+    const dLat = ((Number(lat2) - Number(lat1)) * Math.PI) / 180;
+    const dLng = ((Number(lng2) - Number(lng1)) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((Number(lat1) * Math.PI) / 180) *
+        Math.cos((Number(lat2) * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Number((R * c).toFixed(2));
+  }
+}
+
+/**
  * Calculates delivery fee based on zone config and cart total
  */
 export function calculateZoneDeliveryFee(zone, orderSubtotal = 0) {

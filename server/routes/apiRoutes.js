@@ -119,7 +119,9 @@ import {
 } from '../controllers/assignmentController.js';
 import {
   checkDeliveryAvailability,
-  getEligibleStores
+  getEligibleStores,
+  getSearchLogs,
+  calculateFee
 } from '../controllers/deliveryEligibilityController.js';
 import {
   validate,
@@ -319,5 +321,8 @@ router.delete('/admin/zones/:id/stores/:storeId', protect, superAdminOnly, remov
 
 router.post('/delivery/check-eligibility', checkDeliveryAvailability);
 router.post('/delivery/eligible-stores', getEligibleStores);
+router.post('/delivery/progressive-search', getEligibleStores);
+router.get('/delivery/search-logs', getSearchLogs);
+router.post('/delivery/calculate-fee', calculateFee);
 
 export default router;

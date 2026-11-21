@@ -713,13 +713,24 @@ const LocationModalContent = () => {
               </div>
             )}
 
-            {/* Progressive Search Expansion Banner */}
-            {closestStore?.searchRadiusKm > 1 && (
-              <div className="mb-2.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-[11px] font-semibold flex items-center justify-between">
-                <span>🔍 Progressive search: Found in-range stores at {closestStore.searchRadiusKm} km</span>
-                <span className="text-[10px] text-blue-700 font-medium">Expanded from 1 km</span>
+            {/* Progressive Search Expansion Banner (0 km → 2 km → 3 km) */}
+            <div className="mb-2.5 px-3 py-1.5 rounded-xl border text-[11px] font-semibold flex items-center justify-between gap-2 shadow-2xs bg-emerald-50/80 border-emerald-200 text-emerald-950">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>
+                  {closestStore?.searchStage === 1
+                    ? '🎯 Stage 1 — Exact Location (Zone Match • 0 km)'
+                    : closestStore?.searchStage === 2
+                    ? '🔍 Stage 2 — Nearby Branch Found (Within 2 km)'
+                    : closestStore?.searchStage === 3
+                    ? '🔎 Stage 3 — Extended Area Found (Within 3 km)'
+                    : '🎯 Delivery Zone Covered'}
+                </span>
               </div>
-            )}
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                {closestStore?.searchRadiusKm === 0 ? 'Exact Zone' : `${closestStore?.searchRadiusKm || 0} km Radius`}
+              </span>
+            </div>
 
             {/* 2x2 Interactive Retailer Selection Grid (Deliverable Stores Only) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -803,19 +814,53 @@ const LocationModalContent = () => {
             </div>
           </div>
         ) : (
-          <div className="mt-4 p-4 rounded-2xl bg-rose-50/90 border-2 border-rose-200 text-rose-900 text-left space-y-2.5 animate-in fade-in">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-              <span className="font-black text-xs text-rose-950">
-                0 Stores Found (Outside Delivery Zone)
-              </span>
+          <div className="mt-4 space-y-3 text-left animate-in fade-in">
+            {/* Stage 4 Progressive Search Banner */}
+            <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 text-xs space-y-1">
+              <div className="flex items-center justify-between font-bold">
+                <span className="flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Stage 4 — Beyond 3 km (Outside Delivery Coverage)</span>
+                </span>
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                  No Delivery Promise
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-900/90 leading-tight">
+                Delivery is currently unavailable at your location. The progressive search checked 0 km (exact delivery polygons), 2 km nearby branches, and 3 km extended radius.
+              </p>
             </div>
-            <p className="text-[11px] text-rose-800 leading-tight">
-              No grocery supermarkets currently deliver to this pin. Please choose a different location or drag your pin inside an active delivery zone on the map.
-            </p>
+
+            {/* Nearest Store Alternative Card (In-store pickup / browsing only) */}
+            {nonDeliverableStores.length > 0 && (
+              <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-300 text-slate-900 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🏬</span>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-900">
+                        Nearest Store Alternative: {nonDeliverableStores[0].nearestBranch?.name || nonDeliverableStores[0].displayName || nonDeliverableStores[0].name}
+                      </h4>
+                      <p className="text-[10px] text-slate-500 font-medium">
+                        {nonDeliverableStores[0].distanceFormatted || 'Nearby'} &bull; In-store pickup & browsing only
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-200 text-slate-700">
+                    Alternative
+                  </span>
+                </div>
+                <div className="p-2 rounded-xl bg-amber-100/60 border border-amber-200 text-[10px] text-amber-900 font-medium flex items-center gap-1.5">
+                  <span>ℹ️</span>
+                  <span>
+                    This store is outside active delivery coverage for this address. You may browse items or pick up in-store, but doorstep delivery is not promised.
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* InDrive-style Expand Delivery Region Option */}
-            <div className="pt-1.5 pb-1">
+            <div className="pt-1 pb-1">
               <button
                 type="button"
                 onClick={() => setIsRegionExpanded(true)}
@@ -828,9 +873,10 @@ const LocationModalContent = () => {
                 Dispatches riders from regional fulfillment hubs with extended delivery radius.
               </p>
             </div>
+
             {/* Quick Suggestions to Fall into Delivery Zone */}
             <div className="pt-1">
-              <span className="text-[10px] font-bold text-rose-900 uppercase tracking-wider block mb-1.5">
+              <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
                 Suggested Deliverable Areas in {currentCityObj.city.split(',')[0]}:
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -839,7 +885,7 @@ const LocationModalContent = () => {
                     key={n.id}
                     type="button"
                     onClick={() => handleSelectArea(n)}
-                    className="text-[10px] font-bold bg-white hover:bg-rose-100 text-rose-900 border border-rose-300 px-2.5 py-1 rounded-lg transition-all cursor-pointer shadow-2xs flex items-center gap-1"
+                    className="text-[10px] font-bold bg-white hover:bg-emerald-50 text-slate-800 hover:text-emerald-800 border border-slate-300 hover:border-emerald-300 px-2.5 py-1 rounded-lg transition-all cursor-pointer shadow-2xs flex items-center gap-1"
                   >
                     <span>📍</span>
                     <span>{n.name}</span>

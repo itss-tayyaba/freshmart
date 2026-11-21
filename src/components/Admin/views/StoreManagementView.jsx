@@ -485,28 +485,27 @@ export const StoreManagementView = () => {
     const targetCity = String(formData.city || 'Faisalabad').trim().toLowerCase();
 
     return zones.filter((z) => {
-      // If this zone is currently selected by the store (e.g. when editing), always retain it
-      const zKey = z.zoneId || z._id || z.id;
-      if (formData.assignedZoneId && (zKey === formData.assignedZoneId || z.id === formData.assignedZoneId)) {
-        return true;
-      }
-
       // Check if zone is active/available
       const isAvailable = z.isActive !== false && String(z.status || 'active').toLowerCase() !== 'inactive';
       if (!isAvailable) return false;
 
       // Check city match
       const zCity = String(z.city || '').trim().toLowerCase();
-      if (zCity && zCity === targetCity) return true;
-
-      // Also match if zone name or area mentions the city
       const zName = String(z.name || '').toLowerCase();
       const zArea = String(z.area || '').toLowerCase();
-      if (zName.includes(targetCity) || zArea.includes(targetCity)) return true;
 
-      return false;
+      // If zone explicitly belongs to a different city and does not mention targetCity, reject it
+      if (zCity && zCity !== targetCity && !zName.includes(targetCity)) {
+        return false;
+      }
+
+      // Zone must match the selected city
+      const matchesCity = (zCity && zCity === targetCity) || zName.includes(targetCity) || zArea.includes(targetCity);
+      if (!matchesCity) return false;
+
+      return true;
     });
-  }, [zones, formData.city, formData.assignedZoneId]);
+  }, [zones, formData.city]);
 
   const handleSaveStore = async (e) => {
     if (e) e.preventDefault();

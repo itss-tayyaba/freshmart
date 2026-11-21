@@ -1433,7 +1433,13 @@ export const StoreProvider = ({ children }) => {
         reviewsCount: tenant.id === 'tenant-alfatah' ? '2.4k+' : tenant.id === 'tenant-chaseup' ? '1.8k+' : '1.2k+',
         status: isDeliverable ? 'Open & Deliverable' : 'Outside Delivery Zone',
         minOrder: 300,
+        searchStage: discoveryResult.searchStage,
+        stageKey: discoveryResult.stageKey,
+        stageLabel: discoveryResult.stageLabel,
         searchRadiusKm: discoveryResult.searchRadiusKm,
+        searchStepsTaken: discoveryResult.searchStepsTaken,
+        outsideDeliveryCoverage: discoveryResult.outsideDeliveryCoverage,
+        isAlternative: !isDeliverable,
         hasOverlappingZones: discoveryResult.hasOverlappingZones,
         overlappingRetailersCount: discoveryResult.overlappingRetailersCount
       };

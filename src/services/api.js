@@ -1773,6 +1773,31 @@ export const apiService = {
     }
   },
 
+  async progressiveSearch(data) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/delivery/progressive-search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getDeliverySearchLogs() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/delivery/search-logs`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      return await handleResponse(res);
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
   async calculateDeliveryFee(data) {
     try {
       const res = await fetch(`${API_BASE_URL}/delivery/calculate-fee`, {

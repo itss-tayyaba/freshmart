@@ -1,0 +1,52 @@
+[
+  {
+    "latitude": 31.4125,
+    "longitude": 73.0995,
+    "address": "D-Ground Commercial Test",
+    "city": "Faisalabad",
+    "searchStage": 1,
+    "stageKey": "zone_match",
+    "searchRadiusKm": 0,
+    "isDeliverable": true,
+    "eligibleStoresCount": 3,
+    "eligibleStores": [
+      {
+        "storeId": "STR-TEST-01",
+        "name": "Test Store"
+      }
+    ],
+    "clientIp": "127.0.0.1",
+    "_id": "log_1795286493865_5d9aa",
+    "createdAt": "2026-11-21T18:41:33.866Z"
+  },
+  {
+    "customerCoordinates": {
+      "latitude": 31.2,
+      "longitude": 72.85
+    },
+    "address": "",
+    "city": "",
+    "searchStage": 4,
+    "stageKey": "beyond_3km_fallback",
+    "stageLabel": "Stage 4 — Beyond 3 km (Alternative Nearest Store)",
+    "searchRadiusKm": 28,
+    "stepsTaken": [
+      0,
+      2,
+      3,
+      "beyond_3km"
+    ],
+    "isDeliverable": false,
+    "matchingZones": [],
+    "eligibleStoresCount": 0,
+    "eligibleStores": [],
+    "alternativeStore": {
+      "storeId": "branch_cu_satiana",
+      "name": "Chase Up - Satiana Road Hub",
+      "distanceKm": 27.94
+    },
+    "message": "Delivery is currently unavailable at your location.",
+    "_id": "log_1795286493859_lshfu",
+    "createdAt": "2026-11-21T18:41:33.859Z"
+  }
+]
