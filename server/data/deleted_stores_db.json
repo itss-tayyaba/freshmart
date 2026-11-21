@@ -6,5 +6,13 @@
   "STR-TEST-SYNC-CHECK",
   "str-test-sync-check",
   "STR-TEST-SYNC-ALIAS",
-  "str-test-sync-alias"
+  "str-test-sync-alias",
+  "STR-ALF-7663",
+  "str-alf-7663",
+  "STR-ALF-1707",
+  "str-alf-1707",
+  "STR-CHA-6667",
+  "str-cha-6667",
+  "STR-CHA-6072",
+  "str-cha-6072"
 ]

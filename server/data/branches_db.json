@@ -3,342 +3,150 @@
     "_id": "branch_af_fsd",
     "id": "branch_af_fsd",
     "tenantId": "tenant-alfatah",
-    "companyId": "company_001",
-    "code": "AF-FSD-01",
+    "code": "BR-branch_af_fsd",
     "name": "Al-Fatah - D-Ground Flagship Hub",
-    "city": "Faisalabad",
+    "branchName": "D-Ground Flagship Hub",
     "address": "D-Ground Commercial Area, Faisalabad",
-    "manager": "Al-Fatah Store Manager",
-    "phone": "+92 41 8541122",
+    "city": "Faisalabad",
     "latitude": 31.4125,
     "longitude": 73.0995,
-    "deliveryRadiusKm": 5,
     "deliveryRadius": 5,
-    "deliveryStatus": "active",
-    "assignedZoneId": "ZONE-FSD-DGROUND",
-    "deliveryTiers": [
-      {
-        "distanceKm": 1,
-        "fee": 0
-      },
-      {
-        "distanceKm": 2,
-        "fee": 50
-      },
-      {
-        "distanceKm": 3,
-        "fee": 100
-      },
-      {
-        "distanceKm": 5,
-        "fee": 150
-      }
-    ],
-    "operatingHours": "09:00 AM - 11:30 PM",
+    "phone": "+92 41 8541122",
     "status": "active"
   },
   {
     "_id": "branch_af_kohinoor",
     "id": "branch_af_kohinoor",
     "tenantId": "tenant-alfatah",
-    "companyId": "company_001",
-    "code": "AF-FSD-02",
+    "code": "BR-branch_af_kohinoor",
     "name": "Al-Fatah - Kohinoor City Hub",
-    "city": "Faisalabad",
+    "branchName": "Kohinoor City Hub",
     "address": "Kohinoor City, Jaranwala Road, Faisalabad",
-    "manager": "Al-Fatah Store Manager",
-    "phone": "+92 41 8541133",
+    "city": "Faisalabad",
     "latitude": 31.417,
     "longitude": 73.133,
-    "deliveryRadiusKm": 5,
     "deliveryRadius": 5,
-    "deliveryStatus": "active",
-    "assignedZoneId": "ZONE-FSD-MADINA",
-    "deliveryTiers": [
-      {
-        "distanceKm": 1,
-        "fee": 0
-      },
-      {
-        "distanceKm": 2,
-        "fee": 50
-      },
-      {
-        "distanceKm": 3,
-        "fee": 100
-      },
-      {
-        "distanceKm": 5,
-        "fee": 150
-      }
-    ],
-    "operatingHours": "09:00 AM - 11:30 PM",
+    "phone": "+92 41 8541133",
     "status": "active"
   },
   {
     "_id": "branch_af_canal",
     "id": "branch_af_canal",
     "tenantId": "tenant-alfatah",
-    "companyId": "company_001",
-    "code": "AF-FSD-03",
+    "code": "BR-branch_af_canal",
     "name": "Al-Fatah - Canal Road Hub",
-    "city": "Faisalabad",
+    "branchName": "Canal Road Hub",
     "address": "East Canal Road, Faisalabad",
-    "manager": "Al-Fatah Store Manager",
-    "phone": "+92 41 8541144",
+    "city": "Faisalabad",
     "latitude": 31.438,
     "longitude": 73.129,
-    "deliveryRadiusKm": 5,
     "deliveryRadius": 5,
-    "deliveryStatus": "active",
-    "assignedZoneId": "ZONE-FSD-CANAL",
-    "deliveryTiers": [
-      {
-        "distanceKm": 1,
-        "fee": 0
-      },
-      {
-        "distanceKm": 2,
-        "fee": 50
-      },
-      {
-        "distanceKm": 3,
-        "fee": 100
-      },
-      {
-        "distanceKm": 5,
-        "fee": 150
-      }
-    ],
-    "operatingHours": "09:00 AM - 11:30 PM",
+    "phone": "+92 41 8541144",
     "status": "active"
   },
   {
     "_id": "branch_006",
     "id": "branch_006",
     "tenantId": "tenant-chaseup",
-    "companyId": "company_002",
-    "code": "CU-FSD-04",
+    "code": "BR-branch_006",
     "name": "Chase Up - Clock Tower Hub",
-    "city": "Faisalabad",
+    "branchName": "Clock Tower Hub",
     "address": "Clock Tower Commercial Chowk, Faisalabad",
-    "manager": "Chase Up Store Manager",
-    "phone": "+92 41 2623344",
+    "city": "Faisalabad",
     "latitude": 31.4181,
     "longitude": 73.079,
-    "deliveryRadiusKm": 5,
     "deliveryRadius": 5,
-    "deliveryStatus": "active",
-    "assignedZoneId": "ZONE-FSD-CLOCKTOWER",
-    "deliveryTiers": [
-      {
-        "distanceKm": 1,
-        "fee": 0
-      },
-      {
-        "distanceKm": 2,
-        "fee": 50
-      },
-      {
-        "distanceKm": 3,
-        "fee": 100
-      },
-      {
-        "distanceKm": 5,
-        "fee": 150
-      }
-    ],
-    "operatingHours": "09:00 AM - 11:30 PM",
+    "phone": "+92 41 2623344",
     "status": "active"
   },
   {
     "_id": "branch_cu_satiana",
     "id": "branch_cu_satiana",
     "tenantId": "tenant-chaseup",
-    "companyId": "company_002",
-    "code": "CU-FSD-05",
+    "code": "BR-branch_cu_satiana",
     "name": "Chase Up - Satiana Road Hub",
-    "city": "Faisalabad",
+    "branchName": "Satiana Road Hub",
     "address": "Satiana Road, Faisalabad",
-    "manager": "Chase Up Store Manager",
-    "phone": "+92 41 2623355",
+    "city": "Faisalabad",
     "latitude": 31.396,
     "longitude": 73.034,
-    "deliveryRadiusKm": 5,
     "deliveryRadius": 5,
-    "deliveryStatus": "active",
-    "assignedZoneId": "ZONE-FSD-DGROUND",
-    "deliveryTiers": [
-      {
-        "distanceKm": 1,
-        "fee": 0
-      },
-      {
-        "distanceKm": 2,
-        "fee": 50
-      },
-      {
-        "distanceKm": 3,
-        "fee": 100
-      },
-      {
-        "distanceKm": 5,
-        "fee": 150
-      }
-    ],
-    "operatingHours": "09:00 AM - 11:30 PM",
+    "phone": "+92 41 2623355",
     "status": "active"
   },
   {
     "_id": "branch_cu_samanabad",
     "id": "branch_cu_samanabad",
     "tenantId": "tenant-chaseup",
-    "companyId": "company_002",
-    "code": "CU-FSD-06",
+    "code": "BR-branch_cu_samanabad",
     "name": "Chase Up - Samanabad Hub",
-    "city": "Faisalabad",
+    "branchName": "Samanabad Hub",
     "address": "Samanabad Main Market, Faisalabad",
-    "manager": "Chase Up Store Manager",
-    "phone": "+92 41 2623366",
+    "city": "Faisalabad",
     "latitude": 31.429,
     "longitude": 73.062,
-    "deliveryRadiusKm": 5,
     "deliveryRadius": 5,
-    "deliveryStatus": "active",
-    "assignedZoneId": "ZONE-FSD-CLOCKTOWER",
-    "deliveryTiers": [
-      {
-        "distanceKm": 1,
-        "fee": 0
-      },
-      {
-        "distanceKm": 2,
-        "fee": 50
-      },
-      {
-        "distanceKm": 3,
-        "fee": 100
-      },
-      {
-        "distanceKm": 5,
-        "fee": 150
-      }
-    ],
-    "operatingHours": "09:00 AM - 11:30 PM",
+    "phone": "+92 41 2623366",
     "status": "active"
   },
   {
     "_id": "branch_cv_fsd",
     "id": "branch_cv_fsd",
     "tenantId": "tenant-chasevalue",
-    "companyId": "company_003",
-    "code": "CV-FSD-07",
+    "code": "BR-branch_cv_fsd",
     "name": "Chase Value - Wholesale Express Hub",
-    "city": "Faisalabad",
+    "branchName": "Wholesale Express Hub",
     "address": "Jaranwala Road Wholesale Terminal, Faisalabad",
-    "manager": "Chase Value Store Manager",
-    "phone": "+92 41 8729900",
+    "city": "Faisalabad",
     "latitude": 31.436,
     "longitude": 73.1795,
-    "deliveryRadiusKm": 5,
     "deliveryRadius": 5,
-    "deliveryStatus": "active",
-    "assignedZoneId": "ZONE-FSD-MADINA",
-    "deliveryTiers": [
-      {
-        "distanceKm": 1,
-        "fee": 0
-      },
-      {
-        "distanceKm": 2,
-        "fee": 50
-      },
-      {
-        "distanceKm": 3,
-        "fee": 100
-      },
-      {
-        "distanceKm": 5,
-        "fee": 150
-      }
-    ],
-    "operatingHours": "09:00 AM - 11:30 PM",
+    "phone": "+92 41 8729900",
+    "status": "active"
+  },
+  {
+    "_id": "branch_cv_gmabad",
+    "id": "branch_cv_gmabad",
+    "tenantId": "tenant-chasevalue",
+    "code": "BR-branch_cv_gmabad",
+    "name": "Chase Value - Ghulam Muhammad Abad Hub",
+    "branchName": "Ghulam Muhammad Abad Hub",
+    "address": "Ghulam Muhammad Abad, Faisalabad",
+    "city": "Faisalabad",
+    "latitude": 31.429,
+    "longitude": 73.112,
+    "deliveryRadius": 5,
+    "phone": "+92 41 8729911",
     "status": "active"
   },
   {
     "_id": "branch_um_fsd",
     "id": "branch_um_fsd",
     "tenantId": "tenant-unimart",
-    "companyId": "company_004",
-    "code": "UM-FSD-09",
+    "code": "BR-branch_um_fsd",
     "name": "Unimart - Peoples Colony Dark Store",
-    "city": "Faisalabad",
+    "branchName": "Peoples Colony Dark Store",
     "address": "D-Ground Commercial Center, Peoples Colony 1, Faisalabad",
-    "manager": "Unimart Store Manager",
-    "phone": "+92 300 8441122",
+    "city": "Faisalabad",
     "latitude": 31.4015,
     "longitude": 73.083,
-    "deliveryRadiusKm": 5,
     "deliveryRadius": 5,
-    "deliveryStatus": "active",
-    "assignedZoneId": "ZONE-FSD-DGROUND",
-    "deliveryTiers": [
-      {
-        "distanceKm": 1,
-        "fee": 0
-      },
-      {
-        "distanceKm": 2,
-        "fee": 50
-      },
-      {
-        "distanceKm": 3,
-        "fee": 100
-      },
-      {
-        "distanceKm": 5,
-        "fee": 150
-      }
-    ],
-    "operatingHours": "09:00 AM - 11:30 PM",
+    "phone": "+92 300 8441122",
     "status": "active"
   },
   {
     "_id": "branch_um_madina",
     "id": "branch_um_madina",
     "tenantId": "tenant-unimart",
-    "companyId": "company_004",
-    "code": "UM-FSD-10",
+    "code": "BR-branch_um_madina",
     "name": "Unimart - Madina Town Hub",
-    "city": "Faisalabad",
+    "branchName": "Madina Town Hub",
     "address": "Madina Town Main Boulevard, Faisalabad",
-    "manager": "Unimart Store Manager",
-    "phone": "+92 300 8441133",
+    "city": "Faisalabad",
     "latitude": 31.453,
     "longitude": 73.084,
-    "deliveryRadiusKm": 5,
     "deliveryRadius": 5,
-    "deliveryStatus": "active",
-    "assignedZoneId": "ZONE-FSD-MADINA",
-    "deliveryTiers": [
-      {
-        "distanceKm": 1,
-        "fee": 0
-      },
-      {
-        "distanceKm": 2,
-        "fee": 50
-      },
-      {
-        "distanceKm": 3,
-        "fee": 100
-      },
-      {
-        "distanceKm": 5,
-        "fee": 150
-      }
-    ],
-    "operatingHours": "09:00 AM - 11:30 PM",
+    "phone": "+92 300 8441133",
     "status": "active"
   }
 ]

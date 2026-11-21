@@ -230,7 +230,7 @@
     "operatingStatus": "Open",
     "manager": "Chase Up Store Manager",
     "deliveryRadiusKm": 5,
-    "assignedZoneId": "ZONE-FSD-DGROUND",
+    "assignedZoneId": "ZONE-FSD-SAMANABAD",
     "deliveryPolygon": [
       [
         31.411,
@@ -281,7 +281,7 @@
     "operatingStatus": "Open",
     "manager": "Chase Up Store Manager",
     "deliveryRadiusKm": 5,
-    "assignedZoneId": "ZONE-FSD-CLOCKTOWER",
+    "assignedZoneId": "ZONE-FSD-SAMANABAD",
     "deliveryPolygon": [
       [
         31.444,
@@ -353,6 +353,57 @@
       [
         31.451,
         73.1645
+      ]
+    ]
+  },
+  {
+    "_id": "branch_cv_gmabad",
+    "storeId": "branch_cv_gmabad",
+    "branchId": "branch_cv_gmabad",
+    "tenantId": "tenant-chasevalue",
+    "tenantName": "Chase Value",
+    "name": "Chase Value - Ghulam Muhammad Abad Hub",
+    "branchName": "Ghulam Muhammad Abad Hub",
+    "address": "Ghulam Muhammad Abad, Faisalabad",
+    "city": "Faisalabad",
+    "latitude": 31.429,
+    "longitude": 73.112,
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        73.112,
+        31.429
+      ]
+    },
+    "contactNumber": "+92 41 8729911",
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "status": "active",
+    "isActive": true,
+    "operatingStatus": "Open",
+    "manager": "Chase Value Store Manager",
+    "deliveryRadiusKm": 5,
+    "assignedZoneId": "ZONE-FSD-CANAL",
+    "deliveryPolygon": [
+      [
+        31.444,
+        73.097
+      ],
+      [
+        31.444,
+        73.127
+      ],
+      [
+        31.413999999999998,
+        73.127
+      ],
+      [
+        31.413999999999998,
+        73.097
+      ],
+      [
+        31.444,
+        73.097
       ]
     ]
   },
