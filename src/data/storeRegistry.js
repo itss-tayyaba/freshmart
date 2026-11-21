@@ -43,8 +43,8 @@ export const STORE_REGISTRY = [
 
   // ---- Chase Up: 3 stores (1 existing + 2 new) ----
   store('branch_006', 'tenant-chaseup', 'Clock Tower Hub', 'Clock Tower Commercial Chowk, Faisalabad', 31.4181, 73.0790, 'ZONE-FSD-CLOCKTOWER', '+92 41 2623344'),
-  store('branch_cu_satiana', 'tenant-chaseup', 'Satiana Road Hub', 'Satiana Road, Faisalabad', 31.3960, 73.0340, 'ZONE-FSD-DGROUND', '+92 41 2623355', true),
-  store('branch_cu_samanabad', 'tenant-chaseup', 'Samanabad Hub', 'Samanabad Main Market, Faisalabad', 31.4290, 73.0620, 'ZONE-FSD-CLOCKTOWER', '+92 41 2623366', true),
+  store('branch_cu_satiana', 'tenant-chaseup', 'Satiana Road Hub', 'Satiana Road, Faisalabad', 31.3960, 73.0340, 'ZONE-FSD-SAMANABAD', '+92 41 2623355', true),
+  store('branch_cu_samanabad', 'tenant-chaseup', 'Samanabad Hub', 'Samanabad Main Market, Faisalabad', 31.4290, 73.0620, 'ZONE-FSD-SAMANABAD', '+92 41 2623366', true),
 
   // ---- Chase Value: 2 stores (1 existing + 1 new) ----
   store('branch_cv_fsd', 'tenant-chasevalue', 'Wholesale Express Hub', 'Jaranwala Road Wholesale Terminal, Faisalabad', 31.4360, 73.1795, 'ZONE-FSD-MADINA', '+92 41 8729900'),

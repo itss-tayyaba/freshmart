@@ -455,13 +455,6 @@ export const StoreManagementView = () => {
     return getZoneContainingPoint(formData.latitude, formData.longitude);
   }, [formData.latitude, formData.longitude, zones]);
 
-  // Suggest the polygon that contains the pin; the super admin still confirms or changes it.
-  useEffect(() => {
-    if (isAddModalOpen && !formData.assignedZoneId && detectedZone?.zoneId) {
-      setFormData((prev) => (prev.assignedZoneId ? prev : { ...prev, assignedZoneId: detectedZone.zoneId }));
-    }
-  }, [isAddModalOpen, detectedZone?.zoneId]);
-
   const handleSaveStore = async (e) => {
     if (e) e.preventDefault();
     setFormError(null);
@@ -514,14 +507,15 @@ export const StoreManagementView = () => {
         manager: formData.manager || `${retailerObj.name} Manager`,
         branchManager: formData.manager || `${retailerObj.name} Manager`,
         deliveryRadiusKm: Number(formData.deliveryRadiusKm || 5),
-        assignedZoneId: formData.assignedZoneId || '',
-        deliveryZoneId: formData.assignedZoneId || null
+        assignedZoneId: formData.assignedZoneId || null,
+        deliveryZoneId: formData.assignedZoneId || null,
+        assignmentStatus: formData.assignedZoneId ? 'active' : 'unassigned'
       };
 
       if (isEditModalOpen && selectedStore) {
         const id = selectedStore.storeId || selectedStore._id;
         try {
-          await apiService.updateStore(id, { ...formData, assignedZoneId: formData.assignedZoneId });
+          await apiService.updateStore(id, { ...formData, assignedZoneId: formData.assignedZoneId || null });
           if (formData.assignedZoneId) {
             await apiService.assignStoresToZone(formData.assignedZoneId, [id]);
           }
@@ -551,15 +545,19 @@ export const StoreManagementView = () => {
         if (addToast) addToast('Store Updated ✨', `Store "${nameVal}" updated successfully.`, 'success');
         setIsEditModalOpen(false);
       } else {
-        // Create new store
+        // Create new store - initial registration is unassigned unless explicitly chosen
+        const chosenZone = formData.assignedZoneId ? String(formData.assignedZoneId).trim() : null;
+        storeRecord.assignedZoneId = chosenZone;
+        storeRecord.deliveryZoneId = chosenZone;
+        storeRecord.assignmentStatus = chosenZone ? 'active' : 'unassigned';
+
         let serverCreated = null;
         try {
-          const res = await apiService.createStore({ ...storeRecord, assignedZoneId: formData.assignedZoneId });
+          const res = await apiService.createStore({ ...storeRecord, assignedZoneId: chosenZone });
           if (res && res.success && res.store) {
             serverCreated = res.store;
           }
           const finalId = serverCreated?.storeId || storeRecord.storeId;
-          const chosenZone = formData.assignedZoneId || (detectedZone ? detectedZone.zoneId : null);
           if (chosenZone) {
             await apiService.assignStoresToZone(chosenZone, [finalId]);
           }
@@ -584,7 +582,12 @@ export const StoreManagementView = () => {
           console.warn('Backend createStore offline/fallback:', apiErr.message);
         }
 
-        const finalStore = serverCreated || storeRecord;
+        const finalStore = {
+          ...(serverCreated || storeRecord),
+          assignedZoneId: chosenZone,
+          deliveryZoneId: chosenZone,
+          assignmentStatus: chosenZone ? 'active' : 'unassigned'
+        };
         saveLocalCustomStore(finalStore);
         try {
           const currentRetailerStores = loadRetailerStores();
@@ -593,12 +596,17 @@ export const StoreManagementView = () => {
             ...currentRetailerStores.filter((s) => (s.storeId || s._id) !== sId),
             {
               ...finalStore,
-              deliveryZoneId: finalStore.deliveryZoneId || finalStore.assignedZoneId || null,
-              assignmentStatus: (finalStore.deliveryZoneId || finalStore.assignedZoneId) ? 'active' : 'unassigned'
+              deliveryZoneId: chosenZone,
+              assignedZoneId: chosenZone,
+              assignmentStatus: chosenZone ? 'active' : 'unassigned'
             }
           ];
           saveRetailerStores(mergedStores);
         } catch (e) {}
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('freshmart_stores_updated'));
+        }
 
         setStores((prev) => {
           const copy = Array.isArray(prev) ? [...prev] : [];

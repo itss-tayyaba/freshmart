@@ -5,10 +5,10 @@ import { getAllUnifiedStores } from '../utils/storeHelper.js';
 
 export const ZONE_CODE_TO_MASTER_ZONE_MAP = {
   'ZONE-FSD-SAMANABAD': 'zone_001',
-  'ZONE-FSD-CLOCKTOWER': 'zone_001',
+  'ZONE-FSD-CLOCKTOWER': 'zone_003',
   'ZONE-FSD-MADINA': 'zone_002',
   'ZONE-FSD-DGROUND': 'zone_003',
-  'ZONE-FSD-CANAL': 'zone_004',
+  'ZONE-FSD-CANAL': 'zone_002',
   'ZONE-FSD-PEOPLES': 'zone_004',
   'zone_001': 'zone_001',
   'zone_002': 'zone_002',
@@ -17,10 +17,10 @@ export const ZONE_CODE_TO_MASTER_ZONE_MAP = {
 };
 
 export const MASTER_ZONE_TO_ZONE_CODE_MAP = {
-  'zone_001': 'ZONE-FSD-CLOCKTOWER',
+  'zone_001': 'ZONE-FSD-SAMANABAD',
   'zone_002': 'ZONE-FSD-MADINA',
-  'zone_003': 'ZONE-FSD-DGROUND',
-  'zone_004': 'ZONE-FSD-CANAL'
+  'zone_003': 'ZONE-FSD-CLOCKTOWER',
+  'zone_004': 'ZONE-FSD-PEOPLES'
 };
 
 export const PAKISTAN_CITIES = [
@@ -110,15 +110,15 @@ export const FOUR_MASTER_DELIVERY_ZONES = [
     deliveryFee: 60,
     minOrder: 400,
     freeDeliveryThreshold: 2000,
-    center: [31.3930, 73.0600],
+    center: [31.3980, 73.0450],
     polygon: {
       type: 'Polygon',
       coordinates: [
-        [31.4080, 73.0450],
-        [31.4080, 73.0760],
-        [31.3780, 73.0760],
-        [31.3780, 73.0450],
-        [31.4080, 73.0450]
+        [31.4350, 73.0100],
+        [31.4350, 73.0760],
+        [31.3650, 73.0760],
+        [31.3650, 73.0100],
+        [31.4350, 73.0100]
       ]
     }
   },
@@ -127,8 +127,8 @@ export const FOUR_MASTER_DELIVERY_ZONES = [
     id: 'zone_002',
     zoneId: 'zone_002',
     zoneNumber: 2,
-    name: 'Zone 2 — Madina Town',
-    shortName: 'Madina Town',
+    name: 'Zone 2 — Madina Town & East Canal',
+    shortName: 'Madina Town & Canal',
     city: 'Faisalabad',
     color: '#16a34a', // Emerald Green
     bgColor: 'bg-emerald-50',
@@ -139,15 +139,15 @@ export const FOUR_MASTER_DELIVERY_ZONES = [
     deliveryFee: 70,
     minOrder: 450,
     freeDeliveryThreshold: 2200,
-    center: [31.4350, 73.1350],
+    center: [31.4420, 73.1380],
     polygon: {
       type: 'Polygon',
       coordinates: [
-        [31.4480, 73.1120],
-        [31.4480, 73.1580],
-        [31.4180, 73.1580],
-        [31.4180, 73.1120],
-        [31.4480, 73.1120]
+        [31.4700, 73.0750],
+        [31.4700, 73.2000],
+        [31.4150, 73.2000],
+        [31.4150, 73.0750],
+        [31.4700, 73.0750]
       ]
     }
   },
@@ -156,8 +156,8 @@ export const FOUR_MASTER_DELIVERY_ZONES = [
     id: 'zone_003',
     zoneId: 'zone_003',
     zoneNumber: 3,
-    name: 'Zone 3 — D-Ground',
-    shortName: 'D-Ground',
+    name: 'Zone 3 — Clock Tower & D-Ground',
+    shortName: 'Clock Tower & D-Ground',
     city: 'Faisalabad',
     color: '#0284c7', // Sky Blue
     bgColor: 'bg-sky-50',
@@ -168,15 +168,15 @@ export const FOUR_MASTER_DELIVERY_ZONES = [
     deliveryFee: 60,
     minOrder: 400,
     freeDeliveryThreshold: 2000,
-    center: [31.4140, 73.0870],
+    center: [31.4150, 73.0750],
     polygon: {
       type: 'Polygon',
       coordinates: [
-        [31.4240, 73.0720],
-        [31.4240, 73.0980],
-        [31.3980, 73.0980],
-        [31.3980, 73.0720],
-        [31.4240, 73.0720]
+        [31.4350, 73.0450],
+        [31.4350, 73.1050],
+        [31.3950, 73.1050],
+        [31.3950, 73.0450],
+        [31.4350, 73.0450]
       ]
     }
   },
@@ -185,8 +185,8 @@ export const FOUR_MASTER_DELIVERY_ZONES = [
     id: 'zone_004',
     zoneId: 'zone_004',
     zoneNumber: 4,
-    name: "Zone 4 — People's Colony",
-    shortName: "People's Colony",
+    name: "Zone 4 — People's Colony & Kohinoor",
+    shortName: "People's Colony & Kohinoor",
     city: 'Faisalabad',
     color: '#7c3aed', // Purple
     bgColor: 'bg-purple-50',
@@ -197,15 +197,15 @@ export const FOUR_MASTER_DELIVERY_ZONES = [
     deliveryFee: 65,
     minOrder: 400,
     freeDeliveryThreshold: 2000,
-    center: [31.4160, 73.1100],
+    center: [31.4150, 73.1200],
     polygon: {
       type: 'Polygon',
       coordinates: [
-        [31.4280, 73.0960],
-        [31.4280, 73.1250],
-        [31.3980, 73.1250],
-        [31.3980, 73.0960],
-        [31.4280, 73.0960]
+        [31.4450, 73.0850],
+        [31.4450, 73.1550],
+        [31.3850, 73.1550],
+        [31.3850, 73.0850],
+        [31.4450, 73.0850]
       ]
     }
   }
@@ -676,12 +676,18 @@ export const loadMasterZones = () => {
           const baseline = FOUR_MASTER_DELIVERY_ZONES.find(
             (b) => (b.zoneId || b._id) === zId
           ) || {};
+          const isUserDrawn = Boolean(z.drawnByUser || z.isCustom || z.userDrawn);
+          const hasBaseline = Boolean(baseline.zoneId);
+          const polygonToUse = (!isUserDrawn && hasBaseline && baseline.polygon)
+            ? baseline.polygon
+            : ((z.polygon && Array.isArray(z.polygon.coordinates) && z.polygon.coordinates.length >= 3)
+                ? z.polygon
+                : (baseline.polygon || z.polygon));
+
           return {
             ...baseline,
             ...z,
-            polygon: (z.polygon && Array.isArray(z.polygon.coordinates) && z.polygon.coordinates.length >= 3)
-              ? z.polygon
-              : (baseline.polygon || z.polygon)
+            polygon: polygonToUse
           };
         });
       }
