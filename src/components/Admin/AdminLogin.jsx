@@ -37,9 +37,9 @@ export const AdminLogin = () => {
     }
   }, [isAdminLoggedIn, user, adminRole, navigateTo]);
   const activeStores = React.useMemo(() => {
-    const list = getAllUnifiedStores(allBranches);
+    const list = getAllUnifiedStores();
     return list.length > 0 ? list : STORE_LOCATIONS;
-  }, [allBranches]);
+  }, []);
 
   const getInitialBranchId = () => {
     try {

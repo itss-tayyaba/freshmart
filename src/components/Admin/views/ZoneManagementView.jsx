@@ -166,7 +166,7 @@ export const ZoneManagementView = () => {
 
   // State
   const [zones, setZones] = useState([]);
-  const [stores, setStores] = useState(() => getAllUnifiedStores([], allBranches));
+  const [stores, setStores] = useState(() => getAllUnifiedStores());
   const [selectedZoneId, setSelectedZoneId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [polygonViewFilter, setPolygonViewFilter] = useState('all'); // 'all' | 'selected'
@@ -325,14 +325,14 @@ export const ZoneManagementView = () => {
         setSelectedZoneId(mergedStoreAreaZones[0].zoneId || mergedStoreAreaZones[0]._id);
       }
 
-      const cleanStores = getAllUnifiedStores(storesRes?.stores, allBranches);
+      const cleanStores = getAllUnifiedStores(storesRes?.stores);
       setStores(cleanStores);
     } catch (err) {
       console.warn('Zone management fetch error:', err.message);
       const deletedIds = loadDeletedZoneIds();
       const fallback = MASTER_STORE_AREA_POLYGONS.filter((m) => !deletedIds.has(m.zoneId));
       setZones(fallback);
-      setStores(getAllUnifiedStores([], allBranches));
+      setStores(getAllUnifiedStores());
     } finally {
       setIsLoading(false);
     }
@@ -340,12 +340,12 @@ export const ZoneManagementView = () => {
 
   useEffect(() => {
     fetchData();
-  }, [allBranches]);
+  }, []);
 
   // Real-time synchronization
   useEffect(() => {
     const handleStoresUpdated = () => {
-      setStores(getAllUnifiedStores([], allBranches));
+      setStores(getAllUnifiedStores());
     };
     const handleZonesUpdated = (e) => {
       if (e?.detail && Array.isArray(e.detail)) {
@@ -371,7 +371,7 @@ export const ZoneManagementView = () => {
       window.removeEventListener('freshmart_stores_updated', handleStoresUpdated);
       window.removeEventListener('freshmart_zones_updated', handleZonesUpdated);
     };
-  }, [allBranches]);
+  }, []);
 
   // Real-time stores detected inside currently drawn vertices
   const cleanDrawnVertices = useMemo(() => {

@@ -55,6 +55,10 @@ export const StoreManagementView = () => {
   } = useStore();
 
   const [stores, setStores] = useState(() => getAllUnifiedStores());
+  // Anti-flicker: while this screen is adding/deleting, it ignores its own broadcast events,
+  // and a slow/stale fetch can never overwrite a newer list.
+  const suppressSyncRef = useRef(false);
+  const fetchSeqRef = useRef(0);
   // Admins that exist in the database (one admin per store) + one-time credentials after creating one
   const [backendAdmins, setBackendAdmins] = useState([]);
   const [adminCreds, setAdminCreds] = useState(null);
@@ -144,6 +148,7 @@ export const StoreManagementView = () => {
 
   // Fetch stores, zones, and assignments from backend
   const fetchStoresList = async () => {
+    const mySeq = ++fetchSeqRef.current;
     setIsLoading(true);
     try {
       const [res, zonesRes, assignRes] = await Promise.all([
@@ -152,6 +157,7 @@ export const StoreManagementView = () => {
         apiService.getAllAssignments()
       ]);
 
+      if (mySeq !== fetchSeqRef.current) return; // a newer fetch/mutation already won
       const allMerged = getAllUnifiedStores(res?.stores);
       setStores(allMerged);
 
@@ -193,6 +199,7 @@ export const StoreManagementView = () => {
     fetchStoresList();
 
     const handleStoresSync = () => {
+      if (suppressSyncRef.current) return; // our own add/delete is in progress
       setStores(getAllUnifiedStores());
     };
 
@@ -205,7 +212,7 @@ export const StoreManagementView = () => {
       window.removeEventListener('freshmart_stores_updated', handleStoresSync);
       window.removeEventListener('freshmart_branches_updated', handleStoresSync);
     };
-  }, [allBranches]);
+  }, []);
 
   // Filtered stores
   const filteredStores = useMemo(() => {
@@ -471,6 +478,8 @@ export const StoreManagementView = () => {
     const latVal = (Number.isFinite(Number(formData.latitude)) && !isNaN(Number(formData.latitude))) ? Number(formData.latitude) : 31.4125;
     const lngVal = (Number.isFinite(Number(formData.longitude)) && !isNaN(Number(formData.longitude))) ? Number(formData.longitude) : 73.0995;
 
+    suppressSyncRef.current = true;
+    fetchSeqRef.current++;
     setIsSubmitting(true);
     try {
       const sId = formData.storeId || `STR-${canonicalTenant.replace('tenant-', '').substring(0, 3).toUpperCase()}-${timestamp}`;
@@ -621,24 +630,6 @@ export const StoreManagementView = () => {
           return [finalStore, ...copy];
         });
 
-        if (setAllBranches) {
-          setAllBranches((prev) => [
-            {
-              _id: finalStore.storeId || finalStore._id,
-              id: finalStore.storeId || finalStore._id,
-              tenantId: finalStore.tenantId,
-              name: finalStore.branchName || finalStore.name,
-              address: finalStore.address,
-              city: finalStore.city,
-              latitude: finalStore.latitude,
-              longitude: finalStore.longitude,
-              phone: finalStore.contactNumber,
-              status: finalStore.status
-            },
-            ...(prev || [])
-          ]);
-        }
-
         if (addToast) {
           addToast(
             'Store Branch Added 🎉',
@@ -652,6 +643,7 @@ export const StoreManagementView = () => {
       setFormError(err.message || 'Error occurred while saving store.');
       if (addToast) addToast('Save Error', err.message, 'error');
     } finally {
+      setTimeout(() => { suppressSyncRef.current = false; }, 0);
       setIsSubmitting(false);
     }
   };
@@ -685,6 +677,8 @@ export const StoreManagementView = () => {
     ].filter(Boolean);
     const primaryId = storeToDelete.storeId || storeToDelete._id || ids[0];
 
+    suppressSyncRef.current = true;
+    fetchSeqRef.current++; // cancel any in-flight fetch that still has the old list
     try {
       // 1. Permanently blacklist across local caches & storage
       markStoreDeleted(primaryId, ids);
@@ -731,6 +725,9 @@ export const StoreManagementView = () => {
       setStoreToDelete(null);
       if (isViewModalOpen) setIsViewModalOpen(false);
       if (addToast) addToast('Store Removed 🗑️', `Branch "${storeToDelete.name}" removed.`, 'info');
+    } finally {
+      // release after the synchronous events above have fired
+      setTimeout(() => { suppressSyncRef.current = false; }, 0);
     }
   };
 
@@ -748,13 +745,6 @@ export const StoreManagementView = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={fetchStoresList}
-            className="px-3 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
           <button
             onClick={handleOpenAdd}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-950/10 flex items-center gap-1.5 cursor-pointer"

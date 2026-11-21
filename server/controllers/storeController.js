@@ -258,6 +258,9 @@ export const getStores = async (req, res) => {
       );
     }
 
+    if (typeof res?.set === 'function') {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    }
     return res.json({
       success: true,
       count: stores.length,

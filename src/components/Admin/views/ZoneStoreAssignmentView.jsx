@@ -502,8 +502,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       const refreshedStores = loadRetailerStores();
       setStores(refreshedStores);
       setMasterZones(loadMasterZones());
-      if (storeMarkerGroupRef.current) {
-        storeMarkerGroupRef.current.clearLayers();
+      if (storeMarkersGroupRef.current) {
+        storeMarkersGroupRef.current.clearLayers();
       }
     };
     window.addEventListener('freshmart_stores_updated', handleStoreSync);
@@ -1119,8 +1119,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     }
 
     setStores(updated);
-    if (storeMarkerGroupRef.current) {
-      storeMarkerGroupRef.current.clearLayers();
+    if (storeMarkersGroupRef.current) {
+      storeMarkersGroupRef.current.clearLayers();
     }
     if (setAllBranches) {
       setAllBranches((prev) => prev.filter((b) => (b.id || b._id) !== sId && b.storeId !== sId));

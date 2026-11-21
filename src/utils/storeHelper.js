@@ -467,7 +467,11 @@ export const getAllUnifiedStores = (apiStores = [], _extraBranches = [], targetC
   loadLocalCustomStores().forEach(add);
 
   if (Array.isArray(apiStores) && apiStores.length > 0) {
-    setCachedApiStores(apiStores);
+    const validApiStores = apiStores.filter((s) => {
+      const rid = String(s?.storeId || s?._id || '').trim();
+      return rid && canon(rid) !== null;
+    });
+    setCachedApiStores(validApiStores);
   }
   const effectiveApiStores = (Array.isArray(apiStores) && apiStores.length > 0)
     ? apiStores

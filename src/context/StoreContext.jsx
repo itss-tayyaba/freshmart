@@ -99,6 +99,7 @@ export const useStore = () => {
 
 import { sanitizeOrder } from '../utils/orderSanitizer.js';
 import { getDeletedStoreIds, getAllUnifiedStores } from '../utils/storeHelper.js';
+import { LEGACY_STORE_ID_MAP } from '../data/storeRegistry.js';
 import { loadMasterZones } from '../data/retailerZoneHierarchyData.js';
 import {
   isOrderAssignedToPickupStaff,
@@ -948,6 +949,14 @@ export const StoreProvider = ({ children }) => {
   const [isLocationConfirmed, setIsLocationConfirmed] = useState(() => checkInitialLocationConfirmed());
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(() => !checkInitialLocationConfirmed());
 
+  const isJunkBranch = (id) => {
+    const str = String(id || '').trim();
+    if (!str) return true;
+    if (str.endsWith('-TEST') || str.includes('CHA-3330')) return true;
+    if (Object.prototype.hasOwnProperty.call(LEGACY_STORE_ID_MAP, str) && LEGACY_STORE_ID_MAP[str] === null) return true;
+    return false;
+  };
+
   // --- 🏢 Multi-Company & Branch Architecture State ---
   const [allBranches, setAllBranches] = useState(() => {
     try {
@@ -956,39 +965,41 @@ export const StoreProvider = ({ children }) => {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const baseMap = new Map((BRANCHES || []).map((b) => [String(b._id || b.id || '').toLowerCase(), b]));
-          const updated = parsed.map((b) => {
-            const k = String(b._id || b.id || '').toLowerCase();
-            const canonical = baseMap.get(k);
-            if (canonical) {
-              const bLat = Number(b.latitude ?? b.coordinates?.lat);
-              const bLng = Number(b.longitude ?? b.coordinates?.lng);
-              const bRadius = Number(b.deliveryRadiusKm ?? b.deliveryRadius);
-              return {
-                ...canonical,
-                ...b,
-                latitude: (!isNaN(bLat) && bLat !== 0) ? bLat : canonical.latitude,
-                longitude: (!isNaN(bLng) && bLng !== 0) ? bLng : canonical.longitude,
-                deliveryRadiusKm: (!isNaN(bRadius) && bRadius > 0) ? bRadius : (canonical.deliveryRadiusKm || 5),
-                deliveryRadius: (!isNaN(bRadius) && bRadius > 0) ? bRadius : (canonical.deliveryRadius || 5),
-                deliveryPolygon: Array.isArray(b.deliveryPolygon) && b.deliveryPolygon.length >= 3 ? b.deliveryPolygon : (canonical.deliveryPolygon || null),
-                deliveryStatus: b.deliveryStatus || canonical.deliveryStatus || 'active',
-                deliveryTiers: (Array.isArray(b.deliveryTiers) && b.deliveryTiers.length > 0) ? b.deliveryTiers : (canonical.deliveryTiers || [])
-              };
-            }
-            if (['branch_af_kohinoor', 'branch_cu_satiana', 'branch_cv_gmabad', 'branch_um_madina'].includes(k)) {
-              return { ...b, deliveryStatus: 'inactive', status: 'inactive' };
-            }
-            return b;
-          });
+          const updated = parsed
+            .filter((b) => !isJunkBranch(b._id || b.id))
+            .map((b) => {
+              const k = String(b._id || b.id || '').toLowerCase();
+              const canonical = baseMap.get(k);
+              if (canonical) {
+                const bLat = Number(b.latitude ?? b.coordinates?.lat);
+                const bLng = Number(b.longitude ?? b.coordinates?.lng);
+                const bRadius = Number(b.deliveryRadiusKm ?? b.deliveryRadius);
+                return {
+                  ...canonical,
+                  ...b,
+                  latitude: (!isNaN(bLat) && bLat !== 0) ? bLat : canonical.latitude,
+                  longitude: (!isNaN(bLng) && bLng !== 0) ? bLng : canonical.longitude,
+                  deliveryRadiusKm: (!isNaN(bRadius) && bRadius > 0) ? bRadius : (canonical.deliveryRadiusKm || 5),
+                  deliveryRadius: (!isNaN(bRadius) && bRadius > 0) ? bRadius : (canonical.deliveryRadius || 5),
+                  deliveryPolygon: Array.isArray(b.deliveryPolygon) && b.deliveryPolygon.length >= 3 ? b.deliveryPolygon : (canonical.deliveryPolygon || null),
+                  deliveryStatus: b.deliveryStatus || canonical.deliveryStatus || 'active',
+                  deliveryTiers: (Array.isArray(b.deliveryTiers) && b.deliveryTiers.length > 0) ? b.deliveryTiers : (canonical.deliveryTiers || [])
+                };
+              }
+              if (['branch_af_kohinoor', 'branch_cu_satiana', 'branch_cv_gmabad', 'branch_um_madina'].includes(k)) {
+                return { ...b, deliveryStatus: 'inactive', status: 'inactive' };
+              }
+              return b;
+            });
           const savedIds = new Set(updated.map((b) => String(b._id || b.id || '').toLowerCase()));
           const missingBase = (BRANCHES || []).filter(
-            (b) => !savedIds.has(String(b._id || b.id || '').toLowerCase())
+            (b) => !savedIds.has(String(b._id || b.id || '').toLowerCase()) && !isJunkBranch(b._id || b.id)
           );
           return [...updated, ...missingBase];
         }
       }
     } catch (e) {}
-    return BRANCHES || [];
+    return (BRANCHES || []).filter((b) => !isJunkBranch(b._id || b.id));
   });
 
   useEffect(() => {
@@ -1010,7 +1021,7 @@ export const StoreProvider = ({ children }) => {
 
             res.branches.forEach((b) => {
               const k = String(b._id || b.id || '').toLowerCase();
-              if (k && !seen.has(k)) {
+              if (k && !seen.has(k) && !isJunkBranch(k)) {
                 seen.add(k);
                 const prevBranch = (prev || []).find((p) => String(p._id || p.id || '').toLowerCase() === k);
                 const existingPoly = prevBranch && Array.isArray(prevBranch.deliveryPolygon) && prevBranch.deliveryPolygon.length >= 3
@@ -1045,7 +1056,7 @@ export const StoreProvider = ({ children }) => {
             });
             (prev || []).forEach((b) => {
               const k = String(b._id || b.id || '').toLowerCase();
-              if (k && !seen.has(k)) {
+              if (k && !seen.has(k) && !isJunkBranch(k)) {
                 seen.add(k);
                 const canonical = baseMap.get(k);
                 if (canonical) {
@@ -1072,7 +1083,7 @@ export const StoreProvider = ({ children }) => {
             });
             (BRANCHES || []).forEach((b) => {
               const k = String(b._id || b.id || '').toLowerCase();
-              if (k && !seen.has(k)) {
+              if (k && !seen.has(k) && !isJunkBranch(k)) {
                 seen.add(k);
                 merged.push(b);
               }
@@ -1251,7 +1262,7 @@ export const StoreProvider = ({ children }) => {
   // Keep branch dynamically set to corresponding physical branch assigned to customer delivery polygon
   useEffect(() => {
     const coords = deliveryLocation?.coords || deliveryLocation || { lat: 31.4125, lng: 73.0995 };
-    const unifiedStores = getAllUnifiedStores(allBranches);
+    const unifiedStores = getAllUnifiedStores();
     const pool = (unifiedStores && unifiedStores.length > 0) ? unifiedStores : (allBranches || BRANCHES);
     const assignedBranch = resolveBranchForCustomerLocation(currentTenant?.id, coords, pool);
 
@@ -1293,7 +1304,7 @@ export const StoreProvider = ({ children }) => {
     const userLat = Number(coords?.lat || coords?.latitude || deliveryLocation?.lat || deliveryLocation?.coords?.lat || 31.4125);
     const userLng = Number(coords?.lng || coords?.longitude || deliveryLocation?.lng || deliveryLocation?.coords?.lng || 73.0995);
 
-    const unifiedStores = getAllUnifiedStores(allBranches);
+    const unifiedStores = getAllUnifiedStores();
     const branchesToEvaluate = (unifiedStores && unifiedStores.length > 0)
       ? unifiedStores
       : ((allBranches && allBranches.length > 0) ? allBranches : BRANCHES);
@@ -1450,7 +1461,7 @@ export const StoreProvider = ({ children }) => {
       setCurrentBranch(branch);
     } else {
       const coords = deliveryLocation?.coords || deliveryLocation || { lat: 31.4125, lng: 73.0995 };
-      const unifiedStores = getAllUnifiedStores(allBranches);
+      const unifiedStores = getAllUnifiedStores();
       const pool = (unifiedStores && unifiedStores.length > 0) ? unifiedStores : (allBranches || BRANCHES);
       const resolved = resolveBranchForCustomerLocation(resolvedTenant.id, coords, pool);
       if (resolved) {
