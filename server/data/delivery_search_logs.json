@@ -16,6 +16,516 @@
       }
     ],
     "clientIp": "127.0.0.1",
+    "_id": "log_1795301358489_j7blk",
+    "createdAt": "2026-11-21T22:49:18.489Z"
+  },
+  {
+    "customerCoordinates": {
+      "latitude": 31.2,
+      "longitude": 72.85
+    },
+    "address": "",
+    "city": "",
+    "searchStage": 4,
+    "stageKey": "beyond_3km_fallback",
+    "stageLabel": "Stage 4 — Beyond 3 km (Alternative Nearest Store)",
+    "searchRadiusKm": 28,
+    "stepsTaken": [
+      0,
+      2,
+      3,
+      "beyond_3km"
+    ],
+    "isDeliverable": false,
+    "matchingZones": [],
+    "eligibleStoresCount": 0,
+    "eligibleStores": [],
+    "alternativeStore": {
+      "storeId": "branch_cu_satiana",
+      "name": "Chase Up - Satiana Road Hub",
+      "distanceKm": 27.94
+    },
+    "message": "Delivery is currently unavailable at your location.",
+    "_id": "log_1795301358484_0cxhy",
+    "createdAt": "2026-11-21T22:49:18.484Z"
+  },
+  {
+    "customerCoordinates": {
+      "latitude": 31.4125,
+      "longitude": 73.0995
+    },
+    "address": "",
+    "city": "",
+    "searchStage": 1,
+    "stageKey": "zone_match",
+    "stageLabel": "Stage 1 — Customer Exact Location (Zone Match)",
+    "searchRadiusKm": 0,
+    "stepsTaken": [
+      0
+    ],
+    "isDeliverable": true,
+    "matchingZones": [
+      {
+        "zoneId": "ZONE-FSD-CENTRAL-BLUE",
+        "name": "Central Region (D-Ground & Peoples Colony)",
+        "city": "Faisalabad",
+        "color": "#2563eb",
+        "deliveryCharge": 70
+      },
+      {
+        "zoneId": "ZONE-FSD-CANAL",
+        "name": "Canal Road & Kohinoor Express Zone",
+        "city": "Faisalabad",
+        "color": "#2563eb",
+        "deliveryCharge": 80
+      }
+    ],
+    "eligibleStoresCount": 9,
+    "eligibleStores": [
+      {
+        "storeId": "branch_af_fsd",
+        "name": "Al-Fatah - D-Ground Flagship Hub",
+        "branchName": "D-Ground Flagship Hub",
+        "tenantId": "tenant-alfatah",
+        "distanceKm": 0,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_um_fsd",
+        "name": "Peoples Colony Dark Store",
+        "branchName": "Peoples Colony Dark Store",
+        "tenantId": "tenant-unimart",
+        "distanceKm": 1.99,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_um_fsd",
+        "name": "Unimart - Peoples Colony Dark Store",
+        "branchName": "Peoples Colony Dark Store",
+        "tenantId": "tenant-unimart",
+        "distanceKm": 1.99,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_006",
+        "name": "Chase Up - Clock Tower Hub",
+        "branchName": "Clock Tower Hub",
+        "tenantId": "tenant-chaseup",
+        "distanceKm": 2.04,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_cv_gmabad",
+        "name": "Chase Value - Ghulam Muhammad Abad Hub",
+        "branchName": "Ghulam Muhammad Abad Hub",
+        "tenantId": "tenant-chasevalue",
+        "distanceKm": 2.18,
+        "deliveryFee": 80,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_af_kohinoor",
+        "name": "Al-Fatah - Kohinoor City Hub",
+        "branchName": "Kohinoor City Hub",
+        "tenantId": "tenant-alfatah",
+        "distanceKm": 3.22,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_af_canal",
+        "name": "Al-Fatah - Canal Road Hub",
+        "branchName": "Canal Road Hub",
+        "tenantId": "tenant-alfatah",
+        "distanceKm": 3.98,
+        "deliveryFee": 80,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_cv_fsd",
+        "name": "Chase Value Wholesale Express",
+        "branchName": "Chase Value Wholesale Express",
+        "tenantId": "tenant-chasevalue",
+        "distanceKm": 8.03,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_cv_fsd",
+        "name": "Chase Value - Wholesale Express Hub",
+        "branchName": "Wholesale Express Hub",
+        "tenantId": "tenant-chasevalue",
+        "distanceKm": 8.03,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      }
+    ],
+    "alternativeStore": null,
+    "message": "Stage 1: Found 9 store(s) assigned to delivery zone covering your location.",
+    "_id": "log_1795301358473_sezjm",
+    "createdAt": "2026-11-21T22:49:18.473Z"
+  },
+  {
+    "latitude": 31.4125,
+    "longitude": 73.0995,
+    "address": "D-Ground Commercial Test",
+    "city": "Faisalabad",
+    "searchStage": 1,
+    "stageKey": "zone_match",
+    "searchRadiusKm": 0,
+    "isDeliverable": true,
+    "eligibleStoresCount": 3,
+    "eligibleStores": [
+      {
+        "storeId": "STR-TEST-01",
+        "name": "Test Store"
+      }
+    ],
+    "clientIp": "127.0.0.1",
+    "_id": "log_1795299443057_36w8c",
+    "createdAt": "2026-11-21T22:17:23.057Z"
+  },
+  {
+    "customerCoordinates": {
+      "latitude": 31.2,
+      "longitude": 72.85
+    },
+    "address": "",
+    "city": "",
+    "searchStage": 4,
+    "stageKey": "beyond_3km_fallback",
+    "stageLabel": "Stage 4 — Beyond 3 km (Alternative Nearest Store)",
+    "searchRadiusKm": 28,
+    "stepsTaken": [
+      0,
+      2,
+      3,
+      "beyond_3km"
+    ],
+    "isDeliverable": false,
+    "matchingZones": [],
+    "eligibleStoresCount": 0,
+    "eligibleStores": [],
+    "alternativeStore": {
+      "storeId": "branch_cu_satiana",
+      "name": "Chase Up - Satiana Road Hub",
+      "distanceKm": 27.94
+    },
+    "message": "Delivery is currently unavailable at your location.",
+    "_id": "log_1795299443052_ohppi",
+    "createdAt": "2026-11-21T22:17:23.052Z"
+  },
+  {
+    "customerCoordinates": {
+      "latitude": 31.4125,
+      "longitude": 73.0995
+    },
+    "address": "",
+    "city": "",
+    "searchStage": 1,
+    "stageKey": "zone_match",
+    "stageLabel": "Stage 1 — Customer Exact Location (Zone Match)",
+    "searchRadiusKm": 0,
+    "stepsTaken": [
+      0
+    ],
+    "isDeliverable": true,
+    "matchingZones": [
+      {
+        "zoneId": "ZONE-FSD-CENTRAL-BLUE",
+        "name": "Central Region (D-Ground & Peoples Colony)",
+        "city": "Faisalabad",
+        "color": "#2563eb",
+        "deliveryCharge": 70
+      },
+      {
+        "zoneId": "ZONE-FSD-CANAL",
+        "name": "Canal Road & Kohinoor Express Zone",
+        "city": "Faisalabad",
+        "color": "#2563eb",
+        "deliveryCharge": 80
+      }
+    ],
+    "eligibleStoresCount": 9,
+    "eligibleStores": [
+      {
+        "storeId": "branch_af_fsd",
+        "name": "Al-Fatah - D-Ground Flagship Hub",
+        "branchName": "D-Ground Flagship Hub",
+        "tenantId": "tenant-alfatah",
+        "distanceKm": 0,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_um_fsd",
+        "name": "Peoples Colony Dark Store",
+        "branchName": "Peoples Colony Dark Store",
+        "tenantId": "tenant-unimart",
+        "distanceKm": 1.99,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_um_fsd",
+        "name": "Unimart - Peoples Colony Dark Store",
+        "branchName": "Peoples Colony Dark Store",
+        "tenantId": "tenant-unimart",
+        "distanceKm": 1.99,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_006",
+        "name": "Chase Up - Clock Tower Hub",
+        "branchName": "Clock Tower Hub",
+        "tenantId": "tenant-chaseup",
+        "distanceKm": 2.04,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_cv_gmabad",
+        "name": "Chase Value - Ghulam Muhammad Abad Hub",
+        "branchName": "Ghulam Muhammad Abad Hub",
+        "tenantId": "tenant-chasevalue",
+        "distanceKm": 2.18,
+        "deliveryFee": 80,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_af_kohinoor",
+        "name": "Al-Fatah - Kohinoor City Hub",
+        "branchName": "Kohinoor City Hub",
+        "tenantId": "tenant-alfatah",
+        "distanceKm": 3.22,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_af_canal",
+        "name": "Al-Fatah - Canal Road Hub",
+        "branchName": "Canal Road Hub",
+        "tenantId": "tenant-alfatah",
+        "distanceKm": 3.98,
+        "deliveryFee": 80,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_cv_fsd",
+        "name": "Chase Value Wholesale Express",
+        "branchName": "Chase Value Wholesale Express",
+        "tenantId": "tenant-chasevalue",
+        "distanceKm": 8.03,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_cv_fsd",
+        "name": "Chase Value - Wholesale Express Hub",
+        "branchName": "Wholesale Express Hub",
+        "tenantId": "tenant-chasevalue",
+        "distanceKm": 8.03,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      }
+    ],
+    "alternativeStore": null,
+    "message": "Stage 1: Found 9 store(s) assigned to delivery zone covering your location.",
+    "_id": "log_1795299443046_9txhj",
+    "createdAt": "2026-11-21T22:17:23.046Z"
+  },
+  {
+    "latitude": 31.4125,
+    "longitude": 73.0995,
+    "address": "D-Ground Commercial Test",
+    "city": "Faisalabad",
+    "searchStage": 1,
+    "stageKey": "zone_match",
+    "searchRadiusKm": 0,
+    "isDeliverable": true,
+    "eligibleStoresCount": 3,
+    "eligibleStores": [
+      {
+        "storeId": "STR-TEST-01",
+        "name": "Test Store"
+      }
+    ],
+    "clientIp": "127.0.0.1",
+    "_id": "log_1795298273985_eqgm9",
+    "createdAt": "2026-11-21T21:57:53.985Z"
+  },
+  {
+    "customerCoordinates": {
+      "latitude": 31.2,
+      "longitude": 72.85
+    },
+    "address": "",
+    "city": "",
+    "searchStage": 4,
+    "stageKey": "beyond_3km_fallback",
+    "stageLabel": "Stage 4 — Beyond 3 km (Alternative Nearest Store)",
+    "searchRadiusKm": 28,
+    "stepsTaken": [
+      0,
+      2,
+      3,
+      "beyond_3km"
+    ],
+    "isDeliverable": false,
+    "matchingZones": [],
+    "eligibleStoresCount": 0,
+    "eligibleStores": [],
+    "alternativeStore": {
+      "storeId": "branch_cu_satiana",
+      "name": "Chase Up - Satiana Road Hub",
+      "distanceKm": 27.94
+    },
+    "message": "Delivery is currently unavailable at your location.",
+    "_id": "log_1795298273980_shjql",
+    "createdAt": "2026-11-21T21:57:53.980Z"
+  },
+  {
+    "customerCoordinates": {
+      "latitude": 31.4125,
+      "longitude": 73.0995
+    },
+    "address": "",
+    "city": "",
+    "searchStage": 1,
+    "stageKey": "zone_match",
+    "stageLabel": "Stage 1 — Customer Exact Location (Zone Match)",
+    "searchRadiusKm": 0,
+    "stepsTaken": [
+      0
+    ],
+    "isDeliverable": true,
+    "matchingZones": [
+      {
+        "zoneId": "ZONE-FSD-CENTRAL-BLUE",
+        "name": "Central Region (D-Ground & Peoples Colony)",
+        "city": "Faisalabad",
+        "color": "#2563eb",
+        "deliveryCharge": 70
+      },
+      {
+        "zoneId": "ZONE-FSD-CANAL",
+        "name": "Canal Road & Kohinoor Express Zone",
+        "city": "Faisalabad",
+        "color": "#2563eb",
+        "deliveryCharge": 80
+      }
+    ],
+    "eligibleStoresCount": 9,
+    "eligibleStores": [
+      {
+        "storeId": "branch_af_fsd",
+        "name": "Al-Fatah - D-Ground Flagship Hub",
+        "branchName": "D-Ground Flagship Hub",
+        "tenantId": "tenant-alfatah",
+        "distanceKm": 0,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_um_fsd",
+        "name": "Peoples Colony Dark Store",
+        "branchName": "Peoples Colony Dark Store",
+        "tenantId": "tenant-unimart",
+        "distanceKm": 1.99,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_um_fsd",
+        "name": "Unimart - Peoples Colony Dark Store",
+        "branchName": "Peoples Colony Dark Store",
+        "tenantId": "tenant-unimart",
+        "distanceKm": 1.99,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_006",
+        "name": "Chase Up - Clock Tower Hub",
+        "branchName": "Clock Tower Hub",
+        "tenantId": "tenant-chaseup",
+        "distanceKm": 2.04,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_cv_gmabad",
+        "name": "Chase Value - Ghulam Muhammad Abad Hub",
+        "branchName": "Ghulam Muhammad Abad Hub",
+        "tenantId": "tenant-chasevalue",
+        "distanceKm": 2.18,
+        "deliveryFee": 80,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_af_kohinoor",
+        "name": "Al-Fatah - Kohinoor City Hub",
+        "branchName": "Kohinoor City Hub",
+        "tenantId": "tenant-alfatah",
+        "distanceKm": 3.22,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_af_canal",
+        "name": "Al-Fatah - Canal Road Hub",
+        "branchName": "Canal Road Hub",
+        "tenantId": "tenant-alfatah",
+        "distanceKm": 3.98,
+        "deliveryFee": 80,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_cv_fsd",
+        "name": "Chase Value Wholesale Express",
+        "branchName": "Chase Value Wholesale Express",
+        "tenantId": "tenant-chasevalue",
+        "distanceKm": 8.03,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      },
+      {
+        "storeId": "branch_cv_fsd",
+        "name": "Chase Value - Wholesale Express Hub",
+        "branchName": "Wholesale Express Hub",
+        "tenantId": "tenant-chasevalue",
+        "distanceKm": 8.03,
+        "deliveryFee": 70,
+        "deliveryType": "polygon_zone_match"
+      }
+    ],
+    "alternativeStore": null,
+    "message": "Stage 1: Found 9 store(s) assigned to delivery zone covering your location.",
+    "_id": "log_1795298273974_so0zn",
+    "createdAt": "2026-11-21T21:57:53.974Z"
+  },
+  {
+    "latitude": 31.4125,
+    "longitude": 73.0995,
+    "address": "D-Ground Commercial Test",
+    "city": "Faisalabad",
+    "searchStage": 1,
+    "stageKey": "zone_match",
+    "searchRadiusKm": 0,
+    "isDeliverable": true,
+    "eligibleStoresCount": 3,
+    "eligibleStores": [
+      {
+        "storeId": "STR-TEST-01",
+        "name": "Test Store"
+      }
+    ],
+    "clientIp": "127.0.0.1",
     "_id": "log_1795286493865_5d9aa",
     "createdAt": "2026-11-21T18:41:33.866Z"
   },

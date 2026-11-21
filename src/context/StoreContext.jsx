@@ -8,7 +8,7 @@ import {
   COUPONS
 } from '../data/freshMartData';
 import { ADMIN_PROMOTIONS_DATA } from '../data/adminSuiteData';
-import { INITIAL_TENANTS, SUBSCRIPTION_PLANS, INITIAL_STORE_ADMINS, INITIAL_PICKUP_STAFF, INITIAL_RIDERS } from '../data/tenantData';
+import { INITIAL_TENANTS, SUBSCRIPTION_PLANS, INITIAL_STORE_ADMINS, INITIAL_PICKUP_STAFF, INITIAL_RIDERS, ensureAllBranchesHavePickupStaff, generateBranchPickupStaff } from '../data/tenantData';
 import { STORE_DEPARTMENTS, getDepartmentsByTenant, getDepartmentById } from '../data/departmentData';
 import {
   ALL_BRANCH_PRODUCTS,
@@ -98,8 +98,8 @@ export const useStore = () => {
 };
 
 import { sanitizeOrder } from '../utils/orderSanitizer.js';
-import { getDeletedStoreIds, getAllUnifiedStores } from '../utils/storeHelper.js';
-import { LEGACY_STORE_ID_MAP } from '../data/storeRegistry.js';
+import { getDeletedStoreIds, getAllUnifiedStores, loadLocalCustomStores } from '../utils/storeHelper.js';
+import { STORE_REGISTRY, LEGACY_STORE_ID_MAP } from '../data/storeRegistry.js';
 import { loadMasterZones } from '../data/retailerZoneHierarchyData.js';
 import {
   isOrderAssignedToPickupStaff,
@@ -3776,6 +3776,7 @@ export const StoreProvider = ({ children }) => {
   const [pickupStaff, setPickupStaff] = useState(() => {
     try {
       const saved = localStorage.getItem('freshmart_pickup_staff');
+      let baseList = [];
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -3788,18 +3789,42 @@ export const StoreProvider = ({ children }) => {
               merged.push(initP);
             }
           });
-          return merged.map((p) => {
-            if (!p.tenantId) {
-              const matchedInit = (INITIAL_PICKUP_STAFF || []).find((ip) => ip.id === p.id || ip.username === p.username);
-              if (matchedInit) return { ...p, tenantId: matchedInit.tenantId, tenantName: matchedInit.tenantName };
+          baseList = merged.map((p) => {
+            const matchedInit = (INITIAL_PICKUP_STAFF || []).find((ip) => ip.id === p.id || ip.username === p.username);
+            if (matchedInit) {
+              return {
+                ...p,
+                tenantId: p.tenantId || matchedInit.tenantId,
+                tenantName: p.tenantName || matchedInit.tenantName,
+                branchId: p.branchId || matchedInit.branchId,
+                branchName: p.branchName || matchedInit.branchName,
+                role: 'pickup_staff'
+              };
             }
             return p;
           });
         }
+      } else {
+        baseList = INITIAL_PICKUP_STAFF || [];
       }
-    } catch (e) {}
-    return INITIAL_PICKUP_STAFF || [];
+      const allKnownStores = [...(STORE_REGISTRY || []), ...loadLocalCustomStores()];
+      return ensureAllBranchesHavePickupStaff(allKnownStores, baseList);
+    } catch (e) {
+      const allKnownStores = [...(STORE_REGISTRY || []), ...loadLocalCustomStores()];
+      return ensureAllBranchesHavePickupStaff(allKnownStores, INITIAL_PICKUP_STAFF || []);
+    }
   });
+
+  useEffect(() => {
+    const handleStoresUpdated = () => {
+      try {
+        const allKnownStores = [...(STORE_REGISTRY || []), ...loadLocalCustomStores()];
+        setPickupStaff((prev) => ensureAllBranchesHavePickupStaff(allKnownStores, prev));
+      } catch (e) {}
+    };
+    window.addEventListener('freshmart_stores_updated', handleStoresUpdated);
+    return () => window.removeEventListener('freshmart_stores_updated', handleStoresUpdated);
+  }, []);
 
   useEffect(() => {
     try { localStorage.setItem('freshmart_pickup_staff', JSON.stringify(pickupStaff)); } catch (e) {}
@@ -7469,14 +7494,43 @@ export const StoreProvider = ({ children }) => {
       addToast('Assignment denied', 'Only a store admin can auto-assign pickup staff.', 'error');
       return false;
     }
+    const cleanId = String(orderId || '').replace(/^#/, '').toLowerCase().trim();
+    const orderMatches = (item) => {
+      if (!item) return false;
+      const iId = String(item.id || item.orderId || item._id || '').replace(/^#/, '').toLowerCase().trim();
+      return iId === cleanId || item.id === orderId || item.orderId === orderId;
+    };
+    const current = [...(customerOrders || []), ...(adminOrders || [])].find(orderMatches);
+    if (!current) return false;
+
     const activeTenantId = (user?.role !== 'superadmin' && user?.tenantId)
       ? user.tenantId
-      : (currentTenant?.id || user?.tenantId);
-    const tenantStaff = (pickupStaff || []).filter(
-      (s) => isSameTenant(s.tenantId, activeTenantId) && (s.status === 'Active' || !s.status)
+      : (currentTenant?.id || current.tenantId || user?.tenantId);
+
+    const orderBranch = current.branchId || current.storeId;
+
+    let branchStaff = (pickupStaff || []).filter(
+      (s) => isSameTenant(s.tenantId, activeTenantId) &&
+             (s.status === 'Active' || !s.status) &&
+             (!orderBranch || !s.branchId || s.branchId === orderBranch || s.storeId === orderBranch)
     );
-    if (tenantStaff.length === 0) {
-      addToast('No Pickup Staff', 'Add at least one pickup staff account before auto-assigning.', 'error');
+
+    if (branchStaff.length === 0 && orderBranch) {
+      const allKnownStores = [...(STORE_REGISTRY || []), ...loadLocalCustomStores()];
+      const storeObj = allKnownStores.find((st) => (st.branchId || st.storeId || st._id) === orderBranch) || {
+        branchId: orderBranch,
+        storeId: orderBranch,
+        branchName: current.branchName || 'Branch',
+        tenantId: activeTenantId,
+        tenantName: current.tenantName || 'Supermarket'
+      };
+      const autoStaff = generateBranchPickupStaff(storeObj, 1);
+      setPickupStaff((prev) => [...prev, autoStaff]);
+      branchStaff = [autoStaff];
+    }
+
+    if (branchStaff.length === 0) {
+      addToast('No Pickup Staff', `Add at least one pickup staff account for branch ${orderBranch || 'this store'} before auto-assigning.`, 'error');
       return false;
     }
     const uniqueOrders = new Map();
@@ -7484,7 +7538,7 @@ export const StoreProvider = ({ children }) => {
       const key = String(order?.id || order?.orderId || order?._id || '').replace(/^#/, '').toLowerCase();
       if (key) uniqueOrders.set(key, order);
     });
-    const leastBusy = pickLeastBusyPickupStaff(tenantStaff, [...uniqueOrders.values()]);
+    const leastBusy = pickLeastBusyPickupStaff(branchStaff, [...uniqueOrders.values()]);
     if (!leastBusy) return false;
     return assignPickupStaffToOrder(orderId, leastBusy.id);
   };

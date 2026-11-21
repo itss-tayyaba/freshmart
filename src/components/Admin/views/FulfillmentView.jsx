@@ -51,6 +51,10 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
     return (allBranches || []).filter((b) => isSameTenant(b.tenantId, activeTenantId));
   }, [allBranches, activeTenantId]);
 
+  const [selectedStaffBranch, setSelectedStaffBranch] = useState(() => {
+    return (user?.branchId && user.branchId !== 'all') ? user.branchId : 'all';
+  });
+
   const tenantStaff = useMemo(
     () => pickupStaff.filter((staff) => {
       const sTenant = staff?.tenantId || staff?.companyId;
@@ -59,6 +63,16 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
     }),
     [pickupStaff, activeTenantId]
   );
+
+  const displayedStaff = useMemo(() => {
+    return tenantStaff.filter((staff) => {
+      if (selectedStaffBranch !== 'all') {
+        const sBranch = staff.branchId || staff.storeId;
+        if (sBranch !== selectedStaffBranch) return false;
+      }
+      return true;
+    });
+  }, [tenantStaff, selectedStaffBranch]);
 
   const orders = useMemo(() => {
     if (Array.isArray(passedOrders) && passedOrders.length > 0) {
@@ -222,17 +236,62 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
               <Smartphone size={16} className="text-emerald-400" />
               Download Staff App (APK)
             </a>
-            <button onClick={() => setIsAddOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 shadow-sm cursor-pointer">
+            <button
+              onClick={() => {
+                const defaultB = (user?.branchId && user.branchId !== 'all')
+                  ? user.branchId
+                  : (selectedStaffBranch !== 'all' ? selectedStaffBranch : (availableBranches[0]?._id || availableBranches[0]?.id || ''));
+                setStaffForm({ name: '', username: '', password: '', phone: '', branchId: defaultB });
+                setIsAddOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 shadow-sm cursor-pointer"
+            >
               <UserPlus size={16} /> Add Staff Account
             </button>
           </div>
         </div>
 
+        {/* Branch Filter Tabs for Staff Team */}
+        {availableBranches.length > 1 && (!user?.branchId || user.branchId === 'all') && (
+          <div className="mt-4 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <button
+              type="button"
+              onClick={() => setSelectedStaffBranch('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                selectedStaffBranch === 'all'
+                  ? 'bg-slate-900 text-white shadow-2xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              🏢 All Branches ({tenantStaff.length})
+            </button>
+            {availableBranches.map((b) => {
+              const bId = b._id || b.id;
+              const count = tenantStaff.filter((s) => s.branchId === bId || s.storeId === bId).length;
+              return (
+                <button
+                  key={bId}
+                  type="button"
+                  onClick={() => setSelectedStaffBranch(bId)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                    selectedStaffBranch === bId
+                      ? 'bg-emerald-600 text-white shadow-2xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  📍 {b.name} ({count})
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Staff Capacity Cards Grid */}
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {tenantStaff.map((staff) => {
+          {displayedStaff.map((staff) => {
             const activeTasks = countPickupStaffTasks(staff.id, orders);
             const isFull = activeTasks >= 10;
+            const branchObj = availableBranches.find((b) => b.id === staff.branchId || b._id === staff.branchId);
 
             return (
               <div key={staff.id} className="flex flex-col justify-between gap-2.5 rounded-2xl border border-slate-200 bg-slate-50 p-3.5 shadow-2xs">
@@ -244,6 +303,9 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold text-slate-900">{staff.name}</p>
                       <p className="truncate text-xs text-slate-500 font-mono">@{staff.username}</p>
+                      <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 truncate max-w-full">
+                        📍 {staff.branchName || branchObj?.name || 'Assigned Branch'}
+                      </span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -303,15 +365,17 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
               </div>
             );
           })}
-          {tenantStaff.length === 0 && (
+          {displayedStaff.length === 0 && (
             <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500 sm:col-span-2 lg:col-span-3 xl:col-span-4">
-              No pickup staff accounts yet. Click "Add Staff Account" to configure your packing team.
+              {selectedStaffBranch === 'all'
+                ? 'No pickup staff accounts yet. Click "Add Staff Account" to configure your packing team.'
+                : 'No dedicated pickup staff accounts found for this branch. Click "Add Staff Account" to assign staff to this branch.'}
             </p>
           )}
         </div>
 
         {/* Clean Pickup Staff Capacity & Roster Table */}
-        {tenantStaff.length > 0 && (
+        {displayedStaff.length > 0 && (
           <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -327,7 +391,7 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
-                  {tenantStaff.map((staff) => {
+                  {displayedStaff.map((staff) => {
                     const activeTasks = countPickupStaffTasks(staff.id, orders);
                     const isFull = activeTasks >= 10;
                     const branchObj = availableBranches.find((b) => b.id === staff.branchId || b._id === staff.branchId);
@@ -343,7 +407,9 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
                         <td className="py-3 px-3 font-mono text-slate-500">@{staff.username}</td>
                         <td className="py-3 px-3 font-mono text-slate-700">{staff.phone || 'Not set'}</td>
                         <td className="py-3 px-3 text-slate-600">
-                          {branchObj ? `📍 ${branchObj.name}` : 'All Store Branches'}
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                            📍 {staff.branchName || branchObj?.name || 'Assigned Branch'}
+                          </span>
                         </td>
                         <td className="py-3 px-3 text-center font-mono font-black text-xs">
                           <span className={`px-2.5 py-1 rounded-md border ${
@@ -500,6 +566,14 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
                 const canAssign = !isAssigned && !order.isDispatched && !['Dispatched', 'Out for Delivery', 'Arrived at Customer', 'Delivered'].includes(order.status);
                 const activityAt = order.fulfillmentUpdatedAt || order.updatedAt || order.createdAt;
 
+                const orderBranch = order.branchId || order.storeId;
+                const branchStaff = tenantStaff.filter((staff) => {
+                  if (orderBranch && staff.branchId && staff.branchId !== orderBranch && staff.storeId !== orderBranch) {
+                    return false;
+                  }
+                  return true;
+                });
+
                 return (
                   <tr key={orderId} className="align-top hover:bg-slate-50/70 transition-colors">
                     <td className="px-5 py-4">
@@ -518,21 +592,27 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
                     </td>
                     <td className="px-5 py-4">
                       {canAssign ? (
-                        <select
-                          value=""
-                          onChange={(event) => assignStaff(order, event.target.value)}
-                          className="w-52 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs hover:border-slate-400"
-                        >
-                          <option value="">Assign pickup staff...</option>
-                          {tenantStaff.length > 1 && (
-                            <option value="__auto__">⚡ Auto-assign (fewest tasks)</option>
-                          )}
-                          {tenantStaff.map((staff) => (
-                            <option key={staff.id} value={staff.id}>
-                              📦 {staff.name} ({countPickupStaffTasks(staff.id, orders)}/10 parcels)
-                            </option>
-                          ))}
-                        </select>
+                        branchStaff.length > 0 ? (
+                          <select
+                            value=""
+                            onChange={(event) => assignStaff(order, event.target.value)}
+                            className="w-52 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs hover:border-slate-400"
+                          >
+                            <option value="">Assign pickup staff...</option>
+                            {branchStaff.length > 1 && (
+                              <option value="__auto__">⚡ Auto-assign ({order.branchName || 'Branch'} staff)</option>
+                            )}
+                            {branchStaff.map((staff) => (
+                              <option key={staff.id} value={staff.id}>
+                                📦 {staff.name} ({countPickupStaffTasks(staff.id, orders)}/10 parcels)
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 px-2.5 py-1.5 rounded-xl border border-amber-200 block max-w-[210px]">
+                            ⚠️ No staff for {order.branchName || orderBranch || 'this branch'}
+                          </span>
+                        )
                       ) : isAssigned ? (
                         <div className="flex items-center gap-2 flex-wrap">
                           <div className="inline-flex items-center gap-2 rounded-xl bg-amber-50/90 border border-amber-300/80 px-2.5 py-1.5 shadow-2xs">
@@ -563,10 +643,10 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
                             >
                               <option value="">Reassign...</option>
                               <option value="__unassign__">❌ Unassign (Set to Pending)</option>
-                              {tenantStaff.length > 1 && (
+                              {branchStaff.length > 1 && (
                                 <option value="__auto__">⚡ Auto-reassign (least busy)</option>
                               )}
-                              {tenantStaff.map((staff) => (
+                              {branchStaff.map((staff) => (
                                 <option key={staff.id} value={staff.id}>
                                   📦 {staff.name} ({countPickupStaffTasks(staff.id, orders)}/10 parcels)
                                 </option>
@@ -703,18 +783,22 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
             <div className="relative"><input required type={showPassword ? 'text' : 'password'} value={staffForm.password} onChange={(event) => setStaffForm({ ...staffForm, password: event.target.value })} placeholder="Password" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 pr-11 text-sm" /><button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div>
             <input value={staffForm.phone} onChange={(event) => setStaffForm({ ...staffForm, phone: event.target.value })} placeholder="Phone (optional)" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
             {availableBranches.length > 0 && (
-              <select
-                value={staffForm.branchId}
-                onChange={(e) => setStaffForm({ ...staffForm, branchId: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm bg-white cursor-pointer font-medium text-slate-700"
-              >
-                <option value="">Select Operating Branch...</option>
-                {availableBranches.map((b) => (
-                  <option key={b._id || b.id} value={b._id || b.id}>
-                    📍 {b.name} ({b.city})
-                  </option>
-                ))}
-              </select>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Assigned Store Branch *</label>
+                <select
+                  required
+                  value={staffForm.branchId}
+                  onChange={(e) => setStaffForm({ ...staffForm, branchId: e.target.value })}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm bg-white cursor-pointer font-medium text-slate-700"
+                >
+                  <option value="">Select Operating Branch...</option>
+                  {availableBranches.map((b) => (
+                    <option key={b._id || b.id} value={b._id || b.id}>
+                      📍 {b.name} ({b.city})
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
             <div className="flex justify-end gap-2 pt-2"><button type="button" onClick={() => setIsAddOpen(false)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600">Cancel</button><button type="submit" className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700">Create staff account</button></div>
           </form>

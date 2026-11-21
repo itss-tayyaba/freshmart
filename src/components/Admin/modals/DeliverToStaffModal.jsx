@@ -11,11 +11,14 @@ export const DeliverToStaffModal = ({ order, isOpen, onClose, onSuccess }) => {
   const tenantId = (user?.role !== 'superadmin' && user?.tenantId)
     ? user.tenantId
     : (order?.tenantId || currentTenant?.id || 'tenant-freshmart');
+  const orderBranch = order?.branchId || order?.storeId;
+
   const staff = useMemo(() => pickupStaff.filter((member) => {
     if (!isSameTenant(member.tenantId || member.companyId, tenantId)) return false;
     if (member.status && member.status !== 'Active') return false;
+    if (orderBranch && member.branchId && member.branchId !== orderBranch && member.storeId !== orderBranch) return false;
     return true;
-  }), [pickupStaff, tenantId]);
+  }), [pickupStaff, tenantId, orderBranch]);
   const [selectedStaffId, setSelectedStaffId] = useState(order?.pickupStaffId || '');
   useEffect(() => setSelectedStaffId(order?.pickupStaffId || ''), [order?.id, order?.pickupStaffId]);
 
@@ -56,13 +59,17 @@ export const DeliverToStaffModal = ({ order, isOpen, onClose, onSuccess }) => {
                 const isFull = count >= MAX_PICKUP_STAFF_PARCELS;
                 return (
                   <option key={member.id} value={member.id}>
-                    📦 {member.name} (@{member.username}) — {count}/{MAX_PICKUP_STAFF_PARCELS} parcels {isFull ? '(FULL)' : ''}
+                    📦 {member.name} (@{member.username}) — 📍 {member.branchName || 'Branch'} — {count}/{MAX_PICKUP_STAFF_PARCELS} parcels {isFull ? '(FULL)' : ''}
                   </option>
                 );
               })}
             </select>
           </label>
-          {staff.length === 0 && <p className="text-xs text-amber-700">Add a pickup staff account in the admin dashboard first.</p>}
+          {staff.length === 0 && (
+            <p className="text-xs text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+              ⚠️ No dedicated pickup staff assigned to branch <strong>{order.branchName || orderBranch || 'this branch'}</strong>. Every store branch operates with its own distinct pickup staff. Please add staff for this branch in Fulfillment.
+            </p>
+          )}
           <p className="text-xs text-slate-500">Assignment sends this order to the staff queue. Staff will accept it and update picking, preparation, and dispatch status from their own terminal.</p>
           <div className="flex justify-end gap-2"><button onClick={onClose} className="rounded-xl border px-4 py-2 text-sm font-bold text-slate-600">Cancel</button><button onClick={confirmAssignment} disabled={!staff.length} className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"><UserCheck size={16}/>Assign to Staff</button></div>
         </div>
