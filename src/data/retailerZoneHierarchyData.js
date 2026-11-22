@@ -20,7 +20,13 @@ export const MASTER_ZONE_TO_ZONE_CODE_MAP = {
   'zone_001': 'ZONE-FSD-SAMANABAD',
   'zone_002': 'ZONE-FSD-MADINA',
   'zone_003': 'ZONE-FSD-CLOCKTOWER',
-  'zone_004': 'ZONE-FSD-PEOPLES'
+  'zone_004': 'ZONE-FSD-PEOPLES',
+  'ZONE-LHR-GULBERG': 'ZONE-LHR-GULBERG',
+  'ZONE-LHR-DHA': 'ZONE-LHR-DHA',
+  'ZONE-LHR-MODELTOWN': 'ZONE-LHR-MODELTOWN',
+  'zone_005': 'ZONE-LHR-GULBERG',
+  'zone_006': 'ZONE-LHR-DHA',
+  'zone_007': 'ZONE-LHR-MODELTOWN'
 };
 
 export const PAKISTAN_CITIES = [
@@ -206,6 +212,93 @@ export const FOUR_MASTER_DELIVERY_ZONES = [
         [31.3850, 73.1550],
         [31.3850, 73.0850],
         [31.4450, 73.0850]
+      ]
+    }
+  },
+  {
+    _id: 'ZONE-LHR-GULBERG',
+    id: 'ZONE-LHR-GULBERG',
+    zoneId: 'ZONE-LHR-GULBERG',
+    zoneNumber: 5,
+    name: 'Zone 5 — Gulberg & MM Alam Commercial Hub',
+    shortName: 'Gulberg & MM Alam',
+    city: 'Lahore',
+    color: '#2563eb', // Blue
+    bgColor: 'bg-blue-50',
+    borderColor: 'border-blue-200',
+    textColor: 'text-blue-800',
+    badgeBg: 'bg-blue-100 text-blue-800 border-blue-300',
+    status: 'active',
+    deliveryFee: 80,
+    minOrder: 450,
+    freeDeliveryThreshold: 2200,
+    center: [31.5175, 74.3525],
+    polygon: {
+      type: 'Polygon',
+      coordinates: [
+        [31.5350, 74.3350],
+        [31.5350, 74.3700],
+        [31.5000, 74.3700],
+        [31.5000, 74.3350],
+        [31.5350, 74.3350]
+      ]
+    }
+  },
+  {
+    _id: 'ZONE-LHR-DHA',
+    id: 'ZONE-LHR-DHA',
+    zoneId: 'ZONE-LHR-DHA',
+    zoneNumber: 6,
+    name: 'Zone 6 — DHA Phase 1-5 Express Zone',
+    shortName: 'DHA & Cantt',
+    city: 'Lahore',
+    color: '#16a34a', // Emerald Green
+    bgColor: 'bg-emerald-50',
+    borderColor: 'border-emerald-200',
+    textColor: 'text-emerald-800',
+    badgeBg: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    status: 'active',
+    deliveryFee: 90,
+    minOrder: 500,
+    freeDeliveryThreshold: 2500,
+    center: [31.4775, 74.3975],
+    polygon: {
+      type: 'Polygon',
+      coordinates: [
+        [31.4950, 74.3700],
+        [31.4950, 74.4250],
+        [31.4600, 74.4250],
+        [31.4600, 74.3700],
+        [31.4950, 74.3700]
+      ]
+    }
+  },
+  {
+    _id: 'ZONE-LHR-MODELTOWN',
+    id: 'ZONE-LHR-MODELTOWN',
+    zoneId: 'ZONE-LHR-MODELTOWN',
+    zoneNumber: 7,
+    name: 'Zone 7 — Model Town & Garden Town Hub',
+    shortName: 'Model Town & Garden Town',
+    city: 'Lahore',
+    color: '#ea580c', // Orange
+    bgColor: 'bg-orange-50',
+    borderColor: 'border-orange-200',
+    textColor: 'text-orange-800',
+    badgeBg: 'bg-orange-100 text-orange-800 border-orange-300',
+    status: 'active',
+    deliveryFee: 75,
+    minOrder: 400,
+    freeDeliveryThreshold: 2000,
+    center: [31.4875, 74.3225],
+    polygon: {
+      type: 'Polygon',
+      coordinates: [
+        [31.5050, 74.3050],
+        [31.5050, 74.3400],
+        [31.4700, 74.3400],
+        [31.4700, 74.3050],
+        [31.5050, 74.3050]
       ]
     }
   }
@@ -673,22 +766,24 @@ export const loadMasterZones = () => {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length >= 1) {
-        return parsed.map((z) => {
+        const byId = new Map();
+        // Seed with all baseline master zones (Faisalabad + Lahore)
+        FOUR_MASTER_DELIVERY_ZONES.forEach((bz) => byId.set(bz.zoneId || bz._id, bz));
+        parsed.forEach((z) => {
           const zId = z.zoneId || z._id;
-          const baseline = FOUR_MASTER_DELIVERY_ZONES.find(
-            (b) => (b.zoneId || b._id) === zId
-          ) || {};
+          const baseline = byId.get(zId) || {};
           const hasValidStoredPolygon = z.polygon && Array.isArray(z.polygon.coordinates) && z.polygon.coordinates.length >= 3;
           const polygonToUse = hasValidStoredPolygon
             ? z.polygon
             : (baseline.polygon || z.polygon);
 
-          return {
+          byId.set(zId, {
             ...baseline,
             ...z,
             polygon: polygonToUse
-          };
+          });
         });
+        return Array.from(byId.values());
       }
     }
   } catch (e) {}
