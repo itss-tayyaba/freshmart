@@ -136,10 +136,16 @@ export const apiService = {
 
   async deletePickupStaff(staffId) {
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/pickup-staff/${encodeURIComponent(staffId)}`, {
+      let res = await fetch(`${API_BASE_URL}/pickup-staff/${encodeURIComponent(staffId)}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
+      if (res.status === 404) {
+        res = await fetch(`${API_BASE_URL}/auth/pickup-staff/${encodeURIComponent(staffId)}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+      }
       return await handleResponse(res);
     } catch (e) {
       return { success: false, error: e.message };
@@ -721,10 +727,16 @@ export const apiService = {
 
   async deleteRider(id) {
     try {
-      const res = await fetch(`${API_BASE_URL}/riders/${id}`, {
+      let res = await fetch(`${API_BASE_URL}/riders/${encodeURIComponent(id)}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
+      if (res.status === 404) {
+        res = await fetch(`${API_BASE_URL}/auth/riders/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+      }
       return await handleResponse(res);
     } catch (e) {
       return { success: false, error: e.message };

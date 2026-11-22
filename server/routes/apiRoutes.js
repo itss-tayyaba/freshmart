@@ -4,7 +4,9 @@ import {
   loginUser,
   getUserProfile,
   createPickupStaff,
-  getPickupStaff
+  getPickupStaff,
+  updatePickupStaff,
+  deletePickupStaff
 } from '../controllers/authController.js';
 import {
   getProducts,
@@ -188,6 +190,14 @@ router.put('/orders/:id/status', protect, branchAdminOnly, validate(updateOrderS
 // --- Branch Pickup Staff Routes ---
 router.get('/pickup-staff', protect, branchAdminOnly, getPickupStaff);
 router.post('/pickup-staff', protect, branchAdminOnly, validate(createPickupStaffSchema), createPickupStaff);
+router.put('/pickup-staff/:id', protect, branchAdminOnly, updatePickupStaff);
+router.delete('/pickup-staff/:id', protect, branchAdminOnly, deletePickupStaff);
+
+// Compatibility aliases for /auth/pickup-staff (as called by frontend apiService)
+router.get('/auth/pickup-staff', protect, branchAdminOnly, getPickupStaff);
+router.post('/auth/pickup-staff', protect, branchAdminOnly, validate(createPickupStaffSchema), createPickupStaff);
+router.put('/auth/pickup-staff/:id', protect, branchAdminOnly, updatePickupStaff);
+router.delete('/auth/pickup-staff/:id', protect, branchAdminOnly, deletePickupStaff);
 
 // --- Inventory Routes ---
 // Admin Locked & Validated: Viewing warehouse stocks and restocking items
@@ -213,6 +223,9 @@ router.put('/riders/me/location', protect, riderOnly, updateRiderOwnLocation);
 router.post('/riders', protect, branchAdminOnly, validate(createRiderSchema), addRider);
 router.delete('/riders/:id', protect, branchAdminOnly, deleteRider);
 router.delete('/riders', protect, branchAdminOnly, clearAllRiders);
+// Compatibility aliases for /auth/riders
+router.get('/auth/riders', protect, branchAdminOnly, getRiders);
+router.delete('/auth/riders/:id', protect, branchAdminOnly, deleteRider);
 
 // --- Promotions & Coupons Routes ---
 // Public: Active coupons and checkout promo validation

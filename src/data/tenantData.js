@@ -685,9 +685,30 @@ export const generateBranchPickupStaff = (store, index = 1) => {
   };
 };
 
-export const ensureAllBranchesHavePickupStaff = (stores = [], existingStaff = []) => {
+export const ensureAllBranchesHavePickupStaff = (stores = [], existingStaff = [], deletedSet = null) => {
+  let deletedKeys = deletedSet;
+  if (!deletedKeys && typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const stored = JSON.parse(localStorage.getItem('freshmart_deleted_pickup_staff_ids') || '[]');
+      deletedKeys = new Set(stored.map((x) => String(x).toLowerCase().trim()));
+    } catch (e) {
+      deletedKeys = new Set();
+    }
+  }
+  if (!deletedKeys) deletedKeys = new Set();
+
+  const isDeleted = (st) => {
+    if (!st) return true;
+    const keys = [st.id, st.staffId, st._id, st.username, st.email, st.phone]
+      .filter(Boolean)
+      .map((k) => String(k).toLowerCase().trim());
+    return keys.some((k) => deletedKeys.has(k));
+  };
+
+  const filteredExisting = (existingStaff || []).filter((s) => !isDeleted(s));
+
   const staffByBranch = new Map();
-  (existingStaff || []).forEach((st) => {
+  filteredExisting.forEach((st) => {
     const bId = String(st.branchId || st.storeId || '').toLowerCase().trim();
     if (bId) {
       if (!staffByBranch.has(bId)) staffByBranch.set(bId, []);
@@ -695,7 +716,7 @@ export const ensureAllBranchesHavePickupStaff = (stores = [], existingStaff = []
     }
   });
 
-  const completeList = [...(existingStaff || [])];
+  const completeList = [...filteredExisting];
   const existingUsernames = new Set(completeList.map((s) => String(s.username || '').toLowerCase()));
   const existingIds = new Set(completeList.map((s) => String(s.id || s.staffId || '').toLowerCase()));
 
@@ -703,15 +724,17 @@ export const ensureAllBranchesHavePickupStaff = (stores = [], existingStaff = []
     const bId = String(store.branchId || store.storeId || store._id || store.id || '').toLowerCase().trim();
     if (!bId) return;
     const current = staffByBranch.get(bId) || [];
-    // Ensure every branch has at least 2 dedicated staff members
-    for (let i = current.length + 1; i <= 2; i++) {
-      const newStaff = generateBranchPickupStaff(store, i);
-      const uKey = String(newStaff.username).toLowerCase();
-      const idKey = String(newStaff.id).toLowerCase();
-      if (!existingUsernames.has(uKey) && !existingIds.has(idKey)) {
-        completeList.push(newStaff);
-        existingUsernames.add(uKey);
-        existingIds.add(idKey);
+    // Ensure every branch has dedicated staff members (if none exists and not deleted)
+    if (current.length === 0) {
+      for (let i = 1; i <= 2; i++) {
+        const newStaff = generateBranchPickupStaff(store, i);
+        const uKey = String(newStaff.username).toLowerCase();
+        const idKey = String(newStaff.id).toLowerCase();
+        if (!deletedKeys.has(uKey) && !deletedKeys.has(idKey) && !existingUsernames.has(uKey) && !existingIds.has(idKey)) {
+          completeList.push(newStaff);
+          existingUsernames.add(uKey);
+          existingIds.add(idKey);
+        }
       }
     }
   });

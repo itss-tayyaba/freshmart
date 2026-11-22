@@ -3775,14 +3775,25 @@ export const StoreProvider = ({ children }) => {
 
   const [pickupStaff, setPickupStaff] = useState(() => {
     try {
+      const deletedIds = new Set(
+        JSON.parse(localStorage.getItem('freshmart_deleted_pickup_staff_ids') || '[]').map((x) => String(x).toLowerCase().trim())
+      );
+      const isDeleted = (p) => {
+        if (!p) return true;
+        const keys = [p.id, p.staffId, p._id, p.username, p.email, p.phone].filter(Boolean).map((k) => String(k).toLowerCase().trim());
+        return keys.some((k) => deletedIds.has(k));
+      };
+
       const saved = localStorage.getItem('freshmart_pickup_staff');
       let baseList = [];
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const existingKeys = new Set(parsed.map((p) => (p.username || p.email || p.id)?.toLowerCase()));
-          const merged = [...parsed];
+          const filteredSaved = parsed.filter((p) => !isDeleted(p));
+          const existingKeys = new Set(filteredSaved.map((p) => (p.username || p.email || p.id)?.toLowerCase()));
+          const merged = [...filteredSaved];
           (INITIAL_PICKUP_STAFF || []).forEach((initP) => {
+            if (isDeleted(initP)) return;
             const k1 = (initP.username || '').toLowerCase();
             const k2 = (initP.id || '').toLowerCase();
             if (!existingKeys.has(k1) && !existingKeys.has(k2)) {
@@ -3805,13 +3816,13 @@ export const StoreProvider = ({ children }) => {
           });
         }
       } else {
-        baseList = INITIAL_PICKUP_STAFF || [];
+        baseList = (INITIAL_PICKUP_STAFF || []).filter((p) => !isDeleted(p));
       }
       const allKnownStores = [...(STORE_REGISTRY || []), ...loadLocalCustomStores()];
-      return ensureAllBranchesHavePickupStaff(allKnownStores, baseList);
+      return ensureAllBranchesHavePickupStaff(allKnownStores, baseList, deletedIds);
     } catch (e) {
       const allKnownStores = [...(STORE_REGISTRY || []), ...loadLocalCustomStores()];
-      return ensureAllBranchesHavePickupStaff(allKnownStores, INITIAL_PICKUP_STAFF || []);
+      return ensureAllBranchesHavePickupStaff(allKnownStores, (INITIAL_PICKUP_STAFF || []));
     }
   });
 
@@ -3954,19 +3965,54 @@ export const StoreProvider = ({ children }) => {
 
   const deletePickupStaff = async (staffId) => {
     if (!['admin', 'superadmin'].includes(adminRole)) return false;
-    const target = (pickupStaff || []).find((person) => person.id === staffId || person.staffId === staffId);
-    const updated = (pickupStaff || []).filter((person) => person.id !== staffId && person.staffId !== staffId);
+    const cleanId = String(staffId || '').trim();
+    const cleanLower = cleanId.toLowerCase();
+
+    // 1. Find all identifying keys for permanent tombstone
+    const target = (pickupStaff || []).find((person) => {
+      const keys = [person.id, person.staffId, person._id, person.username, person.email, person.phone]
+        .filter(Boolean)
+        .map((k) => String(k).trim().toLowerCase());
+      return keys.includes(cleanLower);
+    });
+
+    try {
+      const stored = JSON.parse(localStorage.getItem('freshmart_deleted_pickup_staff_ids') || '[]');
+      const set = new Set(stored.map((x) => String(x).toLowerCase().trim()));
+      set.add(cleanLower);
+      if (target) {
+        if (target.id) set.add(String(target.id).toLowerCase());
+        if (target.staffId) set.add(String(target.staffId).toLowerCase());
+        if (target._id) set.add(String(target._id).toLowerCase());
+        if (target.username) set.add(String(target.username).toLowerCase());
+        if (target.email) set.add(String(target.email).toLowerCase());
+        if (target.phone) set.add(String(target.phone).toLowerCase());
+      }
+      localStorage.setItem('freshmart_deleted_pickup_staff_ids', JSON.stringify(Array.from(set)));
+    } catch (e) {}
+
+    // 2. Remove immediately from state and localStorage
+    const updated = (pickupStaff || []).filter((person) => {
+      const keys = [person.id, person.staffId, person._id, person.username, person.email, person.phone]
+        .filter(Boolean)
+        .map((k) => String(k).trim().toLowerCase());
+      return !keys.includes(cleanLower) && (!target || !keys.includes(String(target.id || '').toLowerCase()));
+    });
     setPickupStaff(updated);
     try {
       localStorage.setItem('freshmart_pickup_staff', JSON.stringify(updated));
     } catch (e) {}
-    addToast('Pickup staff removed', 'Staff account has been deleted.');
-    const identifier = target?.staffId || target?.id || target?.username || staffId;
+
+    addToast('Pickup Staff Deleted', 'Staff account permanently deleted from database and branch.', 'info');
+
+    // 3. Delete permanently from backend MongoDB and disk
+    const identifier = target?.staffId || target?.id || target?.username || cleanId;
     if (identifier) {
       try {
         await apiService.deletePickupStaff(identifier);
       } catch (e) {}
     }
+    return true;
   };
 
   const clearAllStoreOrders = () => {
@@ -4213,12 +4259,21 @@ export const StoreProvider = ({ children }) => {
   useEffect(() => {
     const syncPickupStaff = async () => {
       try {
+        const deletedIds = new Set(
+          JSON.parse(localStorage.getItem('freshmart_deleted_pickup_staff_ids') || '[]').map((x) => String(x).toLowerCase().trim())
+        );
+        const isDeleted = (p) => {
+          if (!p) return true;
+          const keys = [p.id, p.staffId, p._id, p.username, p.email, p.phone].filter(Boolean).map((k) => String(k).toLowerCase().trim());
+          return keys.some((k) => deletedIds.has(k));
+        };
+
         const res = await apiService.getPickupStaff();
         if (res && res.success && Array.isArray(res.staff)) {
           setPickupStaff((prev) => {
             const combinedMap = new Map();
-            prev.forEach((p) => combinedMap.set(p.username || p.id, p));
-            res.staff.forEach((s) => combinedMap.set(s.username || s.id, { ...combinedMap.get(s.username || s.id), ...s }));
+            prev.filter((p) => !isDeleted(p)).forEach((p) => combinedMap.set(p.username || p.id, p));
+            res.staff.filter((s) => !isDeleted(s)).forEach((s) => combinedMap.set(s.username || s.id, { ...combinedMap.get(s.username || s.id), ...s }));
             const merged = Array.from(combinedMap.values());
             try {
               localStorage.setItem('freshmart_pickup_staff', JSON.stringify(merged));

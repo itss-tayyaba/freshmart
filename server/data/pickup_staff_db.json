@@ -1,21 +1,5 @@
 [
   {
-    "id": "PCK-MVSK7C8A",
-    "staffId": "PCK-MVSK7C8A",
-    "name": "Tariq M. Senior",
-    "username": "tariq_senior",
-    "email": "tariq_pack@pickup.freshmart.pk",
-    "password": "tariq_new_pass2026",
-    "phone": "03129876543",
-    "tenantId": "tenant-freshmart",
-    "tenantName": "Unimaart (Market Store)",
-    "branchId": "branch_um_fsd",
-    "branchName": "Peoples Colony Dark Store",
-    "role": "pickup_staff",
-    "status": "Active",
-    "createdAt": "2026-10-28T20:20:50.218Z"
-  },
-  {
     "id": "PCK-ALFATAH-HAFSA",
     "staffId": "PCK-ALFATAH-HAFSA",
     "name": "Hafsa Farooq",

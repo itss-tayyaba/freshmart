@@ -639,45 +639,94 @@ export const deleteRider = async (req, res) => {
     const cleanId = String(id).trim();
     const cleanIdLower = cleanId.toLowerCase();
 
-    // 1. Delete from MongoDB safely avoiding CastError on _id
+    // 1. Collect all identifying keys to tombstone
+    const tombstoneKeys = new Set([cleanIdLower]);
+
+    // Check disk storage to gather associated keys (riderId, username, phone, _id)
+    const diskRiders = loadDiskRiders();
+    const diskMatches = diskRiders.filter((r) => {
+      const keys = [r.id, r.riderId, r._id, r.username, r.phone]
+        .filter(Boolean)
+        .map((k) => String(k).trim().toLowerCase());
+      return keys.includes(cleanIdLower);
+    });
+    diskMatches.forEach((r) => {
+      [r.id, r.riderId, r._id, r.username, r.phone].filter(Boolean).forEach((k) => {
+        tombstoneKeys.add(String(k).trim().toLowerCase());
+      });
+    });
+
+    // 2. Permanently delete from MongoDB if online
     if (isDbOnline()) {
       try {
+        const mongoMatches = await Rider.find({
+          $or: [
+            { id: cleanId },
+            { id: cleanId.toUpperCase() },
+            { id: cleanIdLower },
+            { riderId: cleanId },
+            { riderId: cleanId.toUpperCase() },
+            { riderId: cleanIdLower },
+            { username: cleanIdLower },
+            ...(mongoose.Types.ObjectId.isValid(cleanId) ? [{ _id: cleanId }] : [])
+          ]
+        }).lean();
+
+        (mongoMatches || []).forEach((r) => {
+          [r.id, r.riderId, r._id?.toString(), r.username, r.phone].filter(Boolean).forEach((k) => {
+            tombstoneKeys.add(String(k).trim().toLowerCase());
+          });
+        });
+
         const orConditions = [
           { id: cleanId },
           { id: cleanId.toUpperCase() },
-          { id: cleanIdLower },
+          { id: { $in: Array.from(tombstoneKeys) } },
+          { id: { $in: Array.from(tombstoneKeys).map((x) => x.toUpperCase()) } },
           { riderId: cleanId },
           { riderId: cleanId.toUpperCase() },
-          { username: cleanIdLower }
+          { riderId: { $in: Array.from(tombstoneKeys) } },
+          { riderId: { $in: Array.from(tombstoneKeys).map((x) => x.toUpperCase()) } },
+          { username: { $in: Array.from(tombstoneKeys) } }
         ];
         if (mongoose.Types.ObjectId.isValid(cleanId)) {
           orConditions.push({ _id: cleanId });
         }
         await Rider.deleteMany({ $or: orConditions });
-        await User.deleteMany({
-          $or: [
-            { role: 'rider', username: cleanIdLower },
-            ...(mongoose.Types.ObjectId.isValid(cleanId) ? [{ _id: cleanId }] : [])
-          ]
-        });
+
+        const userOr = [
+          { role: 'rider', username: { $in: Array.from(tombstoneKeys) } },
+          { role: 'rider', phone: { $in: Array.from(tombstoneKeys) } },
+          { username: cleanIdLower },
+          ...(mongoose.Types.ObjectId.isValid(cleanId) ? [{ _id: cleanId }] : [])
+        ];
+        await User.deleteMany({ $or: userOr });
       } catch (dbErr) {
         console.warn('MongoDB rider delete error:', dbErr.message);
       }
     }
 
-    // 2. Delete from server/data/riders_db.json
-    const diskRiders = loadDiskRiders().filter((r) => {
-      const rId = String(r.id || r.riderId || r._id || '').trim().toLowerCase();
-      const rUser = String(r.username || '').trim().toLowerCase();
-      return rId !== cleanIdLower && rUser !== cleanIdLower;
+    // 3. Delete from server/data/riders_db.json
+    const remainingDiskRiders = diskRiders.filter((r) => {
+      const keys = [r.id, r.riderId, r._id, r.username, r.phone]
+        .filter(Boolean)
+        .map((k) => String(k).trim().toLowerCase());
+      return !keys.some((k) => tombstoneKeys.has(k));
     });
-    saveAllDiskRiders(diskRiders);
-    memoryRiders = diskRiders;
+    saveAllDiskRiders(remainingDiskRiders);
+    memoryRiders = remainingDiskRiders;
 
-    // 3. Save to deleted riders tombstone file
-    saveDiskDeletedRider(cleanIdLower);
+    // 4. Save all tombstone keys to deleted riders file
+    tombstoneKeys.forEach((key) => {
+      saveDiskDeletedRider(key);
+    });
 
-    res.json({ success: true, message: 'Rider permanently removed', deletedId: cleanId });
+    res.json({
+      success: true,
+      message: 'Rider permanently removed from database and disk',
+      deletedId: cleanId,
+      tombstones: Array.from(tombstoneKeys)
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

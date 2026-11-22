@@ -484,7 +484,7 @@ export async function executeProgressiveSearch({
     stageLabel: 'Stage 4 — Beyond 3 km (Alternative Nearest Store)',
     searchRadiusKm: closestStoreItem ? Math.round(closestStoreItem.distanceKm) : 5,
     stepsTaken: [0, 2, 3, 'beyond_3km'],
-    message: 'Delivery is currently unavailable at your location.',
+    message: 'Sorry, delivery is currently unavailable at your location.',
     matchingZones: [],
     eligibleStores: [],
     ineligibleNearbyStores: storesWithin3Km.map((s) => ({

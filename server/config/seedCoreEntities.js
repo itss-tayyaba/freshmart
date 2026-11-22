@@ -6,6 +6,8 @@ import { isDbOnline } from './db.js';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import { STORE_REGISTRY, RETAILERS } from '../../src/data/storeRegistry.js';
+import { loadDiskDeletedPickupStaff } from '../controllers/authController.js';
+import { loadDiskDeletedRiders } from '../controllers/extraControllers.js';
 
 export const SEED_ADMINS = [
   {
@@ -982,6 +984,23 @@ export const seedCoreEntities = async () => {
   try {
     console.log('🔄 Syncing Admins, Pickup Staff, and Riders into MongoDB...');
 
+    // Load deleted tombstones to ensure deleted staff or riders are NEVER resurrected
+    const deletedStaffList = loadDiskDeletedPickupStaff();
+    const deletedStaffSet = new Set(deletedStaffList.map((x) => String(x).toLowerCase().trim()));
+    const isStaffDeleted = (s) => {
+      if (!s) return true;
+      const keys = [s.id, s.staffId, s.username, s.email, s.phone].filter(Boolean).map((k) => String(k).toLowerCase().trim());
+      return keys.some((k) => deletedStaffSet.has(k));
+    };
+
+    const deletedRidersList = loadDiskDeletedRiders();
+    const deletedRidersSet = new Set(deletedRidersList.map((x) => String(x).toLowerCase().trim()));
+    const isRiderDeleted = (r) => {
+      if (!r) return true;
+      const keys = [r.id, r.riderId, r.username, r.phone].filter(Boolean).map((k) => String(k).toLowerCase().trim());
+      return keys.some((k) => deletedRidersSet.has(k));
+    };
+
     for (const adm of SEED_ADMINS) {
       await upsertAccount(Admin, { username: adm.username }, adm, created);
       const userDoc = await userRecord(adm, adm.role);
@@ -1003,6 +1022,9 @@ export const seedCoreEntities = async () => {
     console.log(`✅ ${SEED_ADMINS.length} Store Admins synced.`);
 
     for (const stf of SEED_PICKUP_STAFF) {
+      if (isStaffDeleted(stf)) {
+        continue;
+      }
       await upsertAccount(PickupStaff, { username: stf.username }, stf, created);
       // NOTE: the User collection and the auth guards use the role 'pickupstaff' (no underscore).
       const userDoc = await userRecord(stf, 'pickupstaff');
@@ -1022,12 +1044,15 @@ export const seedCoreEntities = async () => {
         );
       }
     }
-    console.log(`✅ ${SEED_PICKUP_STAFF.length} Pickup Staff synced.`);
+    console.log(`✅ Pickup Staff synced (excluding deleted accounts).`);
 
     for (const rdr of SEED_RIDERS) {
+      if (isRiderDeleted(rdr)) {
+        continue;
+      }
       await upsertAccount(Rider, { $or: [{ id: rdr.id }, { username: rdr.username }] }, rdr, created);
     }
-    console.log(`✅ ${SEED_RIDERS.length} Riders synced.`);
+    console.log(`✅ Delivery Riders synced (excluding deleted accounts).`);
 
     if (created.length) {
       console.log('\n🔑 NEW ACCOUNTS CREATED. Save these now, they are shown only once:');

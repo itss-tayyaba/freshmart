@@ -19,13 +19,59 @@ const allowDemoAuth = () => {
 };
 
 const PICKUP_STAFF_FILE_PATH = path.resolve(process.cwd(), 'server/data/pickup_staff_db.json');
+const DELETED_PICKUP_STAFF_FILE_PATH = path.resolve(process.cwd(), 'server/data/deleted_pickup_staff_db.json');
+
+export const loadDiskDeletedPickupStaff = () => {
+  try {
+    if (fs.existsSync(DELETED_PICKUP_STAFF_FILE_PATH)) {
+      const data = fs.readFileSync(DELETED_PICKUP_STAFF_FILE_PATH, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+};
+
+export const saveDiskDeletedPickupStaff = (idOrUsername) => {
+  try {
+    if (!idOrUsername) return;
+    const clean = String(idOrUsername).trim().toLowerCase();
+    const current = loadDiskDeletedPickupStaff();
+    const set = new Set(current.map((x) => String(x).toLowerCase().trim()));
+    set.add(clean);
+    fs.writeFileSync(DELETED_PICKUP_STAFF_FILE_PATH, JSON.stringify(Array.from(set), null, 2), 'utf-8');
+  } catch (e) {}
+};
+
+export const removeDiskDeletedPickupStaff = (idOrUsername) => {
+  try {
+    if (!idOrUsername) return;
+    const clean = String(idOrUsername).trim().toLowerCase();
+    const current = loadDiskDeletedPickupStaff();
+    const filtered = current.filter((x) => String(x).toLowerCase().trim() !== clean);
+    if (filtered.length !== current.length) {
+      fs.writeFileSync(DELETED_PICKUP_STAFF_FILE_PATH, JSON.stringify(filtered, null, 2), 'utf-8');
+    }
+  } catch (e) {}
+};
 
 export const loadDiskPickupStaff = () => {
   try {
+    const deletedList = loadDiskDeletedPickupStaff();
+    const deletedSet = new Set(deletedList.map((x) => String(x).toLowerCase().trim()));
+
     if (fs.existsSync(PICKUP_STAFF_FILE_PATH)) {
       const data = fs.readFileSync(PICKUP_STAFF_FILE_PATH, 'utf-8');
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.filter((s) => {
+          if (!s) return false;
+          const keys = [s.id, s.staffId, s._id, s.username, s.email, s.phone]
+            .filter(Boolean)
+            .map((k) => String(k).toLowerCase().trim());
+          return !keys.some((k) => deletedSet.has(k));
+        });
+      }
     }
   } catch (e) {}
   return [];
@@ -703,6 +749,12 @@ export const createPickupStaff = async (req, res) => {
       createdAt: new Date().toISOString()
     };
 
+    // Remove from deleted tombstones if being added
+    removeDiskDeletedPickupStaff(staffId);
+    if (cleanUsername) removeDiskDeletedPickupStaff(cleanUsername);
+    if (email) removeDiskDeletedPickupStaff(email);
+    if (phone) removeDiskDeletedPickupStaff(phone);
+
     // 1. Sync to Disk Database
     const diskStaff = loadDiskPickupStaff();
     const existingIdx = diskStaff.findIndex(
@@ -838,7 +890,17 @@ export const getPickupStaff = async (req, res) => {
     const targetTenant = req.query.tenantId || req.user?.tenantId;
     const targetBranch = req.query.branchId || (req.user?.branchId !== 'all' ? req.user?.branchId : null);
 
-    const diskStaff = loadDiskPickupStaff();
+    const deletedList = loadDiskDeletedPickupStaff();
+    const deletedSet = new Set(deletedList.map((x) => String(x).toLowerCase().trim()));
+    const isDeleted = (s) => {
+      if (!s) return true;
+      const keys = [s.id, s.staffId, s._id, s.username, s.email, s.phone]
+        .filter(Boolean)
+        .map((k) => String(k).toLowerCase().trim());
+      return keys.some((k) => deletedSet.has(k));
+    };
+
+    const diskStaff = loadDiskPickupStaff().filter((s) => !isDeleted(s));
 
     if (!isDbOnline()) {
       let list = diskStaff;
@@ -893,7 +955,7 @@ export const getPickupStaff = async (req, res) => {
         status: 'Active',
         createdAt: s.createdAt
       }))
-    ];
+    ].filter((s) => !isDeleted(s));
 
     // Merge disk and mongo records seamlessly
     const staffMap = new Map();
@@ -906,7 +968,7 @@ export const getPickupStaff = async (req, res) => {
       staffMap.set(key, { ...staffMap.get(key), ...s });
     });
 
-    let mergedList = Array.from(staffMap.values());
+    let mergedList = Array.from(staffMap.values()).filter((s) => !isDeleted(s));
     if (targetTenant) mergedList = mergedList.filter((s) => s.tenantId === targetTenant);
     if (targetBranch) mergedList = mergedList.filter((s) => s.branchId === targetBranch);
 
@@ -923,6 +985,12 @@ export const updatePickupStaff = async (req, res) => {
     const { id } = req.params;
     const updates = req.body || {};
     const cleanId = String(id || '').trim().toLowerCase();
+
+    removeDiskDeletedPickupStaff(id);
+    if (cleanId) removeDiskDeletedPickupStaff(cleanId);
+    if (updates.username) removeDiskDeletedPickupStaff(updates.username);
+    if (updates.email) removeDiskDeletedPickupStaff(updates.email);
+    if (updates.phone) removeDiskDeletedPickupStaff(updates.phone);
 
     // 1. Update on Disk
     const diskStaff = loadDiskPickupStaff();
@@ -1026,47 +1094,110 @@ export const updatePickupStaff = async (req, res) => {
   }
 };
 
-// @desc    Delete pickup staff from database and disk storage
-// @route   DELETE /api/auth/pickup-staff/:id
+// @desc    Delete pickup staff permanently from database and disk storage
+// @route   DELETE /api/auth/pickup-staff/:id and DELETE /api/pickup-staff/:id
 export const deletePickupStaff = async (req, res) => {
   try {
     const { id } = req.params;
-    const cleanId = String(id || '').trim().toLowerCase();
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Pickup Staff ID is required' });
+    }
+    const cleanId = String(id || '').trim();
+    const cleanIdLower = cleanId.toLowerCase();
 
-    // 1. Delete from disk
-    const diskStaff = loadDiskPickupStaff().filter(
-      (s) =>
-        String(s.id || '').trim().toLowerCase() !== cleanId &&
-        String(s.staffId || '').trim().toLowerCase() !== cleanId &&
-        String(s.username || '').trim().toLowerCase() !== cleanId &&
-        String(s.email || '').trim().toLowerCase() !== cleanId
-    );
-    saveAllDiskPickupStaff(diskStaff);
+    // 1. Collect all identifying keys to tombstone
+    const tombstoneKeys = new Set([cleanIdLower]);
 
-    // 2. Delete from MongoDB if online
+    // Check disk storage to gather associated keys (staffId, username, email, phone)
+    const allDiskStaff = loadDiskPickupStaff();
+    const diskMatches = allDiskStaff.filter((s) => {
+      const keys = [s.id, s.staffId, s._id, s.username, s.email, s.phone]
+        .filter(Boolean)
+        .map((k) => String(k).trim().toLowerCase());
+      return keys.includes(cleanIdLower);
+    });
+    diskMatches.forEach((s) => {
+      [s.id, s.staffId, s._id, s.username, s.email, s.phone].filter(Boolean).forEach((k) => {
+        tombstoneKeys.add(String(k).trim().toLowerCase());
+      });
+    });
+
+    // 2. Permanently delete from MongoDB if online
     if (isDbOnline()) {
-      await PickupStaff.deleteMany({
-        $or: [
-          { staffId: id },
-          { id: id },
-          { username: cleanId },
-          { email: cleanId },
-          ...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : [])
-        ]
-      });
+      try {
+        const mongoMatches = await PickupStaff.find({
+          $or: [
+            { id: cleanId },
+            { id: cleanId.toUpperCase() },
+            { id: cleanIdLower },
+            { staffId: cleanId },
+            { staffId: cleanId.toUpperCase() },
+            { staffId: cleanIdLower },
+            { username: cleanIdLower },
+            { email: cleanIdLower },
+            ...(mongoose.Types.ObjectId.isValid(cleanId) ? [{ _id: cleanId }] : [])
+          ]
+        }).lean();
 
-      await User.deleteMany({
-        $or: [
-          { staffId: id },
-          { email: cleanId },
-          { email: `${cleanId}@pickup.freshmart.pk` },
-          { name: new RegExp(`^${escapeRegex(cleanId)}$`, 'i') },
-          ...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : [])
-        ]
-      });
+        (mongoMatches || []).forEach((s) => {
+          [s.id, s.staffId, s._id?.toString(), s.username, s.email, s.phone].filter(Boolean).forEach((k) => {
+            tombstoneKeys.add(String(k).trim().toLowerCase());
+          });
+        });
+
+        const staffOr = [
+          { staffId: cleanId },
+          { staffId: cleanId.toUpperCase() },
+          { staffId: { $in: Array.from(tombstoneKeys) } },
+          { id: cleanId },
+          { id: cleanId.toUpperCase() },
+          { id: { $in: Array.from(tombstoneKeys) } },
+          { username: { $in: Array.from(tombstoneKeys) } },
+          { email: { $in: Array.from(tombstoneKeys) } }
+        ];
+        if (mongoose.Types.ObjectId.isValid(cleanId)) {
+          staffOr.push({ _id: cleanId });
+        }
+        await PickupStaff.deleteMany({ $or: staffOr });
+
+        const userOr = [
+          { role: 'pickupstaff', username: { $in: Array.from(tombstoneKeys) } },
+          { role: 'pickupstaff', email: { $in: Array.from(tombstoneKeys) } },
+          { staffId: { $in: Array.from(tombstoneKeys) } },
+          { username: cleanIdLower },
+          { email: cleanIdLower },
+          { email: `${cleanIdLower}@pickup.freshmart.pk` },
+          { name: new RegExp(`^${escapeRegex(cleanId)}$`, 'i') }
+        ];
+        if (mongoose.Types.ObjectId.isValid(cleanId)) {
+          userOr.push({ _id: cleanId });
+        }
+        await User.deleteMany({ $or: userOr });
+      } catch (dbErr) {
+        console.warn('MongoDB deletePickupStaff error:', dbErr.message);
+      }
     }
 
-    return res.json({ success: true, message: 'Pickup staff deleted from database and storage' });
+    // 3. Save tombstones to deleted_pickup_staff_db.json
+    tombstoneKeys.forEach((key) => {
+      saveDiskDeletedPickupStaff(key);
+    });
+
+    // 4. Update disk storage
+    const remainingDisk = allDiskStaff.filter((s) => {
+      const keys = [s.id, s.staffId, s._id, s.username, s.email, s.phone]
+        .filter(Boolean)
+        .map((k) => String(k).trim().toLowerCase());
+      return !keys.some((k) => tombstoneKeys.has(k));
+    });
+    saveAllDiskPickupStaff(remainingDisk);
+
+    return res.json({
+      success: true,
+      message: 'Pickup staff permanently deleted from database and storage',
+      deletedId: cleanId,
+      tombstones: Array.from(tombstoneKeys)
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }

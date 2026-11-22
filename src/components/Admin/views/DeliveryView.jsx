@@ -1793,7 +1793,7 @@ export const DeliveryView = () => {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    if (window.confirm(`Delete rider "${rider.name}" from fleet?`)) {
+                                    if (window.confirm(`Permanently delete rider "${rider.name}" from fleet and database?`)) {
                                       deleteRider(rider.id || rider.riderId || rider._id);
                                     }
                                   }}

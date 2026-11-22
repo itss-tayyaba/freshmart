@@ -329,7 +329,11 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => deletePickupStaff?.(staff.id)}
+                      onClick={() => {
+                        if (window.confirm(`Permanently delete pickup staff "${staff.name}" from database and branch?`)) {
+                          deletePickupStaff?.(staff.id || staff.staffId);
+                        }
+                      }}
                       title={`Remove ${staff.name}`}
                       className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
                     >
@@ -458,7 +462,11 @@ export const FulfillmentView = ({ orders: passedOrders }) => {
                             </button>
                             <button
                               type="button"
-                              onClick={() => deletePickupStaff?.(staff.id)}
+                              onClick={() => {
+                                if (window.confirm(`Permanently delete pickup staff "${staff.name}" from database and branch?`)) {
+                                  deletePickupStaff?.(staff.id || staff.staffId);
+                                }
+                              }}
                               className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                               title="Remove Staff"
                             >
