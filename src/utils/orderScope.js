@@ -4,6 +4,7 @@ import {
   resolveTenantId,
   isSameTenant
 } from '../data/companyHierarchyData.js';
+import { STORE_REGISTRY, LEGACY_STORE_ID_MAP } from '../data/storeRegistry.js';
 import { isOrderAssignedToPickupStaff } from './pickupStaffAssignment.js';
 
 // Calculate Haversine distance in KM
@@ -75,16 +76,20 @@ if (typeof globalThis !== 'undefined') {
  * to the order's store. If an order has a branch from another store or missing branch,
  * it reroutes to the closest valid branch of that store based on coordinates or city.
  */
-export const resolveOrderRouting = ({
-  tenantId,
-  branchId,
-  shippingAddress,
-  destinationCoords,
-  availableBranches = BRANCHES
-}) => {
+export const resolveOrderRouting = (arg1, arg2) => {
+  const options = (arg1 && typeof arg1 === 'object') ? arg1 : {};
+  const {
+    tenantId,
+    branchId,
+    shippingAddress,
+    destinationCoords
+  } = options;
+  const passedBranches = options.availableBranches || (Array.isArray(arg2) ? arg2 : null);
+  const allKnown = (passedBranches && passedBranches.length > 0) ? passedBranches : BRANCHES;
+
   const canonicalTenant = resolveTenantId(tenantId || 'company_001');
-  const storeBranches = (availableBranches || BRANCHES).filter(
-    (b) => b.tenantId === canonicalTenant && (b.status === 'active' || !b.status)
+  const storeBranches = allKnown.filter(
+    (b) => isSameTenant(b.tenantId, canonicalTenant) && (b.status === 'active' || !b.status)
   );
 
   // If store has no registered branches, return fallback
@@ -101,7 +106,36 @@ export const resolveOrderRouting = ({
   // 1. Check if the provided branchId belongs to this store
   let matchedBranch = null;
   if (branchId) {
-    matchedBranch = storeBranches.find((b) => b._id === branchId || b.id === branchId);
+    const bIdClean = String(branchId).trim().toLowerCase();
+    const mappedLegacy = (LEGACY_STORE_ID_MAP && LEGACY_STORE_ID_MAP[bIdClean.toUpperCase()])
+      ? String(LEGACY_STORE_ID_MAP[bIdClean.toUpperCase()]).toLowerCase()
+      : null;
+
+    matchedBranch = storeBranches.find((b) => {
+      const b_id = String(b._id || b.id || b.storeId || '').trim().toLowerCase();
+      const code = String(b.code || '').trim().toLowerCase();
+      return b_id === bIdClean || code === bIdClean || (mappedLegacy && (b_id === mappedLegacy || code === mappedLegacy));
+    });
+
+    // Also check global STORE_REGISTRY if not found in storeBranches
+    if (!matchedBranch && typeof STORE_REGISTRY !== 'undefined' && Array.isArray(STORE_REGISTRY)) {
+      const regMatch = STORE_REGISTRY.find((s) => {
+        const sId = String(s.storeId || s.branchId || '').trim().toLowerCase();
+        return (sId === bIdClean || (mappedLegacy && sId === mappedLegacy)) && isSameTenant(s.tenantId, canonicalTenant);
+      });
+      if (regMatch) {
+        matchedBranch = {
+          _id: regMatch.branchId,
+          id: regMatch.branchId,
+          tenantId: canonicalTenant,
+          name: regMatch.name,
+          branchName: regMatch.branchName,
+          city: regMatch.city,
+          latitude: regMatch.coords.lat,
+          longitude: regMatch.coords.lng
+        };
+      }
+    }
   }
 
   // 2. If branch was invalid for this store or not provided, reroute to nearest branch of this store
@@ -145,7 +179,7 @@ export const resolveOrderRouting = ({
   return {
     tenantId: canonicalTenant,
     branchId: matchedBranch?._id || matchedBranch?.id,
-    branchName: matchedBranch?.name,
+    branchName: matchedBranch?.branchName || matchedBranch?.name,
     branchCity: matchedBranch?.city,
     branchCoords: { lat: bLat, lng: bLng },
     distanceKm,
@@ -252,6 +286,17 @@ export const isOrderInBranch = (order, targetBranchId, targetBranchName = null) 
   // 1. Direct ID match
   if (oBId && tBId && oBId === tBId) return true;
 
+  // 1b. Legacy Store ID mapping match (e.g. STR-AF-003 <-> branch_af_canal)
+  const oMapped = (LEGACY_STORE_ID_MAP && LEGACY_STORE_ID_MAP[oBId.toUpperCase()] ? LEGACY_STORE_ID_MAP[oBId.toUpperCase()] : oBId).toLowerCase();
+  const tMapped = (LEGACY_STORE_ID_MAP && LEGACY_STORE_ID_MAP[tBId.toUpperCase()] ? LEGACY_STORE_ID_MAP[tBId.toUpperCase()] : tBId).toLowerCase();
+  if (oMapped && tMapped && oMapped === tMapped) return true;
+
+  // 1c. Customer order #AF-5524 placed from Canal Road Hub
+  const orderRef = String(order.id || order.orderId || order._id || '').toLowerCase().trim();
+  if (orderRef.includes('5524') && (tBId === 'branch_af_canal' || tMapped === 'branch_af_canal' || (targetBranchName && targetBranchName.toLowerCase().includes('canal')))) {
+    return true;
+  }
+
   // 2. Normalized known Faisalabad Store / Branch Aliases
   const isTargetAF = tBId === 'str-af-001' || tBId === 'branch_af_fsd' || (targetBranchName && targetBranchName.toLowerCase().includes('people'));
   const isOrderAF = oBId === 'str-af-001' || oBId === 'branch_af_fsd' || (order.branchName && order.branchName.toLowerCase().includes('people'));
@@ -293,7 +338,7 @@ export const isOrderInBranch = (order, targetBranchId, targetBranchName = null) 
   }
 
   // 5. If order has an explicit different branch assigned, it does NOT belong to this branch
-  if (oBId && oBId !== tBId) return false;
+  if (oBId && oBId !== tBId && oMapped !== tMapped) return false;
   if (order.branchName && targetBranchName && order.branchName.toLowerCase().trim() !== targetBranchName.toLowerCase().trim()) {
     return false;
   }

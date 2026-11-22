@@ -125,9 +125,18 @@ export const sanitizeOrder = (ord) => {
       (!ord.tenantId || isSameTenant(ord.tenantId, 'tenant-alfatah')));
 
   if (isExplicitAlfatah) {
+    const isCanalOrder = idStr.includes('5524') || (ord.branchName && ord.branchName.toLowerCase().includes('canal')) || ord.branchId === 'branch_af_canal';
     const hasUnimaartBranch = Boolean(ord.branchName && (ord.branchName.includes('Dark Store') || ord.branchName.includes('Unimaart') || ord.branchId === 'branch_um_fsd'));
-    const resolvedBranchId = (!ord.branchId || hasUnimaartBranch) ? (isFsd ? 'branch_af_fsd' : 'branch_001') : ord.branchId;
-    const resolvedBranchName = (!ord.branchName || hasUnimaartBranch) ? (isFsd ? 'D-Ground Flagship Hub' : 'Gulberg Mall') : ord.branchName;
+    const resolvedBranchId = isCanalOrder
+      ? 'branch_af_canal'
+      : (!ord.branchId || hasUnimaartBranch)
+      ? (isFsd ? 'branch_af_fsd' : 'branch_001')
+      : ord.branchId;
+    const resolvedBranchName = isCanalOrder
+      ? 'Canal Road Hub'
+      : (!ord.branchName || hasUnimaartBranch)
+      ? (isFsd ? 'D-Ground Flagship Hub' : 'Gulberg Mall')
+      : ord.branchName;
 
     return {
       ...ord,

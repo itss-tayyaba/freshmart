@@ -7,8 +7,9 @@ import { Product } from '../models/Product.js';
 import { Rider } from '../models/ExtraModels.js';
 import { ADMIN_ORDERS_FULL } from '../../src/data/adminSuiteData.js';
 import { ORDERS, BRANCHES, resolveTenantId, isSameTenant } from '../../src/data/companyHierarchyData.js';
-import { resolveOrderRouting, normalizeOrderTenantId } from '../../src/utils/orderScope.js';
+import { resolveOrderRouting, normalizeOrderTenantId, isOrderInBranch } from '../../src/utils/orderScope.js';
 import { loadDiskRiders, saveAllDiskRiders } from './extraControllers.js';
+import { loadDiskBranches } from './companyBranchController.js';
 import { routeOrderToCity, adminCanAccessRecord } from '../utils/regionRouting.js';
 import { PickupStaff } from '../models/PickupStaff.js';
 import { loadDiskPickupStaff } from './authController.js';
@@ -351,11 +352,16 @@ export const createOrder = async (req, res) => {
 
     // A store only takes orders from ITS OWN city: a Faisalabad branch can never take an Islamabad order.
     const canonicalOrderTenant = resolveTenantId(rawTenantId);
-    const tenantBranchesForCity = BRANCHES.filter((b) => b.tenantId === canonicalOrderTenant && (b.status === 'active' || !b.status));
+    const diskBranches = typeof loadDiskBranches === 'function' ? loadDiskBranches() : [];
+    const allKnownBranches = [
+      ...BRANCHES,
+      ...diskBranches.filter((db) => !BRANCHES.some((b) => (b._id || b.id) === (db._id || db.id)))
+    ];
+    const tenantBranchesForCity = allKnownBranches.filter((b) => isSameTenant(b.tenantId, canonicalOrderTenant) && (b.status === 'active' || !b.status));
     const customerCityRaw = (req.body.shippingAddress && typeof req.body.shippingAddress === 'object' && req.body.shippingAddress.city) || req.body.city || '';
     const cityRoute = routeOrderToCity({
       tenantBranches: tenantBranchesForCity,
-      allBranches: BRANCHES,
+      allBranches: allKnownBranches,
       requestedBranchId: rawBranchId,
       shippingAddress: { city: customerCityRaw, address: streetAddress },
       destinationCoords,
@@ -373,7 +379,7 @@ export const createOrder = async (req, res) => {
       branchId: cityRoute.branch ? (cityRoute.branch._id || cityRoute.branch.id) : rawBranchId,
       shippingAddress,
       destinationCoords,
-      availableBranches: BRANCHES
+      availableBranches: allKnownBranches
     });
 
     const tenantId = req.body.tenantId || req.body.tenant || (routing.tenantId === 'company_004' ? 'tenant-freshmart' : routing.tenantId);
@@ -602,7 +608,7 @@ export const getOrders = async (req, res) => {
         const dTenant = d.tenantId || d.companyId || (d.id && d.id.includes('AF') ? 'tenant-alfatah' : d.id && d.id.includes('CV') ? 'tenant-chasevalue' : d.id && d.id.includes('CU') ? 'tenant-chaseup' : 'tenant-freshmart');
         if (isAdmin && userTenantId && role !== 'superadmin') {
           if (!isSameTenant(dTenant, userTenantId)) return;
-          if (userBranchId && d.branchId && d.branchId !== userBranchId) return;
+          if (userBranchId && !isOrderInBranch(d, userBranchId, req.user?.branchName)) return;
         }
         if (role === 'pickup_staff' || role === 'staff') {
           if (userTenantId && !isSameTenant(dTenant, userTenantId)) return;
@@ -666,7 +672,7 @@ export const getOrders = async (req, res) => {
       orders = orders.filter((order) => {
         const orderTenant = order.tenantId || order.companyId || (order.id && order.id.includes('AF') ? 'tenant-alfatah' : order.id && order.id.includes('CV') ? 'tenant-chasevalue' : order.id && order.id.includes('CU') ? 'tenant-chaseup' : 'tenant-freshmart');
         const matchTenant = isSameTenant(orderTenant, userTenantId);
-        const matchBranch = !userBranchId || !order.branchId || order.branchId === userBranchId;
+        const matchBranch = !userBranchId || isOrderInBranch(order, userBranchId, req.user?.branchName);
         return matchTenant && matchBranch;
       });
     }

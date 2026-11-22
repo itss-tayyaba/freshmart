@@ -285,10 +285,18 @@ export const CheckoutPage = () => {
     const cityOrAddr = `${addressData.address || ''} ${addressData.city || ''}`.toLowerCase();
     const isFaisalabad = cityOrAddr.includes('faisalabad') || cityOrAddr.includes('peoples colony') || cityOrAddr.includes('fsd');
 
-    let resolvedBranchId = currentBranch?._id || currentBranch?.id || nearbyInfo?.nearestBranch?._id;
-    let resolvedBranchName = currentBranch?.name || nearbyInfo?.nearestBranch?.name;
+    let resolvedBranchId = null;
+    let resolvedBranchName = null;
 
-    if (!resolvedBranchId || (isOrderChaseValue && !resolvedBranchId.includes('cv')) || (isOrderChaseUp && !resolvedBranchId.includes('004') && !resolvedBranchId.includes('006')) || (isOrderAlfatah && !resolvedBranchId.includes('af'))) {
+    if (currentBranch && isSameTenant(currentBranch.tenantId, finalTenantId)) {
+      resolvedBranchId = currentBranch._id || currentBranch.id || currentBranch.storeId;
+      resolvedBranchName = currentBranch.branchName || currentBranch.name;
+    } else if (nearbyInfo?.nearestBranch && isSameTenant(nearbyInfo.nearestBranch.tenantId, finalTenantId)) {
+      resolvedBranchId = nearbyInfo.nearestBranch._id || nearbyInfo.nearestBranch.id;
+      resolvedBranchName = nearbyInfo.nearestBranch.branchName || nearbyInfo.nearestBranch.name;
+    }
+
+    if (!resolvedBranchId) {
       if (isOrderChaseValue) {
         resolvedBranchId = isFaisalabad ? 'branch_cv_fsd' : 'branch_007';
         resolvedBranchName = isFaisalabad ? 'Wholesale Express Hub' : 'Shaheed-e-Millat Main Branch (Karachi)';
