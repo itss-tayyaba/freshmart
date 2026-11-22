@@ -637,6 +637,33 @@ export const loadRetailerStores = (apiStores = []) => {
     const lat = Number(store.latitude || store.coords?.lat || baseline?.latitude || 31.4140);
     const lng = Number(store.longitude || store.coords?.lng || baseline?.longitude || 73.0950);
 
+    const isLahoreCoord = (lat >= 31.35 && lat <= 31.70 && lng >= 74.10 && lng <= 74.60);
+    const resolvedCity = isLahoreCoord ? 'Lahore' : (store.city || baseline?.city || 'Faisalabad');
+
+    // Clean address if mislabeled as Faisalabad when coordinates are in Lahore
+    let resolvedAddress = store.address || baseline?.address || `${resolvedCity}, Pakistan`;
+    if (isLahoreCoord && resolvedAddress.includes('Faisalabad')) {
+      resolvedAddress = resolvedAddress.replace(/Faisalabad/gi, 'Lahore');
+    }
+
+    // Guard against cross-city zone mismatch:
+    // If a store is in Lahore, but zoneId points to a Faisalabad zone, it must NOT be assigned to Faisalabad!
+    if (isLahoreCoord && zoneId) {
+      const isFsdZone = (
+        zoneId === 'zone_001' ||
+        zoneId === 'zone_002' ||
+        zoneId === 'zone_003' ||
+        zoneId === 'zone_004' ||
+        String(zoneId).includes('FSD') ||
+        String(zoneId).toLowerCase().includes('samanabad') ||
+        String(zoneId).toLowerCase().includes('dground') ||
+        String(zoneId).toLowerCase().includes('canal')
+      );
+      if (isFsdZone) {
+        zoneId = null;
+      }
+    }
+
     return {
       ...(baseline || {}),
       ...store,
@@ -649,8 +676,8 @@ export const loadRetailerStores = (apiStores = []) => {
       name: store.name || store.branchName || baseline?.name,
       branchName: store.branchName || store.name || baseline?.branchName,
       type: 'child',
-      address: store.address || baseline?.address || `${store.city || 'Faisalabad'}, Pakistan`,
-      city: store.city || baseline?.city || 'Faisalabad',
+      address: resolvedAddress,
+      city: resolvedCity,
       latitude: lat,
       longitude: lng,
       location: store.location || {

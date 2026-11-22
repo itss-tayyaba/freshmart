@@ -2,7 +2,7 @@
   {
     "storeId": "STR-CHA-5407",
     "_id": "STR-CHA-5407",
-    "deliveryZoneId": "ZONE-LHR-GULBERG",
+    "deliveryZoneId": null,
     "assignedZoneId": "ZONE-LHR-GULBERG",
     "city": "Lahore",
     "deliveryPolygon": [

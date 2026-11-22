@@ -414,10 +414,13 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     const target = store || stores.find((s) => !s.deliveryZoneId) || stores[0];
     setSelectedStoreForAssign(target);
 
-    const storeCity = String(target?.city || 'Faisalabad').trim().toLowerCase();
+    const lat = Number(target?.latitude);
+    const lng = Number(target?.longitude);
+    const isLahoreCoord = (lat >= 31.35 && lat <= 31.70 && lng >= 74.10 && lng <= 74.60);
+    const storeCity = isLahoreCoord ? 'lahore' : String(target?.city || 'Faisalabad').trim().toLowerCase();
     const cityZones = masterZones.filter((z) => String(z.city || 'Faisalabad').trim().toLowerCase() === storeCity);
 
-    if (target?.deliveryZoneId) {
+    if (target?.deliveryZoneId && cityZones.some((z) => (z.zoneId || z._id) === target.deliveryZoneId)) {
       setAssignmentZoneId(target.deliveryZoneId);
     } else if (cityZones.length > 0) {
       setAssignmentZoneId(cityZones[0].zoneId || cityZones[0]._id);
@@ -2584,10 +2587,30 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                   {/* Child Physical Stores Grid */}
                   <div className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
                     {childStores.map((store) => {
-                      const assignedZone =
-                        masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId) ||
-                        masterZones[0] ||
-                        FOUR_MASTER_DELIVERY_ZONES[0];
+                      const lat = Number(store.latitude);
+                      const lng = Number(store.longitude);
+                      const isLahoreCoord = (lat >= 31.35 && lat <= 31.70 && lng >= 74.10 && lng <= 74.60);
+                      const isFsdCoord = (lat >= 31.20 && lat <= 31.60 && lng >= 72.85 && lng <= 73.35);
+                      const storeCityName = isLahoreCoord ? 'Lahore' : isFsdCoord ? 'Faisalabad' : (store.city || 'Faisalabad');
+                      const storeCityClean = storeCityName.trim().toLowerCase();
+
+                      // Resolve current assigned zone and check if it matches the store's city
+                      const currentAssignedZone = store.deliveryZoneId
+                        ? masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId)
+                        : null;
+                      const isAssignedToCityZone = Boolean(
+                        currentAssignedZone &&
+                        (!currentAssignedZone.city || String(currentAssignedZone.city).trim().toLowerCase() === storeCityClean)
+                      );
+
+                      const isStoreUnassigned = !store.deliveryZoneId || !isAssignedToCityZone;
+                      const assignedZone = isStoreUnassigned ? null : currentAssignedZone;
+
+                      // Clean up mislabeled address if coordinates are in Lahore but address says Faisalabad
+                      const displayAddress = (isLahoreCoord && store.address && store.address.includes('Faisalabad'))
+                        ? store.address.replace(/Faisalabad/gi, 'Lahore')
+                        : (store.address || `${store.branchName || store.name}, ${storeCityName}`);
+
                       const isMainBranch =
                         store.name.toLowerCase().includes('main') ||
                         store.branchName.toLowerCase().includes('main') ||
@@ -2596,6 +2619,12 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                         store.retailerNumber === 7 ||
                         store.retailerNumber === 10;
                       const isFocused = focusedStoreId === (store.storeId || store._id);
+
+                      // Eligible zones for this store's city
+                      let eligibleZones = masterZones.filter((z) => String(z.city || '').trim().toLowerCase() === storeCityClean);
+                      if (eligibleZones.length === 0) {
+                        eligibleZones = masterZones;
+                      }
 
                       return (
                         <div
@@ -2650,7 +2679,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                             </h4>
 
                             <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
-                              📍 {store.address}
+                              📍 {displayAddress}
                             </p>
 
                             <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 pt-1">
@@ -2666,37 +2695,35 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                                 Assigned Delivery Zone
                               </label>
-                              {store.deliveryZoneId ? (
+                              {assignedZone ? (
                                 <span
                                   className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                                   style={{
-                                    backgroundColor: `${assignedZone?.color}15`,
-                                    color: assignedZone?.color
+                                    backgroundColor: `${assignedZone.color}15`,
+                                    color: assignedZone.color
                                   }}
                                 >
-                                  ✓ {assignedZone?.shortName || 'Zone'}
+                                  ✓ {assignedZone.shortName || assignedZone.name}
                                 </span>
                               ) : (
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                                  ⚠️ Unassigned
+                                  ⚠️ Needs {storeCityName} Zone
                                 </span>
                               )}
                             </div>
 
                             <select
-                              value={store.deliveryZoneId || ''}
+                              value={isAssignedToCityZone ? (store.deliveryZoneId || '') : ''}
                               onChange={(e) => updateStoreZone(store.storeId || store._id, e.target.value)}
                               className={`w-full rounded-xl px-3 py-2 text-xs font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer transition ${
-                                !store.deliveryZoneId
+                                isStoreUnassigned
                                   ? 'bg-amber-50 border-2 border-amber-300 text-amber-900'
                                   : 'bg-slate-50 border border-slate-200 text-slate-800'
                               }`}
-                              style={{ borderLeftWidth: '4px', borderLeftColor: store.deliveryZoneId ? assignedZone?.color : '#f59e0b' }}
+                              style={{ borderLeftWidth: '4px', borderLeftColor: isStoreUnassigned ? '#f59e0b' : (assignedZone?.color || '#10b981') }}
                             >
-                              <option value="" disabled>-- Select Delivery Polygon ({store.city || 'City'}) --</option>
-                              {masterZones
-                                .filter((z) => !store.city || String(z.city || '').toLowerCase() === String(store.city || '').toLowerCase())
-                                .map((z) => (
+                              <option value="">-- Choose {storeCityName} Delivery Zone --</option>
+                              {eligibleZones.map((z) => (
                                 <option key={z.zoneId || z._id} value={z.zoneId || z._id}>
                                   {z.name}
                                 </option>
@@ -2704,10 +2731,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                             </select>
 
                             {/* Live Delivery Zone Coverage Info */}
-                            {store.deliveryZoneId ? (
+                            {assignedZone ? (
                               <div className="p-2 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between gap-2 text-[10px]">
                                 <span className="text-slate-500 font-medium truncate">
-                                  Fulfills orders in: <strong style={{ color: assignedZone?.color }}>{assignedZone?.shortName} Polygon</strong>
+                                  Fulfills orders in: <strong style={{ color: assignedZone.color }}>{assignedZone.shortName || assignedZone.name} Polygon</strong>
                                 </span>
                                 <button
                                   type="button"
@@ -2721,7 +2748,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                             ) : (
                               <div className="p-2 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between gap-2 text-[10px]">
                                 <span className="text-amber-800 font-bold truncate">
-                                  ⚠️ Awaiting Zone Association
+                                  ⚠️ Awaiting {storeCityName} Delivery Zone
                                 </span>
                                 <button
                                   type="button"
@@ -3061,8 +3088,27 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                         logo: '🏬',
                         color: '#0e7c66'
                       };
-                      const isAssigned = Boolean(store.deliveryZoneId);
-                      const assignedZone = masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId);
+                      const lat = Number(store.latitude);
+                      const lng = Number(store.longitude);
+                      const isLahoreCoord = (lat >= 31.35 && lat <= 31.70 && lng >= 74.10 && lng <= 74.60);
+                      const isFsdCoord = (lat >= 31.20 && lat <= 31.60 && lng >= 72.85 && lng <= 73.35);
+                      const storeCityName = isLahoreCoord ? 'Lahore' : isFsdCoord ? 'Faisalabad' : (store.city || 'Faisalabad');
+                      const storeCityClean = storeCityName.trim().toLowerCase();
+
+                      const currentAssignedZone = store.deliveryZoneId
+                        ? masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId)
+                        : null;
+                      const isAssignedToCityZone = Boolean(
+                        currentAssignedZone &&
+                        (!currentAssignedZone.city || String(currentAssignedZone.city).trim().toLowerCase() === storeCityClean)
+                      );
+
+                      const isAssigned = Boolean(store.deliveryZoneId) && isAssignedToCityZone;
+                      const assignedZone = isAssigned ? currentAssignedZone : null;
+
+                      const displayAddress = (isLahoreCoord && store.address && store.address.includes('Faisalabad'))
+                        ? store.address.replace(/Faisalabad/gi, 'Lahore')
+                        : (store.address || `${store.name}, ${storeCityName}`);
 
                       return (
                         <tr key={store.storeId || store._id} className="hover:bg-slate-50/70 transition">
@@ -3107,7 +3153,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                               </div>
                               <p className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
                                 <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                                <span>{store.address}</span>
+                                <span>{displayAddress}</span>
                               </p>
                             </div>
                           </td>
@@ -3122,7 +3168,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                             ) : (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                                 <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                                <span>Unassigned Zone</span>
+                                <span>Needs {storeCityName} Zone</span>
                               </span>
                             )}
                           </td>
@@ -3150,10 +3196,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                             ) : (
                               <div className="space-y-1">
                                 <span className="text-slate-400 text-xs font-medium">
-                                  No delivery zone assigned yet.
+                                  No {storeCityName} delivery zone assigned yet.
                                 </span>
                                 <p className="text-[10px] text-amber-600 font-bold">
-                                  Click Assign to link with an existing zone
+                                  Click Assign to link with an existing {storeCityName} zone
                                 </p>
                               </div>
                             )}
