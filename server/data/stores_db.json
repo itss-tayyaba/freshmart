@@ -1,5 +1,43 @@
 [
   {
+    "_id": "STR-CHA-9374",
+    "storeId": "STR-CHA-9374",
+    "storeCode": "STR-CHA-9374",
+    "parentRetailerId": "tenant-chasevalue",
+    "tenantId": "tenant-chasevalue",
+    "tenantName": "Chase Value",
+    "name": "Chase Value - Commercial Hub 3587",
+    "storeName": "Chase Value - Commercial Hub 3587",
+    "branchName": "Commercial Hub 3587",
+    "branchManager": "Chase Value Manager",
+    "manager": "Chase Value Manager",
+    "phone": "+92 300 8441122",
+    "contactNumber": "+92 300 8441122",
+    "email": "",
+    "type": "child",
+    "notes": "",
+    "address": "Main Commercial Avenue, Faisalabad",
+    "city": "Faisalabad",
+    "latitude": 31.448,
+    "longitude": 73.125,
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        73.125,
+        31.448
+      ]
+    },
+    "openingHours": "08:00 AM",
+    "closingHours": "11:00 PM",
+    "storeImage": "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80",
+    "status": "active",
+    "isActive": true,
+    "operatingStatus": "Open",
+    "deliveryRadiusKm": 5,
+    "assignedZoneId": "zone_002",
+    "deliveryZoneId": "zone_002"
+  },
+  {
     "_id": "branch_af_fsd",
     "storeId": "branch_af_fsd",
     "branchId": "branch_af_fsd",
