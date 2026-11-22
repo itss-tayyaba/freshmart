@@ -1,39 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-describe('Vendor Application Approval & Rider Fleet Password Workflow', () => {
-  // Simulating the vendor application workflow
-  const registerVendor = (vendorsList, formData) => {
-    const newVendor = {
-      id: `VND-${Math.floor(100 + Math.random() * 900)}`,
-      name: formData.name,
-      email: formData.email.toLowerCase().trim(),
-      password: formData.password,
-      status: 'Pending', // Applications start pending
-      category: formData.category || 'Fresh Fruits & Farm Vegetables'
-    };
-    return [...vendorsList, newVendor];
-  };
-
-  const approveVendor = (vendorsList, vendorId) => {
-    return vendorsList.map((v) => (v.id === vendorId ? { ...v, status: 'Approved' } : v));
-  };
-
-  const attemptVendorLogin = (vendorsList, email, password) => {
-    const found = vendorsList.find((v) => v.email === email.toLowerCase().trim());
-    if (!found) return { success: false, error: 'Vendor not found' };
-    if (found.status === 'Pending') {
-      return { success: false, error: 'Your vendor application is pending Admin approval. Please wait for store admin approval.' };
-    }
-    if (found.status === 'Rejected') {
-      return { success: false, error: 'This vendor account was rejected by the administration.' };
-    }
-    if (found.password !== password) {
-      return { success: false, error: 'Invalid password' };
-    }
-    return { success: true, vendor: found };
-  };
-
+describe('Admin Fleet & Pickup Staff Management Workflow', () => {
   // Simulating Admin-controlled Rider creation workflow
   const adminCreateRider = (ridersList, riderData) => {
     const newRider = {
@@ -61,43 +29,19 @@ describe('Vendor Application Approval & Rider Fleet Password Workflow', () => {
     return { success: true, rider: found };
   };
 
-  it('sets newly submitted vendor applications to Pending status', () => {
-    let vendors = [];
-    vendors = registerVendor(vendors, {
-      name: 'Organic Green Farms',
-      email: 'greenfarms@gmail.com',
-      password: 'mypassword123'
-    });
-
-    assert.equal(vendors.length, 1);
-    assert.equal(vendors[0].status, 'Pending');
-    assert.equal(vendors[0].name, 'Organic Green Farms');
-  });
-
-  it('rejects login for vendor applications that are still Pending approval', () => {
-    let vendors = [
-      { id: 'VND-200', name: 'Fresh Fruits Hub', email: 'fruits@fresh.pk', password: 'secret123', status: 'Pending' }
-    ];
-
-    const result = attemptVendorLogin(vendors, 'fruits@fresh.pk', 'secret123');
-    assert.equal(result.success, false);
-    assert.match(result.error, /pending Admin approval/i);
-  });
-
-  it('allows vendor login immediately once Admin marks status as Approved', () => {
-    let vendors = [
-      { id: 'VND-200', name: 'Fresh Fruits Hub', email: 'fruits@fresh.pk', password: 'secret123', status: 'Pending' }
-    ];
-
-    // Admin approves vendor
-    vendors = approveVendor(vendors, 'VND-200');
-    assert.equal(vendors[0].status, 'Approved');
-
-    // Vendor attempts login with their registered password
-    const result = attemptVendorLogin(vendors, 'fruits@fresh.pk', 'secret123');
-    assert.equal(result.success, true);
-    assert.equal(result.vendor.name, 'Fresh Fruits Hub');
-  });
+  // Simulating Admin-controlled Pickup Staff creation workflow
+  const adminCreatePickupStaff = (staffList, staffData) => {
+    const newStaff = {
+      id: `STF-${Math.floor(100 + Math.random() * 900)}`,
+      name: staffData.name,
+      phone: staffData.phone,
+      username: staffData.username || staffData.phone,
+      password: staffData.password || 'staff123',
+      branchId: staffData.branchId || 'branch_001',
+      status: 'Active'
+    };
+    return [...staffList, newStaff];
+  };
 
   it('allows Admin to create rider and assign a secure login password', () => {
     let riders = [];
@@ -132,6 +76,21 @@ describe('Vendor Application Approval & Rider Fleet Password Workflow', () => {
     // Wrong password rejected
     const badLogin = attemptRiderLogin(riders, 'usman_rider', 'wrongpass');
     assert.equal(badLogin.success, false);
+  });
+
+  it('allows Admin to create branch-dedicated pickup staff', () => {
+    let staff = [];
+    staff = adminCreatePickupStaff(staff, {
+      name: 'Bilal Ahmad',
+      phone: '0312-3456789',
+      username: 'bilal_staff',
+      password: 'packingpass123',
+      branchId: 'branch_chasevalue_dground'
+    });
+
+    assert.equal(staff.length, 1);
+    assert.equal(staff[0].name, 'Bilal Ahmad');
+    assert.equal(staff[0].branchId, 'branch_chasevalue_dground');
   });
 
   it('clears session, user state, and resets route when rider logs out', () => {

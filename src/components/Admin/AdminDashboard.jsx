@@ -48,7 +48,6 @@ import { DeliveryZoneView } from './views/DeliveryZoneView';
 
 import { AdminModals } from './modals/AdminModals';
 import { AdminLogin } from './AdminLogin';
-import { VendorPortal } from '../VendorPortal/VendorPortal';
 import { SuperAdminDashboard } from '../SuperAdmin/SuperAdminDashboard';
 import { DeliveryPortal } from '../DeliveryPortal/DeliveryPortal';
 
@@ -63,11 +62,6 @@ export const AdminDashboard = () => {
   // If logged in as Super Admin (Platform Owner), render Super Admin Command Center
   if (adminRole === 'superadmin') {
     return <SuperAdminDashboard />;
-  }
-
-  // If logged in as Supplier or Vendor, render the dedicated Multi-Vendor Portal
-  if (adminRole === 'supplier' || adminRole === 'vendor') {
-    return <VendorPortal />;
   }
 
   if (adminRole === 'pickup_staff') return <PickupStaffPortal />;

@@ -60,10 +60,9 @@ describe('Client-Side Routing & Shareable URL Parser', () => {
     });
   });
 
-  it('parses operational dashboards and static pages (/admin, /vendor, /deals, /recipes, /delivery, /checkout, /customer-portal)', () => {
+  it('parses operational dashboards and static pages (/admin, /deals, /recipes, /delivery, /checkout, /customer-portal)', () => {
     const testCases = [
       { pathname: '/admin', expected: 'admin' },
-      { pathname: '/vendor', expected: 'vendor' },
       { pathname: '/deals', expected: 'deals' },
       { pathname: '/recipes', expected: 'recipes' },
       { pathname: '/delivery', expected: 'delivery' },

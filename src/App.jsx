@@ -27,12 +27,11 @@ import { OffersModal } from './components/Modals/OffersModal';
 import { QuickViewModal } from './components/Products/QuickViewModal';
 import { LocationModal } from './components/Stores/LocationModal';
 import { AuthModal } from './components/Modals/AuthModal';
-import { VendorRegistrationModal } from './components/VendorPortal/VendorRegistrationModal';
 import { ToastContainer } from './components/Modals/ToastContainer';
 
 
 function FreshMartAppContent() {
-  const { currentPage, isVendorRegisterOpen, setIsVendorRegisterOpen, user, adminRole, isAdminLoggedIn } = useStore();
+  const { currentPage, user, adminRole, isAdminLoggedIn } = useStore();
 
   // If user is authenticated as courier or packing staff, keep them on their operational dashboard even after refresh
   const effRole = (user?.role || adminRole || '').toLowerCase();
@@ -49,8 +48,8 @@ function FreshMartAppContent() {
     );
   }
 
-  // If in Admin / Vendor Dashboard view, render the dedicated full-screen admin/vendor experience
-  if (activeView === 'admin' || activeView === 'vendor' || activeView === 'vendor-portal') {
+  // If in Admin Dashboard view, render the dedicated full-screen admin experience
+  if (activeView === 'admin') {
     return (
       <div className="min-h-screen w-full bg-slate-100 dark:bg-[#0b0f19] dark:text-slate-100 font-sans">
         <AdminDashboard />
@@ -144,7 +143,6 @@ function FreshMartAppContent() {
       <QuickViewModal />
       <LocationModal />
       <AuthModal />
-      <VendorRegistrationModal isOpen={isVendorRegisterOpen} onClose={() => setIsVendorRegisterOpen(false)} />
       <ToastContainer />
     </div>
 

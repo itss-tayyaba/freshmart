@@ -84,8 +84,8 @@ export const saveAllDiskPickupStaff = (staffList) => {
   } catch (e) {}
 };
 
-const generateToken = (id, role = 'customer', email = '', name = '', vendorId = undefined, extraClaims = {}) => {
-  return signJwtToken(id, role, email, name, vendorId, extraClaims);
+const generateToken = (id, role = 'customer', email = '', name = '', extraClaims = {}) => {
+  return signJwtToken(id, role, email, name, extraClaims);
 };
 
 // @desc    Register a new user
@@ -314,16 +314,16 @@ export const loginUser = async (req, res) => {
         const isDefaultSupplierFallback = allowDemoAuth() && (password === 'supplier123' || password === 'cocacola123');
 
         if (isMatch || isDefaultSupplierFallback) {
-          const vId = supplier.supplierId || supplier.id || 'VND-101';
+          const sId = supplier.supplierId || supplier.id || 'SUP-101';
           return res.json({
             success: true,
             _id: supplier._id,
-            id: vId,
-            vendorId: vId,
+            id: sId,
+            supplierId: sId,
             name: supplier.name,
             email: supplier.email,
             role: 'supplier',
-            token: generateToken(supplier._id, 'supplier', supplier.email, supplier.name, vId)
+            token: generateToken(supplier._id, 'supplier', supplier.email, supplier.name, { supplierId: sId })
           });
         }
       }
@@ -573,11 +573,11 @@ export const loginUser = async (req, res) => {
         success: true,
         _id: 'sup-root',
         id: 'SUP-101',
-        vendorId: 'VND-101',
+        supplierId: 'SUP-101',
         name: 'Tayyab (Coca-Cola Beverages)',
         email: 'tayyab.cocacola@freshmart.pk',
         role: 'supplier',
-        token: generateToken('sup-root', 'supplier', 'tayyab.cocacola@freshmart.pk', 'Tayyab', 'VND-101')
+        token: generateToken('sup-root', 'supplier', 'tayyab.cocacola@freshmart.pk', 'Tayyab', { supplierId: 'SUP-101' })
       });
     }
 

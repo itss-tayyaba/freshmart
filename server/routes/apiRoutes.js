@@ -58,29 +58,6 @@ import {
   uploadImage
 } from '../controllers/extraControllers.js';
 import {
-  registerVendor,
-  loginVendor,
-  getVendorProfile,
-  updateVendorProfile,
-  getVendorProducts,
-  addVendorProduct,
-  updateVendorProduct,
-  deleteVendorProduct,
-  getVendorOrders,
-  updateVendorOrderStatus,
-  getVendorInventory,
-  restockVendorInventory,
-  addVendorDiscount,
-  deleteVendorDiscount,
-  requestVendorPayout,
-  replyToVendorReview,
-  addVendorStaff,
-  deleteVendorStaff,
-  adminGetVendors,
-  adminUpdateVendorStatus,
-  adminProcessVendorPayout
-} from '../controllers/vendorController.js';
-import {
   getTenants,
   getTenantById,
   createTenant,
@@ -94,7 +71,7 @@ import {
   getTenantPerformance,
   getPlatformOverview
 } from '../controllers/tenantController.js';
-import { protect, adminOnly, branchAdminOnly, superAdminOnly, riderOnly, pickupStaffOnly, protectVendor } from '../middleware/authMiddleware.js';
+import { protect, adminOnly, branchAdminOnly, superAdminOnly, riderOnly, pickupStaffOnly } from '../middleware/authMiddleware.js';
 import { authLimiter } from '../middleware/rateLimitMiddleware.js';
 import { listStoreAdmins, createStoreAdmin, resetStoreAdminPassword, suggestZone } from '../controllers/storeAdminController.js';
 import {
@@ -246,49 +223,6 @@ router.get('/analytics/dashboard', protect, adminOnly, getAnalyticsDashboard);
 
 // --- Media & Object Storage Upload Routes ---
 router.post('/upload', protect, adminOnly, uploadImage);
-
-// ============================================================
-// 🏪 MULTI-VENDOR MARKETPLACE & VENDOR DASHBOARD ROUTES
-// ============================================================
-
-// Public Vendor Onboarding & Authentication
-router.post('/vendor/register', authLimiter, registerVendor);
-router.post('/vendor/login', authLimiter, loginVendor);
-
-// Vendor Store Profile & Metrics (Protected with Vendor Access & IDOR Verification)
-router.get('/vendor/profile', protect, protectVendor, getVendorProfile);
-router.put('/vendor/profile', protect, protectVendor, updateVendorProfile);
-
-// Vendor Catalog & Pricing (Protected & Scoped to Vendor)
-router.get('/vendor/products', protect, protectVendor, getVendorProducts);
-router.post('/vendor/products', protect, protectVendor, addVendorProduct);
-router.put('/vendor/products/:id', protect, protectVendor, updateVendorProduct);
-router.delete('/vendor/products/:id', protect, protectVendor, deleteVendorProduct);
-
-// Vendor Order Routing & Fulfillment (Protected & Scoped to Vendor)
-router.get('/vendor/orders', protect, protectVendor, getVendorOrders);
-router.put('/vendor/orders/:id/status', protect, protectVendor, updateVendorOrderStatus);
-
-// Vendor Inventory & Restock (Protected & Scoped to Vendor)
-router.get('/vendor/inventory', protect, protectVendor, getVendorInventory);
-router.post('/vendor/inventory/:id/restock', protect, protectVendor, restockVendorInventory);
-
-// Vendor Discounts & Promos (Protected & Scoped to Vendor)
-router.post('/vendor/discounts', protect, protectVendor, addVendorDiscount);
-router.delete('/vendor/discounts/:id', protect, protectVendor, deleteVendorDiscount);
-
-// Vendor Payouts & Withdrawals (Protected & Scoped to Vendor)
-router.post('/vendor/payouts/request', protect, protectVendor, requestVendorPayout);
-
-// Vendor Reviews & Staff Management (Protected & Scoped to Vendor)
-router.post('/vendor/reviews/:id/reply', protect, protectVendor, replyToVendorReview);
-router.post('/vendor/staff', protect, protectVendor, addVendorStaff);
-router.delete('/vendor/staff/:id', protect, protectVendor, deleteVendorStaff);
-
-// Super Admin Marketplace Controls
-router.get('/admin/vendors', protect, adminOnly, adminGetVendors);
-router.put('/admin/vendors/:id/status', protect, adminOnly, adminUpdateVendorStatus);
-router.put('/admin/vendors/:id/payouts/:payoutId', protect, adminOnly, adminProcessVendorPayout);
 
 // --- Super Grocery Platform: Multi-Tenant Architecture Routes ---
 router.get('/tenants', getTenants);

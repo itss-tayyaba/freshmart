@@ -17,12 +17,12 @@ describe('Authentication & Authorization Gating', () => {
     assert.equal(decoded.email, 'admin@freshmart.com');
   });
 
-  it('generates valid JWT with vendorId for supplier / vendor roles', () => {
-    const payload = { id: 'VND-101', role: 'vendor', vendorId: 'VND-101', email: 'vendor@freshmart.com' };
+  it('generates valid JWT with supplierId for wholesale supplier role', () => {
+    const payload = { id: 'SUP-101', role: 'supplier', supplierId: 'SUP-101', email: 'supplier@freshmart.pk' };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
     const decoded = jwt.verify(token, JWT_SECRET);
-    assert.equal(decoded.vendorId, 'VND-101');
-    assert.equal(decoded.role, 'vendor');
+    assert.equal(decoded.supplierId, 'SUP-101');
+    assert.equal(decoded.role, 'supplier');
   });
 
   it('rejects tampered or forged JWT tokens', () => {

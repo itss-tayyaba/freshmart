@@ -446,9 +446,8 @@ export const StoreProvider = ({ children }) => {
       if (isAuth) {
         if (effRole === 'rider') return 'delivery-portal';
         if (effRole === 'pickup_staff') return 'pickup-staff';
-        if (effRole === 'supplier' || effRole === 'vendor') return 'vendor';
         const savedPage = sessionStorage.getItem('freshmart_current_page') || localStorage.getItem('freshmart_current_page');
-        if (savedPage && ['delivery-portal', 'rider-portal', 'pickup-staff', 'admin', 'vendor'].includes(savedPage)) {
+        if (savedPage && ['delivery-portal', 'rider-portal', 'pickup-staff', 'admin'].includes(savedPage)) {
           return savedPage;
         }
       }
@@ -2223,7 +2222,6 @@ export const StoreProvider = ({ children }) => {
   const [isOrderTrackerOpen, setIsOrderTrackerOpen] = useState(false);
   const [isOffersOpen, setIsOffersOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [isVendorRegisterOpen, setIsVendorRegisterOpen] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState(null);
 
   // Currency (Defaults strictly to PKR / Rs.)
@@ -2515,7 +2513,6 @@ export const StoreProvider = ({ children }) => {
       localStorage.removeItem('freshmart_admin_role');
       localStorage.removeItem('freshmart_admin_user');
       localStorage.removeItem('freshmart_admin_token');
-      localStorage.removeItem('freshmart_vendor_token');
       localStorage.removeItem('freshmart_rider_live_telemetry');
       sessionStorage.removeItem('freshmart_current_page');
       localStorage.removeItem('freshmart_current_page');
@@ -2544,12 +2541,6 @@ export const StoreProvider = ({ children }) => {
       } else if (role === 'admin' || role === 'superadmin') {
         sessionStorage.setItem('freshmart_current_page', 'admin');
         localStorage.setItem('freshmart_current_page', 'admin');
-      } else if (role === 'supplier' || role === 'vendor') {
-        sessionStorage.setItem('freshmart_current_page', 'vendor');
-        localStorage.setItem('freshmart_current_page', 'vendor');
-      }
-      if (role === 'supplier' || role === 'vendor') {
-        localStorage.setItem('freshmart_vendor_token', effectiveToken);
       }
       if (newUser?.tenantId) {
         sessionStorage.setItem('freshmart_tab_tenant_id', newUser.tenantId);
@@ -2714,18 +2705,17 @@ export const StoreProvider = ({ children }) => {
         return { success: true, role: 'pickup_staff', user: staffUser };
       }
 
-      // Case D: Supplier / Vendor
-      if (returnedRole === 'supplier' || returnedRole === 'vendor' || targetRole === 'supplier' || targetRole === 'vendor') {
+      // Case D: Wholesale Commodity Supplier
+      if (returnedRole === 'supplier' || targetRole === 'supplier') {
         const supplierUser = {
           id: authRes._id || authRes.id || `usr-${Date.now()}`,
-          name: authRes.name || 'Vendor Partner',
+          name: authRes.name || 'Wholesale Supplier Partner',
           email: authRes.email || `${cleanUser}@freshmart.pk`,
           role: 'supplier',
-          vendorId: authRes.vendorId || authRes.id || 'VND-101',
           supplierId: authRes.supplierId || authRes.id || 'SUP-101'
         };
         applyAuthSession('supplier', supplierUser, authRes.token);
-        addToast('Vendor Partner Authenticated 📦', `Welcome ${supplierUser.name} to the portal.`);
+        addToast('Wholesale Supplier Authenticated 📦', `Welcome ${supplierUser.name} to the portal.`);
         return { success: true, role: 'supplier', user: supplierUser };
       }
 
@@ -3197,46 +3187,34 @@ export const StoreProvider = ({ children }) => {
       return { success: true, role: 'admin', user: adminUser };
     }
 
-    if (targetRole === 'supplier' || targetRole === 'vendor') {
+    if (targetRole === 'supplier') {
       const foundSupplier = (suppliers || []).find(
         (s) =>
           (s.username && s.username.toLowerCase() === cleanUser) ||
           (s.email && s.email.toLowerCase() === cleanUser) ||
           (s.name && s.name.toLowerCase() === cleanUser) ||
-          (s.supplierId && s.supplierId.toLowerCase() === cleanUser) ||
-          (s.vendorId && s.vendorId.toLowerCase() === cleanUser)
+          (s.supplierId && s.supplierId.toLowerCase() === cleanUser)
       );
-
-      if (foundSupplier && foundSupplier.status === 'Pending') {
-        addToast('Application Pending ⏳', 'Your vendor application is awaiting Admin review.', 'info');
-        return { success: false, error: 'Your vendor application is pending Admin approval. Please wait for store admin approval.' };
-      }
-
-      if (foundSupplier && foundSupplier.status === 'Rejected') {
-        addToast('Application Rejected ❌', 'This vendor application was rejected.', 'error');
-        return { success: false, error: 'This vendor account was rejected by the administration.' };
-      }
 
       const isValidPass =
         (foundSupplier && foundSupplier.password && cleanPass === foundSupplier.password) ||
         ((cleanUser === 'tayyab' || cleanUser === 'supplier') && (cleanPass === 'cocacola123' || cleanPass === 'supplier123'));
 
       if (!isValidPass) {
-        addToast('Authentication Failed ❌', 'Invalid vendor username or password.', 'error');
-        return { success: false, error: 'Invalid vendor username or password.' };
+        addToast('Authentication Failed ❌', 'Invalid supplier username or password.', 'error');
+        return { success: false, error: 'Invalid supplier username or password.' };
       }
 
       const supplierUser = {
         name: foundSupplier ? (foundSupplier.ownerName || foundSupplier.name) : 'Tayyab (Coca-Cola Beverages)',
         email: foundSupplier ? foundSupplier.email : 'tayyab.cocacola@freshmart.pk',
-        role: 'vendor',
-        vendorId: (foundSupplier && (foundSupplier.vendorId || foundSupplier.id)) || 'VND-101',
+        role: 'supplier',
         supplierId: (foundSupplier && (foundSupplier.supplierId || foundSupplier.id)) || 'SUP-101'
       };
 
-      const fallbackToken = `mock-vendor-token-${Date.now()}`;
+      const fallbackToken = `mock-supplier-token-${Date.now()}`;
       applyAuthSession('supplier', supplierUser, fallbackToken);
-      addToast('Vendor Partner Authenticated 📦', `Welcome ${supplierUser.name} to the portal.`);
+      addToast('Wholesale Supplier Authenticated 📦', `Welcome ${supplierUser.name} to the portal.`);
       return { success: true, role: 'supplier', user: supplierUser };
     }
 
@@ -4036,7 +4014,7 @@ export const StoreProvider = ({ children }) => {
     addToast('All Customers Cleared', 'Customer list has been reset to 0.');
   };
 
-  // Default Suppliers List (Zero mock seeds: populated strictly via live Admin additions or Vendor onboarding applications)
+  // Default Wholesale Suppliers List (Zero mock seeds: populated strictly via live Admin additions)
   const defaultSuppliersList = [];
 
   // Suppliers State
@@ -5505,82 +5483,7 @@ export const StoreProvider = ({ children }) => {
     return true;
   };
 
-  // --- 🏪 Multi-Vendor Applications & Approvals ---
-  const registerVendorApplication = async (vendorData) => {
-    const vendorId = `VND-${Math.floor(100 + Math.random() * 900)}`;
-    const newVendorRecord = {
-      id: vendorId,
-      vendorId: vendorId,
-      supplierId: vendorId,
-      name: vendorData.name,
-      ownerName: vendorData.ownerName || vendorData.name,
-      email: (vendorData.email || '').toLowerCase().trim(),
-      password: vendorData.password || 'vendor123',
-      phone: vendorData.phone || '',
-      category: vendorData.category || 'Fresh Fruits & Farm Vegetables',
-      status: 'Pending', // Pending Admin Approval
-      address: vendorData.address || '',
-      bio: vendorData.bio || '',
-      appliedDate: new Date().toISOString().split('T')[0],
-      createdAt: new Date().toISOString()
-    };
 
-    setSuppliers((prev) => {
-      const updated = [newVendorRecord, ...prev.filter((s) => s.email !== newVendorRecord.email)];
-      try {
-        localStorage.setItem('freshmart_suppliers', JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
-
-    addToast('Application Received 🏪', `Application for "${vendorData.name}" submitted. Awaiting Admin Approval.`);
-
-    try {
-      await apiService.registerVendor(vendorData);
-    } catch (e) {}
-
-    return { success: true, vendor: newVendorRecord };
-  };
-
-  const approveVendor = async (vendorId) => {
-    setSuppliers((prev) => {
-      const updated = prev.map((s) =>
-        (s.id === vendorId || s.vendorId === vendorId || s.supplierId === vendorId)
-          ? { ...s, status: 'Approved' }
-          : s
-      );
-      try {
-        localStorage.setItem('freshmart_suppliers', JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
-
-    addToast('Vendor Approved! 🎉', `Store ${vendorId} is now approved and can log in.`);
-
-    try {
-      await apiService.adminUpdateVendorStatus(vendorId, 'Approved');
-    } catch (e) {}
-  };
-
-  const rejectVendor = async (vendorId) => {
-    setSuppliers((prev) => {
-      const updated = prev.map((s) =>
-        (s.id === vendorId || s.vendorId === vendorId || s.supplierId === vendorId)
-          ? { ...s, status: 'Rejected' }
-          : s
-      );
-      try {
-        localStorage.setItem('freshmart_suppliers', JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
-
-    addToast('Application Rejected', `Vendor application ${vendorId} was rejected.`, 'info');
-
-    try {
-      await apiService.adminUpdateVendorStatus(vendorId, 'Rejected');
-    } catch (e) {}
-  };
 
 
 
@@ -6247,7 +6150,6 @@ export const StoreProvider = ({ children }) => {
         quantity: Number(i.quantity || 1),
         unit: p.unit || i.unit || '1 unit',
         image: p.image || i.image || '',
-        vendorId: p.vendorId || i.vendorId || 'VND-101',
         tenantId: p.tenantId || i.tenantId || resolvedTenantId,
         branchId: resolvedBranchId,
         isSubstituted: Boolean(i.isSubstituted || p.isSubstituted),
@@ -6928,7 +6830,6 @@ export const StoreProvider = ({ children }) => {
       let targetPath = '/';
       if (page === 'admin') targetPath = '/admin';
       else if (page === 'login' || page === 'signin') targetPath = '/login';
-      else if (page === 'vendor' || page === 'vendor-portal') targetPath = '/vendor';
       else if (page === 'delivery-portal' || page === 'rider-portal') targetPath = '/delivery-portal';
       else if (page === 'pickup-staff' || page === 'pickup-portal' || page === 'staff-portal') targetPath = '/pickup-staff';
       else if (page === 'customer-portal') targetPath = '/customer-portal';
@@ -7030,10 +6931,6 @@ export const StoreProvider = ({ children }) => {
         break;
       case 'admin':
         pageTitle = 'FreshMart Operations & Store Admin Suite';
-        break;
-      case 'vendor':
-      case 'vendor-portal':
-        pageTitle = 'Vendor Partner Portal & Marketplace Dashboard | FreshMart';
         break;
       case 'customer-portal':
         pageTitle = 'My Account, Saved Addresses & Orders | FreshMart';
@@ -7922,9 +7819,6 @@ export const StoreProvider = ({ children }) => {
         addSupplier,
         deleteSupplier,
         updateSupplier,
-        registerVendorApplication,
-        approveVendor,
-        rejectVendor,
         customers,
         setCustomers,
         addCustomer,
@@ -8005,8 +7899,6 @@ export const StoreProvider = ({ children }) => {
         setIsOffersOpen,
         isAuthOpen,
         setIsAuthOpen,
-        isVendorRegisterOpen,
-        setIsVendorRegisterOpen,
         quickViewProduct,
         setQuickViewProduct,
         currency,

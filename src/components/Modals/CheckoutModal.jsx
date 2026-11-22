@@ -108,7 +108,6 @@ export const CheckoutModal = () => {
         quantity: Number(i.quantity || 1),
         unit: p.unit || i.unit || '1 unit',
         image: p.image || i.image || '',
-        vendorId: p.vendorId || i.vendorId || 'VND-101',
         tenantId: p.tenantId || i.tenantId || finalTenantId,
         branchId: resolvedBranchId || 'branch_um_fsd'
       };

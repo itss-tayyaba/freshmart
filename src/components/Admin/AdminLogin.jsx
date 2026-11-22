@@ -87,7 +87,7 @@ export const AdminLogin = () => {
       id: 'supplier',
       label: 'Supplier',
       icon: '📦',
-      sublabel: 'Vendor Portal',
+      sublabel: 'Supply Partner',
       userPlaceholder: 'tayyab',
       passPlaceholder: 'cocacola123',
       defaultUser: 'tayyab',

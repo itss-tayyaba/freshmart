@@ -56,12 +56,9 @@ export const parseRouteFromUrl = (productsList = []) => {
     return { page: 'delivery-portal', role: 'rider', product: null, category: null };
   }
 
-  // 2. Admin & Vendor Dashboards
+  // 2. Admin Dashboard
   if (path.startsWith('/admin') || hash === '#admin' || searchParams.get('portal') === 'admin' || searchParams.get('role') === 'admin' || search.includes('admin')) {
     return { page: 'admin', role: 'admin', product: null, category: null };
-  }
-  if (path.startsWith('/vendor') || hash === '#vendor' || searchParams.get('portal') === 'vendor' || search.includes('vendor')) {
-    return { page: 'vendor', role: 'supplier', product: null, category: null };
   }
   if (path.startsWith('/customer-portal') || path.startsWith('/portal') || path.startsWith('/account') || hash === '#customer-portal' || hash === '#portal') {
     return { page: 'customer-portal', product: null, category: null };
@@ -144,10 +141,6 @@ export const getSeoMetadata = (page, product = null, category = null) => {
       break;
     case 'admin':
       title = 'FreshMart Operations & Store Admin Suite';
-      break;
-    case 'vendor':
-    case 'vendor-portal':
-      title = 'Vendor Partner Portal & Marketplace Dashboard | FreshMart';
       break;
     case 'customer-portal':
       title = 'My Account, Saved Addresses & Orders | FreshMart';

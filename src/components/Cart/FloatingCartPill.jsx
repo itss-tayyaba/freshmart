@@ -27,8 +27,6 @@ export const FloatingCartPill = () => {
   const hiddenPages = [
     'checkout',
     'admin',
-    'vendor',
-    'vendor-portal',
     'delivery-portal',
     'rider-portal',
     'pickup-staff',

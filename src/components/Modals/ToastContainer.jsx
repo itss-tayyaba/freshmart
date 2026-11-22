@@ -8,8 +8,6 @@ export const ToastContainer = () => {
   // Strictly do not show toast popup messages on any dashboard (Admin, Pickup Staff, Rider, Customer Portal)
   const isDashboard = [
     'admin',
-    'vendor',
-    'vendor-portal',
     'delivery-portal',
     'rider-portal',
     'pickup-staff',

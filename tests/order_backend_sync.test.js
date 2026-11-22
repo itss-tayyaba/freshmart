@@ -83,7 +83,7 @@ describe('Checkout → Backend Order Pipeline & ID Synchronization', () => {
   it('correctly maps client-side cart items to standard orderItems format', () => {
     const cart = [
       {
-        product: { id: 'lays-classic', name: 'Lays Classic', price: 100, unit: '65g', image: 'https://img.com/lays.png', vendorId: 'VND-101' },
+        product: { id: 'lays-classic', name: 'Lays Classic', price: 100, unit: '65g', image: 'https://img.com/lays.png' },
         quantity: 3
       }
     ];
@@ -97,8 +97,7 @@ describe('Checkout → Backend Order Pipeline & ID Synchronization', () => {
         price: Number(p.price || 0),
         quantity: Number(i.quantity || 1),
         unit: p.unit || '1 unit',
-        image: p.image || '',
-        vendorId: p.vendorId || 'VND-101'
+        image: p.image || ''
       };
     });
 
@@ -106,6 +105,5 @@ describe('Checkout → Backend Order Pipeline & ID Synchronization', () => {
     assert.equal(mapped[0].name, 'Lays Classic');
     assert.equal(mapped[0].price, 100);
     assert.equal(mapped[0].quantity, 3);
-    assert.equal(mapped[0].vendorId, 'VND-101');
   });
 });

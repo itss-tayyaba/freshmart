@@ -37,7 +37,7 @@
 - **👥 Customer Directory**: Customer spend analytics, order counters, and contact directory.
 - **📋 Inventory & Stock Alerts**: 1-Click stock replenishment (`+50 Units Restock`) and minimum threshold warnings.
 - **🚚 Live Delivery Dispatch**: Real-time rider dispatch queue with live GPS route map (*Rider Ali, ETA 12 mins*).
-- **🚚 Supplier Directory**: Vendor management with contract tracking and direct supplier creation.
+- **🚚 Supplier Directory**: Wholesale commodity suppliers & distribution partners with contract tracking and supply replenishment.
 - **🎟️ Marketing & Promotions**: Launch and manage discount campaigns and coupon validator engine.
 - **📑 Financial Reports**: Daily, weekly, monthly revenue graphs and customer purchase funnel metrics.
 - **⚙️ Store Settings**: Store status toggle (Open/Maintenance), currency settings, logo manager, and shipping fees configuration.

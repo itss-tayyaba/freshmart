@@ -556,7 +556,7 @@ export const AdminModals = ({
             </div>
             <form onSubmit={handleSupplierSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Company / Vendor Name</label>
+                <label className="font-bold text-slate-700 block mb-1">Company / Supplier Name</label>
                 <input
                   type="text"
                   required

@@ -28,14 +28,13 @@ export const getJwtSecret = () => {
 /**
  * Generates a signed JWT with standardized claims and security guards.
  */
-export const signJwtToken = (userId, role, email, name, vendorId = undefined, additionalClaims = {}) => {
+export const signJwtToken = (userId, role, email, name, additionalClaims = {}) => {
   const secret = getJwtSecret();
   const payload = {
     id: String(userId),
     role,
     email,
     name,
-    ...(vendorId ? { vendorId } : {}),
     ...additionalClaims
   };
 

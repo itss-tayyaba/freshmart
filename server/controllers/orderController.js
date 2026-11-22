@@ -253,8 +253,6 @@ export const createOrder = async (req, res) => {
       const quantity = Number(item.quantity || 1);
       const unit = item.unit || prod?.unit || '1 unit';
       const image = item.image || prod?.image || '';
-      const vendorId = item.vendorId || prod?.vendorId || 'VND-101';
-
       return {
         product: prodId && typeof prodId === 'string' && prodId.match(/^[0-9a-fA-F]{24}$/) ? prodId : undefined,
         id: prodId ? String(prodId) : undefined,
@@ -262,8 +260,7 @@ export const createOrder = async (req, res) => {
         price,
         quantity,
         unit,
-        image,
-        vendorId
+        image
       };
     });
 

@@ -145,15 +145,6 @@ const productSchema = new mongoose.Schema(
     nutrition: {
       type: mongoose.Schema.Types.Mixed,
       default: {}
-    },
-    vendorId: {
-      type: String,
-      index: true,
-      default: 'VND-101'
-    },
-    vendorName: {
-      type: String,
-      default: 'FreshMart Direct Partner'
     }
   },
   {

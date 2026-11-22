@@ -320,7 +320,6 @@ export const CheckoutPage = () => {
       quantity: Number(i.quantity || 1),
       unit: i.unit || i.product?.unit || '1 unit',
       image: i.product?.image || '',
-      vendorId: i.product?.vendorId || 'VND-101',
       tenantId: i.product?.tenantId || i.tenantId || finalTenantId,
       branchId: resolvedBranchId || 'branch_um_fsd'
     }));

@@ -9,7 +9,6 @@ const orderItemSchema = new mongoose.Schema(
     quantity: { type: Number, required: true, default: 1 },
     unit: { type: String, default: '1 Kg' },
     image: { type: String },
-    vendorId: { type: String, default: 'VND-101' },
     tenantId: { type: String },
     branchId: { type: String },
     isSubstituted: { type: Boolean, default: false },
