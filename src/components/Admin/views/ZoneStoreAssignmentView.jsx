@@ -2647,6 +2647,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
                       // Resolve current assigned zone and check if it matches the store's city
                       const isStoreUnassigned = isStoreAwaitingZoneAssociation(store, masterZones);
+                      const isAssignedToCityZone = !isStoreUnassigned;
                       const currentAssignedZone = store.deliveryZoneId
                         ? masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId)
                         : null;
