@@ -626,23 +626,29 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       }
     }).catch(() => {});
 
-    apiService.getZones().then((res) => {
+    apiService.getZones({ scope: 'master' }).then((res) => {
       if (isMounted && res?.zones && Array.isArray(res.zones) && res.zones.length > 0) {
         setMasterZones((prev) => {
           const map = new Map();
-          prev.forEach((z) => map.set(z.zoneId || z._id, z));
+          FOUR_MASTER_DELIVERY_ZONES.forEach((bz) => map.set(bz.zoneId || bz._id, bz));
+          prev.forEach((z) => {
+            const id = z.zoneId || z._id;
+            if (map.has(id)) map.set(id, z);
+          });
           res.zones.forEach((bz) => {
             const id = bz.zoneId || bz._id;
-            const existing = map.get(id) || {};
-            const coords = bz.polygon?.coordinates || (bz.geometry?.coordinates?.[0]?.map(([lng, lat]) => [lat, lng])) || existing.polygon?.coordinates;
-            map.set(id, {
-              ...existing,
-              ...bz,
-              zoneId: id,
-              _id: id,
-              city: bz.city || existing.city || 'Faisalabad',
-              polygon: { type: 'Polygon', coordinates: coords }
-            });
+            if (map.has(id)) {
+              const existing = map.get(id) || {};
+              const coords = bz.polygon?.coordinates || (bz.geometry?.coordinates?.[0]?.map(([lng, lat]) => [lat, lng])) || existing.polygon?.coordinates;
+              map.set(id, {
+                ...existing,
+                ...bz,
+                zoneId: id,
+                _id: id,
+                city: bz.city || existing.city || 'Faisalabad',
+                polygon: { type: 'Polygon', coordinates: coords }
+              });
+            }
           });
           const merged = Array.from(map.values());
           saveMasterZones(merged);
@@ -1453,6 +1459,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     // 1. Draw Master Delivery Zone Polygons
     masterZones.forEach((zone) => {
       if (!zone.polygon?.coordinates || zone.polygon.coordinates.length < 3) return;
+      if (selectedCity && zone.city && zone.city.toLowerCase() !== selectedCity.toLowerCase()) return;
 
       const zId = zone.zoneId || zone._id;
 

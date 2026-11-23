@@ -214,7 +214,10 @@ export const FOUR_MASTER_DELIVERY_ZONES = [
         [31.4450, 73.0850]
       ]
     }
-  },
+  }
+];
+
+export const LAHORE_MASTER_DELIVERY_ZONES = [
   {
     _id: 'ZONE-LHR-GULBERG',
     id: 'ZONE-LHR-GULBERG',
@@ -794,23 +797,39 @@ export const loadMasterZones = () => {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length >= 1) {
         const byId = new Map();
-        // Seed with all baseline master zones (Faisalabad + Lahore)
+        // Seed strictly with the 4 baseline master delivery zones
         FOUR_MASTER_DELIVERY_ZONES.forEach((bz) => byId.set(bz.zoneId || bz._id, bz));
         parsed.forEach((z) => {
           const zId = z.zoneId || z._id;
-          const baseline = byId.get(zId) || {};
-          const hasValidStoredPolygon = z.polygon && Array.isArray(z.polygon.coordinates) && z.polygon.coordinates.length >= 3;
-          const polygonToUse = hasValidStoredPolygon
-            ? z.polygon
-            : (baseline.polygon || z.polygon);
+          // Filter out legacy store area polygons or ad-hoc test polygons
+          if (
+            z.isStoreAreaPolygon ||
+            z.type === 'store_area_polygon' ||
+            zId?.startsWith('ZONE-FSD-') ||
+            zId?.startsWith('ZONE-STR-') ||
+            z.name?.toLowerCase().includes('store area polygon')
+          ) {
+            return;
+          }
+          if (byId.has(zId)) {
+            const baseline = byId.get(zId) || {};
+            const hasValidStoredPolygon = z.polygon && Array.isArray(z.polygon.coordinates) && z.polygon.coordinates.length >= 3;
+            const polygonToUse = hasValidStoredPolygon
+              ? z.polygon
+              : (baseline.polygon || z.polygon);
 
-          byId.set(zId, {
-            ...baseline,
-            ...z,
-            polygon: polygonToUse
-          });
+            byId.set(zId, {
+              ...baseline,
+              ...z,
+              polygon: polygonToUse
+            });
+          }
         });
-        return Array.from(byId.values());
+        const result = Array.from(byId.values());
+        if (parsed.length !== result.length) {
+          saveMasterZones(result);
+        }
+        return result;
       }
     }
   } catch (e) {}

@@ -28,8 +28,142 @@ export const saveDiskZones = (zones) => {
   } catch (e) {}
 };
 
-// Default platform delivery zones and Concept 1 Master Store Area Polygons
+// Default platform delivery zones: 4 Core Master Delivery Zones
 export const DEFAULT_PLATFORM_ZONES = [
+  // --- 4 Master Delivery Zones (Faisalabad Commercial Footprint) ---
+  {
+    _id: 'zone_001',
+    zoneId: 'zone_001',
+    name: 'Zone 1 — Samanabad',
+    code: 'ZONE-FSD-SAMANABAD',
+    city: 'Faisalabad',
+    area: 'Samanabad & West Faisalabad',
+    color: '#ea580c',
+    deliveryCharge: 60,
+    minOrderAmount: 400,
+    freeDeliveryThreshold: 2000,
+    estimatedDeliveryTime: '20-30 mins',
+    isActive: true,
+    status: 'active',
+    isDeliveryZone: true,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.0100, 31.4350],
+        [73.0760, 31.4350],
+        [73.0760, 31.3650],
+        [73.0100, 31.3650],
+        [73.0100, 31.4350]
+      ]]
+    }
+  },
+  {
+    _id: 'zone_002',
+    zoneId: 'zone_002',
+    name: 'Zone 2 — Madina Town & East Canal',
+    code: 'ZONE-FSD-MADINA',
+    city: 'Faisalabad',
+    area: 'Madina Town & East Canal Corridor',
+    color: '#16a34a',
+    deliveryCharge: 70,
+    minOrderAmount: 450,
+    freeDeliveryThreshold: 2200,
+    estimatedDeliveryTime: '20-35 mins',
+    isActive: true,
+    status: 'active',
+    isDeliveryZone: true,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.0750, 31.4700],
+        [73.2000, 31.4700],
+        [73.2000, 31.4150],
+        [73.0750, 31.4150],
+        [73.0750, 31.4700]
+      ]]
+    }
+  },
+  {
+    _id: 'zone_003',
+    zoneId: 'zone_003',
+    name: 'Zone 3 — Clock Tower & D-Ground',
+    code: 'ZONE-FSD-CLOCKTOWER',
+    city: 'Faisalabad',
+    area: 'Clock Tower & D-Ground Commercial Hub',
+    color: '#0284c7',
+    deliveryCharge: 60,
+    minOrderAmount: 400,
+    freeDeliveryThreshold: 2000,
+    estimatedDeliveryTime: '15-25 mins',
+    isActive: true,
+    status: 'active',
+    isDeliveryZone: true,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.0450, 31.4350],
+        [73.1050, 31.4350],
+        [73.1050, 31.3950],
+        [73.0450, 31.3950],
+        [73.0450, 31.4350]
+      ]]
+    }
+  },
+  {
+    _id: 'zone_004',
+    zoneId: 'zone_004',
+    name: "Zone 4 — People's Colony & Kohinoor",
+    code: 'ZONE-FSD-PEOPLES',
+    city: 'Faisalabad',
+    area: "People's Colony 1 & 2 / Kohinoor City",
+    color: '#7c3aed',
+    deliveryCharge: 65,
+    minOrderAmount: 400,
+    freeDeliveryThreshold: 2000,
+    estimatedDeliveryTime: '15-30 mins',
+    isActive: true,
+    status: 'active',
+    isDeliveryZone: true,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.0850, 31.4450],
+        [73.1550, 31.4450],
+        [73.1550, 31.3850],
+        [73.0850, 31.3850],
+        [73.0850, 31.4450]
+      ]]
+    }
+  },
+  // Legacy alias for test backwards compatibility
+  {
+    _id: 'ZONE-FSD-CANAL',
+    zoneId: 'ZONE-FSD-CANAL',
+    name: 'Canal Road & Kohinoor Express Zone',
+    code: 'FSD-CNR',
+    city: 'Faisalabad',
+    area: 'East Canal Road / Kohinoor',
+    color: '#2563eb',
+    deliveryCharge: 80,
+    minOrderAmount: 500,
+    freeDeliveryThreshold: 2500,
+    estimatedDeliveryTime: '20-30 mins',
+    isStoreAreaPolygon: true,
+    type: 'store_area_polygon',
+    isActive: true,
+    status: 'active',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [73.0980, 31.4380],
+        [73.1240, 31.4420],
+        [73.1310, 31.4220],
+        [73.1190, 31.4060],
+        [73.0940, 31.4140],
+        [73.0980, 31.4380]
+      ]]
+    }
+  },
   // --- Concept 1: 3 Master Store Area Polygons (Geographic Clusters Enclosing Physical Stores) ---
   {
     _id: 'ZONE-FSD-CENTRAL-BLUE',
@@ -421,8 +555,12 @@ export const getAllZonesMerged = async () => {
 // @route   GET /api/admin/zones
 export const getZones = async (req, res) => {
   try {
-    const { city, status, search } = req.query;
+    const { city, status, search, type, scope } = req.query;
     let zones = await getAllZonesMerged();
+
+    if (type === 'master' || scope === 'master') {
+      zones = zones.filter((z) => !z.isStoreAreaPolygon && z.type !== 'store_area_polygon');
+    }
 
     if (city && city !== 'all') {
       zones = zones.filter((z) => String(z.city || '').toLowerCase() === city.toLowerCase());
