@@ -13,7 +13,13 @@ export const ZONE_CODE_TO_MASTER_ZONE_MAP = {
   'zone_001': 'zone_001',
   'zone_002': 'zone_002',
   'zone_003': 'zone_003',
-  'zone_004': 'zone_004'
+  'zone_004': 'zone_004',
+  'ZONE-LHR-GULBERG': 'ZONE-LHR-GULBERG',
+  'ZONE-LHR-DHA': 'ZONE-LHR-DHA',
+  'ZONE-LHR-MODELTOWN': 'ZONE-LHR-MODELTOWN',
+  'zone_005': 'ZONE-LHR-GULBERG',
+  'zone_006': 'ZONE-LHR-DHA',
+  'zone_007': 'ZONE-LHR-MODELTOWN'
 };
 
 export const MASTER_ZONE_TO_ZONE_CODE_MAP = {
@@ -307,6 +313,78 @@ export const LAHORE_MASTER_DELIVERY_ZONES = [
   }
 ];
 
+export const BASELINE_LAHORE_STORES = [
+  {
+    _id: 'branch_001',
+    storeId: 'branch_001',
+    branchId: 'branch_001',
+    storeCode: 'STR-AF-LHR-01',
+    retailerId: 'tenant-alfatah',
+    tenantId: 'tenant-alfatah',
+    parentRetailerName: 'Al-Fatah',
+    retailerNumber: 13,
+    name: 'Al-Fatah — DHA Phase 5 Hub',
+    branchName: 'DHA Phase 5 Hub',
+    type: 'child',
+    address: 'Sector Y, Phase 3, DHA Lahore',
+    city: 'Lahore',
+    latitude: 31.4697,
+    longitude: 74.4082,
+    location: { type: 'Point', coordinates: [74.4082, 31.4697] },
+    deliveryZoneId: null, // Initially unassigned - awaiting zone association
+    status: 'active',
+    isActive: true,
+    operatingStatus: 'Open',
+    openingHours: '08:00 AM',
+    closingHours: '11:00 PM',
+    phone: '+92 42 35741122'
+  },
+  {
+    _id: 'branch_002',
+    storeId: 'branch_002',
+    branchId: 'branch_002',
+    storeCode: 'STR-AF-LHR-02',
+    retailerId: 'tenant-alfatah',
+    tenantId: 'tenant-alfatah',
+    parentRetailerName: 'Al-Fatah',
+    retailerNumber: 14,
+    name: 'Al-Fatah — Gulberg Mall Hub',
+    branchName: 'Gulberg Mall Hub',
+    type: 'child',
+    address: 'Main Boulevard, Gulberg III, Lahore',
+    city: 'Lahore',
+    latitude: 31.5204,
+    longitude: 74.3587,
+    location: { type: 'Point', coordinates: [74.3587, 31.5204] },
+    deliveryZoneId: null, // Initially unassigned - awaiting zone association
+    status: 'active',
+    isActive: true,
+    operatingStatus: 'Open',
+    openingHours: '08:00 AM',
+    closingHours: '11:00 PM',
+    phone: '+92 42 35752233'
+  }
+];
+
+export const isStoreAwaitingZoneAssociation = (store, masterZones = []) => {
+  if (!store) return false;
+  if (!store.deliveryZoneId) return true;
+
+  const lat = Number(store.latitude || store.coords?.lat || 0);
+  const lng = Number(store.longitude || store.coords?.lng || 0);
+  const isLahoreCoord = (lat >= 31.35 && lat <= 31.70 && lng >= 74.10 && lng <= 74.60);
+  const isFsdCoord = (lat >= 31.20 && lat <= 31.60 && lng >= 72.85 && lng <= 73.35);
+  const storeCity = (isLahoreCoord ? 'Lahore' : isFsdCoord ? 'Faisalabad' : (store.city || 'Faisalabad')).trim().toLowerCase();
+
+  const assignedZone = (masterZones || []).find((z) => (z.zoneId || z._id) === store.deliveryZoneId);
+  if (!assignedZone) return true;
+
+  const zoneCity = String(assignedZone.city || 'Faisalabad').trim().toLowerCase();
+  if (zoneCity !== storeCity) return true;
+
+  return false;
+};
+
 export const TWELVE_PHYSICAL_STORES = [
   // --- 1. Al-Fateh (Parent) ---
   {
@@ -597,6 +675,26 @@ export const TWELVE_PHYSICAL_STORES = [
 export const loadRetailerStores = (apiStores = []) => {
   const unified = getAllUnifiedStores(apiStores);
 
+  const byId = new Map();
+  unified.forEach((s) => byId.set(s.storeId || s._id, s));
+
+  // Also include baseline Lahore stores awaiting zone assignment (unless deleted by user)
+  try {
+    const rawDel = localStorage.getItem('freshmart_deleted_store_ids');
+    const delList = rawDel ? JSON.parse(rawDel) : [];
+    const delSet = new Set((Array.isArray(delList) ? delList : []).map((x) => String(x).toLowerCase().trim()));
+
+    BASELINE_LAHORE_STORES.forEach((ls) => {
+      const sId = ls.storeId || ls._id;
+      const isDeleted = [sId, ls.storeCode, ls.code, ls.branchId].filter(Boolean).some((cid) => delSet.has(String(cid).toLowerCase().trim()));
+      if (!isDeleted && !byId.has(sId)) {
+        byId.set(sId, ls);
+      }
+    });
+  } catch (e) {}
+
+  const mergedStores = Array.from(byId.values());
+
   // Load explicit retailer store assignments from localStorage
   let savedOverrides = {};
   try {
@@ -614,11 +712,11 @@ export const loadRetailerStores = (apiStores = []) => {
     }
   } catch (e) {}
 
-  return unified.map((store, index) => {
+  return mergedStores.map((store, index) => {
     const id = store.storeId || store._id;
     const override = savedOverrides[id] || {};
 
-    const baseline = TWELVE_PHYSICAL_STORES.find(
+    const baseline = [...TWELVE_PHYSICAL_STORES, ...BASELINE_LAHORE_STORES].find(
       (b) => (b.storeId || b._id) === id
     );
 
@@ -790,6 +888,11 @@ export const deleteRetailerStore = (storeId) => {
   return updatedStores;
 };
 
+export const BASELINE_MASTER_ZONES = [
+  ...FOUR_MASTER_DELIVERY_ZONES,
+  ...LAHORE_MASTER_DELIVERY_ZONES
+];
+
 export const loadMasterZones = () => {
   try {
     const raw = localStorage.getItem('freshmart_master_zones');
@@ -797,43 +900,53 @@ export const loadMasterZones = () => {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length >= 1) {
         const byId = new Map();
-        // Seed strictly with the 4 baseline master delivery zones
-        FOUR_MASTER_DELIVERY_ZONES.forEach((bz) => byId.set(bz.zoneId || bz._id, bz));
+        // 1. Seed with baseline master delivery zones (Faisalabad 4 + Lahore 3)
+        BASELINE_MASTER_ZONES.forEach((bz) => byId.set(bz.zoneId || bz._id, bz));
+
+        // 2. Merge stored zones, keeping all valid master delivery zones and newly created zones
         parsed.forEach((z) => {
+          if (!z) return;
           const zId = z.zoneId || z._id;
-          // Filter out legacy store area polygons or ad-hoc test polygons
+          if (!zId) return;
+
+          // Strictly filter out legacy clutter polygons
+          const nameLower = String(z.name || '').toLowerCase();
           if (
             z.isStoreAreaPolygon ||
             z.type === 'store_area_polygon' ||
-            zId?.startsWith('ZONE-FSD-') ||
-            zId?.startsWith('ZONE-STR-') ||
-            z.name?.toLowerCase().includes('store area polygon')
+            zId.startsWith('ZONE-FSD-CENTRAL') ||
+            zId.startsWith('ZONE-FSD-NORTH') ||
+            zId.startsWith('ZONE-FSD-WEST') ||
+            zId.startsWith('ZONE-STR-CHA-6613') ||
+            zId.startsWith('ZONE-FSD-4610') ||
+            zId.startsWith('ZONE-FSD-9685') ||
+            zId.startsWith('ZONE-FSD-4046') ||
+            nameLower.includes('store area polygon') ||
+            nameLower.includes('main delivery zone')
           ) {
             return;
           }
-          if (byId.has(zId)) {
-            const baseline = byId.get(zId) || {};
-            const hasValidStoredPolygon = z.polygon && Array.isArray(z.polygon.coordinates) && z.polygon.coordinates.length >= 3;
-            const polygonToUse = hasValidStoredPolygon
-              ? z.polygon
-              : (baseline.polygon || z.polygon);
 
-            byId.set(zId, {
-              ...baseline,
-              ...z,
-              polygon: polygonToUse
-            });
-          }
+          const baseline = byId.get(zId) || {};
+          const hasValidStoredPolygon = z.polygon && Array.isArray(z.polygon.coordinates) && z.polygon.coordinates.length >= 3;
+          const polygonToUse = hasValidStoredPolygon
+            ? z.polygon
+            : (baseline.polygon || z.polygon);
+
+          byId.set(zId, {
+            ...baseline,
+            ...z,
+            polygon: polygonToUse
+          });
         });
+
         const result = Array.from(byId.values());
-        if (parsed.length !== result.length) {
-          saveMasterZones(result);
-        }
+        saveMasterZones(result);
         return result;
       }
     }
   } catch (e) {}
-  return FOUR_MASTER_DELIVERY_ZONES;
+  return BASELINE_MASTER_ZONES;
 };
 
 export const saveMasterZones = (zones) => {

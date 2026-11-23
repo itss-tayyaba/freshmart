@@ -1,4 +1,4 @@
-import { STORE_REGISTRY, toStoreRecord, LEGACY_STORE_ID_MAP } from '../data/storeRegistry.js';
+import { STORE_REGISTRY, BASELINE_LAHORE_STORES, toStoreRecord, LEGACY_STORE_ID_MAP } from '../data/storeRegistry.js';
 
 // Unified Supermarket Stores & Retailers Single Source of Truth
 // Synchronizes baseline stores, custom stores, and API stores across all dashboards, sidebars, and GIS views

@@ -39,12 +39,14 @@ import { switchMapTileLayer } from '../../../utils/mapTiles';
 import { apiService } from '../../../services/api';
 import {
   removeLocalCustomStore,
+  saveLocalCustomStore,
   markStoreDeleted
 } from '../../../utils/storeHelper';
 import { isPointInPolygon, normalizeLatLng, getPolygonCentroidAndInsidePoint } from '../../../utils/distanceCalculator';
 import {
   FOUR_PARENT_RETAILERS,
   FOUR_MASTER_DELIVERY_ZONES,
+  BASELINE_MASTER_ZONES,
   TWELVE_PHYSICAL_STORES,
   PAKISTAN_CITIES,
   loadRetailerStores,
@@ -52,7 +54,8 @@ import {
   deleteRetailerStore,
   loadMasterZones,
   saveMasterZones,
-  MASTER_ZONE_TO_ZONE_CODE_MAP
+  MASTER_ZONE_TO_ZONE_CODE_MAP,
+  isStoreAwaitingZoneAssociation
 } from '../../../data/retailerZoneHierarchyData';
 
 // HTML escape helper for safe Leaflet popup injection
@@ -630,25 +633,43 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       if (isMounted && res?.zones && Array.isArray(res.zones) && res.zones.length > 0) {
         setMasterZones((prev) => {
           const map = new Map();
-          FOUR_MASTER_DELIVERY_ZONES.forEach((bz) => map.set(bz.zoneId || bz._id, bz));
+          BASELINE_MASTER_ZONES.forEach((bz) => map.set(bz.zoneId || bz._id, bz));
           prev.forEach((z) => {
+            if (!z) return;
             const id = z.zoneId || z._id;
-            if (map.has(id)) map.set(id, z);
+            if (!id) return;
+            map.set(id, { ...(map.get(id) || {}), ...z });
           });
           res.zones.forEach((bz) => {
+            if (!bz) return;
             const id = bz.zoneId || bz._id;
-            if (map.has(id)) {
-              const existing = map.get(id) || {};
-              const coords = bz.polygon?.coordinates || (bz.geometry?.coordinates?.[0]?.map(([lng, lat]) => [lat, lng])) || existing.polygon?.coordinates;
-              map.set(id, {
-                ...existing,
-                ...bz,
-                zoneId: id,
-                _id: id,
-                city: bz.city || existing.city || 'Faisalabad',
-                polygon: { type: 'Polygon', coordinates: coords }
-              });
+            if (!id) return;
+            const nameLower = String(bz.name || '').toLowerCase();
+            if (
+              bz.isStoreAreaPolygon ||
+              bz.type === 'store_area_polygon' ||
+              id.startsWith('ZONE-FSD-CENTRAL') ||
+              id.startsWith('ZONE-FSD-NORTH') ||
+              id.startsWith('ZONE-FSD-WEST') ||
+              id.startsWith('ZONE-STR-CHA-6613') ||
+              id.startsWith('ZONE-FSD-4610') ||
+              id.startsWith('ZONE-FSD-9685') ||
+              id.startsWith('ZONE-FSD-4046') ||
+              nameLower.includes('store area polygon') ||
+              nameLower.includes('main delivery zone')
+            ) {
+              return;
             }
+            const existing = map.get(id) || {};
+            const coords = bz.polygon?.coordinates || (bz.geometry?.coordinates?.[0]?.map(([lng, lat]) => [lat, lng])) || existing.polygon?.coordinates;
+            map.set(id, {
+              ...existing,
+              ...bz,
+              zoneId: id,
+              _id: id,
+              city: bz.city || existing.city || 'Faisalabad',
+              polygon: coords ? { type: 'Polygon', coordinates: coords } : existing.polygon
+            });
           });
           const merged = Array.from(map.values());
           saveMasterZones(merged);
@@ -1058,6 +1079,14 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     saveMasterZones(updatedZones);
     setIsAddZoneModalOpen(false);
 
+    try {
+      apiService.createZone({
+        ...newZone,
+        deliveryZoneId: newZoneId,
+        coordinates: polygonCoordinates
+      }).catch(() => {});
+    } catch (e) {}
+
     if (targetStoreForNewZone) {
       const sId = targetStoreForNewZone.storeId || targetStoreForNewZone._id;
       updateStoreZone(sId, newZoneId);
@@ -1254,7 +1283,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
     const updated = [...stores, newStore];
     setStores(updated);
+    saveLocalCustomStore(newStore);
     saveRetailerStores(updated);
+    try {
+      apiService.createStore(newStore).catch(() => {});
+    } catch (e) {}
     setIsAddStoreModalOpen(false);
 
     if (addToast) {
@@ -1326,13 +1359,24 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
   const handleDeleteStoreConfirm = async (store) => {
     if (!store) return;
-    const sId = store.storeId || store._id;
-    markStoreDeleted(sId);
-    removeLocalCustomStore(sId);
+    const sId = store.storeId || store._id || store.id;
+    const allAliases = [
+      sId,
+      store.storeId,
+      store._id,
+      store.id,
+      store.storeCode,
+      store.code,
+      store.branchId,
+      store.branchCode
+    ].filter(Boolean);
+
+    markStoreDeleted(sId, allAliases);
+    allAliases.forEach((alias) => removeLocalCustomStore(alias));
     const updated = deleteRetailerStore(sId);
 
     try {
-      await apiService.deleteStore(sId);
+      await apiService.deleteStore(sId, { aliasIds: allAliases });
     } catch (e) {
       console.warn('Backend deleteStore offline:', e.message);
     }
@@ -1342,19 +1386,19 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
       storeMarkersGroupRef.current.clearLayers();
     }
     if (setAllBranches) {
-      setAllBranches((prev) => prev.filter((b) => (b.id || b._id) !== sId && b.storeId !== sId));
+      setAllBranches((prev) => prev.filter((b) => !allAliases.includes(b.id || b._id) && !allAliases.includes(b.storeId)));
     }
     setStoreToDelete(null);
 
     if (addToast) {
-      addToast('Store Removed From Polygon 🗑️', `${store.name} was permanently deleted and removed from the delivery polygon.`, 'info');
+      addToast('Store Permanently Deleted 🗑️', `${store.name || store.branchName || 'Store'} was permanently deleted from the system.`, 'info');
     }
   };
 
   // Unassigned stores that are left to associate with a delivery polygon
   const unassignedStores = useMemo(() => {
-    return stores.filter((s) => !s.deliveryZoneId);
-  }, [stores]);
+    return stores.filter((s) => isStoreAwaitingZoneAssociation(s, masterZones));
+  }, [stores, masterZones]);
 
   // Filtered stores calculation
   const filteredStores = useMemo(() => {
@@ -1372,7 +1416,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
         selectedZoneFilter === 'all'
           ? true
           : selectedZoneFilter === 'unassigned'
-          ? !s.deliveryZoneId
+          ? isStoreAwaitingZoneAssociation(s, masterZones)
           : s.deliveryZoneId === selectedZoneFilter;
 
       const matchesRetailer =
@@ -1380,12 +1424,12 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
       return matchesSearch && matchesZone && matchesRetailer;
     });
-  }, [stores, searchQuery, selectedZoneFilter, selectedRetailerFilter]);
+  }, [stores, masterZones, searchQuery, selectedZoneFilter, selectedRetailerFilter]);
 
   // Statistics
   const stats = useMemo(() => {
     const totalStores = stores.length;
-    const unassignedCount = stores.filter((s) => !s.deliveryZoneId).length;
+    const unassignedCount = stores.filter((s) => isStoreAwaitingZoneAssociation(s, masterZones)).length;
     const assignedCount = totalStores - unassignedCount;
     return {
       parentRetailersCount: parentRetailers.length,
@@ -1646,7 +1690,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
               <div style="display: flex; align-items: center; gap: 4px;">
                 <strong style="color: #0f172a; font-size: 13px;">${esc(store.name)}</strong>
               </div>
-              <span style="font-size: 10px; color: #64748b;">${esc(store.parentRetailerName)} • ${isMainBranch ? '⭐ Main Branch' : `Child Store #${store.retailerNumber || '•'}`}</span>
+              <span style="font-size: 10px; color: #64748b;">${esc(store.parentRetailerName)} • Physical Store • Child Store #${store.retailerNumber || '•'}</span>
             </div>
           </div>
           <p style="font-size: 11px; color: #475569; margin: 4px 0 8px 0; line-height: 1.3;">
@@ -2602,15 +2646,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                       const storeCityClean = storeCityName.trim().toLowerCase();
 
                       // Resolve current assigned zone and check if it matches the store's city
+                      const isStoreUnassigned = isStoreAwaitingZoneAssociation(store, masterZones);
                       const currentAssignedZone = store.deliveryZoneId
                         ? masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId)
                         : null;
-                      const isAssignedToCityZone = Boolean(
-                        currentAssignedZone &&
-                        (!currentAssignedZone.city || String(currentAssignedZone.city).trim().toLowerCase() === storeCityClean)
-                      );
-
-                      const isStoreUnassigned = !store.deliveryZoneId || !isAssignedToCityZone;
                       const assignedZone = isStoreUnassigned ? null : currentAssignedZone;
 
                       // Clean up mislabeled address if coordinates are in Lahore but address says Faisalabad
@@ -2618,13 +2657,6 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                         ? store.address.replace(/Faisalabad/gi, 'Lahore')
                         : (store.address || `${store.branchName || store.name}, ${storeCityName}`);
 
-                      const isMainBranch =
-                        store.name.toLowerCase().includes('main') ||
-                        store.branchName.toLowerCase().includes('main') ||
-                        store.retailerNumber === 1 ||
-                        store.retailerNumber === 2 ||
-                        store.retailerNumber === 7 ||
-                        store.retailerNumber === 10;
                       const isFocused = focusedStoreId === (store.storeId || store._id);
 
                       // Eligible zones for this store's city
@@ -2649,16 +2681,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                                 Retailer #{store.retailerNumber || '•'}
                               </span>
                               <div className="flex items-center gap-1 flex-wrap">
-                                {isMainBranch ? (
-                                  <span className="text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs">
-                                    <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
-                                    <span>Main Branch</span>
-                                  </span>
-                                ) : (
-                                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                                    Physical store
-                                  </span>
-                                )}
+                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                  Physical store
+                                </span>
                                 <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
                                   Child store
                                 </span>
@@ -3038,8 +3063,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                 className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:bg-white focus:outline-none cursor-pointer"
               >
                 <option value="all">⚡ All Statuses</option>
-                <option value="assigned">✓ Assigned ({stores.filter((s) => Boolean(s.deliveryZoneId)).length})</option>
-                <option value="unassigned">⚠️ Unassigned ({stores.filter((s) => !s.deliveryZoneId).length})</option>
+                <option value="assigned">✓ Assigned ({stores.filter((s) => !isStoreAwaitingZoneAssociation(s, masterZones)).length})</option>
+                <option value="unassigned">⚠️ Unassigned ({stores.filter((s) => isStoreAwaitingZoneAssociation(s, masterZones)).length})</option>
               </select>
             </div>
           </div>
@@ -3081,10 +3106,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                         return false;
                       }
                       // Filter by assigned status
-                      if (assignedStatusFilter === 'assigned' && !store.deliveryZoneId) {
+                      if (assignedStatusFilter === 'assigned' && isStoreAwaitingZoneAssociation(store, masterZones)) {
                         return false;
                       }
-                      if (assignedStatusFilter === 'unassigned' && Boolean(store.deliveryZoneId)) {
+                      if (assignedStatusFilter === 'unassigned' && !isStoreAwaitingZoneAssociation(store, masterZones)) {
                         return false;
                       }
                       return true;
@@ -3102,15 +3127,11 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                       const storeCityName = isLahoreCoord ? 'Lahore' : isFsdCoord ? 'Faisalabad' : (store.city || 'Faisalabad');
                       const storeCityClean = storeCityName.trim().toLowerCase();
 
+                      const isUnassigned = isStoreAwaitingZoneAssociation(store, masterZones);
+                      const isAssigned = !isUnassigned;
                       const currentAssignedZone = store.deliveryZoneId
                         ? masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId)
                         : null;
-                      const isAssignedToCityZone = Boolean(
-                        currentAssignedZone &&
-                        (!currentAssignedZone.city || String(currentAssignedZone.city).trim().toLowerCase() === storeCityClean)
-                      );
-
-                      const isAssigned = Boolean(store.deliveryZoneId) && isAssignedToCityZone;
                       const assignedZone = isAssigned ? currentAssignedZone : null;
 
                       const displayAddress = (isLahoreCoord && store.address && store.address.includes('Faisalabad'))
@@ -4427,11 +4448,6 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                       <div>
                         <div className="flex items-center gap-1.5">
                           <strong className="text-xs font-black text-slate-900">{store.name}</strong>
-                          {isMainBranch && (
-                            <span className="text-[9px] font-black text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded">
-                              ⭐ Main Branch
-                            </span>
-                          )}
                         </div>
                         <span className="text-[10px] text-slate-500 block mt-0.5">
                           {store.parentRetailerName} • Current Zone: <strong style={{ color: currentZone?.color }}>{currentZone?.shortName || 'None'}</strong>

@@ -1194,11 +1194,12 @@ export const apiService = {
     }
   },
 
-  async deleteStore(id) {
+  async deleteStore(id, body = {}) {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/stores/${encodeURIComponent(id)}`, {
         method: 'DELETE',
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
+        body: JSON.stringify(body)
       });
       return await handleResponse(res);
     } catch (e) {
