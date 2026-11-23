@@ -109,7 +109,7 @@ const ZONE_PRESET_COLORS = [
 ];
 
 export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
-  const { addToast } = useStore();
+  const { addToast, setAllBranches } = useStore();
 
   // Core state: parent retailers, master zones, and child stores
   const [parentRetailers] = useState(FOUR_PARENT_RETAILERS);
@@ -645,6 +645,7 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
             const id = bz.zoneId || bz._id;
             if (!id) return;
             const nameLower = String(bz.name || '').toLowerCase();
+            const zCity = String(bz.city || '').toLowerCase().trim();
             if (
               bz.isStoreAreaPolygon ||
               bz.type === 'store_area_polygon' ||
@@ -655,9 +656,19 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
               id.startsWith('ZONE-FSD-4610') ||
               id.startsWith('ZONE-FSD-9685') ||
               id.startsWith('ZONE-FSD-4046') ||
+              id === 'ZONE-FSD-CANAL' ||
+              id === 'ZONE-FSD-DGROUND' ||
+              id === 'ZONE-FSD-MADINA' ||
+              id === 'ZONE-FSD-CLOCKTOWER' ||
+              id === 'ZONE-FSD-SAMANABAD' ||
+              id === 'ZONE-FSD-PEOPLES' ||
               nameLower.includes('store area polygon') ||
               nameLower.includes('main delivery zone')
             ) {
+              return;
+            }
+            // Strictly enforce exactly 4 delivery polygons in Faisalabad (no other FSD polygon allowed)
+            if ((zCity === 'faisalabad' || zCity.includes('fsd')) && !['zone_001', 'zone_002', 'zone_003', 'zone_004'].includes(id)) {
               return;
             }
             const existing = map.get(id) || {};
@@ -1385,8 +1396,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     if (storeMarkersGroupRef.current) {
       storeMarkersGroupRef.current.clearLayers();
     }
-    if (setAllBranches) {
-      setAllBranches((prev) => prev.filter((b) => !allAliases.includes(b.id || b._id) && !allAliases.includes(b.storeId)));
+    if (typeof setAllBranches === 'function') {
+      setAllBranches((prev) => (prev || []).filter((b) => !allAliases.includes(b.id || b._id) && !allAliases.includes(b.storeId)));
     }
     setStoreToDelete(null);
 
@@ -1397,20 +1408,27 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
   // Unassigned stores that are left to associate with a delivery polygon
   const unassignedStores = useMemo(() => {
-    return stores.filter((s) => isStoreAwaitingZoneAssociation(s, masterZones));
+    return (stores || []).filter((s) => isStoreAwaitingZoneAssociation(s, masterZones));
   }, [stores, masterZones]);
 
   // Filtered stores calculation
   const filteredStores = useMemo(() => {
-    return stores.filter((s) => {
-      const q = searchQuery.toLowerCase().trim();
+    return (stores || []).filter((s) => {
+      if (!s) return false;
+      const q = (searchQuery || '').toLowerCase().trim();
+      const sName = String(s.name || '').toLowerCase();
+      const sBranch = String(s.branchName || '').toLowerCase();
+      const sRetailer = String(s.parentRetailerName || '').toLowerCase();
+      const sCode = String(s.storeCode || s.storeId || '').toLowerCase();
+      const sAddr = String(s.address || '').toLowerCase();
+
       const matchesSearch =
         !q ||
-        s.name.toLowerCase().includes(q) ||
-        s.branchName.toLowerCase().includes(q) ||
-        s.parentRetailerName.toLowerCase().includes(q) ||
-        (s.storeCode && s.storeCode.toLowerCase().includes(q)) ||
-        s.address.toLowerCase().includes(q);
+        sName.includes(q) ||
+        sBranch.includes(q) ||
+        sRetailer.includes(q) ||
+        sCode.includes(q) ||
+        sAddr.includes(q);
 
       const matchesZone =
         selectedZoneFilter === 'all'
@@ -1449,6 +1467,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
     if (mapInstanceRef.current) {
       mapInstanceRef.current.remove();
       mapInstanceRef.current = null;
+    }
+    if (mapContainerRef.current && mapContainerRef.current._leaflet_id) {
+      delete mapContainerRef.current._leaflet_id;
     }
 
     const map = L.map(mapContainerRef.current, {
@@ -1577,9 +1598,10 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
 
     // 2. Draw Physical Child Store Markers
     filteredStores.forEach((store) => {
+      if (!store) return;
       let lat = Number(store.latitude);
       let lng = Number(store.longitude);
-      if (isNaN(lat) || isNaN(lng)) {
+      if (isNaN(lat) || isNaN(lng) || !isFinite(lat) || !isFinite(lng)) {
         const cityMatch = PAKISTAN_CITIES.find(
           (c) => c.name.toLowerCase() === String(store.city || '').toLowerCase()
         );
@@ -1587,7 +1609,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
           lat = cityMatch.lat;
           lng = cityMatch.lng;
         } else {
-          return;
+          lat = 31.4187;
+          lng = 73.0791;
         }
       }
 
@@ -1616,7 +1639,9 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
         parentRetailers[0] ||
         FOUR_PARENT_RETAILERS[0];
       const zoneColor = isTargetStore ? '#10b981' : isStoreUnassigned ? '#f59e0b' : (assignedZone?.color || '#0284c7');
-      const isMainBranch = store.name.toLowerCase().includes('main') || store.branchName.toLowerCase().includes('main');
+      const sName = String(store.name || store.branchName || 'Store');
+      const bName = String(store.branchName || store.name || '');
+      const isMainBranch = sName.toLowerCase().includes('main') || bName.toLowerCase().includes('main');
 
       const customIcon = L.divIcon({
         className: 'custom-store-marker',
@@ -4428,8 +4453,8 @@ export const ZoneStoreAssignmentView = ({ onNavigateToStores = null }) => {
                 const currentZone = masterZones.find((z) => (z.zoneId || z._id) === store.deliveryZoneId);
                 const parent = parentRetailers.find((r) => r.id === store.retailerId);
                 const isMainBranch =
-                  store.name.toLowerCase().includes('main') ||
-                  store.branchName.toLowerCase().includes('main') ||
+                  String(store.name || '').toLowerCase().includes('main') ||
+                  String(store.branchName || '').toLowerCase().includes('main') ||
                   store.retailerNumber === 1 ||
                   store.retailerNumber === 2 ||
                   store.retailerNumber === 7 ||

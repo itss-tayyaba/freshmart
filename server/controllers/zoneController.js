@@ -250,133 +250,6 @@ export const DEFAULT_PLATFORM_ZONES = [
     }
   },
 
-  // --- Concept 2: Store Delivery Regions ---
-  {
-    _id: 'ZONE-FSD-DGROUND',
-    zoneId: 'ZONE-FSD-DGROUND',
-    name: 'D-Ground Commercial & Peoples Colony Hub',
-    code: 'FSD-DGR',
-    city: 'Faisalabad',
-    area: 'D-Ground / Peoples Colony',
-    description: 'Premier commercial, dining, and central residential zone surrounding D-Ground and Peoples Colony 1 & 2.',
-    color: '#0284c7',
-    deliveryCharge: 60,
-    minOrderAmount: 400,
-    freeDeliveryThreshold: 2000,
-    estimatedDeliveryTime: '15-25 mins',
-    assignedStoreId: 'branch_um_fsd',
-    type: 'delivery_zone',
-    isDeliveryZone: true,
-    isStoreAreaPolygon: false,
-    status: 'active',
-    isActive: true,
-    geometry: {
-      type: 'Polygon',
-      coordinates: [[
-        [73.0680, 31.4180],
-        [73.0920, 31.4230],
-        [73.0970, 31.4080],
-        [73.0890, 31.3950],
-        [73.0690, 31.3980],
-        [73.0640, 31.4090],
-        [73.0680, 31.4180]
-      ]]
-    }
-  },
-  {
-    _id: 'ZONE-FSD-CANAL',
-    zoneId: 'ZONE-FSD-CANAL',
-    name: 'Canal Road & Kohinoor Express Zone',
-    code: 'FSD-CNR',
-    city: 'Faisalabad',
-    area: 'East Canal Road / Kohinoor',
-    description: 'High-density residential corridor covering Kohinoor City, Canal Road gated communities, and Medina Commercial.',
-    color: '#2563eb',
-    deliveryCharge: 80,
-    minOrderAmount: 500,
-    freeDeliveryThreshold: 2500,
-    estimatedDeliveryTime: '20-30 mins',
-    assignedStoreId: 'branch_af_kohinoor',
-    type: 'delivery_zone',
-    isDeliveryZone: true,
-    isStoreAreaPolygon: false,
-    status: 'active',
-    isActive: true,
-    geometry: {
-      type: 'Polygon',
-      coordinates: [[
-        [73.0980, 31.4380],
-        [73.1240, 31.4420],
-        [73.1310, 31.4220],
-        [73.1190, 31.4060],
-        [73.0940, 31.4140],
-        [73.0980, 31.4380]
-      ]]
-    }
-  },
-  {
-    _id: 'ZONE-FSD-MADINA',
-    zoneId: 'ZONE-FSD-MADINA',
-    name: 'Madina Town & Susan Road Commercial Zone',
-    code: 'FSD-MDN',
-    city: 'Faisalabad',
-    area: 'Madina Town / Susan Road',
-    description: 'Thriving retail and grocery market hub spanning Susan Road, Madina Town, and adjacent shopping centers.',
-    color: '#059669',
-    deliveryCharge: 70,
-    minOrderAmount: 450,
-    freeDeliveryThreshold: 2200,
-    estimatedDeliveryTime: '20-35 mins',
-    assignedStoreId: 'branch_cv_fsd',
-    type: 'delivery_zone',
-    isDeliveryZone: true,
-    isStoreAreaPolygon: false,
-    status: 'active',
-    isActive: true,
-    geometry: {
-      type: 'Polygon',
-      coordinates: [[
-        [73.1040, 31.4460],
-        [73.1340, 31.4440],
-        [73.1380, 31.4260],
-        [73.1180, 31.4160],
-        [73.1010, 31.4280],
-        [73.1040, 31.4460]
-      ]]
-    }
-  },
-  {
-    _id: 'ZONE-FSD-CLOCKTOWER',
-    zoneId: 'ZONE-FSD-CLOCKTOWER',
-    name: 'Clock Tower & Eight Bazaars Central Zone',
-    code: 'FSD-CTW',
-    city: 'Faisalabad',
-    area: 'Old City / Clock Tower / Samanabad',
-    description: 'Historical heart of Faisalabad covering the 8 famous bazaars and surrounding wholesale networks.',
-    color: '#d97706',
-    deliveryCharge: 75,
-    minOrderAmount: 450,
-    freeDeliveryThreshold: 2200,
-    estimatedDeliveryTime: '25-35 mins',
-    assignedStoreId: 'branch_006',
-    type: 'delivery_zone',
-    isDeliveryZone: true,
-    isStoreAreaPolygon: false,
-    status: 'active',
-    isActive: true,
-    geometry: {
-      type: 'Polygon',
-      coordinates: [[
-        [73.0540, 31.4210],
-        [73.0760, 31.4260],
-        [73.0820, 31.4020],
-        [73.0680, 31.3860],
-        [73.0460, 31.3940],
-        [73.0540, 31.4210]
-      ]]
-    }
-  },
-
   // --- Lahore Master Regional Delivery Zones ---
   {
     _id: 'ZONE-LHR-GULBERG',
@@ -559,7 +432,15 @@ export const getZones = async (req, res) => {
     let zones = await getAllZonesMerged();
 
     if (type === 'master' || scope === 'master') {
-      zones = zones.filter((z) => !z.isStoreAreaPolygon && z.type !== 'store_area_polygon');
+      zones = zones.filter((z) => {
+        if (z.isStoreAreaPolygon || z.type === 'store_area_polygon') return false;
+        const zCity = String(z.city || '').toLowerCase().trim();
+        const zId = z.zoneId || z._id;
+        if ((zCity === 'faisalabad' || zCity.includes('fsd')) && !['zone_001', 'zone_002', 'zone_003', 'zone_004'].includes(zId)) {
+          return false;
+        }
+        return true;
+      });
     }
 
     if (city && city !== 'all') {

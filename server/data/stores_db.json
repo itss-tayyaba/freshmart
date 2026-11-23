@@ -2,9 +2,20 @@
   {
     "storeId": "STR-CHA-5407",
     "_id": "STR-CHA-5407",
+    "storeCode": "STR-CHA-5407",
+    "name": "Chase Up — Gulberg Express Hub",
+    "branchName": "Gulberg Express Hub",
+    "parentRetailerName": "Chase Up",
+    "retailerId": "tenant-chaseup",
+    "tenantId": "tenant-chaseup",
+    "address": "Main Boulevard, Gulberg, Lahore",
+    "city": "Lahore",
+    "latitude": 31.5204,
+    "longitude": 74.3587,
     "deliveryZoneId": null,
     "assignedZoneId": "ZONE-LHR-GULBERG",
-    "city": "Lahore",
+    "status": "active",
+    "operatingStatus": "Open",
     "deliveryPolygon": [
       [
         31.535,

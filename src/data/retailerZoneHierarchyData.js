@@ -774,13 +774,13 @@ export const loadRetailerStores = (apiStores = []) => {
       tenantId: store.tenantId || override.tenantId || baseline?.tenantId || 'tenant-alfatah',
       parentRetailerName: parentRetailer?.name || store.parentRetailerName || store.tenantName || store.retailerName || baseline?.parentRetailerName || 'Retailer',
       retailerNumber: store.retailerNumber || baseline?.retailerNumber || (index + 1),
-      name: store.name || store.branchName || baseline?.name,
-      branchName: store.branchName || store.name || baseline?.branchName,
+      name: store.name || store.branchName || baseline?.name || (store.storeCode ? `Store ${store.storeCode}` : `Store ${id}`),
+      branchName: store.branchName || store.name || baseline?.branchName || 'Main Branch',
       type: 'child',
-      address: resolvedAddress,
+      address: resolvedAddress || `${resolvedCity}, Pakistan`,
       city: resolvedCity,
-      latitude: lat,
-      longitude: lng,
+      latitude: (isNaN(lat) || !isFinite(lat)) ? (resolvedCity === 'Lahore' ? 31.5204 : 31.4187) : lat,
+      longitude: (isNaN(lng) || !isFinite(lng)) ? (resolvedCity === 'Lahore' ? 74.3587 : 73.0791) : lng,
       location: store.location || {
         type: 'Point',
         coordinates: [lng, lat]
@@ -909,8 +909,9 @@ export const loadMasterZones = () => {
           const zId = z.zoneId || z._id;
           if (!zId) return;
 
-          // Strictly filter out legacy clutter polygons
+          // Strictly filter out legacy clutter polygons and ensure exactly 4 delivery polygons in FSD
           const nameLower = String(z.name || '').toLowerCase();
+          const zCity = String(z.city || '').toLowerCase().trim();
           if (
             z.isStoreAreaPolygon ||
             z.type === 'store_area_polygon' ||
@@ -921,9 +922,20 @@ export const loadMasterZones = () => {
             zId.startsWith('ZONE-FSD-4610') ||
             zId.startsWith('ZONE-FSD-9685') ||
             zId.startsWith('ZONE-FSD-4046') ||
+            zId === 'ZONE-FSD-CANAL' ||
+            zId === 'ZONE-FSD-DGROUND' ||
+            zId === 'ZONE-FSD-MADINA' ||
+            zId === 'ZONE-FSD-CLOCKTOWER' ||
+            zId === 'ZONE-FSD-SAMANABAD' ||
+            zId === 'ZONE-FSD-PEOPLES' ||
             nameLower.includes('store area polygon') ||
             nameLower.includes('main delivery zone')
           ) {
+            return;
+          }
+
+          // Strictly enforce exactly 4 delivery polygons in Faisalabad (no others allowed in FSD)
+          if ((zCity === 'faisalabad' || zCity.includes('fsd')) && !['zone_001', 'zone_002', 'zone_003', 'zone_004'].includes(zId)) {
             return;
           }
 

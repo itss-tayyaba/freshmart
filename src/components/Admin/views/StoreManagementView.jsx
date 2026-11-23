@@ -56,7 +56,8 @@ export const StoreManagementView = () => {
     setAllBranches,
     tenants = [],
     storeAdmins = [],
-    addToast
+    addToast,
+    navigateTo
   } = useStore();
 
   const [stores, setStores] = useState(() => getAllUnifiedStores());
@@ -1950,7 +1951,7 @@ export const StoreManagementView = () => {
                       <button
                         type="button"
                         onClick={() => {
-                          setIsStoreDetailsOpen(false);
+                          setIsViewModalOpen(false);
                           if (navigateTo) navigateTo('superadmin', { tab: 'admins' });
                         }}
                         className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shrink-0 transition cursor-pointer"

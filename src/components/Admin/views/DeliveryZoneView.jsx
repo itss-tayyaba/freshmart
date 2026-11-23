@@ -459,6 +459,9 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
       mapInstanceRef.current.remove();
       mapInstanceRef.current = null;
     }
+    if (mapContainerRef.current && mapContainerRef.current._leaflet_id) {
+      delete mapContainerRef.current._leaflet_id;
+    }
 
     const safeMapLat = getSafeCoord(lat, 31.4087);
     const safeMapLng = getSafeCoord(lng, 73.1118);
@@ -483,7 +486,7 @@ export const DeliveryZoneView = ({ isSuperAdmin: propIsSuperAdmin = false, initi
         <strong style="color: #0f172a; font-size: 13px;">${esc(branchName)}</strong>
         <p style="margin: 3px 0 0; color: #475569;">${esc(address || 'Store Delivery Hub')}</p>
         <div style="margin-top: 4px; font-weight: 700; color: #059669;">
-          📍 Center GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}
+          📍 Center GPS: ${safeMapLat.toFixed(5)}, ${safeMapLng.toFixed(5)}
         </div>
       </div>
     `);
